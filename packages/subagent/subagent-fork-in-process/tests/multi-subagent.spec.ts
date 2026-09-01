@@ -1,11 +1,3 @@
-/**
- * 文件职责：验证 multi-subagent.spec.ts 覆盖的子代理启动、协议、继承与生命周期行为。
- * 技术维度：使用 TypeScript、Vitest、Cordis 插件、进程协议或同进程代理驱动。
- * 产品维度：保障 Agent 能可靠委派任务、继承上下文并收集子代理结果。
- * 逻辑维度：准备代理配置，启动或连接子代理，转发事件，再处理结果、取消与清理。
- * 关键边界：异步状态不等于单次任务结果；外部输出不可信；清理必须等待子代理完全停止。
- * 新手阅读建议：先看公开配置和测试夹具，再读启动/事件流程，最后关注继承、取消与失败路径。
- */
 import { createUserMessage } from '@deepseek-ai/dsh-llm'
 import { describe, expect, it } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
@@ -17,14 +9,13 @@ import * as SessionInvariant from '@deepseek-ai/dsh-session/invariant'
 import * as AgentInvariant from '@deepseek-ai/dsh-agent/invariant'
 import * as AgentLoopInvariant from '@deepseek-ai/dsh-agent-loop/invariant'
 import SubagentRuntime, { type SubagentStartRequest } from '@deepseek-ai/dsh-subagent'
+import SessionProjectionRegistry from '@deepseek-ai/dsh-session-projection'
 import * as Spawn from '@deepseek-ai/dsh-subagent-spawn-in-process'
 import { MockAdapter, textResponse } from '../../../core/agent-loop/tests/mock-adapter.ts'
 import * as fork from '../src/index.ts'
 
-/** 中文说明：type Script 定义本测试所需的数据或行为，用于表达子代理场景。 */
 type Script = ConstructorParameters<typeof MockAdapter>[0]
 
-/** 中文说明：函数 mountInvariants 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 async function mountInvariants(ctx: Context): Promise<void> {
   await ctx.plugin(InvariantRegistry)
   await ctx.plugin(SessionInvariant)
@@ -32,7 +23,6 @@ async function mountInvariants(ctx: Context): Promise<void> {
   await ctx.plugin(AgentLoopInvariant)
 }
 
-/** 中文说明：函数 start 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function start(ctx: Context, provider: string, request: Omit<SubagentStartRequest, 'signal'> & { signal?: AbortSignal }) {
   return ctx.subagents.start(provider, { signal: request.signal ?? new AbortController().signal, ...request })
 }
@@ -43,23 +33,20 @@ function start(ctx: Context, provider: string, request: Omit<SubagentStartReques
  * and keeps working itself. This is the multi-provider coexistence the seam
  * exists for — the named registry lets one runtime hold both transports.
  */
-/* 中文说明：函数 setup 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 async function setup(script: Script) {
-  /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const ctx = new Context()
   await mountAgentLoopTestDependencies(ctx)
   await mountInvariants(ctx)
   await ctx.plugin(AgentLoop, { agents: [] })
+  await ctx.plugin(SessionProjectionRegistry)
   await ctx.plugin(SubagentRuntime)
   await ctx.plugin(Spawn, { providerName: 'spawn' })
   await ctx.plugin(fork, { providerName: 'fork' })
   ctx.llm.registerAdapter(['mock'], new MockAdapter(script))
-  /** 中文说明：变量 parent 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const parent = ctx.agentLoop.create(SessionId('parent'), { provider: 'mock', model: 'mock' })
   return { ctx, parent }
 }
 
-/** 中文说明：函数 text 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function text(blocks: { type: string; text?: string }[]): string {
   return blocks.filter(b => b.type === 'text').map(b => b.text).join('')
 }
@@ -82,29 +69,22 @@ describe('multi-subagent coexistence (spawn + fork on one context)', () => {
     // Parent does one real turn first, so the fork has a completed turn to seed.
     parent.followup(createUserMessage({ content: [{ type: 'text', text: 'parent q1' }], source: { kind: 'user' } }))
     await parent.whenIdle()
-    /** 中文说明：变量 parentPrefixLen 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const parentPrefixLen = parent.session.events.length
 
     // Delegate to a fresh spawn child.
-    /** 中文说明：变量 spawnRun 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const spawnRun = await start(ctx, 'spawn', { prompt: [{ type: 'text', text: 'spawn task' }], parent })
-    /** 中文说明：变量 spawnResult 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const spawnResult = await spawnRun.result
     expect(spawnResult.stopReason).toBe('completed')
     expect(text(spawnResult.output)).toBe('spawn child reply')
 
     // Delegate to a fork child (seeded with the parent's turn-1 prefix).
-    /** 中文说明：变量 forkRun 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const forkRun = await start(ctx, 'fork', { prompt: [{ type: 'text', text: 'fork task' }], parent })
-    /** 中文说明：变量 forkResult 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const forkResult = await forkRun.result
     expect(forkResult.stopReason).toBe('completed')
     expect(text(forkResult.output)).toBe('fork child reply')
 
     // The two children are distinct sessions, both lineage-stamped to the parent.
-    /** 中文说明：变量 spawnChild 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const spawnChild = ctx.agents.get(spawnRun.id)!
-    /** 中文说明：变量 forkChild 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const forkChild = ctx.agents.get(forkRun.id)!
     expect(spawnChild.session.header.id).not.toBe(forkChild.session.header.id)
     expect(spawnChild.session.header.parentSession).toBe(parent.session.header.id)
@@ -118,7 +98,6 @@ describe('multi-subagent coexistence (spawn + fork on one context)', () => {
     // The parent is unaffected and keeps working after both delegations.
     parent.followup(createUserMessage({ content: [{ type: 'text', text: 'parent q2' }], source: { kind: 'user' } }))
     await parent.whenIdle()
-    /** 中文说明：函数值 lastParentMessage 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const lastParentMessage = parent.session.events.findLast(e => e.type === 'assistant/message')
     expect(lastParentMessage?.type === 'assistant/message' && text(lastParentMessage.data.message.content)).toBe('parent turn two')
     // The parent's OWN log never recorded the children's internal steps — its

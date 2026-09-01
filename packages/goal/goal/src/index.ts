@@ -3,14 +3,6 @@
  * and process-local continuation activation.
  * @module @deepseek-ai/dsh-goal
  */
-/*
- * 文件职责：实现目标管理的 index.ts 模块。
- * 技术维度：TypeScript、Cordis、会话事件、路径策略、判别联合和 Vitest。
- * 产品维度：保证目标管理操作可预测、可审计并在失败时保持一致。
- * 逻辑维度：校验输入，更新领域状态并记录事件或注册能力。
- * 关键边界：文件路径必须经过策略检查；目标引用含版本，过期修改必须拒绝。
- * 新手阅读建议：先读类型与测试夹具，再按校验、执行、事件折叠和错误流程阅读。
- */
 
 import { randomUUID } from 'node:crypto'
 import { Context } from '@deepseek-ai/cordis'
@@ -21,12 +13,10 @@ import { agentEvents } from '@deepseek-ai/dsh-agent'
 import type { Agent } from '@deepseek-ai/dsh-agent'
 import type { Session, SessionEvent } from '@deepseek-ai/dsh-session'
 import { TypertRemoteService, Remote } from '@deepseek-ai/dsh-typert-protocol'
-// Type-only: resolves ctx.sessionProjections for the optional unit child.
 import type {} from '@deepseek-ai/dsh-session-projection'
+import type { ProjectionDefinition } from '@deepseek-ai/dsh-session-projection'
 import {
   applyGoalEvent,
-  decodeGoalChange,
-  emptyGoalFoldState,
   goalChangeRef,
 } from './fold.ts'
 import type { GoalFoldState } from './fold.ts'
@@ -43,6 +33,7 @@ import type {
   GoalBlockReason,
   GoalPhase,
   GoalProjection,
+  GoalProjectionState,
   GoalRef,
   GoalSnapshot,
   GoalView,
@@ -58,21 +49,19 @@ import type {
 // The pure payload outlet (./types.ts, ONE home of the `goal` projection-key
 // declaration) re-exported onto the package root keeps the module edge in
 // the emitted index.d.ts, so aggregate programs consuming the declarations
-// still receive the SessionProjectionMap merge.
+// still receive the SessionProjectionStateMap merge.
 export type * from './types.ts'
 export type * from './domain.ts'
 export { GOAL_CHANGE_VERSION, GoalError, GoalId } from './runtime.ts'
 export { decodeGoalChange, foldGoal, goalChangeRef } from './fold.ts'
 
 declare module '@deepseek-ai/cordis' {
-  /** 中文说明：类型或类 Context 约束文件或目标数据职责。 */
   interface Context {
     goals: GoalService
   }
 }
 
-/** Wire payload schema of the `goal` projection (whole current goal or pre-create/cleared null). */
-/* 中文说明：领域局部值 goalProjectionSchema，由紧邻初始化决定。 */
+/** Wire payload schema of the `goal` projection (current goal or pre-create/cleared null). */
 const goalProjectionSchema: ZodType<GoalProjection | null> = zod.union([
   zod.object({
     goal: zod.object({
@@ -90,77 +79,119 @@ const goalProjectionSchema: ZodType<GoalProjection | null> = zod.union([
   zod.null(),
 ]) as ZodType<GoalProjection | null>
 
-/**
- * Light last-wins fold of the `goal` projection unit. Unlike the strict
- * replay fold (fold.ts: transition validation, fail-loud on malformed
- * changes, Set-typed state), this transition is projection-grade: the state
- * is plain JSON (persisted-cache precondition), any non-goal or malformed
- * event returns the same reference (the registry's Object.is gate — the
- * title/todos posture), and correctness of the written change is the write
- * side's job (GoalService validated it before appending; the package
- * invariant rejects a violating stream fail-loud where it is installed).
- * @param state - the projection covering all prior events.
- * @param event - the next committed session event.
- * @returns the next projection (same reference when the event is not a goal change).
- */
-/*
- * 中文说明：函数 applyGoalProjection 的参数见签名，返回结果供相邻流程使用；示例见本文件。
- * @param state 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
- * @param event 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
- * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
- */
-export function applyGoalProjection(state: GoalProjection | null, event: SessionEvent): GoalProjection | null {
-  if (event.type !== 'goal/change') return state
-  /** 中文说明：领域局部值 解构结果，由紧邻初始化决定。 */
-  let change: GoalChangeMeta | undefined
-  try {
-    change = decodeGoalChange(event.data)
-  } catch (_invalidPersistedGoalChange) {
-    return state
+const goalProjectionStateSchema: ZodType<GoalProjectionState> = zod.object({
+  current: goalProjectionSchema,
+  seenGoalIds: zod.array(zod.string().min(1)).refine(
+    ids => new Set(ids).size === ids.length,
+    { message: 'seen goal ids must be unique' },
+  ),
+  failure: zod.string().min(1).nullable(),
+}).strict().superRefine((state, context) => {
+  if (state.current === null) return
+  if (!state.seenGoalIds.includes(state.current.goal.id)) {
+    context.addIssue({ code: 'custom', message: 'current goal id must be retained among seen goal ids' })
   }
-  if (change === undefined) return state
-  return change.operation === 'clear'
-    ? null
-    : {
-      goal: change.goal,
-      roundsStarted: change.roundsStarted,
-      createdAt: change.createdAt,
-      updatedAt: change.updatedAt,
-    }
+  if (state.current.updatedAt < state.current.createdAt) {
+    context.addIssue({ code: 'custom', message: 'current goal update cannot precede its creation' })
+  }
+  if (state.current.roundsStarted > state.current.goal.maxGoalRounds) {
+    context.addIssue({ code: 'custom', message: 'current goal rounds cannot exceed its configured limit' })
+  }
+}) as unknown as ZodType<GoalProjectionState>
+
+/** Build strict fold state from one checkpoint-safe projection state. */
+function goalFoldState(state: GoalProjectionState): GoalFoldState {
+  return {
+    goal: state.current?.goal,
+    roundsStarted: state.current?.roundsStarted ?? 0,
+    createdAt: state.current?.createdAt,
+    updatedAt: state.current?.updatedAt,
+    lastRef: undefined,
+    seenGoalIds: new Set(state.seenGoalIds),
+  }
 }
 
+/** Convert strict fold state into checkpoint-safe projection state. */
+function goalProjectionState(state: GoalFoldState): GoalProjectionState {
+  let current: GoalProjection | null = null
+  if (state.goal !== undefined) {
+    const { createdAt, updatedAt } = state
+    if (createdAt === undefined || updatedAt === undefined) {
+      throw new Error('current goal fold lacks timestamps')
+    }
+    current = {
+      goal: state.goal,
+      roundsStarted: state.roundsStarted,
+      createdAt,
+      updatedAt,
+    }
+  }
+  return {
+    current,
+    seenGoalIds: [...state.seenGoalIds],
+    failure: null,
+  }
+}
+
+/**
+ * Fold durable goal events through the strict replay rules without throwing
+ * from the projection registry's event drive. The first invalid owned event
+ * is retained in `failure`; host goal access rejects that state while the
+ * client view remains at the last valid goal.
+ * @param state - the projection covering all prior events.
+ * @param event - the next committed session event.
+ * @returns the next projection (same reference when the event is unrelated).
+ */
+export function applyGoalProjection(state: GoalProjectionState, event: SessionEvent): GoalProjectionState {
+  if (state.failure !== null) return state
+  if (event.type !== 'goal/change'
+    && (event.type !== 'user/message' || event.data.source.kind !== 'goal')) return state
+  const folded = goalFoldState(state)
+  try {
+    applyGoalEvent(folded, event)
+    return goalProjectionState(folded)
+  } catch (error: unknown) {
+    /* v8 ignore next -- the strict goal fold throws Error instances. */
+    const message = error instanceof Error ? error.message : String(error)
+    return { ...state, failure: `goal replay failed at session event ${event.seq}: ${message}` }
+  }
+}
+
+/** Strict host goal state with the existing cropped client value. */
+export const goalProjectionDefinition = {
+  key: 'goal',
+  stateSchema: goalProjectionStateSchema,
+  init: (): GoalProjectionState => ({ current: null, seenGoalIds: [], failure: null }),
+  apply: applyGoalProjection,
+  wire: { viewSchema: goalProjectionSchema, view: state => state.current },
+  stateVersion: 6,
+} satisfies ProjectionDefinition<'goal', GoalProjectionState>
+
 /** Deployment defaults for goal creation. */
-/* 中文说明：类型或类 Config 约束文件或目标数据职责。 */
 export interface Config {
   /** Total rounds used when a create request omits its own cap. */
   defaultMaxGoalRounds?: number
 }
 
 /** Resolved defaults. */
-/* 中文说明：类型或类 ResolvedConfig 约束文件或目标数据职责。 */
 export interface ResolvedConfig {
   /** Validated positive safe-integer default round cap. */
   defaultMaxGoalRounds: number
 }
 
-/** Process-local cache plus activation intent crossing the synchronous append boundary. */
-/* 中文说明：类型或类 GoalCache 约束文件或目标数据职责。 */
-interface GoalCache {
-  readonly state: GoalFoldState
+/** Process-local activation state crossing the synchronous append boundary. */
+interface GoalRuntimeState {
   activation: GoalActivation
-  observedSeq: number
   pendingActivation: { readonly seq: number; readonly activation: GoalActivation } | undefined
 }
 
 /** Validated create input with every deployment default materialized. */
-/* 中文说明：类型或类 ResolvedCreateGoal 约束文件或目标数据职责。 */
 interface ResolvedCreateGoal {
   readonly objective: string
   readonly maxGoalRounds: number
 }
 
 /** Validate a caller-visible positive safe-integer round cap. */
-/* 中文说明：函数 resolveMaxGoalRounds 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function resolveMaxGoalRounds(value: number): number {
   if (!Number.isSafeInteger(value) || value < 1) {
     throw new GoalError('maxGoalRounds must be a positive safe integer', 'GOAL_INVALID_MAX_ROUNDS')
@@ -169,7 +200,6 @@ function resolveMaxGoalRounds(value: number): number {
 }
 
 /** Validate and normalize an objective at the domain boundary. */
-/* 中文说明：函数 resolveObjective 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function resolveObjective(value: string): string {
   if (typeof value !== 'string' || value.trim().length === 0) {
     throw new GoalError('goal objective must be a non-empty string', 'GOAL_INVALID_OBJECTIVE')
@@ -178,7 +208,6 @@ function resolveObjective(value: string): string {
 }
 
 /** Materialize deployment defaults and validate one create request. */
-/* 中文说明：函数 resolveCreateGoal 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function resolveCreateGoal(request: CreateGoalRequest, defaultMaxGoalRounds: number): ResolvedCreateGoal {
   return {
     objective: resolveObjective(request.objective),
@@ -187,15 +216,11 @@ function resolveCreateGoal(request: CreateGoalRequest, defaultMaxGoalRounds: num
 }
 
 /** Validate and detach one policy-owned blocker explanation. */
-/* 中文说明：函数 resolveBlockReason 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function resolveBlockReason(reason: unknown): GoalBlockReason {
-  /** 中文说明：领域局部值 record，由紧邻初始化决定。 */
   const record = typeof reason === 'object' && reason !== null && !Array.isArray(reason)
     ? reason as Record<string, unknown>
     : undefined
-  /** 中文说明：领域局部值 code，由紧邻初始化决定。 */
   const code = record?.['code']
-  /** 中文说明：领域局部值 message，由紧邻初始化决定。 */
   const message = record?.['message']
   if (typeof code !== 'string' || !/^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/.test(code)
     || typeof message !== 'string' || message.trim().length === 0) {
@@ -208,16 +233,15 @@ function resolveBlockReason(reason: unknown): GoalBlockReason {
 }
 
 /** Goal service (`ctx.goals`) backed exclusively by the owning session log. */
-/* 中文说明：类型或类 GoalService 约束文件或目标数据职责。 */
 export class GoalService extends TypertRemoteService {
-  static inject = ['agents']
+  static inject = ['agents', 'sessionProjections']
 
   static Config: z<Config> = z.object({
     defaultMaxGoalRounds: z.number().default(256),
   })
 
   private readonly resolved: ResolvedConfig
-  private readonly caches = new WeakMap<Session, GoalCache>()
+  private readonly runtimeStates = new WeakMap<Session, GoalRuntimeState>()
 
   constructor(ctx: Context, config: Config = {}) {
     super(ctx, 'goals')
@@ -225,20 +249,15 @@ export class GoalService extends TypertRemoteService {
       defaultMaxGoalRounds: resolveMaxGoalRounds(config.defaultMaxGoalRounds ?? 256),
     }
     ctx.on('agent/session-start', ({ agent }) => {
-      this.cache(agent.session).activation = 'disarmed'
+      this.runtimeState(agent.session).activation = 'disarmed'
     })
-    // The `goal` projection unit: last-wins fold of goal/change whole values
-    // (see applyGoalProjection). The unit child activates only when a
-    // projection registry is composed (headless assemblies stay unaffected).
-    ctx.inject(['sessionProjections'], (projectionCtx) => {
-      projectionCtx.sessionProjections.register<'goal', GoalProjection | null>({
-        key: 'goal',
-        stateSchema: goalProjectionSchema,
-        init: () => null,
-        apply: applyGoalProjection,
-        wire: { viewSchema: goalProjectionSchema, view: state => state },
-        stateVersion: 4,
-      })
+    ctx.sessionProjections.register(goalProjectionDefinition)
+    ctx.on('session/event', (session, event) => {
+      if (event.type !== 'goal/change') return
+      const runtime = this.runtimeState(session)
+      runtime.activation = runtime.pendingActivation?.seq === event.seq
+        ? runtime.pendingActivation.activation
+        : 'disarmed'
     })
   }
 
@@ -250,10 +269,7 @@ export class GoalService extends TypertRemoteService {
    */
   get(agent: Agent): GoalView | undefined {
     this.assertLive(agent)
-    /** 中文说明：领域局部值 cache，由紧邻初始化决定。 */
-    const cache = this.cache(agent.session)
-    this.sync(agent.session, cache)
-    return this.view(cache)
+    return this.view(this.state(agent.session), this.runtimeState(agent.session))
   }
 
   /**
@@ -265,11 +281,9 @@ export class GoalService extends TypertRemoteService {
    */
   disarm(agent: Agent): GoalView | undefined {
     this.assertLive(agent)
-    /** 中文说明：领域局部值 cache，由紧邻初始化决定。 */
-    const cache = this.cache(agent.session)
-    this.sync(agent.session, cache)
-    cache.activation = 'disarmed'
-    return this.view(cache)
+    const runtime = this.runtimeState(agent.session)
+    runtime.activation = 'disarmed'
+    return this.view(this.state(agent.session), runtime)
   }
 
   /**
@@ -280,18 +294,13 @@ export class GoalService extends TypertRemoteService {
    * @returns the created live view.
    */
   create(agent: Agent, request: CreateGoalRequest): GoalView {
-    /** 中文说明：领域局部值 spec，由紧邻初始化决定。 */
     const spec = resolveCreateGoal(request, this.resolved.defaultMaxGoalRounds)
-    /** 中文说明：领域局部值 cache，由紧邻初始化决定。 */
-    const cache = this.prepareMutation(agent)
-    /** 中文说明：领域局部值 current，由紧邻初始化决定。 */
-    const current = cache.state.goal
+    const [state, runtime] = this.prepareMutation(agent)
+    const current = state?.goal
     if (current !== undefined && current.phase !== 'complete') {
       throw new GoalError(`goal "${current.id}" already exists with phase "${current.phase}"`, 'GOAL_ALREADY_EXISTS')
     }
-    /** 中文说明：领域局部值 now，由紧邻初始化决定。 */
     const now = Date.now()
-    /** 中文说明：领域局部值 goal，由紧邻初始化决定。 */
     const goal: GoalSnapshot = {
       id: GoalId(`goal-${randomUUID()}`),
       revision: 1,
@@ -299,7 +308,7 @@ export class GoalService extends TypertRemoteService {
       phase: 'active',
       maxGoalRounds: spec.maxGoalRounds,
     }
-    return this.commitSnapshot(agent, cache, 'create', goal, 0, now, now, 'armed')
+    return this.commitSnapshot(agent, runtime, 'create', goal, 0, now, now, 'armed')
   }
 
   /**
@@ -311,21 +320,19 @@ export class GoalService extends TypertRemoteService {
    */
   @Remote('edit')
   edit(agent: Agent, ref: GoalRef, request: EditGoalRequest): GoalView {
-    /** 中文说明：领域局部值 cache，由紧邻初始化决定。 */
-    const cache = this.prepareMutation(agent)
-    /** 中文说明：领域局部值 current，由紧邻初始化决定。 */
-    const current = this.expectCurrent(cache, ref)
+    const [state, runtime] = this.prepareMutation(agent)
+    const currentState = this.expectCurrent(state, ref)
+    const current = currentState.goal
     if (request.objective === undefined && request.maxGoalRounds === undefined) {
       throw new GoalError('goal edit requires objective and/or maxGoalRounds', 'GOAL_INVALID_EDIT')
     }
-    /** 中文说明：领域局部值 goal，由紧邻初始化决定。 */
     const goal: GoalSnapshot = {
       ...current,
       revision: current.revision + 1,
       ...request.objective === undefined ? {} : { objective: resolveObjective(request.objective) },
       ...request.maxGoalRounds === undefined ? {} : { maxGoalRounds: resolveMaxGoalRounds(request.maxGoalRounds) },
     }
-    return this.commitCurrent(agent, cache, 'edit', goal, cache.activation)
+    return this.commitCurrent(agent, currentState, runtime, 'edit', goal, runtime.activation)
   }
 
   /**
@@ -348,25 +355,23 @@ export class GoalService extends TypertRemoteService {
    */
   @Remote('resume')
   resume(agent: Agent, ref: GoalRef): GoalView {
-    /** 中文说明：领域局部值 cache，由紧邻初始化决定。 */
-    const cache = this.prepareMutation(agent)
-    /** 中文说明：领域局部值 current，由紧邻初始化决定。 */
-    const current = this.expectCurrent(cache, ref)
-    /** 中文说明：领域局部值 resumable，由紧邻初始化决定。 */
+    const [state, runtime] = this.prepareMutation(agent)
+    const currentState = this.expectCurrent(state, ref)
+    const current = currentState.goal
     const resumable: readonly GoalPhase[] = ['active', 'paused', 'blocked']
     if (!resumable.includes(current.phase)) {
       throw this.transitionError(current, 'resume', resumable)
     }
-    if (current.phase === 'active' && cache.activation === 'armed') {
+    if (current.phase === 'active' && runtime.activation === 'armed') {
       throw new GoalError(`goal "${current.id}" is already active and armed`, 'GOAL_INVALID_TRANSITION')
     }
-    if (cache.state.roundsStarted >= current.maxGoalRounds) {
+    if (currentState.roundsStarted >= current.maxGoalRounds) {
       throw new GoalError(
         `goal "${current.id}" exhausted ${current.maxGoalRounds} goal rounds; increase maxGoalRounds before resuming`,
         'GOAL_INVALID_TRANSITION',
       )
     }
-    return this.commitCurrent(agent, cache, 'resume', this.withPhase(current, 'active'), 'armed')
+    return this.commitCurrent(agent, currentState, runtime, 'resume', this.withPhase(current, 'active'), 'armed')
   }
 
   /**
@@ -395,16 +400,16 @@ export class GoalService extends TypertRemoteService {
    * @returns the blocked view with its durable reason.
    */
   block(agent: Agent, ref: GoalRef, reason: GoalBlockReason): GoalView {
-    /** 中文说明：领域局部值 cache，由紧邻初始化决定。 */
-    const cache = this.prepareMutation(agent)
-    /** 中文说明：领域局部值 current，由紧邻初始化决定。 */
-    const current = this.expectCurrent(cache, ref)
+    const [state, runtime] = this.prepareMutation(agent)
+    const currentState = this.expectCurrent(state, ref)
+    const current = currentState.goal
     if (current.phase !== 'active') {
       throw this.transitionError(current, 'block', ['active'])
     }
     return this.commitCurrent(
       agent,
-      cache,
+      currentState,
+      runtime,
       'block',
       { ...this.withPhase(current, 'blocked'), blockedReason: resolveBlockReason(reason) },
       'disarmed',
@@ -419,45 +424,38 @@ export class GoalService extends TypertRemoteService {
    */
   @Remote('clear')
   clear(agent: Agent, ref: GoalRef): GoalRef {
-    /** 中文说明：领域局部值 cache，由紧邻初始化决定。 */
-    const cache = this.prepareMutation(agent)
-    /** 中文说明：领域局部值 current，由紧邻初始化决定。 */
-    const current = this.expectCurrent(cache, ref)
-    /** 中文说明：领域局部值 tombstone，由紧邻初始化决定。 */
+    const [state, runtime] = this.prepareMutation(agent)
+    const currentState = this.expectCurrent(state, ref)
+    const current = currentState.goal
     const tombstone: GoalRef = { id: current.id, revision: current.revision + 1 }
-    /** 中文说明：领域局部值 change，由紧邻初始化决定。 */
     const change: GoalClearChangeMeta = {
       kind: 'goal/change',
       version: GOAL_CHANGE_VERSION,
       operation: 'clear',
       cleared: tombstone,
-      clearedAt: this.nextMutationTime(cache),
+      clearedAt: this.nextMutationTime(currentState),
     }
-    this.commit(agent, cache, change, 'disarmed')
+    this.commit(agent, runtime, change, 'disarmed')
     return { ...tombstone }
   }
 
-  /** Resolve and validate the cache used by a mutation. */
-  private prepareMutation(agent: Agent): GoalCache {
+  /** Resolve the durable and process-local state used by a mutation. */
+  private prepareMutation(agent: Agent): readonly [GoalProjection | null, GoalRuntimeState] {
     this.assertLive(agent)
-    /** 中文说明：领域局部值 cache，由紧邻初始化决定。 */
-    const cache = this.cache(agent.session)
-    this.sync(agent.session, cache)
-    return cache
+    return [this.state(agent.session), this.runtimeState(agent.session)]
   }
 
   /** Reject stale or missing current-state refs. */
-  private expectCurrent(cache: GoalCache, ref: GoalRef): GoalSnapshot {
-    /** 中文说明：领域局部值 current，由紧邻初始化决定。 */
-    const current = cache.state.goal
-    if (current === undefined) throw new GoalError('no current goal', 'GOAL_NOT_FOUND')
+  private expectCurrent(state: GoalProjection | null, ref: GoalRef): GoalProjection {
+    if (state === null) throw new GoalError('no current goal', 'GOAL_NOT_FOUND')
+    const current = state.goal
     if (ref.id !== current.id || ref.revision !== current.revision) {
       throw new GoalError(
         `stale goal ref "${ref.id}" revision ${ref.revision}; current is "${current.id}" revision ${current.revision}`,
         'GOAL_STALE_REVISION',
       )
     }
-    return current
+    return state
   }
 
   /** Enforce exact live-agent identity rather than trusting a matching id. */
@@ -467,37 +465,24 @@ export class GoalService extends TypertRemoteService {
     }
   }
 
-  /** Return the per-session cache, folding a seed once with activation disarmed. */
-  private cache(session: Session): GoalCache {
-    /** 中文说明：领域局部值 cache，由紧邻初始化决定。 */
-    let cache = this.caches.get(session)
-    if (cache !== undefined) return cache
-    /** 中文说明：领域局部值 state，由紧邻初始化决定。 */
-    const state = emptyGoalFoldState()
-    /** 中文说明：领域局部值 event，由紧邻初始化决定。 */
-    for (const event of session.events) applyGoalEvent(state, event)
-    cache = {
-      state,
-      activation: 'disarmed',
-      observedSeq: session.seq,
-      pendingActivation: undefined,
-    }
-    this.caches.set(session, cache)
-    return cache
+  /** Read the current durable projection maintained by the registry. */
+  private state(session: Session): GoalProjection | null {
+    const state = this.ctx.sessionProjections.stateOf(session, 'goal')
+    if (state === undefined) throw new Error('goal projection is not registered')
+    if (state.failure !== null) throw new Error(state.failure)
+    return state.current
   }
 
-  /** Incrementally observe durable events and reconcile local activation intent. */
-  private sync(session: Session, cache: GoalCache): void {
-    /** 中文说明：领域局部值 event，由紧邻初始化决定。 */
-    for (const event of session.events.slice(cache.observedSeq)) {
-      applyGoalEvent(cache.state, event)
-      if (event.type === 'goal/change') {
-        cache.activation = cache.pendingActivation?.seq === event.seq
-          ? cache.pendingActivation.activation
-          : 'disarmed'
-      }
-      cache.observedSeq += 1
+  /** Return the process-local activation state, initially disarmed. */
+  private runtimeState(session: Session): GoalRuntimeState {
+    let runtime = this.runtimeStates.get(session)
+    if (runtime !== undefined) return runtime
+    runtime = {
+      activation: 'disarmed',
+      pendingActivation: undefined,
     }
+    this.runtimeStates.set(session, runtime)
+    return runtime
   }
 
   /** Build a new revision with one replacement phase. */
@@ -520,12 +505,11 @@ export class GoalService extends TypertRemoteService {
     phase: GoalPhase,
     activation: GoalActivation,
   ): GoalView {
-    /** 中文说明：领域局部值 cache，由紧邻初始化决定。 */
-    const cache = this.prepareMutation(agent)
-    /** 中文说明：领域局部值 current，由紧邻初始化决定。 */
-    const current = this.expectCurrent(cache, ref)
+    const [state, runtime] = this.prepareMutation(agent)
+    const currentState = this.expectCurrent(state, ref)
+    const current = currentState.goal
     if (!allowed.includes(current.phase)) throw this.transitionError(current, operation, allowed)
-    return this.commitCurrent(agent, cache, operation, this.withPhase(current, phase), activation)
+    return this.commitCurrent(agent, currentState, runtime, operation, this.withPhase(current, phase), activation)
   }
 
   /** Render a stable invalid-transition error. */
@@ -539,40 +523,33 @@ export class GoalService extends TypertRemoteService {
   /** Commit a mutation that retains the current goal's derived counters/times. */
   private commitCurrent(
     agent: Agent,
-    cache: GoalCache,
+    state: GoalProjection,
+    runtime: GoalRuntimeState,
     operation: Exclude<GoalOperation, 'create' | 'clear'>,
     goal: GoalSnapshot,
     activation: GoalActivation,
   ): GoalView {
-    /** 中文说明：领域局部值 createdAt，由紧邻初始化决定。 */
-    const createdAt = cache.state.createdAt
-    /* v8 ignore next -- strict replay and every snapshot commit set createdAt whenever a current goal exists */
-    if (createdAt === undefined) throw new Error('current goal cache lacks createdAt')
     return this.commitSnapshot(
       agent,
-      cache,
+      runtime,
       operation,
       goal,
-      cache.state.roundsStarted,
-      createdAt,
-      this.nextMutationTime(cache),
+      state.roundsStarted,
+      state.createdAt,
+      this.nextMutationTime(state),
       activation,
     )
   }
 
   /** Clamp a current goal's next timestamp across backward wall-clock movement. */
-  private nextMutationTime(cache: GoalCache): number {
-    /** 中文说明：领域局部值 updatedAt，由紧邻初始化决定。 */
-    const updatedAt = cache.state.updatedAt
-    /* v8 ignore next -- strict replay and every snapshot commit set updatedAt whenever a current goal exists */
-    if (updatedAt === undefined) throw new Error('current goal cache lacks updatedAt')
-    return Math.max(Date.now(), updatedAt)
+  private nextMutationTime(state: GoalProjection): number {
+    return Math.max(Date.now(), state.updatedAt)
   }
 
   /** Build and commit one full-snapshot mutation. */
   private commitSnapshot(
     agent: Agent,
-    cache: GoalCache,
+    runtime: GoalRuntimeState,
     operation: Exclude<GoalOperation, 'clear'>,
     goal: GoalSnapshot,
     roundsStarted: number,
@@ -580,7 +557,6 @@ export class GoalService extends TypertRemoteService {
     updatedAt: number,
     activation: GoalActivation,
   ): GoalView {
-    /** 中文说明：领域局部值 change，由紧邻初始化决定。 */
     const change: GoalSnapshotChangeMeta = {
       kind: 'goal/change',
       version: GOAL_CHANGE_VERSION,
@@ -590,28 +566,28 @@ export class GoalService extends TypertRemoteService {
       createdAt,
       updatedAt,
     }
-    this.commit(agent, cache, change, activation)
-    /** 中文说明：领域局部值 view，由紧邻初始化决定。 */
-    const view = this.view(cache)
-    /* v8 ignore next -- the durable goal event installs the snapshot before this read */
-    if (view === undefined) throw new Error('snapshot commit cleared the goal unexpectedly')
-    return view
+    this.commit(agent, runtime, change, activation)
+    return {
+      ...goal,
+      roundsStarted,
+      createdAt,
+      updatedAt,
+      activation: runtime.activation,
+    }
   }
 
-  /** Commit one mutation into the goal log, cache, and live event stream. */
-  private commit(agent: Agent, cache: GoalCache, change: GoalChangeMeta, activation: GoalActivation): void {
-    /** 中文说明：领域局部值 ref，由紧邻初始化决定。 */
+  /** Commit one mutation into the goal log and live event stream. */
+  private commit(agent: Agent, runtime: GoalRuntimeState, change: GoalChangeMeta, activation: GoalActivation): void {
     const ref = goalChangeRef(change)
-    cache.pendingActivation = { seq: agent.session.seq, activation }
+    runtime.pendingActivation = { seq: agent.session.seq, activation }
     try {
-      agent.session.append('goal/change', change)
-      this.sync(agent.session, cache)
+      const event = agent.session.append('goal/change', change)
+      /* v8 ignore next -- Session.append returns the event committed at the pre-append seq. */
+      if (runtime.pendingActivation.seq === event.seq) runtime.activation = activation
     } finally {
-      cache.pendingActivation = undefined
+      runtime.pendingActivation = undefined
     }
-    /** 中文说明：领域局部值 goal，由紧邻初始化决定。 */
-    const goal = this.view(cache)
-    /** 中文说明：领域局部值 notification，由紧邻初始化决定。 */
+    const goal = this.view(this.state(agent.session), runtime)
     const notification: GoalChanged = {
       operation: change.operation,
       ref: { ...ref },
@@ -621,24 +597,14 @@ export class GoalService extends TypertRemoteService {
   }
 
   /** Build a detached current view. */
-  private view(cache: GoalCache): GoalView | undefined {
-    /** 中文说明：领域局部值 goal，由紧邻初始化决定。 */
-    const goal = cache.state.goal
-    /** 中文说明：领域局部值 createdAt，由紧邻初始化决定。 */
-    const createdAt = cache.state.createdAt
-    /** 中文说明：领域局部值 updatedAt，由紧邻初始化决定。 */
-    const updatedAt = cache.state.updatedAt
-    if (goal === undefined) return undefined
-    /* v8 ignore next 3 -- strict replay and snapshot commits establish both timestamps with every current goal */
-    if (createdAt === undefined || updatedAt === undefined) {
-      throw new Error(`goal "${goal.id}" cache lacks timestamps`)
-    }
+  private view(state: GoalProjection | null, runtime: GoalRuntimeState): GoalView | undefined {
+    if (state === null) return undefined
     return {
-      ...goal,
-      roundsStarted: cache.state.roundsStarted,
-      createdAt,
-      updatedAt,
-      activation: cache.activation,
+      ...state.goal,
+      roundsStarted: state.roundsStarted,
+      createdAt: state.createdAt,
+      updatedAt: state.updatedAt,
+      activation: runtime.activation,
     }
   }
 
@@ -650,7 +616,6 @@ export class GoalService extends TypertRemoteService {
    */
   @Remote('create')
   remoteExportCreate(agent: Agent, request: CreateGoalRequest): CreateGoalResult {
-    /** 中文说明：领域局部值 view，由紧邻初始化决定。 */
     const view = this.create(agent, request)
     return { ref: { id: view.id, revision: view.revision } }
   }

@@ -1,16 +1,3 @@
-/*
- * ================================ 文件注释 ================================
- * 【文件职责】权限默认设置行控制器：从共享 describe 镜像读取权限描述符与动态预设
- *             枚举，并把"默认权限"写回宿主设置。
- * 【技术维度】SnapshotStore + 共享镜像（SettingsDescribeFace）：预设枚举存在命名空间
- *             模式中；写入只针对 defaultPreset 字段、携带描述符修订号并回折进镜像。
- * 【产品维度】设置页"权限"行：选择新会话的默认权限模式（含 Full access 风险项）。
- * 【逻辑维度】load 跟随镜像 → derive 从描述符与模式推导当前值与选项 →
- *             select 带修订号写入 defaultPreset → acceptView 回折发布。
- * 【关键边界】镜像 unavailable/无对应命名空间时行隐藏；保存期间忽略重复提交。
- * 【新手阅读建议】先看 permissionDefaultOf 的模式解析，再看控制器的镜像跟随。
- * ==========================================================================
- */
 /**
  * Permission default-settings controller. The permission descriptor comes
  * from the shared describe mirror (the dynamic preset enum lives in the
@@ -19,12 +6,13 @@
  * back into the mirror.
  */
 
+import type { Context as ClientContext } from '@deepseek-ai/cordis'
 import type { SettingsNamespaceView } from '@deepseek-ai/dsh-api-remotes/client'
 import {
   createSnapshotStore, type SnapshotStore,
 } from '@deepseek-ai/dsh-client-store'
 import type {
-  SchemaNode, SettingsDescribeFace, SettingsSchemaService, SettingsWireFace,
+  SchemaNode, SettingsDescribeFace, SettingsSchemaService,
 } from '@deepseek-ai/dsh-client-ui-settings/client'
 import { displayPermissionPreset } from './presentation.ts'
 
@@ -61,8 +49,6 @@ interface ConstChoice {
  * @param schema - settings schema operations.
  * @returns current value and selectable options.
  */
-// 从宿主的 defaultPreset 模式中读取动态预设枚举：解析 union/const 节点，
-// 还原当前值与可选预设；模式不宣传当前预设时报错。
 export function permissionDefaultOf(view: SettingsNamespaceView, schema: SettingsSchemaService): {
   currentValue: string
   options: PermissionDefaultOption[]
@@ -109,12 +95,13 @@ export class PermissionPresetSettingsController {
 
   /**
    * @param describeFace - the shared mirror's read/fold face (descriptor and schema source).
-   * @param api - settings wire face for the `defaultPreset` write.
+   * @param ctx - the row plugin's context, whose `remote.settings` namespace
+   * carries the `defaultPreset` write.
    * @param schema - settings-owned schema operations.
    */
   constructor(
     private readonly describeFace: SettingsDescribeFace,
-    private readonly api: SettingsWireFace,
+    private readonly ctx: ClientContext,
     private readonly schema: SettingsSchemaService,
   ) {}
 
@@ -151,23 +138,26 @@ export class PermissionPresetSettingsController {
       draft.status = 'saving'
       draft.error = null
     })
+    let response
     try {
-      const response = await this.api.settings.mutate(
+      response = await this.ctx.remote.settings.mutate(
         PERMISSION_SETTINGS_NS,
         [{ op: 'set', path: ['defaultPreset'], value: preset }],
         view.revision,
       )
-      if (!response.ok) throw new Error(response.error.message)
+    } finally {
+      // Cleared before the fold below, whose publish reaches `derive` through
+      // this row's own subscription and is skipped while a save is pending.
       this.saving = false
-      if (this.disposed) return
-      // The mirror publish reaches this row's own subscription, so the fold
-      // is also what republishes the accepted value here.
-      this.describeFace.acceptView(response.value)
-    } catch (error) {
-      this.saving = false
-      if (this.disposed) return
-      this.fail(error)
     }
+    if (this.disposed) return
+    if (!response.ok) {
+      this.fail(response.error)
+      return
+    }
+    // The mirror publish reaches this row's own subscription, so the fold
+    // is also what republishes the accepted value here.
+    this.describeFace.acceptView(response.value)
   }
 
   /** Stop following the mirror; later publishes leave the snapshot alone. */

@@ -1,11 +1,3 @@
-/**
- * 文件职责：验证 transport-recovery.spec.ts 覆盖的 LLM 配置、调用与事件处理行为。
- * 技术维度：使用 TypeScript、Vitest、Cordis 插件上下文和可控测试替身验证运行时协作。
- * 产品维度：保障模型接入在配置变化、认证、重试与异常场景下仍能给 Agent 稳定反馈。
- * 逻辑维度：准备上下文与测试数据，触发被测流程，再核对请求、事件、结果和清理行为。
- * 关键边界：测试替身必须保持确定性；敏感凭据不可写入日志；异步资源必须在用例结束时释放。
- * 新手阅读建议：先看测试数据和辅助函数，再按 describe/it 场景阅读，最后对照被测插件实现。
- */
 import { createUserMessage } from '@deepseek-ai/dsh-llm'
 import { createServer } from 'node:http'
 import type { AddressInfo } from 'node:net'
@@ -18,11 +10,10 @@ import * as LlmDeepSeek from '@deepseek-ai/dsh-llm-deepseek'
 import type { MockLlmBehavior, MockLlmServer } from '@deepseek-ai/dsh-llm-mock-server'
 import { startMockLlmServer } from '@deepseek-ai/dsh-llm-mock-server'
 import { SessionId } from '@deepseek-ai/dsh-session'
+import SessionProjectionRegistry from '@deepseek-ai/dsh-session-projection'
 import * as Retry from '../src/index.ts'
 
-/** 中文说明：变量 context 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 let context: Context | undefined
-/** 中文说明：变量 servers 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const servers: MockLlmServer[] = []
 
 afterEach(async () => {
@@ -31,26 +22,23 @@ afterEach(async () => {
   await Promise.all(servers.splice(0).map(server => server.close()))
 })
 
-/** 中文说明：函数 start 承担本测试场景中的准备或验证工作；参数按签名传入，返回值供后续断言使用；示例见本文件调用。 */
 async function start(
   sequence: readonly MockLlmBehavior[],
   options: Omit<Parameters<typeof startMockLlmServer>[0], 'sequence'> = {},
 ): Promise<MockLlmServer> {
-  /** 中文说明：变量 server 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const server = await startMockLlmServer({ sequence, ...options })
   servers.push(server)
   return server
 }
 
-/** 中文说明：函数 harness 承担本测试场景中的准备或验证工作；参数按签名传入，返回值供后续断言使用；示例见本文件调用。 */
 async function harness(
   baseURL: string,
   options: { streamIdleTimeoutMs?: number; initialDelayMs?: number } = {},
 ): Promise<Context> {
   vi.stubEnv('DEEPSEEK_API_KEY', 'mock-key')
-  /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const ctx = new Context()
   await mountAgentLoopTestDependencies(ctx)
+  await ctx.plugin(SessionProjectionRegistry)
   await ctx.plugin(LlmDeepSeek, {
     baseURL,
     streamIdleTimeoutMs: options.streamIdleTimeoutMs ?? 1_000,
@@ -69,22 +57,17 @@ async function harness(
   return ctx
 }
 
-/** 中文说明：函数 waitForIdle 承担本测试场景中的准备或验证工作；参数按签名传入，返回值供后续断言使用；示例见本文件调用。 */
 function waitForIdle(_ctx: Context, agent: Agent): Promise<void> {
   return agent.whenIdle()
 }
 
-/** 中文说明：函数 sendAndWait 承担本测试场景中的准备或验证工作；参数按签名传入，返回值供后续断言使用；示例见本文件调用。 */
 function sendAndWait(ctx: Context, agent: Agent): Promise<void> {
-  /** 中文说明：变量 idle 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const idle = waitForIdle(ctx, agent)
   agent.followup(createUserMessage({ content: [{ type: 'text', text: 'recover through the provider boundary' }], source: { kind: 'user' } }))
   return idle
 }
 
-/** 中文说明：函数 finalAssistantText 承担本测试场景中的准备或验证工作；参数按签名传入，返回值供后续断言使用；示例见本文件调用。 */
 function finalAssistantText(agent: Agent): string | undefined {
-  /** 中文说明：变量 message 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const message = agent.session.deriveMessages().at(-1)
   if (message?.role !== 'assistant') return undefined
   return message.content
@@ -93,12 +76,9 @@ function finalAssistantText(agent: Agent): string | undefined {
     .join('')
 }
 
-/** 中文说明：函数 unusedPort 承担本测试场景中的准备或验证工作；参数按签名传入，返回值供后续断言使用；示例见本文件调用。 */
 async function unusedPort(): Promise<number> {
-  /** 中文说明：变量 server 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const server = createServer()
   await new Promise<void>((resolve) => { server.listen(0, '127.0.0.1', resolve) })
-  /** 中文说明：变量 port 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const port = (server.address() as AddressInfo).port
   await new Promise<void>((resolve) => { server.close(() => { resolve() }) })
   return port
@@ -106,15 +86,12 @@ async function unusedPort(): Promise<number> {
 
 describe('bounded retry through the real DeepSeek HTTP/SSE adapter', () => {
   it('recovers from a true refused connection after the endpoint starts during backoff', async () => {
-    /** 中文说明：变量 port 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const port = await unusedPort()
     context = await harness(`http://127.0.0.1:${port}`, { initialDelayMs: 100 })
-    /** 中文说明：变量 agent 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const agent = context.agentLoop.create(SessionId('wire-refused'), {
       provider: 'deepseek-official',
       model: 'mock-model',
     })
-    /** 中文说明：变量 recoveryServer 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     let recoveryServer: Promise<MockLlmServer> | undefined
     context.on('session/event', (session, event) => {
       if (session !== agent.session || event.type !== 'llm/retry' || event.data.retry !== 1) return
@@ -122,7 +99,6 @@ describe('bounded retry through the real DeepSeek HTTP/SSE adapter', () => {
     })
 
     await sendAndWait(context, agent)
-    /** 中文说明：变量 server 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const server = await recoveryServer
 
     expect(server).toBeDefined()
@@ -139,7 +115,6 @@ describe('bounded retry through the real DeepSeek HTTP/SSE adapter', () => {
     ['stream_disconnect', 1] as const,
     ['partial_disconnect', 3] as const,
   ])('retries %s without committing failed chunks', async (behavior, failedChunkCount) => {
-    /** 中文说明：变量 server 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const server = await start([behavior, 'success'], {
       apiKey: 'mock-key',
       partialText: 'discard me',
@@ -148,7 +123,6 @@ describe('bounded retry through the real DeepSeek HTTP/SSE adapter', () => {
       successText: 'recovered response',
     })
     context = await harness(server.baseURL)
-    /** 中文说明：变量 agent 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const agent = context.agentLoop.create(SessionId(`wire-${behavior}`), {
       provider: 'deepseek-official',
       model: 'mock-model',
@@ -158,7 +132,6 @@ describe('bounded retry through the real DeepSeek HTTP/SSE adapter', () => {
 
     expect(server.requests).toHaveLength(2)
     expect(server.requests[0]?.body).toEqual(server.requests[1]?.body)
-    /** 中文说明：函数值 retryEvent 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const retryEvent = agent.session.events.find(event => event.type === 'llm/retry')
     expect(agent.session.events.filter(event =>
       event.type === 'assistant/chunk'
@@ -174,13 +147,11 @@ describe('bounded retry through the real DeepSeek HTTP/SSE adapter', () => {
   })
 
   it('retries a wire-valid content-less completion without committing an empty message', async () => {
-    /** 中文说明：变量 server 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const server = await start(['empty', 'success'], {
       apiKey: 'mock-key',
       successText: 'recovered from empty',
     })
     context = await harness(server.baseURL)
-    /** 中文说明：变量 agent 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const agent = context.agentLoop.create(SessionId('wire-empty'), {
       provider: 'deepseek-official',
       model: 'mock-model',
@@ -203,14 +174,12 @@ describe('bounded retry through the real DeepSeek HTTP/SSE adapter', () => {
   })
 
   it('exposes a clean partial EOF as non-default-retryable STREAM_CLOSED', async () => {
-    /** 中文说明：变量 server 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const server = await start(['partial_eof', 'success'], {
       apiKey: 'mock-key',
       partialText: 'discarded clean eof',
       chunkSize: 100,
     })
     context = await harness(server.baseURL)
-    /** 中文说明：变量 agent 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const agent = context.agentLoop.create(SessionId('wire-partial-eof'), {
       provider: 'deepseek-official',
       model: 'mock-model',
@@ -231,7 +200,6 @@ describe('bounded retry through the real DeepSeek HTTP/SSE adapter', () => {
   })
 
   it('turns a stalled body into TIMEOUT and succeeds on the next request', async () => {
-    /** 中文说明：变量 server 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const server = await start(['stall', 'success'], {
       apiKey: 'mock-key',
       successText: 'recovered after timeout',
@@ -239,7 +207,6 @@ describe('bounded retry through the real DeepSeek HTTP/SSE adapter', () => {
     // This crosses the real HTTP idle timer, so leave scheduler slack between
     // the stalled attempt and the mock server's immediate successful response.
     context = await harness(server.baseURL, { streamIdleTimeoutMs: 1_000 })
-    /** 中文说明：变量 agent 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const agent = context.agentLoop.create(SessionId('wire-stall'), {
       provider: 'deepseek-official',
       model: 'mock-model',
@@ -254,12 +221,10 @@ describe('bounded retry through the real DeepSeek HTTP/SSE adapter', () => {
   }, 10_000)
 
   it('stops after the configured transport retry budget is exhausted', async () => {
-    /** 中文说明：变量 server 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const server = await start(['connection_reset', 'connection_reset', 'connection_reset'], {
       apiKey: 'mock-key',
     })
     context = await harness(server.baseURL)
-    /** 中文说明：变量 agent 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const agent = context.agentLoop.create(SessionId('wire-exhausted'), {
       provider: 'deepseek-official',
       model: 'mock-model',
@@ -270,7 +235,6 @@ describe('bounded retry through the real DeepSeek HTTP/SSE adapter', () => {
     expect(server.requests).toHaveLength(3)
     expect(agent.session.events.filter(event => event.type === 'step/start')).toHaveLength(1)
     expect(agent.session.events.filter(event => event.type === 'llm/retry')).toHaveLength(2)
-    /** 中文说明：变量 end 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const end = agent.session.events.at(-1)
     expect(end).toMatchObject({
       type: 'turn/end',

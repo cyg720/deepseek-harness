@@ -3,17 +3,9 @@
 // TestSessions mints tagged scopes through the production createScope, so the
 // service's scopeOf/binding path runs against production resolution (no local
 // tag probe).
-/**
- * 文件职责：验证会话输入的 service-orchestration.client.spec.ts 行为。
- * 技术维度：Vitest、React 渲染、事件模拟和服务替身。
- * 产品维度：防止会话输入用户流程回归。
- * 逻辑维度：构造状态，触发行为并断言结果和清理。
- * 关键边界：异步任务、全局替身和 DOM 必须在用例后恢复。
- * 新手阅读建议：先读辅助函数，再按场景顺序阅读。
- */
 import { Context } from '@deepseek-ai/cordis'
 import { describe, expect, it, vi } from 'vitest'
-import { makeTranslate, SlotTestRuntime } from '@deepseek-ai/dsh-client-test-runtime'
+import { makeTranslate, RemoteError, SlotTestRuntime } from '@deepseek-ai/dsh-client-test-runtime'
 import type { QueuedMessage } from '@deepseek-ai/dsh-api-session-controller/client'
 import { ComposerBlockRegistry } from '../src/client/input/blocks.ts'
 import { InputHub } from '../src/client/input/hub.ts'
@@ -22,13 +14,9 @@ import { zh } from '../src/client/locales.ts'
 
 async function bench() {
   const runtime = await SlotTestRuntime.create()
-  /** 中文说明：测试局部值 prompt，由紧邻初始化决定。 */
   const prompt = vi.fn(() => Promise.resolve({ ok: true as const, value: { accepted: true as const } }))
-  /** 中文说明：测试局部值 updateQueue，由紧邻初始化决定。 */
   const updateQueue = vi.fn(() => Promise.resolve({ ok: true as const, value: { accepted: true as const } }))
-  /** 中文说明：测试局部值 cancel，由紧邻初始化决定。 */
   const cancel = vi.fn(() => Promise.resolve({ ok: true as const, value: { accepted: true as const } }))
-  /** 中文说明：测试局部值 loadOlder，由紧邻初始化决定。 */
   const loadOlder = vi.fn(() => Promise.resolve())
   await runtime.sessions.add({
     id: 's1',
@@ -36,26 +24,20 @@ async function bench() {
   })
   // config.input is required (the apply shares its hub with the inject
   // factories); the bench passes its own instance explicitly.
-  /** 中文说明：测试局部值 hub，由紧邻初始化决定。 */
   const hub = new InputHub(runtime.ctx, makeTranslate(zh, {}))
-  /** 中文说明：测试局部值 fiber，由紧邻初始化决定。 */
   const fiber = runtime.ctx.plugin(ConversationController, {
     input: hub,
     blocks: new ComposerBlockRegistry(),
   })
   await fiber.await()
-  /** 中文说明：测试局部值 root，由紧邻初始化决定。 */
   const root = runtime.ctx.get('conversation') as ConversationController
-  /** 中文说明：测试局部值 scoped，由紧邻初始化决定。 */
   const scoped = runtime.sessions.scope('s1')!.get('conversation') as ConversationController
-  /** 中文说明：测试局部值 shell，由紧邻初始化决定。 */
   const shell = hub.shellFor(runtime.sessions.binding('s1')!)
   return { runtime, fiber, root, scoped, hub, shell, prompt, updateQueue, cancel, loadOlder }
 }
 
 describe('ConversationController', () => {
   it('routes operations through the public Session binding', async () => {
-    /** 中文说明：测试局部值 b，由紧邻初始化决定。 */
     const b = await bench()
     await b.scoped.send('hello')
     await b.scoped.updateQueue('item-1' as never, { kind: 'remove' })
@@ -69,48 +51,42 @@ describe('ConversationController', () => {
   })
 
   it('folds Session business failures into callback rejections', async () => {
-    /** 中文说明：测试局部值 b，由紧邻初始化决定。 */
     const b = await bench()
-    b.prompt.mockResolvedValueOnce({ ok: false, error: { code: 'agent-busy', message: 'busy', details: {} } } as never)
-    await expect(b.scoped.send('x')).rejects.toThrow('conversation.send failed: agent-busy: busy')
-    b.cancel.mockResolvedValueOnce({ ok: false, error: { code: 'internal', message: 'nope', details: {} } } as never)
-    await expect(b.scoped.cancel()).rejects.toThrow('conversation.cancel failed: internal: nope')
+    b.prompt.mockResolvedValueOnce({ ok: false, error: new RemoteError('session/agent-busy', 'busy', { reason: 'busy' }) } as never)
+    await expect(b.scoped.send('x')).rejects.toThrow('conversation.send failed: session/agent-busy: busy')
+    b.cancel.mockResolvedValueOnce({ ok: false, error: new RemoteError('gateway/internal', 'nope', {}) } as never)
+    await expect(b.scoped.cancel()).rejects.toThrow('conversation.cancel failed: gateway/internal: nope')
     b.updateQueue.mockResolvedValueOnce({
-      ok: false, error: { code: 'internal', message: 'broken', details: {} },
+      ok: false, error: new RemoteError('gateway/internal', 'broken', {}),
     } as never)
     await expect(b.scoped.updateQueue('item-1' as never, { kind: 'steer' }))
-      .rejects.toThrow('conversation.updateQueue failed: internal: broken')
+      .rejects.toThrow('conversation.updateQueue failed: gateway/internal: broken')
     await b.runtime.dispose()
   })
 
   it('treats strict-steer races as converged Queue delivery', async () => {
-    /** 中文说明：测试局部值 b，由紧邻初始化决定。 */
     const b = await bench()
     b.updateQueue.mockResolvedValueOnce({
-      ok: false, error: { code: 'steer-unavailable', message: 'closed', details: {} },
+      ok: false, error: new RemoteError('session/steer-unavailable', 'closed', { itemId: 'item-1' as QueuedMessage['id'] }),
     } as never)
     await expect(b.scoped.updateQueue('item-1' as never, { kind: 'steer' })).resolves.toBeUndefined()
     b.updateQueue.mockResolvedValueOnce({
-      ok: false, error: { code: 'queue-item-not-found', message: 'claimed', details: {} },
+      ok: false, error: new RemoteError('session/queue-item-not-found', 'claimed', { itemId: 'item-1' as QueuedMessage['id'] }),
     } as never)
     await expect(b.scoped.updateQueue('item-2' as never, { kind: 'steer' })).resolves.toBeUndefined()
     b.updateQueue.mockResolvedValueOnce({
-      ok: false, error: { code: 'queue-item-not-found', message: 'claimed', details: {} },
+      ok: false, error: new RemoteError('session/queue-item-not-found', 'claimed', { itemId: 'item-1' as QueuedMessage['id'] }),
     } as never)
     await expect(b.scoped.updateQueue('item-3' as never, { kind: 'remove' }))
-      .rejects.toThrow('conversation.updateQueue failed: queue-item-not-found: claimed')
+      .rejects.toThrow('conversation.updateQueue failed: session/queue-item-not-found: claimed')
     await b.runtime.dispose()
   })
 
   it('releases draft previews when their session scope is disposed', async () => {
-    /** 中文说明：测试局部值 b，由紧邻初始化决定。 */
     const b = await bench()
-    /** 中文说明：测试局部值 created，由紧邻初始化决定。 */
     const created = vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:draft-1')
-    /** 中文说明：测试局部值 revoked，由紧邻初始化决定。 */
     const revoked = vi.spyOn(URL, 'revokeObjectURL').mockReturnValue(undefined)
     try {
-      /** 中文说明：测试局部值 [attachment]，由紧邻初始化决定。 */
       const [attachment] = b.root.createDraftImages([
         new File([new Uint8Array(4)], 'a.png', { type: 'image/png' }),
       ])
@@ -149,9 +125,7 @@ describe('ConversationController', () => {
   })
 
   it('validates every MIME type before allocating previews', async () => {
-    /** 中文说明：测试局部值 b，由紧邻初始化决定。 */
     const b = await bench()
-    /** 中文说明：测试局部值 created，由紧邻初始化决定。 */
     const created = vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:preview')
     expect(() => b.root.createDraftImages([
       new File([Uint8Array.of(1)], 'valid.png', { type: 'image/png' }),
@@ -174,7 +148,6 @@ describe('ConversationController', () => {
       input: new InputHub(bare, makeTranslate(zh, {})),
       blocks: new ComposerBlockRegistry(),
     }).await()
-    /** 中文说明：测试局部值 orphan，由紧邻初始化决定。 */
     const orphan = bare.get('conversation') as ConversationController
     await expect(orphan.send('x')).rejects.toThrow(/sessions service unavailable/)
   })
@@ -212,6 +185,7 @@ describe('sendSession submission echo', () => {
       const sending = b.root.sendSession(session, '带图', [attachment!.id], 'queue')
       // Synchronous: the echo is registered before any encoding starts.
       expect(b.beginSubmission).toHaveBeenCalledWith(expect.objectContaining({
+        mode: 'queue',
         text: '带图',
         images: [expect.objectContaining({ previewUrl: 'blob:echo-1', name: 'a.png' })],
       }))
@@ -232,6 +206,29 @@ describe('sendSession submission echo', () => {
       await expect(sending).resolves.toEqual({ kind: 'success' })
       expect(b.root.draftImages([attachment!.id])).toEqual([])
       expect(b.revoked).toHaveBeenCalledWith('blob:echo-1')
+    } finally {
+      b.restore()
+    }
+    await b.runtime.dispose()
+  })
+
+  it('passes each delivery mode before image serialization', async () => {
+    const b = await echoBench()
+    try {
+      await b.runtime.sessions.updateSessionSnapshot('s1', (draft) => { draft.running = true })
+      const session = b.runtime.sessions.binding('s1')!.session
+      await expect(b.root.sendSession(session, '立即纠偏', [], 'steer'))
+        .resolves.toEqual({ kind: 'success' })
+      expect(b.beginSubmission).toHaveBeenLastCalledWith(expect.objectContaining({
+        mode: 'steer',
+        text: '立即纠偏',
+      }))
+      await expect(b.root.sendSession(session, '稍后处理', [], 'queue'))
+        .resolves.toEqual({ kind: 'success' })
+      expect(b.beginSubmission).toHaveBeenLastCalledWith(expect.objectContaining({
+        mode: 'queue',
+        text: '稍后处理',
+      }))
     } finally {
       b.restore()
     }
@@ -268,7 +265,7 @@ describe('sendSession submission echo', () => {
     const b = await echoBench()
     try {
       b.prompt.mockResolvedValueOnce({
-        ok: false, error: { code: 'attachment-error', message: 'nope', details: {} },
+        ok: false, error: new RemoteError('session/attachment-invalid', 'nope', { reason: 'nope' }),
       } as never)
       const [attachment] = b.root.createDraftImages([
         new File([Uint8Array.of(7)], 'kept.png', { type: 'image/png' }),
@@ -395,7 +392,6 @@ describe('draft image dimension probe', () => {
 })
 
 describe('InputHub queue steering (empty-draft accelerated Enter)', () => {
-  /** 中文说明：测试局部值 row，由紧邻初始化决定。 */
   const row = (id: string): QueuedMessage => ({
     id: id as never,
     messageId: `message-${id}` as never,
@@ -406,7 +402,6 @@ describe('InputHub queue steering (empty-draft accelerated Enter)', () => {
   })
 
   it('steers every queued row in FIFO order and leaves steering rows alone', async () => {
-    /** 中文说明：测试局部值 b，由紧邻初始化决定。 */
     const b = await bench()
     await b.runtime.sessions.updateSessionSnapshot('s1', (draft) => {
       draft.queue = [row('q-1'), { ...row('q-2'), placement: 'steering' }, row('q-3')]
@@ -422,14 +417,13 @@ describe('InputHub queue steering (empty-draft accelerated Enter)', () => {
   })
 
   it('converges silently when the turn closes or a row is claimed mid-steer', async () => {
-    /** 中文说明：测试局部值 b，由紧邻初始化决定。 */
     const b = await bench()
     await b.runtime.sessions.updateSessionSnapshot('s1', (draft) => {
       draft.queue = [row('q-1'), row('q-2')]
     })
     // The turn closes before the second row: the flush stops, silently.
     b.updateQueue.mockResolvedValueOnce({
-      ok: false, error: { code: 'steer-unavailable', message: 'closed', details: {} },
+      ok: false, error: new RemoteError('session/steer-unavailable', 'closed', { itemId: 'item-1' as QueuedMessage['id'] }),
     } as never)
     b.shell.steerQueue()
     await vi.waitFor(() => { expect(b.updateQueue).toHaveBeenCalledTimes(1) })
@@ -441,7 +435,7 @@ describe('InputHub queue steering (empty-draft accelerated Enter)', () => {
       draft.queue = [row('q-3')]
     })
     b.updateQueue.mockResolvedValueOnce({
-      ok: false, error: { code: 'queue-item-not-found', message: 'claimed', details: {} },
+      ok: false, error: new RemoteError('session/queue-item-not-found', 'claimed', { itemId: 'item-1' as QueuedMessage['id'] }),
     } as never)
     b.shell.steerQueue()
     await vi.waitFor(() => { expect(b.updateQueue).toHaveBeenCalledTimes(2) })
@@ -450,13 +444,12 @@ describe('InputHub queue steering (empty-draft accelerated Enter)', () => {
   })
 
   it('surfaces one notice on a genuine steer failure and stops', async () => {
-    /** 中文说明：测试局部值 b，由紧邻初始化决定。 */
     const b = await bench()
     await b.runtime.sessions.updateSessionSnapshot('s1', (draft) => {
       draft.queue = [row('q-1'), row('q-2')]
     })
     b.updateQueue.mockResolvedValueOnce({
-      ok: false, error: { code: 'internal', message: 'broken', details: {} },
+      ok: false, error: new RemoteError('gateway/internal', 'broken', {}),
     } as never)
     b.shell.steerQueue()
     await vi.waitFor(() => {
@@ -469,7 +462,6 @@ describe('InputHub queue steering (empty-draft accelerated Enter)', () => {
   })
 
   it('no-ops without queued rows', async () => {
-    /** 中文说明：测试局部值 b，由紧邻初始化决定。 */
     const b = await bench()
     b.shell.steerQueue()
     expect(b.updateQueue).not.toHaveBeenCalled()

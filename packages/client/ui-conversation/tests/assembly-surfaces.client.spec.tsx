@@ -1,12 +1,4 @@
 // @vitest-environment jsdom
-/*
- * 文件职责：验证会话界面的 assembly-surfaces.client.spec.tsx 行为和边界。
- * 技术维度：Vitest、React 测试渲染、事件模拟与可控服务替身。
- * 产品维度：防止会话界面交互和展示在扩展后回归。
- * 逻辑维度：构造状态，触发渲染或交互，再断言输出和清理。
- * 关键边界：全局替身、计时器和异步任务必须在用例后恢复。
- * 新手阅读建议：先读辅助夹具，再按 describe 场景顺序阅读。
- */
 /** Conversation assembly acceptance independent of Tool presentation. */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, cleanup, fireEvent, waitFor, within } from '@testing-library/react'
@@ -14,7 +6,9 @@ import { useState } from 'react'
 import { LocaleRuntime } from '@deepseek-ai/dsh-client-locale/client'
 import type { ISession } from '@deepseek-ai/dsh-api-session-controller/client'
 import type { PropsRenderSlots } from '@deepseek-ai/dsh-client-ui-slots'
-import { SlotTestRuntime, usePinnedBrowserLanguages, stubSettingsScope } from '@deepseek-ai/dsh-client-test-runtime'
+import {
+  RemoteError, SlotTestRuntime, usePinnedBrowserLanguages, stubSettingsScope,
+} from '@deepseek-ai/dsh-client-test-runtime'
 import { InputHub } from '../src/client/input/hub.ts'
 import { apply, inject, type EmptyWorkspaceOwnerProps } from '@deepseek-ai/dsh-client-ui-conversation/client'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
@@ -28,11 +22,9 @@ Range.prototype.getBoundingClientRect = () => ({
 
 usePinnedBrowserLanguages('zh-CN')
 
-/** 中文说明：测试局部值 SID，取值由紧邻初始化决定。 */
 const SID = 's1' as SessionId
 
 /** jsdom has no ResizeObserver; the composer seat publishes its height through one. */
-/* 中文说明：类型或类 ResizeObserverStub 约束本文件的数据或组件职责。 */
 class ResizeObserverStub {
   observe(): void {}
   unobserve(): void {}
@@ -53,14 +45,11 @@ function AppRoot({ renderSlot }: AppRootProps) {
   return <>{renderSlot('conversation', {})}</>
 }
 
-/** 中文说明：测试局部值 LAYOUT_CHILDREN，取值由紧邻初始化决定。 */
 const LAYOUT_CHILDREN = {
   'conversation': { kind: 'single', scope: 'session-maybe' },
 } as const
 
-/** 中文说明：函数 WorkspaceProbe 的参数见签名，返回结果供相邻流程使用；示例见本文件调用处。 */
 function WorkspaceProbe({ open }: EmptyWorkspaceOwnerProps) {
-  /** 中文说明：测试局部值 [count, setCount]，取值由紧邻初始化决定。 */
   const [count, setCount] = useState(0)
   return (
     <button data-testid="workspace-probe" onClick={() => { setCount(value => value + 1) }}>
@@ -69,9 +58,7 @@ function WorkspaceProbe({ open }: EmptyWorkspaceOwnerProps) {
   )
 }
 
-/** 中文说明：函数 bench 的参数见签名，返回结果供相邻流程使用；示例见本文件调用处。 */
 async function bench(opts?: { blank?: boolean }) {
-  /** 中文说明：测试局部值 runtime，取值由紧邻初始化决定。 */
   const runtime = await SlotTestRuntime.create()
   runtime.ctx.provide('uiWorkspace', { connectWorkspace: vi.fn(async () => SID) } as never)
   runtime.ctx.provide('settingsScope', { bind: () => stubSettingsScope().scope } as never)
@@ -94,7 +81,6 @@ async function bench(opts?: { blank?: boolean }) {
 
 describe('resident composer', () => {
   it('renders the locked view state while no session exists at all', async () => {
-    /** 中文说明：测试局部值 runtime，取值由紧邻初始化决定。 */
     const runtime = await SlotTestRuntime.create()
     runtime.ctx.provide('uiWorkspace', { connectWorkspace: vi.fn(async () => SID) } as never)
     runtime.ctx.provide('settingsScope', { bind: () => stubSettingsScope().scope } as never)
@@ -104,7 +90,6 @@ describe('resident composer', () => {
     await runtime.root.declare(LAYOUT_CHILDREN, AppRoot)
     await runtime.mount({ inject: [...inject], apply })
     runtime.slots.register({ name: 'conversation.hero.workspace' }, WorkspaceProbe)
-    /** 中文说明：测试局部值 view，取值由紧邻初始化决定。 */
     const view = runtime.renderRoot()
     const textarea = view.container.querySelector<HTMLDivElement>('[data-composer-input]')
     expect(textarea).not.toBeNull()
@@ -123,7 +108,6 @@ describe('resident composer', () => {
   })
 
   it('keeps the complete Hero tree mounted when the first Workspace session appears', async () => {
-    /** 中文说明：测试局部值 runtime，取值由紧邻初始化决定。 */
     const runtime = await SlotTestRuntime.create()
     runtime.ctx.provide('uiWorkspace', { connectWorkspace: vi.fn(async () => SID) } as never)
     runtime.ctx.provide('settingsScope', { bind: () => stubSettingsScope().scope } as never)
@@ -136,18 +120,13 @@ describe('resident composer', () => {
     await runtime.root.declare(LAYOUT_CHILDREN, AppRoot)
     await runtime.mount({ inject: [...inject], apply })
     runtime.slots.register({ name: 'conversation.hero.workspace' }, WorkspaceProbe)
-    /** 中文说明：测试局部值 view，取值由紧邻初始化决定。 */
     const view = runtime.renderRoot()
 
-    /** 中文说明：测试局部值 root，取值由紧邻初始化决定。 */
     const root = view.container.querySelector('[data-phase="hero"]')!
-    /** 中文说明：测试局部值 scrollBody，取值由紧邻初始化决定。 */
     const scrollBody = view.container.querySelector('[data-conversation-scroll]')!
-    /** 中文说明：测试局部值 composerSeat，取值由紧邻初始化决定。 */
     const composerSeat = view.container.querySelector('[data-composer-seat]')!
     const textarea = view.container.querySelector<HTMLDivElement>('[data-composer-input]')!
     const workspaceChip = view.getByRole('button', { name: '选择工作区' })
-    /** 中文说明：测试局部值 workspaceProbe，取值由紧邻初始化决定。 */
     const workspaceProbe = view.getByTestId('workspace-probe')
     expect(textarea.getAttribute('aria-disabled')).not.toBe('true')
     expect(textarea.getAttribute('contenteditable')).not.toBe('true')
@@ -175,12 +154,10 @@ describe('resident composer', () => {
   })
 
   it('the textarea survives the blank→active conversion as the same DOM node', async () => {
-    /** 中文说明：测试局部值 runtime，取值由紧邻初始化决定。 */
     const runtime = await bench({ blank: true })
     await runtime.workspaces.update((draft) => {
       draft.items = [{ workspaceId: 'w1', title: 'Proj', path: '/proj', sessionIds: [SID] }] as never
     })
-    /** 中文说明：测试局部值 view，取值由紧邻初始化决定。 */
     const view = runtime.renderRoot()
     const hero = view.container.querySelector<HTMLDivElement>('[data-composer-input]')
     expect(hero).not.toBeNull()
@@ -196,16 +173,15 @@ describe('resident composer', () => {
 
 describe('prompt rejection through the assembled composer', () => {
   it('renders the promptError alert strip and keeps the draft in the machine', async () => {
-    /** 中文说明：测试局部值 runtime，取值由紧邻初始化决定。 */
     const runtime = await SlotTestRuntime.create()
     runtime.ctx.provide('uiWorkspace', { connectWorkspace: vi.fn(async () => SID) } as never)
     runtime.ctx.provide('settingsScope', { bind: () => stubSettingsScope().scope } as never)
     const locale = new LocaleRuntime(runtime.ctx)
     runtime.ctx.provide('locale', locale)
     runtime.slots.installLocale(locale)
-    /** 中文说明：测试局部值 prompt，取值由紧邻初始化决定。 */
     const prompt = vi.fn<ISession['prompt']>(async () => ({
-      ok: false, error: { code: 'agent-busy', message: 'prompt rejected before acceptance', details: { reason: 'busy' } },
+      ok: false,
+      error: new RemoteError('session/agent-busy', 'prompt rejected before acceptance', { reason: 'busy' }),
     }))
     await runtime.sessions.add({
       id: SID,
@@ -214,7 +190,6 @@ describe('prompt rejection through the assembled composer', () => {
     })
     await runtime.root.declare(LAYOUT_CHILDREN, AppRoot)
     await runtime.mount({ inject: [...inject], apply })
-    /** 中文说明：测试局部值 view，取值由紧邻初始化决定。 */
     const view = runtime.renderRoot()
 
     const composer = view.container.querySelector<HTMLDivElement>('[data-composer-input]')!
@@ -229,12 +204,11 @@ describe('prompt rejection through the assembled composer', () => {
     await runtime.sessions.updateSessionSnapshot(SID, (draft) => {
       draft.promptError = {
         op: 'send',
-        error: { code: 'agent-busy', message: 'prompt rejected before acceptance', details: { reason: 'busy' } },
+        error: new RemoteError('session/agent-busy', 'prompt rejected before acceptance', { reason: 'busy' }),
       }
     })
-    /** 中文说明：测试局部值 alert，取值由紧邻初始化决定。 */
     const alert = await view.findByRole('alert')
-    expect(alert.textContent).toContain('prompt rejected before acceptance (agent-busy)')
+    expect(alert.textContent).toContain('prompt rejected before acceptance (session/agent-busy)')
     await waitFor(() => {
       expect(shell.snapshot.draft).toBe('do not lose this')
     })
@@ -244,11 +218,8 @@ describe('prompt rejection through the assembled composer', () => {
 
 describe('title projection across assembled surfaces', () => {
   it('one summary update re-labels the current-session crumb', async () => {
-    /** 中文说明：测试局部值 runtime，取值由紧邻初始化决定。 */
     const runtime = await bench()
-    /** 中文说明：测试局部值 view，取值由紧邻初始化决定。 */
     const view = runtime.renderRoot()
-    /** 中文说明：测试局部值 hierarchy，取值由紧邻初始化决定。 */
     const hierarchy = view.getByRole('navigation', { name: '会话层级' })
     expect(within(hierarchy).getByRole('button', { name: 'S' }).hasAttribute('disabled')).toBe(true)
 

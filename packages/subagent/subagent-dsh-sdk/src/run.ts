@@ -9,16 +9,9 @@
  *
  * @module @deepseek-ai/dsh-subagent-dsh-sdk/run
  */
-/*
- * 文件职责：实现 run.ts 覆盖的子代理启动、协议、继承与生命周期行为。
- * 技术维度：使用 TypeScript、Vitest、Cordis 插件、进程协议或同进程代理驱动。
- * 产品维度：保障 Agent 能可靠委派任务、继承上下文并收集子代理结果。
- * 逻辑维度：准备代理配置，启动或连接子代理，转发事件，再处理结果、取消与清理。
- * 关键边界：异步状态不等于单次任务结果；外部输出不可信；清理必须等待子代理完全停止。
- * 新手阅读建议：先看公开配置和测试夹具，再读启动/事件流程，最后关注继承、取消与失败路径。
- */
 
 import { randomUUID } from 'node:crypto'
+import { brandString } from '@deepseek-ai/dsh-brand'
 import {
   DeepSeekHarness,
   type DeepSeekHarnessOptions,
@@ -28,13 +21,12 @@ import {
   TransportClosedError,
 } from '@deepseek-ai/dsh-sdk-client'
 import type { ContentBlock, ReasoningEffortId } from '@deepseek-ai/dsh-llm'
-import { SessionId, type SessionEvent, type TurnEndReason } from '@deepseek-ai/dsh-session'
+import type { SessionEvent, SessionId, TurnEndReason } from '@deepseek-ai/dsh-session'
 import type { SubagentResult, SubagentRun, SubagentStartRequest, SubagentStopReason } from '@deepseek-ai/dsh-subagent'
 import { AssistantOutputFold, settleRunResult, subprocessRunHandle } from '@deepseek-ai/dsh-subagent'
 import { scrubbedParentEnv } from '@deepseek-ai/dsh-subprocess'
 
 /** Resolved spawn spec for an SDK runtime child process (no defaults — see Config). */
-/* 中文说明：interface SdkRunSpec 定义本模块所需的数据或行为，用于表达子代理场景。 */
 export interface SdkRunSpec {
   /** Explicit dsh CLI module; omission resolves the SDK client's same-version dependency. */
   dshBin?: string
@@ -80,15 +72,12 @@ export interface SdkRunSpec {
 }
 
 /** EOF grace for child flush and nested-process teardown; wider than the signal grace below. */
-/* 中文说明：常量 DEFAULT_DISPOSE_EOF_GRACE_MS 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 export const DEFAULT_DISPOSE_EOF_GRACE_MS = 6_000
 
 /** Default POSIX grace between SIGTERM and SIGKILL on dispose (the `disposeGraceMs` config). */
-/* 中文说明：常量 DEFAULT_DISPOSE_GRACE_MS 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 export const DEFAULT_DISPOSE_GRACE_MS = 3_000
 
 /** Default bound on the protocol `shutdown` exchange during dispose. */
-/* 中文说明：常量 DEFAULT_SHUTDOWN_TIMEOUT_MS 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 export const DEFAULT_SHUTDOWN_TIMEOUT_MS = 1_000
 
 type SdkFailureStage = 'initialize' | 'session-run' | 'shutdown'
@@ -193,7 +182,6 @@ export function sdkChildOutcome(
 }
 
 /** Normalize an unknown thrown value to an Error (the catch binding is `unknown`). */
-/* 中文说明：函数 toError 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function toError(value: unknown): Error {
   // The catch only sees rejections from the SDK client, which are always
   // `Error`s; the `String(value)` arm is a defensive fallback for a non-Error
@@ -242,18 +230,11 @@ function sdkStartupFailure(spec: SdkRunSpec, error: unknown): Error {
  * error sink.
  * @returns the ready run handle for the child subprocess.
  */
-/*
- * 中文说明：函数 startSdkRun 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。
- * @param request 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
- * @param spec 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
- * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
- */
 export async function startSdkRun(request: SubagentStartRequest, spec: SdkRunSpec): Promise<SubagentRun> {
   if (request.signal.aborted) throw new Error('subagent request was aborted before the SDK child started')
   // The run id lives in the parent namespace; the child runtime's session id
   // (minted below, private to the wire) exists only inside the child process.
-  /** 中文说明：变量 id 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-  const id = SessionId(randomUUID())
+  const id = brandString<SessionId>(randomUUID())
 
   const harness = internals.createHarness({
     ...spec.dshBin === undefined ? {} : { dshBin: spec.dshBin },
@@ -273,19 +254,14 @@ export async function startSdkRun(request: SubagentStartRequest, spec: SdkRunSpe
   })
 
   // Cancellation settles the result without waiting for a cooperative child.
-  /** 中文说明：变量 flags 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const flags = { cancelled: false }
-  /** 中文说明：函数值 signalCancelSettled 封装本模块的局部步骤；参数和返回值由右侧签名约束；示例见本模块调用。 */
   let signalCancelSettled!: () => void
-  /** 中文说明：函数值 cancelSettled 封装本模块的局部步骤；参数和返回值由右侧签名约束；示例见本模块调用。 */
   const cancelSettled = new Promise<void>((resolve) => { signalCancelSettled = resolve })
-  /** 中文说明：函数值 requestCancel 封装本模块的局部步骤；参数和返回值由右侧签名约束；示例见本模块调用。 */
   const requestCancel = (): void => {
     if (flags.cancelled) return
     flags.cancelled = true
     signalCancelSettled()
   }
-  /** 中文说明：函数值 onAbort 封装本模块的局部步骤；参数和返回值由右侧签名约束；示例见本模块调用。 */
   const onAbort = (): void => { requestCancel() }
   request.signal.addEventListener('abort', onAbort, { once: true })
   const cancelledStartup = new Error('subagent cancelled before the SDK child initialized')
@@ -319,18 +295,14 @@ export async function startSdkRun(request: SubagentStartRequest, spec: SdkRunSpe
     throw new Error('subagent request was aborted before the SDK child started')
   }
 
-  /** 中文说明：变量 childSessionId 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const childSessionId = `session-${randomUUID().replaceAll('-', '')}`
   // The child's final answer under the seam's canonical selection rule
   // (`AssistantOutputFold`); a partial answer survives cancel and error paths.
-  /** 中文说明：变量 fold 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const fold = new AssistantOutputFold()
-  /** 中文说明：函数值 observe 封装本模块的局部步骤；参数和返回值由右侧签名约束；示例见本模块调用。 */
   const observe = (notification: HarnessNotification): void => {
     if (notification.method !== 'session.event' || notification.params.sessionId !== childSessionId) return
     fold.push(notification.params.event as SessionEvent)
   }
-  /** 中文说明：函数值 collectOutput 封装本模块的局部步骤；参数和返回值由右侧签名约束；示例见本模块调用。 */
   const collectOutput = (): ContentBlock[] => fold.collect() ?? []
   const teardown = async (): Promise<void> => {
     try {

@@ -4,14 +4,6 @@
  *
  * @module @deepseek-ai/dsh-subagent-acp/run
  */
-/*
- * 文件职责：实现 run.ts 覆盖的子代理进程与协议行为与生命周期。
- * 技术维度：使用 TypeScript、Vitest、Cordis 插件、文件存储或受控子进程协议。
- * 产品维度：保障 Agent 的子代理进程与协议能力稳定、安全且可诊断。
- * 逻辑维度：准备或解析输入，执行核心流程，再处理结果、错误与资源清理。
- * 关键边界：外部进程和持久化数据不可信；敏感环境需净化；清理必须等待资源完全停止。
- * 新手阅读建议：先看导出类型和夹具，再读主流程，最后关注协议错误、恢复和清理。
- */
 
 import { randomUUID } from 'node:crypto'
 import { Readable as NodeReadable, Writable as NodeWritable } from 'node:stream'
@@ -25,17 +17,16 @@ import {
   type ToolKind,
 } from '@agentclientprotocol/sdk'
 import type { ContentBlock } from '@deepseek-ai/dsh-llm'
-import { SessionId } from '@deepseek-ai/dsh-session'
+import { brandString } from '@deepseek-ai/dsh-brand'
+import type { SessionId } from '@deepseek-ai/dsh-session'
 import { AssistantOutputFold, settleRunResult, subprocessRunHandle } from '@deepseek-ai/dsh-subagent'
 import type { SubagentResult, SubagentRun, SubagentStartRequest, SubagentStopReason } from '@deepseek-ai/dsh-subagent'
 import type { SubprocessHandle, SubprocessOutcome, SubprocessSpawnSpec } from '@deepseek-ai/dsh-subprocess'
 
 /** Fixed response to child permission requests: reject by default, or select the first allow option. */
-/* 中文说明：type PermissionPolicy 定义本模块所需的数据或行为，用于表达子代理进程与协议场景。 */
 export type PermissionPolicy = 'allow' | 'reject'
 
 /** Resolved spawn spec for an ACP child process (no defaults — see Config). */
-/* 中文说明：interface AcpRunSpec 定义本模块所需的数据或行为，用于表达子代理进程与协议场景。 */
 export interface AcpRunSpec {
   /** The executable to spawn (the child ACP agent). */
   command: string
@@ -89,11 +80,9 @@ export interface AcpRunSpec {
 }
 
 /** EOF grace for child flush and nested-process teardown; wider than the signal grace below. */
-/* 中文说明：常量 DEFAULT_DISPOSE_EOF_GRACE_MS 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 export const DEFAULT_DISPOSE_EOF_GRACE_MS = 6_000
 
 /** Default POSIX grace between SIGTERM and SIGKILL on dispose (the `disposeGraceMs` config). */
-/* 中文说明：常量 DEFAULT_DISPOSE_GRACE_MS 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 export const DEFAULT_DISPOSE_GRACE_MS = 3_000
 
 type AcpFailureStage = 'initialize' | 'new-session' | 'prompt' | 'process' | 'teardown'
@@ -182,11 +171,8 @@ function permissionRequestKind(kind: ToolKind | null | undefined): ToolKind | 'u
 }
 
 /** Bounded whole-tree exit wait: polls the handle's tree liveness until it exits or `ms` elapses. */
-/* 中文说明：函数 treeExitsWithin 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 async function treeExitsWithin(child: SubprocessHandle, ms: number): Promise<boolean> {
-  /** 中文说明：变量 controller 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const controller = new AbortController()
-  /** 中文说明：函数值 timer 封装本模块的局部步骤；参数和返回值由右侧签名约束；示例见本模块调用。 */
   const timer = setTimeout(() => { controller.abort() }, ms)
   try {
     return await child.waitForExit(controller.signal)
@@ -203,11 +189,6 @@ async function treeExitsWithin(child: SubprocessHandle, ms: number): Promise<boo
  * whole-tree exit proof.
  * @param child - the spawned ACP child's handle.
  * @param eofGraceMs - tier-1 window after stdin EOF.
- */
-/*
- * 中文说明：函数 disposeAcpChild 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。
- * @param child 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
- * @param eofGraceMs 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
  */
 export async function disposeAcpChild(child: SubprocessHandle, eofGraceMs: number): Promise<void> {
   // A spawn failure has no process to tear down; observe the rejection so
@@ -229,11 +210,6 @@ export async function disposeAcpChild(child: SubprocessHandle, eofGraceMs: numbe
  * @param reason - the terminal reason from the child's `session/prompt` response.
  * @returns the harness equivalent; `max_turn_requests` and any unknown future
  * variant map to `error`, so an unclean stop is never reported as `completed`.
- */
-/*
- * 中文说明：函数 acpStopReason 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。
- * @param reason 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
- * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
  */
 export function acpStopReason(reason: StopReason): SubagentStopReason {
   switch (reason) {
@@ -264,11 +240,6 @@ export function acpStopReason(reason: StopReason): SubagentStopReason {
  * @param content - the content block off a streamed `agent_message_chunk`.
  * @returns the block's text, or `''` for a non-text block.
  */
-/*
- * 中文说明：函数 acpContentText 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。
- * @param content 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
- * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
- */
 export function acpContentText(content: AcpContentBlock): string {
   return content.type === 'text' ? content.text : ''
 }
@@ -278,15 +249,8 @@ export function acpContentText(content: AcpContentBlock): string {
  * @param prompt - the harness prompt; non-text blocks are dropped.
  * @returns the ACP text blocks, in order.
  */
-/*
- * 中文说明：函数 toAcpPrompt 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。
- * @param prompt 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
- * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
- */
 export function toAcpPrompt(prompt: ContentBlock[]): AcpContentBlock[] {
-  /** 中文说明：变量 blocks 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const blocks: AcpContentBlock[] = []
-  /** 中文说明：该循环依次处理输入数据；循环变量仅在当前循环中有效。 */
   for (const block of prompt) {
     if (block.type === 'text') blocks.push({ type: 'text', text: block.text })
   }
@@ -294,7 +258,6 @@ export function toAcpPrompt(prompt: ContentBlock[]): AcpContentBlock[] {
 }
 
 /** Normalize an unknown thrown value to an Error (the catch binding is `unknown`). */
-/* 中文说明：函数 toError 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function toError(value: unknown): Error {
   // The catch only sees rejections from the ACP SDK RPCs and the spawn `error`
   // event, which are always `Error`s; the `String(value)` arm is a defensive
@@ -368,19 +331,12 @@ function terminalFailure(
  * policy, dispose graces, and the optional error sink.
  * @returns the ready run handle for the child subprocess.
  */
-/*
- * 中文说明：函数 startAcpRun 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。
- * @param request 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
- * @param spec 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
- * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
- */
 export async function startAcpRun(request: SubagentStartRequest, spec: AcpRunSpec): Promise<SubagentRun> {
   if (request.signal.aborted) throw new Error('subagent request was aborted before the ACP child started')
   // ACP session ids are unique only within the child server. The lifecycle id
   // is minted in the parent namespace so fresh processes cannot collide with
   // each other or with a local agent that happens to use the same session id.
-  /** 中文说明：变量 id 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-  const id = SessionId(randomUUID())
+  const id = brandString<SessionId>(randomUUID())
 
   // Keep diagnostics on parent stderr ('inherit'); only ACP output contributes
   // to the result. The seam's scrub drops ambient credentials and DSH_* names
@@ -442,17 +398,13 @@ export async function startAcpRun(request: SubagentStartRequest, spec: AcpRunSpe
   }
 
   // Startup rollback and the published handle share one process teardown.
-  /** 中文说明：变量 processDisposal 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   let processDisposal: Promise<void> | undefined
-  /** 中文说明：函数值 disposeProcess 封装本模块的局部步骤；参数和返回值由右侧签名约束；示例见本模块调用。 */
   const disposeProcess = (): Promise<void> => (processDisposal ??= disposeAcpChild(child, spec.disposeEofGraceMs))
 
   // ACP exposes no complete assistant messages, so the shared fold selects its
   // accumulated assistant text.
-  /** 中文说明：变量 fold 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const fold = new AssistantOutputFold()
   // Shared mutable state keeps cancellation visible across async closures.
-  /** 中文说明：变量 flags 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const flags = { cancelled: false }
   let latestPermission: AcpPermissionDecision | undefined
 
@@ -471,7 +423,6 @@ export async function startAcpRun(request: SubagentStartRequest, spec: AcpRunSpe
       // whose kind is `allow_once` or `allow_always`; if the child offered none (or we
       // reject), answer `cancelled` so the child does not proceed.
       if (spec.permission === 'allow') {
-        /** 中文说明：函数值 allow 封装本模块的局部步骤；参数和返回值由右侧签名约束；示例见本模块调用。 */
         const allow = params.options.find(o => o.kind === 'allow_once' || o.kind === 'allow_always')
         if (allow !== undefined) {
           latestPermission = {
@@ -496,15 +447,11 @@ export async function startAcpRun(request: SubagentStartRequest, spec: AcpRunSpe
   ))
   const agent = connection.agent
 
-  /** 中文说明：变量 sessionId 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   let sessionId: string | undefined
   let startupStage: Extract<AcpFailureStage, 'initialize' | 'new-session'> = 'initialize'
   // Cancellation settles the result without waiting for a cooperative child.
-  /** 中文说明：函数值 signalCancelSettled 封装本模块的局部步骤；参数和返回值由右侧签名约束；示例见本模块调用。 */
   let signalCancelSettled!: () => void
-  /** 中文说明：函数值 cancelSettled 封装本模块的局部步骤；参数和返回值由右侧签名约束；示例见本模块调用。 */
   const cancelSettled = new Promise<void>((resolve) => { signalCancelSettled = resolve })
-  /** 中文说明：函数值 requestCancel 封装本模块的局部步骤；参数和返回值由右侧签名约束；示例见本模块调用。 */
   const requestCancel = (): void => {
     if (flags.cancelled) return
     flags.cancelled = true
@@ -515,12 +462,10 @@ export async function startAcpRun(request: SubagentStartRequest, spec: AcpRunSpe
       void agent.notify(methods.agent.session.cancel, { sessionId }).catch(() => { /* child gone / no session */ })
     }
   }
-  /** 中文说明：函数值 onAbort 封装本模块的局部步骤；参数和返回值由右侧签名约束；示例见本模块调用。 */
   const onAbort = (): void => { requestCancel() }
   request.signal.addEventListener('abort', onAbort, { once: true })
 
   // Read at every return so a partial answer survives a later cancel/error.
-  /** 中文说明：函数值 collectOutput 封装本模块的局部步骤；参数和返回值由右侧签名约束；示例见本模块调用。 */
   const collectOutput = (): ContentBlock[] => fold.collect() ?? []
 
   // Establish the remote session before publishing a handle. Any failure owns
@@ -598,7 +543,6 @@ export async function startAcpRun(request: SubagentStartRequest, spec: AcpRunSpe
   // This assertion carries that cross-closure invariant into TypeScript.
   /* v8 ignore next */
   if (sessionId === undefined) throw new Error('unreachable: ACP startup fulfilled without a session id')
-  /** 中文说明：变量 remoteSessionId 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const remoteSessionId = sessionId
 
   let diagnostic: string | undefined

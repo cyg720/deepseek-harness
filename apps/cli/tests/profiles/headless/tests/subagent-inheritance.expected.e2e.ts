@@ -2,14 +2,6 @@
  * Assembled-app regression: a parent-only read-only override is seeded into
  * its child log and confines a real write under a wider deployment default.
  */
-/*
- * 文件职责：验证父会话的只读沙箱覆盖会持久注入子代理日志，并约束其真实写操作。
- * 技术维度：使用 Vitest、SessionStore、JSONL 持久化、Loader smoke、子代理回放和快照归一化。
- * 产品维度：确保委派任务不会绕过父会话收紧的权限，即使部署默认允许更宽访问。
- * 逻辑维度：先写入含 sandbox/mode 只读事件的父会话，恢复后委派写探针，再比较父子日志与磁盘状态。
- * 关键边界：只读事实只存在于父日志；子代理必须继承而非读取部署默认；实际文件不得落盘。
- * 新手阅读建议：先读 seedReadOnlyParent 的 sandbox/mode 事件，再跟踪委派回放和子日志断言。
- */
 
 import { readFile, readdir, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
@@ -27,7 +19,7 @@ const replayOverride = join(fixtureDir, 'replay.override.json')
 const childReplay = join(fixtureDir, 'child.replay.jsonl')
 const parentExpected = join(fixtureDir, 'parent.expected.jsonl')
 const childExpected = join(fixtureDir, 'child.expected.jsonl')
-const configPath = fileURLToPath(new URL('../subagent-inheritance.cordis.snapshot.yml', import.meta.url))
+const configPath = fileURLToPath(new URL('../subagent-inheritance-snapshot.patch.yml', import.meta.url))
 const binScript = fileURLToPath(new URL('../../../../../../packages/test-support/loader-smoke/tests/fixtures/headless-driver.ts', import.meta.url))
 const tsconfigPath = fileURLToPath(new URL('../../../../../../tsconfig.json', import.meta.url))
 const sessionId = SessionId('subagent-inheritance-parent')

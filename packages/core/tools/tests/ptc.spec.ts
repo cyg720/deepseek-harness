@@ -1,26 +1,18 @@
-/**
- * 文件职责：验证工具注册与执行的 code-mode.spec.ts 行为与边界。
- * 技术维度：TypeScript、Cordis、Vitest、会话事件、JSON 模式和服务作用域。
- * 产品维度：保证工具注册与执行在配置、错误、恢复和生命周期场景中可靠。
- * 逻辑维度：构造输入并驱动服务，再断言输出、日志和清理。
- * 关键边界：持久与凭据数据属于不可信边界；工具和提示词必须保持模型可见内容可重建。
- * 新手阅读建议：先读类型和夹具，再按正常、非法输入、作用域和清理场景阅读。
- */
 import { describe, expect, it } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
 import { createUserMessage, ToolCallId  } from '@deepseek-ai/dsh-llm'
 import { createScope } from '@deepseek-ai/dsh-scope'
 import type { Scope } from '@deepseek-ai/dsh-scope'
-import SystemPrompt, { FIRST_PARTY_SECTION_ORDER } from '@deepseek-ai/dsh-system-prompt'
+import SystemPrompt from '@deepseek-ai/dsh-system-prompt'
 import { CodeRuntime } from '@deepseek-ai/dsh-code-runtime'
 import type { CodeRunRequest, CodeRunResult } from '@deepseek-ai/dsh-code-runtime'
 import ToolRuntime, { CodeRunFailedError, RUN_CODE_NAME, TOOL_ABORTED_BEFORE_DISPATCH, defineContentToolFixture, defineTool } from '@deepseek-ai/dsh-tools'
 import type { Config, JsonSchemaNode, PostToolDecision, ToolExecutionResult } from '@deepseek-ai/dsh-tools'
 import type { Agent } from '@deepseek-ai/dsh-agent'
 import { Session, SessionId } from '@deepseek-ai/dsh-session'
-import type { JsonValue, SessionEventMap } from '@deepseek-ai/dsh-session'
+import type { SessionEventMap } from '@deepseek-ai/dsh-session'
+import type { JsonValue } from '@deepseek-ai/dsh-util-values'
 
-/** 中文说明：测试局部值 testToolSignal，由紧邻初始化决定。 */
 const testToolSignal = new AbortController().signal
 
 /**
@@ -32,7 +24,6 @@ const testToolSignal = new AbortController().signal
  */
 
 /** A scriptable in-repo CodeRuntime: each test sets `behavior` to drive the bindings however it needs. */
-/* 中文说明：类型或类 FakeRuntime 约束服务或测试数据职责。 */
 class FakeRuntime extends CodeRuntime {
   readonly language: string
   readonly isolation = 'fake'
@@ -50,7 +41,6 @@ class FakeRuntime extends CodeRuntime {
   }
 }
 
-/** 中文说明：类型或类 SetupOptions 约束服务或测试数据职责。 */
 interface SetupOptions {
   mode?: Config['mode']
   maxParallelSubCalls?: number
@@ -58,9 +48,7 @@ interface SetupOptions {
   toolOrder?: string[]
 }
 
-/** 中文说明：函数 setup 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 async function setup(options: SetupOptions = {}) {
-  /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
   const ctx = new Context()
   await ctx.plugin(SystemPrompt, { ...options.toolOrder ? { toolOrder: options.toolOrder } : {} })
   await ctx.plugin(ToolRuntime, { mode: options.mode ?? 'ptc', ...options.maxParallelSubCalls !== undefined ? { maxParallelSubCalls: options.maxParallelSubCalls } : {} })
@@ -73,11 +61,8 @@ async function setup(options: SetupOptions = {}) {
 }
 
 /** Mint an agent scope configured like production that can register scoped tool policy. */
-/* 中文说明：函数 mintAgentScope 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 async function mintAgentScope(ctx: Context, name = 'scoped'): Promise<{ scope: Scope; agent: Agent }> {
-  /** 中文说明：测试局部值 agent，由紧邻初始化决定。 */
   const agent = { id: SessionId(name) } as Agent
-  /** 中文说明：测试局部值 scope!: Scope，由紧邻初始化决定。 */
   let scope!: Scope
   await ctx.plugin(Object.assign((inner: Context) => { scope = createScope(inner, agent) },
     { inject: ['tools', 'systemPrompt'] }))
@@ -85,9 +70,7 @@ async function mintAgentScope(ctx: Context, name = 'scoped'): Promise<{ scope: S
 }
 
 /** Register a trivial echo tool; returns the calls it received. */
-/* 中文说明：函数 registerEcho 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function registerEcho(ctx: Context, name = 'echo'): unknown[] {
-  /** 中文说明：测试局部值 calls，由紧邻初始化决定。 */
   const calls: unknown[] = []
   ctx.tools.register(defineTool({
     name,
@@ -106,11 +89,8 @@ function registerEcho(ctx: Context, name = 'echo'): unknown[] {
 }
 
 /** A structural fake of the owning agent: captures session appends. */
-/* 中文说明：函数 fakeAgent 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function fakeAgent(): { agent: Agent; events: { type: string; data: unknown }[] } {
-  /** 中文说明：测试局部值 events，由紧邻初始化决定。 */
   const events: { type: string; data: unknown }[] = []
-  /** 中文说明：测试局部值 agent，由紧邻初始化决定。 */
   const agent = {
     session: {
       header: { cwd: '/workspace' },
@@ -121,7 +101,6 @@ function fakeAgent(): { agent: Agent; events: { type: string; data: unknown }[] 
 }
 
 /** Dispatch run_code through the registry pipeline, as the loop would. */
-/* 中文说明：函数 runCode 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 async function runCode(
   ctx: Context,
   code: string,
@@ -139,10 +118,8 @@ async function runCode(
 
 describe('mode-aware wire contribution', () => {
   it("mode 'native' contributes every schema, no run_code, no SDK section — and needs no runtime", async () => {
-    /** 中文说明：测试局部值 { ctx, systemPrompt }，由紧邻初始化决定。 */
     const { ctx, systemPrompt } = await setup({ mode: 'native', runtime: false })
     registerEcho(ctx)
-    /** 中文说明：测试局部值 assembly，由紧邻初始化决定。 */
     const assembly = await systemPrompt.assemble()
     expect(assembly.tools.map(tool => tool.name)).toEqual(['echo'])
     expect(assembly.sections.some(section => section.name === 'tools:sdk')).toBe(false)
@@ -151,10 +128,8 @@ describe('mode-aware wire contribution', () => {
   it("mode 'ptc' contributes exactly [run_code] plus the SDK section declaring the other tools", async () => {
     const { ctx, systemPrompt } = await setup({ mode: 'ptc' })
     registerEcho(ctx)
-    /** 中文说明：测试局部值 assembly，由紧邻初始化决定。 */
     const assembly = await systemPrompt.assemble()
     expect(assembly.tools.map(tool => tool.name)).toEqual([RUN_CODE_NAME])
-    /** 中文说明：测试局部值 sdk，由紧邻初始化决定。 */
     const sdk = assembly.sections.find(section => section.name === 'tools:sdk')
     expect(sdk?.text).toContain('declare const tools: {')
     expect(sdk?.text).toContain('echo: {')
@@ -169,13 +144,11 @@ describe('mode-aware wire contribution', () => {
     // saying how it is reached.
     ctx.systemPrompt.section({
       name: 'tool:echo',
-      order: FIRST_PARTY_SECTION_ORDER.TOOL_READ,
+      order: ctx.systemPrompt.getSectionOrder('TOOL_READ'),
       text: 'Use the echo tool.',
     })
 
-    /** 中文说明：测试局部值 assembly，由紧邻初始化决定。 */
     const assembly = await systemPrompt.assemble()
-    /** 中文说明：测试局部值 names，由紧邻初始化决定。 */
     const names = assembly.sections.map(section => section.name)
     const rule = assembly.sections.find(section => section.name === 'tools:ptc-only')
     expect(rule?.text).toContain(`\`${RUN_CODE_NAME}\` is the only tool you can call directly`)
@@ -185,10 +158,8 @@ describe('mode-aware wire contribution', () => {
   })
 
   it("mode 'both' omits the run_code-only rule, because native calls do execute there", async () => {
-    /** 中文说明：测试局部值 { ctx, systemPrompt }，由紧邻初始化决定。 */
     const { ctx, systemPrompt } = await setup({ mode: 'both' })
     registerEcho(ctx)
-    /** 中文说明：测试局部值 assembly，由紧邻初始化决定。 */
     const assembly = await systemPrompt.assemble()
     // Registered (the deployment is non-native) but empty, so the renderer
     // drops it: `both` executes the native call the rule would forbid.
@@ -199,7 +170,6 @@ describe('mode-aware wire contribution', () => {
   it('projects deeply nested output schemas into the PTC mode SDK without structured-clone recursion', async () => {
     const { ctx, systemPrompt } = await setup({ mode: 'ptc' })
     let output: JsonSchemaNode = { type: 'string' }
-    /** 中文说明：测试局部值 depth，由紧邻初始化决定。 */
     for (let depth = 0; depth < 5_000; depth++) {
       output = { oneOf: [output, { type: 'null' }] }
     }
@@ -214,9 +184,7 @@ describe('mode-aware wire contribution', () => {
       execute() { return Promise.resolve('ok') },
     })
 
-    /** 中文说明：测试局部值 assembly，由紧邻初始化决定。 */
     const assembly = await systemPrompt.assemble()
-    /** 中文说明：测试局部值 sdk，由紧邻初始化决定。 */
     const sdk = assembly.sections.find(section => section.name === 'tools:sdk')?.text
 
     expect(sdk).toContain('deep_output: Record<string, JsonValue>;')
@@ -227,7 +195,6 @@ describe('mode-aware wire contribution', () => {
     const { ctx, systemPrompt } = await setup({ mode })
     registerEcho(ctx)
     ctx.on('system-prompt/assemble', async (_assembly, _context, next) => {
-      /** 中文说明：测试局部值 assembly，由紧邻初始化决定。 */
       const assembly = await next()
       return {
         ...assembly,
@@ -236,7 +203,6 @@ describe('mode-aware wire contribution', () => {
       }
     }, { prepend: true })
 
-    /** 中文说明：测试局部值 assembly，由紧邻初始化决定。 */
     const assembly = await systemPrompt.assemble()
     expect(assembly.sections.some(section => section.name === 'tools:sdk')).toBe(false)
     expect(assembly.tools.some(tool => tool.name === RUN_CODE_NAME)).toBe(false)
@@ -245,27 +211,22 @@ describe('mode-aware wire contribution', () => {
   it.each(['ptc', 'both'] as const)('lets one scope shadow the default SDK section in mode %s', async (mode) => {
     const { ctx, systemPrompt } = await setup({ mode })
     registerEcho(ctx)
-    /** 中文说明：测试局部值 { scope, agent }，由紧邻初始化决定。 */
     const { scope, agent } = await mintAgentScope(ctx)
     scope.ctx.systemPrompt.section({
       name: 'tools:sdk',
-      order: FIRST_PARTY_SECTION_ORDER.TOOLS_SDK,
+      order: scope.ctx.systemPrompt.getSectionOrder('TOOLS_SDK'),
       text: 'SCOPED SDK',
     })
 
-    /** 中文说明：测试局部值 scoped，由紧邻初始化决定。 */
     const scoped = await systemPrompt.assemble({ scope: agent })
-    /** 中文说明：测试局部值 global，由紧邻初始化决定。 */
     const global = await systemPrompt.assemble()
     expect(scoped.sections.find(section => section.name === 'tools:sdk')?.text).toBe('SCOPED SDK')
     expect(global.sections.find(section => section.name === 'tools:sdk')?.text).toContain('declare const tools:')
   })
 
   it("mode 'both' contributes every native schema plus run_code, and the SDK section", async () => {
-    /** 中文说明：测试局部值 { ctx, systemPrompt }，由紧邻初始化决定。 */
     const { ctx, systemPrompt } = await setup({ mode: 'both' })
     registerEcho(ctx)
-    /** 中文说明：测试局部值 assembly，由紧邻初始化决定。 */
     const assembly = await systemPrompt.assemble()
     expect(assembly.tools.map(tool => tool.name)).toEqual(['echo', RUN_CODE_NAME])
     expect(assembly.sections.some(section => section.name === 'tools:sdk')).toBe(true)
@@ -275,17 +236,13 @@ describe('mode-aware wire contribution', () => {
     const { ctx, systemPrompt, runtime } = await setup({ mode })
     registerEcho(ctx, 'echo')
     registerEcho(ctx, 'hidden')
-    /** 中文说明：测试局部值 { scope, agent }，由紧邻初始化决定。 */
     const { scope, agent } = await mintAgentScope(ctx)
-    /** 中文说明：测试局部值 lift，由紧邻初始化决定。 */
     const lift = scope.ctx.tools.restrict({ allow: ['echo'] })
 
-    /** 中文说明：测试局部值 assembly，由紧邻初始化决定。 */
     const assembly = await systemPrompt.assemble({ scope: agent })
     expect(assembly.tools.map(tool => tool.name)).toEqual(mode === 'ptc'
       ? [RUN_CODE_NAME]
       : ['echo', RUN_CODE_NAME])
-    /** 中文说明：测试局部值 sdk，由紧邻初始化决定。 */
     const sdk = assembly.sections.find(section => section.name === 'tools:sdk')?.text
     expect(sdk).toContain('echo: {')
     expect(sdk).not.toContain('hidden:')
@@ -294,13 +251,11 @@ describe('mode-aware wire contribution', () => {
       logs: [],
       value: Object.keys(request.bindings[0]!.functions).sort().join(','),
     })
-    /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
     const result = await runCode(ctx, 'return Object.keys(tools)', { agent })
     expect(result.isError).toBe(false)
     expect(result.content).toEqual([{ type: 'text', text: 'echo' }])
 
     lift()
-    /** 中文说明：测试局部值 unrestricted，由紧邻初始化决定。 */
     const unrestricted = await systemPrompt.assemble({ scope: agent })
     expect(unrestricted.tools.map(tool => tool.name)).toEqual(mode === 'ptc'
       ? [RUN_CODE_NAME]
@@ -311,16 +266,13 @@ describe('mode-aware wire contribution', () => {
     const { ctx, systemPrompt, runtime } = await setup({ mode })
     registerEcho(ctx, 'denied')
     registerEcho(ctx, 'kept')
-    /** 中文说明：测试局部值 { scope, agent }，由紧邻初始化决定。 */
     const { scope, agent } = await mintAgentScope(ctx)
     scope.ctx.tools.restrict({ deny: ['denied'] })
 
-    /** 中文说明：测试局部值 assembly，由紧邻初始化决定。 */
     const assembly = await systemPrompt.assemble({ scope: agent })
     expect(assembly.tools.map(tool => tool.name)).toEqual(mode === 'ptc'
       ? [RUN_CODE_NAME]
       : ['kept', RUN_CODE_NAME])
-    /** 中文说明：测试局部值 sdk，由紧邻初始化决定。 */
     const sdk = assembly.sections.find(section => section.name === 'tools:sdk')?.text
     expect(sdk).not.toContain('denied:')
     expect(sdk).toContain('kept: {')
@@ -329,7 +281,6 @@ describe('mode-aware wire contribution', () => {
       logs: [],
       value: Object.keys(request.bindings[0]!.functions).sort().join(','),
     })
-    /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
     const result = await runCode(ctx, 'return Object.keys(tools)', { agent })
     expect(result.isError).toBe(false)
     expect(result.content).toEqual([{ type: 'text', text: 'kept' }])
@@ -337,9 +288,7 @@ describe('mode-aware wire contribution', () => {
 
   it.each(['ptc', 'both'] as const)('reserves run_code against scoped shadows and explicit restrictions in mode %s', async (mode) => {
     const { ctx, systemPrompt } = await setup({ mode })
-    /** 中文说明：测试局部值 { scope, agent }，由紧邻初始化决定。 */
     const { scope, agent } = await mintAgentScope(ctx)
-    /** 中文说明：测试局部值 impostor，由紧邻初始化决定。 */
     const impostor = defineContentToolFixture({
       name: RUN_CODE_NAME,
       description: 'Scoped impostor.',
@@ -353,7 +302,7 @@ describe('mode-aware wire contribution', () => {
     expect(() => scope.ctx.tools.restrict({ deny: [RUN_CODE_NAME] })).toThrow(/cannot name reserved PTC mode presentation transport/)
     scope.ctx.systemPrompt.section({
       name: 'scoped-note',
-      order: FIRST_PARTY_SECTION_ORDER.TOOLS_SDK - 10,
+      order: scope.ctx.systemPrompt.getSectionOrder('TOOLS_SDK') - 10,
       text: 'safe note',
     })
     scope.ctx.tools.register(defineContentToolFixture({
@@ -363,16 +312,13 @@ describe('mode-aware wire contribution', () => {
       execute: () => Promise.resolve([{ type: 'text' as const, text: 'safe' }]),
     }))
 
-    /** 中文说明：测试局部值 assembly，由紧邻初始化决定。 */
     const assembly = await systemPrompt.assemble({ scope: agent })
-    /** 中文说明：测试局部值 transports，由紧邻初始化决定。 */
     const transports = assembly.tools.filter(tool => tool.name === RUN_CODE_NAME)
     expect(transports).toHaveLength(1)
     expect(transports[0]?.description).toContain('Execute a TypeScript program')
     expect(assembly.sections.find(section => section.name === 'scoped-note')?.text).toBe('safe note')
     expect(assembly.sections.find(section => section.name === 'tools:sdk')?.text).toContain('scoped_safe:')
     expect(ctx.tools.get(RUN_CODE_NAME, agent)).toBe(ctx.tools.get(RUN_CODE_NAME))
-    /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
     const result = await runCode(ctx, 'return 1', { agent })
     expect(result.content).toEqual([{ type: 'text', text: '(run_code completed with no output)' }])
   })
@@ -383,10 +329,8 @@ describe('mode-aware wire contribution', () => {
       toolOrder: [RUN_CODE_NAME, '<unlisted-tools>'],
     })
     registerEcho(ctx)
-    /** 中文说明：测试局部值 { agent }，由紧邻初始化决定。 */
     const { agent } = await mintAgentScope(ctx)
 
-    /** 中文说明：测试局部值 assembly，由紧邻初始化决定。 */
     const assembly = await systemPrompt.assemble({ scope: agent })
     expect(assembly.tools.map(tool => tool.name)).toEqual(mode === 'ptc'
       ? [RUN_CODE_NAME]
@@ -394,7 +338,6 @@ describe('mode-aware wire contribution', () => {
   })
 
   it("never exposes run_code to programs, even under mode 'both' (no recursive dispatch path)", async () => {
-    /** 中文说明：测试局部值 { ctx, runtime }，由紧邻初始化决定。 */
     const { ctx, runtime } = await setup({ mode: 'both' })
     registerEcho(ctx)
     runtime.behavior = (request) => {
@@ -402,7 +345,6 @@ describe('mode-aware wire contribution', () => {
         name: 'ToolCallError',
         memberNameProperty: 'toolName',
       })
-      /** 中文说明：测试局部值 functions，由紧邻初始化决定。 */
       const functions = request.bindings[0]!.functions
       return Promise.resolve({
         logs: [],
@@ -414,7 +356,6 @@ describe('mode-aware wire contribution', () => {
         }),
       })
     }
-    /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
     const result = await runCode(ctx, 'program')
     expect(result.isError).toBe(false)
     expect(JSON.parse((result.content[0] as { text: string }).text)).toEqual({ names: ['echo'], runCode: 'undefined' })
@@ -423,11 +364,8 @@ describe('mode-aware wire contribution', () => {
   it('renders byte-identical SDK text across consecutive assemblies of an unchanged tool set', async () => {
     const { ctx, systemPrompt } = await setup({ mode: 'ptc' })
     registerEcho(ctx)
-    /** 中文说明：测试局部值 first，由紧邻初始化决定。 */
     const first = await systemPrompt.assemble()
-    /** 中文说明：测试局部值 second，由紧邻初始化决定。 */
     const second = await systemPrompt.assemble()
-    /** 中文说明：测试局部值 text，由紧邻初始化决定。 */
     const text = (assembly: typeof first) => assembly.sections.find(section => section.name === 'tools:sdk')?.text
     expect(text(first)).toBe(text(second))
   })
@@ -445,9 +383,7 @@ describe('mode-aware wire contribution', () => {
   it('assembles under a python runtime by picking the Python SDK renderer', async () => {
     const { ctx, systemPrompt } = await setup({ mode: 'ptc', runtime: { language: 'python' } })
     registerEcho(ctx)
-    /** 中文说明：测试局部值 assembly，由紧邻初始化决定。 */
     const assembly = await systemPrompt.assemble()
-    /** 中文说明：测试局部值 sdk，由紧邻初始化决定。 */
     const sdk = assembly.sections.find(section => section.name === 'tools:sdk')
     expect(sdk?.text).toContain('class Tools(Protocol):')
     expect(sdk?.text).toContain('async def echo(self, args:')
@@ -460,13 +396,10 @@ describe('mode-aware wire contribution', () => {
     // separate path — including that the `wireSchemas` projection behind
     // `assembly.tools` picks the Python flavor under `both` instead of hitting
     // the flavor-table guard.
-    /** 中文说明：测试局部值 { ctx, systemPrompt }，由紧邻初始化决定。 */
     const { ctx, systemPrompt } = await setup({ mode: 'both', runtime: { language: 'python' } })
     registerEcho(ctx)
-    /** 中文说明：测试局部值 assembly，由紧邻初始化决定。 */
     const assembly = await systemPrompt.assemble()
     expect(assembly.sections.find(section => section.name === 'tools:sdk')?.text).toContain('class Tools(Protocol):')
-    /** 中文说明：测试局部值 runCodeSchema，由紧邻初始化决定。 */
     const runCodeSchema = assembly.tools.find(tool => tool.name === RUN_CODE_NAME)
     expect(runCodeSchema?.description).toContain('Execute a Python program')
     // `both` keeps the native tools alongside run_code; `ptc` does not.
@@ -476,9 +409,7 @@ describe('mode-aware wire contribution', () => {
   it('emits a TypeScript-flavored run_code schema under a typescript runtime', async () => {
     const { ctx, systemPrompt } = await setup({ mode: 'ptc', runtime: { language: 'typescript' } })
     registerEcho(ctx)
-    /** 中文说明：测试局部值 assembly，由紧邻初始化决定。 */
     const assembly = await systemPrompt.assemble()
-    /** 中文说明：测试局部值 runCodeSchema，由紧邻初始化决定。 */
     const runCodeSchema = assembly.tools.find(tool => tool.name === RUN_CODE_NAME)
     expect(runCodeSchema?.description).toContain('Execute a TypeScript program')
     expect(runCodeSchema?.description).toContain('BODY of an')
@@ -486,7 +417,6 @@ describe('mode-aware wire contribution', () => {
     // schema: prose that describes the call as "pass the program" is what
     // leads a model to emit `{code}` alone and fail INVALID_ARGS.
     expect(runCodeSchema?.description).toContain('`description`')
-    /** 中文说明：测试局部值 codeParam，由紧邻初始化决定。 */
     const codeParam = (runCodeSchema?.parameters as { properties: { code: { description: string } } }).properties.code
     expect(codeParam.description).toBe('The program: the body of an async TypeScript function.')
   })
@@ -494,15 +424,12 @@ describe('mode-aware wire contribution', () => {
   it('emits a Python-flavored run_code schema under a python runtime (matches the SDK language)', async () => {
     const { ctx, systemPrompt } = await setup({ mode: 'ptc', runtime: { language: 'python' } })
     registerEcho(ctx)
-    /** 中文说明：测试局部值 assembly，由紧邻初始化决定。 */
     const assembly = await systemPrompt.assemble()
-    /** 中文说明：测试局部值 runCodeSchema，由紧邻初始化决定。 */
     const runCodeSchema = assembly.tools.find(tool => tool.name === RUN_CODE_NAME)
     expect(runCodeSchema?.description).toContain('Execute a Python program')
     expect(runCodeSchema?.description).toContain('`return <value>`')
     expect(runCodeSchema?.description).toContain('`description`')
     expect(runCodeSchema?.description).not.toContain('TypeScript')
-    /** 中文说明：测试局部值 codeParam，由紧邻初始化决定。 */
     const codeParam = (runCodeSchema?.parameters as { properties: { code: { description: string } } }).properties.code
     expect(codeParam.description).toBe('The program: the body of an async Python function.')
   })
@@ -534,7 +461,6 @@ describe('mode-aware wire contribution', () => {
     const { ctx } = await setup({ mode: 'ptc', runtime: false })
     const definition = ctx.tools.get(RUN_CODE_NAME)
     expect(definition?.description).toContain('Execute a TypeScript program')
-    /** 中文说明：测试局部值 params，由紧邻初始化决定。 */
     const params = definition?.parameters as { properties: { code: { description: string } } }
     expect(params.properties.code.description).toBe('The program: the body of an async TypeScript function.')
   })
@@ -546,14 +472,12 @@ describe('mode-aware wire contribution', () => {
   })
 
   it('removes run_code and the SDK section when the registry fiber disposes (HMR safety)', async () => {
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = new Context()
     await ctx.plugin(SystemPrompt, {})
     await ctx.plugin(FakeRuntime, {})
     const fiber = await ctx.plugin(ToolRuntime, { mode: 'ptc' })
     expect(ctx.tools.get(RUN_CODE_NAME)).toBeDefined()
     await fiber.dispose()
-    /** 中文说明：测试局部值 assembly，由紧邻初始化决定。 */
     const assembly = await ctx.systemPrompt.assemble()
     expect(assembly.tools).toEqual([])
     expect(assembly.sections.some(section => section.name === 'tools:sdk')).toBe(false)
@@ -562,15 +486,10 @@ describe('mode-aware wire contribution', () => {
 
 describe('the sub-dispatch scheduler (native concurrency contract)', () => {
   /** Register a tool whose calls resolve only when the test releases them; returns live-call telemetry. */
-  /* 中文说明：函数 registerGated 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
   function registerGated(ctx: Context, name: string, concurrencySafe: boolean) {
-    /** 中文说明：测试局部值 gates，由紧邻初始化决定。 */
     const gates: (() => void)[] = []
-    /** 中文说明：测试局部值 live，由紧邻初始化决定。 */
     let live = 0
-    /** 中文说明：测试局部值 peak，由紧邻初始化决定。 */
     let peak = 0
-    /** 中文说明：测试局部值 order，由紧邻初始化决定。 */
     const order: string[] = []
     ctx.tools.register(defineTool({
       name,
@@ -596,9 +515,7 @@ describe('the sub-dispatch scheduler (native concurrency contract)', () => {
         return `${name}:${args.id}`
       },
     }))
-    /** 中文说明：测试局部值 release，由紧邻初始化决定。 */
     const release = (): void => { gates.shift()?.() }
-    /** 中文说明：测试局部值 releaseAll，由紧邻初始化决定。 */
     const releaseAll = (): void => { while (gates.length > 0) gates.shift()!() }
     return { order, release, releaseAll, peakLive: () => peak, pending: () => gates.length }
   }
@@ -606,12 +523,9 @@ describe('the sub-dispatch scheduler (native concurrency contract)', () => {
   it('overlaps concurrency-safe calls under Promise.all and logs a start event per dispatch', async () => {
     const { ctx, runtime } = await setup({ mode: 'ptc' })
     const gated = registerGated(ctx, 'safe_read', true)
-    /** 中文说明：测试局部值 { agent, events }，由紧邻初始化决定。 */
     const { agent, events } = fakeAgent()
     runtime.behavior = async (request) => {
-      /** 中文说明：测试局部值 tools，由紧邻初始化决定。 */
       const tools = request.bindings[0]!.functions
-      /** 中文说明：测试局部值 all，由紧邻初始化决定。 */
       const all = Promise.all([
         tools.safe_read!({ id: 'a' }),
         tools.safe_read!({ id: 'b' }),
@@ -622,16 +536,13 @@ describe('the sub-dispatch scheduler (native concurrency contract)', () => {
       gated.releaseAll()
       return { logs: [], value: (await all).map(String).join(',') }
     }
-    /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
     const result = await runCode(ctx, 'program', { agent })
     expect(result.isError).toBe(false)
     expect(gated.peakLive()).toBe(3)
     if (result.isError) throw new Error('expected success')
     expect(result.value).toMatchObject({ result: 'safe_read:a,safe_read:b,safe_read:c' })
     // One start per dispatch, paired with its settle by subCallId, starts in submission order.
-    /** 中文说明：测试局部值 starts，由紧邻初始化决定。 */
     const starts = events.filter(event => event.type === 'tool/code-dispatch-start').map(event => event.data as { subCallId: string })
-    /** 中文说明：测试局部值 settles，由紧邻初始化决定。 */
     const settles = events.filter(event => event.type === 'tool/code-dispatch').map(event => event.data as { subCallId: string })
     expect(starts.map(start => start.subCallId)).toEqual(['call-1:code:1', 'call-1:code:2', 'call-1:code:3'])
     expect(new Set(settles.map(settle => settle.subCallId))).toEqual(new Set(starts.map(start => start.subCallId)))
@@ -640,16 +551,11 @@ describe('the sub-dispatch scheduler (native concurrency contract)', () => {
   it('an exclusive call bars overlap: safe calls drain first, it runs alone, later calls wait', async () => {
     const { ctx, runtime } = await setup({ mode: 'ptc' })
     const safe = registerGated(ctx, 'safe_read', true)
-    /** 中文说明：测试局部值 unsafe，由紧邻初始化决定。 */
     const unsafe = registerGated(ctx, 'writer', false)
     runtime.behavior = async (request) => {
-      /** 中文说明：测试局部值 tools，由紧邻初始化决定。 */
       const tools = request.bindings[0]!.functions
-      /** 中文说明：测试局部值 reads，由紧邻初始化决定。 */
       const reads = [tools.safe_read!({ id: 'r1' }), tools.safe_read!({ id: 'r2' })]
-      /** 中文说明：测试局部值 write，由紧邻初始化决定。 */
       const write = tools.writer!({ id: 'w' })
-      /** 中文说明：测试局部值 tail，由紧邻初始化决定。 */
       const tail = tools.safe_read!({ id: 'r3' })
       await expect.poll(() => safe.pending()).toBe(2)
       // The exclusive call must NOT have started while the pool is live.
@@ -664,7 +570,6 @@ describe('the sub-dispatch scheduler (native concurrency contract)', () => {
       await Promise.all([...reads, write, tail])
       return { logs: [], value: 'ordered' }
     }
-    /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
     const result = await runCode(ctx, 'program')
     expect(result.isError).toBe(false)
     expect(safe.order.slice(0, 2)).toEqual(['start:r1', 'start:r2'])
@@ -677,9 +582,7 @@ describe('the sub-dispatch scheduler (native concurrency contract)', () => {
     const { ctx, runtime } = await setup({ mode: 'ptc', maxParallelSubCalls: 2 })
     const gated = registerGated(ctx, 'safe_read', true)
     runtime.behavior = async (request) => {
-      /** 中文说明：测试局部值 tools，由紧邻初始化决定。 */
       const tools = request.bindings[0]!.functions
-      /** 中文说明：测试局部值 all，由紧邻初始化决定。 */
       const all = Promise.all([
         tools.safe_read!({ id: 'a' }),
         tools.safe_read!({ id: 'b' }),
@@ -694,7 +597,6 @@ describe('the sub-dispatch scheduler (native concurrency contract)', () => {
       await all
       return { logs: [], value: 'capped' }
     }
-    /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
     const result = await runCode(ctx, 'program')
     if (result.isError) console.error('CAP-FAIL:', (result.content[0] as { text: string }).text)
     expect(result.isError).toBe(false)
@@ -704,7 +606,6 @@ describe('the sub-dispatch scheduler (native concurrency contract)', () => {
   it('a tool unregistered between binding enumeration and dispatch fails as unknown tool', async () => {
     const { ctx, runtime } = await setup({ mode: 'ptc' })
     const calls: unknown[] = []
-    /** 中文说明：测试局部值 dispose，由紧邻初始化决定。 */
     const dispose = ctx.tools.register(defineTool({
       name: 'ephemeral',
       description: 'Unregistered between binding enumeration and dispatch.',
@@ -723,12 +624,10 @@ describe('the sub-dispatch scheduler (native concurrency contract)', () => {
       // makes prepare resolve UNKNOWN_TOOL as a final-result, which commits
       // through scheduler.finish (no post-execute).
       dispose()
-      /** 中文说明：测试局部值 message，由紧邻初始化决定。 */
       const message = await request.bindings[0]!.functions.ephemeral!({})
         .then(() => 'resolved', (error: unknown) => error instanceof Error ? error.message : String(error))
       return { logs: [], value: message }
     }
-    /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
     const result = await runCode(ctx, 'program')
     expect(result.isError).toBe(false)
     if (result.isError) throw new Error('expected success')
@@ -739,9 +638,7 @@ describe('the sub-dispatch scheduler (native concurrency contract)', () => {
   it('ordered pre-execute never overlaps: a slow policy on one call delays the next start', async () => {
     const { ctx, runtime } = await setup({ mode: 'ptc' })
     const gated = registerGated(ctx, 'safe_read', true)
-    /** 中文说明：测试局部值 stages，由紧邻初始化决定。 */
     const stages: string[] = []
-    /** 中文说明：测试局部值 releaseGate，由紧邻初始化决定。 */
     let releaseGate: (() => void) | undefined
     ctx.on('tools/pre-execute', async (preExec, next) => {
       if (preExec.name !== 'safe_read') return next()
@@ -754,9 +651,7 @@ describe('the sub-dispatch scheduler (native concurrency contract)', () => {
       return next()
     })
     runtime.behavior = async (request) => {
-      /** 中文说明：测试局部值 tools，由紧邻初始化决定。 */
       const tools = request.bindings[0]!.functions
-      /** 中文说明：测试局部值 all，由紧邻初始化决定。 */
       const all = Promise.all([tools.safe_read!({ id: 'a' }), tools.safe_read!({ id: 'b' })])
       // Both submissions are in; the second pre-execute must NOT have entered
       // while the first is still awaiting its policy decision.
@@ -768,7 +663,6 @@ describe('the sub-dispatch scheduler (native concurrency contract)', () => {
       await all
       return { logs: [], value: 'ordered-prepare' }
     }
-    /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
     const result = await runCode(ctx, 'program')
     expect(result.isError).toBe(false)
     expect(stages).toEqual([
@@ -780,11 +674,8 @@ describe('the sub-dispatch scheduler (native concurrency contract)', () => {
   it('an exclusive call holds its barrier through post-execute: the next start waits for the commit', async () => {
     const { ctx, runtime } = await setup({ mode: 'ptc' })
     const writer = registerGated(ctx, 'writer', false)
-    /** 中文说明：测试局部值 reader，由紧邻初始化决定。 */
     const reader = registerGated(ctx, 'safe_read', true)
-    /** 中文说明：测试局部值 stages，由紧邻初始化决定。 */
     const stages: string[] = []
-    /** 中文说明：测试局部值 releasePost，由紧邻初始化决定。 */
     let releasePost: (() => void) | undefined
     ctx.on('tools/post-execute', async (postExec, _result, next): Promise<PostToolDecision> => {
       if (postExec.name === 'writer') {
@@ -795,11 +686,8 @@ describe('the sub-dispatch scheduler (native concurrency contract)', () => {
       return next()
     })
     runtime.behavior = async (request) => {
-      /** 中文说明：测试局部值 tools，由紧邻初始化决定。 */
       const tools = request.bindings[0]!.functions
-      /** 中文说明：测试局部值 w，由紧邻初始化决定。 */
       const w = tools.writer!({ id: 'w' })
-      /** 中文说明：测试局部值 r，由紧邻初始化决定。 */
       const r = tools.safe_read!({ id: 'r' })
       await expect.poll(() => writer.pending()).toBe(1)
       writer.release()
@@ -815,7 +703,6 @@ describe('the sub-dispatch scheduler (native concurrency contract)', () => {
       await r
       return { logs: [], value: 'barrier-through-commit' }
     }
-    /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
     const result = await runCode(ctx, 'program')
     expect(result.isError).toBe(false)
     expect(stages).toEqual(['post-enter:writer', 'post-exit:writer'])
@@ -824,9 +711,7 @@ describe('the sub-dispatch scheduler (native concurrency contract)', () => {
   it('run settlement drains a commit already in progress: the settle event is appended inside the turn', async () => {
     const { ctx, runtime } = await setup({ mode: 'ptc' })
     const gated = registerGated(ctx, 'safe_read', true)
-    /** 中文说明：测试局部值 { agent, events }，由紧邻初始化决定。 */
     const { agent, events } = fakeAgent()
-    /** 中文说明：测试局部值 releasePost，由紧邻初始化决定。 */
     let releasePost: (() => void) | undefined
     ctx.on('tools/post-execute', async (postExec, _result, next): Promise<PostToolDecision> => {
       if (postExec.name === 'safe_read') {
@@ -844,7 +729,6 @@ describe('the sub-dispatch scheduler (native concurrency contract)', () => {
       queueMicrotask(() => { releasePost!() })
       return { logs: [], value: 'returned-early' }
     }
-    /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
     const result = await runCode(ctx, 'program', { agent })
     expect(result.isError).toBe(false)
     // The drain awaited the in-progress commit: the settle event exists and
@@ -853,7 +737,6 @@ describe('the sub-dispatch scheduler (native concurrency contract)', () => {
     // its post-execute was mid-flight, so the native cancellation contract
     // replaces the successful outcome with the aborted result — the event is
     // still durable and in-turn, which is the invariant under test.
-    /** 中文说明：测试局部值 settles，由紧邻初始化决定。 */
     const settles = events.filter(event => event.type === 'tool/code-dispatch')
     expect(settles).toHaveLength(1)
     expect(settles[0]?.data).toMatchObject({ name: 'safe_read', isError: true })
@@ -862,7 +745,6 @@ describe('the sub-dispatch scheduler (native concurrency contract)', () => {
   it('post-execute and context commitment stay in submission order under out-of-order completion', async () => {
     const { ctx, runtime } = await setup({ mode: 'ptc' })
     const gated = registerGated(ctx, 'safe_read', true)
-    /** 中文说明：测试局部值 postOrder，由紧邻初始化决定。 */
     const postOrder: string[] = []
     ctx.on('tools/post-execute', async (postExec, _result, next): Promise<PostToolDecision> => {
       if (postExec.name === 'safe_read') {
@@ -878,9 +760,7 @@ describe('the sub-dispatch scheduler (native concurrency contract)', () => {
       return next()
     })
     runtime.behavior = async (request) => {
-      /** 中文说明：测试局部值 tools，由紧邻初始化决定。 */
       const tools = request.bindings[0]!.functions
-      /** 中文说明：测试局部值 all，由紧邻初始化决定。 */
       const all = Promise.all([tools.safe_read!({ id: 'a' }), tools.safe_read!({ id: 'b' })])
       await expect.poll(() => gated.pending()).toBe(2)
       // Complete b FIRST (out of submission order), then a.
@@ -889,7 +769,6 @@ describe('the sub-dispatch scheduler (native concurrency contract)', () => {
       await all
       return { logs: [], value: 'ordered-commit' }
     }
-    /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
     const result = await runCode(ctx, 'program')
     expect(result.isError).toBe(false)
     // Post-execute observed submission order regardless of completion interleave.
@@ -902,12 +781,9 @@ describe('the sub-dispatch scheduler (native concurrency contract)', () => {
   it('a queued-unstarted call abandoned by run settlement logs no start event', async () => {
     const { ctx, runtime } = await setup({ mode: 'ptc' })
     const gated = registerGated(ctx, 'writer', false)
-    /** 中文说明：测试局部值 { agent, events }，由紧邻初始化决定。 */
     const { agent, events } = fakeAgent()
-    /** 中文说明：测试局部值 abandoned，由紧邻初始化决定。 */
     const abandoned: string[] = []
     runtime.behavior = async (request) => {
-      /** 中文说明：测试局部值 tools，由紧邻初始化决定。 */
       const tools = request.bindings[0]!.functions
       // First exclusive call occupies the pool; the second queues unstarted.
       // Both rejections are captured (abandonment fires only at settlement,
@@ -920,12 +796,9 @@ describe('the sub-dispatch scheduler (native concurrency contract)', () => {
       // Fail the program while w1 is in flight and w2 is queued unstarted.
       throw new Error('program failed with a queued call')
     }
-    /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
     const result = await runCode(ctx, 'program', { agent })
     expect(result.isError).toBe(true)
-    /** 中文说明：测试局部值 starts，由紧邻初始化决定。 */
     const starts = events.filter(event => event.type === 'tool/code-dispatch-start').map(event => (event.data as { subCallId: string }).subCallId)
-    /** 中文说明：测试局部值 settles，由紧邻初始化决定。 */
     const settles = events.filter(event => event.type === 'tool/code-dispatch').map(event => (event.data as { subCallId: string }).subCallId)
     // w1 started and settled under the abort; w2 never started and never
     // settled — no start event, no settle event, binding rejected with the
@@ -940,26 +813,20 @@ describe('the run_code dispatch bridge', () => {
   it('bridges tool calls, returns only the curated output, and logs one event per dispatch', async () => {
     const { ctx, runtime } = await setup({ mode: 'ptc' })
     const calls = registerEcho(ctx)
-    /** 中文说明：测试局部值 { agent, events }，由紧邻初始化决定。 */
     const { agent, events } = fakeAgent()
     runtime.behavior = async (request) => {
-      /** 中文说明：测试局部值 tools，由紧邻初始化决定。 */
       const tools = request.bindings[0]!.functions
-      /** 中文说明：测试局部值 first，由紧邻初始化决定。 */
       const first = await tools.echo!({ value: 'one' })
-      /** 中文说明：测试局部值 second，由紧邻初始化决定。 */
       const second = await tools.echo!({ value: 'two' })
       if (typeof first !== 'string' || typeof second !== 'string') throw new Error('echo returned a non-string')
       return { logs: [`saw ${first}`], value: second }
     }
-    /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
     const result = await runCode(ctx, 'const …: string = …', { agent })
     expect(result.isError).toBe(false)
     if (result.isError) throw new Error('expected run_code success')
     expect(result.value).toEqual({ logs: ['saw echo:one'], result: 'echo:two' })
     expect(result.content).toEqual([{ type: 'text', text: 'saw echo:one\necho:two' }])
     expect(calls).toEqual([{ value: 'one' }, { value: 'two' }])
-    /** 中文说明：测试局部值 dispatches，由紧邻初始化决定。 */
     const dispatches = events.filter(event => event.type === 'tool/code-dispatch')
     expect(dispatches.map(event => event.data)).toEqual([
       {
@@ -986,10 +853,8 @@ describe('the run_code dispatch bridge', () => {
     // outer execution object, the timeout-style wrapper could not restore it.
     ctx.on('tools/execute', async (exec, next) => {
       if (exec.name !== RUN_CODE_NAME) return next()
-      /** 中文说明：测试局部值 previous，由紧邻初始化决定。 */
       const previous = exec.signal
       exec.signal = new AbortController().signal
-      /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
       const result = await next()
       exec.signal = previous
       return result
@@ -998,7 +863,6 @@ describe('the run_code dispatch bridge', () => {
       if (exec.parent !== undefined) Object.freeze(exec.parent)
     })
 
-    /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
     const result = await runCode(ctx, 'await tools.echo({ value: "nested" })')
     expect(result.isError).toBe(false)
     expect(result.content).toEqual([{ type: 'text', text: 'done' }])
@@ -1024,14 +888,12 @@ describe('the run_code dispatch bridge', () => {
       return { logs: [], value: 'program complete' }
     }
 
-    /** 中文说明：测试局部值 concluded，由紧邻初始化决定。 */
     const concluded = await runCode(ctx, 'await tools.finalize({})')
     expect(concluded.isError).toBe(false)
     expect(concluded.concludesTurn).toBe(true)
 
     // A policy that converts the nested success into an error strips the
     // marker with the result type: the recovering program cannot conclude.
-    /** 中文说明：测试局部值 veto，由紧邻初始化决定。 */
     const veto = ctx.on('tools/post-execute', async (exec, _result, next): Promise<PostToolDecision> => {
       if (exec.name !== 'finalize') return next()
       return { kind: 'block', feedback: [{ type: 'text', text: 'terminal rejected' }] }
@@ -1040,7 +902,6 @@ describe('the run_code dispatch bridge', () => {
       await request.bindings[0]!.functions.finalize!({}).catch(() => undefined)
       return { logs: [], value: 'recovered' }
     }
-    /** 中文说明：测试局部值 recovered，由紧邻初始化决定。 */
     const recovered = await runCode(ctx, 'await tools.finalize({}).catch(() => {})')
     veto()
     expect(recovered.isError).toBe(false)
@@ -1050,7 +911,6 @@ describe('the run_code dispatch bridge', () => {
   it('serializes Promise.all dispatches: tool executions never overlap, in submission order', async () => {
     const { ctx, runtime } = await setup({ mode: 'ptc' })
     const intervals: [string, string][] = []
-    /** 中文说明：测试局部值 active，由紧邻初始化决定。 */
     let active = 0
     ctx.tools.register(defineTool({
       name: 'probe',
@@ -1071,14 +931,11 @@ describe('the run_code dispatch bridge', () => {
       },
     }))
     runtime.behavior = async (request) => {
-      /** 中文说明：测试局部值 tools，由紧邻初始化决定。 */
       const tools = request.bindings[0]!.functions
-      /** 中文说明：测试局部值 values，由紧邻初始化决定。 */
       const values = await Promise.all([tools.probe!({ id: 'a' }), tools.probe!({ id: 'b' }), tools.probe!({ id: 'c' })])
       if (!values.every(value => typeof value === 'string')) throw new Error('probe returned a non-string')
       return { logs: [], value: values.join(',') }
     }
-    /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
     const result = await runCode(ctx, 'program')
     expect(result.isError).toBe(false)
     expect(intervals).toEqual([
@@ -1105,7 +962,6 @@ describe('the run_code dispatch bridge', () => {
         return { logs: [], value: `caught: ${error instanceof Error ? error.message : String(error)}` }
       }
     }
-    /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
     const result = await runCode(ctx, 'program')
     expect(result.content[0]).toEqual({ type: 'text', text: 'caught: deliberate failure' })
   })
@@ -1116,14 +972,11 @@ describe('the run_code dispatch bridge', () => {
     ctx.on('tools/ptc-dispatch-log', () => { throw new Error('log-content listener failed') })
     const { agent, events } = fakeAgent()
     runtime.behavior = async (request) => {
-      /** 中文说明：测试局部值 value，由紧邻初始化决定。 */
       const value = await request.bindings[0]!.functions.echo!({ value: 'x' })
       return { logs: [], value: value as string }
     }
-    /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
     const result = await runCode(ctx, 'program', { agent })
     expect(result.isError).toBe(false)
-    /** 中文说明：测试局部值 settle，由紧邻初始化决定。 */
     const settle = events.find(event => event.type === 'tool/code-dispatch')
     expect(settle?.data).toMatchObject({ name: 'echo', isError: false, content: [{ type: 'text', text: 'echo:x' }] })
   })
@@ -1131,7 +984,6 @@ describe('the run_code dispatch bridge', () => {
   it('a throwing tools/pre-execute listener settles the sub-call without post-execute', async () => {
     const { ctx, runtime } = await setup({ mode: 'ptc' })
     const calls = registerEcho(ctx)
-    /** 中文说明：测试局部值 postExecuted，由紧邻初始化决定。 */
     const postExecuted: string[] = []
     ctx.on('tools/pre-execute', (exec, next) => {
       if (exec.name === 'echo') throw new Error('gate exploded')
@@ -1141,15 +993,12 @@ describe('the run_code dispatch bridge', () => {
       if (exec.name === 'echo') postExecuted.push(exec.name)
       return next()
     })
-    /** 中文说明：测试局部值 { agent, events }，由紧邻初始化决定。 */
     const { agent, events } = fakeAgent()
     runtime.behavior = async (request) => {
-      /** 中文说明：测试局部值 message，由紧邻初始化决定。 */
       const message = await request.bindings[0]!.functions.echo!({ value: 'x' })
         .then(() => 'resolved', (error: unknown) => error instanceof Error ? error.message : String(error))
       return { logs: [], value: message }
     }
-    /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
     const result = await runCode(ctx, 'program', { agent })
     expect(result.isError).toBe(false)
     if (result.isError) throw new Error('expected success')
@@ -1158,7 +1007,6 @@ describe('the run_code dispatch bridge', () => {
     // skipped, yet the settle event still carries the error outcome.
     expect(calls).toEqual([])
     expect(postExecuted).toEqual([])
-    /** 中文说明：测试局部值 settles，由紧邻初始化决定。 */
     const settles = events.filter(event => event.type === 'tool/code-dispatch')
     expect(settles).toHaveLength(1)
     expect(settles[0]?.data).toMatchObject({ name: 'echo', isError: true })
@@ -1179,7 +1027,6 @@ describe('the run_code dispatch bridge', () => {
         return { logs: [], value: `denied: ${error instanceof Error ? error.message : String(error)}` }
       }
     }
-    /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
     const result = await runCode(ctx, 'program')
     expect(result.content[0]?.type).toBe('text')
     expect((result.content[0] as { text: string }).text).toContain('not on my watch')
@@ -1188,7 +1035,6 @@ describe('the run_code dispatch bridge', () => {
   it('rejects a binding argument that is not lossless JSON, dispatching nothing', async () => {
     const { ctx, runtime } = await setup({ mode: 'ptc' })
     const calls = registerEcho(ctx)
-    /** 中文说明：测试局部值 { agent, events }，由紧邻初始化决定。 */
     const { agent, events } = fakeAgent()
     runtime.behavior = async (request) => {
       try {
@@ -1198,7 +1044,6 @@ describe('the run_code dispatch bridge', () => {
         return { logs: [], value: error instanceof Error ? error.message : String(error) }
       }
     }
-    /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
     const result = await runCode(ctx, 'program', { agent })
     expect((result.content[0] as { text: string }).text).toContain('lossless JSON')
     expect(calls).toEqual([])
@@ -1208,17 +1053,14 @@ describe('the run_code dispatch bridge', () => {
   it('dispatches and logs independent snapshots of the same lossless JSON value', async () => {
     const { ctx, runtime } = await setup({ mode: 'ptc' })
     const calls = registerEcho(ctx)
-    /** 中文说明：测试局部值 { agent, events }，由紧邻初始化决定。 */
     const { agent, events } = fakeAgent()
     runtime.behavior = async (request) => {
-      /** 中文说明：测试局部值 args，由紧邻初始化决定。 */
       const args = Object.assign(Object.create(null) as Record<string, unknown>, { value: 'x', nested: ['same'] })
       await request.bindings[0]!.functions.echo!(args)
       return { logs: [] }
     }
     await runCode(ctx, 'program', { agent })
     expect(calls).toEqual([{ value: 'x', nested: ['same'] }])
-    /** 中文说明：测试局部值 dispatch，由紧邻初始化决定。 */
     const dispatch = events.find(event => event.type === 'tool/code-dispatch')?.data as SessionEventMap['tool/code-dispatch']
     expect(dispatch.arguments).toEqual({ value: 'x', nested: ['same'] })
   })
@@ -1243,7 +1085,6 @@ describe('the run_code dispatch bridge', () => {
       await request.bindings[0]!.functions.echo!({ value: 'y' })
       return { logs: [], value: 'done' }
     }
-    /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
     const result = await runCode(ctx, 'program')
     expect(result.isError).toBe(false)
     expect(result.additionalContexts).toMatchObject([
@@ -1282,7 +1123,6 @@ describe('the run_code dispatch bridge', () => {
       return { logs: [], value: 'done' }
     }
 
-    /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
     const result = await runCode(ctx, 'program')
 
     expect(result.additionalContexts).toMatchObject([{
@@ -1296,7 +1136,6 @@ describe('the run_code dispatch bridge', () => {
   })
 
   it('does not defer images removed by a nested post-execute decision', async () => {
-    /** 中文说明：测试局部值 decision，由紧邻初始化决定。 */
     for (const decision of ['block', 'replace'] as const) {
       const { ctx, runtime } = await setup({ mode: 'ptc' })
       ctx.tools.register(defineContentToolFixture({
@@ -1322,7 +1161,6 @@ describe('the run_code dispatch bridge', () => {
         return { logs: [], value: 'done' }
       }
 
-      /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
       const result = await runCode(ctx, 'program')
 
       expect(result.additionalContexts).toBeUndefined()
@@ -1331,7 +1169,6 @@ describe('the run_code dispatch bridge', () => {
   })
 
   it('keeps sub-call contexts when run_code fails after the nested dispatch', async () => {
-    /** 中文说明：测试局部值 { ctx, runtime }，由紧邻初始化决定。 */
     const { ctx, runtime } = await setup({ mode: 'both' })
     registerEcho(ctx)
     ctx.on('tools/post-execute', (exec, _result, next): Promise<PostToolDecision> => {
@@ -1349,7 +1186,6 @@ describe('the run_code dispatch bridge', () => {
       return { logs: [], error: { kind: 'exception', message: 'program failed later' } }
     }
 
-    /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
     const result = await runCode(ctx, 'program')
 
     expect(result.isError).toBe(true)
@@ -1367,11 +1203,9 @@ describe('the run_code dispatch bridge', () => {
       logs: ['got this far'],
       error: { kind: 'timeout', message: 'compute budget exhausted (300ms busy)' },
     })
-    /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
     const result = await runCode(ctx, 'program')
     expect(result.isError).toBe(true)
     expect(result.error).toMatchObject({ info: { name: 'CodeRunFailedError', code: 'CODE_RUN_FAILED' } })
-    /** 中文说明：测试局部值 text，由紧邻初始化决定。 */
     const text = (result.content[0] as { text: string }).text
     expect(text).toContain('code run failed (timeout)')
     expect(text).toContain('compute budget exhausted')
@@ -1379,7 +1213,6 @@ describe('the run_code dispatch bridge', () => {
   })
 
   it('CodeRunFailedError is a HarnessError with the CODE_RUN_FAILED code', () => {
-    /** 中文说明：测试局部值 error，由紧邻初始化决定。 */
     const error = new CodeRunFailedError('boom')
     expect(error.code).toBe('CODE_RUN_FAILED')
     expect(error.name).toBe('CodeRunFailedError')
@@ -1388,7 +1221,6 @@ describe('the run_code dispatch bridge', () => {
   it('aborting the outer signal aborts the in-flight sub-dispatch and abandons queued ones', async () => {
     const { ctx, runtime } = await setup({ mode: 'ptc' })
     const seen: string[] = []
-    /** 中文说明：测试局部值 sawAbort，由紧邻初始化决定。 */
     let sawAbort = false
     ctx.tools.register(defineContentToolFixture({
       name: 'slow',
@@ -1397,19 +1229,15 @@ describe('the run_code dispatch bridge', () => {
       async execute(args, exec) {
         seen.push(args.id)
         await new Promise<void>((resolve) => {
-          /** 中文说明：测试局部值 timer，由紧邻初始化决定。 */
           const timer = setTimeout(resolve, 500)
           exec.signal.addEventListener('abort', () => { sawAbort = true; clearTimeout(timer); resolve() }, { once: true })
         })
         return [{ type: 'text' as const, text: args.id }]
       },
     }))
-    /** 中文说明：测试局部值 controller，由紧邻初始化决定。 */
     const controller = new AbortController()
     runtime.behavior = async (request) => {
-      /** 中文说明：测试局部值 tools，由紧邻初始化决定。 */
       const tools = request.bindings[0]!.functions
-      /** 中文说明：测试局部值 calls，由紧邻初始化决定。 */
       const calls = [tools.slow!({ id: 'first' }).catch(() => 'rejected'), tools.slow!({ id: 'second' }).catch(() => 'rejected')]
       setTimeout(() => { controller.abort('user-cancel') }, 50)
       await Promise.all(calls)
@@ -1417,7 +1245,6 @@ describe('the run_code dispatch bridge', () => {
       // contract by reporting the abort as the run failure.
       return { logs: [], error: { kind: 'abort', message: 'user-cancel' } }
     }
-    /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
     const result = await runCode(ctx, 'program', { signal: controller.signal })
     expect(result.isError).toBe(true)
     expect((result.content[0] as { text: string }).text).toContain('code run failed (abort)')
@@ -1428,11 +1255,8 @@ describe('the run_code dispatch bridge', () => {
   it('a runtime that starts a binding call and then REJECTS still reaches quiescence before returning', async () => {
     const { ctx, runtime } = await setup({ mode: 'ptc' })
     const { agent, events } = fakeAgent()
-    /** 中文说明：测试局部值 sawAbort，由紧邻初始化决定。 */
     let sawAbort = false
-    /** 中文说明：测试局部值 started，由紧邻初始化决定。 */
     let started!: () => void
-    /** 中文说明：测试局部值 inFlight，由紧邻初始化决定。 */
     const inFlight = new Promise<void>((resolve) => { started = resolve })
     ctx.tools.register(defineContentToolFixture({
       name: 'slow',
@@ -1441,7 +1265,6 @@ describe('the run_code dispatch bridge', () => {
       async execute(args, exec) {
         started()
         await new Promise<void>((resolve) => {
-          /** 中文说明：测试局部值 timer，由紧邻初始化决定。 */
           const timer = setTimeout(resolve, 500)
           exec.signal.addEventListener('abort', () => { sawAbort = true; clearTimeout(timer); resolve() }, { once: true })
         })
@@ -1455,7 +1278,6 @@ describe('the run_code dispatch bridge', () => {
       await inFlight
       throw new Error('backend exploded')
     }
-    /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
     const result = await runCode(ctx, 'program', { agent })
     expect(result.isError).toBe(true)
     expect((result.content[0] as { text: string }).text).toContain('backend exploded')
@@ -1472,14 +1294,12 @@ describe('the run_code dispatch bridge', () => {
       await request.bindings[0]!.functions.echo!({ value: 'x' })
       return { logs: [], value: 'ok' }
     }
-    /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
     const result = await runCode(ctx, 'program')
     expect(result.isError).toBe(false)
     expect(calls).toEqual([{ value: 'x' }])
   })
 
   it('executing run_code under a missing runtime is a structured isError, not a crash', async () => {
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = new Context()
     await ctx.plugin(SystemPrompt, {})
     await ctx.plugin(ToolRuntime, { mode: 'ptc' })
@@ -1517,9 +1337,7 @@ describe('the run_code dispatch bridge', () => {
     const { ctx, runtime } = await setup({ mode: 'ptc' })
     runtime.behavior = () => Promise.resolve(output)
 
-    /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
     const result = await runCode(ctx, 'return 1')
-    /** 中文说明：测试局部值 tool，由紧邻初始化决定。 */
     const tool = ctx.tools.get(RUN_CODE_NAME)!
 
     expect(result.content).toEqual([{ type: 'text', text }])
@@ -1538,9 +1356,7 @@ describe('the run_code dispatch bridge', () => {
       return Promise.resolve({ kind: 'accept', content: [{ type: 'text', text: preview }] })
     })
 
-    /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
     const result = await runCode(ctx, 'return 1')
-    /** 中文说明：测试局部值 tool，由紧邻初始化决定。 */
     const tool = ctx.tools.get(RUN_CODE_NAME)!
 
     expect(result.content).toEqual([{ type: 'text', text: preview }])
@@ -1554,9 +1370,7 @@ describe('the run_code dispatch bridge', () => {
       error: { kind: 'output-limit', message: 'outer output exceeded 8 bytes' },
     })
 
-    /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
     const result = await runCode(ctx, 'return 1')
-    /** 中文说明：测试局部值 tool，由紧邻初始化决定。 */
     const tool = ctx.tools.get(RUN_CODE_NAME)!
 
     expect(result.isError).toBe(true)
@@ -1570,7 +1384,6 @@ describe('the run_code dispatch bridge', () => {
   it('logs the complete sub-result content verbatim, non-text blocks and long text included', async () => {
     const { ctx, runtime } = await setup({ mode: 'ptc' })
     const { agent, events } = fakeAgent()
-    /** 中文说明：测试局部值 long，由紧邻初始化决定。 */
     const long = 'x'.repeat(300)
     ctx.tools.register(defineTool({
       name: 'mixed',
@@ -1588,15 +1401,12 @@ describe('the run_code dispatch bridge', () => {
       },
     }))
     runtime.behavior = async (request) => {
-      /** 中文说明：测试局部值 value，由紧邻初始化决定。 */
       const value = await request.bindings[0]!.functions.mixed!({})
       return { logs: [], value }
     }
-    /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
     const result = await runCode(ctx, 'program', { agent })
     expect(result.isError).toBe(false)
     expect((result.content[0] as { text: string }).text).toBe('mixed-value')
-    /** 中文说明：测试局部值 dispatch，由紧邻初始化决定。 */
     const dispatch = events.find(event => event.type === 'tool/code-dispatch')?.data as SessionEventMap['tool/code-dispatch']
     expect(dispatch.content).toEqual([
       { type: 'text', text: long },
@@ -1607,12 +1417,9 @@ describe('the run_code dispatch bridge', () => {
   it('rejects undefined, getter-throwing, exotic, and unrepresentable binding arguments before dispatch', async () => {
     const { ctx, runtime } = await setup({ mode: 'ptc' })
     const calls = registerEcho(ctx)
-    /** 中文说明：测试局部值 { agent, events }，由紧邻初始化决定。 */
     const { agent, events } = fakeAgent()
     runtime.behavior = async (request) => {
-      /** 中文说明：测试局部值 echo，由紧邻初始化决定。 */
       const echo = request.bindings[0]!.functions.echo!
-      /** 中文说明：测试局部值 catchMessage，由紧邻初始化决定。 */
       const catchMessage = (promise: Promise<unknown>) => promise.then(() => 'resolved', (error: unknown) => error instanceof Error ? error.message : String(error))
       return {
         logs: [],
@@ -1628,9 +1435,7 @@ describe('the run_code dispatch bridge', () => {
         ].join(' | '),
       }
     }
-    /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
     const result = await runCode(ctx, 'program', { agent })
-    /** 中文说明：测试局部值 text，由紧邻初始化决定。 */
     const text = (result.content[0] as { text: string }).text
     expect(text).toContain('call the tool with an arguments object')
     expect(text).toContain('lossless JSON: raw-throw')
@@ -1644,9 +1449,7 @@ describe('the run_code dispatch bridge', () => {
   it('dispatches and durably logs binding arguments deeper than the structured-clone call stack', async () => {
     const { ctx, runtime } = await setup({ mode: 'ptc' })
     const depth = 5_000
-    /** 中文说明：测试局部值 observedDepth，由紧邻初始化决定。 */
     let observedDepth = 0
-    /** 中文说明：测试局部值 解构结果，由紧邻初始化决定。 */
     let observedLeaf: JsonValue | undefined
     ctx.tools.register(defineTool({
       name: 'deep_args',
@@ -1657,7 +1460,6 @@ describe('the run_code dispatch bridge', () => {
         render: (_args, value) => [{ type: 'text', text: String(value) }],
       },
       execute(args) {
-        /** 中文说明：测试局部值 cursor，由紧邻初始化决定。 */
         let cursor = args.nested
         while (Array.isArray(cursor)) {
           if (cursor.length !== 1) throw new Error('expected one item per nesting layer')
@@ -1668,34 +1470,24 @@ describe('the run_code dispatch bridge', () => {
         return Promise.resolve(observedDepth)
       },
     }))
-    /** 中文说明：测试局部值 session，由紧邻初始化决定。 */
     const session = Session.create(SessionId('deep-code-arguments'))
-    /** 中文说明：测试局部值 agent，由紧邻初始化决定。 */
     const agent = { session } as Agent
     runtime.behavior = async (request) => {
-      /** 中文说明：测试局部值 nested，由紧邻初始化决定。 */
       let nested: JsonValue = 'leaf'
-      /** 中文说明：测试局部值 index，由紧邻初始化决定。 */
       for (let index = 0; index < depth; index++) nested = [nested]
-      /** 中文说明：测试局部值 value，由紧邻初始化决定。 */
       const value = await request.bindings[0]!.functions.deep_args!({ nested })
       return { logs: [], value }
     }
 
-    /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
     const result = await runCode(ctx, 'return tools.deep_args(...)', { agent })
 
     expect(result.isError).toBe(false)
     expect(result.isError ? undefined : result.value).toEqual({ logs: [], result: depth })
     expect({ observedDepth, observedLeaf }).toEqual({ observedDepth: depth, observedLeaf: 'leaf' })
-    /** 中文说明：测试局部值 dispatch，由紧邻初始化决定。 */
     const dispatch = session.events.find(event => event.type === 'tool/code-dispatch')
     if (dispatch === undefined) throw new Error('expected a durable tool/code-dispatch event')
-    /** 中文说明：测试局部值 logged，由紧邻初始化决定。 */
     const logged = dispatch.data.arguments as { nested: JsonValue }
-    /** 中文说明：测试局部值 loggedDepth，由紧邻初始化决定。 */
     let loggedDepth = 0
-    /** 中文说明：测试局部值 loggedCursor，由紧邻初始化决定。 */
     let loggedCursor = logged.nested
     while (Array.isArray(loggedCursor)) {
       if (loggedCursor.length !== 1) throw new Error('expected one logged item per nesting layer')
@@ -1708,7 +1500,6 @@ describe('the run_code dispatch bridge', () => {
   it('gives the tool and durable log the same immutable argument value', async () => {
     const { ctx, runtime } = await setup({ mode: 'ptc' })
     const { agent, events } = fakeAgent()
-    /** 中文说明：测试局部值 解构结果，由紧邻初始化决定。 */
     let mutationSucceeded: boolean | undefined
     ctx.tools.register(defineContentToolFixture({
       name: 'mutator',
@@ -1723,11 +1514,9 @@ describe('the run_code dispatch bridge', () => {
       await request.bindings[0]!.functions.mutator!({ list: ['original'] })
       return { logs: [] }
     }
-    /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
     const result = await runCode(ctx, 'program', { agent })
     expect(result.isError).toBe(false)
     expect(mutationSucceeded).toBe(false)
-    /** 中文说明：测试局部值 dispatch，由紧邻初始化决定。 */
     const dispatch = events.find(event => event.type === 'tool/code-dispatch')?.data as SessionEventMap['tool/code-dispatch']
     expect(dispatch.arguments).toEqual({ list: ['original'] })
   })
@@ -1745,14 +1534,11 @@ describe('the run_code dispatch bridge', () => {
       execute() { return Promise.resolve('proto-tool-ok') },
     }))
     runtime.behavior = async (request) => {
-      /** 中文说明：测试局部值 functions，由紧邻初始化决定。 */
       const functions = request.bindings[0]!.functions
       expect(Object.getPrototypeOf(functions)).toBeNull()
-      /** 中文说明：测试局部值 value，由紧邻初始化决定。 */
       const value = await functions['__proto__']!({})
       return { logs: [], value }
     }
-    /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
     const result = await runCode(ctx, 'program')
     expect(result.isError).toBe(false)
     expect(result.content[0]).toEqual({ type: 'text', text: 'proto-tool-ok' })
@@ -1764,7 +1550,6 @@ describe('the run_code dispatch bridge', () => {
     expect((await runCode(ctx, 'object')).content[0]).toEqual({ type: 'text', text: '{\n  "n": 42,\n  "ok": true\n}' })
     runtime.behavior = () => Promise.resolve({ logs: [], value: {} })
     expect((await runCode(ctx, 'empty object')).content[0]).toEqual({ type: 'text', text: '{}' })
-    /** 中文说明：测试局部值 nested，由紧邻初始化决定。 */
     const nested = { outer: [{ inner: true }] }
     runtime.behavior = () => Promise.resolve({ logs: [], value: nested })
     expect((await runCode(ctx, 'nested')).content[0]).toEqual({ type: 'text', text: JSON.stringify(nested, null, 2) })
@@ -1777,7 +1562,6 @@ describe('the run_code dispatch bridge', () => {
     runtime.behavior = () => Promise.resolve({ logs: [], value: 'raw' })
     expect((await runCode(ctx, 'string')).content[0]).toEqual({ type: 'text', text: 'raw' })
     runtime.behavior = () => Promise.resolve({ logs: [] })
-    /** 中文说明：测试局部值 absent，由紧邻初始化决定。 */
     const absent = await runCode(ctx, 'undefined')
     expect(absent.content[0]).toEqual({ type: 'text', text: '(run_code completed with no output)' })
     expect(absent.isError ? undefined : absent.value).toEqual({ logs: [] })
@@ -1791,15 +1575,12 @@ describe('the run_code dispatch bridge', () => {
       pair: ['leaf', 2],
       record: { first: true, second: null },
     }
-    /** 中文说明：测试局部值 depth，由紧邻初始化决定。 */
     for (let depth = 0; depth < 5_000; depth++) value = [value]
     runtime.behavior = () => Promise.resolve({ logs: [], value })
 
-    /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
     const result = await runCode(ctx, 'deep result')
 
     expect(result.isError).toBe(false)
-    /** 中文说明：测试局部值 text，由紧邻初始化决定。 */
     const text = (result.content[0] as { type: 'text'; text: string }).text
     expect(text.startsWith('[\n  [\n    [')).toBe(true)
     expect(text).toContain('"leaf"')
@@ -1815,10 +1596,8 @@ describe('the run_code dispatch bridge', () => {
       if (request.signal?.aborted) return Promise.resolve({ logs: [], error: { kind: 'abort' as const, message: String(request.signal.reason) } })
       return Promise.resolve({ logs: [], value: 'unreachable' })
     }
-    /** 中文说明：测试局部值 controller，由紧邻初始化决定。 */
     const controller = new AbortController()
     controller.abort('too-late')
-    /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
     const result = await runCode(ctx, 'program', { signal: controller.signal })
     expect(result.isError).toBe(true)
     expect(result).toEqual({
@@ -1836,16 +1615,13 @@ describe('the run_code dispatch bridge', () => {
   it('reports cancellation after rejecting a late binding without dispatching it', async () => {
     const { ctx, runtime } = await setup({ mode: 'ptc' })
     const calls = registerEcho(ctx)
-    /** 中文说明：测试局部值 controller，由紧邻初始化决定。 */
     const controller = new AbortController()
     runtime.behavior = async (request) => {
       controller.abort('cancelled-mid-run')
-      /** 中文说明：测试局部值 message，由紧邻初始化决定。 */
       const message = await request.bindings[0]!.functions.echo!({ value: 'x' })
         .then(() => 'resolved', (error: unknown) => error instanceof Error ? error.message : String(error))
       return { logs: [], value: message }
     }
-    /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
     const result = await runCode(ctx, 'program', { signal: controller.signal })
     expect(result.isError).toBe(true)
     expect(result.error).toEqual({
@@ -1870,14 +1646,12 @@ describe('the run_code dispatch bridge', () => {
       isError: false,
       content: [{ type: 'text', text: 'echo:x' }],
     })
-    /** 中文说明：测试局部值 derived，由紧邻初始化决定。 */
     const derived = session.deriveMessages()
     expect(derived).toHaveLength(1)
     expect(derived[0]?.role).toBe('user')
   })
 
   it('direct construction rejects a non-positive parallel sub-call cap at load', async () => {
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = new Context()
     await ctx.plugin(SystemPrompt, {})
     expect(() => new ToolRuntime(ctx, { mode: 'ptc', maxParallelSubCalls: 0 }))
@@ -1892,13 +1666,10 @@ describe('the run_code dispatch bridge', () => {
   })
 
   it('defaults to native mode under direct construction with no config', async () => {
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = new Context()
     await ctx.plugin(SystemPrompt, {})
-    /** 中文说明：测试局部值 registry，由紧邻初始化决定。 */
     const registry = new ToolRuntime(ctx)
     expect(registry.get(RUN_CODE_NAME)).toBeUndefined()
-    /** 中文说明：测试局部值 assembly，由紧邻初始化决定。 */
     const assembly = await ctx.systemPrompt.assemble()
     expect(assembly.sections.some(section => section.name === 'tools:sdk')).toBe(false)
   })
@@ -1907,7 +1678,6 @@ describe('the run_code dispatch bridge', () => {
     await ctx.plugin(SystemPrompt, {})
     const registry = new ToolRuntime(ctx, { mode: 'ptc' })
     registerEcho(ctx, 'write')
-    /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
     const result = await registry.execute({
       signal: testToolSignal,
       callId: ToolCallId('call-1'),
@@ -1924,15 +1694,12 @@ describe('the run_code dispatch bridge', () => {
   })
 
   it('routes a pre-aborted collapsed call through ABORTED_BEFORE_DISPATCH', async () => {
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = new Context()
     await ctx.plugin(SystemPrompt, {})
     const registry = new ToolRuntime(ctx, { mode: 'ptc' })
     registerEcho(ctx, 'write')
-    /** 中文说明：测试局部值 aborted，由紧邻初始化决定。 */
     const aborted = new AbortController()
     aborted.abort()
-    /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
     const result = await registry.execute({
       signal: aborted.signal,
       callId: ToolCallId('call-1'),
@@ -1954,21 +1721,17 @@ describe('the run_code dispatch bridge', () => {
 describe('per-agent presentation', () => {
   it('gives one agent PTC mode while the deployment stays native', async () => {
     const { ctx, systemPrompt } = await setup({ mode: 'native' })
-    /** 中文说明：测试局部值 calls，由紧邻初始化决定。 */
     const calls = registerEcho(ctx)
-    /** 中文说明：测试局部值 { scope, agent }，由紧邻初始化决定。 */
     const { scope, agent } = await mintAgentScope(ctx)
 
     scope.ctx.tools.presentAs('ptc')
 
-    /** 中文说明：测试局部值 coded，由紧邻初始化决定。 */
     const coded = await systemPrompt.assemble({ scope: agent })
     expect(coded.tools.map(tool => tool.name)).toEqual([RUN_CODE_NAME])
     expect(coded.sections.find(section => section.name === 'tools:sdk')?.text)
       .toContain('echo')
     // Announced surface and callable surface must agree for THIS agent, whose
     // mode is its own rather than the deployment's.
-    /** 中文说明：测试局部值 denied，由紧邻初始化决定。 */
     const denied = await ctx.tools.execute({
       signal: testToolSignal,
       callId: ToolCallId('coded-direct'),
@@ -1980,18 +1743,14 @@ describe('per-agent presentation', () => {
     expect(calls).toEqual([])
     // The deployment default is untouched: an agent that declared nothing —
     // and the global view behind it — still sees the native catalog.
-    /** 中文说明：测试局部值 native，由紧邻初始化决定。 */
     const native = await systemPrompt.assemble()
     expect(native.tools.map(tool => tool.name)).toEqual(['echo'])
     expect(native.sections.some(section => section.name === 'tools:sdk')).toBe(false)
   })
 
   it('inherits a STANDING preset scope\'s mode down the chain, agents beside it unaffected', async () => {
-    /** 中文说明：测试局部值 { bindScopeParent }，由紧邻初始化决定。 */
     const { bindScopeParent } = await import('@deepseek-ai/dsh-scope')
-    /** 中文说明：测试局部值 { ctx, systemPrompt }，由紧邻初始化决定。 */
     const { ctx, systemPrompt } = await setup({ mode: 'native' })
-    /** 中文说明：测试局部值 calls，由紧邻初始化决定。 */
     const calls = registerEcho(ctx)
     // The preset's standing scope declares once; the agent only PARENTS to it
     // (the per-preset standing mount configuration has no per-agent declaration).
@@ -1999,11 +1758,9 @@ describe('per-agent presentation', () => {
     standing.scope.ctx.tools.presentAs('ptc')
     const joined = await mintAgentScope(ctx, 'joined-agent')
     bindScopeParent(joined.agent, standing.agent)
-    /** 中文说明：测试局部值 loner，由紧邻初始化决定。 */
     const loner = await mintAgentScope(ctx, 'loner-agent')
 
     expect(ctx.tools.get(RUN_CODE_NAME, joined.agent)).toBeDefined()
-    /** 中文说明：测试局部值 coded，由紧邻初始化决定。 */
     const coded = await systemPrompt.assemble({ scope: joined.agent })
     expect(coded.tools.map(tool => tool.name)).toEqual([RUN_CODE_NAME])
     // Through the EXECUTOR, not just the wire: the deployment default is
@@ -2018,7 +1775,6 @@ describe('per-agent presentation', () => {
       arguments: { value: 'joined' },
       agent: joined.agent,
     })).toEqual({ kind: 'exclusive' })
-    /** 中文说明：测试局部值 denied，由紧邻初始化决定。 */
     const denied = await ctx.tools.execute({
       signal: testToolSignal,
       callId: ToolCallId('preset-coded-direct'),
@@ -2030,10 +1786,8 @@ describe('per-agent presentation', () => {
     expect(calls).toEqual([])
     // A sibling that never parented stays native, as does the global view.
     expect(ctx.tools.get(RUN_CODE_NAME, loner.agent)).toBeUndefined()
-    /** 中文说明：测试局部值 native，由紧邻初始化决定。 */
     const native = await systemPrompt.assemble({ scope: loner.agent })
     expect(native.tools.map(tool => tool.name)).toEqual(['echo'])
-    /** 中文说明：测试局部值 allowed，由紧邻初始化决定。 */
     const allowed = await ctx.tools.execute({
       signal: testToolSignal,
       callId: ToolCallId('native-sibling-direct'),
@@ -2046,12 +1800,9 @@ describe('per-agent presentation', () => {
   })
 
   it('keeps run_code out of a native agent\'s dispatch table', async () => {
-    /** 中文说明：测试局部值 { ctx }，由紧邻初始化决定。 */
     const { ctx } = await setup({ mode: 'native' })
     registerEcho(ctx)
-    /** 中文说明：测试局部值 coded，由紧邻初始化决定。 */
     const coded = await mintAgentScope(ctx, 'coded')
-    /** 中文说明：测试局部值 plain，由紧邻初始化决定。 */
     const plain = await mintAgentScope(ctx, 'plain')
     coded.scope.ctx.tools.presentAs('ptc')
 
@@ -2065,12 +1816,10 @@ describe('per-agent presentation', () => {
   it('lets an agent opt out of a PTC mode deployment', async () => {
     const { ctx, systemPrompt } = await setup({ mode: 'ptc' })
     registerEcho(ctx)
-    /** 中文说明：测试局部值 { scope, agent }，由紧邻初始化决定。 */
     const { scope, agent } = await mintAgentScope(ctx)
 
     scope.ctx.tools.presentAs('native')
 
-    /** 中文说明：测试局部值 assembly，由紧邻初始化决定。 */
     const assembly = await systemPrompt.assemble({ scope: agent })
     expect(assembly.tools.map(tool => tool.name)).toEqual(['echo'])
     // The deployment's global section still reaches this scope; rendering it
@@ -2079,25 +1828,20 @@ describe('per-agent presentation', () => {
   })
 
   it('restores the deployment default when the agent unloads', async () => {
-    /** 中文说明：测试局部值 { ctx, systemPrompt }，由紧邻初始化决定。 */
     const { ctx, systemPrompt } = await setup({ mode: 'native' })
     registerEcho(ctx)
-    /** 中文说明：测试局部值 { scope, agent }，由紧邻初始化决定。 */
     const { scope, agent } = await mintAgentScope(ctx)
     const dispose = scope.ctx.tools.presentAs('ptc')
 
     dispose()
 
-    /** 中文说明：测试局部值 assembly，由紧邻初始化决定。 */
     const assembly = await systemPrompt.assemble({ scope: agent })
     expect(assembly.tools.map(tool => tool.name)).toEqual(['echo'])
     expect(assembly.sections.some(section => section.name === 'tools:sdk')).toBe(false)
   })
 
   it('refuses a second declaration for the same agent', async () => {
-    /** 中文说明：测试局部值 { ctx }，由紧邻初始化决定。 */
     const { ctx } = await setup({ mode: 'native' })
-    /** 中文说明：测试局部值 { scope }，由紧邻初始化决定。 */
     const { scope } = await mintAgentScope(ctx)
     scope.ctx.tools.presentAs('ptc')
 
@@ -2108,7 +1852,6 @@ describe('per-agent presentation', () => {
   })
 
   it('refuses an unscoped declaration', async () => {
-    /** 中文说明：测试局部值 { ctx }，由紧邻初始化决定。 */
     const { ctx } = await setup({ mode: 'native' })
 
     expect(() => ctx.tools.presentAs('ptc'))
@@ -2116,7 +1859,6 @@ describe('per-agent presentation', () => {
   })
 
   it('reserves run_code even where no agent presents it', async () => {
-    /** 中文说明：测试局部值 { ctx }，由紧邻初始化决定。 */
     const { ctx } = await setup({ mode: 'native' })
 
     // The name must stay free under a native deployment too: an agent preset
@@ -2125,10 +1867,8 @@ describe('per-agent presentation', () => {
   })
 
   it('reports the missing runtime against the agent\'s own mode', async () => {
-    /** 中文说明：测试局部值 { ctx, systemPrompt }，由紧邻初始化决定。 */
     const { ctx, systemPrompt } = await setup({ mode: 'native', runtime: false })
     registerEcho(ctx)
-    /** 中文说明：测试局部值 { scope, agent }，由紧邻初始化决定。 */
     const { scope, agent } = await mintAgentScope(ctx)
     scope.ctx.tools.presentAs('both')
 

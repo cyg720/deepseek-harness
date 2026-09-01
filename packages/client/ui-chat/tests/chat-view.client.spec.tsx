@@ -16,10 +16,9 @@ import type {
 import type { WorkspaceSnapshot } from '@deepseek-ai/dsh-api-workspace-controller/client'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import type { SessionPendingInteractionSnapshot } from '@deepseek-ai/dsh-client-ui-session/client'
-import { bindSnapshotSelector } from '@deepseek-ai/dsh-client-test-runtime'
+import { bindSnapshotSelector, makeTranslate } from '@deepseek-ai/dsh-client-test-runtime'
 import { createSnapshotStore } from '@deepseek-ai/dsh-client-store'
 import { EMPTY_CONVERSATION_SNAPSHOT } from '@deepseek-ai/dsh-client-ui-conversation/client'
-import { makeTranslate } from '@deepseek-ai/dsh-client-test-runtime'
 import { zh as commonZh } from '@deepseek-ai/dsh-client-locale/src/locales/zh.ts'
 import { createChatStore } from '../src/client/stores.ts'
 import { ChatView } from '../src/client/chat/ChatView.tsx'
@@ -49,9 +48,7 @@ beforeEach(() => {
   localStorage.clear()
 })
 
-/** 中文说明：测试局部值 SID，取值由紧邻初始化决定。 */
 const SID = 's1' as SessionId
-/** 中文说明：类型或类 RoutedChatNodeOwner 约束本文件的数据或组件职责。 */
 type RoutedChatNodeOwner = ChatNodeOwnerProps & { readonly node: ChatNode }
 
 function sessionSnapshot(overrides: Partial<SessionSnapshot> = {}): SessionSnapshot {
@@ -94,7 +91,9 @@ function makeSessionSource(init: Partial<SessionSnapshot> = {}) {
   }
 }
 
-type ChatSlice = Partial<LegacyConversationSlice>
+type ChatSlice = Partial<LegacyConversationSlice> & {
+  readonly turnUsages?: NonNullable<Parameters<typeof chatSnapshotFixture>[0]>['turnUsages']
+}
 type HarnessUpdate = ChatSlice & Partial<SessionSnapshot> & { readonly chat?: ChatSnapshot }
 
 /** Scripted Chat target source, independent from Session lifecycle state. */
@@ -120,7 +119,6 @@ function makeChatSource(init: ChatSlice = {}, snapshot?: ChatSnapshot) {
   }
 }
 
-/** 中文说明：测试局部值 user，取值由紧邻初始化决定。 */
 const user = (seq: number, text: string): UserMessageNode => ({
   kind: 'user',
   seq,
@@ -149,7 +147,6 @@ const steering = (seq: number, text: string, turn: number): SteeringMessageNode 
   kind: 'steering', messageId: `steering-${String(seq)}` as SteeringMessageNode['messageId'],
   seq, time: seq * 1_000, turn, content: [{ type: 'text', text }], source: null,
 })
-/** 中文说明：测试局部值 retry，取值由紧邻初始化决定。 */
 const retry = (seq: number): ModelRetryNode => ({
   kind: 'model-retry', retryId: 'chat-view-retry' as ModelRetryNode['retryId'],
   seq, time: seq * 1_000, turn: 1, step: 0,
@@ -158,34 +155,28 @@ const retry = (seq: number): ModelRetryNode => ({
   retry: 1, maxRetries: 2, delayMs: 450,
   failure: { code: 'TRANSPORT', message: '连接被重置' },
 })
-/** 中文说明：失败观测值 turnError，取值由紧邻初始化决定。 */
 const turnError = (seq: number, code?: string): TurnErrorNode => ({
   kind: 'turn-error', seq, time: seq * 1_000, turn: 1, step: 0,
   message: seq === 2 ? 'API key is invalid' : 'plugin exploded',
   ...(code === undefined ? {} : { code }),
 })
-/** 中文说明：测试局部值 turnMaxTokens，取值由紧邻初始化决定。 */
 const turnMaxTokens = (seq: number): TurnMaxTokensNode => ({
   kind: 'turn-max-tokens', seq, time: seq * 1_000, turn: 1, step: 0,
 })
-/** 中文说明：测试局部值 toolResult，取值由紧邻初始化决定。 */
 const toolResult = (seq: number, callId: string, name = 'bash'): ToolResultNode => ({
   kind: 'tool-result', seq, time: seq * 1_000, callId,
   call: { name, argsRaw: `{"command":"cmd-${callId}","description":"run ${callId}"}` },
   callTime: seq * 1_000 - 500,
   content: [], isError: false, subCalls: [],
 })
-/** 中文说明：测试局部值 runningCall，取值由紧邻初始化决定。 */
 const runningCall = (callId: string, name = 'bash'): RunningToolCall => ({
   callId, name, argsRaw: `{"command":"cmd-${callId}"}`, turn: 2, step: 1, time: 1_000, subCalls: [],
 })
-/** 中文说明：测试局部值 command，取值由紧邻初始化决定。 */
 const command = (over: Partial<CommandNode> = {}): CommandNode => ({
   kind: 'command', seq: 5, time: 5_000, commandId: 'cmd-1' as CommandNode['commandId'],
   name: 'plan', args: '', outcome: { kind: 'success', text: '已进入 plan mode' },
   ...over,
 })
-/** 中文说明：测试局部值 compaction，取值由紧邻初始化决定。 */
 const compaction = (over: Partial<CompactionSummaryNode> = {}): CompactionSummaryNode => ({
   kind: 'compaction', seq: 8, time: 8_000,
   summary: '## 压缩摘要\n\n保留的事实。',
@@ -196,15 +187,12 @@ const compaction = (over: Partial<CompactionSummaryNode> = {}): CompactionSummar
 })
 
 /** Empty sessions-list hook for the global standard-kit seat. */
-/* 中文说明：函数 emptySessions 的参数见签名，返回结果供相邻流程使用；示例见本文件调用处。 */
 function emptySessions() {
-  /** 中文说明：状态快照 store，取值由紧邻初始化决定。 */
   const store = createSnapshotStore<SessionListState>(
     { ids: [], byId: {}, current: undefined, phase: 'ready', subagentsByParent: {}, jobsBySession: {}, currentAddress: undefined })
   return bindSnapshotSelector(store)
 }
 
-/** 中文说明：函数 emptyWorkspaces 的参数见签名，返回结果供相邻流程使用；示例见本文件调用处。 */
 function emptyWorkspaces() {
   const store = createSnapshotStore<WorkspaceSnapshot>({
     items: [], archivedSessionIds: [], state: 'idle', phase: 'ready', error: null,
@@ -218,7 +206,7 @@ function makeHarness(
   chatSnapshot?: ChatSnapshot,
 ) {
   const {
-    chat: initialChat, nodes, partial, runningCalls, turnTimings, turnEnds,
+    chat: initialChat, nodes, partial, runningCalls, turnTimings, turnEnds, turnUsages,
     ...sessionInit
   } = init
   const chatSlice: ChatSlice = {
@@ -227,30 +215,28 @@ function makeHarness(
     ...(runningCalls === undefined ? {} : { runningCalls }),
     ...(turnTimings === undefined ? {} : { turnTimings }),
     ...(turnEnds === undefined ? {} : { turnEnds }),
+    ...(turnUsages === undefined ? {} : { turnUsages }),
   }
   const session = makeSessionSource({ ...sessionInit, ...sessionOverrides })
   const chatSource = makeChatSource(chatSlice, initialChat ?? chatSnapshot)
   const openDetails = vi.fn<(t: SelectionTarget) => void>()
-  /** 中文说明：测试局部值 openFile，取值由紧邻初始化决定。 */
   const openFile = vi.fn<(path: string) => Promise<void>>().mockResolvedValue(undefined)
-  /** 中文说明：测试局部值 loadOlder，取值由紧邻初始化决定。 */
   const loadOlder = vi.fn()
+  const loadThrough = vi.fn<(seq: number) => Promise<void>>().mockResolvedValue(undefined)
+  // Mutable outline holder: tests swap the value and drive a re-render via set().
+  let outlineValue: unknown
   const openView = vi.fn<(view: string, focus: string) => void>()
   // In-memory scroll memory matching the apply.ts per-session map contract.
-  /** 中文说明：测试局部值 savedScroll，取值由紧邻初始化决定。 */
   let savedScroll: ReturnType<ChatViewSlotProps['chatScroll']['read']> = null
-  /** 中文说明：测试局部值 chatScroll，取值由紧邻初始化决定。 */
   const chatScroll: ChatViewSlotProps['chatScroll'] = {
     save: (position) => { savedScroll = position },
     read: () => savedScroll,
   }
-  /** 中文说明：测试局部值 forkAt，取值由紧邻初始化决定。 */
   const forkAt = vi.fn()
   // Rows and the harness must observe the same chat-store instance.
   const chat = createChatStore().create()
   const transcriptView = createSnapshotStore<TranscriptViewMode>('compact')
   const t = makeTranslate(zh, commonZh)
-  /** 中文说明：测试局部值 toolOwners: Array<{，取值由紧邻初始化决定。 */
   const toolOwners: Array<{
     callId: string
     toolName: string
@@ -259,13 +245,10 @@ function makeHarness(
     openFile: ChatNodeOwnerProps['openFile']
     inspectCall: ChatNodeOwnerProps['inspectCall']
   }> = []
-  /** 中文说明：测试局部值 renderCommandSlot，取值由紧邻初始化决定。 */
   const renderCommandSlot = ((_key: string, _owner: object, opts?: { fallback?: React.ReactNode }) =>
     opts?.fallback ?? null) as unknown as React.ComponentProps<typeof CommandNodeView>['renderSlot']
-  /** 中文说明：测试局部值 renderTurnTail，取值由紧邻初始化决定。 */
   const renderTurnTail = ((_key: string, _owner: object) => null) as unknown as
     React.ComponentProps<typeof TurnTailNodeView>['renderSlotChain']
-  /** 中文说明：测试局部值 renderTurnTailSlot，取值由紧邻初始化决定。 */
   const renderTurnTailSlot = (() => null) as unknown as
     React.ComponentProps<typeof TurnTailNodeView>['renderSlot']
   let nodeSlotOverride: React.ComponentProps<typeof ChatNodeSeat>['renderSlot'] | undefined
@@ -275,9 +258,7 @@ function makeHarness(
   }) => {
     if (nodeSlotOverride !== undefined) return nodeSlotOverride(key as never, owner as never, opts as never)
     if (key !== 'conversation.chat.node') return opts?.fallback ?? null
-    /** 中文说明：测试局部值 nodeOwner，取值由紧邻初始化决定。 */
     const nodeOwner = owner as RoutedChatNodeOwner
-    /** 中文说明：测试局部值 nodeKey，取值由紧邻初始化决定。 */
     const nodeKey = opts?.hookContext as string | undefined
     const useTurnData: UseChatNodeTurnData = dataKey => props.useChat((snapshot) => {
       const location = nodeKey === undefined ? undefined : snapshot.nodes.get(nodeKey)?.location
@@ -285,7 +266,6 @@ function makeHarness(
         ? location.turn.data.get(dataKey)
         : undefined
     })
-    /** 中文说明：测试局部值 nodeProps，取值由紧邻初始化决定。 */
     const nodeProps = <Kind extends ChatNode['kind']>(): ChatNodeViewProps<Kind> => (
       { ...props, ...nodeOwner, useTurnData } as unknown as ChatNodeViewProps<Kind>
     )
@@ -331,11 +311,8 @@ function makeHarness(
       case 'unknown':
         return <UnknownNodeView {...nodeProps<'unknown'>()} />
       case 'tool-call': {
-        /** 中文说明：测试局部值 block，取值由紧邻初始化决定。 */
         const block = nodeOwner.node.data.root
-        /** 中文说明：测试局部值 toolName，取值由紧邻初始化决定。 */
         const toolName = 'kind' in block ? block.call?.name ?? '' : block.name
-        /** 中文说明：测试局部值 tool，取值由紧邻初始化决定。 */
         const tool = {
           callId: block.callId,
           toolName,
@@ -374,7 +351,7 @@ function makeHarness(
       createSnapshotStore<SessionPendingInteractionSnapshot>(new Map()),
     ),
     useWorkspaces: emptyWorkspaces(),
-    useProjection: (() => undefined),
+    useProjection: () => outlineValue,
     useInput: (() => { throw new Error('unused') }),
     inputActions: {
       setDraft: () => {},
@@ -394,6 +371,7 @@ function makeHarness(
     openDetails,
     openFile,
     loadOlder,
+    loadThrough,
     loadImage: vi.fn(() => Promise.reject(new Error('not used'))),
     chatScroll,
     forkAt,
@@ -422,7 +400,8 @@ function makeHarness(
   const setSelection = (next: SelectionTarget | null): void => { chat.actions.select(next) }
   return {
     set, setSession: session.set, setChat: chatSource.set, ChatView, props,
-    openDetails, openFile, loadOlder, openView,
+    openDetails, openFile, loadOlder, loadThrough, openView,
+    setOutline: (value: unknown) => { outlineValue = value },
     chatScroll, forkAt, setSelection, toolOwners,
     setTranscriptView: (mode: TranscriptViewMode) => { transcriptView.set(mode) },
     setNodeRenderer: (renderer: React.ComponentProps<typeof ChatNodeSeat>['renderSlot']) => {
@@ -433,7 +412,6 @@ function makeHarness(
 
 /** Simulate reader input (any device): a delivered position that deviates
  * from the observed-top ledger of programmatic writes. */
-/* 中文说明：函数 readerScroll 的参数见签名，返回结果供相邻流程使用；示例见本文件调用处。 */
 function readerScroll(element: HTMLElement, top: number): void {
   element.scrollTop = top
   fireEvent.scroll(element)
@@ -468,9 +446,7 @@ function renderedFlowKinds(container: HTMLElement): Array<string | undefined> {
 }
 
 function installScrollMetrics(element: HTMLElement, initialHeight: number, clientHeight: number) {
-  /** 中文说明：测试局部值 scrollHeight，取值由紧邻初始化决定。 */
   let scrollHeight = initialHeight
-  /** 中文说明：测试局部值 scrollTop，取值由紧邻初始化决定。 */
   let scrollTop = 0
   Object.defineProperty(element, 'scrollHeight', { configurable: true, get: () => scrollHeight })
   Object.defineProperty(element, 'clientHeight', { configurable: true, get: () => clientHeight })
@@ -494,7 +470,6 @@ describe('Chat node rendering', () => {
     const wrote = (seq: number, callId: string): ToolResultNode => ({
       ...toolResult(seq, callId, 'write'),
     })
-    /** 中文说明：测试局部值 h，取值由紧邻初始化决定。 */
     const h = makeHarness({
       nodes: [
         user(1, 'build it'),
@@ -514,14 +489,11 @@ describe('Chat node rendering', () => {
         }
       },
     })
-    /** 中文说明：测试局部值 view，取值由紧邻初始化决定。 */
     const view = render(<h.ChatView {...h.props} />)
     // Exactly one live mention: the closing message links, the mid-turn
     // narration stays inert code, and the unknown file resolves to nothing.
-    /** 中文说明：测试局部值 mentions，取值由紧邻初始化决定。 */
     const mentions = view.container.querySelectorAll('code button')
     expect(mentions).toHaveLength(1)
-    /** 中文说明：测试局部值 mention，取值由紧邻初始化决定。 */
     const mention = view.getByRole('button', { name: '打开 site/report.html' })
     expect(mention.getAttribute('title')).toBe('site/report.html')
     fireEvent.click(mention)
@@ -530,7 +502,6 @@ describe('Chat node rendering', () => {
   })
 
   it('formatRunDuration localizes units and floors partial seconds', () => {
-    /** 中文说明：测试局部值 t，取值由紧邻初始化决定。 */
     const t = makeTranslate(zh, commonZh)
     expect(formatRunDuration(0, t)).toBe('0秒')
     expect(formatRunDuration(-500, t)).toBe('0秒')
@@ -607,7 +578,7 @@ describe('ChatView', () => {
     const view = render(<h.ChatView {...h.props} />)
     const second = view.getByRole('button', { name: '跳转到第 2 轮' })
     const secondPosition = second.parentElement as HTMLElement
-    expect(secondPosition.style.getPropertyValue('--turn-position')).toBe('0%')
+    expect(secondPosition.style.getPropertyValue('--turn-natural-position')).toBe('0px')
 
     const scroller = view.container.querySelector('[class*="scroll"]') as HTMLDivElement
     const metrics = installScrollMetrics(scroller, 1_000, 300)
@@ -627,16 +598,162 @@ describe('ChatView', () => {
     })
     const movedSecond = view.getByRole('button', { name: '跳转到第 2 轮' })
     expect(movedSecond.parentElement).toBe(secondPosition)
+    // Fixed pitch: the mark moves one slot down and never compresses.
     expect(secondPosition.style.getPropertyValue('--turn-natural-position')).toBe('10px')
-    expect(secondPosition.style.getPropertyValue('--turn-position')).toBe('50%')
+  })
+
+  it('extends the rail with unloaded outline turns, pages on click, and falls back when nothing lands', async () => {
+    const later = [userInTurn(8, 'third prompt', 3), assistant(9, 'third response', 3)]
+    const h = makeHarness({ nodes: later }, { hasMore: true })
+    h.setOutline([
+      { turn: 1, seq: 0, prompt: 'first prompt from outline', response: 'first answer from outline' },
+      { turn: 2, seq: 4, prompt: 'second prompt from outline', response: '' },
+      { turn: 3, seq: 8, prompt: 'third prompt', response: 'third response' },
+    ])
+    const view = render(<h.ChatView {...h.props} />)
+    const first = view.getByRole('button', { name: '加载并跳转到第 1 轮' })
+    view.getByRole('button', { name: '加载并跳转到第 2 轮' })
+    const third = view.getByRole('button', { name: '跳转到第 3 轮' })
+    expect(third.getAttribute('aria-current')).toBe('true')
+    fireEvent.focus(first)
+    // An unloaded turn previews both sides from the outline.
+    expect(view.getByRole('tooltip').textContent).toContain('first prompt from outline')
+    expect(view.getByRole('tooltip').textContent).toContain('first answer from outline')
+
+    fireEvent.click(first)
+    expect(h.loadThrough).toHaveBeenCalledWith(0)
+    expect(first.getAttribute('aria-busy')).toBe('true')
+
+    // The fake loader never delivers rows: settlement repages once for the
+    // unmoved head, then lands on the nearest rendered turn and un-busies.
+    await act(async () => {})
+    expect(h.loadThrough.mock.calls).toEqual([[0], [0]])
+    expect(first.getAttribute('aria-busy')).toBeNull()
+    expect(view.getByRole('button', { name: '跳转到第 3 轮' }).getAttribute('aria-current')).toBe('true')
+  })
+
+  it('a jump from the pinned tail releases bottom ownership so the follow snap cannot cancel it', async () => {
+    const later = [userInTurn(8, 'third prompt', 3), assistant(9, 'third response', 3)]
+    const h = makeHarness({ nodes: later }, { hasMore: true })
+    h.setOutline([
+      { turn: 1, seq: 0, prompt: 'first prompt', response: '' },
+      { turn: 3, seq: 8, prompt: 'third prompt', response: '' },
+    ])
+    let releaseJump: (() => void) | undefined
+    h.loadThrough.mockImplementation(() => new Promise<void>((resolve) => { releaseJump = resolve }))
+    const view = render(<h.ChatView {...h.props} />)
+    // Pinned to the tail on open: the back-to-bottom control is absent.
+    expect(view.queryByRole('button', { name: '回到底部' })).toBeNull()
+
+    const first = view.getByRole('button', { name: '加载并跳转到第 1 轮' })
+    fireEvent.click(first)
+    // The click itself leaves the tail...
+    expect(view.getByRole('button', { name: '回到底部' })).toBeTruthy()
+    // ...so a non-reader scroll delivery at the floor (the first prepend's
+    // compensation fires one) no longer snaps to the tail and cancel the jump.
+    const scroller = view.container.querySelector('[class*="scroll"]') as HTMLElement
+    fireEvent.scroll(scroller)
+    expect(first.getAttribute('aria-busy')).toBe('true')
+    await act(async () => { releaseJump?.() })
+  })
+
+  it('holds a jump issued while a plain pull owns the pager and resumes it when the pull settles', async () => {
+    const later = [userInTurn(8, 'third prompt', 3), assistant(9, 'third response', 3)]
+    const h = makeHarness({ nodes: later }, { hasMore: true, loadingOlder: true })
+    h.setOutline([
+      { turn: 1, seq: 0, prompt: 'first prompt', response: '' },
+      { turn: 3, seq: 8, prompt: 'third prompt', response: '' },
+    ])
+    const view = render(<h.ChatView {...h.props} />)
+    const first = view.getByRole('button', { name: '加载并跳转到第 1 轮' })
+    fireEvent.click(first)
+    // The session-side guard refuses the busy-pager jump instantly, yet the
+    // mark stays busy instead of degrading to the nearest loaded turn.
+    await act(async () => {})
+    expect(h.loadThrough.mock.calls).toEqual([[0]])
+    expect(first.getAttribute('aria-busy')).toBe('true')
+
+    // The plain pull settles: the flip re-settles the jump, which repages.
+    act(() => { h.setSession({ loadingOlder: false }) })
+    await act(async () => {})
+    expect(h.loadThrough.mock.calls).toEqual([[0], [0]])
+    expect(first.getAttribute('aria-busy')).toBeNull()
+  })
+
+  it('scrolls the fixed-pitch rail inside its frame with gradient fades at the scrollable ends', () => {
+    const h = makeHarness(
+      { nodes: [userInTurn(8, 'latest prompt', 60), assistant(9, 'latest response', 60)] },
+      { hasMore: true },
+    )
+    h.setOutline(Array.from({ length: 60 }, (_, index) => ({
+      turn: index + 1,
+      seq: index * 4,
+      prompt: `p${String(index + 1)}`,
+      response: '',
+    })))
+    const view = render(<h.ChatView {...h.props} />)
+    const nav = view.getByRole('navigation', { name: '轮次导航' })
+    // 60 marks at the fixed 10px pitch: the ladder keeps its natural height.
+    expect(nav.style.getPropertyValue('--turn-natural-height')).toBe('602px')
+    const scroller = nav.querySelector('[class*="scroller"]') as HTMLElement
+    Object.defineProperty(scroller, 'scrollHeight', { value: 602, configurable: true })
+    Object.defineProperty(scroller, 'clientHeight', { value: 300, configurable: true })
+    scroller.scrollTop = 0
+    fireEvent.scroll(scroller)
+    expect(scroller.className).toContain('fadeBottom')
+    expect(scroller.className).not.toContain('fadeTop')
+
+    scroller.scrollTop = 150
+    fireEvent.scroll(scroller)
+    expect(scroller.className).toContain('fadeTop')
+    expect(scroller.className).toContain('fadeBottom')
+    expect(nav.style.getPropertyValue('--turn-scroll-top')).toBe('150px')
+
+    // Pointer mapping subtracts the rail scroll: y=94 with scrollTop 150 is
+    // natural offset 238px → the 25th mark.
+    vi.spyOn(nav, 'getBoundingClientRect').mockReturnValue({ top: 0 } as DOMRect)
+    fireEvent.pointerMove(nav, { clientY: 94 })
+    expect(view.getByRole('tooltip').textContent).toContain('p25')
+  })
+
+  it('lands a jump on its turn once the paged rows commit', async () => {
+    const later = [userInTurn(8, 'third prompt', 3), assistant(9, 'third response', 3)]
+    const h = makeHarness({ nodes: later }, { hasMore: true })
+    h.setOutline([
+      { turn: 1, seq: 0, prompt: 'first prompt', response: '' },
+      { turn: 3, seq: 8, prompt: 'third prompt', response: '' },
+    ])
+    let releaseJump: (() => void) | undefined
+    h.loadThrough.mockImplementation(() => new Promise<void>((resolve) => { releaseJump = resolve }))
+    const view = render(<h.ChatView {...h.props} />)
+
+    fireEvent.click(view.getByRole('button', { name: '加载并跳转到第 1 轮' }))
+    expect(h.loadThrough).toHaveBeenCalledWith(0)
+
+    // The paged window commits: turn 1's rows and rail item enter the snapshot.
+    act(() => {
+      h.setChat({
+        nodes: [userInTurn(0, 'first prompt', 1), assistant(1, 'first response', 1), ...later],
+        turnTimings: new Map([[1, { startTime: 1_000 }], [3, { startTime: 8_000 }]]),
+      })
+    })
+    const first = view.getByRole('button', { name: '跳转到第 1 轮' })
+    expect(first.getAttribute('aria-current')).toBe('true')
+    // The mark stays busy until the jump settles: the loader's completion
+    // runs the final landing correction after the load-earlier button leaves.
+    expect(first.getAttribute('aria-busy')).toBe('true')
+    await act(async () => { releaseJump?.() })
+    // Only the busy lifecycle is asserted after settlement: jsdom's zero
+    // geometry makes the rAF active-turn resync read "at bottom" and hand the
+    // mark to the last turn, so aria-current here is timing-dependent under
+    // instrumentation; the landing position contract lives in the browser e2e.
+    expect(first.getAttribute('aria-busy')).toBeNull()
   })
 
   it('hands a windowless tool result to the Tool seat with an empty tool name', () => {
-    /** 中文说明：测试局部值 h，取值由紧邻初始化决定。 */
     const h = makeHarness({
       nodes: [{ ...toolResult(3, 'w1'), call: null }],
     })
-    /** 中文说明：测试局部值 view，取值由紧邻初始化决定。 */
     const view = render(<h.ChatView {...h.props} />)
     expect(view.getByTestId('tool-seat-w1')).toBeTruthy()
     expect(h.toolOwners[0]).toMatchObject({ callId: 'w1', toolName: '' })
@@ -648,15 +765,10 @@ describe('ChatView', () => {
       { hasMore: true },
     )
     const view = render(<h.ChatView {...h.props} />)
-    /** 中文说明：测试局部值 scroller，取值由紧邻初始化决定。 */
     const scroller = view.container.querySelector('[class*="scroll"]') as HTMLDivElement
-    /** 中文说明：测试局部值 first，取值由紧邻初始化决定。 */
     const first = view.container.querySelector('[data-chat-flow-key="fixture:user:9"]') as HTMLDivElement
-    /** 中文说明：测试局部值 next，取值由紧邻初始化决定。 */
     const next = view.container.querySelector('[data-chat-flow-key="fixture:user:10"]') as HTMLDivElement
-    /** 中文说明：测试局部值 firstTop，取值由紧邻初始化决定。 */
     let firstTop = 100
-    /** 中文说明：测试局部值 nextTop，取值由紧邻初始化决定。 */
     let nextTop = 300
     vi.spyOn(scroller, 'getBoundingClientRect').mockImplementation(
       () => ({ top: 0, bottom: 200 } as DOMRect),
@@ -772,11 +884,9 @@ describe('ChatView', () => {
   })
 
   it('renders the fixture main line as independently keyed business nodes', () => {
-    /** 中文说明：测试局部值 h，取值由紧邻初始化决定。 */
     const h = makeHarness({
       nodes: [user(1, 'do the thing'), assistant(2, 'running tools'), toolResult(3, 'a'), toolResult(4, 'b')],
     })
-    /** 中文说明：测试局部值 view，取值由紧邻初始化决定。 */
     const view = render(<h.ChatView {...h.props} />)
     expect(view.getByText('do the thing')).toBeTruthy()
     expect(view.getByText('running tools')).toBeTruthy()
@@ -802,13 +912,11 @@ describe('ChatView', () => {
   })
 
   it('renders Host-pending steering at the flow tail and hands off to the durable node', () => {
-    /** 中文说明：测试局部值 writeText，取值由紧邻初始化决定。 */
     const writeText = vi.fn().mockResolvedValue(undefined)
     Object.defineProperty(navigator, 'clipboard', {
       configurable: true,
       value: { writeText },
     })
-    /** 中文说明：测试局部值 pending，取值由紧邻初始化决定。 */
     const pending = {
       id: 'steer-occurrence' as never,
       messageId: 'steer-message' as never,
@@ -817,7 +925,6 @@ describe('ChatView', () => {
       preview: 'interrupt now',
       text: 'interrupt now',
     }
-    /** 中文说明：测试局部值 queued，取值由紧邻初始化决定。 */
     const queued = {
       id: 'queued-occurrence' as never,
       messageId: 'queued-message' as never,
@@ -834,7 +941,6 @@ describe('ChatView', () => {
 
     expect(view.getByText('interrupt now').closest('[data-pending-steering]')).not.toBeNull()
     expect(view.queryByText('later')).toBeNull()
-    /** 中文说明：测试局部值 pendingBubble，取值由紧邻初始化决定。 */
     const pendingBubble = view.getByText('interrupt now').closest('[data-pending-steering]')
     expect(pendingBubble).not.toBeNull()
     fireEvent.click(within(pendingBubble as HTMLElement).getByRole('button', { name: '复制' }))
@@ -862,7 +968,6 @@ describe('ChatView', () => {
     // assistant narration owns no footer yet, and a steering bubble never
     // carries a branch action.
     expect(view.getAllByRole('button', { name: '复制' })).toHaveLength(1)
-    /** 中文说明：测试局部值 durableBubble，取值由紧邻初始化决定。 */
     const durableBubble = view.getByText('interrupt now').closest('[class*="userRow"]') as HTMLElement
     expect(within(durableBubble).queryByRole('button', { name: '在新对话中分支' })).toBeNull()
 
@@ -872,7 +977,6 @@ describe('ChatView', () => {
     })
     // The Turn Tail belongs to the closed Turn, independently of a later
     // steering bubble's placement in the Chat list.
-    /** 中文说明：测试局部值 branchButtons，取值由紧邻初始化决定。 */
     const branchButtons = view.getAllByRole('button', { name: '在新对话中分支' })
     expect(branchButtons).toHaveLength(1)
     expect(branchButtons[0]!.getAttribute('aria-disabled')).toBeNull()
@@ -881,7 +985,6 @@ describe('ChatView', () => {
   })
 
   it('keeps a later pending occurrence visible when it reuses a durable MessageId', () => {
-    /** 中文说明：测试局部值 pending，取值由紧邻初始化决定。 */
     const pending = {
       id: 'steer-occurrence-later' as never,
       messageId: 'shared-steer-message' as never,
@@ -890,7 +993,6 @@ describe('ChatView', () => {
       preview: 'same steering',
       text: 'same steering',
     }
-    /** 中文说明：测试局部值 h，取值由紧邻初始化决定。 */
     const h = makeHarness({
       nodes: [{
         kind: 'user', seq: 2, time: 2_000,
@@ -908,7 +1010,10 @@ describe('ChatView', () => {
       { nodes: [assistant(1, 'working')] },
       {
         pendingSubmissions: [
-          { requestId: 'req-1' as never, time: 5_000, text: '即发即显', images: [] },
+          {
+            requestId: 'req-1' as never, placement: 'transcript',
+            time: 5_000, text: '即发即显', images: [],
+          },
         ],
       },
     )
@@ -937,18 +1042,57 @@ describe('ChatView', () => {
     expect(view.getAllByText('即发即显')).toHaveLength(1)
   })
 
-  it('hides an echo once its queue occurrence carries the rpcId (running-turn submission)', () => {
+  it('renders a local steer echo as pending steering before Host image admission completes', () => {
+    const h = makeHarness(
+      { nodes: [assistant(1, 'working')] },
+      {
+        running: true,
+        pendingSubmissions: [{
+          requestId: 'req-steer' as never,
+          placement: 'steering',
+          time: 5_500,
+          text: '带图纠偏',
+          images: [{ previewUrl: 'blob:steer-preview', name: 'steer.png' }],
+        }],
+      },
+    )
+    const view = render(<h.ChatView {...h.props} />)
+    const local = view.getByText('带图纠偏').closest('[data-submission-echo]')
+    expect(local?.hasAttribute('data-pending-steering')).toBe(true)
+
+    act(() => {
+      h.setSession({
+        queue: [{
+          id: 'steer-occurrence' as never,
+          messageId: 'steer-message' as never,
+          placement: 'steering',
+          rpcId: 'req-steer' as never,
+          content: [{ type: 'text', text: '带图纠偏' }],
+          preview: '带图纠偏',
+          text: '带图纠偏',
+        }],
+      })
+    })
+    expect(view.getAllByText('带图纠偏')).toHaveLength(1)
+    expect(view.container.querySelector('[data-submission-echo]')).toBeNull()
+    expect(view.container.querySelector('[data-pending-steering]')).not.toBeNull()
+  })
+
+  it('keeps a queued echo out of the Chat flow before and after Host admission', () => {
     const h = makeHarness(
       { nodes: [assistant(1, 'working')] },
       {
         running: true,
         pendingSubmissions: [
-          { requestId: 'req-q' as never, time: 6_000, text: '排队中', images: [] },
+          {
+            requestId: 'req-q' as never, placement: 'queued',
+            time: 6_000, text: '排队中', images: [],
+          },
         ],
       },
     )
     const view = render(<h.ChatView {...h.props} />)
-    expect(view.getByText('排队中')).toBeTruthy()
+    expect(view.queryByText('排队中')).toBeNull()
     act(() => {
       h.setSession({
         queue: [{
@@ -962,8 +1106,8 @@ describe('ChatView', () => {
         }],
       })
     })
-    // The queued occurrence renders in the queue dock, not the flow; the
-    // flow-tail echo yields to it in the same snapshot.
+    // The queued occurrence and its local predecessor both belong to the
+    // queue dock, never the Chat flow.
     expect(view.queryByText('排队中')).toBeNull()
   })
 
@@ -973,6 +1117,7 @@ describe('ChatView', () => {
       {
         pendingSubmissions: [{
           requestId: 'req-img' as never,
+          placement: 'transcript',
           time: 7_000,
           text: '',
           images: [
@@ -997,11 +1142,8 @@ describe('ChatView', () => {
   })
 
   it('animates only the latest unresolved model retry', () => {
-    /** 中文说明：测试局部值 retryNode，取值由紧邻初始化决定。 */
     const retryNode = retry(2)
-    /** 中文说明：测试局部值 nextRetry，取值由紧邻初始化决定。 */
     const nextRetry = { ...retry(3), turn: 2, retry: 2 }
-    /** 中文说明：测试局部值 context，取值由紧邻初始化决定。 */
     const context = {
       kind: 'context', seq: 4, time: 4_000, content: [], source: null,
       provenance: { role: 'inject', label: null },
@@ -1009,7 +1151,6 @@ describe('ChatView', () => {
     } as const satisfies ConversationNode
     const h = makeHarness({ nodes: [user(1, 'try'), retryNode] }, { running: true })
     const view = render(<h.ChatView {...h.props} />)
-    /** 中文说明：测试局部值 disclosure，取值由紧邻初始化决定。 */
     const disclosure = view.container.querySelector('details') as HTMLDetailsElement
     expect(disclosure.dataset.active).toBe('true')
     expect(within(disclosure).getByRole('status').textContent).toBe('正在重试模型请求（1/2） · 1s')
@@ -1039,18 +1180,14 @@ describe('ChatView', () => {
       h.setChat({ nodes: [user(1, 'try'), { ...retry(6), retryState: 'cancelled' }] })
       h.setSession({ running: true })
     })
-    /** 中文说明：测试局部值 cancelledDisclosure，取值由紧邻初始化决定。 */
     const cancelledDisclosure = view.container.querySelector('details') as HTMLDetailsElement
     expect(cancelledDisclosure.dataset.active).toBeUndefined()
     expect(within(cancelledDisclosure).getByRole('status').textContent).toContain('重试已取消')
   })
 
   it('renders terminal turn failures inline with their durable message and optional code', () => {
-    /** 中文说明：测试局部值 h，取值由紧邻初始化决定。 */
     const h = makeHarness({ nodes: [user(1, 'try'), turnError(2, 'AUTH'), turnError(3)] })
-    /** 中文说明：测试局部值 view，取值由紧邻初始化决定。 */
     const view = render(<h.ChatView {...h.props} />)
-    /** 中文说明：测试局部值 statuses，取值由紧邻初始化决定。 */
     const statuses = view.getAllByRole('status')
     expect(statuses.map(status => status.textContent)).toEqual([
       '本轮运行失败API 密钥无效AUTH',
@@ -1059,11 +1196,8 @@ describe('ChatView', () => {
   })
 
   it('renders the max-tokens notice with localized guidance, distinct from turn errors', () => {
-    /** 中文说明：测试局部值 h，取值由紧邻初始化决定。 */
     const h = makeHarness({ nodes: [user(1, 'try'), assistant(2, 'truncated'), turnMaxTokens(3)] })
-    /** 中文说明：测试局部值 view，取值由紧邻初始化决定。 */
     const view = render(<h.ChatView {...h.props} />)
-    /** 中文说明：测试局部值 statuses，取值由紧邻初始化决定。 */
     const statuses = view.getAllByRole('status')
     expect(statuses.map(status => status.textContent)).toEqual([
       '已达到输出 token 上限回答被截断，已有输出保留在对话中。发送“继续”可让模型接着输出。',
@@ -1072,7 +1206,6 @@ describe('ChatView', () => {
   })
 
   it('hands the trajectory callback to the Tool seat', () => {
-    /** 中文说明：测试局部值 h，取值由紧邻初始化决定。 */
     const h = makeHarness({
       nodes: [toolResult(3, 'a')],
     })
@@ -1082,7 +1215,6 @@ describe('ChatView', () => {
   })
 
   it('shows assistant IconActions only on the last content message of each turn', () => {
-    /** 中文说明：测试局部值 h，取值由紧邻初始化决定。 */
     const h = makeHarness({
       nodes: [
         user(1, 'hi'),
@@ -1094,11 +1226,9 @@ describe('ChatView', () => {
       ],
       turnEnds: new Map([[1, 4], [2, 6]]),
     })
-    /** 中文说明：测试局部值 view，取值由紧邻初始化决定。 */
     const view = render(<h.ChatView {...h.props} />)
     // Branch renders only under assistant answers; user bubbles keep copy alone.
     expect(view.getAllByRole('button', { name: '复制' })).toHaveLength(4)
-    /** 中文说明：测试局部值 branchButtons，取值由紧邻初始化决定。 */
     const branchButtons = view.getAllByRole('button', { name: '在新对话中分支' })
     expect(branchButtons).toHaveLength(2)
     expect(branchButtons.map(button => button.getAttribute('aria-disabled'))).toEqual([null, null])
@@ -1563,7 +1693,6 @@ describe('ChatView', () => {
   })
 
   it('withholds assistant IconActions while the turn is still running', () => {
-    /** 中文说明：测试局部值 h，取值由紧邻初始化决定。 */
     const h = makeHarness({
       runningCalls: [runningCall('a')],
       nodes: [
@@ -1590,7 +1719,6 @@ describe('ChatView', () => {
   })
 
   it('the actions-owning assistant footer shows the turn run time', () => {
-    /** 中文说明：测试局部值 h，取值由紧邻初始化决定。 */
     const h = makeHarness({
       nodes: [
         user(1, 'hi'), // time 1_000
@@ -1601,47 +1729,82 @@ describe('ChatView', () => {
       turnTimings: new Map([[1, { startTime: 1_000, endTime: 20_000 }]]),
       turnEnds: new Map([[1, 20]]),
     })
-    /** 中文说明：测试局部值 view，取值由紧邻初始化决定。 */
     const view = render(<h.ChatView {...h.props} />)
     // The exact turn/end includes trailing tool activity after the final text.
     expect(view.container.querySelector('[data-turn-tail="1"]')?.textContent).toContain('用时 19秒')
   })
 
-  it('the settled footer appends first-step ttft and turn decode throughput', () => {
-    /** 中文说明：测试局部值 first，取值由紧邻初始化决定。 */
+  it('the settled footer exposes ttft, decode throughput, and usage as the details trigger', () => {
     const first: AssistantMessageNode = {
       kind: 'assistant', seq: 2, time: 2_000, turn: 1, step: 1, blocks: [{ kind: 'text', text: 'mid' }],
       timing: { stepStartTime: 1_000, firstTokenTime: 2_200, completedTime: 5_200 },
       usage: { outputTokens: 40 },
     }
-    /** 中文说明：测试局部值 second，取值由紧邻初始化决定。 */
     const second: AssistantMessageNode = {
       kind: 'assistant', seq: 16, time: 16_000, turn: 1, step: 2, blocks: [{ kind: 'text', text: 'final' }],
       timing: { stepStartTime: 10_000, firstTokenTime: 10_200, completedTime: 12_200 },
       usage: { outputTokens: 60 },
     }
-    /** 中文说明：测试局部值 h，取值由紧邻初始化决定。 */
     const h = makeHarness({
       nodes: [user(1, 'hi'), first, second],
       turnTimings: new Map([[1, { startTime: 1_000, endTime: 20_000 }]]),
       turnEnds: new Map([[1, 20]]),
+      turnUsages: new Map([[1, {
+        uncachedInputTokens: 5_060,
+        cacheReadTokens: 4_940,
+        outputTokens: 100,
+        totalTokens: 10_100,
+      }]]),
     })
-    /** 中文说明：测试局部值 view，取值由紧邻初始化决定。 */
     const view = render(<h.ChatView {...h.props} />)
-    // First-step ttft (1.2s) plus 100 tokens over 5s of decode.
-    expect(view.container.querySelector('[data-turn-tail="1"]')?.textContent).toContain('用时 19秒')
-    expect(view.getAllByText(/首 token 1\.2秒/)).toHaveLength(1)
-    expect(view.getAllByText(/20 tok\/s/)).toHaveLength(1)
+    // The usage pill carries the compact total; cache hit stays dialog-only.
+    const trigger = view.getByRole('button', { name: /用量 10\.1K tok/ })
+    expect(trigger.textContent).toBe('用量 10.1K tok')
+    expect(view.queryByRole('dialog')).toBeNull()
+    fireEvent.click(trigger)
+    const dialog = view.getByRole('dialog')
+    expect(dialog.getAttribute('aria-label')).toBe('本轮用量')
+    expect(dialog.firstChild?.textContent).toBe('本轮用量10,100 tok')
+    expect(dialog.textContent).toContain('缓存命中49.4%')
+    expect(dialog.textContent).toContain('未缓存输入5,060 tok')
+    fireEvent.keyDown(document, { key: 'Escape' })
+    // The time pill carries the run time; first-step ttft (1.2s) and 100
+    // tokens over 5s of decode move into its dialog.
+    const timeTrigger = view.getByRole('button', { name: /用时 19秒/ })
+    expect(timeTrigger.textContent).toBe('用时 19秒')
+    expect(view.queryByText(/速度 20 tok\/s|首 token/)).toBeNull()
+    fireEvent.click(timeTrigger)
+    const timeDialog = view.getByRole('dialog')
+    expect(timeDialog.getAttribute('aria-label')).toBe('本轮用时和速度')
+    expect(timeDialog.textContent).toContain('本轮总用时19秒')
+    expect(timeDialog.textContent).toContain('输出速度（TPS）20 tok/s')
+    expect(timeDialog.textContent).toContain('首 token 用时（TTFT）1.2秒')
+  })
+
+  it('withholds the usage-details trigger when turn usage is outside the window', () => {
+    const settled: AssistantMessageNode = {
+      kind: 'assistant', seq: 2, time: 2_000, turn: 1, step: 1, blocks: [{ kind: 'text', text: 'answer' }],
+      timing: { stepStartTime: 1_000, firstTokenTime: 2_200, completedTime: 5_200 },
+      usage: { outputTokens: 40 },
+    }
+    const h = makeHarness({
+      nodes: [user(1, 'hi'), settled],
+      turnTimings: new Map([[1, { startTime: 1_000, endTime: 20_000 }]]),
+      turnEnds: new Map([[1, 20]]),
+    })
+    const view = render(<h.ChatView {...h.props} />)
+    // Timing facts keep their pill, but with no usage in the window there is
+    // no usage pill to click.
+    expect(view.getByRole('button', { name: /用时/ })).toBeTruthy()
+    expect(view.queryByRole('button', { name: /用量/ })).toBeNull()
   })
 
   it('withholds ttft and throughput while the turn is still running', () => {
-    /** 中文说明：测试局部值 settled，取值由紧邻初始化决定。 */
     const settled: AssistantMessageNode = {
       kind: 'assistant', seq: 2, time: 2_000, turn: 1, step: 1, blocks: [{ kind: 'text', text: 'answer' }],
       timing: { stepStartTime: 1_000, firstTokenTime: 1_500, completedTime: 2_000 },
       usage: { outputTokens: 10 },
     }
-    /** 中文说明：测试局部值 h，取值由紧邻初始化决定。 */
     const h = makeHarness({
       nodes: [user(1, 'hi'), settled],
       turnTimings: new Map([[1, { startTime: 1_000 }]]),
@@ -1651,40 +1814,48 @@ describe('ChatView', () => {
     expect(view.queryByText(/首 token|tok\/s/)).toBeNull()
   })
 
-  it('user and assistant message containers scope the hover-revealed time chrome', () => {
-    /** 中文说明：测试局部值 h，取值由紧邻初始化决定。 */
+  it('user rows and turn tails both gate the whole actions row by recency', () => {
     const h = makeHarness({
-      nodes: [user(1, 'hi'), assistant(2, 'answer')],
-      turnTimings: new Map([[1, { startTime: 1_000, endTime: 2_000 }]]),
-      turnEnds: new Map([[1, 2]]),
+      nodes: [
+        user(1, 'hi'),
+        assistant(2, 'answer'),
+        user(4, 'again'),
+        assistant(5, 'later answer', 2),
+      ],
+      turnTimings: new Map([
+        [1, { startTime: 1_000, endTime: 2_000 }],
+        [2, { startTime: 4_000, endTime: 5_000 }],
+      ]),
+      turnEnds: new Map([[1, 3], [2, 6]]),
     })
-    /** 中文说明：测试局部值 view，取值由紧邻初始化决定。 */
     const view = render(<h.ChatView {...h.props} />)
-    // The user row and the settled assistant's Turn Tail each own one clock scope.
-    expect(view.container.querySelectorAll('[data-time-hover-root]')).toHaveLength(2)
+    // The last user-authored row and the latest turn's tail stay shown;
+    // every earlier row of either kind reveals on hover.
+    const tails = view.container.querySelectorAll('[data-turn-tail]')
+    expect(new Map([...tails].map(tail => [
+      tail.getAttribute('data-turn-tail'), tail.getAttribute('data-actions-reveal'),
+    ]))).toEqual(new Map([['1', 'hover'], ['2', 'always']]))
+    const userRows = [...view.container.querySelectorAll('[data-actions-reveal]')]
+      .filter(row => row.getAttribute('data-turn-tail') === null)
+    expect(userRows.map(row => row.getAttribute('data-actions-reveal'))).toEqual(['hover', 'always'])
   })
 
   it('the run-time label is withheld when the turn start is outside the window', () => {
-    /** 中文说明：测试局部值 h，取值由紧邻初始化决定。 */
     const h = makeHarness({
       nodes: [assistant(16, 'tail without trigger')],
       turnEnds: new Map([[1, 16]]),
     })
-    /** 中文说明：测试局部值 view，取值由紧邻初始化决定。 */
     const view = render(<h.ChatView {...h.props} />)
     expect(view.queryByText(/用时/)).toBeNull()
   })
 
   it('enables fork only on the finalized assistant at the completed transcript tail', () => {
-    /** 中文说明：测试局部值 h，取值由紧邻初始化决定。 */
     const h = makeHarness({
       nodes: [user(1, 'question'), assistant(2, 'answer')],
       turnEnds: new Map([[1, 3]]),
     })
-    /** 中文说明：测试局部值 view，取值由紧邻初始化决定。 */
     const view = render(<h.ChatView {...h.props} />)
     // The user bubble offers no branch; the settled answer's is live.
-    /** 中文说明：测试局部值 buttons，取值由紧邻初始化决定。 */
     const buttons = view.getAllByRole('button', { name: '在新对话中分支' })
     expect(buttons).toHaveLength(1)
     expect(buttons[0]!.getAttribute('aria-disabled')).toBeNull()
@@ -1693,12 +1864,10 @@ describe('ChatView', () => {
   })
 
   it('disables fork when the indexed Turn has a later steering Node', () => {
-    /** 中文说明：测试局部值 base，取值由紧邻初始化决定。 */
     const base = chatSnapshotFixture({
       nodes: [user(1, 'question'), assistant(2, 'answer')],
       turnEnds: new Map([[1, 4]]),
     })
-    /** 中文说明：测试局部值 chat，取值由紧邻初始化决定。 */
     const chat = {
       ...base,
       locations: {
@@ -1710,7 +1879,6 @@ describe('ChatView', () => {
     }
     const h = makeHarness({}, {}, chat)
     const view = render(<h.ChatView {...h.props} />)
-    /** 中文说明：测试局部值 branch，取值由紧邻初始化决定。 */
     const branch = view.getByRole('button', { name: '在新对话中分支' })
     expect(branch.getAttribute('aria-disabled')).toBe('true')
     fireEvent.click(branch)
@@ -1718,20 +1886,16 @@ describe('ChatView', () => {
   })
 
   it('keeps final content actions but disables branch when Tool and interrupted Think follow it', () => {
-    /** 中文说明：测试局部值 interruptedThink，取值由紧邻初始化决定。 */
     const interruptedThink: AssistantMessageNode = {
       kind: 'assistant', seq: 4.1, time: 4_100, turn: 1, step: 2,
       blocks: [{ kind: 'reasoning', text: 'bad path' }], interrupted: true,
     }
-    /** 中文说明：测试局部值 h，取值由紧邻初始化决定。 */
     const h = makeHarness({
       nodes: [user(1, 'question'), assistant(2, 'answer'), toolResult(3, 'a'), interruptedThink],
       turnEnds: new Map([[1, 5]]),
     })
-    /** 中文说明：测试局部值 view，取值由紧邻初始化决定。 */
     const view = render(<h.ChatView {...h.props} />)
     expect(view.getAllByRole('button', { name: '复制' })).toHaveLength(2)
-    /** 中文说明：测试局部值 buttons，取值由紧邻初始化决定。 */
     const buttons = view.getAllByRole('button', { name: '在新对话中分支' })
     expect(buttons).toHaveLength(1)
     expect(buttons[0]!.getAttribute('aria-disabled')).toBe('true')
@@ -1740,14 +1904,10 @@ describe('ChatView', () => {
   })
 
   it('renders assistant Markdown across history, streaming, final, and interrupted states while user text stays literal', () => {
-    /** 中文说明：测试局部值 markdown，取值由紧邻初始化决定。 */
     const markdown = '# Rendered\n\n- **one**\n- `two`'
-    /** 中文说明：测试局部值 h，取值由紧邻初始化决定。 */
     const h = makeHarness({ nodes: [user(1, markdown), assistant(2, markdown)] })
-    /** 中文说明：测试局部值 view，取值由紧邻初始化决定。 */
     const view = render(<h.ChatView {...h.props} />)
     expect(view.container.querySelectorAll('h1')).toHaveLength(1)
-    /** 中文说明：测试局部值 literal，取值由紧邻初始化决定。 */
     const literal = view.getByText((_content, element) => (
       element?.tagName === 'SPAN' && element.childElementCount === 0 && element.textContent === markdown
     ))
@@ -1782,15 +1942,11 @@ describe('ChatView', () => {
   })
 
   it('streaming partial frames update the tail without replacing a sibling Tool row', () => {
-    /** 中文说明：测试局部值 h，取值由紧邻初始化决定。 */
     const h = makeHarness({
       nodes: [user(1, 'q'), assistant(2, 'old answer'), toolResult(3, 'a')],
     })
-    /** 中文说明：测试局部值 view，取值由紧邻初始化决定。 */
     const view = render(<h.ChatView {...h.props} />)
-    /** 中文说明：测试局部值 tool，取值由紧邻初始化决定。 */
     const tool = view.getByTestId('tool-seat-a')
-    /** 中文说明：测试局部值 beforeHtml，取值由紧邻初始化决定。 */
     const beforeHtml = tool.innerHTML
     act(() => {
       h.setChat({ partial: { turn: 2, step: 1, blocks: [{ kind: 'text', text: 'streaming…' }] } })
@@ -1804,13 +1960,11 @@ describe('ChatView', () => {
   })
 
   it('streaming leaves neighbor tool rows and history items at zero re-renders', () => {
-    /** 中文说明：测试局部值 h，取值由紧邻初始化决定。 */
     const h = makeHarness({
       nodes: [user(1, 'q'), assistant(2, 'old'), toolResult(3, 'a')],
     })
     // Count renderSlot invocations: the memo boundary holds when CallRow does
     // not re-render, so the row's renderSlot call count freezes during chunks.
-    /** 中文说明：当前数据 rowRenders，取值由紧邻初始化决定。 */
     let rowRenders = 0
     h.setNodeRenderer(((key: string, owner: object) => {
       if (key !== 'conversation.chat.node'
@@ -1820,7 +1974,6 @@ describe('ChatView', () => {
     }) as React.ComponentProps<typeof ChatNodeSeat>['renderSlot'])
     const view = render(<h.ChatView {...h.props} />)
     expect(view.getByTestId('counting-row')).toBeTruthy()
-    /** 中文说明：测试局部值 afterMount，取值由紧邻初始化决定。 */
     const afterMount = rowRenders
     act(() => {
       h.setChat({ partial: { turn: 2, step: 1, blocks: [{ kind: 'text', text: 'chunk1' }] } })
@@ -1832,7 +1985,6 @@ describe('ChatView', () => {
   })
 
   it('updates the selected call id handed to the Tool seat', () => {
-    /** 中文说明：测试局部值 h，取值由紧邻初始化决定。 */
     const h = makeHarness({ nodes: [toolResult(3, 'a')] })
     render(<h.ChatView {...h.props} />)
     expect(h.toolOwners.at(-1)?.selectedCallId).toBeUndefined()
@@ -1849,17 +2001,13 @@ describe('ChatView', () => {
   })
 
   it('keeps the Tool renderer mounted when a running call settles into log order', () => {
-    /** 中文说明：测试局部值 mounted，取值由紧邻初始化决定。 */
     const mounted = vi.fn()
-    /** 中文说明：测试局部值 unmounted，取值由紧邻初始化决定。 */
     const unmounted = vi.fn()
-    /** 中文说明：函数 StatefulToolNode 的参数见签名，返回结果供相邻流程使用；示例见本文件调用处。 */
     function StatefulToolNode({ node }: { readonly node: ChatNode<'tool-call'> }) {
       useEffect(() => {
         mounted()
         return () => { unmounted() }
       }, [])
-      /** 中文说明：测试局部值 root，取值由紧邻初始化决定。 */
       const root = node.data.root
       return (
         <div data-testid="stateful-tool" data-state={'kind' in root ? 'settled' : 'running'}>
@@ -1868,22 +2016,18 @@ describe('ChatView', () => {
       )
     }
 
-    /** 中文说明：测试局部值 h，取值由紧邻初始化决定。 */
     const h = makeHarness({
       nodes: [user(1, 'q'), assistant(4, 'later')],
       runningCalls: [runningCall('r1')],
     }, { running: true })
     h.props.renderSlot = ((key: string, owner: object, opts?: { fallback?: React.ReactNode }) => {
-      /** 中文说明：测试局部值 routed，取值由紧邻初始化决定。 */
       const routed = owner as RoutedChatNodeOwner
       return key === 'conversation.chat.node' && routed.node.kind === 'tool-call'
         ? <StatefulToolNode node={routed.node} />
         : opts?.fallback ?? null
     }) as React.ComponentProps<typeof ChatNodeSeat>['renderSlot']
     const view = render(<h.ChatView {...h.props} />)
-    /** 中文说明：测试局部值 tool，取值由紧邻初始化决定。 */
     const tool = view.getByTestId('stateful-tool')
-    /** 中文说明：当前数据 row，取值由紧邻初始化决定。 */
     const row = view.container.querySelector('[data-chat-flow-key="fixture:tool:r1"]')
     expect(tool.dataset.state).toBe('running')
     expect(mounted).toHaveBeenCalledTimes(1)
@@ -1904,9 +2048,7 @@ describe('ChatView', () => {
   })
 
   it('the running clock uses turn/start, ignores steering, and stays out of the live region', () => {
-    /** 中文说明：测试局部值 startTime，取值由紧邻初始化决定。 */
     const startTime = Date.now() - 125_000
-    /** 中文说明：测试局部值 trigger，取值由紧邻初始化决定。 */
     const trigger: UserMessageNode = { ...user(1, 'go'), time: startTime + 1 }
     const h = makeHarness(
       { nodes: [trigger], turnTimings: new Map([[1, { startTime }]]) },
@@ -1914,7 +2056,6 @@ describe('ChatView', () => {
     )
     const view = render(<h.ChatView {...h.props} />)
     // Freshly mounted (as after a reload) yet already past the 15s gate.
-    /** 中文说明：测试局部值 status，取值由紧邻初始化决定。 */
     const status = view.getByRole('status')
     expect(status.textContent).toMatch(/^深度求索中\.\.\.2分0\d秒$/)
     expect(status.querySelector('[aria-hidden="true"]')).not.toBeNull()
@@ -1932,11 +2073,8 @@ describe('ChatView', () => {
   })
 
   it('hands each ordered root call to the keyed business-node slot', () => {
-    /** 中文说明：测试局部值 block，取值由紧邻初始化决定。 */
     const block = toolResult(3, 'a')
-    /** 中文说明：测试局部值 h，取值由紧邻初始化决定。 */
     const h = makeHarness({ nodes: [block] })
-    /** 中文说明：有序集合 calls，取值由紧邻初始化决定。 */
     const calls: { key: string; owner: object; entryKey?: string }[] = []
     h.setNodeRenderer(((key: string, owner: object, opts?: { entryKey?: string; fallback?: React.ReactNode }) => {
       calls.push({ key, owner, ...(opts?.entryKey !== undefined ? { entryKey: opts.entryKey } : {}) })
@@ -1949,7 +2087,6 @@ describe('ChatView', () => {
       owner: { node: { kind: 'tool-call' }, selectedCallId: undefined },
       entryKey: 'tool-call',
     })
-    /** 中文说明：测试局部值 owner，取值由紧邻初始化决定。 */
     const owner = calls[0]?.owner as RoutedChatNodeOwner
     expect((owner.node.data as { readonly root: ToolCallBlock }).root).toBe(block)
     expect(owner.openFile).not.toBe(h.openFile)
@@ -1960,11 +2097,9 @@ describe('ChatView', () => {
   })
 
   it('shows a Host open refusal with the reason and retries the same path', async () => {
-    /** 中文说明：测试局部值 openFile，取值由紧邻初始化决定。 */
     const openFile = vi.fn<(path: string) => Promise<void>>()
       .mockRejectedValueOnce(new Error('xdg-open is not available'))
       .mockResolvedValueOnce(undefined)
-    /** 中文说明：测试局部值 h，取值由紧邻初始化决定。 */
     const h = makeHarness({ nodes: [toolResult(3, 'a')] })
     h.props.openFile = openFile
     render(<h.ChatView {...h.props} />)
@@ -1983,10 +2118,8 @@ describe('ChatView', () => {
   })
 
   it('keeps a non-Error Host refusal visible and dismisses it on cancel', async () => {
-    /** 中文说明：测试局部值 openFile，取值由紧邻初始化决定。 */
     const openFile = vi.fn<(path: string) => Promise<void>>()
       .mockRejectedValueOnce('permission denied')
-    /** 中文说明：测试局部值 h，取值由紧邻初始化决定。 */
     const h = makeHarness({ nodes: [toolResult(3, 'a')] })
     h.props.openFile = openFile
     render(<h.ChatView {...h.props} />)
@@ -2000,10 +2133,8 @@ describe('ChatView', () => {
   })
 
   it('substitutes the unknown-open copy when the Host refusal has no text', async () => {
-    /** 中文说明：测试局部值 openFile，取值由紧邻初始化决定。 */
     const openFile = vi.fn<(path: string) => Promise<void>>()
       .mockRejectedValueOnce(new Error(''))
-    /** 中文说明：测试局部值 h，取值由紧邻初始化决定。 */
     const h = makeHarness({ nodes: [toolResult(3, 'a')] })
     h.props.openFile = openFile
     render(<h.ChatView {...h.props} />)
@@ -2014,10 +2145,8 @@ describe('ChatView', () => {
   })
 
   it('names a workspace-folder Host refusal as a folder', async () => {
-    /** 中文说明：测试局部值 openFile，取值由紧邻初始化决定。 */
     const openFile = vi.fn<(path: string) => Promise<void>>()
       .mockRejectedValueOnce(new Error(''))
-    /** 中文说明：测试局部值 h，取值由紧邻初始化决定。 */
     const h = makeHarness({ nodes: [toolResult(3, 'a')] })
     h.props.openFile = openFile
     render(<h.ChatView {...h.props} />)
@@ -2028,15 +2157,12 @@ describe('ChatView', () => {
   })
 
   it('ignores a Host refusal that settles after the dialog is dismissed', async () => {
-    /** 中文说明：测试局部值 rejectRetry，取值由紧邻初始化决定。 */
     let rejectRetry!: (error: unknown) => void
-    /** 中文说明：测试局部值 openFile，取值由紧邻初始化决定。 */
     const openFile = vi.fn<(path: string) => Promise<void>>()
       .mockRejectedValueOnce(new Error('first refusal'))
       .mockImplementationOnce(() => new Promise<void>((_resolve, reject) => {
         rejectRetry = reject
       }))
-    /** 中文说明：测试局部值 h，取值由紧邻初始化决定。 */
     const h = makeHarness({ nodes: [toolResult(3, 'a')] })
     h.props.openFile = openFile
     render(<h.ChatView {...h.props} />)
@@ -2052,15 +2178,12 @@ describe('ChatView', () => {
   })
 
   it('ignores a Host open that succeeds after the dialog is dismissed', async () => {
-    /** 中文说明：测试局部值 resolveRetry，取值由紧邻初始化决定。 */
     let resolveRetry!: () => void
-    /** 中文说明：测试局部值 openFile，取值由紧邻初始化决定。 */
     const openFile = vi.fn<(path: string) => Promise<void>>()
       .mockRejectedValueOnce(new Error('first refusal'))
       .mockImplementationOnce(() => new Promise<void>((resolve) => {
         resolveRetry = () => { resolve() }
       }))
-    /** 中文说明：测试局部值 h，取值由紧邻初始化决定。 */
     const h = makeHarness({ nodes: [toolResult(3, 'a')] })
     h.props.openFile = openFile
     render(<h.ChatView {...h.props} />)
@@ -2080,14 +2203,11 @@ describe('ChatView', () => {
       { hasMore: true },
     )
     const view = render(<h.ChatView {...h.props} />)
-    /** 中文说明：测试局部值 scroller，取值由紧邻初始化决定。 */
     const scroller = view.container.querySelector('[class*="scroll"]') as HTMLDivElement
     // jsdom has no layout: fake the metrics the anchor math reads.
     Object.defineProperty(scroller, 'scrollHeight', { value: 1000, writable: true })
     Object.defineProperty(scroller, 'clientHeight', { value: 400, writable: true })
-    /** 中文说明：测试局部值 anchored，取值由紧邻初始化决定。 */
     const anchored = view.container.querySelector('[data-chat-flow-key="fixture:user:5"]') as HTMLDivElement
-    /** 中文说明：测试局部值 anchoredTop，取值由紧邻初始化决定。 */
     let anchoredTop = 100
     vi.spyOn(anchored, 'getBoundingClientRect').mockImplementation(
       () => ({ top: anchoredTop, bottom: anchoredTop + 40 } as DOMRect),
@@ -2113,7 +2233,6 @@ describe('ChatView', () => {
   it('back-to-bottom cancels an in-flight paging anchor', () => {
     const h = makeHarness({ nodes: [user(9, 'late')] }, { hasMore: true })
     const view = render(<h.ChatView {...h.props} />)
-    /** 中文说明：测试局部值 scroller，取值由紧邻初始化决定。 */
     const scroller = view.container.querySelector('[class*="scroll"]') as HTMLDivElement
     Object.defineProperty(scroller, 'scrollHeight', { value: 800, writable: true })
     Object.defineProperty(scroller, 'clientHeight', { value: 200, writable: true })
@@ -2127,16 +2246,12 @@ describe('ChatView', () => {
   })
 
   it('scrolling away disables follow and shows the back-to-bottom button; clicking returns', () => {
-    /** 中文说明：测试局部值 h，取值由紧邻初始化决定。 */
     const h = makeHarness({ nodes: [user(1, 'q'), assistant(2, 'a')] })
-    /** 中文说明：测试局部值 view，取值由紧邻初始化决定。 */
     const view = render(<h.ChatView {...h.props} />)
-    /** 中文说明：测试局部值 scroller，取值由紧邻初始化决定。 */
     const scroller = view.container.querySelector('[class*="scroll"]') as HTMLDivElement
     Object.defineProperty(scroller, 'scrollHeight', { value: 1000, writable: true })
     Object.defineProperty(scroller, 'clientHeight', { value: 300, writable: true })
     readerScroll(scroller, 100) // far from bottom
-    /** 中文说明：测试局部值 backButton，取值由紧邻初始化决定。 */
     const backButton = view.getByLabelText('回到底部')
     expect(backButton).toBeTruthy()
     // Streaming growth must NOT drag a scrolled-away reader down.
@@ -2151,13 +2266,9 @@ describe('ChatView', () => {
   })
 
   it('keeps following when a stream-finalization shrink clamp delivers its scroll', () => {
-    /** 中文说明：测试局部值 h，取值由紧邻初始化决定。 */
     const h = makeHarness({ nodes: [user(1, 'q'), assistant(2, 'a')] })
-    /** 中文说明：测试局部值 view，取值由紧邻初始化决定。 */
     const view = render(<h.ChatView {...h.props} />)
-    /** 中文说明：测试局部值 scroller，取值由紧邻初始化决定。 */
     const scroller = view.container.querySelector('[class*="scroll"]') as HTMLDivElement
-    /** 中文说明：测试局部值 metrics，取值由紧邻初始化决定。 */
     const metrics = installScrollMetrics(scroller, 1_000, 300)
     scroller.scrollTop = 700
     fireEvent.scroll(scroller)
@@ -2177,11 +2288,8 @@ describe('ChatView', () => {
   })
 
   it('uses the last delivered top when compositor scrolling precedes scroll delivery', () => {
-    /** 中文说明：测试局部值 h，取值由紧邻初始化决定。 */
     const h = makeHarness({ nodes: [user(1, 'q'), assistant(2, 'a')] })
-    /** 中文说明：测试局部值 view，取值由紧邻初始化决定。 */
     const view = render(<h.ChatView {...h.props} />)
-    /** 中文说明：测试局部值 scroller，取值由紧邻初始化决定。 */
     const scroller = view.container.querySelector('[class*="scroll"]') as HTMLDivElement
     installScrollMetrics(scroller, 1_000, 300)
     scroller.scrollTop = 700
@@ -2196,11 +2304,8 @@ describe('ChatView', () => {
   })
 
   it('one ResizeObserver owns pinned dynamic-height follow and ignores growth while away', () => {
-    /** 中文说明：测试局部值 notify，取值由紧邻初始化决定。 */
     let notify: (() => void) | undefined
-    /** 中文说明：测试局部值 observe，取值由紧邻初始化决定。 */
     const observe = vi.fn()
-    /** 中文说明：类型或类 ResizeObserverStub 约束本文件的数据或组件职责。 */
     class ResizeObserverStub {
       constructor(callback: ResizeObserverCallback) {
         notify = () => { callback([], this as unknown as ResizeObserver) }
@@ -2210,11 +2315,8 @@ describe('ChatView', () => {
       disconnect = vi.fn()
     }
     vi.stubGlobal('ResizeObserver', ResizeObserverStub)
-    /** 中文说明：测试局部值 h，取值由紧邻初始化决定。 */
     const h = makeHarness({ nodes: [user(1, 'q'), assistant(2, 'a')] })
-    /** 中文说明：测试局部值 view，取值由紧邻初始化决定。 */
     const view = render(<h.ChatView {...h.props} />)
-    /** 中文说明：测试局部值 scroller，取值由紧邻初始化决定。 */
     const scroller = view.container.querySelector('[class*="scroll"]') as HTMLDivElement
     Object.defineProperty(scroller, 'scrollHeight', { value: 1_000, writable: true })
     Object.defineProperty(scroller, 'clientHeight', { value: 300, writable: true })
@@ -2230,12 +2332,61 @@ describe('ChatView', () => {
     expect(observe).toHaveBeenCalledTimes(1)
   })
 
-  it('entering the at-bottom threshold does not snap the remaining scroll distance', () => {
-    /** 中文说明：测试局部值 h，取值由紧邻初始化决定。 */
-    const h = makeHarness({ nodes: [user(1, 'q'), assistant(2, 'a')] })
-    /** 中文说明：测试局部值 view，取值由紧邻初始化决定。 */
+  it('pinned dynamic-height updates select the latest Turn without reading row geometry', () => {
+    let notify: (() => void) | undefined
+    let nextFrame = 0
+    const frames = new Map<number, FrameRequestCallback>()
+    vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) => {
+      nextFrame += 1
+      frames.set(nextFrame, callback)
+      return nextFrame
+    })
+    vi.stubGlobal('cancelAnimationFrame', (id: number) => { frames.delete(id) })
+    class ResizeObserverStub {
+      constructor(callback: ResizeObserverCallback) {
+        notify = () => { callback([], this as unknown as ResizeObserver) }
+      }
+
+      observe = vi.fn()
+      disconnect = vi.fn()
+    }
+    vi.stubGlobal('ResizeObserver', ResizeObserverStub)
+    const rect = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect')
+      .mockReturnValue({ top: 0, bottom: 40 } as DOMRect)
+    const h = makeHarness({
+      nodes: [
+        userInTurn(1, 'first', 1), assistant(2, 'first answer', 1),
+        userInTurn(4, 'second', 2), assistant(5, 'second answer', 2),
+      ],
+      turnEnds: new Map([[1, 3], [2, 6]]),
+    })
     const view = render(<h.ChatView {...h.props} />)
-    /** 中文说明：测试局部值 scroller，取值由紧邻初始化决定。 */
+    const scroller = view.container.querySelector('[class*="scroll"]') as HTMLDivElement
+    const metrics = installScrollMetrics(scroller, 1_000, 300)
+    scroller.scrollTop = 700
+    act(() => {
+      const pending = [...frames.values()]
+      frames.clear()
+      for (const callback of pending) callback(0)
+    })
+    rect.mockClear()
+
+    metrics.setHeight(1_200)
+    act(() => { notify?.() })
+    act(() => {
+      const pending = [...frames.values()]
+      frames.clear()
+      for (const callback of pending) callback(0)
+    })
+
+    expect(scroller.scrollTop).toBe(900)
+    expect(view.getByRole('button', { name: '跳转到第 2 轮' }).getAttribute('aria-current')).toBe('true')
+    expect(rect).not.toHaveBeenCalled()
+  })
+
+  it('entering the at-bottom threshold does not snap the remaining scroll distance', () => {
+    const h = makeHarness({ nodes: [user(1, 'q'), assistant(2, 'a')] })
+    const view = render(<h.ChatView {...h.props} />)
     const scroller = view.container.querySelector('[class*="scroll"]') as HTMLDivElement
     Object.defineProperty(scroller, 'scrollHeight', { value: 1000, writable: true })
     Object.defineProperty(scroller, 'clientHeight', { value: 300, writable: true })
@@ -2247,7 +2398,6 @@ describe('ChatView', () => {
   })
 
   it('under data-conversation-scroll, bottom-follow targets the host scrollport', () => {
-    /** 中文说明：测试局部值 host，取值由紧邻初始化决定。 */
     const host = document.createElement('div')
     host.setAttribute('data-conversation-scroll', '')
     Object.defineProperty(host, 'scrollHeight', { value: 2000, writable: true, configurable: true })
@@ -2255,9 +2405,7 @@ describe('ChatView', () => {
     Object.defineProperty(host, 'scrollTop', { value: 0, writable: true, configurable: true })
     document.body.appendChild(host)
     try {
-      /** 中文说明：测试局部值 h，取值由紧邻初始化决定。 */
       const h = makeHarness({ nodes: [user(1, 'q'), assistant(2, 'a')] })
-      /** 中文说明：测试局部值 view，取值由紧邻初始化决定。 */
       const view = render(<h.ChatView {...h.props} />, { container: host })
       // Open jump uses the host, not the local .scroll node.
       expect(host.scrollTop).toBe(2000)
@@ -2271,19 +2419,16 @@ describe('ChatView', () => {
   })
 
   it('a remount restores the saved semantic row after width reflow', () => {
-    /** 中文说明：测试局部值 host，取值由紧邻初始化决定。 */
     const host = document.createElement('div')
     host.setAttribute('data-conversation-scroll', '')
     Object.defineProperty(host, 'scrollHeight', { value: 2000, writable: true, configurable: true })
     Object.defineProperty(host, 'clientHeight', { value: 500, writable: true, configurable: true })
     Object.defineProperty(host, 'scrollTop', { value: 0, writable: true, configurable: true })
     document.body.appendChild(host)
-    /** 中文说明：测试局部值 anchorTop，取值由紧邻初始化决定。 */
     let anchorTop = 80
     vi.spyOn(host, 'getBoundingClientRect').mockImplementation(
       () => ({ top: 0, bottom: 500 } as DOMRect),
     )
-    /** 中文说明：测试局部值 rect，取值由紧邻初始化决定。 */
     const rect = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
       if (this.dataset.chatAnchorKey === 'fixture:user:1') {
         return { top: anchorTop, bottom: anchorTop + 40 } as DOMRect
@@ -2291,10 +2436,8 @@ describe('ChatView', () => {
       return { top: 0, bottom: 40 } as DOMRect
     })
     try {
-      /** 中文说明：测试局部值 h，取值由紧邻初始化决定。 */
       const h = makeHarness({ nodes: [user(1, 'q'), assistant(2, 'a')] })
       // Fresh open (nothing saved): the bottom jump stands.
-      /** 中文说明：测试局部值 view，取值由紧邻初始化决定。 */
       const view = render(<h.ChatView {...h.props} />, { container: host })
       expect(host.scrollTop).toBe(2000)
       // Reader scrolls up; the position is recorded continuously.
@@ -2314,12 +2457,10 @@ describe('ChatView', () => {
   })
 
   it('normalizes a semantic restore clamped to the bottom before an immediate remount', () => {
-    /** 中文说明：测试局部值 host，取值由紧邻初始化决定。 */
     const host = document.createElement('div')
     host.setAttribute('data-conversation-scroll', '')
     Object.defineProperty(host, 'scrollHeight', { value: 2_000, writable: true, configurable: true })
     Object.defineProperty(host, 'clientHeight', { value: 500, writable: true, configurable: true })
-    /** 中文说明：测试局部值 scrollTop，取值由紧邻初始化决定。 */
     let scrollTop = 0
     Object.defineProperty(host, 'scrollTop', {
       configurable: true,
@@ -2327,16 +2468,13 @@ describe('ChatView', () => {
       set: (value: number) => { scrollTop = Math.min(value, 1_500) },
     })
     document.body.appendChild(host)
-    /** 中文说明：测试局部值 rect，取值由紧邻初始化决定。 */
     const rect = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
       if (this.dataset.chatAnchorKey === 'fixture:user:1') return { top: 300, bottom: 340 } as DOMRect
       return { top: 0, bottom: 500 } as DOMRect
     })
     try {
-      /** 中文说明：测试局部值 h，取值由紧邻初始化决定。 */
       const h = makeHarness({ nodes: [user(1, 'q'), assistant(2, 'a')] })
       h.chatScroll.save({ anchorKey: 'fixture:user:1', anchorTop: 80, scrollTop: 1_400 })
-      /** 中文说明：测试局部值 view，取值由紧邻初始化决定。 */
       const view = render(<h.ChatView {...h.props} />, { container: host })
       expect(host.scrollTop).toBe(1_500)
       expect(h.chatScroll.read()).toBeNull()
@@ -2351,7 +2489,6 @@ describe('ChatView', () => {
   })
 
   it('a remount while pinned to the bottom keeps the bottom jump', () => {
-    /** 中文说明：测试局部值 host，取值由紧邻初始化决定。 */
     const host = document.createElement('div')
     host.setAttribute('data-conversation-scroll', '')
     Object.defineProperty(host, 'scrollHeight', { value: 2000, writable: true, configurable: true })
@@ -2359,9 +2496,7 @@ describe('ChatView', () => {
     Object.defineProperty(host, 'scrollTop', { value: 0, writable: true, configurable: true })
     document.body.appendChild(host)
     try {
-      /** 中文说明：测试局部值 h，取值由紧邻初始化决定。 */
       const h = makeHarness({ nodes: [user(1, 'q'), assistant(2, 'a')] })
-      /** 中文说明：测试局部值 view，取值由紧邻初始化决定。 */
       const view = render(<h.ChatView {...h.props} />, { container: host })
       // At the bottom: the scroll event records the pinned state (null).
       fireEvent.scroll(host)
@@ -2387,9 +2522,8 @@ describe('ChatView', () => {
   it('shows open error and loading states', () => {
     const h = makeHarness({}, {
       openState: 'error',
-      openError: { code: 'internal', message: 'boom' } as never,
+      openError: { code: 'gateway/internal', message: 'boom' } as never,
     })
-    /** 中文说明：测试局部值 view，取值由紧邻初始化决定。 */
     const view = render(<h.ChatView {...h.props} />)
     expect(view.getByText(/历史加载失败：boom/)).toBeTruthy()
     const loading = makeHarness({}, { openState: 'loading' })
@@ -2401,9 +2535,7 @@ describe('ChatView', () => {
     // Settled success: the bare command name is the title, the outcome text
     // the summary — neither the dispatched `/` nor its arguments reach the row
     // (the settlement text already says what the command did).
-    /** 中文说明：测试局部值 settled，取值由紧邻初始化决定。 */
     const settled = makeHarness({ nodes: [user(1, 'hi'), command({ args: ' now' })] })
-    /** 中文说明：测试局部值 view，取值由紧邻初始化决定。 */
     const view = render(<settled.ChatView {...settled.props} />)
     expect(view.getByText('plan')).toBeTruthy()
     expect(view.queryByText('/plan')).toBeNull()
@@ -2411,48 +2543,39 @@ describe('ChatView', () => {
     expect(view.getByText('已进入 plan mode')).toBeTruthy()
 
     // Error outcome flips the row state; a text-less error gets the default copy.
-    /** 中文说明：测试局部值 failed，取值由紧邻初始化决定。 */
     const failed = makeHarness({
       nodes: [command({ seq: 6, commandId: 'cmd-2' as CommandNode['commandId'], outcome: { kind: 'error' } })],
     })
-    /** 中文说明：测试局部值 fv，取值由紧邻初始化决定。 */
     const fv = render(<failed.ChatView {...failed.props} />)
     expect(fv.container.querySelector('[data-state="error"]')).not.toBeNull()
     expect(fv.getByText('指令失败')).toBeTruthy()
     expect(fv.getByText('失败')).toBeTruthy()
 
     // Still executing: running state with the executing copy.
-    /** 中文说明：测试局部值 executing，取值由紧邻初始化决定。 */
     const executing = makeHarness({
       nodes: [command({ seq: 7, commandId: 'cmd-3' as CommandNode['commandId'], outcome: null })],
     })
-    /** 中文说明：测试局部值 xv，取值由紧邻初始化决定。 */
     const xv = render(<executing.ChatView {...executing.props} />)
     expect(xv.container.querySelector('[data-state="running"]')).not.toBeNull()
     expect(xv.getByText('执行中…')).toBeTruthy()
     expect(xv.getByText('运行中')).toBeTruthy()
 
     // Cross-window soft-fall (run page truncated): generic title, outcome preserved.
-    /** 中文说明：测试局部值 orphan，取值由紧邻初始化决定。 */
     const orphan = makeHarness({
       nodes: [command({ seq: 8, commandId: 'cmd-4' as CommandNode['commandId'], name: null, args: null, outcome: { kind: 'success' } })],
     })
-    /** 中文说明：测试局部值 ov，取值由紧邻初始化决定。 */
     const ov = render(<orphan.ChatView {...orphan.props} />)
     expect(ov.getByText('指令')).toBeTruthy()
     expect(ov.getByText('已完成')).toBeTruthy()
   })
 
   it('renders /compact as one stateful disclosure from running through completion', () => {
-    /** 中文说明：测试局部值 running，取值由紧邻初始化决定。 */
     const running = command({
       commandId: 'cmd-compact' as CommandNode['commandId'],
       name: 'compact',
       outcome: null,
     })
-    /** 中文说明：测试局部值 h，取值由紧邻初始化决定。 */
     const h = makeHarness({ nodes: [running] })
-    /** 中文说明：测试局部值 view，取值由紧邻初始化决定。 */
     const view = render(<h.ChatView {...h.props} />)
     expect(view.getByText('正在压缩…')).toBeTruthy()
     expect(view.container.querySelector('[data-state="running"]')).not.toBeNull()
@@ -2473,7 +2596,6 @@ describe('ChatView', () => {
     expect(view.queryByText('正在压缩…')).toBeNull()
     expect(view.queryByText('上下文已压缩')).toBeNull()
     expect(view.getByText('已压缩 16 条历史记录（约 11309 tokens）')).toBeTruthy()
-    /** 中文说明：当前数据 row，取值由紧邻初始化决定。 */
     const row = view.getByRole('button', { name: /compact/ })
     expect(row.getAttribute('aria-expanded')).toBe('false')
     expect(row.querySelector('[data-compaction-icon="context"]')).not.toBeNull()
@@ -2486,19 +2608,16 @@ describe('ChatView', () => {
   })
 
   it('keeps /compact no-history and error settlements on the generic command row', () => {
-    /** 中文说明：测试局部值 noHistory，取值由紧邻初始化决定。 */
     const noHistory = makeHarness({
       nodes: [command({
         name: 'compact',
         outcome: { kind: 'success', text: 'No compactable history yet.' },
       })],
     })
-    /** 中文说明：测试局部值 noHistoryView，取值由紧邻初始化决定。 */
     const noHistoryView = render(<noHistory.ChatView {...noHistory.props} />)
     expect(noHistoryView.getByText('No compactable history yet.')).toBeTruthy()
     expect(noHistoryView.queryByRole('button')).toBeNull()
 
-    /** 中文说明：测试局部值 failed，取值由紧邻初始化决定。 */
     const failed = makeHarness({
       nodes: [command({
         commandId: 'cmd-compact-failed' as CommandNode['commandId'],
@@ -2506,7 +2625,6 @@ describe('ChatView', () => {
         outcome: { kind: 'error', text: 'Compaction cancelled.' },
       })],
     })
-    /** 中文说明：测试局部值 failedView，取值由紧邻初始化决定。 */
     const failedView = render(<failed.ChatView {...failed.props} />)
     expect(failedView.getByText('Compaction cancelled.')).toBeTruthy()
     expect(failedView.container.querySelector('[data-state="error"]')).not.toBeNull()

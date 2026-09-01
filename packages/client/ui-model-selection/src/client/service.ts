@@ -1,18 +1,3 @@
-/*
- * ================================ 文件注释 ================================
- * 【文件职责】ModelDirectoryResolver（ctx.modelDirectories）：按会话的模型目录
- *             实例的根拥有者——两个选择入口都通过它解析共享目录。
- * 【技术维度】Cordis Service + 会话级懒映射（条目随作用域清理器删除）；
- *             监听适配器更新与设置文档变化以刷新目录；把"不可路由"发布为
- *             输入条阻断（composer block）。
- * 【产品维度】模型选择双入口共享的目录服务与不可用阻断。
- * 【逻辑维度】directoryFor 懒创建/复用会话目录 → 连接重置与外部变更触发刷新
- *             → 按 routable 发布或清除输入条阻断。
- * 【关键边界】只有确定不可路由（false）才阻断输入条——首次加载前的 null 不阻断，
- *             否则慢宿主会锁死可用的输入条。
- * 【新手阅读建议】先读 directory.ts，再看本服务的目录生命周期与阻断发布。
- * ==========================================================================
- */
 /**
  * ModelDirectoryResolver (`ctx.modelDirectories`): the root owner of per-session
  * {@link ModelDirectory} instances. Both selection entries (the /model popup
@@ -47,7 +32,6 @@ interface LiveState {
 }
 
 /** The `ctx.modelDirectories` session model-selection service. */
-// 会话模型目录解析服务：两个选择入口共享的目录实例的根拥有者。
 export class ModelDirectoryResolver extends Service {
   static inject = ['sessions', 'remote', 'remote.session']
 
@@ -64,7 +48,7 @@ export class ModelDirectoryResolver extends Service {
   constructor(ctx: Context, config: { blockReason: () => string }) {
     super(ctx, 'modelDirectories')
     this.blockReason = config.blockReason
-    this.catalog = new ModelCatalogDirectory(ctx.remote.session)
+    this.catalog = new ModelCatalogDirectory(ctx)
     void this.catalog.load().catch(() => { /* selectors expose the shared error */ })
     ctx.on('connection/reset', () => {
       this.catalog.resetGeneration()

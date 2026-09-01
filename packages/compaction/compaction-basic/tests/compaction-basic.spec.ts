@@ -1,11 +1,3 @@
-/**
- * 文件职责：验证上下文压缩的 compaction-basic.spec.ts 行为。
- * 技术维度：Vitest、会话事件、模型请求夹具和 Cordis 组装。
- * 产品维度：防止上下文压缩改变模型可见内容或生命周期语义。
- * 逻辑维度：构造日志与配置，运行插件并断言事件、请求和清理。
- * 关键边界：模型可见内容必须可重建；工具调用和结果必须保持配对。
- * 新手阅读建议：先读事件夹具，再按正常、边界和失败场景阅读。
- */
 import { describe, expect, expectTypeOf, it, vi } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
 import { AttachmentId } from '@deepseek-ai/dsh-attachment'
@@ -32,16 +24,14 @@ import type {
   TokenUsage,
 } from '@deepseek-ai/dsh-llm'
 import SessionStore, { Session, SessionId } from '@deepseek-ai/dsh-session'
+import SessionProjectionRegistry from '@deepseek-ai/dsh-session-projection'
 import TokenMeter from '@deepseek-ai/dsh-token-meter'
 import { agentEvents, type Agent, type RequestErrorAction } from '@deepseek-ai/dsh-agent'
 import ToolResultPruner from '@deepseek-ai/dsh-compaction-tool-result-pruner'
 
-/** 中文说明：测试局部值 SIGNAL，由紧邻初始化决定。 */
 const SIGNAL = new AbortController().signal
-/** 中文说明：测试局部值 MODEL，由紧邻初始化决定。 */
 const MODEL = 'test-model'
 
-/** 中文说明：类型或类 ContextAdapter 约束上下文或压缩数据职责。 */
 class ContextAdapter extends LlmAdapter {
   constructor(private readonly contextWindow: number) {
     super()
@@ -61,14 +51,12 @@ class ContextAdapter extends LlmAdapter {
   }
 }
 
-/** 中文说明：类型或类 RoutedContextAdapter 约束上下文或压缩数据职责。 */
 class RoutedContextAdapter extends LlmAdapter {
   constructor(private readonly windows: Readonly<Record<string, number>>) {
     super()
   }
 
   override resolveModel(provider: string, model: string): Promise<LlmResolvedModelInfo> {
-    /** 中文说明：测试局部值 contextWindow，由紧邻初始化决定。 */
     const contextWindow = this.windows[provider]
     return Promise.resolve({
       provider,
@@ -83,17 +71,17 @@ class RoutedContextAdapter extends LlmAdapter {
   }
 }
 
-/** 中文说明：函数 createContext 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function createContext(contextWindow = 1_000): Context {
-  /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
   const ctx = new Context()
   void new LlmRuntime(ctx)
+  // The registry is a required injection of TokenMeter (its three
+  // projection units register in the constructor); mount it synchronously.
+  new SessionProjectionRegistry(ctx)
   void new TokenMeter(ctx)
   ctx.llm.registerAdapter([MODEL, 'actual', 'unlisted-provider'], new ContextAdapter(contextWindow))
   return ctx
 }
 
-/** 中文说明：函数 agent 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function agent(session: Session, model?: string): Agent {
   return {
     session,
@@ -102,9 +90,7 @@ function agent(session: Session, model?: string): Agent {
 }
 
 /** Flatten every text fragment the summarizer received, recursing tool-result blocks. */
-/* 中文说明：函数 summarizedText 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function summarizedText(input: SummarizationInput): string {
-  /** 中文说明：测试局部值 collect，由紧邻初始化决定。 */
   const collect = (blocks: readonly ContentBlock[]): string =>
     blocks.map(block =>
       block.type === 'text' ? block.text
@@ -114,7 +100,6 @@ function summarizedText(input: SummarizationInput): string {
 }
 
 /** A minimal replayed prefix carrying one user message of the given text. */
-/* 中文说明：函数 promptInput 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function promptInput(text: string): SummarizationInput {
   return { messages: [createUserMessage({
     content: [{ type: 'text', text }],
@@ -123,11 +108,8 @@ function promptInput(text: string): SummarizationInput {
 }
 
 /** Closed two-message turns followed by one open turn for durable compaction events. */
-/* 中文说明：函数 conversation 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function conversation(turns = 4, text = 'fixture '.repeat(40).trim()): Session {
-  /** 中文说明：测试局部值 session，由紧邻初始化决定。 */
   const session = Session.create(SessionId(`conversation-${turns}`))
-  /** 中文说明：测试局部值 turn，由紧邻初始化决定。 */
   for (let turn = 1; turn <= turns; turn += 1) {
     session.append('turn/start', { turn })
     session.append('user/message', createUserMessage({
@@ -162,11 +144,8 @@ function conversation(turns = 4, text = 'fixture '.repeat(40).trim()): Session {
   return session
 }
 
-/** 中文说明：函数 toolConversation 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function toolConversation(): Session {
-  /** 中文说明：测试局部值 session，由紧邻初始化决定。 */
   const session = Session.create(SessionId('tools'))
-  /** 中文说明：测试局部值 turn，由紧邻初始化决定。 */
   for (let turn = 1; turn <= 3; turn += 1) {
     const callId = ToolCallId(`call-${turn}`)
     session.append('turn/start', { turn })
@@ -214,9 +193,7 @@ function toolConversation(): Session {
 }
 
 /** One closed routed tool step followed by an open turn for rewrite events. */
-/* 中文说明：函数 oversizedToolResult 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function oversizedToolResult(chars = 3_000, withCompactablePrompt = false): Session {
-  /** 中文说明：测试局部值 session，由紧邻初始化决定。 */
   const session = Session.create(SessionId(`oversized-tool-${chars}`))
   const callId = ToolCallId('oversized')
   session.append('turn/start', { turn: 1 })
@@ -260,7 +237,6 @@ function oversizedToolResult(chars = 3_000, withCompactablePrompt = false): Sess
   return session
 }
 
-/** 中文说明：类型或类 TestCompactionEngine 约束上下文或压缩数据职责。 */
 class TestCompactionEngine extends BasicCompactionEngine {
   summary: ContentBlock[] = [{ type: 'text', text: 'small checkpoint' }]
   rawOutput: ContentBlock[] | undefined
@@ -297,7 +273,6 @@ class TestCompactionEngine extends BasicCompactionEngine {
   }
 }
 
-/** 中文说明：函数 service 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function service(
   config: BasicCompactionConfig = { auto: false },
   ctx = createContext(),
@@ -305,7 +280,6 @@ function service(
   return new TestCompactionEngine(ctx, config)
 }
 
-/** 中文说明：函数 compactIfNeeded 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 async function compactIfNeeded(
   compact: BasicCompactionEngine,
   session: Session,
@@ -317,7 +291,6 @@ async function compactIfNeeded(
 
 describe('compact configuration and defaults', () => {
   it('uses low-friction service-wide defaults', () => {
-    /** 中文说明：测试局部值 resolved，由紧邻初始化决定。 */
     const resolved = resolveConfig({})
 
     expect(resolved).toEqual({
@@ -335,7 +308,6 @@ describe('compact configuration and defaults', () => {
   })
 
   it('resolves threshold and retention overrides independently', () => {
-    /** 中文说明：测试局部值 thresholdOnly，由紧邻初始化决定。 */
     const thresholdOnly = resolveConfig({
       thresholdRatio: 0.5,
     })
@@ -344,7 +316,6 @@ describe('compact configuration and defaults', () => {
       retainRatio: 0.16,
     })
 
-    /** 中文说明：测试局部值 retentionOnly，由紧邻初始化决定。 */
     const retentionOnly = resolveConfig({
       retainTokens: 70,
     })
@@ -356,7 +327,6 @@ describe('compact configuration and defaults', () => {
   })
 
   it('merges exact provider/model policy overrides and scales ratios per model', () => {
-    /** 中文说明：测试局部值 config，由紧邻初始化决定。 */
     const config = resolveConfig({
       thresholdRatio: 0.8,
       retainRatio: 0.1,
@@ -367,12 +337,10 @@ describe('compact configuration and defaults', () => {
         retainTokens: 120,
       }],
     })
-    /** 中文说明：测试局部值 small，由紧邻初始化决定。 */
     const small = resolveTargetPolicy(config, {
       provider: 'small-provider',
       model: 'shared-id',
     })
-    /** 中文说明：测试局部值 otherProvider，由紧邻初始化决定。 */
     const otherProvider = resolveTargetPolicy(config, {
       provider: 'large-provider',
       model: 'shared-id',
@@ -387,7 +355,6 @@ describe('compact configuration and defaults', () => {
       retainTokens: 200,
     })
 
-    /** 中文说明：测试局部值 ratioOverride，由紧邻初始化决定。 */
     const ratioOverride = resolveTargetPolicy(resolveConfig({
       retainTokens: 200,
       modelPolicies: [{
@@ -414,7 +381,6 @@ describe('compact configuration and defaults', () => {
   })
 
   it('inherits, clears, and replaces the summarization target as a pair', () => {
-    /** 中文说明：测试局部值 config，由紧邻初始化决定。 */
     const config = resolveConfig({
       summarizationProvider: 'default-provider',
       summarizationModel: 'default-model',
@@ -450,7 +416,6 @@ describe('compact configuration and defaults', () => {
   })
 
   it('validates common values and pressure-policy invariants', () => {
-    /** 中文说明：测试局部值 bad，由紧邻初始化决定。 */
     const bad = [
       [{ maxTokens: 0 }, /maxTokens/],
       [{ compactionRetries: -1 }, /compactionRetries/],
@@ -501,12 +466,10 @@ describe('compact configuration and defaults', () => {
       [{ thresholdRato: 0.5 }, /BasicCompactionConfig: unknown key "thresholdRato"/],
     ] as Array<[unknown, RegExp]>
 
-    /** 中文说明：测试局部值 [config，由紧邻初始化决定。 */
     for (const [config, pattern] of bad) {
       expect(() => resolveConfig(config as BasicCompactionConfig)).toThrow(pattern)
     }
 
-    /** 中文说明：测试局部值 invalidPressure，由紧邻初始化决定。 */
     const invalidPressure = resolveTargetPolicy(resolveConfig({
       thresholdRatio: 0.5,
       retainTokens: 500,
@@ -519,7 +482,6 @@ describe('compact configuration and defaults', () => {
 })
 
 describe('pressure measurement and retention', () => {
-  /** 中文说明：测试局部值 compactConfig，由紧邻初始化决定。 */
   const compactConfig: BasicCompactionConfig = {
     auto: false,
     thresholdRatio: 0.5,
@@ -527,9 +489,7 @@ describe('pressure measurement and retention', () => {
   }
 
   it('skips when no durable routed model exists instead of using AgentOptions fallback', async () => {
-    /** 中文说明：测试局部值 compact，由紧邻初始化决定。 */
     const compact = service(compactConfig)
-    /** 中文说明：测试局部值 session，由紧邻初始化决定。 */
     const session = Session.create(SessionId('headerless'))
     session.append('turn/start', { turn: 1 })
     await expect(compact.compactIfNeeded(agent(session, MODEL), 'pressure', SIGNAL))
@@ -538,9 +498,7 @@ describe('pressure measurement and retention', () => {
   })
 
   it('meters an unlisted model when its provider adapter supplies context metadata', async () => {
-    /** 中文说明：测试局部值 compact，由紧邻初始化决定。 */
     const compact = service(compactConfig)
-    /** 中文说明：测试局部值 session，由紧邻初始化决定。 */
     const session = conversation()
     session.append('request/header', {
       header: { config: { provider: 'unlisted-provider', model: 'unlisted-model' } },
@@ -551,15 +509,10 @@ describe('pressure measurement and retention', () => {
   })
 
   it('forwards turn cancellation to proactive model metadata resolution', async () => {
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = createContext()
-    /** 中文说明：测试局部值 resolveModelInfo，由紧邻初始化决定。 */
     const resolveModelInfo = vi.spyOn(ctx.llm, 'resolveModelInfo')
-    /** 中文说明：测试局部值 compact，由紧邻初始化决定。 */
     const compact = service(compactConfig, ctx)
-    /** 中文说明：测试局部值 session，由紧邻初始化决定。 */
     const session = conversation()
-    /** 中文说明：测试局部值 signal，由紧邻初始化决定。 */
     const signal = new AbortController().signal
 
     await expect(compact.compactIfNeeded(agent(session, MODEL), 'pressure', signal))
@@ -568,21 +521,19 @@ describe('pressure measurement and retention', () => {
   })
 
   it('re-resolves capacity after a same-model-id provider switch in one session', async () => {
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = new Context()
     void new LlmRuntime(ctx)
+    new SessionProjectionRegistry(ctx)
     void new TokenMeter(ctx)
     ctx.llm.registerAdapter(['large', 'small'], new RoutedContextAdapter({
       large: 10_000,
       small: 1_000,
     }))
-    /** 中文说明：测试局部值 compact，由紧邻初始化决定。 */
     const compact = service({
       auto: false,
       thresholdRatio: 0.5,
       retainRatio: 0.1,
     }, ctx)
-    /** 中文说明：测试局部值 session，由紧邻初始化决定。 */
     const session = conversation(4)
     session.append('request/header', {
       header: { config: { provider: 'large', model: 'shared-id' } },
@@ -598,9 +549,9 @@ describe('pressure measurement and retention', () => {
   })
 
   it('requires capacity only for proactive pressure, not provider-confirmed overflow', async () => {
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = new Context()
     void new LlmRuntime(ctx)
+    new SessionProjectionRegistry(ctx)
     void new TokenMeter(ctx)
     ctx.llm.registerAdapter(['unknown-context'], new ContextAdapter(1_000))
     vi.spyOn(ctx.llm, 'resolveModelInfo').mockImplementation((provider, model) => Promise.resolve({
@@ -608,9 +559,7 @@ describe('pressure measurement and retention', () => {
       id: model,
       name: model,
     }))
-    /** 中文说明：测试局部值 compact，由紧邻初始化决定。 */
     const compact = service(compactConfig, ctx)
-    /** 中文说明：测试局部值 session，由紧邻初始化决定。 */
     const session = conversation(4)
     session.append('request/header', {
       header: { config: { provider: 'unknown-context', model: 'model' } },
@@ -624,9 +573,7 @@ describe('pressure measurement and retention', () => {
   })
 
   it('declines forced overflow when the whole surface is one indivisible tool pair', async () => {
-    /** 中文说明：测试局部值 compact，由紧邻初始化决定。 */
     const compact = service(compactConfig)
-    /** 中文说明：测试局部值 session，由紧邻初始化决定。 */
     const session = Session.create(SessionId('single-tool-pair'))
     const callId = ToolCallId('single-call')
     session.append('turn/start', { turn: 1 })
@@ -658,7 +605,6 @@ describe('pressure measurement and retention', () => {
       }),
     }, { surfaceOp: 'append' })
     session.append('step/end', { turn: 1, step: 1 })
-    /** 中文说明：测试局部值 generation，由紧邻初始化决定。 */
     const generation = session.surface.replaceGeneration
 
     await expect(compactIfNeeded(compact, session, 'context-overflow')).resolves.toBeNull()
@@ -667,13 +613,10 @@ describe('pressure measurement and retention', () => {
   })
 
   it('does nothing below threshold and compacts a priced head above threshold', async () => {
-    /** 中文说明：测试局部值 compact，由紧邻初始化决定。 */
     const compact = service(compactConfig)
     expect(await compactIfNeeded(compact, conversation(2))).toBeNull()
 
-    /** 中文说明：测试局部值 session，由紧邻初始化决定。 */
     const session = conversation(4)
-    /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
     const result = await compactIfNeeded(compact, session)
     expect(result).not.toBeNull()
     expect(result?.shadowedSeqs.length).toBeGreaterThan(2)
@@ -681,13 +624,11 @@ describe('pressure measurement and retention', () => {
   })
 
   it('counts the durable routed request envelope without putting it on the surface', async () => {
-    /** 中文说明：测试局部值 compact，由紧邻初始化决定。 */
     const compact = service({
       auto: false,
       thresholdRatio: 0.9,
       retainTokens: 50,
     })
-    /** 中文说明：测试局部值 session，由紧邻初始化决定。 */
     const session = conversation(2, 'x'.repeat(600))
     expect(await compactIfNeeded(compact, session)).toBeNull()
 
@@ -698,30 +639,24 @@ describe('pressure measurement and retention', () => {
       },
       reason: 'resume',
     })
-    /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
     const result = await compactIfNeeded(compact, session)
     expect(result).not.toBeNull()
   })
 
   it('uses the latest logged request envelope without an AgentOptions override', async () => {
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = createContext()
-    /** 中文说明：测试局部值 compact，由紧邻初始化决定。 */
     const compact = service({
       auto: false,
       thresholdRatio: 0.5,
       retainTokens: 180,
     }, ctx)
-    /** 中文说明：测试局部值 session，由紧邻初始化决定。 */
     const session = conversation(4)
     session.append('request/header', {
       header: { config: { provider: 'actual', model: 'actual' } },
       reason: 'initial',
     })
-    /** 中文说明：测试局部值 measure，由紧邻初始化决定。 */
     const measure = vi.spyOn(ctx.tokenMeter, 'measure')
 
-    /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
     const result = await compactIfNeeded(compact, session, 'pressure', 'fallback')
     expect(result).not.toBeNull()
     expect(session.requestHeader()?.config.model).toBe('actual')
@@ -729,9 +664,7 @@ describe('pressure measurement and retention', () => {
   })
 
   it('declines when envelope pressure is high but the surface has no compactable range', async () => {
-    /** 中文说明：测试局部值 compact，由紧邻初始化决定。 */
     const compact = service(compactConfig)
-    /** 中文说明：测试局部值 empty，由紧邻初始化决定。 */
     const empty = Session.create(SessionId('empty'))
     empty.append('turn/start', { turn: 1 })
     empty.append('request/header', {
@@ -740,7 +673,6 @@ describe('pressure measurement and retention', () => {
     })
     expect(await compactIfNeeded(compact, empty)).toBeNull()
 
-    /** 中文说明：测试局部值 retained，由紧邻初始化决定。 */
     const retained = conversation(1)
     retained.append('request/header', {
       header: { config: { provider: MODEL, model: MODEL }, system: 'x'.repeat(100_000) },
@@ -750,13 +682,9 @@ describe('pressure measurement and retention', () => {
   })
 
   it('uses one unified measurement for each pressure-and-retention decision', async () => {
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = createContext()
-    /** 中文说明：测试局部值 compact，由紧邻初始化决定。 */
     const compact = service(compactConfig, ctx)
-    /** 中文说明：测试局部值 measure，由紧邻初始化决定。 */
     const measure = vi.spyOn(ctx.tokenMeter, 'measure')
-    /** 中文说明：测试局部值 stop，由紧邻初始化决定。 */
     const stop = new Error('stop after first decision')
     vi.spyOn(compact, 'compactRegion').mockRejectedValueOnce(stop)
 
@@ -765,7 +693,6 @@ describe('pressure measurement and retention', () => {
   })
 
   it('bounds retries when a shrinking checkpoint remains above threshold', async () => {
-    /** 中文说明：测试局部值 compact，由紧邻初始化决定。 */
     const compact = service({
       auto: false,
       compactionRetries: 0,
@@ -782,25 +709,18 @@ describe('pressure measurement and retention', () => {
   })
 
   it('rounds a retention cut head-ward to preserve tool-call/result pairing', async () => {
-    /** 中文说明：测试局部值 compact，由紧邻初始化决定。 */
     const compact = service({
       auto: false,
       thresholdRatio: 0.8,
       retainTokens: 80,
     }, createContext(4_000))
-    /** 中文说明：测试局部值 session，由紧邻初始化决定。 */
     const session = toolConversation()
-    /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
     const result = await compactIfNeeded(compact, session)
     expect(result).not.toBeNull()
 
-    /** 中文说明：测试局部值 messages，由紧邻初始化决定。 */
     const messages = session.deriveMessages()
-    /** 中文说明：测试局部值 calls，由紧邻初始化决定。 */
     const calls = new Set<string>()
-    /** 中文说明：测试局部值 message，由紧邻初始化决定。 */
     for (const message of messages) {
-      /** 中文说明：测试局部值 block，由紧邻初始化决定。 */
       for (const block of message.content) {
         if (block.type === 'tool-call') calls.add(block.id)
         if (block.type === 'tool-result') expect(calls.has(block.toolCallId)).toBe(true)
@@ -809,11 +729,8 @@ describe('pressure measurement and retention', () => {
   })
 
   it('rejects a priced surface that is not the current positional surface', () => {
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = createContext()
-    /** 中文说明：测试局部值 session，由紧邻初始化决定。 */
     const session = conversation(2)
-    /** 中文说明：测试局部值 priced，由紧邻初始化决定。 */
     const priced = ctx.tokenMeter.measure(session)
     expect(() => selectCompactableRange(session, {
       ...priced,
@@ -822,9 +739,7 @@ describe('pressure measurement and retention', () => {
   })
 
   it('declines when rounding a cut would consume the only tool pair', () => {
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = createContext()
-    /** 中文说明：测试局部值 session，由紧邻初始化决定。 */
     const session = Session.create(SessionId('one-tool-pair'))
     const callId = ToolCallId('only')
     session.append('turn/start', { turn: 1 })
@@ -853,30 +768,23 @@ describe('pressure measurement and retention', () => {
     }, { surfaceOp: 'append' })
     session.append('step/end', { turn: 1, step: 1 })
 
-    /** 中文说明：测试局部值 priced，由紧邻初始化决定。 */
     const priced = ctx.tokenMeter.measure(session)
     expect(selectCompactableRange(session, priced, 1)).toBeNull()
   })
 })
 
 describe('optional model-free tool-result pruning', () => {
-  /** 中文说明：测试局部值 pruneConfig，由紧邻初始化决定。 */
   const pruneConfig = { thresholdChars: 100, headChars: 20, tailChars: 10 }
 
   it('does not prune a below-pressure session opportunistically', async () => {
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = createContext(10_000)
-    /** 中文说明：测试局部值 prune，由紧邻初始化决定。 */
     const prune = new ToolResultPruner(ctx, pruneConfig)
-    /** 中文说明：测试局部值 compact，由紧邻初始化决定。 */
     const compact = new TestCompactionEngine(ctx, {
       auto: false,
       thresholdRatio: 0.8,
       retainTokens: 100,
     })
-    /** 中文说明：测试局部值 session，由紧邻初始化决定。 */
     const session = oversizedToolResult()
-    /** 中文说明：测试局部值 pruneSession，由紧邻初始化决定。 */
     const pruneSession = vi.spyOn(prune, 'pruneSession')
 
     expect(await compactIfNeeded(compact, session)).toBeNull()
@@ -886,16 +794,13 @@ describe('optional model-free tool-result pruning', () => {
   })
 
   it('skips LLM summarization when pruning alone clears pressure', async () => {
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = createContext(1_000)
     void new ToolResultPruner(ctx, pruneConfig)
-    /** 中文说明：测试局部值 compact，由紧邻初始化决定。 */
     const compact = new TestCompactionEngine(ctx, {
       auto: false,
       thresholdRatio: 0.5,
       retainTokens: 50,
     })
-    /** 中文说明：测试局部值 session，由紧邻初始化决定。 */
     const session = oversizedToolResult()
 
     expect(ctx.tokenMeter.measure(session).totalTokens).toBeGreaterThanOrEqual(500)
@@ -906,16 +811,13 @@ describe('optional model-free tool-result pruning', () => {
   })
 
   it('summarizes the pruned surface when pruning is insufficient', async () => {
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = createContext(2_000)
     void new ToolResultPruner(ctx, pruneConfig)
-    /** 中文说明：测试局部值 compact，由紧邻初始化决定。 */
     const compact = new TestCompactionEngine(ctx, {
       auto: false,
       thresholdRatio: 0.5,
       retainTokens: 50,
     })
-    /** 中文说明：测试局部值 session，由紧邻初始化决定。 */
     const session = toolConversation()
 
     expect(await compactIfNeeded(compact, session)).not.toBeNull()
@@ -925,20 +827,16 @@ describe('optional model-free tool-result pruning', () => {
   })
 
   it('retains the original compaction-basic behavior without the optional plugin', async () => {
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = createContext(2_000)
-    /** 中文说明：测试局部值 compact，由紧邻初始化决定。 */
     const compact = new TestCompactionEngine(ctx, {
       auto: false,
       thresholdRatio: 0.5,
       retainTokens: 50,
     })
-    /** 中文说明：测试局部值 session，由紧邻初始化决定。 */
     const session = oversizedToolResult(3_000, true)
 
     expect(await compactIfNeeded(compact, session)).not.toBeNull()
     expect(compact.calls).toHaveLength(1)
-    /** 中文说明：测试局部值 original，由紧邻初始化决定。 */
     const original = session.events.find(event => event.type === 'tool/result')
     expect(original?.type === 'tool/result' && original.data.message.content[0].content[0])
       .toEqual({ type: 'text', text: 'X'.repeat(3_000) })
@@ -949,18 +847,14 @@ describe('optional model-free tool-result pruning', () => {
 
 describe('compaction region transaction', () => {
   it('lands a framed, replayable checkpoint with exact source seqs and token price', async () => {
-    /** 中文说明：测试局部值 compact，由紧邻初始化决定。 */
     const compact = service()
     compact.rawOutput = [
       { type: 'reasoning', text: 'private compact thought' },
       ...compact.summary,
     ]
     compact.usage = { inputTokens: 40, outputTokens: 5 }
-    /** 中文说明：测试局部值 session，由紧邻初始化决定。 */
     const session = conversation(3)
-    /** 中文说明：测试局部值 before，由紧邻初始化决定。 */
     const before = [...session.surface.nodes]
-    /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
     const result = await compact.compactRegion(
       before[0]!,
       before[3]!,
@@ -972,7 +866,6 @@ describe('compaction region transaction', () => {
     expect(result.shadowedTokenCount).toBeGreaterThan(0)
     expect(compact.calls[0]).toMatchObject({ signal: SIGNAL })
     expect(summarizedText(compact.calls[0]!.input)).toContain('fixture user 1')
-    /** 中文说明：测试局部值 summary，由紧邻初始化决定。 */
     const summary = session.events.findLast(event => event.type === 'compaction/summary')
     expect(summary?.data).toMatchObject({
       shadowedSeqs: result.shadowedSeqs,
@@ -984,33 +877,26 @@ describe('compaction region transaction', () => {
       usage: compact.usage,
     })
     expect(summary?.data).not.toHaveProperty('llmStreamCall')
-    /** 中文说明：测试局部值 head，由紧邻初始化决定。 */
     const head = session.deriveMessages()[0]!
     expect(head.content[0]?.type).toBe('text')
     expect(head.content[0]?.type === 'text' ? head.content[0].text : '').toContain('<compacted-summary>')
     expect(head.content.at(-1)).toEqual({ type: 'text', text: '</compacted-summary>' })
 
-    /** 中文说明：测试局部值 replay，由紧邻初始化决定。 */
     const replay = Session.create(SessionId('replay'), [...session.events])
     expect(replay.deriveMessages()).toEqual(session.deriveMessages())
   })
 
   it('replays the latest routed header so the summarizer reuses the cache', async () => {
-    /** 中文说明：测试局部值 compact，由紧邻初始化决定。 */
     const compact = service()
-    /** 中文说明：测试局部值 session，由紧邻初始化决定。 */
     const session = conversation(3)
-    /** 中文说明：测试局部值 tools，由紧邻初始化决定。 */
     const tools = [{ name: 'do_thing', description: 'd', parameters: { type: 'object' } }]
     session.append('request/header', {
       header: { config: { provider: MODEL, model: MODEL }, system: 'CONVERSATION SYSTEM', tools },
       reason: 'resume',
     })
-    /** 中文说明：测试局部值 nodes，由紧邻初始化决定。 */
     const nodes = session.surface.nodes
     await compact.compactRegion(nodes[0]!, nodes[1]!, agent(session, MODEL), SIGNAL)
 
-    /** 中文说明：测试局部值 { input }，由紧邻初始化决定。 */
     const { input } = compact.calls[0]!
     expect(input.system).toBe('CONVERSATION SYSTEM')
     expect(input.tools).toEqual(tools)
@@ -1021,11 +907,8 @@ describe('compaction region transaction', () => {
     ['start missing', 9_001, undefined, /start seq 9001 not found/],
     ['end missing', undefined, 9_002, /end seq 9002 not found/],
   ])('rejects %s', async (_label, startOverride, endOverride, pattern) => {
-    /** 中文说明：测试局部值 compact，由紧邻初始化决定。 */
     const compact = service()
-    /** 中文说明：测试局部值 session，由紧邻初始化决定。 */
     const session = conversation(2)
-    /** 中文说明：测试局部值 nodes，由紧邻初始化决定。 */
     const nodes = session.surface.nodes
     await expect(compact.compactRegion(
       startOverride ?? nodes[0]!,
@@ -1035,11 +918,8 @@ describe('compaction region transaction', () => {
   })
 
   it('rejects reversed and tool-unbalanced positional boundaries', async () => {
-    /** 中文说明：测试局部值 compact，由紧邻初始化决定。 */
     const compact = service()
-    /** 中文说明：测试局部值 plain，由紧邻初始化决定。 */
     const plain = conversation(2)
-    /** 中文说明：测试局部值 nodes，由紧邻初始化决定。 */
     const nodes = plain.surface.nodes
     await expect(compact.compactRegion(
       nodes[2]!,
@@ -1047,9 +927,7 @@ describe('compaction region transaction', () => {
       agent(plain, MODEL),
     )).rejects.toThrow(/is after end/)
 
-    /** 中文说明：测试局部值 tools，由紧邻初始化决定。 */
     const tools = toolConversation()
-    /** 中文说明：测试局部值 toolNodes，由紧邻初始化决定。 */
     const toolNodes = tools.surface.nodes
     await expect(compact.compactRegion(
       toolNodes[2]!,
@@ -1064,12 +942,9 @@ describe('compaction region transaction', () => {
   })
 
   it('requires an open turn and an idle compaction bracket', async () => {
-    /** 中文说明：测试局部值 compact，由紧邻初始化决定。 */
     const compact = service()
-    /** 中文说明：测试局部值 closed，由紧邻初始化决定。 */
     const closed = conversation(1)
     closed.append('turn/end', { turn: 2, reason: { kind: 'completed' } })
-    /** 中文说明：测试局部值 nodes，由紧邻初始化决定。 */
     const nodes = closed.surface.nodes
     await expect(compact.compactRegion(
       nodes[0]!,
@@ -1077,13 +952,11 @@ describe('compaction region transaction', () => {
       agent(closed, MODEL),
     )).rejects.toThrow(/no open turn/)
 
-    /** 中文说明：测试局部值 locked，由紧邻初始化决定。 */
     const locked = conversation(1)
     locked.append('compaction/start', {
       compactionId: CompactionId('locked-compaction'),
       turn: 2,
     })
-    /** 中文说明：测试局部值 lockedNodes，由紧邻初始化决定。 */
     const lockedNodes = locked.surface.nodes
     await expect(compact.compactRegion(
       lockedNodes[0]!,
@@ -1093,15 +966,12 @@ describe('compaction region transaction', () => {
   })
 
   it('rejects a session with no turn boundary at all', async () => {
-    /** 中文说明：测试局部值 compact，由紧邻初始化决定。 */
     const compact = service()
-    /** 中文说明：测试局部值 session，由紧邻初始化决定。 */
     const session = Session.create(SessionId('turnless'))
     session.append('user/message', createUserMessage({
       content: [{ type: 'text', text: 'orphan' }],
       source: { kind: 'user' },
     }), { surfaceOp: 'append' })
-    /** 中文说明：测试局部值 node，由紧邻初始化决定。 */
     const node = session.surface.nodes[0]!
 
     await expect(compact.compactRegion(
@@ -1112,22 +982,15 @@ describe('compaction region transaction', () => {
   })
 
   it('rejects a meter snapshot that changed before summarization began', async () => {
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = createContext()
-    /** 中文说明：测试局部值 meter，由紧邻初始化决定。 */
     const meter = ctx.tokenMeter
-    /** 中文说明：测试局部值 original，由紧邻初始化决定。 */
     const original = meter.measure.bind(meter)
     vi.spyOn(meter, 'measure').mockImplementationOnce((session) => {
-      /** 中文说明：测试局部值 measurement，由紧邻初始化决定。 */
       const measurement = original(session)
       return { ...measurement, nodes: measurement.nodes.slice(1) }
     })
-    /** 中文说明：测试局部值 compact，由紧邻初始化决定。 */
     const compact = service({ auto: false }, ctx)
-    /** 中文说明：测试局部值 session，由紧邻初始化决定。 */
     const session = conversation(2)
-    /** 中文说明：测试局部值 nodes，由紧邻初始化决定。 */
     const nodes = session.surface.nodes
 
     await expect(compact.compactRegion(
@@ -1138,12 +1001,9 @@ describe('compaction region transaction', () => {
   })
 
   it('records summarizer failures without mutating the surface', async () => {
-    /** 中文说明：测试局部值 compact，由紧邻初始化决定。 */
     const compact = service()
     compact.error = new Error('summary unavailable')
-    /** 中文说明：测试局部值 session，由紧邻初始化决定。 */
     const session = conversation(2)
-    /** 中文说明：测试局部值 before，由紧邻初始化决定。 */
     const before = session.surface.nodes
 
     await expect(compact.compactRegion(
@@ -1157,12 +1017,9 @@ describe('compaction region transaction', () => {
   })
 
   it('stringifies non-Error failures in the durable end bracket', async () => {
-    /** 中文说明：测试局部值 compact，由紧邻初始化决定。 */
     const compact = service()
     compact.error = 'plain failure'
-    /** 中文说明：测试局部值 session，由紧邻初始化决定。 */
     const session = conversation(2)
-    /** 中文说明：测试局部值 nodes，由紧邻初始化决定。 */
     const nodes = session.surface.nodes
     await expect(compact.compactRegion(
       nodes[0]!,
@@ -1174,9 +1031,7 @@ describe('compaction region transaction', () => {
   })
 
   it('tolerates concurrent log-only appends while the selected surface is stable', async () => {
-    /** 中文说明：测试局部值 compact，由紧邻初始化决定。 */
     const compact = service()
-    /** 中文说明：测试局部值 session，由紧邻初始化决定。 */
     const session = conversation(2)
     compact.mutateDuringSummary = () => {
       session.append('request/header', {
@@ -1184,7 +1039,6 @@ describe('compaction region transaction', () => {
         reason: 'change',
       })
     }
-    /** 中文说明：测试局部值 nodes，由紧邻初始化决定。 */
     const nodes = session.surface.nodes
 
     await expect(compact.compactRegion(
@@ -1196,9 +1050,7 @@ describe('compaction region transaction', () => {
   })
 
   it('rejects concurrent surface appends before committing the replacement', async () => {
-    /** 中文说明：测试局部值 compact，由紧邻初始化决定。 */
     const compact = service()
-    /** 中文说明：测试局部值 session，由紧邻初始化决定。 */
     const session = conversation(2)
     compact.mutateDuringSummary = () => {
       session.append('user/message', createUserMessage({
@@ -1206,7 +1058,6 @@ describe('compaction region transaction', () => {
         source: { kind: 'plugin', plugin: 'test' },
       }), { surfaceOp: 'append' })
     }
-    /** 中文说明：测试局部值 nodes，由紧邻初始化决定。 */
     const nodes = session.surface.nodes
 
     await expect(compact.compactRegion(
@@ -1218,15 +1069,12 @@ describe('compaction region transaction', () => {
   })
 
   it('rejects a non-shrinking framed summary under the conversation meter', async () => {
-    /** 中文说明：测试局部值 compact，由紧邻初始化决定。 */
     const compact = service()
     compact.summary = Array.from({ length: 100 }, (_, index) => ({
       type: 'text',
       text: `verbose ${index}`,
     }))
-    /** 中文说明：测试局部值 session，由紧邻初始化决定。 */
     const session = conversation(2)
-    /** 中文说明：测试局部值 nodes，由紧邻初始化决定。 */
     const nodes = session.surface.nodes
 
     await expect(compact.compactRegion(
@@ -1238,9 +1086,7 @@ describe('compaction region transaction', () => {
   })
 
   it('lets a model-independent custom summarizer compact without a conversation model', async () => {
-    /** 中文说明：测试局部值 compact，由紧邻初始化决定。 */
     const compact = service()
-    /** 中文说明：测试局部值 session，由紧邻初始化决定。 */
     const session = Session.create(SessionId('model-less-region'))
     session.append('turn/start', { turn: 1 })
     session.append('user/message', createUserMessage({
@@ -1261,7 +1107,6 @@ describe('compaction region transaction', () => {
       }),
     }, { surfaceOp: 'append' })
     session.append('step/end', { turn: 1, step: 1 })
-    /** 中文说明：测试局部值 nodes，由紧邻初始化决定。 */
     const nodes = session.surface.nodes
     await expect(compact.compactRegion(
       nodes[0]!,
@@ -1271,7 +1116,6 @@ describe('compaction region transaction', () => {
   })
 })
 
-/** 中文说明：类型或类 ScriptedAdapter 约束上下文或压缩数据职责。 */
 class ScriptedAdapter extends LlmAdapter {
   lastOptions: GenerateOptions | undefined
   usage: TokenUsage | undefined
@@ -1285,7 +1129,6 @@ class ScriptedAdapter extends LlmAdapter {
 
   override async * stream(options: GenerateOptions): AsyncIterable<StreamChunk> {
     this.lastOptions = options
-    /** 中文说明：测试局部值 [index，由紧邻初始化决定。 */
     for (const [index, block] of this.blocks.entries()) {
       yield { type: 'block-start', index, blockType: block.type }
       if (block.type === 'text') {
@@ -1301,7 +1144,6 @@ class ScriptedAdapter extends LlmAdapter {
   }
 }
 
-/** 中文说明：类型或类 ExposedCompactionEngine 约束上下文或压缩数据职责。 */
 class ExposedCompactionEngine extends BasicCompactionEngine {
   runSummarize(
     input: SummarizationInput,
@@ -1319,21 +1161,18 @@ class ExposedCompactionEngine extends BasicCompactionEngine {
   }
 }
 
-/** 中文说明：函数 summarizerHarness 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 async function summarizerHarness(
   blocks: readonly ContentBlock[],
   finish?: (StreamChunk & { type: 'finish' })['reason'],
   model = MODEL,
   config: BasicCompactionConfig = { auto: false },
 ): Promise<{ ctx: Context; adapter: ScriptedAdapter; compact: ExposedCompactionEngine }> {
-  /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
   const ctx = new Context()
   await ctx.plugin(LlmRuntime)
+  await ctx.plugin(SessionProjectionRegistry)
   void new TokenMeter(ctx)
-  /** 中文说明：测试局部值 adapter，由紧邻初始化决定。 */
   const adapter = new ScriptedAdapter(blocks, finish)
   ctx.llm.registerAdapter([model], adapter)
-  /** 中文说明：测试局部值 compact，由紧邻初始化决定。 */
   const compact = new ExposedCompactionEngine(ctx, config)
   return { ctx, adapter, compact }
 }
@@ -1349,7 +1188,6 @@ describe('default one-shot summarizer', () => {
   })
 
   it('uses configured model/default cap, forwards cancellation, and keeps only safe text', async () => {
-    /** 中文说明：测试局部值 { adapter, compact }，由紧邻初始化决定。 */
     const { adapter, compact } = await summarizerHarness([
       { type: 'reasoning', text: 'private' },
       { type: 'text', text: 'public summary' },
@@ -1360,10 +1198,8 @@ describe('default one-shot summarizer', () => {
       summarizationModel: MODEL,
       maxTokens: 321,
     })
-    /** 中文说明：测试局部值 session，由紧邻初始化决定。 */
     const session = conversation(1)
     adapter.usage = { inputTokens: 12, outputTokens: 3 }
-    /** 中文说明：测试局部值 output，由紧邻初始化决定。 */
     const output = await compact.runSummarize(promptInput('transcript'), agent(session, 'fallback'), SIGNAL)
 
     expect(output).toEqual({
@@ -1387,17 +1223,13 @@ describe('default one-shot summarizer', () => {
       sessionId: session.id,
       purpose: 'compaction',
     })
-    /** 中文说明：测试局部值 instruction，由紧邻初始化决定。 */
     const instruction = adapter.lastOptions?.messages.at(-1)?.content[0]
     expect(instruction?.type === 'text' ? instruction.text : '').toContain('## Primary Request and Intent')
   })
 
   it('replays the conversation prefix and appends the instruction as the final message', async () => {
-    /** 中文说明：测试局部值 { adapter, compact }，由紧邻初始化决定。 */
     const { adapter, compact } = await summarizerHarness([{ type: 'text', text: 'summary' }])
-    /** 中文说明：测试局部值 tools，由紧邻初始化决定。 */
     const tools = [{ name: 'do_thing', description: 'd', parameters: { type: 'object' } }]
-    /** 中文说明：测试局部值 prefix，由紧邻初始化决定。 */
     const prefix: Message = createUserMessage({
       content: [
         { type: 'text', text: 'earlier turn' },
@@ -1422,12 +1254,9 @@ describe('default one-shot summarizer', () => {
 
     expect(adapter.lastOptions?.system).toBe('REPLAYED SYSTEM')
     expect(adapter.lastOptions?.tools).toEqual(tools)
-    /** 中文说明：测试局部值 messages，由紧邻初始化决定。 */
     const messages = adapter.lastOptions?.messages ?? []
     expect(messages[0]).toEqual(prefix)
-    /** 中文说明：测试局部值 last，由紧邻初始化决定。 */
     const last = messages.at(-1)?.content[0]
-    /** 中文说明：测试局部值 lastText，由紧邻初始化决定。 */
     const lastText = last?.type === 'text' ? last.text : ''
     expect(lastText).toContain('Write concise English engineering prose.')
     expect(lastText).toContain('numeric values, function signatures, and syntax fragments.')
@@ -1435,7 +1264,6 @@ describe('default one-shot summarizer', () => {
   })
 
   it('applies the routed model policy without changing the replayed prefix', async () => {
-    /** 中文说明：测试局部值 { ctx, compact }，由紧邻初始化决定。 */
     const { ctx, compact } = await summarizerHarness(
       [{ type: 'text', text: 'unused default summary' }],
       undefined,
@@ -1452,16 +1280,13 @@ describe('default one-shot summarizer', () => {
         }],
       },
     )
-    /** 中文说明：测试局部值 policyAdapter，由紧邻初始化决定。 */
     const policyAdapter = new ScriptedAdapter([{ type: 'text', text: 'policy summary' }])
     ctx.llm.registerAdapter(['policy-summary'], policyAdapter)
-    /** 中文说明：测试局部值 prefix，由紧邻初始化决定。 */
     const prefix: Message = createUserMessage({
       content: [{ type: 'text', text: 'warm prefix' }],
       source: { kind: 'plugin', plugin: 'test' },
     })
 
-    /** 中文说明：测试局部值 output，由紧邻初始化决定。 */
     const output = await compact.runSummarize({
       system: 'WARM SYSTEM',
       messages: [prefix],
@@ -1482,15 +1307,12 @@ describe('default one-shot summarizer', () => {
   })
 
   it('resolves the latest routed provider/model before the AgentOptions pair', async () => {
-    /** 中文说明：测试局部值 { adapter, compact }，由紧邻初始化决定。 */
     const { adapter, compact } = await summarizerHarness([{ type: 'text', text: 'summary' }], undefined, 'routed')
-    /** 中文说明：测试局部值 session，由紧邻初始化决定。 */
     const session = conversation(1)
     session.append('request/header', {
       header: { config: { provider: 'routed', model: 'routed' } },
       reason: 'initial',
     })
-    /** 中文说明：测试局部值 output，由紧邻初始化决定。 */
     const output = await compact.runSummarize(promptInput('history'), agent(session, 'fallback'))
     expect(output.provider).toBe('routed')
     expect(output.model).toBe('routed')
@@ -1499,9 +1321,7 @@ describe('default one-shot summarizer', () => {
   })
 
   it('records the model actually dispatched after one-shot stream routing', async () => {
-    /** 中文说明：测试局部值 { ctx, compact }，由紧邻初始化决定。 */
     const { ctx, compact } = await summarizerHarness([{ type: 'text', text: 'unused' }])
-    /** 中文说明：测试局部值 routedAdapter，由紧邻初始化决定。 */
     const routedAdapter = new ScriptedAdapter([{ type: 'text', text: 'routed summary' }])
     ctx.llm.registerAdapter(['routed-summary-provider'], routedAdapter)
     ctx.on('llm/stream', (options, next) => {
@@ -1510,9 +1330,7 @@ describe('default one-shot summarizer', () => {
       return next()
     })
 
-    /** 中文说明：测试局部值 session，由紧邻初始化决定。 */
     const session = conversation(3, 'large history '.repeat(500))
-    /** 中文说明：测试局部值 nodes，由紧邻初始化决定。 */
     const nodes = session.surface.nodes
     await compact.compactRegion(nodes[0]!, nodes[3]!, agent(session, MODEL), SIGNAL)
     expect(session.events.findLast(event => event.type === 'compaction/summary')?.data).toMatchObject({
@@ -1526,20 +1344,17 @@ describe('default one-shot summarizer', () => {
   })
 
   it('fails clearly when no complete summarization target can be resolved', async () => {
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = new Context()
     await ctx.plugin(LlmRuntime)
+    await ctx.plugin(SessionProjectionRegistry)
     void new TokenMeter(ctx)
-    /** 中文说明：测试局部值 compact，由紧邻初始化决定。 */
     const compact = new ExposedCompactionEngine(ctx, { auto: false })
     await expect(compact.runSummarize(promptInput('history'), agent(Session.create(SessionId('model-less')))))
       .rejects.toThrow(/no provider\/model available for summarization/)
   })
 
   it('uses a complete AgentOptions target when no durable route exists', async () => {
-    /** 中文说明：测试局部值 { adapter, compact }，由紧邻初始化决定。 */
     const { adapter, compact } = await summarizerHarness([{ type: 'text', text: 'summary' }])
-    /** 中文说明：测试局部值 session，由紧邻初始化决定。 */
     const session = Session.create(SessionId('headerless-summary'))
 
     await expect(compact.runSummarize(promptInput('history'), agent(session, MODEL))).resolves.toMatchObject({
@@ -1554,9 +1369,7 @@ describe('default one-shot summarizer', () => {
     { provider: MODEL },
     { provider: MODEL, model: '' },
   ])('rejects incomplete AgentOptions target %#', async (options) => {
-    /** 中文说明：测试局部值 { compact }，由紧邻初始化决定。 */
     const { compact } = await summarizerHarness([{ type: 'text', text: 'unused' }])
-    /** 中文说明：测试局部值 owner，由紧邻初始化决定。 */
     const owner = {
       session: Session.create(SessionId(`incomplete-${String(options.model)}`)),
       options,
@@ -1573,9 +1386,7 @@ describe('default one-shot summarizer', () => {
   ] as Array<[(StreamChunk & { type: 'finish' })['reason'], string | undefined, RegExp]>) (
     'rejects terminal finish %#',
     async (finish, code, pattern) => {
-      /** 中文说明：测试局部值 { compact }，由紧邻初始化决定。 */
       const { compact } = await summarizerHarness([], finish)
-      /** 中文说明：测试局部值 thrown: unknown，由紧邻初始化决定。 */
       let thrown: unknown
       try {
         await compact.runSummarize(promptInput('history'), agent(conversation(1), MODEL))
@@ -1589,14 +1400,12 @@ describe('default one-shot summarizer', () => {
   )
 
   it('rejects empty or reasoning-only successful output', async () => {
-    /** 中文说明：测试局部值 { compact }，由紧邻初始化决定。 */
     const { compact } = await summarizerHarness([{ type: 'reasoning', text: 'private' }])
     await expect(compact.runSummarize(promptInput('history'), agent(conversation(1), MODEL)))
       .rejects.toThrow(/no text summary content/)
   })
 
   it('rejects image summary output instead of silently dropping it', async () => {
-    /** 中文说明：测试局部值 { compact }，由紧邻初始化决定。 */
     const { compact } = await summarizerHarness([
       {
         type: 'image',
@@ -1615,7 +1424,6 @@ describe('default one-shot summarizer', () => {
   })
 
   it('rejects image summary output nested in a tool result', async () => {
-    /** 中文说明：测试局部值 { compact }，由紧邻初始化决定。 */
     const { compact } = await summarizerHarness([{
       type: 'tool-result',
       toolCallId: ToolCallId('summary-tool'),
@@ -1636,7 +1444,6 @@ describe('default one-shot summarizer', () => {
 })
 
 describe('automatic listener and loader composition', () => {
-  /** 中文说明：函数 preStep 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
   function preStep(ctx: Context, owner: Agent, signal = SIGNAL) {
     return agentEvents(ctx, owner).waterfall(
       'agent/pre-step', { messages: [], turn: 1, step: 1, signal },
@@ -1644,7 +1451,6 @@ describe('automatic listener and loader composition', () => {
     )
   }
 
-  /** 中文说明：函数 recover 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
   function recover(
     ctx: Context,
     owner: Agent,
@@ -1652,9 +1458,7 @@ describe('automatic listener and loader composition', () => {
     signal = SIGNAL,
     next: () => Promise<RequestErrorAction> = () => Promise.resolve(undefined),
   ): Promise<boolean> {
-    /** 中文说明：测试局部值 failure，由紧邻初始化决定。 */
     const failure: LlmFailure = { message: error.message, code: error.code ?? 'UNKNOWN' }
-    /** 中文说明：测试局部值 turn，由紧邻初始化决定。 */
     const turn = owner.session.events.findLast(event => event.type === 'turn/start')?.data.turn ?? 1
     return agentEvents(ctx, owner).waterfall(
       'agent/request-error',
@@ -1663,25 +1467,20 @@ describe('automatic listener and loader composition', () => {
     ).then(action => action?.kind === 'retry')
   }
 
-  /** 中文说明：函数 overflow 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
   function overflow(message = 'provider overflow'): Error & { code: string } {
     return Object.assign(new Error(message), { code: CONTEXT_WINDOW_EXCEEDED_CODE })
   }
 
   it('compacts before a step above threshold using the durable routed model and remains idle below it', async () => {
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = createContext()
-    /** 中文说明：测试局部值 compact，由紧邻初始化决定。 */
     const compact = new TestCompactionEngine(ctx, {
       thresholdRatio: 0.5,
       retainTokens: 180,
     })
-    /** 中文说明：测试局部值 pressured，由紧邻初始化决定。 */
     const pressured = conversation(4)
     await preStep(ctx, agent(pressured, 'unconfigured-agent-fallback'))
     expect(pressured.events.some(event => event.type === 'compaction/summary')).toBe(true)
 
-    /** 中文说明：测试局部值 small，由紧邻初始化决定。 */
     const small = conversation(1)
     await preStep(ctx, agent(small, MODEL))
     expect(small.events.some(event => event.type === 'compaction/start')).toBe(false)
@@ -1689,16 +1488,12 @@ describe('automatic listener and loader composition', () => {
   })
 
   it('skips pre-step pressure when the step signal is already aborted', async () => {
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = createContext()
-    /** 中文说明：测试局部值 compact，由紧邻初始化决定。 */
     const compact = new TestCompactionEngine(ctx, {
       thresholdRatio: 0.5,
       retainTokens: 180,
     })
-    /** 中文说明：测试局部值 pressured，由紧邻初始化决定。 */
     const pressured = conversation(4)
-    /** 中文说明：测试局部值 compactIfNeeded，由紧邻初始化决定。 */
     const compactIfNeeded = vi.spyOn(compact, 'compactIfNeeded')
 
     await expect(preStep(ctx, agent(pressured, MODEL), AbortSignal.abort('step aborted')))
@@ -1709,18 +1504,14 @@ describe('automatic listener and loader composition', () => {
   })
 
   it('warns and continues after operational failures, including non-Errors', async () => {
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = createContext()
-    /** 中文说明：测试局部值 warnings，由紧邻初始化决定。 */
     const warnings: string[] = []
     ctx.logger.warn = ((message: string) => void warnings.push(message)) as typeof ctx.logger.warn
-    /** 中文说明：测试局部值 compact，由紧邻初始化决定。 */
     const compact = new TestCompactionEngine(ctx, {
       thresholdRatio: 0.5,
       retainTokens: 180,
     })
     compact.error = 'temporary failure'
-    /** 中文说明：测试局部值 session，由紧邻初始化决定。 */
     const session = conversation(4)
 
     await expect(preStep(ctx, agent(session, MODEL))).resolves.toEqual({ kind: 'enter', messages: [] })
@@ -1729,9 +1520,7 @@ describe('automatic listener and loader composition', () => {
   })
 
   it('warns once per routed target when proactive pressure has no context metadata', async () => {
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = createContext()
-    /** 中文说明：测试局部值 warnings，由紧邻初始化决定。 */
     const warnings: string[] = []
     ctx.logger.warn = ((message: string) => void warnings.push(message)) as typeof ctx.logger.warn
     vi.spyOn(ctx.llm, 'resolveModelInfo').mockImplementation((provider, model) => Promise.resolve({
@@ -1743,7 +1532,6 @@ describe('automatic listener and loader composition', () => {
       thresholdRatio: 0.5,
       retainTokens: 180,
     })
-    /** 中文说明：测试局部值 session，由紧邻初始化决定。 */
     const session = conversation(4)
 
     await preStep(ctx, agent(session, MODEL))
@@ -1755,16 +1543,13 @@ describe('automatic listener and loader composition', () => {
   })
 
   it('warns once per routed target when absolute retention exceeds its resolved threshold', async () => {
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = createContext()
-    /** 中文说明：测试局部值 warnings，由紧邻初始化决定。 */
     const warnings: string[] = []
     ctx.logger.warn = ((message: string) => void warnings.push(message)) as typeof ctx.logger.warn
     void new TestCompactionEngine(ctx, {
       thresholdRatio: 0.5,
       retainTokens: 500,
     })
-    /** 中文说明：测试局部值 session，由紧邻初始化决定。 */
     const session = conversation(4)
 
     await preStep(ctx, agent(session, MODEL))
@@ -1776,22 +1561,16 @@ describe('automatic listener and loader composition', () => {
   })
 
   it('force-compacts below normal pressure for canonical overflow and retries only after replacement', async () => {
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = createContext(10_000)
     void new TestCompactionEngine(ctx, {
       thresholdRatio: 1,
       retainTokens: 900,
     })
-    /** 中文说明：测试局部值 session，由紧邻初始化决定。 */
     const session = conversation(3)
-    /** 中文说明：测试局部值 beforeGeneration，由紧邻初始化决定。 */
     const beforeGeneration = session.surface.replaceGeneration
-    /** 中文说明：测试局部值 retainedSeq，由紧邻初始化决定。 */
     const retainedSeq = session.surface.nodes.at(-1)!
-    /** 中文说明：测试局部值 threshold，由紧邻初始化决定。 */
     const threshold = 10_000
     expect(ctx.tokenMeter.measure(session).totalTokens).toBeLessThan(threshold)
-    /** 中文说明：测试局部值 decision，由紧邻初始化决定。 */
     const decision = await recover(ctx, agent(session, 'unconfigured-agent-fallback'), overflow())
 
     expect(decision).toBe(true)
@@ -1801,19 +1580,16 @@ describe('automatic listener and loader composition', () => {
   })
 
   it('authorizes overflow retry when pruning alone advances an indivisible surface', async () => {
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = createContext(10_000)
     void new ToolResultPruner(ctx, {
       thresholdChars: 100,
       headChars: 20,
       tailChars: 10,
     })
-    /** 中文说明：测试局部值 compact，由紧邻初始化决定。 */
     const compact = new TestCompactionEngine(ctx, {
       thresholdRatio: 1,
       retainTokens: 900,
     })
-    /** 中文说明：测试局部值 session，由紧邻初始化决定。 */
     const session = oversizedToolResult()
 
     expect(await recover(ctx, agent(session, MODEL), overflow())).toBe(true)
@@ -1823,19 +1599,16 @@ describe('automatic listener and loader composition', () => {
   })
 
   it('continues overflow recovery with summarization on the pruned surface', async () => {
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = createContext(10_000)
     void new ToolResultPruner(ctx, {
       thresholdChars: 100,
       headChars: 20,
       tailChars: 10,
     })
-    /** 中文说明：测试局部值 compact，由紧邻初始化决定。 */
     const compact = new TestCompactionEngine(ctx, {
       thresholdRatio: 1,
       retainTokens: 900,
     })
-    /** 中文说明：测试局部值 session，由紧邻初始化决定。 */
     const session = toolConversation()
 
     expect(await recover(ctx, agent(session, MODEL), overflow())).toBe(true)
@@ -1845,9 +1618,7 @@ describe('automatic listener and loader composition', () => {
   })
 
   it('retries from a durable prune when later overflow summarization throws', async () => {
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = createContext(10_000)
-    /** 中文说明：测试局部值 warnings，由紧邻初始化决定。 */
     const warnings: string[] = []
     ctx.logger.warn = ((message: string) => void warnings.push(message)) as typeof ctx.logger.warn
     void new ToolResultPruner(ctx, {
@@ -1855,13 +1626,11 @@ describe('automatic listener and loader composition', () => {
       headChars: 20,
       tailChars: 10,
     })
-    /** 中文说明：测试局部值 compact，由紧邻初始化决定。 */
     const compact = new TestCompactionEngine(ctx, {
       thresholdRatio: 1,
       retainTokens: 900,
     })
     compact.error = new Error('summary unavailable after prune')
-    /** 中文说明：测试局部值 session，由紧邻初始化决定。 */
     const session = oversizedToolResult(3_000, true)
 
     expect(await recover(ctx, agent(session, MODEL), overflow())).toBe(true)
@@ -1873,23 +1642,19 @@ describe('automatic listener and loader composition', () => {
   })
 
   it('lets cancellation win when summary throws after a durable prune', async () => {
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = createContext(10_000)
-    /** 中文说明：测试局部值 controller，由紧邻初始化决定。 */
     const controller = new AbortController()
     void new ToolResultPruner(ctx, {
       thresholdChars: 100,
       headChars: 20,
       tailChars: 10,
     })
-    /** 中文说明：测试局部值 compact，由紧邻初始化决定。 */
     const compact = new TestCompactionEngine(ctx, {
       thresholdRatio: 1,
       retainTokens: 900,
     })
     compact.mutateDuringSummary = () => { controller.abort('cancelled during summary') }
     compact.error = new Error('summary cancelled after prune')
-    /** 中文说明：测试局部值 session，由紧邻初始化决定。 */
     const session = oversizedToolResult(3_000, true)
 
     expect(await recover(ctx, agent(session, MODEL), overflow(), controller.signal)).toBe(false)
@@ -1897,23 +1662,17 @@ describe('automatic listener and loader composition', () => {
   })
 
   it('preserves the newest whole tool-call/result pair during forced overflow compaction', async () => {
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = createContext()
     void new TestCompactionEngine(ctx, {
       thresholdRatio: 1,
       retainTokens: 90,
     })
-    /** 中文说明：测试局部值 session，由紧邻初始化决定。 */
     const session = toolConversation()
-    /** 中文说明：测试局部值 newestAssistant，由紧邻初始化决定。 */
     const newestAssistant = session.surface.nodes.at(-2)!
-    /** 中文说明：测试局部值 newestResult，由紧邻初始化决定。 */
     const newestResult = session.surface.nodes.at(-1)!
 
     expect(await recover(ctx, agent(session, MODEL), overflow())).toBe(true)
-    /** 中文说明：测试局部值 currentAssistant，由紧邻初始化决定。 */
     const currentAssistant = session.surface.nodes.find(node => node === newestAssistant)
-    /** 中文说明：测试局部值 currentResult，由紧邻初始化决定。 */
     const currentResult = session.surface.nodes.find(node => node === newestResult)
     expect(currentAssistant).toBeDefined()
     expect(currentResult).toBeDefined()
@@ -1922,13 +1681,9 @@ describe('automatic listener and loader composition', () => {
   })
 
   it('does not retry when a backend reports success without replacing the surface', async () => {
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = createContext()
-    /** 中文说明：测试局部值 compact，由紧邻初始化决定。 */
     const compact = new TestCompactionEngine(ctx)
-    /** 中文说明：测试局部值 session，由紧邻初始化决定。 */
     const session = conversation(2)
-    /** 中文说明：测试局部值 fakeResult，由紧邻初始化决定。 */
     const fakeResult: CompactionResult = {
       compactionId: CompactionId('fake-compaction'),
       startSeq: 1,
@@ -1946,14 +1701,10 @@ describe('automatic listener and loader composition', () => {
   })
 
   it('delegates downstream exactly once when no replacement is available', async () => {
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = createContext()
-    /** 中文说明：测试局部值 compact，由紧邻初始化决定。 */
     const compact = new TestCompactionEngine(ctx)
     vi.spyOn(compact, 'compactIfNeeded').mockResolvedValue(null)
-    /** 中文说明：测试局部值 downstream，由紧邻初始化决定。 */
     const downstream = new Error('downstream recovery failed')
-    /** 中文说明：测试局部值 calls，由紧邻初始化决定。 */
     let calls = 0
 
     await expect(recover(
@@ -1970,15 +1721,11 @@ describe('automatic listener and loader composition', () => {
   })
 
   it('preserves the original provider error when recovery throws', async () => {
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = createContext()
-    /** 中文说明：测试局部值 warnings，由紧邻初始化决定。 */
     const warnings: string[] = []
     ctx.logger.warn = ((message: string) => void warnings.push(message)) as typeof ctx.logger.warn
-    /** 中文说明：测试局部值 compact，由紧邻初始化决定。 */
     const compact = new TestCompactionEngine(ctx)
     compact.error = new Error('summary unavailable')
-    /** 中文说明：测试局部值 original，由紧邻初始化决定。 */
     const original = overflow('original provider overflow')
 
     expect(await recover(ctx, agent(conversation(3), MODEL), original)).toBe(false)
@@ -1990,24 +1737,16 @@ describe('automatic listener and loader composition', () => {
   })
 
   it('delegates once when overflow recovery throws a non-Error value', async () => {
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = createContext()
-    /** 中文说明：测试局部值 warnings，由紧邻初始化决定。 */
     const warnings: string[] = []
     ctx.logger.warn = ((message: string) => void warnings.push(message)) as typeof ctx.logger.warn
-    /** 中文说明：测试局部值 compact，由紧邻初始化决定。 */
     const compact = new TestCompactionEngine(ctx)
     compact.error = 'non-error recovery failure'
-    /** 中文说明：测试局部值 session，由紧邻初始化决定。 */
     const session = conversation(3)
-    /** 中文说明：测试局部值 generation，由紧邻初始化决定。 */
     const generation = session.surface.replaceGeneration
-    /** 中文说明：测试局部值 original，由紧邻初始化决定。 */
     const original = overflow('original provider failure')
-    /** 中文说明：测试局部值 delegations，由紧邻初始化决定。 */
     let delegations = 0
 
-    /** 中文说明：测试局部值 decision，由紧邻初始化决定。 */
     const decision = await recover(ctx, agent(session, MODEL), original, SIGNAL, () => {
       delegations += 1
       return Promise.resolve(undefined)
@@ -2024,10 +1763,8 @@ describe('automatic listener and loader composition', () => {
   })
 
   it('recovers an overflow for an unlisted routed model', async () => {
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = createContext()
     void new TestCompactionEngine(ctx)
-    /** 中文说明：测试局部值 session，由紧邻初始化决定。 */
     const session = conversation(2)
     session.append('request/header', {
       header: { config: { provider: 'unknown-routed-provider', model: 'unknown-routed-model' } },
@@ -2038,10 +1775,8 @@ describe('automatic listener and loader composition', () => {
   })
 
   it('delegates canonical overflow when no durable routed target exists', async () => {
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = createContext()
     void new TestCompactionEngine(ctx)
-    /** 中文说明：测试局部值 session，由紧邻初始化决定。 */
     const session = Session.create(SessionId('headerless-overflow'))
     session.append('turn/start', {
       turn: 1,
@@ -2051,13 +1786,9 @@ describe('automatic listener and loader composition', () => {
   })
 
   it('honors retry caps and ignores non-context failures', async () => {
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = createContext()
-    /** 中文说明：测试局部值 compact，由紧邻初始化决定。 */
     const compact = new TestCompactionEngine(ctx, { maxOverflowRetries: 1 })
-    /** 中文说明：测试局部值 compactSpy，由紧邻初始化决定。 */
     const compactSpy = vi.spyOn(compact, 'compactIfNeeded')
-    /** 中文说明：测试局部值 owner，由紧邻初始化决定。 */
     const owner = agent(conversation(3), MODEL)
     expect(await recover(ctx, owner, Object.assign(new Error('rate limit'), { code: 'RATE_LIMIT' })))
       .toBe(false)
@@ -2068,9 +1799,7 @@ describe('automatic listener and loader composition', () => {
   })
 
   it('applies the routed model override to the overflow retry cap', async () => {
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = createContext()
-    /** 中文说明：测试局部值 compact，由紧邻初始化决定。 */
     const compact = new TestCompactionEngine(ctx, {
       maxOverflowRetries: 2,
       modelPolicies: [{
@@ -2079,9 +1808,7 @@ describe('automatic listener and loader composition', () => {
         maxOverflowRetries: 1,
       }],
     })
-    /** 中文说明：测试局部值 compactSpy，由紧邻初始化决定。 */
     const compactSpy = vi.spyOn(compact, 'compactIfNeeded')
-    /** 中文说明：测试局部值 owner，由紧邻初始化决定。 */
     const owner = agent(conversation(3), MODEL)
 
     expect(await recover(ctx, owner, overflow())).toBe(true)
@@ -2091,16 +1818,11 @@ describe('automatic listener and loader composition', () => {
   })
 
   it('does not retry when cancellation lands during an awaited compaction', async () => {
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = createContext()
-    /** 中文说明：测试局部值 compact，由紧邻初始化决定。 */
     const compact = new TestCompactionEngine(ctx)
-    /** 中文说明：测试局部值 controller，由紧邻初始化决定。 */
     const controller = new AbortController()
     compact.mutateDuringSummary = () => { controller.abort('cancelled during summary') }
-    /** 中文说明：测试局部值 session，由紧邻初始化决定。 */
     const session = conversation(3)
-    /** 中文说明：测试局部值 generation，由紧邻初始化决定。 */
     const generation = session.surface.replaceGeneration
 
     expect(await recover(ctx, agent(session, MODEL), overflow(), controller.signal)).toBe(false)
@@ -2108,17 +1830,14 @@ describe('automatic listener and loader composition', () => {
   })
 
   it('maxOverflowRetries:0 disables recovery without disabling post-step pressure', async () => {
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = createContext()
     void new TestCompactionEngine(ctx, {
       maxOverflowRetries: 0,
       thresholdRatio: 0.5,
       retainTokens: 180,
     })
-    /** 中文说明：测试局部值 session，由紧邻初始化决定。 */
     const session = conversation(4)
     await preStep(ctx, agent(session, MODEL))
-    /** 中文说明：测试局部值 summaries，由紧邻初始化决定。 */
     const summaries = session.events.filter(event => event.type === 'compaction/summary').length
     expect(summaries).toBe(1)
     expect(await recover(ctx, agent(session, MODEL), overflow())).toBe(false)
@@ -2126,14 +1845,12 @@ describe('automatic listener and loader composition', () => {
   })
 
   it('auto:false installs neither automatic listener', async () => {
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = createContext()
     void new TestCompactionEngine(ctx, {
       auto: false,
       thresholdRatio: 0.5,
       retainTokens: 180,
     })
-    /** 中文说明：测试局部值 session，由紧邻初始化决定。 */
     const session = conversation(4)
     await preStep(ctx, agent(session, MODEL))
     expect(session.events.some(event => event.type === 'compaction/start')).toBe(false)
@@ -2141,13 +1858,11 @@ describe('automatic listener and loader composition', () => {
   })
 
   it('loads and disposes the real zero-config service stack', async () => {
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = new Context()
     await ctx.plugin(LlmRuntime)
     await ctx.plugin(SessionStore)
-    /** 中文说明：测试局部值 meterFiber，由紧邻初始化决定。 */
+    await ctx.plugin(SessionProjectionRegistry)
     const meterFiber = await ctx.plugin(TokenMeter)
-    /** 中文说明：测试局部值 compactFiber，由紧邻初始化决定。 */
     const compactFiber = await ctx.plugin(BasicCompactionEngine, { auto: false })
 
     expect(ctx.get('compaction')).toBeInstanceOf(BasicCompactionEngine)
@@ -2158,18 +1873,16 @@ describe('automatic listener and loader composition', () => {
   })
 
   it('removes its automatic listener with the plugin fiber', async () => {
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = new Context()
     await ctx.plugin(LlmRuntime)
+    await ctx.plugin(SessionProjectionRegistry)
     await ctx.plugin(TokenMeter)
-    /** 中文说明：测试局部值 fiber，由紧邻初始化决定。 */
     const fiber = await ctx.plugin(TestCompactionEngine, {
       thresholdRatio: 0.5,
       retainTokens: 180,
     })
     await fiber.dispose()
 
-    /** 中文说明：测试局部值 session，由紧邻初始化决定。 */
     const session = conversation(4)
     await preStep(ctx, agent(session, MODEL))
     expect(session.events.some(event => event.type === 'compaction/start')).toBe(false)
@@ -2195,6 +1908,7 @@ describe('route-priced image pressure', () => {
   function pricedContext(contextWindow = 1_000): Context {
     const ctx = new Context()
     void new LlmRuntime(ctx)
+    new SessionProjectionRegistry(ctx)
     void new TokenMeter(ctx)
     ctx.llm.registerAdapter([MODEL], new PricedContextAdapter(contextWindow))
     return ctx

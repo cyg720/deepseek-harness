@@ -138,7 +138,6 @@ type AskQuestionRowProps = ToolCallViewProps & PropsLocale<'conversation'>
 
 /** Summarizes a pending, answered, cancelled, or interrupted question set. */
 export function AskQuestionRow({ toolName, block, inspect, t }: AskQuestionRowProps) {
-  /** 中文说明：视图局部值 model，由紧邻初始化决定。 */
   const model = toolRowModel(toolName, block)
   // Composer verdicts settle the call as specific UserQuestionErrors
   // (ask_user_question handler): 'ASK_CANCELLED' is the user's own
@@ -146,11 +145,9 @@ export function AskQuestionRow({ toolName, block, inspect, t }: AskQuestionRowPr
   // question was pending. Both name their verdict instead of the generic
   // failed shape, and the abort keeps the shared stopped (amber) semantics of
   // any other interrupted tool call.
-  /** 中文说明：视图局部值 code，由紧邻初始化决定。 */
   const code = 'kind' in block ? block.error?.code : undefined
   const argsRaw = ('kind' in block ? block.call?.argsRaw : block.argsRaw) ?? ''
   let summary = model.summary
-  /** 中文说明：视图局部值 state，由紧邻初始化决定。 */
   let state = model.state
   let transcript: AskQuestionCardModel | null = null
   if (code === 'ASK_CANCELLED') {
@@ -189,7 +186,7 @@ export function AskQuestionRow({ toolName, block, inspect, t }: AskQuestionRowPr
       icon={<IconQuestionOutline14 />}
       title={t('ask.rowTitle')}
       summary={summary}
-      body={transcript === null ? model.body : null}
+      bodyRaw={transcript === null ? model.bodyRaw : null}
       output={transcript === null ? model.output : null}
       askQuestion={transcript}
       state={state}

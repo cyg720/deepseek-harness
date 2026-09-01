@@ -3,14 +3,6 @@
  * carries no descriptor event is surfaced by `list_agents` as a
  * `[diagnostic: corrupt]` row instead of being silently dropped.
  */
-/*
- * 文件职责：验证缺少子代理描述符事件的冷子会话会以损坏诊断行出现在 list_agents，而非静默消失。
- * 技术维度：使用 Vitest、SessionStore、JSONL 持久化、Loader smoke、模型回放和会话快照归一化。
- * 产品维度：让用户与维护者能发现发布窗口中断造成的不完整子代理记录并进行排查。
- * 逻辑维度：程序化写入正常父会话和无描述符子会话，恢复组装应用，调用 list_agents 并比较父日志。
- * 关键边界：子会话头必须声明 origin=subagent；不得补写描述符；诊断记录不能被过滤掉。
- * 新手阅读建议：先比较 parentMeta 与 childMeta，再看 childEvents 缺失内容，最后阅读诊断快照断言。
- */
 
 import { readFile, readdir, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
@@ -26,7 +18,7 @@ import { describe, expect, it } from 'vitest'
 const fixtureDir = fileURLToPath(new URL('./expected/subagent-diagnostic', import.meta.url))
 const replayOverride = join(fixtureDir, 'replay.override.json')
 const parentExpected = join(fixtureDir, 'parent.expected.jsonl')
-const configPath = fileURLToPath(new URL('../subagent-diagnostic.cordis.snapshot.yml', import.meta.url))
+const configPath = fileURLToPath(new URL('../subagent-diagnostic-snapshot.patch.yml', import.meta.url))
 const binScript = fileURLToPath(new URL('../../../../../../packages/test-support/loader-smoke/tests/fixtures/headless-driver.ts', import.meta.url))
 const tsconfigPath = fileURLToPath(new URL('../../../../../../tsconfig.json', import.meta.url))
 const parentId = SessionId('subagent-diagnostic-parent')
@@ -39,7 +31,6 @@ const task = 'Call list_agents once and report what it shows.'
  * as a subagent (`origin`) but never appended its descriptor event — the
  * publication-window death the diagnostic row exists for.
  */
-/* 中文说明：写入已完成父回合和仅由 header 标识为子代理、但从未发布描述符事件的冷子会话。 */
 async function seedDescriptorlessChild(root: string, cwd: string): Promise<void> {
   const ctx = new Context()
   await ctx.plugin(SessionStore)

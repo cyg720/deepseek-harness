@@ -1,22 +1,13 @@
 // @vitest-environment jsdom
-/**
- * 文件职责：验证工作区界面的 workspace-browser.client.spec.tsx 行为。
- * 技术维度：Vitest、协议夹具、Worker/子进程或组件替身。
- * 产品维度：防止工作区界面协议与生命周期回归。
- * 逻辑维度：构造输入，运行被测入口并断言输出与清理。
- * 关键边界：跨进程数据必须校验；Worker 和异步任务必须结束。
- * 新手阅读建议：先读协议夹具，再按成功、失败和清理场景阅读。
- */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, cleanup, createEvent, fireEvent, render, screen, waitFor } from '@testing-library/react'
-import { bindSnapshotSelector } from '@deepseek-ai/dsh-client-test-runtime'
+import { bindSnapshotSelector, makeTranslate } from '@deepseek-ai/dsh-client-test-runtime'
 import type { SessionListState, SessionSummary } from '@deepseek-ai/dsh-api-session-controller/client'
 import type {
   WorkspaceId, WorkspaceSnapshot, WorkspaceView,
 } from '@deepseek-ai/dsh-api-workspace-controller/client'
 import type { SessionPendingInteractionSnapshot } from '@deepseek-ai/dsh-client-ui-session/client'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
-import { makeTranslate } from '@deepseek-ai/dsh-client-test-runtime'
 import { zh as commonZh } from '@deepseek-ai/dsh-client-locale/src/locales/zh.ts'
 import type { WorkspaceBrowserProps } from '../src/client/contract/slots.ts'
 import { createWorkspaceViewStore, FLAT_SESSION_ORDER_KEY } from '../src/client/stores.ts'
@@ -29,18 +20,13 @@ beforeEach(() => { localStorage.clear(); createWorkspaceViewStore().create().act
 
 // The seat's key domain is workspace ∪ common; the stub mirrors the real
 // lookup chain (namespace, then common vocabulary, then the key).
-/** 中文说明：测试局部值 t，由紧邻初始化决定。 */
 const t: WorkspaceBrowserProps['t'] = makeTranslate(zh, commonZh)
 
-/** 中文说明：测试局部值 sid，由紧邻初始化决定。 */
 const sid = (id: string) => id as SessionId
-/** 中文说明：测试局部值 wid，由紧邻初始化决定。 */
 const wid = (id: string) => id as WorkspaceId
-/** 中文说明：测试局部值 summary，由紧邻初始化决定。 */
 const summary = (id: string, updatedAt: number, overrides: Partial<SessionSummary> = {}): SessionSummary => ({
   id: sid(id), displayTitle: id, running: false, blank: false, updatedAt, ...overrides,
 })
-/** 中文说明：测试局部值 sessionState，由紧邻初始化决定。 */
 const sessionState = (items: readonly SessionSummary[], overrides: Partial<SessionListState> = {}): SessionListState => ({
   ids: items.map(item => item.id),
   byId: Object.fromEntries(items.map(item => [item.id, item])),
@@ -50,7 +36,6 @@ const sessionState = (items: readonly SessionSummary[], overrides: Partial<Sessi
   currentAddress: undefined,
   ...overrides,
 })
-/** 中文说明：测试局部值 workspace，由紧邻初始化决定。 */
 const workspace = (id: string, sessionIds: string[], title = id): WorkspaceView => ({
   workspaceId: wid(id), path: `/projects/${id}`, title,
   sessionIds: sessionIds.map(sid), createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z',
@@ -65,25 +50,19 @@ function hook<T>(snapshot: T) {
 }
 
 /** jsdom lacks DragEvent — the fireEvent fallback drops clientY, so pin it on the built event. */
-/* 中文说明：函数 fireDrag 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function fireDrag(row: HTMLElement, kind: 'dragOver' | 'drop', clientY: number): void {
-  /** 中文说明：测试局部值 event，由紧邻初始化决定。 */
   const event = kind === 'dragOver' ? createEvent.dragOver(row) : createEvent.drop(row)
   Object.defineProperty(event, 'clientY', { value: clientY })
   Object.defineProperty(event, 'dataTransfer', { value: { effectAllowed: '', dropEffect: '' } })
   fireEvent(row, event)
 }
 
-/** 中文说明：函数 dragData 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function dragData(): Pick<DataTransfer, 'effectAllowed' | 'dropEffect' | 'setData'> {
   return { effectAllowed: 'uninitialized', dropEffect: 'none', setData: vi.fn() }
 }
 
-/** 中文说明：函数 mount 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function mount(overrides: Partial<WorkspaceBrowserProps> = {}) {
-  /** 中文说明：测试局部值 store，由紧邻初始化决定。 */
   const store = createWorkspaceViewStore().create()
-  /** 中文说明：测试局部值 props，由紧邻初始化决定。 */
   const props: WorkspaceBrowserProps = {
     wide: true,
     expandSidebar: vi.fn(),
@@ -105,18 +84,16 @@ function mount(overrides: Partial<WorkspaceBrowserProps> = {}) {
     insertSessionBefore: vi.fn(async () => {}),
     createWorkspace: vi.fn(async () => workspace('created', [])),
     useDirectoryFlow: bindSnapshotSelector({ getSnapshot: () => true, subscribe: () => () => {} }),
-    useConnectionGeneration: selector => selector(undefined),
+    useHostInfo: selector => selector({ home: undefined, isLoopback: true }),
     renderSlot: ((_name: string, owner: { open: boolean }) => (owner.open ? <div data-testid="directory-flow" /> : null)) as never,
     t,
     ...overrides,
   }
-  /** 中文说明：测试局部值 view，由紧邻初始化决定。 */
   const view = render(<WorkspaceBrowser {...props} />)
   return { view, props, store }
 }
 
 /** Re-render with (possibly) changed props — WorkspaceBrowser has no side channel. */
-/* 中文说明：函数 rerender 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function rerender(b: ReturnType<typeof mount>, overrides: Partial<WorkspaceBrowserProps>) {
   Object.assign(b.props, overrides)
   b.view.rerender(<WorkspaceBrowser {...b.props} />)
@@ -132,7 +109,7 @@ describe('WorkspaceBrowser', () => {
           path: '/home/u/Documents/project',
           title: 'Project',
         }])),
-        useConnectionGeneration: selector => selector({ id: 1, host: { home: '/home/u' } }),
+        useHostInfo: selector => selector({ home: '/home/u', isLoopback: true }),
       })
       fireEvent.pointerEnter(screen.getByRole('treeitem').parentElement as HTMLElement)
       act(() => { vi.advanceTimersByTime(500) })
@@ -143,13 +120,11 @@ describe('WorkspaceBrowser', () => {
   })
 
   it('prunes deleted Workspace view state only after the Workspace baseline is ready', async () => {
-    /** 中文说明：测试局部值 pending，由紧邻初始化决定。 */
     const pending = {
       ...workspaceState([]),
       phase: 'pending' as const,
       state: 'loading' as const,
     }
-    /** 中文说明：测试局部值 b，由紧邻初始化决定。 */
     const b = mount({ useWorkspaces: hook(pending) })
     act(() => {
       b.store.actions.setGroupExpanded('deleted', true)
@@ -166,9 +141,7 @@ describe('WorkspaceBrowser', () => {
   })
 
   it('renders the grouped tree by default and switches to the flat list via Group by', () => {
-    /** 中文说明：测试局部值 sessions，由紧邻初始化决定。 */
     const sessions = sessionState([summary('alpha-s', 2), summary('beta-s', 1)])
-    /** 中文说明：测试局部值 b，由紧邻初始化决定。 */
     const b = mount({
       useSessions: hook(sessions),
       useWorkspaces: hook(workspaceState([workspace('alpha', ['alpha-s']), workspace('beta', ['beta-s'])])),
@@ -209,16 +182,12 @@ describe('WorkspaceBrowser', () => {
   })
 
   it('persists flat-list drag order locally and applies Last updated within that account', async () => {
-    /** 中文说明：测试局部值 insertSessionBefore，由紧邻初始化决定。 */
     const insertSessionBefore = vi.fn(async () => {})
-    /** 中文说明：测试局部值 sessions，由紧邻初始化决定。 */
     const sessions = sessionState([summary('one', 3), summary('two', 2), summary('three', 1)])
-    /** 中文说明：测试局部值 workspaces，由紧邻初始化决定。 */
     const workspaces = workspaceState([
       workspace('alpha', ['one']),
       workspace('beta', ['two']),
     ])
-    /** 中文说明：测试局部值 b，由紧邻初始化决定。 */
     const b = mount({
       useSessions: hook(sessions),
       useWorkspaces: hook(workspaces),
@@ -231,9 +200,7 @@ describe('WorkspaceBrowser', () => {
         .toEqual(['one', 'two', 'three'])
     })
 
-    /** 中文说明：测试局部值 one，由紧邻初始化决定。 */
     const one = screen.getByText('one').closest('[role="treeitem"]') as HTMLElement
-    /** 中文说明：测试局部值 three，由紧邻初始化决定。 */
     const three = screen.getByText('three').closest('[role="treeitem"]') as HTMLElement
     three.getBoundingClientRect = () => ({
       top: 150, bottom: 184, left: 0, right: 200, width: 200, height: 34,
@@ -258,7 +225,6 @@ describe('WorkspaceBrowser', () => {
     fireDrag(three, 'drop', 180)
     b.view.unmount()
 
-    /** 中文说明：测试局部值 restored，由紧邻初始化决定。 */
     const restored = mount({ useSessions: hook(sessions), useWorkspaces: hook(workspaces) })
     expect(restored.store.getSnapshot().groupBy).toBe('flat')
     expect(restored.store.getSnapshot().orderBy).toBe('manual')
@@ -270,7 +236,6 @@ describe('WorkspaceBrowser', () => {
   })
 
   it('expands a group on click and opens a session row', () => {
-    /** 中文说明：测试局部值 open，由紧邻初始化决定。 */
     const open = vi.fn()
     mount({
       useSessions: hook(sessionState([summary('alpha-s', 1)])),
@@ -286,15 +251,12 @@ describe('WorkspaceBrowser', () => {
   })
 
   it('shows five sessions by default and clears transient show-all when the Workspace collapses', () => {
-    /** 中文说明：测试局部值 items，由紧邻初始化决定。 */
     const items = Array.from({ length: 7 }, (_, index) => summary(`session-${index + 1}`, 7 - index))
-    /** 中文说明：测试局部值 b，由紧邻初始化决定。 */
     const b = mount({
       useSessions: hook(sessionState(items)),
       useWorkspaces: hook(workspaceState([workspace('alpha', items.map(item => item.id))])),
     })
     fireEvent.click(screen.getByText('alpha'))
-    /** 中文说明：测试局部值 item，由紧邻初始化决定。 */
     for (const item of items.slice(0, 5)) expect(screen.getByText(item.displayTitle)).toBeTruthy()
     expect(screen.queryByText('session-6')).toBeNull()
     expect(screen.queryByText('session-7')).toBeNull()
@@ -386,9 +348,7 @@ describe('WorkspaceBrowser', () => {
   })
 
   it('shares one editable order across modes and promotes only while Last updated is active', async () => {
-    /** 中文说明：测试局部值 initial，由紧邻初始化决定。 */
     const initial = sessionState([summary('one', 3), summary('two', 2)])
-    /** 中文说明：测试局部值 b，由紧邻初始化决定。 */
     const b = mount({
       useSessions: hook(initial),
       useWorkspaces: hook(workspaceState([workspace('alpha', ['two', 'one'])])),
@@ -397,13 +357,11 @@ describe('WorkspaceBrowser', () => {
     fireEvent.click(screen.getByRole('button', { name: '视图选项' }))
     fireEvent.click(screen.getByRole('menuitem', { name: '最近更新' }))
     await waitFor(() => {
-      /** 中文说明：测试局部值 rows，由紧邻初始化决定。 */
       const rows = screen.getAllByRole('treeitem').slice(1)
       expect(rows[0]?.textContent).toContain('one')
       expect(rows[1]?.textContent).toContain('two')
     })
 
-    /** 中文说明：测试局部值 [one, two]，由紧邻初始化决定。 */
     const [one, two] = screen.getAllByRole('treeitem').slice(1) as [HTMLElement, HTMLElement]
     two.getBoundingClientRect = () => ({
       top: 150, bottom: 184, left: 0, right: 200, width: 200, height: 34, x: 0, y: 150, toJSON: () => ({}),
@@ -418,7 +376,6 @@ describe('WorkspaceBrowser', () => {
 
     // User activity updates the timestamp baseline in Manual mode without
     // changing the shared visual order.
-    /** 中文说明：测试局部值 updated，由紧邻初始化决定。 */
     const updated = sessionState([summary('one', 4), summary('two', 2)])
     rerender(b, { useSessions: hook(updated) })
     await waitFor(() => {
@@ -437,7 +394,6 @@ describe('WorkspaceBrowser', () => {
 
     // A later user activity timestamp promotes that Session once while the
     // mode remains active.
-    /** 中文说明：测试局部值 promoted，由紧邻初始化决定。 */
     const promoted = sessionState([summary('one', 4), summary('two', 5)])
     rerender(b, { useSessions: hook(promoted) })
     await waitFor(() => {
@@ -446,7 +402,6 @@ describe('WorkspaceBrowser', () => {
     })
 
     b.view.unmount()
-    /** 中文说明：测试局部值 restored，由紧邻初始化决定。 */
     const restored = mount({
       useSessions: hook(promoted),
       useWorkspaces: hook(workspaceState([workspace('alpha', ['two', 'one'])])),
@@ -456,9 +411,7 @@ describe('WorkspaceBrowser', () => {
   })
 
   it('archives a session from the row menu and hides archived rows in both modes', async () => {
-    /** 中文说明：测试局部值 archiveSession，由紧邻初始化决定。 */
     const archiveSession = vi.fn(async () => {})
-    /** 中文说明：测试局部值 b，由紧邻初始化决定。 */
     const b = mount({
       useSessions: hook(sessionState([summary('kept-s', 2), summary('gone-s', 1)])),
       useWorkspaces: hook(workspaceState([workspace('alpha', ['kept-s', 'gone-s'])])),
@@ -479,11 +432,8 @@ describe('WorkspaceBrowser', () => {
   })
 
   it('logs and keeps the tree when the archive call rejects', async () => {
-    /** 中文说明：测试局部值 rejection，由紧邻初始化决定。 */
     const rejection = new Error('archive exploded')
-    /** 中文说明：测试局部值 archiveSession，由紧邻初始化决定。 */
     const archiveSession = vi.fn(async () => { throw rejection })
-    /** 中文说明：测试局部值 warn，由紧邻初始化决定。 */
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
     try {
       mount({
@@ -504,9 +454,7 @@ describe('WorkspaceBrowser', () => {
   })
 
   it('renders a fork child as a top-level row without a session twist', () => {
-    /** 中文说明：测试局部值 parent，由紧邻初始化决定。 */
     const parent = summary('parent-s', 2)
-    /** 中文说明：测试局部值 child，由紧邻初始化决定。 */
     const child = { ...summary('child-s', 1), parentId: parent.id }
     mount({
       useSessions: hook(sessionState([parent, child])),
@@ -519,9 +467,7 @@ describe('WorkspaceBrowser', () => {
   })
 
   it('expands the target group before starting a session from its ＋', () => {
-    /** 中文说明：测试局部值 startSession，由紧邻初始化决定。 */
     const startSession = vi.fn()
-    /** 中文说明：测试局部值 b，由紧邻初始化决定。 */
     const b = mount({
       useSessions: hook(sessionState([summary('alpha-s', 1)])),
       useWorkspaces: hook(workspaceState([workspace('alpha', ['alpha-s'])])),
@@ -538,7 +484,6 @@ describe('WorkspaceBrowser', () => {
   })
 
   it('auto-expands the Ungrouped bucket for a loose current session; its header has no menu and its ＋ is inert', () => {
-    /** 中文说明：测试局部值 startSession，由紧邻初始化决定。 */
     const startSession = vi.fn()
     mount({
       useSessions: hook(sessionState([summary('loose', 1)], { current: sid('loose') })),
@@ -553,9 +498,7 @@ describe('WorkspaceBrowser', () => {
   })
 
   it('keeps an already-expanded group when the selection moves within it', () => {
-    /** 中文说明：测试局部值 first，由紧邻初始化决定。 */
     const first = sessionState([summary('a', 2), summary('b', 1)], { current: sid('a') })
-    /** 中文说明：测试局部值 b，由紧邻初始化决定。 */
     const b = mount({
       useSessions: hook(first),
       useWorkspaces: hook(workspaceState([workspace('alpha', ['a', 'b'])])),
@@ -570,16 +513,12 @@ describe('WorkspaceBrowser', () => {
   })
 
   it('shows only the current blank session as the localized New Session, excluded from search', () => {
-    /** 中文说明：测试局部值 currentBlank，由紧邻初始化决定。 */
     const currentBlank = summary('alpha-blank', 9, { blank: true })
-    /** 中文说明：测试局部值 staleBlank，由紧邻初始化决定。 */
     const staleBlank = summary('beta-blank', 8, { blank: true })
-    /** 中文说明：测试局部值 sessions，由紧邻初始化决定。 */
     const sessions = sessionState(
       [currentBlank, staleBlank],
       { current: currentBlank.id },
     )
-    /** 中文说明：测试局部值 b，由紧邻初始化决定。 */
     const b = mount({
       useSessions: hook(sessions),
       useWorkspaces: hook(workspaceState([
@@ -604,15 +543,12 @@ describe('WorkspaceBrowser', () => {
   })
 
   it('promotes the blank selected by New Session in its grouped and flat orders', async () => {
-    /** 中文说明：测试局部值 items，由紧邻初始化决定。 */
     const items = [
       summary('old', 100),
       summary('blank', 150, { blank: true }),
       summary('mid', 200),
     ]
-    /** 中文说明：测试局部值 startSession，由紧邻初始化决定。 */
     const startSession = vi.fn()
-    /** 中文说明：测试局部值 b，由紧邻初始化决定。 */
     const b = mount({
       useSessions: hook(sessionState(items)),
       useWorkspaces: hook(workspaceState([workspace('alpha', ['old', 'blank', 'mid'])])),
@@ -637,9 +573,7 @@ describe('WorkspaceBrowser', () => {
   })
 
   it('does not repeat blank promotion after a manual drag or the first prompt', async () => {
-    /** 中文说明：测试局部值 insertSessionBefore，由紧邻初始化决定。 */
     const insertSessionBefore = vi.fn(async () => {})
-    /** 中文说明：测试局部值 b，由紧邻初始化决定。 */
     const b = mount({
       useSessions: hook(sessionState([
         summary('old', 100),
@@ -652,9 +586,7 @@ describe('WorkspaceBrowser', () => {
     await waitFor(() => {
       expect(b.store.getSnapshot().sessionOrderByAccount.alpha).toEqual(['blank', 'old', 'mid'])
     })
-    /** 中文说明：测试局部值 blank，由紧邻初始化决定。 */
     const blank = screen.getByText('新会话').closest('[role="treeitem"]') as HTMLElement
-    /** 中文说明：测试局部值 mid，由紧邻初始化决定。 */
     const mid = screen.getByText('mid').closest('[role="treeitem"]') as HTMLElement
     mid.getBoundingClientRect = () => ({
       top: 150, bottom: 184, left: 0, right: 200, width: 200, height: 34, x: 0, y: 150, toJSON: () => ({}),
@@ -679,7 +611,6 @@ describe('WorkspaceBrowser', () => {
   it('shows local metadata matches immediately, then clears back to the grouped tree', async () => {
     vi.useFakeTimers()
     try {
-      /** 中文说明：测试局部值 sessions，由紧邻初始化决定。 */
       const sessions = sessionState([
         summary('needle-row', 2, { displayTitle: 'Needle row' }),
         summary('other-row', 1, { displayTitle: 'Other row' }),
@@ -689,14 +620,11 @@ describe('WorkspaceBrowser', () => {
         useWorkspaces: hook(workspaceState([workspace('alpha', ['needle-row', 'other-row'])])),
       })
       fireEvent.click(screen.getByRole('button', { name: '搜索会话' }))
-      /** 中文说明：测试局部值 input，由紧邻初始化决定。 */
       const input = screen.getByPlaceholderText<HTMLInputElement>('搜索会话…')
       fireEvent.change(input, { target: { value: 'needle' } })
-      /** 中文说明：测试局部值 resultTree，由紧邻初始化决定。 */
       const resultTree = screen.getByRole('tree', { name: '搜索结果' })
       expect(screen.getByText('Needle row')).toBeTruthy()
       expect(screen.queryByText('Other row')).toBeNull()
-      /** 中文说明：测试局部值 status，由紧邻初始化决定。 */
       const status = screen.getByRole('status')
       expect(status.textContent).toBe('正在搜索会话历史…')
       expect(resultTree.contains(status)).toBe(false)
@@ -717,7 +645,6 @@ describe('WorkspaceBrowser', () => {
 
   it('collapses an empty search on outside click but keeps a non-empty query expanded', () => {
     mount()
-    /** 中文说明：测试局部值 search，由紧邻初始化决定。 */
     const search = screen.getByRole('button', { name: '搜索会话' })
     fireEvent.click(search)
     expect(search.getAttribute('aria-expanded')).toBe('true')
@@ -725,7 +652,6 @@ describe('WorkspaceBrowser', () => {
     expect(search.getAttribute('aria-expanded')).toBe('false')
 
     fireEvent.click(search)
-    /** 中文说明：测试局部值 input，由紧邻初始化决定。 */
     const input = screen.getByPlaceholderText<HTMLInputElement>('搜索会话…')
     fireEvent.change(input, { target: { value: '   ' } })
     fireEvent.click(document.body)
@@ -741,9 +667,7 @@ describe('WorkspaceBrowser', () => {
   it('adds Host content hits with context, shows the result bound, and opens without clearing the query', async () => {
     vi.useFakeTimers()
     try {
-      /** 中文说明：测试局部值 open，由紧邻初始化决定。 */
       const open = vi.fn()
-      /** 中文说明：测试局部值 searchSessions，由紧邻初始化决定。 */
       const searchSessions = vi.fn(async () => ({
         items: [{ sessionId: sid('body-hit'), snippet: '…the waterfall token appears here…' }],
         hasMore: true,
@@ -758,7 +682,6 @@ describe('WorkspaceBrowser', () => {
         open,
         searchSessions,
       })
-      /** 中文说明：测试局部值 input，由紧邻初始化决定。 */
       const input = screen.getByPlaceholderText<HTMLInputElement>('搜索会话…')
       fireEvent.change(input, { target: { value: 'waterfall token' } })
       expect(screen.getByText('正在搜索会话历史…')).toBeTruthy()
@@ -782,15 +705,12 @@ describe('WorkspaceBrowser', () => {
   it('bounds programmatic search input to a schema-valid request without splitting an astral character', async () => {
     vi.useFakeTimers()
     try {
-      /** 中文说明：测试局部值 searchSessions，由紧邻初始化决定。 */
       const searchSessions = vi.fn(async () => ({ items: [], hasMore: false }))
       mount({ searchSessions })
-      /** 中文说明：测试局部值 input，由紧邻初始化决定。 */
       const input = screen.getByPlaceholderText<HTMLInputElement>('搜索会话…')
       expect(input.maxLength).toBe(500)
       fireEvent.change(input, { target: { value: 'y'.repeat(501) } })
       expect(input.value).toBe('y'.repeat(500))
-      /** 中文说明：测试局部值 expected，由紧邻初始化决定。 */
       const expected = `prefix${'x'.repeat(493)}`
       fireEvent.change(input, {
         target: { value: `prefix\0${'x'.repeat(493)}😀tail` },
@@ -810,7 +730,6 @@ describe('WorkspaceBrowser', () => {
   it('keeps local matches and shows a lightweight warning when Host search fails', async () => {
     vi.useFakeTimers()
     try {
-      /** 中文说明：测试局部值 searchSessions，由紧邻初始化决定。 */
       const searchSessions = vi.fn(async () => { throw new Error('index unavailable') })
       mount({
         useSessions: hook(sessionState([
@@ -835,17 +754,14 @@ describe('WorkspaceBrowser', () => {
   it('aborts a superseded request and ignores its stale result', async () => {
     vi.useFakeTimers()
     try {
-      /** 中文说明：测试局部值 resolveFirst!: (value: {，由紧邻初始化决定。 */
       let resolveFirst!: (value: {
         items: { sessionId: SessionId; snippet: string }[]
         hasMore: boolean
       }) => void
-      /** 中文说明：测试局部值 first，由紧邻初始化决定。 */
       const first = new Promise<{
         items: { sessionId: SessionId; snippet: string }[]
         hasMore: boolean
       }>((resolve) => { resolveFirst = resolve })
-      /** 中文说明：测试局部值 searchSessions，由紧邻初始化决定。 */
       const searchSessions = vi.fn((query: string, _signal: AbortSignal) => query === 'first'
         ? first
         : Promise.resolve({
@@ -859,11 +775,9 @@ describe('WorkspaceBrowser', () => {
         ])),
         searchSessions,
       })
-      /** 中文说明：测试局部值 input，由紧邻初始化决定。 */
       const input = screen.getByPlaceholderText('搜索会话…')
       fireEvent.change(input, { target: { value: 'first' } })
       await act(async () => { await vi.advanceTimersByTimeAsync(250) })
-      /** 中文说明：测试局部值 firstSignal，由紧邻初始化决定。 */
       const firstSignal = searchSessions.mock.calls[0]?.[1] as AbortSignal
       expect(firstSignal.aborted).toBe(false)
 
@@ -889,16 +803,12 @@ describe('WorkspaceBrowser', () => {
   it('ignores a rejected request after it has been superseded', async () => {
     vi.useFakeTimers()
     try {
-      /** 中文说明：测试局部值 rejectFirst，由紧邻初始化决定。 */
       let rejectFirst!: (reason: Error) => void
-      /** 中文说明：测试局部值 first，由紧邻初始化决定。 */
       const first = new Promise<never>((_resolve, reject) => { rejectFirst = reject })
-      /** 中文说明：测试局部值 searchSessions，由紧邻初始化决定。 */
       const searchSessions = vi.fn((query: string) => query === 'first'
         ? first
         : Promise.resolve({ items: [], hasMore: false }))
       mount({ searchSessions })
-      /** 中文说明：测试局部值 input，由紧邻初始化决定。 */
       const input = screen.getByPlaceholderText('搜索会话…')
       fireEvent.change(input, { target: { value: 'first' } })
       await act(async () => { await vi.advanceTimersByTimeAsync(250) })
@@ -917,7 +827,6 @@ describe('WorkspaceBrowser', () => {
   it('shows the no-sessions empty state in both modes and resolves an empty search', async () => {
     vi.useFakeTimers()
     try {
-      /** 中文说明：测试局部值 b，由紧邻初始化决定。 */
       const b = mount()
       expect(screen.getByText('暂无会话')).toBeTruthy()
       b.store.actions.setGroupBy('flat')
@@ -935,9 +844,7 @@ describe('WorkspaceBrowser', () => {
   it('rail state renders icon controls that request expansion', () => {
     vi.useFakeTimers()
     try {
-      /** 中文说明：测试局部值 expandSidebar，由紧邻初始化决定。 */
       const expandSidebar = vi.fn()
-      /** 中文说明：测试局部值 b，由紧邻初始化决定。 */
       const b = mount({ wide: false, expandSidebar })
       // No wide chrome in rail state.
       expect(screen.queryByText('工作区')).toBeNull()
@@ -946,7 +853,6 @@ describe('WorkspaceBrowser', () => {
       expect(expandSidebar).toHaveBeenCalledTimes(1)
       // The wide flip mounts the input and focuses it after the slide.
       rerender(b, { wide: true })
-      /** 中文说明：测试局部值 input，由紧邻初始化决定。 */
       const input = screen.getByPlaceholderText('搜索会话…')
       act(() => { vi.advanceTimersByTime(300) })
       expect(document.activeElement).toBe(input)
@@ -961,7 +867,6 @@ describe('WorkspaceBrowser', () => {
   it('keeps the rail-opened search expanded when the initiating click reaches document', () => {
     vi.useFakeTimers()
     try {
-      /** 中文说明：测试局部值 b，由紧邻初始化决定。 */
       const b = mount({ wide: false })
       fireEvent.click(screen.getByRole('button', { name: '搜索会话' }))
       rerender(b, { wide: true })
@@ -982,7 +887,6 @@ describe('WorkspaceBrowser', () => {
   })
 
   it('rail add-workspace raises the directory flow in place, with no menu and no expansion', () => {
-    /** 中文说明：测试局部值 expandSidebar，由紧邻初始化决定。 */
     const expandSidebar = vi.fn()
     mount({ wide: false, expandSidebar, useWorkspaces: hook(workspaceState([workspace('alpha', [])])) })
     fireEvent.click(screen.getByRole('button', { name: '添加工作区' }))
@@ -1005,9 +909,7 @@ describe('WorkspaceBrowser', () => {
   })
 
   it('uses the full expanded Workspace section when resolving a Workspace drop half', () => {
-    /** 中文说明：测试局部值 insertWorkspaceBefore，由紧邻初始化决定。 */
     const insertWorkspaceBefore = vi.fn(async () => {})
-    /** 中文说明：测试局部值 sessions，由紧邻初始化决定。 */
     const sessions = sessionState(Array.from({ length: 5 }, (_, index) => summary(`beta-${index}`, index)))
     mount({
       useSessions: hook(sessions),
@@ -1019,9 +921,7 @@ describe('WorkspaceBrowser', () => {
       insertWorkspaceBefore,
     })
     fireEvent.click(screen.getByText('beta'))
-    /** 中文说明：测试局部值 source，由紧邻初始化决定。 */
     const source = screen.getByText('tail').closest('[role="treeitem"]') as HTMLElement
-    /** 中文说明：测试局部值 targetSection，由紧邻初始化决定。 */
     let targetSection = screen.getByText('beta').closest('[role="treeitem"]')?.parentElement as HTMLElement
     while (targetSection.parentElement?.getAttribute('role') !== 'tree') {
       targetSection = targetSection.parentElement as HTMLElement
@@ -1043,9 +943,7 @@ describe('WorkspaceBrowser', () => {
         workspace('beta', []),
       ])),
     })
-    /** 中文说明：测试局部值 source，由紧邻初始化决定。 */
     const source = screen.getByText('beta').closest('[role="treeitem"]') as HTMLElement
-    /** 中文说明：测试局部值 firstSection，由紧邻初始化决定。 */
     let firstSection = screen.getByText('alpha').closest('[role="treeitem"]')?.parentElement as HTMLElement
     while (firstSection.parentElement?.getAttribute('role') !== 'tree') {
       firstSection = firstSection.parentElement as HTMLElement
@@ -1056,13 +954,11 @@ describe('WorkspaceBrowser', () => {
     fireEvent.dragStart(source, { dataTransfer: dragData() })
     fireDrag(firstSection, 'dragOver', 105)
     expect(firstSection.parentElement?.className).toContain('listTopDropActive')
-    /** 中文说明：测试局部值 marker，由紧邻初始化决定。 */
     const marker = firstSection.parentElement?.previousElementSibling
     expect(marker?.className).toContain('listTopDropIndicator')
   })
 
   it('accepts a document-level drop and commits the last Workspace marker on drag end', () => {
-    /** 中文说明：测试局部值 insertWorkspaceBefore，由紧邻初始化决定。 */
     const insertWorkspaceBefore = vi.fn(async () => {})
     mount({
       useWorkspaces: hook(workspaceState([
@@ -1072,9 +968,7 @@ describe('WorkspaceBrowser', () => {
       ])),
       insertWorkspaceBefore,
     })
-    /** 中文说明：测试局部值 source，由紧邻初始化决定。 */
     const source = screen.getByText('tail').closest('[role="treeitem"]') as HTMLElement
-    /** 中文说明：测试局部值 target，由紧邻初始化决定。 */
     let target = screen.getByText('beta').closest('[role="treeitem"]')?.parentElement as HTMLElement
     while (target.parentElement?.getAttribute('role') !== 'tree') {
       target = target.parentElement as HTMLElement
@@ -1084,7 +978,6 @@ describe('WorkspaceBrowser', () => {
     })
     fireEvent.dragStart(source, { dataTransfer: dragData() })
     fireDrag(target, 'dragOver', 105)
-    /** 中文说明：测试局部值 outsideDrop，由紧邻初始化决定。 */
     const outsideDrop = createEvent.drop(document.body)
     Object.defineProperty(outsideDrop, 'dataTransfer', { value: dragData() })
     fireEvent(document.body, outsideDrop)
@@ -1094,9 +987,7 @@ describe('WorkspaceBrowser', () => {
   })
 
   it('drag reorder reports the anchor to insertSessionBefore and skips no-op drops', () => {
-    /** 中文说明：测试局部值 insertSessionBefore，由紧邻初始化决定。 */
     const insertSessionBefore = vi.fn(async () => {})
-    /** 中文说明：测试局部值 sessions，由紧邻初始化决定。 */
     const sessions = sessionState([summary('one', 3), summary('two', 2), summary('three', 1)])
     mount({
       useSessions: hook(sessions),
@@ -1104,14 +995,11 @@ describe('WorkspaceBrowser', () => {
       insertSessionBefore,
     })
     fireEvent.click(screen.getByText('alpha'))
-    /** 中文说明：测试局部值 rows，由紧邻初始化决定。 */
     const rows = screen.getAllByRole('treeitem').slice(1) // drop the group header
-    /** 中文说明：测试局部值 [one, , three]，由紧邻初始化决定。 */
     const [one, , three] = rows as [HTMLElement, HTMLElement, HTMLElement]
     three.getBoundingClientRect = () => ({
       top: 200, bottom: 234, left: 0, right: 200, width: 200, height: 34, x: 0, y: 200, toJSON: () => ({}),
     })
-    /** 中文说明：测试局部值 dataTransfer，由紧邻初始化决定。 */
     const dataTransfer = dragData()
     fireEvent.dragStart(one, { dataTransfer })
     // Drop on the top half of "three": insert one before three.
@@ -1134,11 +1022,8 @@ describe('WorkspaceBrowser', () => {
   })
 
   it('persists Ungrouped drag order in both modes without writing a Host Workspace account', async () => {
-    /** 中文说明：测试局部值 insertSessionBefore，由紧邻初始化决定。 */
     const insertSessionBefore = vi.fn(async () => {})
-    /** 中文说明：测试局部值 sessions，由紧邻初始化决定。 */
     const sessions = sessionState([summary('one', 3), summary('two', 2), summary('three', 1)])
-    /** 中文说明：测试局部值 b，由紧邻初始化决定。 */
     const b = mount({
       useSessions: hook(sessions),
       useWorkspaces: hook(workspaceState([])),
@@ -1146,11 +1031,8 @@ describe('WorkspaceBrowser', () => {
     })
     fireEvent.click(screen.getByText('未分组'))
 
-    /** 中文说明：测试局部值 dragAfter，由紧邻初始化决定。 */
     const dragAfter = (sourceTitle: string, targetTitle: string): void => {
-      /** 中文说明：测试局部值 source，由紧邻初始化决定。 */
       const source = screen.getByText(sourceTitle).closest('[role="treeitem"]') as HTMLElement
-      /** 中文说明：测试局部值 target，由紧邻初始化决定。 */
       const target = screen.getByText(targetTitle).closest('[role="treeitem"]') as HTMLElement
       target.getBoundingClientRect = () => ({
         top: 150, bottom: 184, left: 0, right: 200, width: 200, height: 34, x: 0, y: 150, toJSON: () => ({}),
@@ -1175,7 +1057,6 @@ describe('WorkspaceBrowser', () => {
     expect(insertSessionBefore).not.toHaveBeenCalled()
 
     b.view.unmount()
-    /** 中文说明：测试局部值 restored，由紧邻初始化决定。 */
     const restored = mount({
       useSessions: hook(sessions),
       useWorkspaces: hook(workspaceState([])),
@@ -1190,24 +1071,19 @@ describe('WorkspaceBrowser', () => {
   })
 
   it('still sends the reorder when the dragged row left the group mid-drag', () => {
-    /** 中文说明：测试局部值 insertSessionBefore，由紧邻初始化决定。 */
     const insertSessionBefore = vi.fn(async () => {})
-    /** 中文说明：测试局部值 sessions，由紧邻初始化决定。 */
     const sessions = sessionState([summary('one', 2), summary('two', 1)])
-    /** 中文说明：测试局部值 b，由紧邻初始化决定。 */
     const b = mount({
       useSessions: hook(sessions),
       useWorkspaces: hook(workspaceState([workspace('alpha', ['one', 'two'])])),
       insertSessionBefore,
     })
     fireEvent.click(screen.getByText('alpha'))
-    /** 中文说明：测试局部值 one，由紧邻初始化决定。 */
     const one = screen.getByText('one').closest('[role="treeitem"]') as HTMLElement
     fireEvent.dragStart(one, { dataTransfer: dragData() })
     // The host dropped "one" from the workspace account while the drag is in
     // flight: the source index is gone but the drop still resolves its anchor.
     rerender(b, { useWorkspaces: hook(workspaceState([workspace('alpha', ['two'])])) })
-    /** 中文说明：测试局部值 two，由紧邻初始化决定。 */
     const two = screen.getByText('two').closest('[role="treeitem"]') as HTMLElement
     two.getBoundingClientRect = () => ({
       top: 150, bottom: 184, left: 0, right: 200, width: 200, height: 34, x: 0, y: 150, toJSON: () => ({}),
@@ -1217,9 +1093,7 @@ describe('WorkspaceBrowser', () => {
   })
 
   it('drag end without a drop clears markers; bottom-half drop appends past the last row', () => {
-    /** 中文说明：测试局部值 insertSessionBefore，由紧邻初始化决定。 */
     const insertSessionBefore = vi.fn(async () => {})
-    /** 中文说明：测试局部值 sessions，由紧邻初始化决定。 */
     const sessions = sessionState([summary('one', 2), summary('two', 1)])
     mount({
       useSessions: hook(sessions),
@@ -1227,12 +1101,10 @@ describe('WorkspaceBrowser', () => {
       insertSessionBefore,
     })
     fireEvent.click(screen.getByText('alpha'))
-    /** 中文说明：测试局部值 [one, two]，由紧邻初始化决定。 */
     const [one, two] = screen.getAllByRole('treeitem').slice(1) as [HTMLElement, HTMLElement]
     two.getBoundingClientRect = () => ({
       top: 150, bottom: 184, left: 0, right: 200, width: 200, height: 34, x: 0, y: 150, toJSON: () => ({}),
     })
-    /** 中文说明：测试局部值 dataTransfer，由紧邻初始化决定。 */
     const dataTransfer = dragData()
     fireEvent.dragStart(one, { dataTransfer })
     fireEvent.dragEnd(one)
@@ -1248,7 +1120,6 @@ describe('WorkspaceBrowser', () => {
   })
 
   it('accepts a document-level drop and commits the last Session marker on drag end', () => {
-    /** 中文说明：测试局部值 insertSessionBefore，由紧邻初始化决定。 */
     const insertSessionBefore = vi.fn(async () => {})
     mount({
       useSessions: hook(sessionState([summary('one', 2), summary('two', 1)])),
@@ -1256,14 +1127,12 @@ describe('WorkspaceBrowser', () => {
       insertSessionBefore,
     })
     fireEvent.click(screen.getByText('alpha'))
-    /** 中文说明：测试局部值 [one, two]，由紧邻初始化决定。 */
     const [one, two] = screen.getAllByRole('treeitem').slice(1) as [HTMLElement, HTMLElement]
     two.getBoundingClientRect = () => ({
       top: 150, bottom: 184, left: 0, right: 200, width: 200, height: 34, x: 0, y: 150, toJSON: () => ({}),
     })
     fireEvent.dragStart(one, { dataTransfer: dragData() })
     fireDrag(two, 'dragOver', 180)
-    /** 中文说明：测试局部值 outsideDrop，由紧邻初始化决定。 */
     const outsideDrop = createEvent.drop(document.body)
     Object.defineProperty(outsideDrop, 'dataTransfer', { value: dragData() })
     fireEvent(document.body, outsideDrop)
@@ -1273,12 +1142,9 @@ describe('WorkspaceBrowser', () => {
   })
 
   it('logs and keeps the order when the reorder call rejects', async () => {
-    /** 中文说明：测试局部值 warn，由紧邻初始化决定。 */
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
     try {
-      /** 中文说明：测试局部值 insertSessionBefore，由紧邻初始化决定。 */
       const insertSessionBefore = vi.fn(async () => { throw new Error('stale anchor') })
-      /** 中文说明：测试局部值 sessions，由紧邻初始化决定。 */
       const sessions = sessionState([summary('one', 2), summary('two', 1)])
       mount({
         useSessions: hook(sessions),
@@ -1286,12 +1152,10 @@ describe('WorkspaceBrowser', () => {
         insertSessionBefore,
       })
       fireEvent.click(screen.getByText('alpha'))
-      /** 中文说明：测试局部值 [one, two]，由紧邻初始化决定。 */
       const [one, two] = screen.getAllByRole('treeitem').slice(1) as [HTMLElement, HTMLElement]
       two.getBoundingClientRect = () => ({
         top: 150, bottom: 184, left: 0, right: 200, width: 200, height: 34, x: 0, y: 150, toJSON: () => ({}),
       })
-      /** 中文说明：测试局部值 dataTransfer，由紧邻初始化决定。 */
       const dataTransfer = dragData()
       fireEvent.dragStart(one, { dataTransfer })
       fireDrag(two, 'drop', 180)
@@ -1302,9 +1166,7 @@ describe('WorkspaceBrowser', () => {
   })
 
   it('renames a workspace through the row menu dialog', async () => {
-    /** 中文说明：测试局部值 resolveRename，由紧邻初始化决定。 */
     let resolveRename!: () => void
-    /** 中文说明：测试局部值 renameWorkspace，由紧邻初始化决定。 */
     const renameWorkspace = vi.fn(() => new Promise<void>((resolve) => { resolveRename = resolve }))
     mount({
       useWorkspaces: hook(workspaceState([workspace('alpha', [], 'Alpha'), workspace('beta', [], 'Beta')])),
@@ -1312,7 +1174,6 @@ describe('WorkspaceBrowser', () => {
     })
     fireEvent.click(screen.getByRole('button', { name: '工作区“Alpha”的操作' }))
     fireEvent.click(screen.getByRole('menuitem', { name: '重命名' }))
-    /** 中文说明：测试局部值 input，由紧邻初始化决定。 */
     const input = screen.getByLabelText<HTMLInputElement>('工作区名称')
     expect(input.value).toBe('Alpha')
     // Unchanged and blank names stay blocked.
@@ -1335,7 +1196,6 @@ describe('WorkspaceBrowser', () => {
   })
 
   it('rename via Enter, failure surfaces the error, Cancel closes', async () => {
-    /** 中文说明：测试局部值 renameWorkspace，由紧邻初始化决定。 */
     const renameWorkspace = vi.fn(async () => { throw new Error('rename conflict') })
     mount({
       useWorkspaces: hook(workspaceState([workspace('alpha', [], 'Alpha')])),
@@ -1343,7 +1203,6 @@ describe('WorkspaceBrowser', () => {
     })
     fireEvent.click(screen.getByRole('button', { name: '工作区“Alpha”的操作' }))
     fireEvent.click(screen.getByRole('menuitem', { name: '重命名' }))
-    /** 中文说明：测试局部值 input，由紧邻初始化决定。 */
     const input = screen.getByLabelText<HTMLInputElement>('工作区名称')
     // Enter with a blocked draft (unchanged) does nothing.
     fireEvent.keyDown(input, { key: 'Enter' })
@@ -1361,7 +1220,6 @@ describe('WorkspaceBrowser', () => {
   })
 
   it('reports non-Error rename failures as text', async () => {
-    /** 中文说明：测试局部值 renameWorkspace，由紧邻初始化决定。 */
     const renameWorkspace = vi.fn(async () => { throw 'denied' })
     mount({
       useWorkspaces: hook(workspaceState([workspace('alpha', [], 'Alpha')])),
@@ -1375,24 +1233,19 @@ describe('WorkspaceBrowser', () => {
   })
 
   it('confirms Workspace deletion, explains retention, and blocks duplicate submission', async () => {
-    /** 中文说明：测试局部值 resolveDelete，由紧邻初始化决定。 */
     let resolveDelete!: () => void
-    /** 中文说明：测试局部值 deleteWorkspace，由紧邻初始化决定。 */
     const deleteWorkspace = vi.fn(() => new Promise<void>((resolve) => { resolveDelete = resolve }))
-    /** 中文说明：测试局部值 browser，由紧邻初始化决定。 */
     const browser = mount({
       useWorkspaces: hook(workspaceState([workspace('alpha', ['session'], 'Alpha')])),
       deleteWorkspace,
     })
     fireEvent.click(screen.getByRole('button', { name: '工作区“Alpha”的操作' }))
     fireEvent.click(screen.getByRole('menuitem', { name: '删除工作区' }))
-    /** 中文说明：测试局部值 dialog，由紧邻初始化决定。 */
     const dialog = screen.getByRole('dialog', { name: '删除工作区' })
     expect(dialog.textContent).toContain('将把“Alpha”从工作区列表中移除')
     expect(dialog.textContent).toContain('文件夹与会话记录会保留')
     expect(dialog.textContent).toContain('其会话将显示在“未分组”下')
 
-    /** 中文说明：测试局部值 confirm，由紧邻初始化决定。 */
     const confirm = screen.getByRole<HTMLButtonElement>('button', { name: '删除工作区' })
     fireEvent.click(confirm)
     fireEvent.click(confirm)
@@ -1414,7 +1267,6 @@ describe('WorkspaceBrowser', () => {
   })
 
   it('keeps the delete dialog open on failure and allows retry or cancellation', async () => {
-    /** 中文说明：测试局部值 deleteWorkspace，由紧邻初始化决定。 */
     const deleteWorkspace = vi.fn()
       .mockRejectedValueOnce(new Error('storage unavailable'))
       .mockRejectedValueOnce('denied')
@@ -1434,13 +1286,11 @@ describe('WorkspaceBrowser', () => {
   })
 
   it('Cancel, Escape, and Close dismiss deletion without calling the action', () => {
-    /** 中文说明：测试局部值 deleteWorkspace，由紧邻初始化决定。 */
     const deleteWorkspace = vi.fn(async () => {})
     mount({
       useWorkspaces: hook(workspaceState([workspace('alpha', [], 'Alpha')])),
       deleteWorkspace,
     })
-    /** 中文说明：测试局部值 open，由紧邻初始化决定。 */
     const open = () => {
       fireEvent.click(screen.getByRole('button', { name: '工作区“Alpha”的操作' }))
       fireEvent.click(screen.getByRole('menuitem', { name: '删除工作区' }))
@@ -1456,14 +1306,12 @@ describe('WorkspaceBrowser', () => {
   })
 
   it('search hides drag affordances (rows are not draggable during search)', () => {
-    /** 中文说明：测试局部值 sessions，由紧邻初始化决定。 */
     const sessions = sessionState([summary('needle-a', 2, { displayTitle: 'Needle A' })])
     mount({
       useSessions: hook(sessions),
       useWorkspaces: hook(workspaceState([workspace('alpha', ['needle-a'])])),
     })
     fireEvent.change(screen.getByPlaceholderText('搜索会话…'), { target: { value: 'needle' } })
-    /** 中文说明：测试局部值 row，由紧邻初始化决定。 */
     const row = screen.getByText('Needle A').closest('[role="treeitem"]') as HTMLElement
     expect(row.hasAttribute('draggable')).toBe(false)
   })

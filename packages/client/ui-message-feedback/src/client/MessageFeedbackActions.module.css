@@ -15,11 +15,11 @@
   cursor: pointer;
 }
 
-/* The 16px glyphs follow the same px delta as the text they serve; the CSS
+/* The 15px glyphs follow the same px delta as the text they serve; the CSS
    edge overrides each svg's own width/height attributes. */
 .action svg {
-  width: calc(16px + var(--dsh-content-font-delta, 0px));
-  height: calc(16px + var(--dsh-content-font-delta, 0px));
+  width: calc(15px + var(--dsh-content-font-delta, 0px));
+  height: calc(15px + var(--dsh-content-font-delta, 0px));
 }
 
 .action:hover {
@@ -82,9 +82,7 @@
   border-radius: 12px;
   background: var(--dsw-specific-menu);
   box-shadow: var(--dsw-shadow-lv3);
-  /* 中文说明：自定义属性 --dsh-scrollbar-thumb 保存组件复用的样式值。 */
   --dsh-scrollbar-thumb: var(--dsw-alias-scrollbar-bg-l2);
-  /* 中文说明：自定义属性 --dsh-scrollbar-thumb-hover 保存组件复用的样式值。 */
   --dsh-scrollbar-thumb-hover: var(--dsw-alias-scrollbar-hover-l2);
 }
 

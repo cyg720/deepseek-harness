@@ -1,11 +1,3 @@
-/**
- * 文件职责：验证 structured.spec.ts 覆盖的子代理启动、协议、继承与生命周期行为。
- * 技术维度：使用 TypeScript、Vitest、Cordis 插件、进程协议或同进程代理驱动。
- * 产品维度：保障 Agent 能可靠委派任务、继承上下文并收集子代理结果。
- * 逻辑维度：准备代理配置，启动或连接子代理，转发事件，再处理结果、取消与清理。
- * 关键边界：异步状态不等于单次任务结果；外部输出不可信；清理必须等待子代理完全停止。
- * 新手阅读建议：先看公开配置和测试夹具，再读启动/事件流程，最后关注继承、取消与失败路径。
- */
 import { describe, expect, it } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
 import { createUserMessage, ToolCallId, type ContentBlock, type GenerateOptions } from '@deepseek-ai/dsh-llm'
@@ -13,16 +5,15 @@ import { SessionId } from '@deepseek-ai/dsh-session'
 import AgentLoop from '@deepseek-ai/dsh-agent-loop'
 import { mountAgentLoopTestDependencies } from '@deepseek-ai/dsh-agent-loop-testkit'
 import InvariantRegistry from '@deepseek-ai/dsh-invariants'
-import { FIRST_PARTY_SECTION_ORDER } from '@deepseek-ai/dsh-system-prompt'
+import type {} from '@deepseek-ai/dsh-system-prompt'
 import * as SessionInvariant from '@deepseek-ai/dsh-session/invariant'
 import * as AgentInvariant from '@deepseek-ai/dsh-agent/invariant'
 import * as AgentLoopInvariant from '@deepseek-ai/dsh-agent-loop/invariant'
 import SubagentRuntime, {
-  /** 中文说明：type ResolvedSubagentStartRequest 定义本测试所需的数据或行为，用于表达子代理场景。 */
   type ResolvedSubagentStartRequest,
-  /** 中文说明：type SubagentStartRequest 定义本测试所需的数据或行为，用于表达子代理场景。 */
   type SubagentStartRequest,
 } from '@deepseek-ai/dsh-subagent'
+import SessionProjectionRegistry from '@deepseek-ai/dsh-session-projection'
 import type { Config as ToolConfig, ObjectJsonSchema } from '@deepseek-ai/dsh-tools'
 import { defineContentToolFixture, RUN_CODE_NAME } from '@deepseek-ai/dsh-tools'
 import { MockAdapter, textResponse, toolCallResponse } from '../../../core/agent-loop/tests/mock-adapter.ts'
@@ -32,13 +23,10 @@ import {
   STRUCTURED_OUTPUT_TOOL,
 } from '../src/structured.ts'
 
-/** 中文说明：变量 testToolSignal 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const testToolSignal = new AbortController().signal
 
-/** 中文说明：type Script 定义本测试所需的数据或行为，用于表达子代理场景。 */
 type Script = ConstructorParameters<typeof MockAdapter>[0]
 
-/** 中文说明：函数 mountInvariants 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 async function mountInvariants(ctx: Context): Promise<void> {
   await ctx.plugin(InvariantRegistry)
   await ctx.plugin(SessionInvariant)
@@ -46,18 +34,15 @@ async function mountInvariants(ctx: Context): Promise<void> {
   await ctx.plugin(AgentLoopInvariant)
 }
 
-/** 中文说明：interface CodeRunRequestLike 定义本测试所需的数据或行为，用于表达子代理场景。 */
 interface CodeRunRequestLike {
   bindings: { global: string; functions: Record<string, (args: unknown) => Promise<unknown>> }[]
 }
 
-/** 中文说明：interface SetupOptions 定义本测试所需的数据或行为，用于表达子代理场景。 */
 interface SetupOptions {
   toolMode?: ToolConfig['mode']
   codeRun?: (request: CodeRunRequestLike) => Promise<{ logs: never[]; value?: unknown }>
 }
 
-/** 中文说明：常量 SCHEMA 保存本测试共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const SCHEMA: ObjectJsonSchema = {
   type: 'object',
   properties: { answer: { type: 'number' }, note: { type: 'string' } },
@@ -69,11 +54,8 @@ const SCHEMA: ObjectJsonSchema = {
  * spawn/fork here would create a dev-dependency cycle; their specs cover plugin integration while
  * this fixture isolates driver behavior and scripts the child's `structured_output` calls.
  */
-/* 中文说明：函数 setup 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 async function setup(script: Script, options: SetupOptions = {}) {
-  /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const ctx = new Context()
-  /** 中文说明：变量 adapter 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const adapter = new MockAdapter(script)
   await mountAgentLoopTestDependencies(ctx, {
     tools: { mode: options.toolMode ?? 'native' },
@@ -87,8 +69,8 @@ async function setup(script: Script, options: SetupOptions = {}) {
   }
   await mountInvariants(ctx)
   await ctx.plugin(AgentLoop, { agents: [] })
+  await ctx.plugin(SessionProjectionRegistry)
   await ctx.plugin(SubagentRuntime)
-  /** 中文说明：变量 disposeProvider 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const disposeProvider = ctx.subagents.registerProvider({
     name: 'spawn',
     capabilities: { agentOptions: true, outputSchema: true, depthLimit: true, toolFilter: false, persona: false },
@@ -96,12 +78,10 @@ async function setup(script: Script, options: SetupOptions = {}) {
     start: (request: ResolvedSubagentStartRequest) => startInProcessRun(request, {}),
   })
   ctx.llm.registerAdapter(['mock'], adapter)
-  /** 中文说明：变量 parent 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const parent = ctx.agentLoop.create(SessionId('parent'), { provider: 'mock', model: 'mock' })
   return { ctx, parent, adapter, disposeProvider }
 }
 
-/** 中文说明：函数 structuredRequest 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function structuredRequest(parent: SubagentStartRequest['parent'], extra?: Partial<SubagentStartRequest>): SubagentStartRequest {
   return {
     label: 'produce the answer',
@@ -114,7 +94,6 @@ function structuredRequest(parent: SubagentStartRequest['parent'], extra?: Parti
 }
 
 /** The tool names of one recorded model request. */
-/* 中文说明：函数 toolNames 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function toolNames(request: GenerateOptions): string[] {
   return (request.tools ?? []).map(tool => tool.name)
 }
@@ -124,14 +103,11 @@ describe('in-process structured output', () => {
     const { ctx, parent } = await setup([
       toolCallResponse('c1', STRUCTURED_OUTPUT_TOOL, { answer: 42, note: 'done' }),
     ])
-    /** 中文说明：变量 acknowledgement 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     let acknowledgement: unknown
     ctx.on('tools/result', (exec, toolResult) => {
       if (exec.name === STRUCTURED_OUTPUT_TOOL && !toolResult.isError) acknowledgement = toolResult.value
     })
-    /** 中文说明：变量 run 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const run = await ctx.subagents.start('spawn', structuredRequest(parent))
-    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await run.result
     expect(result.stopReason).toBe('completed')
     expect(result.structured).toEqual({ answer: 42, note: 'done' })
@@ -144,7 +120,6 @@ describe('in-process structured output', () => {
       toolCallResponse('c1', STRUCTURED_OUTPUT_TOOL, { answer: 1 }),
       textResponse('MUST NOT BE CONSUMED'),
     ])
-    /** 中文说明：变量 run 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const run = await ctx.subagents.start('spawn', structuredRequest(parent))
     await run.result
     // The structured tool marks its successful result as turn-concluding.
@@ -157,7 +132,6 @@ describe('in-process structured output', () => {
     // call after it: the continuation veto only fires at step end, so without
     // the pre-execute deny the trailing call would still run after the final
     // answer was accepted.
-    /** 中文说明：变量 response 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const response = [
       ...toolCallResponse('c1', STRUCTURED_OUTPUT_TOOL, { answer: 5 }).slice(0, -2),
       { type: 'block-start', index: 1, blockType: 'tool-call' },
@@ -166,7 +140,6 @@ describe('in-process structured output', () => {
       { type: 'finish', reason: { kind: 'tool-calls' } },
     ] as Script[number]
     const { ctx, parent } = await setup([response])
-    /** 中文说明：变量 sideEffectRan 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     let sideEffectRan = false
     ctx.tools.register(defineContentToolFixture({
       name: 'side_effect',
@@ -177,9 +150,7 @@ describe('in-process structured output', () => {
         return Promise.resolve([{ type: 'text', text: 'ran' }])
       },
     }))
-    /** 中文说明：变量 run 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const run = await ctx.subagents.start('spawn', structuredRequest(parent))
-    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await run.result
     expect(result.stopReason).toBe('completed')
     expect(result.structured).toEqual({ answer: 5 })
@@ -189,7 +160,6 @@ describe('in-process structured output', () => {
   })
 
   it('a later prepended pre-execute listener cannot resurrect dispatch after capture', async () => {
-    /** 中文说明：变量 response 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const response = [
       ...toolCallResponse('c1', STRUCTURED_OUTPUT_TOOL, { answer: 5 }).slice(0, -2),
       { type: 'block-start', index: 1, blockType: 'tool-call' },
@@ -198,7 +168,6 @@ describe('in-process structured output', () => {
       { type: 'finish', reason: { kind: 'tool-calls' } },
     ] as Script[number]
     const { ctx, parent } = await setup([response])
-    /** 中文说明：变量 sideEffectRan 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     let sideEffectRan = false
     ctx.tools.register(defineContentToolFixture({
       name: 'side_effect',
@@ -209,7 +178,6 @@ describe('in-process structured output', () => {
         return Promise.resolve([{ type: 'text', text: 'ran' }])
       },
     }))
-    /** 中文说明：变量 run 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const run = await ctx.subagents.start('spawn', structuredRequest(parent))
     // Registered after the child and prepended: this listener returns allow
     // after every downstream pre-execute decision. The service-owned guard
@@ -219,13 +187,10 @@ describe('in-process structured output', () => {
       return { kind: 'allow' as const }
     }, { prepend: true })
 
-    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await run.result
     expect(result.structured).toEqual({ answer: 5 })
     expect(sideEffectRan).toBe(false)
-    /** 中文说明：变量 child 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const child = ctx.agents.get(run.id)
-    /** 中文说明：函数值 sideEffectResult 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const sideEffectResult = child?.session.events.find(event =>
       event.type === 'tool/result' && event.data.message.source.callId === 'c2')
     expect(sideEffectResult?.type === 'tool/result' && sideEffectResult.data.message.content[0].isError).toBe(true)
@@ -233,7 +198,6 @@ describe('in-process structured output', () => {
   })
 
   it('leaves tool calls that PRECEDE the capture in the same response untouched', async () => {
-    /** 中文说明：变量 response 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const response = [
       { type: 'block-start', index: 0, blockType: 'tool-call' },
       { type: 'block-end', index: 0, block: { type: 'tool-call', id: ToolCallId('c1'), name: 'side_effect', arguments: '{}' } },
@@ -241,7 +205,6 @@ describe('in-process structured output', () => {
         'index' in chunk ? { ...chunk, index: 1 } : chunk),
     ] as Script[number]
     const { ctx, parent } = await setup([response])
-    /** 中文说明：变量 sideEffectRan 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     let sideEffectRan = false
     ctx.tools.register(defineContentToolFixture({
       name: 'side_effect',
@@ -252,9 +215,7 @@ describe('in-process structured output', () => {
         return Promise.resolve([{ type: 'text', text: 'ran' }])
       },
     }))
-    /** 中文说明：变量 run 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const run = await ctx.subagents.start('spawn', structuredRequest(parent))
-    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await run.result
     // The call ran BEFORE captured was set: the deny gate only guards the
     // window after the terminal answer landed.
@@ -268,16 +229,12 @@ describe('in-process structured output', () => {
       toolCallResponse('c1', STRUCTURED_OUTPUT_TOOL, { answer: 'not-a-number' }),
       toolCallResponse('c2', STRUCTURED_OUTPUT_TOOL, { answer: 7 }),
     ])
-    /** 中文说明：变量 run 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const run = await ctx.subagents.start('spawn', structuredRequest(parent))
-    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await run.result
     expect(result.structured).toEqual({ answer: 7 })
     expect(result.stopReason).toBe('completed')
     // The child's log carries the isError tool/result for the invalid call.
-    /** 中文说明：变量 child 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const child = ctx.agents.get(run.id)!
-    /** 中文说明：函数值 results 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const results = child.session.events.filter(e => e.type === 'tool/result')
     expect(results.length).toBe(2)
     expect(results[0]!.data.message.content[0].isError).toBe(true)
@@ -289,15 +246,12 @@ describe('in-process structured output', () => {
       textResponse('here is my answer in prose'),
       textResponse('MUST NOT BE CONSUMED'),
     ])
-    /** 中文说明：变量 run 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const run = await ctx.subagents.start('spawn', structuredRequest(parent))
-    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await run.result
     expect(result.stopReason).toBe('error')
     expect(result.structured).toBeUndefined()
     // Exactly one model request and one caller-supplied user message: no nudge turn exists.
     expect(adapter.requests.length).toBe(1)
-    /** 中文说明：变量 child 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const child = ctx.agents.get(run.id)!
     expect(child.session.events.filter(e => e.type === 'user/message' && e.data.source.kind !== 'plugin').length).toBe(1)
     await run.dispose()
@@ -306,9 +260,7 @@ describe('in-process structured output', () => {
   it('an errored child keeps its honest error result (no capture expected)', async () => {
     // Script exhaustion on the first call → the child turn errors.
     const { ctx, parent, adapter } = await setup([])
-    /** 中文说明：变量 run 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const run = await ctx.subagents.start('spawn', structuredRequest(parent))
-    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await run.result
     expect(result.stopReason).toBe('error')
     expect(adapter.requests.length).toBe(1)
@@ -317,18 +269,14 @@ describe('in-process structured output', () => {
 
   it('a cancel landing after a clean capture-less turn settles aborted, not error', async () => {
     const { ctx, parent } = await setup([textResponse('prose, no capture')])
-    /** 中文说明：变量 controller 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const controller = new AbortController()
-    /** 中文说明：变量 run 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const run = await ctx.subagents.start('spawn', structuredRequest(parent, { signal: controller.signal }))
     // Cancel synchronously inside the turn's end recording: the cancel
     // contract outranks the schema shortfall, so the result maps to aborted.
     ctx.on('session/event', (session, event) => {
-      /** 中文说明：变量 child 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const child = ctx.agents.get(run.id)
       if (session === child?.session && event.type === 'turn/end') controller.abort('cancelled at turn end')
     })
-    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await run.result
     expect(result.stopReason).toBe('aborted')
     await run.dispose()
@@ -363,17 +311,13 @@ describe('in-process structured output', () => {
       }
       return next()
     })
-    /** 中文说明：变量 run 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const run = await ctx.subagents.start('spawn', structuredRequest(parent))
-    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await run.result
     // No capture was committed: the run reports the schema shortfall...
     expect(result.structured).toBeUndefined()
     expect(result.stopReason).toBe('error')
     // ...the logged tool result is the blocked isError with the feedback...
-    /** 中文说明：变量 child 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const child = ctx.agents.get(run.id)!
-    /** 中文说明：函数值 results 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const results = child.session.events.filter(e => e.type === 'tool/result')
     expect(results[0]!.data.message.content[0].isError).toBe(true)
     expect(JSON.stringify(results[0]!.data.message.content)).toContain('capture rejected by hook')
@@ -393,9 +337,7 @@ describe('in-process structured output', () => {
       }
       return next()
     })
-    /** 中文说明：变量 run 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const run = await ctx.subagents.start('spawn', structuredRequest(parent))
-    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await run.result
     expect(result.stopReason).toBe('completed')
     expect(result.structured).toEqual({ answer: 8 })
@@ -407,25 +349,20 @@ describe('in-process structured output', () => {
       toolCallResponse('c1', STRUCTURED_OUTPUT_TOOL, { answer: 8 }),
       textResponse('capture was rejected'),
     ])
-    /** 中文说明：变量 run 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const run = await ctx.subagents.start('spawn', structuredRequest(parent))
     // Registered after attachment and prepended, so it wraps every listener
     // the child installed. It delegates first, then converts the apparent
     // capture success into the pipeline's authoritative failure.
     ctx.on('tools/post-execute', async (exec, _result, next) => {
-      /** 中文说明：变量 downstream 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const downstream = await next()
       if (exec.name !== STRUCTURED_OUTPUT_TOOL) return downstream
       return { kind: 'block' as const, feedback: [{ type: 'text' as const, text: 'rejected after downstream' }] }
     }, { prepend: true })
 
-    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await run.result
     expect(result.structured).toBeUndefined()
     expect(result.stopReason).toBe('error')
-    /** 中文说明：变量 child 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const child = ctx.agents.get(run.id)
-    /** 中文说明：函数值 captureResult 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const captureResult = child?.session.events.find(event =>
       event.type === 'tool/result' && event.data.message.source.callId === 'c1')
     expect(captureResult?.type === 'tool/result' && captureResult.data.message.content[0].isError).toBe(true)
@@ -439,10 +376,8 @@ describe('in-process structured output', () => {
     // replace them (AgentOptions has no prompt field — the instruction is an
     // ordinary child-scoped prompt registration).
     ctx.systemPrompt.section({ name: 'test:persona', order: 10, text: 'You are a counter.' })
-    /** 中文说明：变量 run 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const run = await ctx.subagents.start('spawn', structuredRequest(parent))
     await run.result
-    /** 中文说明：变量 childRequest 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const childRequest = adapter.requests.at(-1)!
     expect(childRequest.system).toContain('You are a counter.')
     expect(childRequest.system!.endsWith(STRUCTURED_OUTPUT_INSTRUCTION)).toBe(true)
@@ -456,20 +391,16 @@ describe('in-process structured output', () => {
     ], {
       toolMode: 'ptc',
       codeRun: async (request) => {
-        /** 中文说明：变量 capture 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
         const capture = request.bindings.at(0)?.functions[STRUCTURED_OUTPUT_TOOL]
         if (!capture) throw new Error('structured_output binding missing')
         await capture({ answer: 12 })
         return { logs: [], value: 'captured' }
       },
     })
-    /** 中文说明：变量 run 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const run = await ctx.subagents.start('spawn', structuredRequest(parent))
 
-    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await run.result
     expect(result.structured).toEqual({ answer: 12 })
-    /** 中文说明：变量 request 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const request = adapter.requests[0]!
     expect(toolNames(request)).toEqual([RUN_CODE_NAME])
     expect(request.system).toContain('interface ToolArgsMap')
@@ -487,7 +418,6 @@ describe('in-process structured output', () => {
     ], {
       toolMode: 'ptc',
       codeRun: async (request) => {
-        /** 中文说明：变量 capture 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
         const capture = request.bindings.at(0)?.functions[STRUCTURED_OUTPUT_TOOL]
         if (!capture) throw new Error('structured_output binding missing')
         await capture({ answer: 12 })
@@ -497,17 +427,13 @@ describe('in-process structured output', () => {
         } as never
       },
     })
-    /** 中文说明：变量 run 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const run = await ctx.subagents.start('spawn', structuredRequest(parent))
 
-    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await run.result
     expect(result.structured).toBeUndefined()
     expect(result.stopReason).toBe('error')
     expect(adapter.requests).toHaveLength(2)
-    /** 中文说明：变量 child 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const child = ctx.agents.get(run.id)!
-    /** 中文说明：函数值 outer 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const outer = child.session.events.find(event =>
       event.type === 'tool/result' && event.data.message.source.callId === ToolCallId('c1'))
     expect(outer?.type === 'tool/result' && outer.data.message.content[0].isError).toBe(true)
@@ -521,7 +447,6 @@ describe('in-process structured output', () => {
     ], {
       toolMode: 'ptc',
       codeRun: async (request) => {
-        /** 中文说明：变量 capture 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
         const capture = request.bindings.at(0)?.functions[STRUCTURED_OUTPUT_TOOL]
         if (!capture) throw new Error('structured_output binding missing')
         await capture({ answer: 12 })
@@ -531,10 +456,8 @@ describe('in-process structured output', () => {
     ctx.on('tools/post-execute', (exec, _result, next) => exec.name === RUN_CODE_NAME
       ? Promise.resolve({ kind: 'block' as const, feedback: [{ type: 'text' as const, text: 'outer blocked' }] })
       : next())
-    /** 中文说明：变量 run 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const run = await ctx.subagents.start('spawn', structuredRequest(parent))
 
-    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await run.result
     expect(result.structured).toBeUndefined()
     expect(result.stopReason).toBe('error')
@@ -550,12 +473,10 @@ describe('in-process structured output', () => {
     parent.followup(createUserMessage({ content: [{ type: 'text', text: 'hello' }], source: { kind: 'user' } }))
     await parent.whenIdle()
     expect(adapter.requests[0]!.system ?? '').not.toContain(STRUCTURED_OUTPUT_INSTRUCTION)
-    /** 中文说明：变量 run 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const run = await ctx.subagents.start('spawn', structuredRequest(parent))
     await run.result
     // The loop always assembles a base prompt (the harness identity section),
     // so the instruction APPENDS — never replaces.
-    /** 中文说明：变量 childSystem 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const childSystem = adapter.requests.at(-1)!.system!
     expect(childSystem.endsWith(STRUCTURED_OUTPUT_INSTRUCTION)).toBe(true)
     expect(childSystem.length).toBeGreaterThan(STRUCTURED_OUTPUT_INSTRUCTION.length)
@@ -583,20 +504,16 @@ describe('in-process structured output', () => {
       await parent.whenIdle()
       expect(toolNames(adapter.requests[0]!)).not.toContain(STRUCTURED_OUTPUT_TOOL)
 
-      /** 中文说明：变量 run 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const run = await ctx.subagents.start('spawn', structuredRequest(parent))
       await run.result
-      /** 中文说明：变量 childRequest 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const childRequest = adapter.requests[1]!
       expect(toolNames(childRequest)).toContain(STRUCTURED_OUTPUT_TOOL)
-      /** 中文说明：函数值 entry 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
       const entry = childRequest.tools!.find(tool => tool.name === STRUCTURED_OUTPUT_TOOL)!
       expect(entry.parameters).toEqual(SCHEMA)
       await run.dispose()
     })
 
     it('two concurrent structured children each see their OWN schema', async () => {
-      /** 中文说明：变量 otherSchema 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const otherSchema: ObjectJsonSchema = {
         type: 'object',
         properties: { verdict: { type: 'string', enum: ['real', 'bogus'] } },
@@ -606,32 +523,25 @@ describe('in-process structured output', () => {
         (options: GenerateOptions) => {
           // Answer with whatever schema this child was given — proves each
           // request carried the right one regardless of scheduling order.
-          /** 中文说明：函数值 entry 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
           const entry = options.tools!.find(tool => tool.name === STRUCTURED_OUTPUT_TOOL)!
-          /** 中文说明：变量 args 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
           const args = 'verdict' in (entry.parameters.properties as Record<string, unknown>)
             ? { verdict: 'real' }
             : { answer: 1 }
           return toolCallResponse('c1', STRUCTURED_OUTPUT_TOOL, args)
         },
         (options: GenerateOptions) => {
-          /** 中文说明：函数值 entry 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
           const entry = options.tools!.find(tool => tool.name === STRUCTURED_OUTPUT_TOOL)!
-          /** 中文说明：变量 args 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
           const args = 'verdict' in (entry.parameters.properties as Record<string, unknown>)
             ? { verdict: 'real' }
             : { answer: 1 }
           return toolCallResponse('c2', STRUCTURED_OUTPUT_TOOL, args)
         },
       ])
-      /** 中文说明：变量 runA 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const runA = await ctx.subagents.start('spawn', structuredRequest(parent))
-      /** 中文说明：变量 runB 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const runB = await ctx.subagents.start('spawn', structuredRequest(parent, { outputSchema: otherSchema }))
       const [a, b] = await Promise.all([runA.result, runB.result])
       expect(a.structured).toEqual({ answer: 1 })
       expect(b.structured).toEqual({ verdict: 'real' })
-      /** 中文说明：函数值 schemas 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
       const schemas = adapter.requests.map(request =>
         request.tools!.find(tool => tool.name === STRUCTURED_OUTPUT_TOOL)!.parameters)
       expect(schemas).toContainEqual(SCHEMA)
@@ -654,20 +564,16 @@ describe('in-process structured output', () => {
       }))
       ctx.systemPrompt.section({
         name: 'after-band',
-        order: FIRST_PARTY_SECTION_ORDER.STRUCTURED_OUTPUT + 10,
+        order: ctx.systemPrompt.getSectionOrder('STRUCTURED_OUTPUT') + 10,
         text: 'AFTER-BAND',
       })
       const run = await ctx.subagents.start('spawn', structuredRequest(parent))
       await run.result
-      /** 中文说明：变量 request 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const request = adapter.requests[0]!
-      /** 中文说明：变量 names 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const names = toolNames(request)
       expect(names.indexOf(STRUCTURED_OUTPUT_TOOL)).toBeGreaterThanOrEqual(0)
       expect(names.indexOf(STRUCTURED_OUTPUT_TOOL)).toBeLessThan(names.indexOf('zz_probe'))
-      /** 中文说明：变量 system 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const system = request.system ?? ''
-      /** 中文说明：变量 instructionAt 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const instructionAt = system.indexOf(STRUCTURED_OUTPUT_INSTRUCTION)
       expect(instructionAt).toBeGreaterThanOrEqual(0)
       expect(system.indexOf('AFTER-BAND')).toBeGreaterThan(instructionAt)
@@ -678,7 +584,6 @@ describe('in-process structured output', () => {
       const { parent, adapter } = await setup([textResponse('plain')])
       parent.followup(createUserMessage({ content: [{ type: 'text', text: 'q' }], source: { kind: 'user' } }))
       await parent.whenIdle()
-      /** 中文说明：变量 request 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const request = adapter.requests[0]!
       expect(request.tools).toBeUndefined()
       await new Promise(resolve => setTimeout(resolve, 0))
@@ -689,15 +594,12 @@ describe('in-process structured output', () => {
         toolCallResponse('c1', STRUCTURED_OUTPUT_TOOL, { answer: 4 }),
       ])
       expect(ctx.tools.get(STRUCTURED_OUTPUT_TOOL)).toBeUndefined()
-      /** 中文说明：变量 run 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const run = await ctx.subagents.start('spawn', structuredRequest(parent))
       // A backend hot-reload mid-run must not unregister the capture tool out
       // from under the live child: the registration rides the CHILD's fiber.
       disposeProvider()
-      /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const result = await run.result
       expect(result.structured).toEqual({ answer: 4 })
-      /** 中文说明：变量 child 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const child = ctx.agents.get(run.id)!
       expect(ctx.tools.get(STRUCTURED_OUTPUT_TOOL, child)).toBeDefined()
       await run.dispose()
@@ -708,7 +610,6 @@ describe('in-process structured output', () => {
 
   it('a structured_output call from an agent WITHOUT a structured run is UNKNOWN_TOOL (the tool does not exist for it)', async () => {
     const { ctx, parent } = await setup([])
-    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await ctx.tools.execute({
       signal: testToolSignal,
       callId: 'x' as never,
@@ -722,7 +623,6 @@ describe('in-process structured output', () => {
 
   it('a structured_output call with NO calling agent at all is UNKNOWN_TOOL', async () => {
     const { ctx } = await setup([])
-    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await ctx.tools.execute({
       signal: testToolSignal,
       callId: 'x' as never,
@@ -737,12 +637,10 @@ describe('in-process structured output', () => {
     const { ctx, parent } = await setup([
       toolCallResponse('c1', STRUCTURED_OUTPUT_TOOL, { answer: 1 }),
     ])
-    /** 中文说明：变量 run 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const run = await ctx.subagents.start('spawn', structuredRequest(parent))
     // A prepended post-execute listener blocks the first capture without
     // delegating. The final-result notification discards that execution's
     // stage when it observes the error.
-    /** 中文说明：变量 blocks 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     let blocks = 1
     ctx.on('tools/post-execute', (exec, _result, next) => {
       if (exec.name === STRUCTURED_OUTPUT_TOOL && blocks > 0) {
@@ -751,16 +649,13 @@ describe('in-process structured output', () => {
       }
       return next()
     }, { prepend: true })
-    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await run.result
-    /** 中文说明：变量 child 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const child = ctx.agents.get(run.id)!
     // The blocked capture must NOT surface as structured success…
     expect(result.stopReason).toBe('error')
     expect(result.structured).toBeUndefined()
     // …and a LATER invalid call (its own body staged nothing) must not
     // resurrect c1's discarded value: drive the pipeline directly.
-    /** 中文说明：变量 invalid 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const invalid = await ctx.tools.execute({
       signal: testToolSignal,
       callId: 'c2' as never,
@@ -770,7 +665,6 @@ describe('in-process structured output', () => {
     })
     expect(invalid.isError).toBe(true)
     // A fresh valid call still captures ITS OWN value.
-    /** 中文说明：变量 valid 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const valid = await ctx.tools.execute({
       signal: testToolSignal,
       callId: 'c3' as never,
@@ -786,11 +680,9 @@ describe('in-process structured output', () => {
     const { ctx, parent } = await setup([
       toolCallResponse('c1', STRUCTURED_OUTPUT_TOOL, { answer: 1 }),
     ])
-    /** 中文说明：变量 run 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const run = await ctx.subagents.start('spawn', structuredRequest(parent))
     // Block the first capture after its body stages a value. Its final error
     // discards that execution's stage.
-    /** 中文说明：变量 blocks 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     let blocks = 1
     ctx.on('tools/post-execute', (exec, _result, next) => {
       if (exec.name === STRUCTURED_OUTPUT_TOOL && blocks > 0) {
@@ -800,12 +692,10 @@ describe('in-process structured output', () => {
       return next()
     }, { prepend: true })
     await run.result
-    /** 中文说明：变量 child 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const child = ctx.agents.get(run.id)!
     // A SECOND capture call with the SAME call id whose body never stages
     // (invalid args throw before the stage): the discarded value must not ride
     // its acceptance.
-    /** 中文说明：变量 reused 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const reused = await ctx.tools.execute({
       signal: testToolSignal,
       callId: 'c1' as never,
@@ -815,7 +705,6 @@ describe('in-process structured output', () => {
     })
     expect(reused.isError).toBe(true)
     // Nothing was ever committed: a fresh valid call is still required.
-    /** 中文说明：变量 valid 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const valid = await ctx.tools.execute({
       signal: testToolSignal,
       callId: 'c1' as never,
@@ -831,10 +720,8 @@ describe('in-process structured output', () => {
     const { ctx, parent } = await setup([
       toolCallResponse('c1', STRUCTURED_OUTPUT_TOOL, { answer: 1 }),
     ])
-    /** 中文说明：变量 run 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const run = await ctx.subagents.start('spawn', structuredRequest(parent))
     // Discard the first capture's stage via a final post-execute block.
-    /** 中文说明：变量 blocks 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     let blocks = 1
     ctx.on('tools/post-execute', (exec, _result, next) => {
       if (exec.name === STRUCTURED_OUTPUT_TOOL && blocks > 0) {
@@ -844,18 +731,15 @@ describe('in-process structured output', () => {
       return next()
     }, { prepend: true })
     await run.result
-    /** 中文说明：变量 child 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const child = ctx.agents.get(run.id)!
     // A prepended pre-execute deny skips the body, while the denied call still
     // reaches the final notification with the same adapter-minted call id.
-    /** 中文说明：函数值 offDeny 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const offDeny = ctx.on('tools/pre-execute', (exec) => {
       if (exec.name === STRUCTURED_OUTPUT_TOOL) {
         return Promise.resolve({ kind: 'deny' as const, reason: 'outer veto' })
       }
       return undefined as never
     }, { prepend: true })
-    /** 中文说明：变量 denied 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const denied = await ctx.tools.execute({
       signal: testToolSignal,
       callId: 'c1' as never,
@@ -867,7 +751,6 @@ describe('in-process structured output', () => {
     offDeny()
     // The discarded value was never promoted: a fresh valid call is required
     // (and succeeds, proving the runtime is not wedged).
-    /** 中文说明：变量 valid 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const valid = await ctx.tools.execute({
       signal: testToolSignal,
       callId: 'c1' as never,

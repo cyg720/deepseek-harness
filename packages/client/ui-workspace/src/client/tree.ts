@@ -1,17 +1,3 @@
-/*
- * ================================ 文件注释 ================================
- * 【文件职责】从宿主工作区顺序与成员关系推导工作区浏览器树：未分配会话归于
- *             Ungrouped；只有选中的空白会话可见；另含扁平列表、搜索合并与相对时间。
- * 【技术维度】纯派生函数（输入列表/工作区/归档集/视图状态 → 节点树）：派生不出
- *             现在列表读取之前；搜索合并本地标题匹配与宿主内容匹配。
- * 【产品维度】侧边栏工作区浏览器的分组/平铺列表、搜索与"多久前"时间标签。
- * 【逻辑维度】groupByWorkspace 分组 → deriveGroups/deriveFlat 两模式 →
- *             deriveSearchResults 合并搜索 → relativeTime 时间桶。
- * 【关键边界】子代理子行用父目录头账本；归档会话到处不可见但保留账本槽位
- *             （取消归档即恢复位置）；空白会话被查询排除（标题本地化）。
- * 【新手阅读建议】先看 sessionVisible/sessionTitle 两个谓词，再读两个推导主函数。
- * ==========================================================================
- */
 /**
  * Derives the workspace browser tree from Host Workspace order and membership.
  * Unassigned Sessions trail under Ungrouped; only the selected blank Session
@@ -24,6 +10,7 @@ import type { WorkspaceId, WorkspaceView } from '@deepseek-ai/dsh-api-workspace-
 import type {
   SessionPendingInteractionBase,
 } from '@deepseek-ai/dsh-client-ui-session/client'
+import type {} from '@deepseek-ai/dsh-schedule/client'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import { workspaceTitleOf } from '@deepseek-ai/dsh-util-workspace-path'
 import {
@@ -51,6 +38,8 @@ export interface SessionNode {
   runningSubagentCount: number
   /** Finished running while not selected and not yet opened (the green "done" reminder dot). */
   completed: boolean
+  /** The current list projection contains at least one active Schedule record. */
+  hasActiveSchedule: boolean
   updatedAt: number
 }
 
@@ -88,6 +77,8 @@ export interface SearchResultNode {
   runningSubagentCount: number
   /** Finished running while not selected and not yet opened (the green "done" reminder dot). */
   completed: boolean
+  /** The current list projection contains at least one active Schedule record. */
+  hasActiveSchedule: boolean
   snippet?: string
 }
 
@@ -150,6 +141,11 @@ function sessionVisible(session: SessionSummary, current: SessionId | undefined,
  */
 function sessionTitle(session: SessionSummary): string {
   return session.blank ? '' : session.displayTitle
+}
+
+/** The list projection alone owns the best-effort active-Schedule indicator. */
+function hasActiveSchedule(session: SessionSummary): boolean {
+  return (session.projectionValues?.schedule?.length ?? 0) > 0
 }
 
 /** Build one group without projecting session lineage into presentation. */
@@ -258,6 +254,7 @@ function sessionNode(
     running: s.running,
     runningSubagentCount: descendants.get(s.id)?.runningCount ?? 0,
     completed: s.completed === true,
+    hasActiveSchedule: hasActiveSchedule(s),
     updatedAt: s.updatedAt,
     ...(pendingInteraction === undefined ? {} : { pendingInteraction }),
   }
@@ -421,6 +418,7 @@ export function deriveSearchResults(
           ? {}
           : { pendingInteraction }),
         completed: summary.completed === true,
+        hasActiveSchedule: hasActiveSchedule(summary),
         ...match === undefined ? {} : { snippet: match.snippet },
       }
     }),

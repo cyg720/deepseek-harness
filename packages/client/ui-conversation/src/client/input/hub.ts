@@ -1,20 +1,3 @@
-/*
- * ================================ 文件注释 ================================
- * 【文件职责】InputHub：SessionInputResolver 的实现（ctx.conversation.input）——每个会话
- *             一个 SessionInputShell，在 sessions provide 物化时创建、由作用域释放器销毁；
- *             并在每会话 actx 上注册三个作用域输入变更监听（ui-input-trigger bail 事件
- *             的唯一消费方），同时拥有默认 sink 编排。
- * 【技术维度】Cordis 作用域事件（actx.on slash/*）；会话面按需惰性解析（解耦启动顺序）；
- *             命令图片面经 rootCtx.get('conversation') 惰性获取避免循环构造。
- * 【产品维度】输入框的提交、斜杠命令、引用插入、队列插话都汇聚到本会话的 shell。
- * 【逻辑维度】1) 依赖面（CommandFace / ConversationAttachmentFace）；2) shellFor 创建 +
- *             监听接线 + 释放；3) shell / keyboard / inputTriggers 解析；4) sink 与
- *             steerQueue 编排；5) 私有服务解析。
- * 【关键边界】shell 生命周期与作用域一致（无任何东西活得比作用域久）；steer 依赖
- *             'queue-item-not-found' 收敛重复触发。
- * 【新手阅读建议】先看 shellFor 里监听与释放的对称接线。
- * ==========================================================================
- */
 /**
  * InputHub: the SessionInputResolver implementation (`ctx.conversation.input`) — one
  * SessionInputShell per session, created inside the uiSession provide
@@ -64,7 +47,6 @@ interface ConversationAttachmentFace {
 }
 
 /** Session-addressed input facade registry (SessionInputResolver face + composer-layer extras). */
-/* 按会话寻址的输入门面注册表（SessionInputResolver 面 + 输入栏层扩展）。 */
 export class InputHub implements SessionInputResolver {
   private readonly shells = new Map<SessionId, SessionInputShell>()
 
@@ -204,10 +186,10 @@ export class InputHub implements SessionInputResolver {
   /**
    * Steer every still-pending queued message into the running turn, in FIFO
    * order — the same strict-steer operation as the queue dock's per-row
-   * button. A turn closing mid-way (`steer-unavailable`) or a row already
-   * claimed by the agent (`queue-item-not-found`) converges silently, while a
+   * button. A turn closing mid-way (`session/steer-unavailable`) or a row already
+   * claimed by the agent (`session/queue-item-not-found`) converges silently, while a
    * genuine failure surfaces as one composer notice. Repeated triggers
-   * (e.g. two rapid empty-draft chords) rely on that `queue-item-not-found`
+   * (e.g. two rapid empty-draft chords) rely on that `session/queue-item-not-found`
    * convergence: the snapshot may still list a row the host already steered,
    * and the duplicate strict steer is a silent no-op.
    * @param session - the addressed host session.
@@ -219,7 +201,7 @@ export class InputHub implements SessionInputResolver {
     for (const item of queued) {
       const result = await session.updateQueue(item.id, { kind: 'steer' })
       if (result.ok) continue
-      if (result.error.code === 'steer-unavailable' || result.error.code === 'queue-item-not-found') return
+      if (result.error.code === 'session/steer-unavailable' || result.error.code === 'session/queue-item-not-found') return
       shell.notify('error', this.t('queue.steerFailed'))
       return
     }

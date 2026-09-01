@@ -6,12 +6,11 @@
  * policy enforce restrictions independently and do not read or write plan
  * state.
  *
- * The state in force is folded from the session log (`plan/mode`, last one
- * wins), so resume and fork restore it without a live mirror. User selections
- * remain pending until the next accepted in-turn pre-step. The service includes
- * the selected state in the proposed step assembly, then appends `plan/mode`
- * from `agent/pre-step` only when the step is accepted. Same-step request
- * retries reuse their assembly.
+ * The `plan` projection folds the session log, so resume and fork restore the
+ * state. User selections remain pending until the next accepted in-turn
+ * pre-step. The service includes the selected state in the proposed step
+ * assembly, then appends `plan/mode` from `agent/pre-step` only when the step
+ * is accepted. Same-step request retries reuse their assembly.
  *
  * The exit tool remains registered while plan mode is inactive, so entering
  * or leaving plan mode changes only the prompt section, not the request tool
@@ -22,49 +21,33 @@
  *
  * @module @deepseek-ai/dsh-plan-mode
  */
-/*
- * 文件职责：实现 index.ts 承担的计划模式配置、装载与运行时协作职责。
- * 技术维度：使用 TypeScript、Cordis 插件、事件日志、配置解析和异步生命周期管理。
- * 产品维度：让 Agent 能按用户配置启用计划模式并保持会话行为一致。
- * 逻辑维度：解析输入配置，注册插件能力，处理事件，并在卸载时清理资源。
- * 关键边界：配置错误应尽早失败；模型可见状态必须写入日志；注册必须可撤销。
- * 新手阅读建议：先看导出类型和配置，再读插件入口与事件处理，最后关注校验和清理。
- */
 
 import { Context, Service } from '@deepseek-ai/cordis'
 import { z as zod } from 'zod'
 import type { ZodType } from 'zod'
 import type { Agent, PreStepDecision } from '@deepseek-ai/dsh-agent'
 import { createUserMessage } from '@deepseek-ai/dsh-llm'
-import type { Session, SessionEvent, UserMessage } from '@deepseek-ai/dsh-session'
+import type { Session, UserMessage } from '@deepseek-ai/dsh-session'
 import { defineTool } from '@deepseek-ai/dsh-tools'
-import { FIRST_PARTY_SECTION_ORDER } from '@deepseek-ai/dsh-system-prompt'
 import { UserQuestionError } from '@deepseek-ai/dsh-user-questions'
-// Type-only edge: resolves `ctx.commands` for the optional command child.
 import type { CommandId } from '@deepseek-ai/dsh-commands'
-// Type-only: resolves ctx.sessionProjections for the optional unit child.
 import type {} from '@deepseek-ai/dsh-session-projection'
-import type { PlanProjection } from './types.ts'
-// The `plan` projection-key declaration lives in src/types.ts (its one home);
-// this re-export projects the type face onto the package root AND keeps the
-// module edge in the emitted index.d.ts, so aggregate programs consuming the
-// declarations still receive the SessionProjectionMap merge.
+import type { ProjectionDefinition } from '@deepseek-ai/dsh-session-projection'
+import type { PlanProjection, PlanUnitState } from './types.ts'
 export type * from './types.ts'
 
 declare module '@deepseek-ai/dsh-session/types' {
-  /** 中文说明：interface SessionEventMap 定义本模块所需的数据或行为，用于表达当前功能场景。 */
   interface SessionEventMap {
     /**
      * Whether plan mode is in force from this point on: log-only, non-surface,
      * whole-value replace. The last `plan/mode` wins; a log with none folds to
-     * inactive through {@link foldPlanMode}.
+     * inactive through the projection unit's fold.
      */
     'plan/mode': { active: boolean }
   }
 }
 
 declare module '@deepseek-ai/cordis' {
-  /** 中文说明：interface Context 定义本模块所需的数据或行为，用于表达当前功能场景。 */
   interface Context {
     planMode: PlanModeController
   }
@@ -74,29 +57,23 @@ declare module '@deepseek-ai/cordis' {
  * The model-facing exit tool's name. It stays registered while plan mode is
  * inactive so the request tool catalog is stable across transitions.
  */
-/* 中文说明：常量 EXIT_PLAN_MODE 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 export const EXIT_PLAN_MODE = 'exit_plan_mode'
 
 /** Deployment-owned plan guidance. */
-/* 中文说明：interface PlanModeConfig 定义本模块所需的数据或行为，用于表达当前功能场景。 */
 export interface PlanModeConfig {
   /** Guidance rendered as the `plan:policy` prompt section while plan mode is active. */
   section: string
 }
 
 /** The review question's id, echoed in the answer this tool reads. */
-/* 中文说明：常量 REVIEW_ID 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const REVIEW_ID = 'plan-review'
 
 /** The review question's approve option label. */
-/* 中文说明：常量 APPROVE_LABEL 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const APPROVE_LABEL = 'Approve'
 
 /** The review question's keep-planning option label. */
-/* 中文说明：常量 KEEP_PLANNING_LABEL 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const KEEP_PLANNING_LABEL = 'Keep planning'
 
-/** 中文说明：常量 EXIT_DESCRIPTION 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const EXIT_DESCRIPTION
   = 'Use only in plan mode. Present your plan for the user\'s review and, on approval, leave plan mode. '
   + 'Send the COMPLETE plan as markdown, starting with a # heading that names it. '
@@ -104,11 +81,8 @@ const EXIT_DESCRIPTION
   + 'planning — their feedback comes back in the tool result; revise and present again.'
 
 /** The plan's first markdown heading (any level), or `undefined` when it has none. */
-/* 中文说明：函数 firstHeading 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function firstHeading(plan: string): string | undefined {
-  /** 中文说明：该循环依次处理输入数据；循环变量仅在当前循环中有效。 */
   for (const line of plan.split('\n')) {
-    /** 中文说明：变量 match 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const match = /^#{1,6}\s+(.+?)\s*$/.exec(line)
     if (match) return match[1]
   }
@@ -122,13 +96,7 @@ function firstHeading(plan: string): string | undefined {
  * @param config Raw plugin config.
  * @returns A detached validated config.
  */
-/*
- * 中文说明：函数 resolveConfig 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。
- * @param config 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
- * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
- */
 export function resolveConfig(config: PlanModeConfig): PlanModeConfig {
-  /** 中文说明：变量 section 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const section = (config as Partial<PlanModeConfig>).section
   if (typeof section !== 'string') {
     throw new Error('PlanModeConfig needs a string `section`')
@@ -136,7 +104,6 @@ export function resolveConfig(config: PlanModeConfig): PlanModeConfig {
   if (section.trim() === '') {
     throw new Error('PlanModeConfig needs a non-empty `section`')
   }
-  /** 中文说明：函数值 unknown 封装本模块的局部步骤；参数和返回值由右侧签名约束；示例见本模块调用。 */
   const unknown = Object.keys(config).filter(key => key !== 'section')
   if (unknown.length > 0) {
     throw new Error(`PlanModeConfig has unknown key(s) ${unknown.join(', ')} — config is { section }`)
@@ -144,57 +111,6 @@ export function resolveConfig(config: PlanModeConfig): PlanModeConfig {
   return { section }
 }
 
-/**
- * Whether plan mode is active after the first `end` events. The last
- * `plan/mode` wins; a prefix with none is inactive.
- *
- * @param events The session log or any prefix of it.
- * @param end Fold `events[0, end)`; defaults to the whole log.
- * @returns Whether plan mode is active.
- */
-/*
- * 中文说明：函数 foldPlanMode 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。
- * @param events 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
- * @param end 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
- * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
- */
-export function foldPlanMode(events: readonly SessionEvent[], end = events.length): boolean {
-  /** 中文说明：变量 active 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-  let active = false
-  /** 中文说明：变量 index 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-  let index = 0
-  /** 中文说明：该循环依次处理输入数据；循环变量仅在当前循环中有效。 */
-  for (const event of events) {
-    if (index >= end) break
-    index++
-    if (event.type === 'plan/mode') active = event.data.active
-  }
-  return active
-}
-
-/**
- * Projection unit state: the logged mode, the latest successful `/plan`
- * selection not yet resolved by a `plan/mode` commit, and an execution whose
- * paired `command/done` has not settled. Plain JSON (persisted-cache
- * precondition).
- */
-/* 中文说明：interface PlanUnitState 定义本模块所需的数据或行为，用于表达当前功能场景。 */
-interface PlanUnitState {
-  active: boolean
-  /** The selection's target mode; null when no selection is outstanding. */
-  wanted: boolean | null
-  /** The latest plan command awaiting its paired settlement. */
-  running: { commandId: CommandId; wanted: boolean } | null
-}
-
-declare module '@deepseek-ai/dsh-session-projection/types' {
-  /** 中文说明：interface SessionProjectionStateMap 定义本模块所需的数据或行为，用于表达当前功能场景。 */
-  interface SessionProjectionStateMap {
-    plan: PlanUnitState
-  }
-}
-
-/** 中文说明：变量 planUnitStateSchema 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const planUnitStateSchema: ZodType<PlanUnitState> = zod.object({
   active: zod.boolean(),
   wanted: zod.boolean().nullable(),
@@ -202,52 +118,57 @@ const planUnitStateSchema: ZodType<PlanUnitState> = zod.object({
     commandId: zod.string() as unknown as ZodType<CommandId>,
     wanted: zod.boolean(),
   }).strict().nullable(),
+  activeAtLastHeader: zod.boolean().nullable(),
 }).strict()
 
 /** Wire payload schema of the `plan` projection. */
-/* 中文说明：变量 planProjectionSchema 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const planProjectionSchema: ZodType<PlanProjection> = zod.object({
   active: zod.boolean(),
   pending: zod.boolean(),
 })
 
-/** Whether the log holds an opened turn without its closing `turn/end`. */
-/* 中文说明：函数 hasOpenTurn 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
-function hasOpenTurn(events: readonly SessionEvent[]): boolean {
-  /** 中文说明：变量 open 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-  let open = false
-  /** 中文说明：该循环依次处理输入数据；循环变量仅在当前循环中有效。 */
-  for (const event of events) {
-    if (event.type === 'turn/start') open = true
-    else if (event.type === 'turn/end') open = false
-  }
-  return open
-}
-
-/** Plan state at the last logged request header, or `undefined` before the first header. */
-/* 中文说明：函数 planModeAtLastHeader 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
-function planModeAtLastHeader(events: readonly SessionEvent[]): boolean | undefined {
-  /** 中文说明：变量 lastHeader 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-  let lastHeader = -1
-  /** 中文说明：变量 index 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-  let index = 0
-  /** 中文说明：该循环依次处理输入数据；循环变量仅在当前循环中有效。 */
-  for (const event of events) {
-    if (event.type === 'request/header') lastHeader = index
-    index++
-  }
-  if (lastHeader < 0) return undefined
-  return foldPlanMode(events, lastHeader + 1)
-}
+/** Projection of logged plan selections and committed mode. */
+export const planProjectionDefinition = {
+  key: 'plan',
+  stateVersion: 3,
+  stateSchema: planUnitStateSchema,
+  init: () => ({ active: false, wanted: null, running: null, activeAtLastHeader: null }),
+  apply: (state, event) => {
+    if (event.type === 'command/run' && event.data.name === 'plan') {
+      if (event.data.args === undefined) return state
+      const wanted = event.data.args.trim() !== 'off'
+      return { ...state, running: { commandId: event.data.commandId, wanted } }
+    }
+    if (event.type === 'command/done' && event.data.commandId === state.running?.commandId) {
+      const wanted = event.data.kind === 'success' && state.running.wanted !== state.active
+        ? state.running.wanted
+        : null
+      return { ...state, wanted, running: null }
+    }
+    if (event.type === 'plan/mode') {
+      return { ...state, active: event.data.active, wanted: null }
+    }
+    if (event.type === 'request/header') {
+      return { ...state, activeAtLastHeader: state.active }
+    }
+    return state
+  },
+  wire: {
+    viewSchema: planProjectionSchema,
+    view: (state) => {
+      const wanted = state.running?.wanted ?? state.wanted
+      return { active: state.active, pending: wanted !== null && wanted !== state.active }
+    },
+  },
+} satisfies ProjectionDefinition<'plan', PlanUnitState>
 
 /**
  * `ctx.planMode`: owns logged plan state, applies and narrates selected state at step start,
  * the `plan:policy` section, the `/plan` command, and the stable exit tool.
- * UIs observe committed flips through `session/event`; there is no live mirror.
+ * Client carriers expose the projection's cropped `{ active, pending }` view.
  */
-/* 中文说明：class PlanModeController 定义本模块所需的数据或行为，用于表达当前功能场景。 */
 export class PlanModeController extends Service {
-  static inject = ['tools', 'systemPrompt']
+  static inject = ['tools', 'systemPrompt', 'sessionProjections']
 
   /** Validated deployment-owned guidance. */
   private readonly section: string
@@ -262,7 +183,6 @@ export class PlanModeController extends Service {
   constructor(ctx: Context, config: PlanModeConfig = { section: '' }) {
     super(ctx, 'planMode')
     this.section = resolveConfig(config).section
-    /** 中文说明：变量 disposed 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     let disposed = false
     // Pre-step is outside Session.append publication, so it can append the
     // log-only mode event inside an open turn without re-entering the session.
@@ -272,12 +192,9 @@ export class PlanModeController extends Service {
       { agent, signal },
       next,
     ): Promise<PreStepDecision> => {
-      /** 中文说明：变量 decision 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const decision = await next()
-      /** 中文说明：变量 pending 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const pending = this.pendingIntents.get(agent.session)
       if (decision.kind === 'reject' || signal.aborted || pending === undefined) return decision
-      /** 中文说明：变量 narration 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const narration = this.narration(agent.session, pending.active)
       try {
         this.onBoundary(agent.session)
@@ -293,58 +210,15 @@ export class PlanModeController extends Service {
 
     ctx.systemPrompt.section({
       name: 'plan:policy',
-      order: FIRST_PARTY_SECTION_ORDER.PLAN_POLICY,
+      order: ctx.systemPrompt.getSectionOrder('PLAN_POLICY'),
       text: (context) => {
         if (context.agent === undefined) return ''
-        /** 中文说明：变量 pending 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
         const pending = this.pendingIntents.get(context.agent.session)
-        return (pending?.active ?? foldPlanMode(context.agent.session.events)) ? this.section : ''
+        return (pending?.active ?? this.loggedActive(context.agent.session)) ? this.section : ''
       },
     })
 
-    // The plan projection unit (session-projection RFC): a pure event fold
-    // serving clients the whole {active, pending} value. `command/run`
-    // records the user's logged /plan selection, its paired `command/done`
-    // keeps only successful selections, and `plan/mode` records that
-    // selection and clears it. Pending is thereby a pure
-    // replay quantity: host restarts, other tabs, and cold reads all recover
-    // it from the log alone. The unit child activates only when a projection
-    // registry is composed (headless assemblies stay unaffected).
-    ctx.inject(['sessionProjections'], (projectionCtx) => {
-      projectionCtx.sessionProjections.register<'plan', PlanUnitState>({
-        key: 'plan',
-        stateSchema: planUnitStateSchema,
-        init: () => ({ active: false, wanted: null, running: null }),
-        apply: (state, event) => {
-          if (event.type === 'command/run' && event.data.name === 'plan') {
-            if (event.data.args === undefined) return state
-            /** 中文说明：变量 wanted 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-            const wanted = event.data.args.trim() !== 'off'
-            return { ...state, running: { commandId: event.data.commandId, wanted } }
-          }
-          if (event.type === 'command/done' && event.data.commandId === state.running?.commandId) {
-            /** 中文说明：变量 wanted 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-            const wanted = event.data.kind === 'success' && state.running.wanted !== state.active
-              ? state.running.wanted
-              : null
-            return { ...state, wanted, running: null }
-          }
-          if (event.type === 'plan/mode') {
-            return { ...state, active: event.data.active, wanted: null }
-          }
-          return state
-        },
-        wire: {
-          viewSchema: planProjectionSchema,
-          view: (state) => {
-            /** 中文说明：变量 wanted 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-            const wanted = state.running?.wanted ?? state.wanted
-            return { active: state.active, pending: wanted !== null && wanted !== state.active }
-          },
-        },
-        stateVersion: 2,
-      })
-    })
+    ctx.sessionProjections.register(planProjectionDefinition)
 
     // The command child activates only when a command registry is composed.
     ctx.inject(['commands'], (commandCtx) => {
@@ -353,7 +227,6 @@ export class PlanModeController extends Service {
         description: 'Enter or leave plan mode',
         input: { hint: '[off|message]', images: true },
         handler: ({ agent, rawInput, attachments }) => {
-          /** 中文说明：变量 message 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
           const message = rawInput.trim()
           if (message === 'off' && attachments.length > 0) {
             return { kind: 'error', text: 'Image attachments cannot accompany /plan off.' }
@@ -370,12 +243,11 @@ export class PlanModeController extends Service {
                 // Repeat the queued wording while an exit still awaits the
                 // next accepted pre-step; only a truly inactive session reads
                 // idempotent.
-                return foldPlanMode(agent.session.events)
+                return this.loggedActive(agent.session)
                   ? { kind: 'success', text: 'Leaving plan mode (applies from the next step).' }
                   : { kind: 'success', text: 'Plan mode is already inactive.' }
             }
           }
-          /** 中文说明：变量 outcome 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
           const outcome = this.set(agent, true)
           if (message !== '' || attachments.length > 0) {
             agent.steer(createUserMessage({
@@ -413,21 +285,18 @@ export class PlanModeController extends Service {
         render: () => [{ type: 'text', text: 'Plan approved — plan mode exited; carry out the plan starting with your next step.' }],
       },
       execute: async (args, exec) => {
-        /** 中文说明：变量 agent 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
         const agent = exec.agent
         if (agent === undefined) throw new Error(`${EXIT_PLAN_MODE} requires a calling agent (no session to switch)`)
-        if (!foldPlanMode(agent.session.events)) {
+        if (!this.loggedActive(agent.session)) {
           throw new Error(`${EXIT_PLAN_MODE} is only available in plan mode`)
         }
         if (!/^#\s+\S/.test(args.plan.trim())) {
           throw new Error(`${EXIT_PLAN_MODE} requires a non-empty markdown plan starting with a # heading`)
         }
-        /** 中文说明：变量 interaction 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
         const interaction = ctx.get('userQuestions')
         if (interaction === undefined) {
           throw new Error('no user-questions channel is available to review the plan; ask the user to switch the session mode instead')
         }
-        /** 中文说明：变量 answer 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
         const answer = await interaction.ask({
           questions: [{
             id: REVIEW_ID,
@@ -462,12 +331,9 @@ export class PlanModeController extends Service {
         if (disposed) {
           throw new Error('the plan-mode service was reloaded while the plan was under review; present the plan again')
         }
-        /** 中文说明：函数值 reviewItems 封装本模块的局部步骤；参数和返回值由右侧签名约束；示例见本模块调用。 */
         const reviewItems = answer.answers.filter(entry => entry.id === REVIEW_ID)
-        /** 中文说明：变量 item 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
         const item = reviewItems.length === 1 ? reviewItems[0] : undefined
         if (item?.selected.length !== 1 || item.selected[0] !== APPROVE_LABEL || item.custom !== undefined) {
-          /** 中文说明：变量 feedback 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
           const feedback = item?.custom ?? ''
           throw new Error(feedback === ''
             ? 'The user chose to keep planning; revise the plan and present it again.'
@@ -493,6 +359,27 @@ export class PlanModeController extends Service {
     }))
   }
 
+  private loggedActive(session: Session): boolean {
+    return this.planState(session).active
+  }
+
+  private hasOpenTurn(session: Session): boolean {
+    const state = this.ctx.sessionProjections.stateOf(session, 'turnBoundary')
+    if (state === undefined) throw new Error('plan-mode requires the turnBoundary session projection')
+    return state.openTurnStartSeq !== null
+  }
+
+  private loggedActiveAtLastHeader(session: Session): boolean | undefined {
+    return this.planState(session).activeAtLastHeader ?? undefined
+  }
+
+  /** Read the required plan projection state or fail at the first service access. */
+  private planState(session: Session): PlanUnitState {
+    const state = this.ctx.sessionProjections.stateOf(session, 'plan')
+    if (state === undefined) throw new Error('plan-mode requires the plan session projection')
+    return state
+  }
+
   /**
    * Read the logged plan state and any selected state awaiting the next
    * accepted in-turn pre-step.
@@ -501,9 +388,7 @@ export class PlanModeController extends Service {
    * @returns Current logged state plus a pending selection, when present.
    */
   get(agent: Agent): { active: boolean; pending?: boolean } {
-    /** 中文说明：变量 active 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-    const active = foldPlanMode(agent.session.events)
-    /** 中文说明：变量 pending 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
+    const active = this.loggedActive(agent.session)
     const pending = this.pendingIntents.get(agent.session)
     return pending === undefined ? { active } : { active, pending: pending.active }
   }
@@ -525,26 +410,22 @@ export class PlanModeController extends Service {
    * state).
    */
   set(agent: Agent, active: boolean): 'committed' | 'queued' | 'cancelled' | 'noop' {
-    /** 中文说明：变量 session 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const session = agent.session
-    /** 中文说明：变量 pending 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const pending = this.pendingIntents.get(session)
-    /** 中文说明：变量 target 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-    const target = pending?.active ?? foldPlanMode(session.events)
+    const target = pending?.active ?? this.loggedActive(session)
     if (active === target) return 'noop'
-    if (hasOpenTurn(session.events)) {
+    if (this.hasOpenTurn(session)) {
       this.pendingIntents.set(session, { active, narrate: true })
-      return foldPlanMode(session.events) === active ? 'cancelled' : 'queued'
+      return this.loggedActive(session) === active ? 'cancelled' : 'queued'
     }
     // No open turn: commit now. Delete only after append succeeds so a
     // failed durable write leaves the selection retryable, not dropped.
-    if (active === foldPlanMode(session.events)) {
+    if (active === this.loggedActive(session)) {
       this.pendingIntents.delete(session)
       return 'cancelled'
     }
     session.append('plan/mode', { active })
     this.pendingIntents.delete(session)
-    /** 中文说明：变量 narration 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const narration = this.narration(session, active)
     if (narration !== undefined) agent.inject(narration)
     return 'committed'
@@ -552,12 +433,10 @@ export class PlanModeController extends Service {
 
   /** Append one pending selection before the next request assembly. */
   private onBoundary(session: Session): void {
-    /** 中文说明：变量 pending 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const pending = this.pendingIntents.get(session)
     if (pending === undefined) return
-    /** 中文说明：变量 target 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const target = pending.active
-    if (target === foldPlanMode(session.events)) {
+    if (target === this.loggedActive(session)) {
       this.pendingIntents.delete(session)
       return
     }
@@ -569,10 +448,8 @@ export class PlanModeController extends Service {
 
   /** Build a user-switch notice when the last logged header described the other mode. */
   private narration(session: Session, target: boolean): UserMessage | undefined {
-    /** 中文说明：变量 told 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-    const told = planModeAtLastHeader(session.events)
+    const told = this.loggedActiveAtLastHeader(session)
     if (told === undefined || told === target) return
-    /** 中文说明：变量 text 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const text = target
       ? 'The user switched this session to plan mode.'
       : 'The user switched this session back to the default mode.'

@@ -1,19 +1,11 @@
 /** What the browser half registers, and that it all leaves with the fiber. */
-/*
- * 文件职责：验证插件配置的 apply.client.spec.ts 行为。
- * 技术维度：Vitest、React 渲染、表单事件和 API 替身。
- * 产品维度：防止插件配置保存、发现和错误提示回归。
- * 逻辑维度：构造配置状态，触发操作并断言请求与界面。
- * 关键边界：敏感值不得意外回显；异步发现和保存必须清理。
- * 新手阅读建议：先读状态夹具，再按加载、编辑、保存场景阅读。
- */
 
 import { Context } from '@deepseek-ai/cordis'
 import { describe, expect, it, vi } from 'vitest'
 import { resolveSlotLabel } from '@deepseek-ai/dsh-client-ui-slots'
 import { SlotRegistry } from '@deepseek-ai/dsh-client-ui-renderer/client'
+import { RemoteError, TestRemote } from '@deepseek-ai/dsh-client-test-runtime'
 import { LocaleRuntime } from '@deepseek-ai/dsh-client-locale/client'
-import { TestRemote } from '@deepseek-ai/dsh-client-test-runtime'
 import { apply as settingsApply, inject as settingsInject } from '@deepseek-ai/dsh-client-ui-settings/client'
 import { apply, inject } from '@deepseek-ai/dsh-client-ui-settings-plugins/client'
 import type {
@@ -29,21 +21,20 @@ import { SubagentModelSelectionCardController } from '../src/client/subagent-mod
  * @param served - namespaces the Host describes; omitted answers a failed read,
  * which is what most of these specs want (no card has anything to render).
  */
-/* 中文说明：函数 bench 的参数见签名，返回结果供设置流程使用；示例见本文件。 */
 async function bench(served?: string[]) {
-  /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
   const ctx = new Context()
   await ctx.plugin(SlotRegistry).await()
-  /** 中文说明：测试局部值 locale，由紧邻初始化决定。 */
   const locale = new LocaleRuntime(ctx)
   locale.setLocale('zh')
   ctx.provide('locale', locale)
-  const describeCredentials = vi.fn(() => Promise.resolve({ ok: false, error: { code: 'internal', message: 'no provider', details: {} } }))
+  const describeCredentials = vi.fn(() => Promise.resolve({
+    ok: false, error: new RemoteError('gateway/internal', 'no provider', {}),
+  }))
   const models = vi.fn(() => Promise.resolve({
     ok: true as const, value: { groups: [], failures: [] },
   }))
   const describeSettings = vi.fn(() => Promise.resolve(served === undefined
-    ? { ok: false, error: { code: 'internal', message: 'no provider', details: {} } }
+    ? { ok: false, error: new RemoteError('gateway/internal', 'no provider', {}) }
     : {
       ok: true,
       value: {
@@ -59,16 +50,12 @@ async function bench(served?: string[]) {
     session: { modelCatalog: models },
     settings: { describe: describeSettings },
   })
-  ctx.provide('connection', {
-    isLoopback: true,
-  } as never)
   await ctx.plugin({ inject: [...settingsInject], apply: settingsApply }).await()
   return {
     ctx, slots: ctx.get('slots') as SlotRegistry, describeCredentials, describeSettings, models, remote,
   }
 }
 
-/** 中文说明：函数 declareRoot 的参数见签名，返回结果供设置流程使用；示例见本文件。 */
 function declareRoot(slots: SlotRegistry): () => void {
   return slots.register({
     name: 'root',
@@ -79,24 +66,21 @@ function declareRoot(slots: SlotRegistry): () => void {
 describe('ui-settings-plugins apply', () => {
   it('declares the services it uses', () => {
     expect(inject).toEqual([
-      'slots', 'locale', 'connection', 'remote', 'remote.credentials', 'remote.session', 'settingsScope',
+      'slots', 'locale', 'remote', 'remote.credentials', 'remote.session', 'settingsScope',
     ])
   })
 
   it('registers one Plugins section and declares the tab and card slots', async () => {
-    /** 中文说明：测试局部值 { ctx, slots }，由紧邻初始化决定。 */
     const { ctx, slots } = await bench()
     declareRoot(slots)
 
     await ctx.plugin({ inject: [...inject], apply }).await()
 
-    /** 中文说明：测试局部值 section，由紧邻初始化决定。 */
     const section = slots.entries('settings.section')[0]!
     expect(section.options).toMatchObject({ id: 'plugins', order: 15 })
     // The nav label is a locale-following thunk; owners resolve it at read time.
     expect(resolveSlotLabel(section.options.label)).toBe('插件')
     expect(slots.spec('settings.plugins.tab')).toMatchObject({ kind: 'list', scope: 'root' })
-    /** 中文说明：测试局部值 tab，由紧邻初始化决定。 */
     const tab = slots.entries('settings.plugins.tab')[0]!
     expect(tab.options).toMatchObject({ id: 'configurable', order: 0 })
     expect(resolveSlotLabel(tab.options.label)).toBe('插件配置')
@@ -105,25 +89,19 @@ describe('ui-settings-plugins apply', () => {
 
 
   it('injects a live tab projection, the card directory, and one business face per card', async () => {
-    /** 中文说明：测试局部值 { ctx, slots }，由紧邻初始化决定。 */
     const { ctx, slots } = await bench()
     declareRoot(slots)
     await ctx.plugin({ inject: [...inject], apply }).await()
 
-    /** 中文说明：测试局部值 section，由紧邻初始化决定。 */
     const section = slots.entries('settings.section')[0]!
-    /** 中文说明：测试局部值 sectionFace，由紧邻初始化决定。 */
     const sectionFace = (section.inject as unknown as () => PluginsSettingsSectionInjected)()
-    /** 中文说明：测试局部值 initialTabs，由紧邻初始化决定。 */
     const initialTabs = sectionFace.hooks.tabs.getSnapshot()
     expect(initialTabs).toEqual([
       { id: 'configurable', order: 0, label: '插件配置' },
     ])
     expect(sectionFace.hooks.tabs.getSnapshot()).toBe(initialTabs)
 
-    /** 中文说明：测试局部值 listener，由紧邻初始化决定。 */
     const listener = vi.fn()
-    /** 中文说明：测试局部值 unsubscribe，由紧邻初始化决定。 */
     const unsubscribe = sectionFace.hooks.tabs.subscribe(listener)
     slots.register({ name: 'settings.plugins.tab', id: 'plain' } as never, () => null)
     expect(sectionFace.hooks.tabs.getSnapshot()).toEqual([
@@ -132,14 +110,10 @@ describe('ui-settings-plugins apply', () => {
     ])
     unsubscribe()
 
-    /** 中文说明：测试局部值 tab，由紧邻初始化决定。 */
     const tab = slots.entries('settings.plugins.tab')[0]!
-    /** 中文说明：测试局部值 tabFace，由紧邻初始化决定。 */
     const tabFace = (tab.inject as unknown as () => ConfigurablePluginsTabFace)()
     expect(Object.keys(tabFace.hooks)).toEqual(['configurablePlugins'])
-    /** 中文说明：测试局部值 entry，由紧邻初始化决定。 */
     for (const entry of slots.entries('settings.plugin.item')) {
-      /** 中文说明：测试局部值 face，由紧邻初始化决定。 */
       const face = (entry as { inject?: () => unknown }).inject?.() as { hooks: Record<string, unknown> }
       // Each card injects exactly one snapshot store plus its own actions.
       expect(Object.keys(face.hooks)).toHaveLength(1)
@@ -147,7 +121,6 @@ describe('ui-settings-plugins apply', () => {
   })
 
   it('keys each card it ships on the settings namespace that card edits', async () => {
-    /** 中文说明：测试局部值 { ctx, slots }，由紧邻初始化决定。 */
     const { ctx, slots } = await bench()
     declareRoot(slots)
 
@@ -160,14 +133,11 @@ describe('ui-settings-plugins apply', () => {
   it('dispatches the served namespaces its cards claim, and no others', async () => {
     // ui-theme is served but belongs to another surface, and a deployment
     // composing no PowerShell/POSIX executor serves no `bash` at all.
-    /** 中文说明：测试局部值 { ctx, slots }，由紧邻初始化决定。 */
     const { ctx, slots } = await bench(['agent-loop', 'ui-theme', 'web-search-deepseek'])
     declareRoot(slots)
     await ctx.plugin({ inject: [...inject], apply }).await()
 
-    /** 中文说明：测试局部值 tab，由紧邻初始化决定。 */
     const tab = slots.entries('settings.plugins.tab')[0]!
-    /** 中文说明：测试局部值 face，由紧邻初始化决定。 */
     const face = (tab.inject as unknown as () => ConfigurablePluginsTabFace)()
     await vi.waitFor(() => {
       expect(face.hooks.configurablePlugins.getSnapshot().namespaces)
@@ -191,7 +161,6 @@ describe('ui-settings-plugins apply', () => {
   })
 
   it('re-reads the served namespaces after a reconnect', async () => {
-    /** 中文说明：测试局部值 解构结果，由紧邻初始化决定。 */
     const { ctx, slots, describeSettings } = await bench(['bash'])
     declareRoot(slots)
     await ctx.plugin({ inject: [...inject], apply }).await()
@@ -248,7 +217,6 @@ describe('ui-settings-plugins apply', () => {
   })
 
   it('registers into a declaration that arrives after apply', async () => {
-    /** 中文说明：测试局部值 { ctx, slots }，由紧邻初始化决定。 */
     const { ctx, slots } = await bench()
     await ctx.plugin({ inject: [...inject], apply }).await()
 
@@ -258,10 +226,8 @@ describe('ui-settings-plugins apply', () => {
   })
 
   it('collapses every contribution on teardown', async () => {
-    /** 中文说明：测试局部值 { ctx, slots }，由紧邻初始化决定。 */
     const { ctx, slots } = await bench()
     declareRoot(slots)
-    /** 中文说明：测试局部值 fiber，由紧邻初始化决定。 */
     const fiber = ctx.plugin({ inject: [...inject], apply })
     await fiber.await()
     expect(slots.entries('settings.plugin.item')).toHaveLength(4)

@@ -1,16 +1,3 @@
-/*
- * ================================ 文件注释 ================================
- * 【文件职责】权限预设包的浏览器侧入口：一个挂在宿主 /permission 命令上的
- *             popupSelect 装饰（当前会话切换权限）+ 一个设置行（新会话默认权限）。
- * 【技术维度】Cordis 浏览器插件：装饰只接管裸调用，宿主命令保留目录行与带参路径；
- *             选项读会话的 permissions 投影；Full access 行带显式风险确认门。
- * 【产品维度】当前会话通过 /permission 弹窗切换权限；设置页为新会话设默认权限。
- * 【逻辑维度】1) 注册风险门字典；2) 设置行控制器（共享镜像）；
- *             3) 注册 /permission 装饰（选项来自投影、选择提交命令行）。
- * 【关键边界】custom 值只作展示不作目标；投影缺失时装饰不存活（落回宿主命令）。
- * 【新手阅读建议】先读 settings-store.ts 与 presentation.ts，再看装饰的接线。
- * ==========================================================================
- */
 /**
  * Permission preset plugin, browser half — a popupSelect DECORATION hung on
  * the host `/permission` command: one flat list of presets, current value
@@ -74,7 +61,7 @@ function optionsOf(value: PermissionSelect, t: (key: string) => string): SelectO
     .filter(option => option.value !== 'custom')
     .map(option => ({
       id: option.value,
-      label: displayPermissionPreset(option.value, option.name),
+      label: displayPermissionPreset(option.value, option.name, t),
       ...(option.description !== undefined ? { detail: option.description } : {}),
       ...(option.value === value.currentValue ? { active: true } : {}),
       ...(option.value === FULL_ACCESS_PRESET
@@ -105,6 +92,9 @@ export function apply(ctx: ClientContext): void {
   ctx.effect(() => {
     const disposers = [
       ctx.locale.register(ACCESS_NS, 'zh', {
+        'preset.readOnly': accessZh['preset.readOnly'],
+        'preset.workspaceWrite': accessZh['preset.workspaceWrite'],
+        'preset.fullAccess': accessZh['preset.fullAccess'],
         'confirm.title': accessZh['confirm.title'],
         'confirm.description': accessZh['confirm.description'],
         'confirm.acknowledge': accessZh['confirm.acknowledge'],
@@ -112,6 +102,9 @@ export function apply(ctx: ClientContext): void {
         'confirm.enable': accessZh['confirm.enable'],
       }),
       ctx.locale.register(ACCESS_NS, 'en', {
+        'preset.readOnly': accessEn['preset.readOnly'],
+        'preset.workspaceWrite': accessEn['preset.workspaceWrite'],
+        'preset.fullAccess': accessEn['preset.fullAccess'],
         'confirm.title': accessEn['confirm.title'],
         'confirm.description': accessEn['confirm.description'],
         'confirm.acknowledge': accessEn['confirm.acknowledge'],
@@ -130,7 +123,7 @@ export function apply(ctx: ClientContext): void {
 
   // The shared SettingsScope mirror updates after document commits and reconnects.
   const controller = new PermissionPresetSettingsController(
-    ctx.settingsScope.describe(), { settings: ctx.remote.settings }, ctx.settingsSchema)
+    ctx.settingsScope.describe(), ctx, ctx.settingsSchema)
   const load = (): Promise<void> => controller.load()
   const select = (preset: string): Promise<void> => controller.select(preset)
   const injected = (): PermissionRowInjected => ({

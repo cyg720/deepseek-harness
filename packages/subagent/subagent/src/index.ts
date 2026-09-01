@@ -1,22 +1,3 @@
-/*
- * ================================ 文件注释 ================================
- * 【文件职责】subagent 能力缝的 Service Definition 主体：维护子代理提供者（provider）注册表，
- *   对外暴露一次性子代理启动、可续聊子代理（continuable）的建立/追问/中断/上报等操作，
- *   并在包内组装生命周期事件、投影、子代理枚举等辅助模块。
- * 【技术维度】基于 Cordis 的 Service 子类 + 声明合并扩展 Context.events 事件表；
- *   一次性与续聊两类子代理共享同一套 start/end 生命周期事件；
- *   续聊能力委托给 SubagentContinuationManager，本文件只保留入口与提供者注册表。
- * 【产品维度】主代理通过工具把任务委托给子代理执行；续聊子代理可作为后台会话持续接收新指令，
- *   本文件保证委托过程可观察（事件）、可枚举（listChildren/listDescendants）、可恢复（续聊）。
- * 【逻辑维度】按代码顺序：类型导出与事件声明合并 → SubagentRuntime 类（提供者注册表、
- *   一次性 start 校验与委托、续聊相关入口、listChildren/listDescendants、依赖注入挂载）。
- * 【关键边界】续聊路径必须同时注入 agents 与 sessionProjections 服务；提供者能力由
- *   assertCapabilities 在委托前校验，缺能力即报错而不是静默降级；提供者名唯一，重复注册抛错。
- * 【新手阅读建议】先读 types.ts 了解请求/结果/提供者契约，再看本文件的 SubagentRuntime 类，
- *   关注 start（一次性）与 startContinuable（续聊）两条主路径；后续可深入 continuation.ts 与 lifecycle.ts。
- * ==========================================================================
- */
-
 /**
  * Service Definition for the subagent capability seam (`ctx.subagents`): a named-provider registry plus a
  * capability-validating asynchronous start API. Providers establish a
@@ -49,16 +30,17 @@
  */
 
 import { Context } from '@deepseek-ai/cordis'
+import { admitPromptContent } from '@deepseek-ai/dsh-attachment'
 import { scopeTarget } from '@deepseek-ai/dsh-scope'
 import type { Scoped } from '@deepseek-ai/dsh-scope'
 import { assertObjectJsonSchema } from '@deepseek-ai/dsh-tools'
 import type { ContentBlock, MessageId } from '@deepseek-ai/dsh-llm'
 import type { Agent } from '@deepseek-ai/dsh-agent'
 import type { SessionId } from '@deepseek-ai/dsh-session'
-import { Remote, TypertRemoteService } from '@deepseek-ai/dsh-typert-protocol'
+import { canonicalClientTimeZone } from '@deepseek-ai/dsh-util-time'
+import { Remote, RemoteError, TypertRemoteService } from '@deepseek-ai/dsh-typert-protocol'
 import {
-  canonicalClientTimeZone, catalogView, rejectCatalogRead, rejectControl, rejectPrompt,
-  validateControlRequest,
+  catalogView, rejectCatalogRead, rejectPrompt, validateControlRequest,
 } from './control.ts'
 import type {
   SubagentCatalog,
@@ -157,8 +139,6 @@ export type { SubagentDescendantListEntry } from './list-children.ts'
 export type { SubagentRunEndInfo, SubagentRunInfo } from './types.ts'
 export type { SubagentIdentityProjection, SubagentTimingProjection } from './projection-types.ts'
 
-// 中文：声明合并：把 ctx.subagents 服务与 subagent 生命周期事件表挂进 Cordis 全局类型，
-// 任何插件都能以类型安全的方式访问子代理服务并监听其事件。
 declare module '@deepseek-ai/cordis' {
   interface Context {
     subagents: SubagentRuntime
@@ -216,22 +196,16 @@ interface BrowserPromptSource {
 /** Named provider registry with one-shot runs, durable discovery, and continuable-child operations. */
 export class SubagentRuntime extends TypertRemoteService {
   private providers = new Map<string, SubagentProvider>()
-  // 中文：续聊管理器实例；只有注入 agents 服务后才创建，未创建时续聊入口报 CONTINUATION_UNAVAILABLE。
   private continuations: SubagentContinuationManager | undefined
   /** Deployment contributions composed into unpublished continuable children. */
-  // 中文：部署能力注册表，把贡献安装到每个续聊子代理的未发布创建上下文。
   private readonly setupRegistry = new SubagentActivationSetupRegistry()
   /**
    * The contained lifecycle-edge publisher. Built here because scoped dispatch
    * keys its carrier by this exact service instance, whose own context filter
    * composes into the carrier.
    */
-  // 中文：生命周期事件的"包含式"发布器：start/end/provider-removed 都经它派发，
-  // 监听器异常被逐个隔离，不打断其他监听器与销毁流程。
   private readonly emitLifecycle: LifecycleEmitter
 
-  // 中文：构造器：注册服务本身；注入 agents 时创建续聊管理器，注入 sessionProjections 时
-  // 注册两个子代理投影定义（timing 与 identity）。
   constructor(ctx: Context) {
     super(ctx, 'subagents')
     this.emitLifecycle = createLifecycleEmitter(this.ctx, parent => scopeTarget(this, parent))
@@ -261,8 +235,6 @@ export class SubagentRuntime extends TypertRemoteService {
    * @returns the durable child id and the accepted prompt's message id.
    * @throws when continuation services are unavailable or materialization fails.
    */
-  // 中文：建立并启动一个可续聊子代理：保留持久 ID → 解析 provider 的创建规格 →
-  // 物化子代理 Agent → 投递初始提示词；在收件箱接受前任何失败都整体回滚（无 ID 返回）。
   async startContinuable(spec: ContinuableStartSpec): Promise<ContinuableStart> {
     return this.requireContinuations().startContinuable(spec)
   }
@@ -282,8 +254,6 @@ export class SubagentRuntime extends TypertRemoteService {
    * @throws when continuation services are unavailable, parent authority is
    *   rejected, or the message was not admitted.
    */
-  // 中文：向已存在的续聊子代理投递一条后续消息（作为其下一个 FIFO 回合）：
-  // 驻留则直接入收件箱，未驻留则从持久化会话冷恢复后投递。
   async followup(
     parent: Agent,
     childId: SessionId,
@@ -308,8 +278,6 @@ export class SubagentRuntime extends TypertRemoteService {
    * @throws {SubagentError} `UNAUTHORIZED` when the authority does not own the
    *   live target.
    */
-  // 中文：中断一个驻留续聊子代理的当前回合：发出取消信号即返回，不等待目标响应；
-  // 目标不存在或没有续聊管理器时是接受的无操作（no-op）。
   interrupt(targetSessionId: SessionId, authority: SubagentInterruptAuthority): void {
     this.continuations?.interrupt(targetSessionId, authority)
   }
@@ -325,8 +293,6 @@ export class SubagentRuntime extends TypertRemoteService {
    * @throws when continuation services are unavailable, sender authorization
    *   fails, or the direct parent is not live.
    */
-  // 中文：续聊子代理向自己的持久化直接父代理上报选定内容：子代理本身就是授权凭证，
-  // 调用方不能指定收件人；上报不结束子代理的回合或 Activation。
   async reportFrom(
     child: Agent,
     content: ContentBlock[],
@@ -343,8 +309,6 @@ export class SubagentRuntime extends TypertRemoteService {
    * @param contribution - synchronous child-scope installer.
    * @returns the exact Cordis effect disposer.
    */
-  // 中文：注册一条部署能力，安装进每个续聊子代理的创建上下文（新建与冷恢复都生效）；
-  // 返回的 effect 注销器撤销注册并立即吊销已驻留的安装。
   registerContinuableSetup(contribution: ContinuableSetupContribution): () => void {
     // oxlint-disable-next-line typescript/no-misused-promises -- synchronous disposer
     return this.ctx.effect(
@@ -363,8 +327,6 @@ export class SubagentRuntime extends TypertRemoteService {
    * @returns once every retained descendant Activation released its `AgentHandle`.
    * @throws an aggregate error after all branches settle when any failed.
    */
-  // 中文：关闭精确父代理之下的续聊准入、同步停掉其可见的后代 Activation，然后等待已
-  // 准入的物化完成并子优先释放这些森林；无关的父代理树保持存活。
   async drainContinuableDescendants(parents: readonly Agent[]): Promise<void> {
     const manager = this.continuations
     // Absent continuation services means nothing was ever materialized.
@@ -382,8 +344,6 @@ export class SubagentRuntime extends TypertRemoteService {
    * @throws {SubagentError} `UNAUTHORIZED` when a resident target belongs to a
    *   different parent or the supplied parent identity is stale.
    */
-  // 中文：释放指定父代理的若干驻留直接子代理（其余子代理保持准入与驻留）；目标不存在
-  // 或没有续聊管理器时是接受的无操作；子代会被递归释放。
   async drainContinuableChildren(parent: Agent, childIds: readonly SessionId[]): Promise<void> {
     const manager = this.continuations
     if (manager === undefined) return
@@ -407,8 +367,6 @@ export class SubagentRuntime extends TypertRemoteService {
    * @throws {@link SubagentError} when the projection registry or the session
    *   store is not mounted, or the caller cancels the listing.
    */
-  // 中文：列出父代理的直接会话备份子代理：不加载或恢复任何 Agent、不依赖查询服务，
-  // 从 live 会话存储与可选持久化的合并语料中枚举，身份经投影三级梯子解析。
   listChildren(parentSessionId: SessionId, signal?: AbortSignal): Promise<SubagentListEntry[]> {
     return listSubagentChildren(this.ctx, parentSessionId, signal)
   }
@@ -428,8 +386,6 @@ export class SubagentRuntime extends TypertRemoteService {
    *   stable pre-order.
    * @throws {@link SubagentError} under the same conditions as {@link listChildren}.
    */
-  // 中文：按稳定前序枚举根代理的完整会话备份子代理树：普通会话与一次性子代理仍是遍历
-  // 节点（保证其下的续聊后代被发现）；不加载或恢复任何 Agent。
   listDescendants(rootSessionId: SessionId, signal?: AbortSignal): Promise<SubagentDescendantListEntry[]> {
     return listSubagentDescendants(this.ctx, rootSessionId, signal)
   }
@@ -443,9 +399,9 @@ export class SubagentRuntime extends TypertRemoteService {
    * @param parentSessionId - parent session whose direct children are listed.
    * @param signal - carrier cancellation forwarded to Session queries.
    * @returns the catalog view for that parent.
-   * @throws {TypertRemoteFailure} `bad-request` for an empty parent id,
-   *   `cancelled` for an aborted read, `subagent-projections-unavailable` when
-   *   the deployment has no projection registry, otherwise `internal`.
+   * @throws {RemoteError} `gateway/bad-request` for an empty parent id,
+   *   `gateway/cancelled` for an aborted read, `subagent/projections-unavailable` when
+   *   the deployment has no projection registry, otherwise `gateway/internal`.
    */
   @Remote('list')
   async remoteExportList(parentSessionId: SessionId, signal: AbortSignal): Promise<SubagentCatalog> {
@@ -463,13 +419,15 @@ export class SubagentRuntime extends TypertRemoteService {
    * validated browser zone on the accepted message. Success identifies the
    * message the child's FIFO inbox accepted; later execution is independent of
    * this call.
+   * Image parts are admitted and persisted through the attachment store
+   * before delivery, and the child's model must accept image input.
    * @param request - durable address, minted identity, content, and optional browser zone.
    * @param signal - carrier cancellation, owning the call until inbox acceptance.
    * @returns the accepted message's inbox identity.
-   * @throws {TypertRemoteFailure} `bad-request`, `invalid-time-zone`,
-   *   `subagent-parent-unavailable`, `subagent-not-resumable`,
-   *   `subagent-unauthorized`, `subagent-delivery-unavailable`, `cancelled`, or
-   *   `internal`.
+   * @throws {RemoteError} `gateway/bad-request`, `subagent/attachment-invalid`,
+   *   `subagent/invalid-time-zone`, `subagent/parent-unavailable`,
+   *   `subagent/not-resumable`, `subagent/unauthorized`,
+   *   `subagent/delivery-unavailable`, `gateway/cancelled`, or `gateway/internal`.
    */
   @Remote('prompt')
   async prompt(request: SubagentPromptRequest, signal: AbortSignal): Promise<SubagentPromptReceipt> {
@@ -479,16 +437,16 @@ export class SubagentRuntime extends TypertRemoteService {
       ? undefined
       : canonicalClientTimeZone(clientTimeZone)
     if (clientTimeZone !== undefined && canonicalTimeZone === undefined) {
-      return rejectControl(
-        'invalid-time-zone',
+      throw new RemoteError(
+        'subagent/invalid-time-zone',
         'clientTimeZone must be UTC or a valid IANA Area/Location name',
         { value: clientTimeZone },
       )
     }
     const parent = this.ctx.get('agents')?.get(parentSessionId)
     if (parent === undefined) {
-      return rejectControl(
-        'subagent-parent-unavailable',
+      throw new RemoteError(
+        'subagent/parent-unavailable',
         `parent session "${parentSessionId}" is not live`,
         { parentSessionId },
       )
@@ -498,8 +456,17 @@ export class SubagentRuntime extends TypertRemoteService {
       rpcId: request.requestId,
       ...(canonicalTimeZone === undefined ? {} : { clientTimeZone: canonicalTimeZone }),
     }
-    const content: ContentBlock[] = [...request.content]
     try {
+      // Admission precedes delivery: image parts become durable references
+      // here, so the child inbox only ever accepts Host-persisted attachments.
+      let content: ContentBlock[]
+      if (request.content.every((part): part is { readonly type: 'text'; readonly text: string } => part.type === 'text')) {
+        content = request.content.map(part => ({ type: 'text', text: part.text }))
+      } else {
+        const attachments = this.ctx.get('attachments')
+        if (attachments === undefined) throw new Error('subagent image prompt requires an attachment store')
+        content = await admitPromptContent(attachments, request.content)
+      }
       return { messageId: await this.followup(parent, childSessionId, content, { source, signal }) }
     } catch (error: unknown) {
       return rejectPrompt(error, childSessionId, signal)
@@ -516,9 +483,9 @@ export class SubagentRuntime extends TypertRemoteService {
    * @param parentSessionId - durable direct parent whose authority is claimed.
    * @param mode - required continuable-address discriminator.
    * @returns acknowledgement that the cancel signal was admitted, not that the target is quiescent.
-   * @throws {TypertRemoteFailure} `bad-request` for an empty id,
-   *   `subagent-unauthorized` when the address does not own the live target,
-   *   otherwise `internal`.
+   * @throws {RemoteError} `gateway/bad-request` for an empty id,
+   *   `subagent/unauthorized` when the address does not own the live target,
+   *   otherwise `gateway/internal`.
    */
   @Remote('interruptByParent')
   interruptByParent(
@@ -531,13 +498,14 @@ export class SubagentRuntime extends TypertRemoteService {
       this.interrupt(childSessionId, { kind: 'user', parentSessionId })
     } catch (error: unknown) {
       if (error instanceof SubagentError && error.code === 'UNAUTHORIZED') {
-        return rejectControl(
-          'subagent-unauthorized',
+        throw new RemoteError(
+          'subagent/unauthorized',
           'subagent does not belong to this parent',
           { childSessionId },
+          { cause: error },
         )
       }
-      return rejectControl('internal', 'subagent interrupt failed', {})
+      throw new RemoteError('gateway/internal', 'subagent interrupt failed', {}, { cause: error })
     }
     return { accepted: true }
   }
@@ -549,8 +517,6 @@ export class SubagentRuntime extends TypertRemoteService {
    * @param provider - the trusted provider implementation.
    * @returns the exact Cordis effect disposer.
    */
-  // 中文：按名称注册提供者：effect 作用域注册、HMR 安全；移除只阻止新启动，
-  // 不吊销已返回给持有者的一次性运行。重复名称抛 DUPLICATE_PROVIDER。
   registerProvider(provider: SubagentProvider): () => void {
     const name = provider.name
     // oxlint-disable-next-line typescript/no-misused-promises -- synchronous disposer
@@ -574,7 +540,6 @@ export class SubagentRuntime extends TypertRemoteService {
    * @param name - the provider name.
    * @returns the provider, or undefined when absent.
    */
-  // 中文：按名称查提供者（未注册返回 undefined）。
   getProvider(name: string): SubagentProvider | undefined {
     return this.providers.get(name)
   }
@@ -583,7 +548,6 @@ export class SubagentRuntime extends TypertRemoteService {
    * List registered provider names in insertion order.
    * @returns the registered names.
    */
-  // 中文：按插入序列出已注册提供者名称。
   list(): string[] {
     return [...this.providers.keys()]
   }
@@ -598,8 +562,6 @@ export class SubagentRuntime extends TypertRemoteService {
    * @param request - child label, prompt, parent, signal, and optional capabilities.
    * @returns the published holder-owned run.
    */
-  // 中文：建立一次性子代理的主入口：按名称取提供者 → 校验能力与最大深度/输出 schema →
-  // 快照持久化描述符 → 委托 provider.start 并包上生命周期观察（observeRun）。
   async start(name: string, request: SubagentStartRequest): Promise<SubagentRun> {
     const provider = this.expectProvider(name)
     this.assertCapabilities(provider, request)
@@ -619,8 +581,6 @@ export class SubagentRuntime extends TypertRemoteService {
    * presence on the provider IS the capability, so a provider without it is
    * rejected before the manager reserves any child resources.
    */
-  // 中文：解析一个提供者的"续聊创建贡献"；方法存在即能力，提供者没有
-  // prepareContinuable 时在任何子代理资源预留前就报 UNSUPPORTED_CAPABILITY。
   private async prepareContinuable(
     name: string,
     request: ContinuableCreateRequest,
@@ -637,7 +597,6 @@ export class SubagentRuntime extends TypertRemoteService {
   }
 
   /** Look up a provider for dispatch or fail loud. */
-  // 中文：按名称取提供者，未注册即抛 NO_PROVIDER（fail loud）。
   private expectProvider(name: string): SubagentProvider {
     const provider = this.providers.get(name)
     if (provider === undefined) {
@@ -647,7 +606,6 @@ export class SubagentRuntime extends TypertRemoteService {
   }
 
   /** Resolve the optional continuable-subagent manager or fail loud. */
-  // 中文：解析续聊管理器，未注入 agents 服务时报 CONTINUATION_UNAVAILABLE。
   private requireContinuations(): SubagentContinuationManager {
     if (this.continuations === undefined) {
       throw new SubagentError(
@@ -662,7 +620,6 @@ export class SubagentRuntime extends TypertRemoteService {
    * Build the lifecycle observer for one continuable Activation's residency
    * epoch, so the manager publishes its edges without owning event dispatch.
    */
-  // 中文：为一次续聊 Activation 的驻留 epoch 构建生命周期观察器（事件发布交给生命周期模块）。
   private observeActivation(
     provider: string,
     childId: SessionId,
@@ -672,7 +629,6 @@ export class SubagentRuntime extends TypertRemoteService {
   }
 
   /** Reject the first requested capability that the provider lacks. */
-  // 中文：在委托前拒绝请求里第一个提供者不支持的能力（fail loud，绝不静默降级）。
   private assertCapabilities(provider: SubagentProvider, request: SubagentStartRequest): void {
     const needs: { when: boolean; cap: keyof SubagentCapabilities }[] = [
       { when: request.agentOptions !== undefined, cap: 'agentOptions' },

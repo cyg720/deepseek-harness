@@ -5,17 +5,9 @@
  * and replay keep reading their knob folds. The preset event preserves user
  * intent when two presets share a bundle. The read side ships as the
  * `permissions` session projection; the write side ships as the
- * `/permission` command — both optional children over the same service.
+ * `/permission` command.
  *
  * @module dsh-permission-presets
- */
-/*
- * 文件职责：实现交互与审批的 index.ts 模块。
- * 技术维度：TypeScript、Cordis 服务、会话事件、持久状态、Node 宿主接口和 Vitest。
- * 产品维度：保证交互与审批在授权、等待、失败和清理场景中可靠。
- * 逻辑维度：注册能力，校验请求，更新状态并记录事件。
- * 关键边界：匿名标识不是认证；模型可见审批、提问和任务信息必须写入会话日志。
- * 新手阅读建议：先读类型与事件，再按注册、请求、状态变化和清理流程阅读。
  */
 
 import { Context, Service } from '@deepseek-ai/cordis'
@@ -23,38 +15,39 @@ import z from '@deepseek-ai/schemastery'
 import { z as zod } from 'zod'
 import type { Session, SessionEvent } from '@deepseek-ai/dsh-session'
 import type { SandboxMode } from '@deepseek-ai/dsh-sandbox'
-import { SANDBOX_MODES, effectiveSandboxMode, setSandboxMode } from '@deepseek-ai/dsh-sandbox-policy'
+import { SANDBOX_MODES, setSandboxMode } from '@deepseek-ai/dsh-sandbox-policy'
 // Side-effect type import: declaration-merges `ctx.shell` (the capability fact
 // `sandboxMode` this service reads), without a value dependency on the seam.
 import type {} from '@deepseek-ai/dsh-shell'
 import type { ApprovalPolicy } from '@deepseek-ai/dsh-user-approval'
-import { APPROVAL_POLICIES, effectiveApprovalPolicy, setApprovalPolicy } from '@deepseek-ai/dsh-user-approval'
-import { installSettingsSection, settingsNamespace } from '@deepseek-ai/dsh-settings'
-// Type-only: resolves ctx.sessionProjections / ctx.commands for the optional children.
+import { APPROVAL_POLICIES, setApprovalPolicy } from '@deepseek-ai/dsh-user-approval'
+import type {} from '@deepseek-ai/dsh-settings'
+// Type-only: resolves the optional projection and command children.
 import type {} from '@deepseek-ai/dsh-session-projection'
 import type {} from '@deepseek-ai/dsh-commands'
 import type { PermissionSelect, PresetOption } from './types.ts'
 
-// The `permissions` projection-key declaration lives in src/types.ts (its one
-// home); this re-export projects the type face onto the package root AND
-// keeps the module edge in the emitted index.d.ts, so aggregate programs
-// consuming the declarations still receive the SessionProjectionMap merge.
 export type * from './types.ts'
 
 declare module '@deepseek-ai/cordis' {
-  /** 中文说明：类型或类 Context 约束宿主、交互或任务数据职责。 */
   interface Context {
     permissionPresets: PermissionPresetService
   }
 }
 
+declare module '@deepseek-ai/dsh-session-projection/types' {
+  interface SessionProjectionStateMap {
+    /** Latest logged permission overrides and constructor-seed provenance. */
+    permissions: PermissionProjectionState
+  }
+}
+
 declare module '@deepseek-ai/dsh-session/types' {
-  /** 中文说明：类型或类 SessionEventMap 约束宿主、交互或任务数据职责。 */
   interface SessionEventMap {
     /**
      * Records the selected preset as durable, log-only user intent. The knob
      * events follow in the same turn and control execution; this event stays
-     * out of the model transcript and lets {@link effectivePermissionPreset}
+     * out of the model transcript and lets the permission projection unit
      * preserve a selection when bundles match.
      */
     'permission/preset': { preset: string }
@@ -62,7 +55,6 @@ declare module '@deepseek-ai/dsh-session/types' {
 }
 
 /** One preset's sandbox/approval bundle and optional client presentation. */
-/* 中文说明：类型或类 PresetSpec 约束宿主、交互或任务数据职责。 */
 export interface PresetSpec {
   /** The `sandbox/mode` value the preset writes through. */
   sandbox: SandboxMode
@@ -78,40 +70,15 @@ export interface PresetSpec {
  * Returned when effective knob values match no table entry. Clients may show
  * it as the current value, but it is never a switch target or event payload.
  */
-/* 中文说明：服务局部值 CUSTOM_PRESET，由紧邻初始化决定。 */
 export const CUSTOM_PRESET = 'custom'
 
 /** Settings namespace carrying the default for future sessions. */
-/* 中文说明：服务局部值 解构结果，由紧邻初始化决定。 */
-export const PERMISSION_SETTINGS_NAMESPACE = settingsNamespace('permission')
+export const PERMISSION_SETTINGS_NAMESPACE = 'permission'
 
 /**
- * Fold the last selected preset from the durable log; replay needs no catch-up
- * state.
- * @param events - session events in log order; other event types are ignored.
- * @returns the last selected preset, or undefined when none was recorded.
+ * The projection unit's knob state: the last seen value of each knob event,
+ * null before an override (composition defaults apply at view time).
  */
-/*
- * 中文说明：函数 effectivePermissionPreset 的参数见签名，返回结果供相邻流程使用；示例见本文件。
- * @param events 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
- * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
- */
-export function effectivePermissionPreset(events: readonly SessionEvent[]): string | undefined {
-  /** 中文说明：服务局部值 index，由紧邻初始化决定。 */
-  for (let index = events.length - 1; index >= 0; index -= 1) {
-    /** 中文说明：服务局部值 event，由紧邻初始化决定。 */
-    const event = events[index] as SessionEvent
-    if (event.type === 'permission/preset') return event.data.preset
-  }
-  return undefined
-}
-
-/**
- * The projection unit's state: the last seen value of each knob event, null
- * before an override (composition defaults apply at view time). Plain JSON
- * (persisted-cache precondition).
- */
-/* 中文说明：类型或类 KnobState 约束宿主、交互或任务数据职责。 */
 export interface KnobState {
   /** Last `permission/preset` payload, or null. */
   preset: string | null
@@ -121,15 +88,13 @@ export interface KnobState {
   approval: ApprovalPolicy | null
 }
 
-declare module '@deepseek-ai/dsh-session-projection/types' {
-  /** 中文说明：类型或类 SessionProjectionStateMap 约束宿主、交互或任务数据职责。 */
-  interface SessionProjectionStateMap {
-    permissions: KnobState
-  }
+/** Projection state for permission overrides and constructor-seed provenance. */
+interface PermissionProjectionState extends KnobState {
+  /** Whether the log contains a constructor-seed boundary. */
+  seeded: boolean
 }
 
-/** 中文说明：服务局部值 knobStateSchema，由紧邻初始化决定。 */
-const knobStateSchema: zod.ZodType<KnobState> = zod.object({
+const permissionStateSchema: zod.ZodType<PermissionProjectionState> = zod.object({
   preset: zod.string().nullable(),
   sandbox: zod.union([
     zod.literal('read-only'),
@@ -137,26 +102,23 @@ const knobStateSchema: zod.ZodType<KnobState> = zod.object({
     zod.literal('danger-full-access'),
   ]).nullable(),
   approval: zod.union([zod.literal('ask'), zod.literal('never')]).nullable(),
+  seeded: zod.boolean(),
 }).strict()
 
 /** State for the empty log: every knob at its composition default. */
-/* 中文说明：服务局部值 EMPTY_KNOBS，由紧邻初始化决定。 */
 const EMPTY_KNOBS: KnobState = { preset: null, sandbox: null, approval: null }
 
 /**
- * One-event knob transition (the projection unit's `apply`). Uninterested
+ * One-event permission-state transition (the projection unit's `apply`). Unrelated
  * events return the same reference — the registry's change gate.
  * @param state - the folded knob state before `event`.
  * @param event - one committed session event.
- * @returns the next state; the same reference when the event is not a knob.
+ * @returns the next state; the same reference when the event is unrelated.
  */
-/*
- * 中文说明：函数 applyKnobEvent 的参数见签名，返回结果供相邻流程使用；示例见本文件。
- * @param state 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
- * @param event 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
- * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
- */
-export function applyKnobEvent(state: KnobState, event: SessionEvent): KnobState {
+function applyPermissionEvent(
+  state: PermissionProjectionState,
+  event: SessionEvent,
+): PermissionProjectionState {
   switch (event.type) {
     case 'permission/preset':
       return { ...state, preset: event.data.preset }
@@ -164,30 +126,20 @@ export function applyKnobEvent(state: KnobState, event: SessionEvent): KnobState
       return { ...state, sandbox: event.data.mode }
     case 'approval/policy':
       return { ...state, approval: event.data.policy }
+    case 'session/end-seed':
+      return { ...state, seeded: true }
     default:
       return state
   }
 }
 
-/** Whole-log knob fold (the cold-read parallel of {@link applyKnobEvent}). */
-/* 中文说明：函数 foldKnobs 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
-function foldKnobs(events: readonly SessionEvent[]): KnobState {
-  /** 中文说明：服务局部值 state，由紧邻初始化决定。 */
-  let state = EMPTY_KNOBS
-  /** 中文说明：服务局部值 event，由紧邻初始化决定。 */
-  for (const event of events) state = applyKnobEvent(state, event)
-  return state
-}
-
 /** User setting resolved when a new session receives its initial permission. */
-/* 中文说明：类型或类 PermissionSettings 约束宿主、交互或任务数据职责。 */
 export interface PermissionSettings {
   /** Preset pinned into a newly created session. */
   defaultPreset: string
 }
 
 /** The {@link PermissionPresetService} config: preset table and composition default. */
-/* 中文说明：类型或类 Config 约束宿主、交互或任务数据职责。 */
 export interface Config {
   /**
    * The preset table: name → knob bundle. Defaults to `workspace-write`
@@ -207,7 +159,6 @@ export interface Config {
  * confining `ctx.shell` executor and `ctx.approval`; unmatched knob values are
  * reported as {@link CUSTOM_PRESET}, not an error.
  */
-/* 中文说明：类型或类 PermissionPresetService 约束宿主、交互或任务数据职责。 */
 export class PermissionPresetService extends Service {
   // Inline schema call: the config catalog walks `static Config` statically.
   static Config: z<Config> = z.object({
@@ -229,7 +180,7 @@ export class PermissionPresetService extends Service {
     defaultPreset: z.string(),
   })
 
-  static inject = ['shell', 'approval', 'sessions']
+  static inject = ['shell', 'approval', 'sessions', 'sessionProjections']
 
   private readonly presets: Record<string, PresetSpec>
   private defaultSettings: () => PermissionSettings
@@ -244,55 +195,37 @@ export class PermissionPresetService extends Service {
     if (ctx.shell.sandboxMode === undefined) {
       throw new Error('permission: the mounted bash executor does not confine (no sandboxMode) — presets bundle a sandbox mode, so composing this plugin over an unconfined executor is a misconfiguration')
     }
-    /** 中文说明：服务局部值 inferredDefault，由紧邻初始化决定。 */
     const inferredDefault = this.derive(EMPTY_KNOBS)
-    /** 中文说明：服务局部值 defaultPreset，由紧邻初始化决定。 */
     const defaultPreset = config.defaultPreset ?? inferredDefault
     if (defaultPreset === CUSTOM_PRESET) {
       throw new Error('permission: composed sandbox and approval defaults match no preset; configure defaultPreset explicitly')
     }
     this.resolve(defaultPreset)
-    /** 中文说明：服务局部值 baseSettings，由紧邻初始化决定。 */
     const baseSettings: PermissionSettings = { defaultPreset }
     this.defaultSettings = () => baseSettings
-    /** 中文说明：服务局部值 presetChoices，由紧邻初始化决定。 */
     const presetChoices = this.names.map((name) => {
-      /** 中文说明：服务局部值 choice，由紧邻初始化决定。 */
       const choice = z.const(name)
-      /** 中文说明：服务局部值 label，由紧邻初始化决定。 */
       const label = this.presets[name]?.name
       return label === undefined ? choice : choice.description(label)
     })
-    /** 中文说明：服务局部值 settingsSchema，由紧邻初始化决定。 */
     const settingsSchema: z<PermissionSettings> = z.object({
       defaultPreset: z.union(presetChoices).required(),
     })
-    installSettingsSection(ctx, PERMISSION_SETTINGS_NAMESPACE, settingsSchema, baseSettings, {
-      setSource: (current) => {
-        this.defaultSettings = current
-      },
-      // The source thunk reads the latest scope snapshot at session creation;
-      // no process-level registration needs replacement on change.
-      onChange: () => {},
+    ctx.inject(['settings'], (settingsCtx) => {
+      settingsCtx.settings.installSection(ctx, PERMISSION_SETTINGS_NAMESPACE, settingsSchema, baseSettings, {
+        setSource: (current) => {
+          this.defaultSettings = current
+        },
+        // The source thunk reads the latest scope snapshot at session creation;
+        // no process-level registration needs replacement on change.
+        onChange: () => {},
+      })
     })
 
-    ctx.on('session/created', (session) => {
-      this.pinInitialPermission(session)
-    })
-    /** 中文说明：服务局部值 session，由紧邻初始化决定。 */
-    for (const session of ctx.sessions.list()) {
-      this.pinInitialPermission(session)
-    }
-
-    // The permissions projection unit: fold the three whole-value knob
-    // events; view derives the select over the composition defaults this
-    // service already owns. The unit child activates only when a projection
-    // registry is composed (headless assemblies stay unaffected).
     // zod `.optional()` types the key `string | undefined` while the domain
     // says `description?: string`; on the JSON wire the two serialize
     // identically (absent), so the cast records exactly that
     // exactOptionalPropertyTypes widening (the Wire<T> precedent).
-    /** 中文说明：服务局部值 selectSchema，由紧邻初始化决定。 */
     const selectSchema = zod.object({
       options: zod.array(zod.object({
         value: zod.string().min(1),
@@ -301,16 +234,20 @@ export class PermissionPresetService extends Service {
       })),
       currentValue: zod.string().min(1),
     }) as unknown as zod.ZodType<PermissionSelect>
-    ctx.inject(['sessionProjections'], (projectionCtx) => {
-      projectionCtx.sessionProjections.register<'permissions', KnobState>({
-        key: 'permissions',
-        stateSchema: knobStateSchema,
-        init: () => EMPTY_KNOBS,
-        apply: applyKnobEvent,
-        wire: { viewSchema: selectSchema, view: state => this.selectFor(state) },
-        stateVersion: 1,
-      })
+    ctx.sessionProjections.register({
+      key: 'permissions',
+      stateVersion: 2,
+      stateSchema: permissionStateSchema,
+      init: () => ({ ...EMPTY_KNOBS, seeded: false }),
+      apply: applyPermissionEvent,
+      wire: { viewSchema: selectSchema, view: state => this.selectFor(state) },
     })
+    ctx.on('session/created', (session) => {
+      this.pinInitialPermission(session)
+    })
+    for (const session of ctx.sessions.list()) {
+      this.pinInitialPermission(session)
+    }
 
     // The /permission command: the one write path a web client uses (the
     // popup contribution submits the picked preset as this line). The child
@@ -324,10 +261,9 @@ export class PermissionPresetService extends Service {
         // surface that renders `name · text` (the web command row) would
         // otherwise read `permission · Permission preset: workspace-write.`
         handler: ({ agent, rawInput }) => {
-          /** 中文说明：服务局部值 name，由紧邻初始化决定。 */
           const name = rawInput.trim()
           if (name === '') {
-            return { kind: 'success', text: `current preset ${this.current(agent.session.events)} (available: ${this.names.join(', ')})` }
+            return { kind: 'success', text: `current preset ${this.current(agent.session)} (available: ${this.names.join(', ')})` }
           }
           if (!this.names.includes(name)) {
             return { kind: 'error', text: `unknown preset "${name}" (available: ${this.names.join(', ')})` }
@@ -356,31 +292,32 @@ export class PermissionPresetService extends Service {
     return this.defaultSettings().defaultPreset
   }
 
+  private permissionState(session: Session): PermissionProjectionState {
+    const state = this.ctx.sessionProjections.stateOf(session, 'permissions')
+    if (state === undefined) throw new Error('permission: permissions session projection is not registered')
+    return state
+  }
+
   /**
    * Resolve the preset matching the effective knob values. A still-matching
    * last selection wins shared-bundle ties; otherwise the first table match
    * wins, or {@link CUSTOM_PRESET} when no entry matches.
-   * @param events - the session's events in log order.
+   * @param session - the session whose knob state is read.
    * @returns the effective preset name, or `custom` when nothing matches.
    */
-  current(events: readonly SessionEvent[]): string {
-    return this.derive(foldKnobs(events))
+  current(session: Session): string {
+    return this.derive(this.permissionState(session))
   }
 
   /** Resolve the preset for one folded knob state (the shared mathematics of `current` and the projection unit). */
   private derive(state: KnobState): string {
-    /** 中文说明：服务局部值 sandbox，由紧邻初始化决定。 */
     const sandbox = state.sandbox ?? this.ctx.shell.sandboxMode
-    /** 中文说明：服务局部值 approval，由紧邻初始化决定。 */
     const approval = state.approval ?? this.ctx.approval.config.policy ?? 'ask'
-    /** 中文说明：服务局部值 matches，由紧邻初始化决定。 */
     const matches = (spec: PresetSpec): boolean => spec.sandbox === sandbox && spec.approval === approval
     if (state.preset !== null) {
-      /** 中文说明：服务局部值 spec，由紧邻初始化决定。 */
       const spec = this.presets[state.preset]
       if (spec !== undefined && matches(spec)) return state.preset
     }
-    /** 中文说明：服务局部值 [name，由紧邻初始化决定。 */
     for (const [name, spec] of Object.entries(this.presets)) {
       if (matches(spec)) return name
     }
@@ -394,7 +331,6 @@ export class PermissionPresetService extends Service {
    * @returns the `permissions` projection payload.
    */
   selectFor(state: KnobState): PermissionSelect {
-    /** 中文说明：服务局部值 currentValue，由紧邻初始化决定。 */
     const currentValue = this.derive(state)
     return {
       options: [
@@ -412,7 +348,6 @@ export class PermissionPresetService extends Service {
    * @throws when `name` is not in the table.
    */
   resolve(name: string): PresetSpec {
-    /** 中文说明：服务局部值 spec，由紧邻初始化决定。 */
     const spec = this.presets[name]
     if (spec === undefined) {
       throw new Error(`permission: unknown preset "${name}" (known: ${Object.keys(this.presets).join(', ')})`)
@@ -431,7 +366,6 @@ export class PermissionPresetService extends Service {
     if (name === CUSTOM_PRESET) {
       return { value: CUSTOM_PRESET, name: 'Custom', description: 'Current sandbox and approval settings do not match a preset.' }
     }
-    /** 中文说明：服务局部值 spec，由紧邻初始化决定。 */
     const spec = this.resolve(name)
     return { value: name, name: spec.name ?? name, ...spec.description !== undefined ? { description: spec.description } : {} }
   }
@@ -448,17 +382,15 @@ export class PermissionPresetService extends Service {
 
   /** Apply one preset with the caller-selected live or initialization policy writer. */
   private apply(session: Session, name: string, setApproval: (policy: ApprovalPolicy) => void): void {
-    /** 中文说明：服务局部值 spec，由紧邻初始化决定。 */
     const spec = this.resolve(name)
-    if (this.current(session.events) !== name) {
+    if (this.current(session) !== name) {
       session.append('permission/preset', { preset: name })
     }
-    /** 中文说明：服务局部值 events，由紧邻初始化决定。 */
-    const events = session.events
-    if (spec.sandbox !== (effectiveSandboxMode(events) ?? this.ctx.shell.sandboxMode)) {
+    const knobs = this.permissionState(session)
+    if (spec.sandbox !== (knobs.sandbox ?? this.ctx.shell.sandboxMode)) {
       setSandboxMode(session, spec.sandbox)
     }
-    if (spec.approval !== (effectiveApprovalPolicy(events) ?? this.ctx.approval.config.policy ?? 'ask')) {
+    if (spec.approval !== (knobs.approval ?? this.ctx.approval.config.policy ?? 'ask')) {
       setApproval(spec.approval)
     }
   }
@@ -470,20 +402,13 @@ export class PermissionPresetService extends Service {
    * the missing durable facts.
    */
   private pinInitialPermission(session: Session): void {
-    /** 中文说明：服务局部值 events，由紧邻初始化决定。 */
-    const events = session.events
-    /** 中文说明：服务局部值 selected，由紧邻初始化决定。 */
-    const selected = effectivePermissionPreset(events)
-    /** 中文说明：服务局部值 sandbox，由紧邻初始化决定。 */
-    const sandbox = effectiveSandboxMode(events)
-    /** 中文说明：服务局部值 approval，由紧邻初始化决定。 */
-    const approval = effectiveApprovalPolicy(events)
-    /** 中文说明：服务局部值 seeded，由紧邻初始化决定。 */
-    const seeded = events.some(event => event.type === 'session/end-seed')
-    if (selected === undefined && sandbox === undefined && approval === undefined && !seeded) {
-      /** 中文说明：服务局部值 name，由紧邻初始化决定。 */
+    const state = this.permissionState(session)
+    const selected = state.preset
+    const sandbox = state.sandbox
+    const approval = state.approval
+    const seeded = state.seeded
+    if (selected === null && sandbox === null && approval === null && !seeded) {
       const name = this.defaultPreset
-      /** 中文说明：服务局部值 spec，由紧邻初始化决定。 */
       const spec = this.resolve(name)
       session.append('permission/preset', { preset: name })
       setSandboxMode(session, spec.sandbox)
@@ -491,21 +416,14 @@ export class PermissionPresetService extends Service {
       return
     }
 
-    /** 中文说明：服务局部值 state，由紧邻初始化决定。 */
-    const state: KnobState = {
-      preset: selected ?? null,
-      sandbox: sandbox ?? null,
-      approval: approval ?? null,
-    }
-    /** 中文说明：服务局部值 effective，由紧邻初始化决定。 */
     const effective = this.derive(state)
-    if (selected === undefined && effective !== CUSTOM_PRESET) {
+    if (selected === null && effective !== CUSTOM_PRESET) {
       session.append('permission/preset', { preset: effective })
     }
-    if (sandbox === undefined) {
+    if (sandbox === null) {
       setSandboxMode(session, this.ctx.shell.sandboxMode as SandboxMode)
     }
-    if (approval === undefined) {
+    if (approval === null) {
       setApprovalPolicy(session, this.ctx.approval.config.policy ?? 'ask')
     }
   }

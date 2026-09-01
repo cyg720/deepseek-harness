@@ -1,11 +1,3 @@
-/**
- * 文件职责：验证 Typert Host 网关从严格描述符到 Cordis 服务调用及 HTTP/RPC 传输的完整装配。
- * 技术维度：使用 Vitest、Cordis Service 装饰器、Zod、模拟连接和临时 HTTP 服务器执行宿主侧集成测试。
- * 产品维度：保证远程业务调用被正确认领、校验、取消和错误映射，未认领接口继续交给其他路由。
- * 逻辑维度：定义多种服务与错误夹具，注册查找和上下文提供者，再覆盖调用、冲突、缓存、回滚和 HTTP 分发。
- * 关键边界：只有 Typert 严格定义与服务绑定一致时才能公开；错误描述符必须在接收真实请求前失败。
- * 新手阅读建议：先看 GoalService 与描述符的对应关系，再看模拟连接拦截器，最后阅读失败类服务为何被拒绝。
- */
 import { createServer } from 'node:http'
 import type { AddressInfo } from 'node:net'
 import { describe, expect, it } from 'vitest'
@@ -17,8 +9,8 @@ import type { WebServer, WebRoute } from '@deepseek-ai/dsh-host-webserver'
 import {
   bindTypertRemote,
   Remote,
+  RemoteError,
   RemoteScope,
-  TypertLookupFailure,
   type InvocationDescriptor,
   type TypertContext,
   type TypertLookup,
@@ -28,12 +20,10 @@ import TypertRegistry, { type TypertContribution } from '@deepseek-ai/dsh-typert
 import TypertGatewayService, { TypertGatewayError } from '@deepseek-ai/dsh-api-gateway'
 import { provideBrowserCredentials } from './browser-credentials.ts'
 
-/** 网关查找测试使用的最小代理业务对象。 */
 interface FixtureAgent {
   readonly id: string
 }
 
-/** 带调用作用域标记的测试 Context。 */
 interface MarkedContext extends Context {
   readonly fixtureScope?: string
 }
@@ -47,16 +37,18 @@ declare module '@deepseek-ai/dsh-typert-protocol' {
   interface TypertContextMap {
     gatewayFixture: TypertContext<string>
   }
+
+  interface RemoteErrorDetailsMap {
+    'session/agent-busy': { readonly reason: string }
+  }
 }
 
-// 不声明服务、事件和对象的最小 Typert 模型贡献。
 const emptyModel: TypertContribution['model'] = {
   services: [],
   events: [],
   objects: [],
 }
 
-/** 提供直接、作用域、透传和失败方法的主要网关业务夹具。 */
 class GoalService extends Service {
   readonly typertRemote = bindTypertRemote(this, 'goals')
   readonly calls: string[] = []
@@ -110,15 +102,12 @@ class GoalService extends Service {
   }
 }
 
-/** 模拟连接拦截器返回的成功或失败 RPC 结果。 */
 type FakeRpcResult =
   | { readonly ok: true; readonly value: unknown }
   | { readonly ok: false; readonly error: { readonly code: string; readonly message: string; readonly details: object } }
 
-/** 模拟连接保存的异步 RPC 处理函数。 */
 type FakeRpcHandler = (endpoint: string, payload: unknown, signal: AbortSignal) => Promise<FakeRpcResult>
 
-/** 记录网关注册的频道、认领函数和处理器的连接服务夹具。 */
 class FakeConnectionService extends Service {
   channel: string | undefined
   matches: ((endpoint: string) => boolean) | undefined
@@ -154,7 +143,6 @@ class FakeConnectionService extends Service {
   }
 }
 
-/** 创建仅实现路由注册能力的内存 WebServer 夹具。 */
 function fakeHttpServer(routes: WebRoute[]): Pick<WebServer, 'register' | 'tapIndex' | 'port'> {
   return {
     register(route) {
@@ -169,7 +157,6 @@ function fakeHttpServer(routes: WebRoute[]): Pick<WebServer, 'register' | 'tapIn
   }
 }
 
-/** 在随机本地端口启动单一路由，返回访问地址和关闭函数。 */
 async function serveRoute(route: WebRoute): Promise<{ readonly origin: string; close(): Promise<void> }> {
   const server = createServer((request, response) => {
     void route.handler(request, response)
@@ -216,7 +203,6 @@ class FirstSharedService extends Service {
   }
 }
 
-/** 第二个共享命名空间服务，用于验证重复命名空间拒绝。 */
 class SecondSharedService extends Service {
   readonly typertRemote = bindTypertRemote(this, 'secondShared', { namespace: 'shared' })
 
@@ -230,7 +216,6 @@ class SecondSharedService extends Service {
   }
 }
 
-/** 带默认参数的方法夹具，用于验证不支持的参数语法。 */
 class DefaultParameterService extends Service {
   readonly typertRemote = bindTypertRemote(this, 'defaultParameter', { namespace: 'invalid-default' })
 
@@ -244,7 +229,6 @@ class DefaultParameterService extends Service {
   }
 }
 
-/** 带解构参数的方法夹具，用于验证参数名无法稳定投影时拒绝。 */
 class DestructuredParameterService extends Service {
   readonly typertRemote = bindTypertRemote(this, 'destructuredParameter', { namespace: 'invalid-destructure' })
 
@@ -258,7 +242,6 @@ class DestructuredParameterService extends Service {
   }
 }
 
-/** 带剩余参数的方法夹具，用于验证可变参数不进入远程定义。 */
 class RestParameterService extends Service {
   readonly typertRemote = bindTypertRemote(this, 'restParameter', { namespace: 'invalid-rest' })
 
@@ -272,7 +255,6 @@ class RestParameterService extends Service {
   }
 }
 
-/** 取消信号不在末尾的方法夹具，用于验证签名约束。 */
 class NonFinalSignalService extends Service {
   readonly typertRemote = bindTypertRemote(this, 'nonFinalSignal', { namespace: 'invalid-signal' })
 
@@ -286,7 +268,6 @@ class NonFinalSignalService extends Service {
   }
 }
 
-/** 远程绑定信息与服务不一致的夹具。 */
 class WrongBindingService extends Service {
   readonly typertRemote = bindTypertRemote(this, 'notWrongBinding', { namespace: 'wrong-binding' })
 
@@ -300,7 +281,6 @@ class WrongBindingService extends Service {
   }
 }
 
-/** 同时由普通导出和远程声明占用方法的冲突夹具。 */
 class ExportedMethodService extends Service {
   readonly typertRemote = bindTypertRemote(this, 'exportedMethod', { namespace: 'exported' })
 
@@ -314,7 +294,6 @@ class ExportedMethodService extends Service {
   }
 }
 
-/** 缺少有效远程方法名的服务夹具。 */
 class EmptyMethodService extends Service {
   readonly typertRemote = bindTypertRemote(this, 'emptyMethod', { namespace: 'empty' })
 
@@ -328,7 +307,6 @@ class EmptyMethodService extends Service {
   }
 }
 
-/** 多个参数映射到同一线字段的冲突夹具。 */
 class CollidingWireService extends Service {
   readonly typertRemote = bindTypertRemote(this, 'collidingWire', { namespace: 'colliding-wire' })
 
@@ -342,7 +320,6 @@ class CollidingWireService extends Service {
   }
 }
 
-/** 上下文标识与业务参数争用线字段的冲突夹具。 */
 class ContextWireService extends Service {
   readonly typertRemote = bindTypertRemote(this, 'contextWire', { namespace: 'context-wire' })
 
@@ -356,7 +333,6 @@ class ContextWireService extends Service {
   }
 }
 
-/** 不提供远程绑定的无关服务，用于触发服务集合版本变化。 */
 class NoBindingService extends Service {
   constructor(ctx: Context) {
     super(ctx, 'noBinding')
@@ -367,7 +343,6 @@ class NoBindingService extends Service {
   }
 }
 
-/** 统计绑定读取次数的服务，用于验证网关认领缓存失效。 */
 class ObservedClaimService extends Service {
   private readonly binding = bindTypertRemote(this, 'observedClaim', { namespace: 'observed-claim' })
   bindingReads = 0
@@ -387,7 +362,6 @@ class ObservedClaimService extends Service {
   }
 }
 
-/** 描述符引用不存在实现方法时使用的失败夹具。 */
 class MissingMethodService extends Service {
   readonly typertRemote = bindTypertRemote(this, 'missingMethod', { namespace: 'missing-method' })
 
@@ -401,7 +375,6 @@ class MissingMethodService extends Service {
   }
 }
 
-/** 声明远程方法的基类，用于验证继承方法解析。 */
 class InheritedMethodBase extends Service {
   readonly typertRemote = bindTypertRemote(this, 'inheritedMethod', { namespace: 'inherited' })
 
@@ -415,7 +388,6 @@ class InheritedMethodBase extends Service {
   }
 }
 
-/** 继承远程方法而不重写的具体服务夹具。 */
 class InheritedMethodService extends InheritedMethodBase {}
 
 describe('TypertGatewayService', () => {
@@ -484,7 +456,7 @@ describe('TypertGatewayService', () => {
       namespace: 'goals',
       method: 'create',
       args: { agentId: 'agent-1', request: { title: 'ship' } },
-    }), 'lookup-unavailable')
+    }), 'gateway/lookup-unavailable')
     expect(service.calls).toEqual([])
   })
 
@@ -517,7 +489,7 @@ describe('TypertGatewayService', () => {
     })).resolves.toBe('land')
     await expectCode(ctx.typertGateway.invoke({
       namespace: 'other', method: 'absent', args: {},
-    }), 'invocation-unavailable')
+    }), 'gateway/invocation-unavailable')
   })
 
   it('rejects SRC wire collisions and unavailable Context providers', async () => {
@@ -528,14 +500,14 @@ describe('TypertGatewayService', () => {
       namespace: 'colliding-wire',
       method: 'run',
       args: { agentId: 'agent-1' },
-    }), 'signature-invalid')
+    }), 'gateway/signature-invalid')
 
     const missing = await setup()
     await expectCode(missing.ctx.typertGateway.invoke({
       namespace: 'goals',
       method: 'rename',
       args: { agentId: 'agent-1', request: { title: 'land' } },
-    }), 'context-unavailable')
+    }), 'gateway/context-unavailable')
 
     const contextCollision = await setupGateway()
     await contextCollision.plugin(ContextWireService)
@@ -544,7 +516,7 @@ describe('TypertGatewayService', () => {
       namespace: 'context-wire',
       method: 'run',
       args: { agentId: 'agent-1' },
-    }), 'signature-invalid')
+    }), 'gateway/signature-invalid')
   })
 
   it('re-reads Service and providers on every strict invocation', async () => {
@@ -558,7 +530,7 @@ describe('TypertGatewayService', () => {
       namespace: 'goals',
       method: 'create',
       args: { agentId: 'agent-1', request: { title: 'ship' } },
-    }), 'lookup-unavailable')
+    }), 'gateway/lookup-unavailable')
 
     registerAgentLookup(ctx, agent)
     await serviceFiber.dispose()
@@ -566,7 +538,7 @@ describe('TypertGatewayService', () => {
       namespace: 'goals',
       method: 'create',
       args: { agentId: 'agent-1', request: { title: 'ship' } },
-    }), 'service-unavailable')
+    }), 'gateway/service-unavailable')
   })
 
   it('re-reads and contains Context providers', async () => {
@@ -580,7 +552,7 @@ describe('TypertGatewayService', () => {
       namespace: 'goals',
       method: 'rename',
       args: { agentId: 'agent-1', request: { title: 'land' } },
-    }), 'context-unavailable')
+    }), 'gateway/context-unavailable')
 
     ctx.typert.contexts.registerHost('gatewayFixture', {
       ...contextProvider(scoped),
@@ -590,13 +562,13 @@ describe('TypertGatewayService', () => {
       namespace: 'goals',
       method: 'rename',
       args: { agentId: 'agent-1', request: { title: 'land' } },
-    }), 'context-failed')
+    }), 'gateway/context-failed')
     expect(error.cause).toEqual(new Error('provider failed'))
   })
 
   it('preserves a Host Context policy rejection for the active RPC adapter', async () => {
     const { ctx } = await setup()
-    const rejection = new TypertLookupFailure({ code: 'agent-busy', message: 'owned', details: { reason: 'subagent' } })
+    const rejection = new RemoteError('session/agent-busy', 'owned', { reason: 'subagent' })
     ctx.typert.contexts.registerHost('gatewayFixture', {
       ...contextProvider(ctx.extend()),
       resolve: async () => { throw rejection },
@@ -622,7 +594,7 @@ describe('TypertGatewayService', () => {
       namespace: 'goals',
       method: 'rename',
       args: { agentId: 'agent-1', request: { title: 'land' } },
-    }), 'provider-mismatch')
+    }), 'gateway/provider-mismatch')
     await mismatch()
 
     ctx.typert.contexts.registerHost('gatewayFixture', {
@@ -633,7 +605,7 @@ describe('TypertGatewayService', () => {
       namespace: 'goals',
       method: 'rename',
       args: { agentId: 'agent-1', request: { title: 'land' } },
-    }), 'context-not-found')
+    }), 'gateway/context-not-found')
   })
 
   it('contains lookup provider failures and missing identities', async () => {
@@ -647,7 +619,7 @@ describe('TypertGatewayService', () => {
       namespace: 'goals',
       method: 'create',
       args: { agentId: 'agent-1', request: { title: 'ship' } },
-    }), 'lookup-failed')
+    }), 'gateway/lookup-failed')
     expect(failure.cause).toEqual(new Error('lookup failed'))
     await throwing()
 
@@ -659,7 +631,7 @@ describe('TypertGatewayService', () => {
       namespace: 'goals',
       method: 'create',
       args: { agentId: 'agent-1', request: { title: 'ship' } },
-    }), 'lookup-not-found')
+    }), 'gateway/lookup-not-found')
     await missing()
 
     ctx.typert.lookups.register('gatewayFixture', {
@@ -682,7 +654,7 @@ describe('TypertGatewayService', () => {
       namespace: 'goals',
       method: 'passthrough',
       args: { value: 'would pass through SRC' },
-    }), 'definition-unavailable')
+    }), 'gateway/definition-unavailable')
   })
 
   it('seeds the no-downgrade guard from definitions present before Gateway startup', async () => {
@@ -697,7 +669,7 @@ describe('TypertGatewayService', () => {
       namespace: 'goals',
       method: 'passthrough',
       args: { value: 'would pass through SRC' },
-    }), 'definition-unavailable')
+    }), 'gateway/definition-unavailable')
   })
 
   it('retains the no-downgrade guard across Gateway Service reloads', async () => {
@@ -716,7 +688,7 @@ describe('TypertGatewayService', () => {
       namespace: 'goals',
       method: 'passthrough',
       args: { value: 'would pass through SRC' },
-    }), 'definition-unavailable')
+    }), 'gateway/definition-unavailable')
   })
 
   it('rejects ambiguous SRC endpoints independently of reflection order', async () => {
@@ -728,7 +700,7 @@ describe('TypertGatewayService', () => {
       namespace: 'shared',
       method: 'run',
       args: { value: 'ship' },
-    }), 'ambiguous-endpoint')
+    }), 'gateway/ambiguous-endpoint')
     expect(error.message).toContain('firstShared, secondShared')
   })
 
@@ -746,7 +718,7 @@ describe('TypertGatewayService', () => {
         namespace: testCase.namespace,
         method: 'run',
         args: testCase.args,
-      }), 'signature-invalid')
+      }), 'gateway/signature-invalid')
     }
   })
 
@@ -760,7 +732,7 @@ describe('TypertGatewayService', () => {
       namespace: 'goals',
       method: 'create',
       args: { agentId: 'agent-1', request: { title: 'ship' } },
-    }), 'signature-invalid')
+    }), 'gateway/signature-invalid')
   })
 
   it('requires exact wire fields before invoking business code', async () => {
@@ -771,17 +743,17 @@ describe('TypertGatewayService', () => {
       namespace: 'goals',
       method: 'create',
       args: { request: { title: 'ship' } },
-    }), 'arguments-invalid')
+    }), 'gateway/arguments-invalid')
     await expectCode(ctx.typertGateway.invoke({
       namespace: 'goals',
       method: 'create',
       args: { agentId: 'agent-1', request: { title: 'ship' }, optional: true },
-    }), 'arguments-invalid')
+    }), 'gateway/arguments-invalid')
     await expectCode(ctx.typertGateway.invoke({
       namespace: 'goals',
       method: 'create',
       args: [] as unknown as Record<string, unknown>,
-    }), 'arguments-invalid')
+    }), 'gateway/arguments-invalid')
     expect(service.calls).toEqual([])
   })
 
@@ -793,7 +765,7 @@ describe('TypertGatewayService', () => {
       namespace: 'goals',
       method: 'strictOnly',
       args: { request: { title: 1 } },
-    }), 'input-invalid')
+    }), 'gateway/input-invalid')
 
     service.nextResult = { title: 1 }
     await expect(ctx.typertGateway.invoke({
@@ -831,7 +803,7 @@ describe('TypertGatewayService', () => {
       namespace: 'goals',
       method: 'passthrough',
       args: { value },
-    }), 'input-invalid')
+    }), 'gateway/input-invalid')
   })
 
   it('admits an omitted SRC field and hands the Host method undefined', async () => {
@@ -855,7 +827,7 @@ describe('TypertGatewayService', () => {
       namespace: 'goals',
       method: 'passthrough',
       args: { value: cyclic },
-    }), 'input-invalid')
+    }), 'gateway/input-invalid')
 
     const result = new Date(0)
     service.nextResult = result
@@ -887,7 +859,7 @@ describe('TypertGatewayService', () => {
     for (const value of [sparseWithExtra, symbolArray, symbolObject, hidden, accessor]) {
       await expectCode(ctx.typertGateway.invoke({
         namespace: 'goals', method: 'passthrough', args: { value },
-      }), 'input-invalid')
+      }), 'gateway/input-invalid')
     }
   })
 
@@ -903,7 +875,7 @@ describe('TypertGatewayService', () => {
       namespace: 'goals',
       method: 'create',
       args: { agentId: 'agent-1', request: { title: 'ship' } },
-    }), 'provider-mismatch')
+    }), 'gateway/provider-mismatch')
   })
 
   it('validates binding identity and active method availability', async () => {
@@ -913,7 +885,7 @@ describe('TypertGatewayService', () => {
       namespace: 'wrong-binding',
       method: 'run',
       args: { value: 'ship' },
-    }), 'binding-invalid')
+    }), 'gateway/binding-invalid')
 
     await ctx.plugin(GoalService)
     registerStrict(ctx, [{ ...passthroughDescriptor(), method: 'missing' }])
@@ -921,7 +893,7 @@ describe('TypertGatewayService', () => {
       namespace: 'goals',
       method: 'missing',
       args: { value: 'ship' },
-    }), 'method-unavailable')
+    }), 'gateway/method-unavailable')
   })
 
   it('requires a visible binding and supports explicitly provided plain Services', async () => {
@@ -936,7 +908,7 @@ describe('TypertGatewayService', () => {
     }])
     await expectCode(ctx.typertGateway.invoke({
       namespace: 'no-binding', method: 'run', args: { value: 'ship' },
-    }), 'binding-invalid')
+    }), 'gateway/binding-invalid')
 
     const plain: {
       typertRemote?: ReturnType<typeof bindTypertRemote>
@@ -973,7 +945,7 @@ describe('TypertGatewayService', () => {
     try {
       await expectCode(ctx.typertGateway.invoke({
         namespace: 'missing-method', method: 'run', args: { value: 'ship' },
-      }), 'method-unavailable')
+      }), 'gateway/method-unavailable')
     } finally {
       Object.defineProperty(MissingMethodService.prototype, 'run', descriptor)
     }
@@ -997,7 +969,7 @@ describe('TypertGatewayService', () => {
       namespace: 'goals',
       method: 'absent',
       args: {},
-    }), 'invocation-unavailable')
+    }), 'gateway/invocation-unavailable')
   })
 
   it('mounts a shared /api interceptor through an optional Connection and returns existing RPC results', async () => {
@@ -1034,7 +1006,7 @@ describe('TypertGatewayService', () => {
     const invalid = await handler('goals/create', { invalid: true }, signal)
     expect(invalid).toMatchObject({
       ok: false,
-      error: { code: 'internal' },
+      error: { code: 'gateway/internal' },
     })
     if (invalid.ok) throw new Error('invalid Remote payload unexpectedly succeeded')
     expect(invalid.error.message).toMatch(/exactly one plain-object args field/)
@@ -1050,13 +1022,13 @@ describe('TypertGatewayService', () => {
 
     for (const endpoint of ['goals', '/create', 'goals/', 'goals/create/extra']) {
       const result = await handler(endpoint, { args: {} }, signal)
-      expect(result).toMatchObject({ ok: false, error: { code: 'internal' } })
+      expect(result).toMatchObject({ ok: false, error: { code: 'gateway/internal' } })
       if (result.ok) throw new Error('invalid Remote endpoint unexpectedly succeeded')
       expect(result.error.message).toContain('invalid Remote endpoint')
     }
     for (const payload of [null, [], { args: {}, extra: true }, { only: true }, { args: null }, { args: [] }]) {
       const result = await handler('goals/create', payload, signal)
-      expect(result).toMatchObject({ ok: false, error: { code: 'internal' } })
+      expect(result).toMatchObject({ ok: false, error: { code: 'gateway/internal' } })
       if (result.ok) throw new Error('invalid Remote payload unexpectedly succeeded')
       expect(result.error.message).toContain('plain-object args field')
     }
@@ -1068,7 +1040,7 @@ describe('TypertGatewayService', () => {
       new AbortController().signal,
     )).resolves.toEqual({
       ok: false,
-      error: { code: 'internal', message: 'non-error failure', details: {} },
+      error: { code: 'gateway/internal', message: 'non-error failure', details: {} },
     })
 
     // A business rejection observed while the carrier signal is already aborted
@@ -1083,7 +1055,7 @@ describe('TypertGatewayService', () => {
     )).resolves.toEqual({
       ok: false,
       error: {
-        code: 'cancelled',
+        code: 'gateway/cancelled',
         message: 'Remote invocation "goals/fail" was aborted',
         details: {},
       },
@@ -1107,7 +1079,7 @@ describe('TypertGatewayService', () => {
       args: { clientId: 'missing-client', eventId: 'missing', outcome: { kind: 'next' } },
     }
     const inactive = await handler('$events/result', result, new AbortController().signal)
-    expect(inactive).toMatchObject({ ok: false, error: { code: 'internal' } })
+    expect(inactive).toMatchObject({ ok: false, error: { code: 'gateway/internal' } })
     if (inactive.ok) throw new Error('inactive Remote event result unexpectedly succeeded')
     expect(inactive.error.message).toContain('identifies no active event stream')
 
@@ -1130,7 +1102,7 @@ describe('TypertGatewayService', () => {
 
     for (const payload of [null, [], {}, { other: {} }]) {
       const invalid = await handler('$events/result', payload, carrier.signal)
-      expect(invalid).toMatchObject({ ok: false, error: { code: 'internal' } })
+      expect(invalid).toMatchObject({ ok: false, error: { code: 'gateway/internal' } })
       if (invalid.ok) throw new Error('invalid Remote event result payload unexpectedly succeeded')
       expect(invalid.error.message).toContain('requires exactly one plain-object args field')
     }
@@ -1154,13 +1126,13 @@ describe('TypertGatewayService', () => {
     await ctx.plugin(GoalService)
     registerStrict(ctx, [createDescriptor()])
     const failure = {
-      code: 'agent-busy',
+      code: 'session/agent-busy',
       message: 'session is owned by subagent routing',
       details: { reason: 'use subagent delivery for this child session' },
     }
     ctx.typert.lookups.register('gatewayFixture', {
       ...agentLookup({ id: 'agent-1' }),
-      resolve: () => { throw new TypertLookupFailure(failure) },
+      resolve: () => { throw new RemoteError('session/agent-busy', failure.message, failure.details) },
     })
     const handler = rawConnection(ctx).handler
     if (handler === undefined) throw new Error('fixture Connection did not retain the /api interceptor')
@@ -1257,7 +1229,7 @@ describe('TypertGatewayService', () => {
         rpcId: 'rpc-invalid',
         result: {
           ok: false,
-          error: { code: 'internal' },
+          error: { code: 'gateway/internal' },
         },
       })
       expect(JSON.stringify(invalidBody)).toContain('plain-object args field')
@@ -1281,7 +1253,7 @@ describe('TypertGatewayService', () => {
         rpcId: 'rpc-withdrawn',
         result: {
           ok: false,
-          error: { code: 'internal' },
+          error: { code: 'gateway/definition-unavailable' },
         },
       })
       expect(JSON.stringify(withdrawnBody)).toContain('strict definition was withdrawn')
@@ -1303,7 +1275,6 @@ describe('TypertGatewayService', () => {
   })
 })
 
-/** 装配网关和 GoalService，并返回可检查的原始服务及 fiber。 */
 async function setup(): Promise<{
   readonly ctx: Context
   readonly service: GoalService
@@ -1315,7 +1286,6 @@ async function setup(): Promise<{
   return { ctx, service: rawGoalService(ctx), serviceFiber }
 }
 
-/** 创建只挂载 Typert 注册表和 Host 网关的最小上下文。 */
 async function setupGateway(): Promise<Context> {
   const ctx = new Context()
   await ctx.plugin(TypertRegistry)
@@ -1323,13 +1293,11 @@ async function setupGateway(): Promise<Context> {
   return ctx
 }
 
-/** 从 Cordis 代理服务中取得测试需要检查的原始 GoalService。 */
 function rawGoalService(ctx: Context): GoalService {
   const receiver = ctx.get('goals') as unknown as GoalService & { [symbols.original]?: GoalService }
   return receiver[symbols.original] ?? receiver
 }
 
-/** 从 Cordis 代理服务中取得模拟连接的原始实例。 */
 function rawConnection(ctx: Context): FakeConnectionService {
   const receiver = ctx.get('connection') as unknown as FakeConnectionService & {
     [symbols.original]?: FakeConnectionService
@@ -1358,12 +1326,10 @@ function registerStrict(ctx: Context, descriptors: readonly InvocationDescriptor
   })
 }
 
-/** 注册把固定代理标识解析为业务代理对象的查找提供者。 */
 function registerAgentLookup(ctx: Context, agent: FixtureAgent): () => Promise<void> {
   return ctx.typert.lookups.register('gatewayFixture', agentLookup(agent))
 }
 
-/** 构造 FixtureAgent 与线协议字符串标识之间的查找提供者。 */
 function agentLookup(agent: FixtureAgent): TypertLookupProvider<FixtureAgent, string> {
   return {
     parameter: 'agent',
@@ -1374,7 +1340,6 @@ function agentLookup(agent: FixtureAgent): TypertLookupProvider<FixtureAgent, st
   }
 }
 
-/** 构造把固定代理标识解析为调用 Context 的作用域提供者。 */
 function contextProvider(context: Context) {
   return {
     wire: 'agentId',
@@ -1384,12 +1349,10 @@ function contextProvider(context: Context) {
   }
 }
 
-/** 将类型符号和 Zod 模式包装为严格 Typert 编解码描述。 */
 function strictCodec(typeSymbol: string, schema: z.ZodType): InvocationDescriptor['result'] {
   return { mode: 'strict', typeSymbol, schema }
 }
 
-/** 构造 GoalService.create 的直接远程调用描述符。 */
 function createDescriptor(): InvocationDescriptor {
   return {
     id: '@fixture/gateway#goals/create',
@@ -1423,7 +1386,6 @@ function createDescriptor(): InvocationDescriptor {
   }
 }
 
-/** 构造从 Host Context 取得代理作用域的 rename 描述符。 */
 function renameDescriptor(): InvocationDescriptor {
   return {
     id: '@fixture/gateway#goals/rename',
@@ -1449,7 +1411,6 @@ function renameDescriptor(): InvocationDescriptor {
   }
 }
 
-/** 构造使用源 JSON 透传模式的调用描述符。 */
 function passthroughDescriptor(): InvocationDescriptor {
   return {
     id: '@fixture/gateway#goals/passthrough',
@@ -1467,7 +1428,6 @@ function passthroughDescriptor(): InvocationDescriptor {
   }
 }
 
-/** 构造输入和输出复用同一严格对象模式的描述符。 */
 function strictOnlyDescriptor(): InvocationDescriptor {
   const value = strictCodec('@fixture/gateway#StrictValue', z.object({ title: z.string() }))
   return {
@@ -1482,7 +1442,6 @@ function strictOnlyDescriptor(): InvocationDescriptor {
 }
 
 function maybeDescriptor(): InvocationDescriptor {
-  // 同时接受字符串、null 和 undefined 的严格编解码说明。
   const value = strictCodec(
     '@fixture/gateway#MaybeValue',
     z.union([z.string(), z.null(), z.undefined()]),
@@ -1504,7 +1463,6 @@ function maybeDescriptor(): InvocationDescriptor {
   }
 }
 
-/** 执行失败 Promise 并断言其 TypertGatewayError 错误码。 */
 async function expectCode(
   promise: Promise<unknown>,
   code: TypertGatewayError['code'],

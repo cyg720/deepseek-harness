@@ -1,16 +1,3 @@
-/*
- * ================================ 文件注释 ================================
- * 【文件职责】菜单归约的纯核心：按源分组维护菜单状态，代际（generation）门控
- *             结算，空的 ready 分组自动关闭菜单。
- * 【技术维度】纯 reducer（零 React / DOM / Cordis）：陈旧或无变化的事件返回同一引用，
- *             让快照订阅者跳过重渲染。
- * 【产品维度】'/' 与 '@' 菜单的分组展示、高亮移动、空菜单自动关闭等交互状态。
- * 【逻辑维度】seedGroups 播种分组 → menuReduce 处理 hit/source-settled/source-failed/
- *             move/close 五类事件 → exactMatch 供精确名查询。
- * 【关键边界】hit 事件不带源花名册，分组只能由壳层播种；代际不符的迟到结算被丢弃。
- * 【新手阅读建议】先看 MENU_CLOSED 与 seedGroups，再沿 menuReduce 的分支读归约逻辑。
- * ==========================================================================
- */
 /**
  * Menu reduction pure core. One group per source;
  * generation-gated settlement; empty ready groups auto-close. Zero React /
@@ -21,7 +8,10 @@
  * reducer cannot invent groups. Opening from a closed state, the shell seeds
  * the roster with {@link seedGroups} and then dispatches `hit`; a `hit`
  * while open (query refinement) resets the existing groups to pending under
- * a new generation. Auto-close and explicit close drop the groups.
+ * a new generation while keeping their items on screen until the new fetch
+ * settles (stale-while-revalidate — the render layer shows skeletons only
+ * for a pending group with no items). Auto-close and explicit close drop
+ * the groups.
  */
 import type { InputTriggerCandidate, InputTriggerSource } from '../types.ts'
 import type { ExactMatch, MenuReduce, MenuState } from './contract.ts'
@@ -37,7 +27,6 @@ export const MENU_CLOSED: MenuState = { open: false, hit: null, generation: 0, g
  * @param sources - Sources registered for the hit trigger, in menu order.
  * @returns State carrying the new pending roster; highlight cleared.
  */
-// 菜单打开时由壳层先行调用：按顺序把源播种成 pending 分组并清空高亮。
 export function seedGroups(
   state: MenuState,
   sources: readonly Pick<InputTriggerSource, 'name' | 'showGroupTitle'>[],
@@ -110,8 +99,13 @@ export const menuReduce: MenuReduce = (state, ev) => {
         open: true,
         hit: ev.hit,
         generation: state.generation + 1,
-        groups: state.groups.map(g => ({ ...g, status: 'pending', items: [] })),
-        highlight: null,
+        // Items and highlight survive the refinement (stale-while-revalidate):
+        // the previous query's candidates stay rendered with the highlight
+        // parked where it was while the new fetch runs, and the settled
+        // generation replaces the items and revalidates the highlight
+        // wholesale. Pending status still fences picks off the stale rows.
+        groups: state.groups.map(g => ({ ...g, status: 'pending' })),
+        highlight: state.highlight,
       }
     }
     case 'source-settled': {

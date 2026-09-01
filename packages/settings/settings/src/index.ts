@@ -6,27 +6,9 @@
  * @module @deepseek-ai/dsh-settings
  */
 
-/*
- * ================================ 文件注释 ================================
- * 【文件职责】用户设置能力缝（capability seam）的"服务定义"：声明全局 ctx.settings 服务，
- *   抽象出 Provider（负责原始文档存取）与注册者（插件注册命名空间 schema 并读取解析值）双方契约。
- * 【技术维度】Cordis Service 抽象基类；Schemastery schema 驱动解析；按"schema 默认值 → 合成层
- *   base → 用户文档层"三层合并解析；序列化写队列；JSON 深度相等做变更检测。
- * 【产品维度】插件需要持久化的可配置项：配置界面读写设置、插件注册自己的命名空间并感知变更；
- *   事件 settings/updated 让 UI 与逻辑及时刷新。
- * 【逻辑维度】register 注册命名空间 → resolve 三层合并解析 → update/replace/mutate 三种写入路径
- *   （经 cloneJsonShaped 校验与队列串行化）→ persist 落盘 → commit 通知 watcher 并发出事件；
- *   publish 供 Provider 推送外部变更；describe 向配置界面输出描述；installSettingsSection 是
- *   可选设置消费方的标准接线。
- * 【关键边界】写入只接受 JSON 兼容数据；跨写队列做修订号冲突检测（SettingsConflictError）；
- *   watcher/监听失败被包含并记日志，INVARIANT 类失败向上抛出；redactSecrets 用于跨线脱敏。
- * 【新手阅读建议】先通读本文件建立"注册/解析/写入/通知"心智模型，再看 settings-file 包的
- *   Provider 实现，最后看 types.ts（事件声明）与 redact.ts（秘密字段脱敏）。
- * ==========================================================================
- */
-
 import { Context, Service } from '@deepseek-ai/cordis'
 import type z from '@deepseek-ai/schemastery'
+import { deepEqualJson, deepFreeze } from '@deepseek-ai/dsh-util-values'
 import { redactSecrets } from './redact.ts'
 import type { RedactedSecret } from './redact.ts'
 import type { SettingsNamespace, SettingsUpdateSource } from './types.ts'
@@ -35,27 +17,34 @@ export { redactSecrets } from './redact.ts'
 export type { RedactedSecret, RedactedValue } from './redact.ts'
 export type { SettingsNamespace, SettingsUpdateSource } from './types.ts'
 
-// 命名空间合法性正则：小写字母开头，只允许小写字母、数字、连字符（kebab-case），与插件短名风格一致。
 const NAMESPACE_PATTERN = /^[a-z][a-z0-9-]*$/
+type LowercaseLetter = 'a' | 'b' | 'c' | 'd' | 'e' | 'f' | 'g' | 'h' | 'i' | 'j' | 'k' | 'l' | 'm'
+  | 'n' | 'o' | 'p' | 'q' | 'r' | 's' | 't' | 'u' | 'v' | 'w' | 'x' | 'y' | 'z'
+type DecimalDigit = '0' | '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9'
+type NamespaceCharacter = LowercaseLetter | DecimalDigit | '-'
+type ValidNamespaceTail<Value extends string> = Value extends ''
+  ? true
+  : Value extends `${NamespaceCharacter}${infer Rest}`
+    ? ValidNamespaceTail<Rest>
+    : false
+type SettingsNamespaceInput<Value extends string> = Value extends SettingsNamespace
+  ? Value
+  : string extends Value
+    ? string
+    : Value extends `${LowercaseLetter}${infer Rest}`
+      ? ValidNamespaceTail<Rest> extends true ? Value : never
+      : never
 
-/**
- * Brand a raw string as a {@link SettingsNamespace}.
- * @param value - candidate namespace; lowercase kebab-case, as in plugin short names.
- * @returns the branded namespace.
- */
-// 把普通字符串"升级"为品牌类型 SettingsNamespace 并做格式校验；不匹配就抛 TypeError，防止非法键进注册表。
-export function settingsNamespace(value: string): SettingsNamespace {
+function parseSettingsNamespace(value: string): SettingsNamespace {
   if (!NAMESPACE_PATTERN.test(value)) {
     throw new TypeError(`settings namespace "${value}" must match ${String(NAMESPACE_PATTERN)}`)
   }
   return value as SettingsNamespace
 }
 
-// 命名空间变更何时生效：'live' 立即生效，'restart' 需重启后生效（此处仅作声明，供配置 UI 展示）。
 /** When a namespace's changes take effect for its owner. */
 export type SettingsApplies = 'live' | 'restart'
 
-// 注册选项：合成层 base 值、生效时机、以及 schema 表达不了的跨字段校验钩子。
 /** Registration options beyond the namespace schema. */
 export interface SettingsRegisterOptions<T> {
   /** Composition-layer values resolved below the user layer (entry-config subset). */
@@ -84,7 +73,6 @@ export interface SettingsRegisterOptions<T> {
   validate?: (value: T) => void
 }
 
-// 注册面输出：向配置 UI 描述一个命名空间的 schema、当前值、修订号与各分层，UI 据此渲染表单。
 /** One registered namespace as surfaced to configuration UIs. */
 export interface SettingsDescriptor {
   // TODO(settings-namespace-vocabulary): Rename `ns` to `namespace` across the
@@ -113,7 +101,6 @@ export interface SettingsDescriptor {
   secrets?: RedactedSecret[]
 }
 
-// describe 的选项：是否脱敏；跨线传输必须开启，原样（含秘密）默认值只允许同进程配置 UI 使用。
 /** Options for {@link SettingsProvider.describe}. */
 export interface SettingsDescribeOptions {
   /**
@@ -124,7 +111,6 @@ export interface SettingsDescribeOptions {
   redactSecrets?: boolean
 }
 
-// 注册方向拥有者返回的句柄：读解析值、订阅变更、合并更新或整体替换用户层。
 /** Owner-facing handle for one registered namespace. */
 export interface SettingsScope<T> {
   /** Current resolved value: schema defaults, then `base`, then the user layer. */
@@ -161,43 +147,15 @@ declare module '@deepseek-ai/cordis' {
 }
 
 /**
- * Deep equality over JSON-compatible data (objects, arrays, primitives) — the
- * Service Definition's single change-detection predicate, exported so the invariant
- * companion checks exactly the implementation's relation.
- * @param a - one JSON-compatible value.
- * @param b - the other JSON-compatible value.
- * @returns whether the two values are structurally equal.
- */
-// 全局唯一的变更检测谓词：对 JSON 兼容数据做结构深度相等；invariant 伴随插件也用同一函数核对事件。
-export function deepEqualJson(a: unknown, b: unknown): boolean {
-  if (a === b) return true
-  if (typeof a !== 'object' || typeof b !== 'object' || a === null || b === null) return false
-  if (Array.isArray(a) || Array.isArray(b)) {
-    if (!Array.isArray(a) || !Array.isArray(b) || a.length !== b.length) return false
-    return a.every((entry, index) => deepEqualJson(entry, b[index]))
-  }
-  const left = a as Record<string, unknown>
-  const right = b as Record<string, unknown>
-  const keys = Object.keys(left)
-  if (keys.length !== Object.keys(right).length) return false
-  return keys.every(key => key in right && deepEqualJson(left[key], right[key]))
-}
-
-/**
  * A write refused because the namespace moved since the caller read it. The
  * Service Definition's serialized write queue orders writes; it cannot tell a fresh writer
  * from one holding a stale snapshot, which is what this reports.
  */
-// 写冲突错误：写队列能排序写入，却无法分辨"新写入者"与"拿着过期快照的旧写入者"；
-// 调用方携带的期望修订号与实际修订号不一致时抛出，提示其重新读取再写。
 export class SettingsConflictError extends Error {
-  // 稳定的机器可读错误码，供跨线层映射到自己的错误分类。
   /** Stable machine code for wire layers mapping this to their own taxonomy. */
   readonly code = 'SETTINGS_CONFLICT'
-  // 调用方写时所期望的修订号。
   /** The revision the write expected. */
   readonly expected: number
-  // 命名空间实际所处的修订号。
   /** The revision the namespace actually stands at. */
   readonly actual: number
 
@@ -214,7 +172,6 @@ export class SettingsConflictError extends Error {
   }
 }
 
-// 判断是否"普通数据对象"：非数组、非 null、原型为 Object 或 null（排除类实例）。
 /** Whether a value is a plain data object (not an array, null, or class instance). */
 function isPlainObject(value: unknown): value is Record<string, unknown> {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) return false
@@ -230,13 +187,10 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
  * restating the section: a wholesale `replace` rebuilt from a redacted
  * document silently deletes every secret the wire never returned.
  */
-// 路径编辑操作：set 写入某路径 / unset 删除某路径；供持有"不完整视图"的调用方（如只见过脱敏值
-// 的配置 UI）在不重述整段的情况下定点修改，避免整体 replace 把未返回的秘密一并删掉。
 export type SettingsPathOp =
   | { op: 'set'; path: readonly string[]; value: unknown }
   | { op: 'unset'; path: readonly string[] }
 
-// 把单个路径操作应用到"脱离原值"的段落副本，返回新段落；空路径指向段落根，中间缺失的对象自动创建。
 /** Apply one path op to a detached section, returning the next section. */
 function applyPathOp(section: Record<string, unknown>, op: SettingsPathOp): Record<string, unknown> {
   const [head, ...rest] = op.path
@@ -263,7 +217,6 @@ function applyPathOp(section: Record<string, unknown>, op: SettingsPathOp): Reco
   return { ...section, [head]: applyPathOp(child, { ...op, path: rest }) }
 }
 
-// 为无法无损 JSON 化的值生成人类可读标签（如 "a Date"、"undefined"），用于构造校验报错信息。
 /** Human label for a value that lossless JSON cannot represent (numbers reject inline). */
 function describeRejected(value: unknown): string {
   if (value === undefined) return 'undefined'
@@ -287,8 +240,6 @@ function describeRejected(value: unknown): string {
  * @param reject - builds the validation error from a value label and its `$`-rooted path.
  * @returns the detached JSON-compatible clone.
  */
-// 单次遍历完成"脱离原值 + JSON 兼容校验"：只放行普通对象/数组/字符串/有限数字/布尔/null，
-// 拒绝 Date/Map/BigInt/循环引用——否则 YAML/JSON 存储会在重载往返时悄悄变形。
 function cloneJsonShaped(
   root: Record<string, unknown>,
   reject: (label: string, path: string) => TypeError,
@@ -330,11 +281,9 @@ function cloneJsonShaped(
  * Layer `over` onto `under`: plain objects merge recursively, every other
  * value (arrays included) replaces the lower layer wholesale. `over` never
  * carries `undefined` entries — sections come from parsed documents and write
- * snapshots pass {@link cloneJsonShaped}, which* strips them so a sparse patch
+ * snapshots pass {@link cloneJsonShaped}, which strips them so a sparse patch
  * cannot erase lower keys.
  */
-// 分层合并：普通对象递归合并，其他值（数组在内）整体替换下层；over 永不携带 undefined 条目，
-// 因此稀疏补丁不会抹掉下层键。
 function mergeLayers(under: unknown, over: unknown): unknown {
   if (over === undefined) return under
   if (!isPlainObject(under) || !isPlainObject(over)) return over
@@ -343,13 +292,6 @@ function mergeLayers(under: unknown, over: unknown): unknown {
     merged[key] = key in merged ? mergeLayers(merged[key], value) : value
   }
   return merged
-}
-
-/** Recursively freeze one resolved value so handed-out snapshots stay immutable. */
-function deepFreeze<T>(value: T): T {
-  if (typeof value !== 'object' || value === null || Object.isFrozen(value)) return value
-  for (const entry of Object.values(value)) deepFreeze(entry)
-  return Object.freeze(value)
 }
 
 /** One registered watcher and its serialized invocation chain. */
@@ -472,29 +414,35 @@ export abstract class SettingsProvider extends Service {
    * @param schema - schemastery schema resolving this namespace's value.
    * @param options - composition `base` layer and effect timing.
    * @returns the owner scope for reads, observation, and updates.
+   * @throws {TypeError} when `ns` is not a lowercase hyphenated identifier.
    */
-  register<T>(ns: SettingsNamespace, schema: z<T>, options?: SettingsRegisterOptions<T>): SettingsScope<T> {
-    if (this.registrations.has(ns)) {
-      throw new Error(`settings namespace "${ns}" is already registered`)
+  register<const Namespace extends string, T>(
+    ns: Namespace & SettingsNamespaceInput<Namespace>,
+    schema: z<T>,
+    options?: SettingsRegisterOptions<T>,
+  ): SettingsScope<T> {
+    const parsedNs = parseSettingsNamespace(ns)
+    if (this.registrations.has(parsedNs)) {
+      throw new Error(`settings namespace "${parsedNs}" is already registered`)
     }
     const registration: SettingsRegistration = {
-      ns,
+      ns: parsedNs,
       schema: schema as z<unknown>,
       base: options?.base,
       applies: options?.applies ?? 'live',
       ...options?.validate === undefined
         ? {}
         : { validate: options.validate as (value: unknown) => void },
-      resolved: deepFreeze(this.resolve(schema, options?.base, this.section(ns), options?.validate)),
+      resolved: deepFreeze(this.resolve(schema, options?.base, this.section(parsedNs), options?.validate)),
       revision: 0,
       watchers: new Set(),
     }
     this.ctx.effect(() => {
-      this.registrations.set(ns, registration)
+      this.registrations.set(parsedNs, registration)
       // TODO(settings-registration-quiescence): Deactivate every watcher and await
       // its tail on disposal so callbacks cannot outlive the registrant fiber.
-      return () => this.registrations.delete(ns)
-    }, `settings.register(${JSON.stringify(String(ns))})`)
+      return () => this.registrations.delete(parsedNs)
+    }, `settings.register(${JSON.stringify(String(parsedNs))})`)
     return {
       get: () => registration.resolved as T,
       watch: (callback) => {
@@ -505,9 +453,46 @@ export abstract class SettingsProvider extends Service {
           registration.watchers.delete(watcher)
         }
       },
-      update: patch => this.update(ns, patch),
-      replace: section => this.replace(ns, section),
+      update: patch => this.update(parsedNs, patch),
+      replace: section => this.replace(parsedNs, section),
     }
+  }
+
+  /**
+   * Attach one optional-settings consumer to this provider. The consumer
+   * registers its composition entry as the base layer while this provider is
+   * present, then falls back to that entry if the provider detaches.
+   * @param owner - consumer context whose unload suppresses fallback work.
+   * @param ns - consumer-owned settings namespace.
+   * @param schema - schema resolving the namespace.
+   * @param entry - composition entry used as the base and fallback value.
+   * @param hooks - source sink, change notification, and optional validation.
+   * @throws {TypeError} when `ns` is not a lowercase hyphenated identifier.
+   */
+  installSection<const Namespace extends string, T>(
+    owner: Context,
+    ns: Namespace & SettingsNamespaceInput<Namespace>,
+    schema: z<T>,
+    entry: T,
+    hooks: SettingsSectionHooks<T>,
+  ): void {
+    const scope = this.register<Namespace, T>(ns, schema, {
+      base: entry,
+      ...hooks.validate === undefined ? {} : { validate: hooks.validate },
+    })
+    hooks.setSource(() => scope.get())
+    this.ctx.effect(() => () => {
+      // Losing the provider leaves the consumer running; unloading the
+      // consumer does not, so only the former needs fallback work.
+      if (isUnloading(owner)) return
+      hooks.setSource(() => entry)
+      hooks.onChange()
+    })
+    hooks.onChange()
+    scope.watch(() => {
+      if (isUnloading(owner)) return
+      hooks.onChange()
+    })
   }
 
   /**
@@ -556,9 +541,10 @@ export abstract class SettingsProvider extends Service {
    * Read one registered namespace's resolved value.
    * @param ns - the namespace to read.
    * @returns the resolved value, or `undefined` while unregistered.
+   * @throws {TypeError} when `ns` is not a lowercase hyphenated identifier.
    */
-  get(ns: SettingsNamespace): unknown {
-    return this.registrations.get(ns)?.resolved
+  get<const Namespace extends string>(ns: Namespace & SettingsNamespaceInput<Namespace>): unknown {
+    return this.registrations.get(parseSettingsNamespace(ns))?.resolved
   }
 
   /**
@@ -571,9 +557,14 @@ export abstract class SettingsProvider extends Service {
    * @param patch - plain-object patch over the user section.
    * @param expectedRevision - the descriptor `revision` the caller read; a
    *   namespace that moved past it rejects with {@link SettingsConflictError}.
+   * @throws {TypeError} when `ns` is not a lowercase hyphenated identifier.
    */
-  async update(ns: SettingsNamespace, patch: object, expectedRevision?: number): Promise<void> {
-    return this.write(ns, patch, 'merge', expectedRevision)
+  async update<const Namespace extends string>(
+    ns: Namespace & SettingsNamespaceInput<Namespace>,
+    patch: object,
+    expectedRevision?: number,
+  ): Promise<void> {
+    return this.write(parseSettingsNamespace(ns), patch, 'merge', expectedRevision)
   }
 
   /**
@@ -585,9 +576,14 @@ export abstract class SettingsProvider extends Service {
    * @param section - the complete next user section.
    * @param expectedRevision - the descriptor `revision` the caller read; a
    *   namespace that moved past it rejects with {@link SettingsConflictError}.
+   * @throws {TypeError} when `ns` is not a lowercase hyphenated identifier.
    */
-  async replace(ns: SettingsNamespace, section: object, expectedRevision?: number): Promise<void> {
-    return this.write(ns, section, 'replace', expectedRevision)
+  async replace<const Namespace extends string>(
+    ns: Namespace & SettingsNamespaceInput<Namespace>,
+    section: object,
+    expectedRevision?: number,
+  ): Promise<void> {
+    return this.write(parseSettingsNamespace(ns), section, 'replace', expectedRevision)
   }
 
   /**
@@ -601,18 +597,24 @@ export abstract class SettingsProvider extends Service {
    * @param ops - ordered path edits; later ops observe earlier ones.
    * @param expectedRevision - the descriptor `revision` the caller read; a
    *   namespace that moved past it rejects with {@link SettingsConflictError}.
+   * @throws {TypeError} when `ns` is not a lowercase hyphenated identifier.
    */
-  async mutate(ns: SettingsNamespace, ops: readonly SettingsPathOp[], expectedRevision?: number): Promise<void> {
-    if (!Array.isArray(ops)) throw new TypeError(`settings mutate for "${ns}" must be an array of path ops`)
+  async mutate<const Namespace extends string>(
+    ns: Namespace & SettingsNamespaceInput<Namespace>,
+    ops: readonly SettingsPathOp[],
+    expectedRevision?: number,
+  ): Promise<void> {
+    const parsedNs = parseSettingsNamespace(ns)
+    if (!Array.isArray(ops)) throw new TypeError(`settings mutate for "${parsedNs}" must be an array of path ops`)
     for (const op of ops) {
       if (!isPlainObject(op) || (op['op'] !== 'set' && op['op'] !== 'unset')) {
-        throw new TypeError(`settings mutate for "${ns}" ops must be {op:'set'|'unset', path}`)
+        throw new TypeError(`settings mutate for "${parsedNs}" ops must be {op:'set'|'unset', path}`)
       }
       if (!Array.isArray(op['path']) || (op['path'] as unknown[]).some(part => typeof part !== 'string')) {
-        throw new TypeError(`settings mutate for "${ns}" op paths must be arrays of strings`)
+        throw new TypeError(`settings mutate for "${parsedNs}" op paths must be arrays of strings`)
       }
     }
-    return this.write(ns, ops, 'mutate', expectedRevision)
+    return this.write(parsedNs, ops, 'mutate', expectedRevision)
   }
 
   /** Validate a write, then queue it on the namespace's serialized write chain. */
@@ -866,7 +868,7 @@ function isUnloading(ctx: Context): boolean {
   return state === FIBER_UNLOADING || state === FIBER_DISPOSED
 }
 
-/** Hooks a consumer hands to {@link installSettingsSection}. */
+/** Hooks a consumer hands to {@link SettingsProvider.installSection}. */
 export interface SettingsSectionHooks<T> {
   /**
    * Receive the active configuration source: the resolved settings scope
@@ -886,55 +888,6 @@ export interface SettingsSectionHooks<T> {
    * @param value - the resolved section, schema-valid by construction.
    */
   validate?: (value: T) => void
-}
-
-/**
- * Install the canonical optional-settings consumer wiring: while a settings
- * service exists, register `ns` with the consumer's composition entry as the
- * `base` layer and point the source thunk at the resolved scope; when the
- * service goes away (disposal, provider reload), fall back to the entry so
- * the consumer keeps working exactly as composed. The registration rides the
- * scoped fiber, so no settings service ever mounted means none of this runs.
- * @param ctx - consumer plugin context owning the wiring.
- * @param ns - the consumer-owned settings namespace.
- * @param schema - schema resolving the namespace (typically the plugin Config).
- * @param entry - the consumer's composition entry config, used as `base`.
- * @param hooks - source sink and change notification.
- */
-export function installSettingsSection<T>(
-  ctx: Context,
-  ns: SettingsNamespace,
-  schema: z<T>,
-  entry: T,
-  hooks: SettingsSectionHooks<T>,
-): void {
-  ctx.inject(['settings'], (sctx) => {
-    const scope = sctx.settings.register(ns, schema, {
-      base: entry,
-      ...hooks.validate === undefined ? {} : { validate: hooks.validate },
-    })
-    hooks.setSource(() => scope.get())
-    sctx.effect(() => () => {
-      // This disposer runs for two different reasons. A settings provider
-      // detaching leaves the consumer running, so it must fall back to its
-      // composition entry and re-judge what it derived. The consumer's own
-      // unload runs it too — and there `onChange` would re-register routes
-      // and touch resources the teardown is releasing, so the fallback is
-      // pointless and the notification actively harmful.
-      if (isUnloading(ctx)) return
-      hooks.setSource(() => entry)
-      hooks.onChange()
-    })
-    hooks.onChange()
-    scope.watch(() => {
-      // A stored change landing while the consumer unloads reaches the watcher
-      // before the registration is released, and `onChange` is exactly as
-      // harmful here as in the disposer above: it re-registers routes against
-      // a fiber whose resources are being let go.
-      if (isUnloading(ctx)) return
-      hooks.onChange()
-    })
-  })
 }
 
 export default SettingsProvider

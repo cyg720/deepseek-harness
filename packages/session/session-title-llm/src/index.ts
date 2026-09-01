@@ -1,20 +1,3 @@
-/*
- * ================================ 文件注释 ================================
- * 【文件职责】模型标题提供者的共享路由、框定、超时、组装与校验策略：
- *   两个模型标题插件（first-prompt / all-prompts）复用的注册与生成核心。
- * 【技术维度】共享 Loader schema 与配置解析（provider/model 必须成对）；
- *   生成走"JSON 框定消息 + 系统提示 + deadline + BlockAssembler 流组装 +
- *   normalizeSessionTitle 归一化 + log-only title-llm-request 事件"的固定配方。
- * 【产品维度】让模型生成安全、规范、可持久化溯源的会话标题。
- * 【逻辑维度】按代码顺序：请求事件类型/声明合并 → 配置族与 schema → 解析/注册 →
- *   resolveRoute/systemPrompt/frameMessages/finishError → generateSessionTitleWithLlm。
- * 【关键边界】用户文本经 JSON.stringify 框定，结构定界符不可被文本破坏；
- *   输入字节数与输出 token 上限严格校验；超时用共享 deadline 码。
- * 【新手阅读建议】先读 generateSessionTitleWithLlm 的完整生成流程，再看两个
- *   provider 插件如何选择消息子集。
- * ==========================================================================
- */
-
 /**
  * Shared route, framing, timeout, assembly, and validation policy for
  * model-backed session-title providers.
@@ -23,9 +6,10 @@
 
 import type { Context } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
-import { createUserMessage, BlockAssembler, deepFreeze } from '@deepseek-ai/dsh-llm'
+import { createUserMessage, BlockAssembler } from '@deepseek-ai/dsh-llm'
 import type { FinishReason, GenerateOptions, Message } from '@deepseek-ai/dsh-llm'
 import { deadline, MAX_TIMER_DELAY_MS } from '@deepseek-ai/dsh-timeout'
+import { deepFreeze } from '@deepseek-ai/dsh-util-values'
 import {
   normalizeSessionTitle,
   SessionTitleProviderId,
@@ -39,8 +23,6 @@ import type {
 } from '@deepseek-ai/dsh-session-title'
 
 /** Exact model-visible request recorded before one auxiliary title dispatch. */
-// 中文：一次辅助标题分发前记录的精确模型可见请求（log-only 事件载荷）：
-// 标题提供者身份、代表的人类消息 seq、确切路由/系统提示/消息列表/输出上限。
 export interface SessionTitleLlmRequestEventData {
   /** Registered title-provider identity responsible for the request. */
   readonly titleProvider: SessionTitleProviderId
@@ -64,12 +46,9 @@ declare module '@deepseek-ai/dsh-session/types' {
 }
 
 /** Capability-owned timeout reason code for auxiliary title requests. */
-// 中文：辅助标题请求的超时错误码（能力拥有的语义码，供上层按码分类）。
 export const SESSION_TITLE_TIMEOUT_CODE = 'SESSION_TITLE_TIMEOUT'
 
 /** Required deployment policy for one model-backed title plugin. */
-// 中文：一个模型标题插件需要的部署策略：目标字数（CJK 为字符数）、输入/输出上限、
-// 端到端超时，以及可选显式路由（provider 必须与 model 成对出现）。
 export interface SessionTitleLlmConfig {
   /** Target word count for non-CJK titles. */
   readonly targetWords: number
@@ -88,7 +67,6 @@ export interface SessionTitleLlmConfig {
 }
 
 /** Validated immutable model-provider policy. */
-// 中文：校验并冻结后的模型提供者策略（不可变，供生成路径使用）。
 export interface ResolvedSessionTitleLlmConfig extends SessionTitleLlmConfig {}
 
 /** Shared Loader field schemas with no library defaults. */
@@ -173,8 +151,6 @@ export type SessionTitleLlmMessageSelector = (
  * @param automatic - provider-owned automatic generation cadence.
  * @param selectMessages - exact source-message selection for one revision.
  */
-// 中文：经共享配置与调用策略注册一个模型提供者：解析并冻结策略 → 品牌化 ID →
-// 在 ctx.sessionTitle 上注册（generate 委托给共享辅助函数）。
 export function registerSessionTitleLlmProvider(
   ctx: Context,
   config: SessionTitleLlmConfig,

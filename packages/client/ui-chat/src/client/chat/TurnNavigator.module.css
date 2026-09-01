@@ -1,13 +1,5 @@
 /* Zero-height sticky slot, like the back-to-bottom control: the rail floats
    over the transcript's right gutter without extending scrollHeight. */
-/**
- * 文件职责：实现 client/ui-chat 中 TurnNavigator module 模块的职责，并向相邻模块提供可复用能力。
- * 技术维度：主要使用CSS Modules、层叠样式与项目统一的设计变量，通过当前文件中的类型、函数与数据结构完成实现。
- * 产品维度：支撑 DeepSeek Harness 的 client/ui-chat 能力，使上层功能能够稳定组合和扩展。
- * 逻辑维度：建议按“依赖与类型定义 → 常量和状态 → 核心函数或类 → 导出或注册入口”的顺序理解。
- * 关键边界：调用方必须遵守类型、生命周期和错误处理约定；涉及外部输入、异步任务或资源释放时需特别关注异常分支。
- * 新手阅读建议：先确认导入依赖和公开导出，再沿主要函数调用链阅读，最后结合相邻测试理解输入、输出与边界条件。
- */
 .slot {
   position: sticky;
   top: 0;
@@ -16,16 +8,14 @@
   pointer-events: none;
 }
 
-.rail {
+.frame {
   /* The band a reader actually sees: the scrollport minus the sticky composer
      stack covering its floor. ConversationRoot publishes both measurements on
      the scrollport; the fallbacks carry the first paint before its observer
      fires. */
-  /* 变量说明：--turn-rail-band 保存可复用的样式值；取值必须符合使用它的 CSS 属性语法，并注意层叠作用域。 */
   --turn-rail-band: calc(
     var(--dsh-conversation-viewport-height, 100dvh) - var(--dsh-composer-height, 152px)
   );
-  /* 变量说明：--turn-preview-height 保存可复用的样式值；取值必须符合使用它的 CSS 属性语法，并注意层叠作用域。 */
   --turn-preview-height: 100px;
 
   position: absolute;
@@ -34,9 +24,9 @@
      padding, so the rail gives that inset back and keeps 12px of its own. */
   right: calc(12px - (var(--dsh-composer-side-clearance) + 16px));
   width: 28px;
-  /* Never taller than the band it centers in: a short window (a tall composer,
-     a low viewport) shrinks the rail instead of pushing marks under the
-     composer or above the scrollport. */
+  /* Fixed-pitch marks never compress: a ladder taller than the band scrolls
+     inside this frame instead of pushing marks under the composer or above
+     the scrollport. */
   height: min(
     var(--turn-natural-height),
     max(0px, calc(var(--turn-rail-band) - 64px)),
@@ -48,14 +38,46 @@
   transition: height 220ms cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
-.marks {
+/* The frame's inner scroller: no visible scrollbar, no scroll chaining into
+   the transcript, and gradient fades over the ends that can still scroll. */
+.scroller {
   position: absolute;
-  inset: var(--turn-rail-inset) 0;
+  inset: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: none;
+}
+
+.scroller::-webkit-scrollbar {
+  display: none;
+}
+
+.fadeTop {
+  mask-image: linear-gradient(to bottom, transparent 0, #000 24px, #000 100%);
+}
+
+.fadeBottom {
+  mask-image: linear-gradient(to bottom, #000 0, #000 calc(100% - 24px), transparent 100%);
+}
+
+.fadeTop.fadeBottom {
+  mask-image: linear-gradient(
+    to bottom,
+    transparent 0,
+    #000 24px,
+    #000 calc(100% - 24px),
+    transparent 100%
+  );
+}
+
+.marks {
+  position: relative;
+  height: var(--turn-natural-height);
 }
 
 .markPosition {
   position: absolute;
-  top: min(var(--turn-natural-position), var(--turn-position));
+  top: calc(var(--turn-natural-position) + var(--turn-rail-inset));
   right: 0;
   left: 0;
   height: 10px;
@@ -93,9 +115,19 @@
   transition: width 140ms ease, background-color 140ms ease;
 }
 
+/* Ordered before hover/active so those states keep their stronger tick. */
+.markUnloaded::before {
+  width: 8px;
+  opacity: 0.6;
+}
+
 .markPreview::before {
   width: 18px;
   background: var(--dsw-alias-label-tertiary);
+}
+
+.markBusy::before {
+  animation: dsh-turn-mark-busy 1s ease-in-out infinite;
 }
 
 .markActive::before {
@@ -118,13 +150,14 @@
 
 .preview {
   position: absolute;
-  /* Centered on its mark (mark positions are measured inside the rail inset),
-     then held clear of both rail ends. */
+  /* Centered on its mark. Mark positions live in the scrolled ladder, so the
+     frame-level preview subtracts the scroller's offset, then holds clear of
+     both frame ends. */
   top: clamp(
     0px,
     calc(
-      min(var(--turn-natural-position), var(--turn-position))
-      + var(--turn-rail-inset) - var(--turn-preview-height) / 2
+      var(--turn-natural-position) + var(--turn-rail-inset)
+      - var(--turn-scroll-top, 0px) - var(--turn-preview-height) / 2
     ),
     calc(100% - var(--turn-preview-height))
   );
@@ -153,28 +186,30 @@
 
 .previewPrompt {
   font: var(--dsw-font-xs-strong-13);
-  -webkit-line-clamp: 2;
+  -webkit-line-clamp: 1;
 }
 
 .previewResponse {
   margin-top: 4px;
   color: var(--dsw-alias-label-caption);
   font: var(--dsw-font-xxs-12);
-  -webkit-line-clamp: 2;
+  -webkit-line-clamp: 3;
 }
-
-/* 动画说明：dsh-turn-mark-enter 定义可复用的关键帧流程；调用处需同时遵守时长、缓动和可访问性约定。 */
 
 @keyframes dsh-turn-mark-enter {
   from { opacity: 0; }
   to { opacity: 1; }
 }
 
-/* 动画说明：dsh-turn-preview-enter 定义可复用的关键帧流程；调用处需同时遵守时长、缓动和可访问性约定。 */
-
 @keyframes dsh-turn-preview-enter {
   from { opacity: 0; transform: translateX(4px); }
   to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes dsh-turn-mark-busy {
+  0%,
+  100% { opacity: 1; }
+  50% { opacity: 0.35; }
 }
 
 @container (max-width: 900px) {
@@ -184,11 +219,14 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .rail,
+  .frame,
+  .scroller,
   .markPosition,
   .mark::before,
+  .markBusy::before,
   .preview {
     transition: none;
     animation: none;
+    scroll-behavior: auto;
   }
 }

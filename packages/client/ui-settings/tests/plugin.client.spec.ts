@@ -6,20 +6,16 @@ import { SettingsSchemaService } from '../src/client/schema.ts'
 import { SettingsScopeBinder } from '../src/client/settings-scope.ts'
 
 function bench() {
-  /** 中文说明：测试局部值 describeCall，由紧邻初始化决定。 */
   const describeCall = vi.fn().mockResolvedValue({
     ok: true, value: { writable: true, hasDocument: true, namespaces: [] },
   })
-  /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
   const ctx = new Context()
-  ctx.provide('connection', { api: {}, isLoopback: true } as never)
   const remote = new TestRemote(ctx, { settings: { describe: describeCall } })
   return { ctx, describeCall, remote, fiber: ctx.plugin({ inject: [...inject], apply }) }
 }
 
 describe('settings domain base plugin', () => {
   it('mounts the scope service under settingsScope and reads once eagerly', async () => {
-    /** 中文说明：测试局部值 解构结果，由紧邻初始化决定。 */
     const { ctx, describeCall, fiber } = bench()
     await fiber.await()
     expect(ctx.get('settingsScope')).toBeInstanceOf(SettingsScopeBinder)

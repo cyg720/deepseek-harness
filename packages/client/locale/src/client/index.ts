@@ -1,22 +1,3 @@
-/*
- * ================================ 文件注释 ================================
- * 【文件职责】浏览器侧 locale 注册表：绑定翻译函数为注入消费方保持稳定
- *   身份；插件还把"语言"偏好行注册进设置 General 段——locale 功能拥有
- *   自己的设置面。
- * 【技术维度】LocaleRuntime：字典注册表 + 语言偏好；查找链（条目命名空间
- *   激活语言 -> 该命名空间 en 回退 -> common 命名空间 -> 键本身）；快照
- *   修订号驱动渲染刷新；同时实现 LocaleFace（bind + getSnapshot/subscribe）。
- * 【产品维度】UI 文案随语言切换；语言选择持久化到 Host 设置文档；可访问性
- *   标签（<html lang>）随激活语言同步。
- * 【逻辑维度】类型区（快照/字典/定义）+ 声明合并（命名空间、事件、服务）；
- *   LocaleRuntime 核心（register/bind/setLocale/translate/lookup/publish）；
- *   apply 提供服务、注册字典、装 LocaleFace、注册语言行。
- * 【关键边界】setLocale 是唯一偏好写入口（未知 id 抛错）；字典注册按
- *   (ns, locale) 单属主；register 只升 revision 不发 locale/change 事件
- *   （防注册密集启动风暴事件监听器）。
- * 【新手阅读建议】先读 runtime 的 SettingsScope 与 ui-slots 的 LocaleFace。
- * ==========================================================================
- */
 /**
  * Browser-side locale registry. Bound translation functions retain stable
  * identity for injected consumers. The plugin also registers the Language
@@ -53,23 +34,18 @@ export type { BuiltInLocaleId, LocaleId, LocaleSettings } from '../locale-settin
 // The translate currency lives in ui-slots (the render machinery synthesizes
 // the seat); re-exported here so dictionary owners import one package.
 // TranslateNS<'model'> is the namespace-addressed developer-facing form.
-// 翻译通货活在 ui-slots（渲染机制合成座位）；在此再导出，使字典属主只
-// 导入一个包。TranslateNS<'model'> 是按命名空间寻址的开发向形式。
 export type { Translate, TranslateNS } from '@deepseek-ai/dsh-client-ui-slots'
 
 declare module '@deepseek-ai/dsh-client-ui-slots' {
   interface LocaleNamespaceMap {
     /** Shared cross-feature vocabulary, consulted by the lookup chain after the entry's own namespace misses. */
-    /* 跨功能共享词汇，条目自身命名空间未命中后由查找链咨询。 */
     common: CommonKey
     /** This feature's own settings-row copy (the Language row). */
-    /* 本功能自己的设置行文案（语言行）。 */
     'settings.locale': SettingsLocaleKey
   }
 }
 
 /** Locale dictionary: flat key to template string ({name} placeholders). */
-/* 语言词典：扁平键到模板字符串（{name} 占位符）。 */
 export type LocaleDict = Record<string, string>
 
 /** Input accepted when a language-pack plugin adds a selectable language. */
@@ -93,16 +69,12 @@ export interface LocaleDefinition {
 }
 
 /** Immutable locale state published on every change. */
-/* 每次变更发布的不可变语言状态。 */
 export interface LocaleSnapshot {
   /** Active locale id. */
-  /* 激活语言 id。 */
   active: LocaleId
   /** Selectable locales in display order. */
-  /* 按展示顺序的可选语言。 */
   locales: readonly LocaleDefinition[]
   /** Monotonic change counter (registry or active changes). */
-  /* 单调变更计数器（注册表或激活变化）。 */
   revision: number
 }
 
@@ -117,13 +89,6 @@ declare module '@deepseek-ai/cordis' {
      * one namespace per package); continuous render refresh rides the
      * LocaleFace revision instead.
      * @param snapshot - Current immutable locale snapshot.
-     * @mode emit
-     */
-    /*
-     * 激活语言已切换。字典注册不发射此事件（监听器可能响应式重新注册
-     * 槽位，且启动按包注册一个命名空间）；连续渲染刷新改乘 LocaleFace
-     * 修订号。
-     * @param snapshot 当前不可变语言快照。
      * @mode emit
      */
     'locale/change'(snapshot: LocaleSnapshot): void
@@ -142,11 +107,9 @@ declare module '@deepseek-ai/cordis' {
 export const FALLBACK_LOCALE: BuiltInLocaleId = 'en'
 
 /** Shared namespace for shell-level texts. */
-/* shell 级文本的共享命名空间。 */
 export const COMMON_NS = 'common'
 
 /** Namespace owning this feature's settings-row copy. */
-/* 拥有本功能设置行文案的命名空间。 */
 export const SETTINGS_NS = 'settings.locale'
 
 /** The two locales and dictionaries shipped by this package. */
@@ -196,13 +159,6 @@ function syncDocumentLanguage(snapshot: LocaleSnapshot): void {
  * the LocaleFace getSnapshot/subscribe pair installed through
  * `ctx.slots.installLocale`.
  */
-/*
- * 字典注册表 + 语言偏好。每键查找链：激活语言下的条目命名空间 -> 该命名
- * 空间的 en 回退 -> 共享 common 命名空间（激活，再 en）-> 键本身（缺失
- * 文本保持可见，UI 中响亮失败而非空白）。读经 getLocale；写只经
- * setLocale；连续同步经 locale/change 事件，或经渲染机制消费的 LocaleFace
- * getSnapshot/subscribe 对（经 ctx.slots.installLocale 安装）。
- */
 export class LocaleRuntime {
   private dicts = new Map<string, Map<string, LocaleDict>>()
   private bound = new Map<string, Translate>()
@@ -240,10 +196,6 @@ export class LocaleRuntime {
    * Read the current immutable locale snapshot.
    * @returns the current snapshot (stable reference until the next change).
    */
-  /*
-   * 读取当前不可变语言快照。
-   * @returns 当前快照（下次变更前引用稳定）。
-   */
   getLocale(): LocaleSnapshot {
     return this.snapshot
   }
@@ -252,11 +204,6 @@ export class LocaleRuntime {
    * LocaleFace getSnapshot: the current snapshot (carries `revision`; stable
    * reference between changes, uSES-safe).
    * @returns the current snapshot.
-   */
-  /*
-   * LocaleFace getSnapshot：当前快照（携带 revision；变更间引用稳定，
-   * uSES 安全）。
-   * @returns 当前快照。
    */
   getSnapshot(): LocaleSnapshot {
     return this.snapshot
@@ -268,12 +215,6 @@ export class LocaleRuntime {
    * rendered outlets pick up late-arriving dictionaries and locale definitions).
    * @param fn - change callback.
    * @returns unsubscribe.
-   */
-  /*
-   * LocaleFace subscribe：每次快照变更通知（语言切换或字典注册——注册会
-   * 提升修订号，使已渲染输出口拾取迟到字典）。
-   * @param fn 变更回调。
-   * @returns 取消订阅函数。
    */
   subscribe(fn: () => void): () => void {
     this.listeners.add(fn)
@@ -291,15 +232,6 @@ export class LocaleRuntime {
    * is conditional: republishing an unchanged locale would churn every
    * subscriber for nothing.
    * @param id - a registered locale id; unknown ids throw.
-   */
-  /*
-   * 切换激活语言——唯一的用户偏好写入口。
-   *
-   * 即使 id 已匹配激活语言也会执行持久写入，因为激活值可能是尚未被任何
-   * 人存储的浏览器推导或回退解析。选择屏幕上已有的语言仍是显式选择，且
-   * 它必须在共享同一 DSH home 的不同浏览器间存活。只有渲染通知是条件式：
-   * 重新发布未变语言会无谓地搅动每个订阅者。
-   * @param id 已注册语言 id；未知 id 抛错。
    */
   setLocale(id: string): void {
     const match = this.catalog.get(localeKey(id))
@@ -349,10 +281,6 @@ export class LocaleRuntime {
    * Adopt the scope's accepted durable selection without writing it back; an
    * absent selection returns to the browser-derived locale.
    * @param host - the constructor-narrowed scope driving this adoption.
-   */
-  /*
-   * 采纳作用域已接受的持久选择而不写回；选择缺失时回到浏览器推导语言。
-   * @param host 驱动本次采纳的、构造函数收窄的作用域。
    */
   private adopt(host: SettingsScope<LocaleSettings>): void {
     const section = host.getSnapshot().value
@@ -449,18 +377,10 @@ export class LocaleRuntime {
    * @returns disposer (idempotent).
    * @throws when locale is not a BCP 47-style tag.
    */
-  /*
-   * 合并表外命名空间（动态组合、测试）的单语言无类型形式。
-   * @param ns 命名空间。
-   * @param locale 语言标签。
-   * @param dict 词典。
-   * @returns 销毁函数（幂等）。
-   */
   register(ns: string, locale: string, dict: LocaleDict): () => void
   register(ns: string, localeOrDicts: string | Record<string, LocaleDict>, dict?: LocaleDict): () => void {
     const pairs: [string, LocaleDict][] = typeof localeOrDicts === 'string'
       // Overload guarantees dict on the single-locale arm.
-      // 重载保证单语言臂上有 dict。
       ? [[localeOrDicts, dict as LocaleDict]]
       : Object.entries(localeOrDicts)
     for (const [locale] of pairs) {
@@ -513,11 +433,6 @@ export class LocaleRuntime {
    * @param ns - namespace.
    * @returns the translate function.
    */
-  /*
-   * 合并表外命名空间（动态组合、测试）的无类型形式。
-   * @param ns 命名空间。
-   * @returns 翻译函数。
-   */
   bind(ns: string): Translate
   bind(ns: string): Translate {
     let t = this.bound.get(ns)
@@ -529,7 +444,6 @@ export class LocaleRuntime {
     return t
   }
 
-  /** 解析单键：条目命名空间（激活/回退）-> common 命名空间 -> 键本身；占位符替换。 */
   private translate(ns: string, key: string, params?: Record<string, unknown>): string {
     const chain = this.fallbackChain(this.snapshot.active)
     const template = this.lookup(ns, key, chain)
@@ -573,8 +487,6 @@ export class LocaleRuntime {
       } catch (error) {
         // One throwing subscriber must not strand the rest on a stale
         // revision (outlets would keep the previous language).
-        // 一个抛错订阅者不得让其余订阅者搁浅在陈旧修订号上（输出口会保持
-        // 上一语言）。
         console.error('locale subscriber crashed:', error)
       }
     }
@@ -616,19 +528,13 @@ function detectBrowserLocale(locales: readonly LocaleDefinition[]): LocaleId | u
 }
 
 /** Required services: slot registration plus the settings transport. */
-/* 必需服务：槽位注册 + 设置传输。 */
-export const inject = ['slots', 'connection', 'remote', 'settingsScope']
+export const inject = ['slots', 'remote', 'settingsScope']
 
 /**
  * Client plugin body: provide the locale service with base dictionaries and
  * register the feature-owned Language preference row into the General
  * section's item slot (a feature owns its settings surface).
  * @param ctx - client cordis context.
- */
-/*
- * 客户端插件体：提供服务（带基础字典）并把功能自有的"语言"偏好行注册进
- * General 段的 item 槽位（功能拥有其设置面）。
- * @param ctx 客户端 cordis 上下文。
  */
 export function apply(ctx: ClientContext): void {
   const host = ctx.settingsScope.bind<LocaleSettings>({ namespace: LOCALE_SETTINGS_NAMESPACE })
@@ -638,8 +544,6 @@ export function apply(ctx: ClientContext): void {
   ctx.provide('locale', locale)
   // The service IS the LocaleFace (bind + getSnapshot/subscribe): install it
   // so the render machinery can synthesize the `t` standard seat.
-  // 服务本身就是 LocaleFace（bind + getSnapshot/subscribe）：安装它，使
-  // 渲染机制可合成 t 标准座位。
   ctx.slots.installLocale(locale)
 
   const store = createLanguageRowStore()

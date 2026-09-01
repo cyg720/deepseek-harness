@@ -3,14 +3,6 @@
  *
  * @module @deepseek-ai/dsh-compaction-basic
  */
-/*
- * 文件职责：实现上下文压缩的 index 模块。
- * 技术维度：TypeScript、Cordis 插件、Worker/JSON 协议和严格类型。
- * 产品维度：为产品提供上下文压缩能力。
- * 逻辑维度：解析配置或协议，执行核心流程并返回结构化结果。
- * 关键边界：跨线程和模型输入属于不可信边界；资源与事件注册必须清理。
- * 新手阅读建议：先读导出类型与配置，再跟踪入口和错误分支。
- */
 
 import { Context } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
@@ -18,8 +10,9 @@ import { CompactionEngine, ManualCompactionError } from '@deepseek-ai/dsh-compac
 import type { CompactionResult, CompactionTrigger } from '@deepseek-ai/dsh-compaction'
 import type { TokenMeter } from '@deepseek-ai/dsh-token-meter'
 import type { Session } from '@deepseek-ai/dsh-session'
-import { CONTEXT_WINDOW_EXCEEDED_CODE, assertNever } from '@deepseek-ai/dsh-llm'
+import { CONTEXT_WINDOW_EXCEEDED_CODE } from '@deepseek-ai/dsh-llm'
 import type { LlmCallConfig } from '@deepseek-ai/dsh-llm'
+import { assertNever } from '@deepseek-ai/dsh-util-values'
 import type { Agent, PreStepDecision } from '@deepseek-ai/dsh-agent'
 import type { CommandId } from '@deepseek-ai/dsh-commands/brand'
 // Type-only: makes the optional sibling service available to `ctx.get()`.
@@ -54,15 +47,12 @@ export type {
 } from './types.ts'
 
 /** The region transaction's view of this service's dynamically dispatched summarizer. */
-/* 中文说明：类型或类 RegionSummarize 约束协议数据或模块职责。 */
 type RegionSummarize = (input: SummarizationInput, agent: Agent, signal?: AbortSignal) => Promise<SummaryResult>
 
 /** Resolve the exact provider/model durably routed for the latest request. */
-/* 中文说明：函数 routedTarget 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function routedTarget(
   session: Session,
 ): Pick<LlmCallConfig, 'provider' | 'model'> | undefined {
-  /** 中文说明：运行时局部值 config，由紧邻初始化决定。 */
   const config = session.requestHeader()?.config
   if (config === undefined || config.provider.length === 0 || config.model.length === 0) {
     return undefined
@@ -71,11 +61,9 @@ function routedTarget(
 }
 
 /** Resolve the conversation target used to select an optional policy override. */
-/* 中文说明：函数 conversationTarget 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function conversationTarget(
   agent: Agent,
 ): Pick<LlmCallConfig, 'provider' | 'model'> | undefined {
-  /** 中文说明：运行时局部值 routed，由紧邻初始化决定。 */
   const routed = routedTarget(agent.session)
   if (routed !== undefined) return routed
   if (agent.options.provider === undefined || agent.options.provider.length === 0
@@ -83,24 +71,15 @@ function conversationTarget(
   return { provider: agent.options.provider, model: agent.options.model }
 }
 
-/** 中文说明：运行时局部值 thresholdRatioSchema，由紧邻初始化决定。 */
 const thresholdRatioSchema = z.number()
-/** 中文说明：运行时局部值 retainRatioSchema，由紧邻初始化决定。 */
 const retainRatioSchema = z.number()
-/** 中文说明：运行时局部值 retainTokensSchema，由紧邻初始化决定。 */
 const retainTokensSchema = z.number().step(1).min(0)
-/** 中文说明：运行时局部值 解构结果，由紧邻初始化决定。 */
 const summarizationProviderSchema = z.string()
-/** 中文说明：运行时局部值 summarizationModelSchema，由紧邻初始化决定。 */
 const summarizationModelSchema = z.string()
-/** 中文说明：运行时局部值 maxTokensSchema，由紧邻初始化决定。 */
 const maxTokensSchema = z.number().step(1).min(1)
-/** 中文说明：运行时局部值 compactionRetriesSchema，由紧邻初始化决定。 */
 const compactionRetriesSchema = z.number().step(1).min(0)
-/** 中文说明：运行时局部值 maxOverflowRetriesSchema，由紧邻初始化决定。 */
 const maxOverflowRetriesSchema = z.number().step(1).min(0)
 
-/** 中文说明：运行时局部值 modelPolicy，由紧邻初始化决定。 */
 const modelPolicy: z<ModelCompactPolicyConfig> = z.object({
   provider: z.string().required(),
   model: z.string().required(),
@@ -122,7 +101,6 @@ const modelPolicy: z<ModelCompactPolicyConfig> = z.object({
  * mutation strategy stays fixed so every pricing decision uses the singleton
  * token meter.
  */
-/* 中文说明：类型或类 BasicCompactionEngine 约束协议数据或模块职责。 */
 export class BasicCompactionEngine extends CompactionEngine {
   static inject = ['llm', 'tokenMeter', 'sessions']
 
@@ -158,9 +136,7 @@ export class BasicCompactionEngine extends CompactionEngine {
    * overrides are honored at event time.
    */
   private _registerAutomaticCompaction(): void {
-    /** 中文说明：运行时局部值 { ctx }，由紧邻初始化决定。 */
     const { ctx } = this
-    /** 中文说明：运行时局部值 logResult，由紧邻初始化决定。 */
     const logResult = (result: CompactionResult, trigger: string): void => {
       ctx.logger.info(
         `compaction (${trigger}): shadowed ${result.shadowedSeqs.length} surface nodes `
@@ -175,7 +151,6 @@ export class BasicCompactionEngine extends CompactionEngine {
     ): Promise<PreStepDecision> => {
       if (!signal.aborted) {
         try {
-          /** 中文说明：运行时局部值 result，由紧邻初始化决定。 */
           const result = await this.compactIfNeeded(agent, 'pressure', signal)
           if (result !== null) logResult(result, 'step pressure')
         } catch (error: unknown) {
@@ -183,7 +158,6 @@ export class BasicCompactionEngine extends CompactionEngine {
             if (this.warnedPressureConfigTargets.has(error.targetKey)) return next()
             this.warnedPressureConfigTargets.add(error.targetKey)
           }
-          /** 中文说明：运行时局部值 message，由紧邻初始化决定。 */
           const message = error instanceof Error ? error.message : String(error)
           ctx.logger.warn(`step compaction failed: ${message}; continuing the turn`)
         }
@@ -199,7 +173,6 @@ export class BasicCompactionEngine extends CompactionEngine {
     // when tool calls continue the same turn into another request.
     ctx.on('session/event', (session, event) => {
       if (event.type !== 'assistant/message') return
-      /** 中文说明：运行时局部值 agent，由紧邻初始化决定。 */
       const agent = this.overflowAgents.get(session)
       if (agent !== undefined) this.overflowRetries.delete(agent)
     })
@@ -210,23 +183,17 @@ export class BasicCompactionEngine extends CompactionEngine {
     ) => {
       if (failure.code !== CONTEXT_WINDOW_EXCEEDED_CODE || signal.aborted) return next()
       this.overflowAgents.set(agent.session, agent)
-      /** 中文说明：运行时局部值 target，由紧邻初始化决定。 */
       const target = routedTarget(agent.session)
       if (target === undefined) return next()
-      /** 中文说明：运行时局部值 policy，由紧邻初始化决定。 */
       const policy = resolveTargetPolicy(this.config, target)
-      /** 中文说明：运行时局部值 retries，由紧邻初始化决定。 */
       const retries = this.overflowRetries.get(agent) ?? 0
       if (retries >= policy.maxOverflowRetries) return next()
 
-      /** 中文说明：运行时局部值 generation，由紧邻初始化决定。 */
       const generation = agent.session.surface.replaceGeneration
-      /** 中文说明：运行时局部值 解构结果，由紧邻初始化决定。 */
       let result: CompactionResult | null
       try {
         result = await this.compactIfNeeded(agent, 'context-overflow', signal)
       } catch (recoveryError: unknown) {
-        /** 中文说明：运行时局部值 message，由紧邻初始化决定。 */
         const message = recoveryError instanceof Error ? recoveryError.message : String(recoveryError)
         // A model-free prune can land before later summary work fails. That
         // durable reduction is sufficient retry proof; do not discard it just
@@ -272,9 +239,7 @@ export class BasicCompactionEngine extends CompactionEngine {
     agent: Agent,
     signal?: AbortSignal,
   ): Promise<SummaryResult> {
-    /** 中文说明：运行时局部值 target，由紧邻初始化决定。 */
     const target = conversationTarget(agent)
-    /** 中文说明：运行时局部值 config，由紧邻初始化决定。 */
     const config = target === undefined
       ? this.config
       : resolveTargetPolicy(this.config, target)
@@ -296,14 +261,10 @@ export class BasicCompactionEngine extends CompactionEngine {
     trigger: CompactionTrigger,
     signal: AbortSignal,
   ): Promise<CompactionResult | null> {
-    /** 中文说明：运行时局部值 target，由紧邻初始化决定。 */
     const target = routedTarget(agent.session)
     if (target === undefined) return null
-    /** 中文说明：运行时局部值 policy，由紧邻初始化决定。 */
     const policy = resolveTargetPolicy(this.config, target)
-    /** 中文说明：运行时局部值 meter，由紧邻初始化决定。 */
     const meter = this.ctx.tokenMeter
-    /** 中文说明：运行时局部值 measurement，由紧邻初始化决定。 */
     let measurement = meter.measure(agent.session)
     switch (trigger) {
       case 'context-overflow':
@@ -318,7 +279,6 @@ export class BasicCompactionEngine extends CompactionEngine {
     // Pruning is optional so compaction-basic remains independently composable.
     // Overflow always qualifies; pressure first resolves the routed model's
     // capacity and checks its target-specific threshold.
-    /** 中文说明：运行时局部值 prune，由紧邻初始化决定。 */
     const prune = this.ctx.get('toolResultPruner')
 
     if (trigger === 'context-overflow') {
@@ -326,16 +286,13 @@ export class BasicCompactionEngine extends CompactionEngine {
         prune.pruneSession(agent.session)
         measurement = meter.measure(agent.session)
       }
-      /** 中文说明：运行时局部值 range，由紧邻初始化决定。 */
       const range = selectCompactableRange(agent.session, measurement, 0)
       if (range === null) return null
       return this.compactRegion(range.start, range.end, agent, signal)
     }
 
-    /** 中文说明：运行时局部值 context，由紧邻初始化决定。 */
     const context = (await this.ctx.llm.resolveModelInfo(target.provider, target.model, signal)).context
     assertNoActiveCompaction(agent.session, 'automatic pressure compaction')
-    /** 中文说明：运行时局部值 targetKey，由紧邻初始化决定。 */
     const targetKey = `${target.provider}/${target.model}`
     if (context === undefined) {
       throw new TargetPressureConfigError(
@@ -344,7 +301,6 @@ export class BasicCompactionEngine extends CompactionEngine {
         + 'configure contextWindow on that adapter model',
       )
     }
-    /** 中文说明：运行时局部值 spec，由紧邻初始化决定。 */
     const spec = resolveCompactSpec(policy, context.contextWindow)
     if (measurement.totalTokens < spec.thresholdTokens) return null
 
@@ -356,11 +312,8 @@ export class BasicCompactionEngine extends CompactionEngine {
     }
     if (measurement.totalTokens < spec.thresholdTokens) return null
 
-    /** 中文说明：运行时局部值 result，由紧邻初始化决定。 */
     let result: CompactionResult | null = null
-    /** 中文说明：运行时局部值 attempt，由紧邻初始化决定。 */
     for (let attempt = 0; attempt <= spec.compactionRetries; attempt += 1) {
-      /** 中文说明：运行时局部值 range，由紧邻初始化决定。 */
       const range = selectCompactableRange(agent.session, measurement, spec.retainTokens)
       if (range === null) {
         /* v8 ignore else -- concrete replacement preserves a compactable checkpoint; subclass hooks cannot mutate it. */
@@ -421,11 +374,9 @@ export class BasicCompactionEngine extends CompactionEngine {
     signal.throwIfAborted()
     try {
       return agent.runMaintenance(async (agentSignal) => {
-        /** 中文说明：运行时局部值 operationSignal，由紧邻初始化决定。 */
         const operationSignal = AbortSignal.any([agentSignal, signal])
         try {
           operationSignal.throwIfAborted()
-          /** 中文说明：运行时局部值 range，由紧邻初始化决定。 */
           const range = selectCompactableRange(
             agent.session,
             this.ctx.tokenMeter.measure(agent.session),

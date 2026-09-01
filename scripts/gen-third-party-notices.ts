@@ -7,14 +7,6 @@
  * artifact. Tier policy and ownership live in
  * `.agents/notes/implemented/process/2026-07-30-generated-third-party-notices.md`.
  */
-/*
- * 文件职责：实现 gen-third-party-notices.ts 覆盖的仓库生成、校验或维护职责。
- * 技术维度：使用 TypeScript、JavaScript、Vitest、Node.js 文件系统、AST 或项目图分析。
- * 产品维度：保障源码、生成目录、文档和发布元数据在开发与 CI 中保持一致。
- * 逻辑维度：读取仓库输入，构建中间模型，执行生成或校验，再报告差异和失败。
- * 关键边界：生成结果必须确定；路径与源码文本不可信；校验失败必须以非零状态显式报告。
- * 新手阅读建议：先看命令入口和输入目录，再读模型转换，最后关注输出文件与失败条件。
- */
 
 import { existsSync, globSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
@@ -22,16 +14,12 @@ import * as yaml from 'js-yaml'
 import { parse as parseToml, type TomlTableWithoutBigInt, type TomlValueWithoutBigInt } from 'smol-toml'
 import parseSpdx from 'spdx-expression-parse'
 
-/** 中文说明：变量 root 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const root = resolve(import.meta.dirname, '..')
-/** 中文说明：常量 OUT 保存本脚本共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const OUT = 'THIRD_PARTY_NOTICES.md'
 
 /** Dependency-declaration kinds a consumer resolves at runtime. */
-/* 中文说明：常量 RUNTIME_KINDS 保存本脚本共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const RUNTIME_KINDS = ['dependencies', 'optionalDependencies'] as const
 /** All manifest sections that name an external package this file must disclose. */
-/* 中文说明：常量 ALL_KINDS 保存本脚本共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const ALL_KINDS = ['dependencies', 'devDependencies', 'optionalDependencies', 'peerDependencies'] as const
 
 /**
@@ -42,7 +30,6 @@ const ALL_KINDS = ['dependencies', 'devDependencies', 'optionalDependencies', 'p
  * runtime dependency because any plugin package can be mounted from a user's
  * `cordis.yml`.
  */
-/* 中文说明：常量 DEV_ONLY_AREAS 保存本脚本共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const DEV_ONLY_AREAS = [
   'package.json',
   'packages/test-support/',
@@ -52,7 +39,6 @@ const DEV_ONLY_AREAS = [
 ] as const
 
 /** First-party public native packages: reachable at runtime but not third-party. */
-/* 中文说明：常量 FIRST_PARTY 保存本脚本共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const FIRST_PARTY = new Set([
   '@deepseek-ai/node-addon-landlock-run',
   '@deepseek-ai/node-addon-landlock-run-linux-arm64',
@@ -60,11 +46,8 @@ const FIRST_PARTY = new Set([
 ])
 
 /** Official SDK identity covered by the project's narrow owner authorization. */
-/* 中文说明：常量 CLAUDE_AGENT_SDK_PACKAGE 保存本脚本共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 export const CLAUDE_AGENT_SDK_PACKAGE = '@anthropic-ai/claude-agent-sdk'
-/** 中文说明：常量 CLAUDE_PLATFORM_PACKAGE_PREFIX 保存本脚本共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const CLAUDE_PLATFORM_PACKAGE_PREFIX = `${CLAUDE_AGENT_SDK_PACKAGE}-`
-/** 中文说明：常量 CLAUDE_PLATFORM_DECLARED_LICENSE 保存本脚本共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const CLAUDE_PLATFORM_DECLARED_LICENSE = 'SEE LICENSE IN LICENSE.md'
 
 /**
@@ -73,7 +56,6 @@ const CLAUDE_PLATFORM_DECLARED_LICENSE = 'SEE LICENSE IN LICENSE.md'
  * @param name - exact npm package identity.
  * @returns true only for the official Claude Agent SDK package.
  */
-/* 中文说明：函数 isOwnerAuthorizedRuntime 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 export function isOwnerAuthorizedRuntime(name: string): boolean {
   return name === CLAUDE_AGENT_SDK_PACKAGE
 }
@@ -82,7 +64,6 @@ export function isOwnerAuthorizedRuntime(name: string): boolean {
  * Metadata overrides where the installed manifest is wrong or unreachable.
  * Each entry documents why the store cannot answer.
  */
-/* 中文说明：常量 OVERRIDES 保存本脚本共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const OVERRIDES: Record<string, { license?: string; repo?: string }> = {
   // Rust workspaces publishing npm bins without `license` in package.json.
   'oxlint': { license: 'MIT', repo: 'https://github.com/oxc-project/oxc' },
@@ -100,18 +81,15 @@ const OVERRIDES: Record<string, { license?: string; repo?: string }> = {
  * without installed metadata to harvest, so license/repo are recorded here and
  * the generator fails when a manifest names a package this map misses.
  */
-/* 中文说明：常量 PYTHON_METADATA 保存本脚本共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const PYTHON_METADATA: Record<string, { license: string; repo: string; role: string }> = {
   pydantic: { license: 'MIT', repo: 'https://github.com/pydantic/pydantic', role: 'runtime dependency of `deepseek-harness-sdk`' },
   hatchling: { license: 'MIT', repo: 'https://github.com/pypa/hatch', role: 'build backend' },
   pytest: { license: 'MIT', repo: 'https://github.com/pytest-dev/pytest', role: 'test-only' },
 }
 
-/** 中文说明：type PythonMetadata 定义本脚本所需的数据或行为，用于表达仓库脚本场景。 */
 type PythonMetadata = typeof PYTHON_METADATA
 
 /** Tools fetched by scripts at build time, keyed by the pin the script owns. */
-/* 中文说明：常量 BUILD_TIME_TOOLS 保存本脚本共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const BUILD_TIME_TOOLS = [
   {
     name: '@yao-pkg/pkg',
@@ -123,7 +101,6 @@ const BUILD_TIME_TOOLS = [
 ]
 
 /** The `package.json` fields this generator reads. */
-/* 中文说明：interface Manifest 定义本脚本所需的数据或行为，用于表达仓库脚本场景。 */
 export interface Manifest {
   name?: string
   version?: string
@@ -136,7 +113,6 @@ export interface Manifest {
 }
 
 /** One disclosed external npm dependency. */
-/* 中文说明：interface ExternalDep 定义本脚本所需的数据或行为，用于表达仓库脚本场景。 */
 interface ExternalDep {
   name: string
   license: string
@@ -146,7 +122,6 @@ interface ExternalDep {
 }
 
 /** Read and parse a workspace-relative `package.json`. */
-/* 中文说明：函数 readManifest 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function readManifest(rel: string): Manifest {
   return JSON.parse(readFileSync(resolve(root, rel), 'utf8')) as Manifest
 }
@@ -156,7 +131,6 @@ function readManifest(rel: string): Manifest {
  * here, so a new member area (`tools/*`) is read the day it is declared.
  * @returns one glob per manifest-bearing location, repository-relative.
  */
-/** 中文说明：函数 manifestPatterns 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 export function manifestPatterns(rootMembers: readonly string[]): string[] {
   return [
     'package.json',
@@ -165,9 +139,7 @@ export function manifestPatterns(rootMembers: readonly string[]): string[] {
 }
 
 /** The `packages:` member globs declared by one pnpm workspace file. */
-/* 中文说明：函数 workspaceMembers 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function workspaceMembers(rel: string): string[] {
-  /** 中文说明：变量 declared 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const declared = (yaml.load(readFileSync(resolve(root, rel), 'utf8')) as { packages?: unknown }).packages
   if (!Array.isArray(declared) || declared.length === 0) {
     throw new Error(`gen-third-party-notices: ${rel} declares no workspace members; the manifest set cannot be derived.`)
@@ -182,21 +154,13 @@ function workspaceMembers(rel: string): string[] {
  * `tierExternalDeps` compares `/`-suffixed prefixes, so Windows backslashes
  * would silently push dev-area manifests into the runtime tier.
  */
-/* 中文说明：函数 loadWorkspaceManifests 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function loadWorkspaceManifests(): { manifests: Map<string, Manifest>; names: Set<string> } {
-  /** 中文说明：变量 patterns 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const patterns = manifestPatterns(workspaceMembers('pnpm-workspace.yaml'))
-  /** 中文说明：变量 manifests 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const manifests = new Map<string, Manifest>()
-  /** 中文说明：变量 names 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const names = new Set<string>()
-  /** 中文说明：该循环依次处理仓库文件或模型；循环变量仅在当前循环中有效。 */
   for (const pattern of patterns) {
-    /** 中文说明：该循环依次处理仓库文件或模型；循环变量仅在当前循环中有效。 */
     for (const path of globSync(pattern, { cwd: root })) {
-      /** 中文说明：变量 normalized 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const normalized = path.replaceAll('\\', '/')
-      /** 中文说明：变量 manifest 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const manifest = readManifest(normalized)
       manifests.set(normalized, manifest)
       if (manifest.name !== undefined) names.add(manifest.name)
@@ -206,7 +170,6 @@ function loadWorkspaceManifests(): { manifests: Map<string, Manifest>; names: Se
   return { manifests, names }
 }
 
-/** 中文说明：type VirtualManifest 定义本脚本所需的数据或行为，用于表达仓库脚本场景。 */
 type VirtualManifest = Manifest & {
   claudeCodeVersion?: string
   license?: string
@@ -215,21 +178,18 @@ type VirtualManifest = Manifest & {
 }
 
 /** One platform payload declared by the official Claude Agent SDK. */
-/* 中文说明：interface ClaudePlatformPayload 定义本脚本所需的数据或行为，用于表达仓库脚本场景。 */
 export interface ClaudePlatformPayload {
   readonly name: string
   readonly version: string
 }
 
 /** Current SDK and CLI distribution facts derived from the installed SDK manifest. */
-/* 中文说明：interface ClaudeDistribution 定义本脚本所需的数据或行为，用于表达仓库脚本场景。 */
 export interface ClaudeDistribution {
   readonly sdkVersion: string
   readonly claudeCodeVersion: string
   readonly payloads: ClaudePlatformPayload[]
 }
 
-/** 中文说明：函数 requiredManifestString 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function requiredManifestString(
   value: string | undefined,
   field: string,
@@ -246,7 +206,6 @@ function requiredManifestString(
  * @param manifest - installed official SDK manifest.
  * @returns current SDK, CLI, and optional platform payload facts.
  */
-/* 中文说明：函数 claudeDistributionFromManifest 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 export function claudeDistributionFromManifest(
   manifest: VirtualManifest,
 ): ClaudeDistribution {
@@ -255,21 +214,17 @@ export function claudeDistributionFromManifest(
       `gen-third-party-notices: expected ${CLAUDE_AGENT_SDK_PACKAGE} manifest, got ${JSON.stringify(manifest.name)}.`,
     )
   }
-  /** 中文说明：变量 sdkVersion 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const sdkVersion = requiredManifestString(manifest.version, 'version')
-  /** 中文说明：变量 claudeCodeVersion 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const claudeCodeVersion = requiredManifestString(
     manifest.claudeCodeVersion,
     'claudeCodeVersion',
   )
-  /** 中文说明：变量 entries 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const entries = Object.entries(manifest.optionalDependencies ?? {})
   if (entries.length === 0) {
     throw new Error(
       `gen-third-party-notices: ${CLAUDE_AGENT_SDK_PACKAGE} declares no optional platform payloads.`,
     )
   }
-  /** 中文说明：函数值 payloads 封装本脚本的局部步骤；参数和返回值由右侧签名约束；示例见本脚本调用。 */
   const payloads = entries.map(([name, version]) => {
     if (!name.startsWith(CLAUDE_PLATFORM_PACKAGE_PREFIX)) {
       throw new Error(
@@ -324,11 +279,13 @@ const workspaceLinkedManifestCache = new Map<string, VirtualManifest | undefined
  * Resolve the package version selected for a declaring workspace instead of an
  * unrelated historical version that still occupies the shared virtual store.
  * @param name - external package identity.
+ * @param manifests - workspace manifests already loaded by the caller, so one
+ *   load serves every dependency instead of a full re-read per name.
  * @returns the first current workspace link for that package, when installed.
  */
-function workspaceLinkedManifest(name: string): VirtualManifest | undefined {
+function workspaceLinkedManifest(name: string, manifests: Map<string, Manifest>): VirtualManifest | undefined {
   if (workspaceLinkedManifestCache.has(name)) return workspaceLinkedManifestCache.get(name)
-  for (const [path, manifest] of loadWorkspaceManifests().manifests) {
+  for (const [path, manifest] of manifests) {
     if (!ALL_KINDS.some(kind => name in (manifest[kind] ?? {}))) continue
     const linked = resolve(root, dirname(path), 'node_modules', name, 'package.json')
     if (!existsSync(linked)) continue
@@ -341,15 +298,13 @@ function workspaceLinkedManifest(name: string): VirtualManifest | undefined {
 }
 
 /** Resolve one installed external package manifest from either pnpm store. */
-function installedManifest(name: string, expectedVersion?: string): VirtualManifest | undefined {
-  const linked = workspaceLinkedManifest(name)
+function installedManifest(name: string, manifests: Map<string, Manifest>, expectedVersion?: string): VirtualManifest | undefined {
+  const linked = workspaceLinkedManifest(name, manifests)
   if (linked !== undefined && (expectedVersion === undefined || linked.version === expectedVersion)) return linked
   let manifest: (Manifest & { license?: string; repository?: string | { url?: string }; homepage?: string }) | undefined
   // Workspace-local link farms can expose a dependency that is not linked at
   // the repository root; both are backed by the root workspace's lockfile.
-  /** 中文说明：该循环依次处理仓库文件或模型；循环变量仅在当前循环中有效。 */
   for (const store of ['node_modules', 'native/landlock-run/node_modules']) {
-    /** 中文说明：变量 direct 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const direct = resolve(root, store, name, 'package.json')
     if (existsSync(direct)) {
       const candidate = JSON.parse(readFileSync(direct, 'utf8')) as typeof manifest
@@ -358,7 +313,6 @@ function installedManifest(name: string, expectedVersion?: string): VirtualManif
         break
       }
     }
-    /** 中文说明：变量 virtual 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const virtual = resolve(root, store, '.pnpm')
     if (!existsSync(virtual)) continue
     manifest = virtualManifest(virtual, name, expectedVersion)
@@ -368,17 +322,11 @@ function installedManifest(name: string, expectedVersion?: string): VirtualManif
 }
 
 /** License and repository URL for an installed external package, from the pnpm store. */
-/* 中文说明：函数 installedMetadata 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
-function installedMetadata(name: string): { license: string; repo: string } {
-  /** 中文说明：变量 override 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
+function installedMetadata(name: string, manifests: Map<string, Manifest>): { license: string; repo: string } {
   const override = OVERRIDES[name]
-  /** 中文说明：变量 manifest 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-  const manifest = installedManifest(name)
-  /** 中文说明：变量 license 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
+  const manifest = installedManifest(name, manifests)
   const license = override?.license ?? manifest?.license
-  /** 中文说明：变量 rawRepo 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const rawRepo = typeof manifest?.repository === 'string' ? manifest.repository : manifest?.repository?.url ?? manifest?.homepage
-  /** 中文说明：变量 repo 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const repo = override?.repo ?? normalizeRepo(rawRepo)
   if (license === undefined || repo === undefined) {
     throw new Error(`gen-third-party-notices: cannot resolve ${license === undefined ? 'license' : 'repository'} for ${name}; run \`pnpm install\`, or add an OVERRIDES entry.`)
@@ -386,22 +334,17 @@ function installedMetadata(name: string): { license: string; repo: string } {
   return { license, repo }
 }
 
-/** 中文说明：函数 collectClaudeDistribution 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
-function collectClaudeDistribution(): ClaudeDistribution {
-  /** 中文说明：变量 manifest 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-  const manifest = installedManifest(CLAUDE_AGENT_SDK_PACKAGE)
+function collectClaudeDistribution(manifests: Map<string, Manifest>): ClaudeDistribution {
+  const manifest = installedManifest(CLAUDE_AGENT_SDK_PACKAGE, manifests)
   if (manifest === undefined) {
     throw new Error(
       `gen-third-party-notices: cannot resolve ${CLAUDE_AGENT_SDK_PACKAGE}; run \`pnpm install\`.`,
     )
   }
-  /** 中文说明：变量 distribution 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const distribution = claudeDistributionFromManifest(manifest)
-  /** 中文说明：变量 installedPayloads 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   let installedPayloads = 0
-  /** 中文说明：该循环依次处理仓库文件或模型；循环变量仅在当前循环中有效。 */
   for (const payload of distribution.payloads) {
-    const installed = installedManifest(payload.name, payload.version)
+    const installed = installedManifest(payload.name, manifests, payload.version)
     if (installed === undefined) continue
     installedPayloads += 1
     if (
@@ -423,10 +366,8 @@ function collectClaudeDistribution(): ClaudeDistribution {
 }
 
 /** Normalize a manifest repository/homepage value to a browsable https URL. */
-/* 中文说明：函数 normalizeRepo 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function normalizeRepo(raw: string | undefined): string | undefined {
   if (raw === undefined || raw === '') return undefined
-  /** 中文说明：变量 url 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   let url = raw
     .replace(/^git\+ssh:\/\/git@/, 'https://')
     .replace(/^git\+/, '')
@@ -444,13 +385,11 @@ function normalizeRepo(raw: string | undefined): string | undefined {
  * by tooling, test infrastructure, the website, or the demo leaves — whatever
  * the declaring section is called — is development-only.
  */
-/* 中文说明：函数 collectNpmDeps 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
-function collectNpmDeps(): ExternalDep[] {
-  const { manifests, names } = loadWorkspaceManifests()
+function collectNpmDeps(manifests: Map<string, Manifest>, names: Set<string>): ExternalDep[] {
   return [...tierExternalDeps(manifests, names)]
     .filter(([name]) => !FIRST_PARTY.has(name))
     .sort(([a], [b]) => a.localeCompare(b))
-    .map(([name, runtime]) => ({ name, ...installedMetadata(name), runtime }))
+    .map(([name, runtime]) => ({ name, ...installedMetadata(name, manifests), runtime }))
 }
 
 /**
@@ -459,22 +398,15 @@ function collectNpmDeps(): ExternalDep[] {
  * @param names - every workspace package name, which never counts as external.
  * @returns each external package mapped to whether it is a runtime dependency.
  */
-/* 中文说明：函数 tierExternalDeps 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 export function tierExternalDeps(manifests: Map<string, Manifest>, names: Set<string>): Map<string, boolean> {
-  /** 中文说明：变量 tiers 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const tiers = new Map<string, boolean>()
   // `tsx` is runtime by fiat: the root source-run scripts execute through its ESM hook.
   tiers.set('tsx', true)
-  /** 中文说明：该循环依次处理仓库文件或模型；循环变量仅在当前循环中有效。 */
   for (const [path, manifest] of manifests) {
-    /** 中文说明：函数值 devOnly 封装本脚本的局部步骤；参数和返回值由右侧签名约束；示例见本脚本调用。 */
     const devOnly = DEV_ONLY_AREAS.some(area => (area.endsWith('/') ? path.startsWith(area) : path === area))
-    /** 中文说明：该循环依次处理仓库文件或模型；循环变量仅在当前循环中有效。 */
     for (const kind of ALL_KINDS) {
-      /** 中文说明：该循环依次处理仓库文件或模型；循环变量仅在当前循环中有效。 */
       for (const [dep, range] of Object.entries(manifest[kind] ?? {})) {
         if (names.has(dep) || range.startsWith('workspace:')) continue
-        /** 中文说明：变量 runtime 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
         const runtime = !devOnly && (RUNTIME_KINDS as readonly string[]).includes(kind)
         tiers.set(dep, (tiers.get(dep) ?? false) || runtime)
       }
@@ -484,7 +416,6 @@ export function tierExternalDeps(manifests: Map<string, Manifest>, names: Set<st
 }
 
 /** A vendored package row parsed out of the `vendor/README.md` manifest table. */
-/* 中文说明：interface VendoredRow 定义本脚本所需的数据或行为，用于表达仓库脚本场景。 */
 export interface VendoredRow {
   npmName: string
   /** The name this package carries upstream; MIT attribution names the fork's origin, not our scope. */
@@ -497,13 +428,9 @@ export interface VendoredRow {
  * @param text - the complete `vendor/README.md` contents.
  * @returns one row per manifest-table entry, in table order.
  */
-/* 中文说明：函数 parseVendoredRows 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 export function parseVendoredRows(text: string): VendoredRow[] {
-  /** 中文说明：变量 rows 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const rows: VendoredRow[] = []
-  /** 中文说明：该循环依次处理仓库文件或模型；循环变量仅在当前循环中有效。 */
   for (const line of text.split('\n')) {
-    /** 中文说明：变量 match 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const match = new RegExp(String.raw`^\| \x60\S+\/\x60 \| \x60([^\x60]+)\x60 \| \x60([^\x60]+)\x60 \| \S+ \| `
       + String.raw`(https:\/\/\S+?)(?: \([^)]*\))? \| \x60[0-9a-f]+\x60 \|$`).exec(line)
     if (match === null) continue
@@ -520,33 +447,23 @@ export function parseVendoredRows(text: string): VendoredRow[] {
  * disclosed, so a row that stops matching the table format is a hard error
  * rather than a package that quietly vanishes from the notices.
  */
-/* 中文说明：函数 collectVendored 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function collectVendored(): VendoredRow[] {
-  /** 中文说明：变量 rows 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const rows = parseVendoredRows(readFileSync(resolve(root, 'vendor/README.md'), 'utf8'))
-  /** 中文说明：变量 onDisk 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const onDisk = new Map<string, string>()
-  /** 中文说明：该循环依次处理仓库文件或模型；循环变量仅在当前循环中有效。 */
   for (const entry of readdirSync(resolve(root, 'vendor'), { withFileTypes: true })) {
     if (!entry.isDirectory()) continue
-    /** 中文说明：变量 manifest 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const manifest = readManifest(`vendor/${entry.name}/package.json`)
     if (manifest.name !== undefined) onDisk.set(manifest.name, entry.name)
   }
 
-  /** 中文说明：函数值 parsed 封装本脚本的局部步骤；参数和返回值由右侧签名约束；示例见本脚本调用。 */
   const parsed = new Set(rows.map(row => row.npmName))
-  /** 中文说明：函数值 missing 封装本脚本的局部步骤；参数和返回值由右侧签名约束；示例见本脚本调用。 */
   const missing = [...onDisk.keys()].filter(name => !parsed.has(name))
   if (missing.length > 0) {
     throw new Error(`gen-third-party-notices: vendor/README.md has no manifest-table row for ${missing.join(', ')}; its table format changed or the sync is incomplete.`)
   }
-  /** 中文说明：该循环依次处理仓库文件或模型；循环变量仅在当前循环中有效。 */
   for (const row of rows) {
-    /** 中文说明：变量 dir 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const dir = onDisk.get(row.npmName)
     if (dir === undefined) throw new Error(`gen-third-party-notices: vendored package ${row.npmName} from vendor/README.md has no vendor/ directory.`)
-    /** 中文说明：变量 license 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const license = readManifest(`vendor/${dir}/package.json`).license
     if (license !== 'MIT') {
       throw new Error(`gen-third-party-notices: vendored ${row.npmName} declares license ${JSON.stringify(license)}; the vendored section assumes MIT throughout.`)
@@ -556,15 +473,12 @@ function collectVendored(): VendoredRow[] {
 }
 
 /** Whether a parsed TOML value is a table rather than an array or scalar. */
-/* 中文说明：函数 isTomlTable 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function isTomlTable(value: TomlValueWithoutBigInt | undefined): value is TomlTableWithoutBigInt {
   return value !== undefined && typeof value === 'object' && !Array.isArray(value)
 }
 
 /** Parse one PEP 508 requirement string into its distribution name. */
-/* 中文说明：函数 parsePythonRequirement 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function parsePythonRequirement(requirement: string): string {
-  /** 中文说明：变量 name 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const name = /^\s*([a-zA-Z][a-zA-Z0-9._-]*)\s*(?:\[[^\]]*\])?\s*(?:[<>=!~;@].*)?$/.exec(requirement)?.[1]
   if (name === undefined) {
     throw new Error(`gen-third-party-notices: cannot read a distribution name from the requirement ${JSON.stringify(requirement)}.`)
@@ -573,7 +487,6 @@ function parsePythonRequirement(requirement: string): string {
 }
 
 /** Add the string requirements from one parsed TOML array. */
-/* 中文说明：函数 collectPythonRequirementArray 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function collectPythonRequirementArray(
   names: string[],
   value: TomlValueWithoutBigInt | undefined,
@@ -584,7 +497,6 @@ function collectPythonRequirementArray(
   if (!Array.isArray(value)) {
     throw new Error(`gen-third-party-notices: ${location} must be an array.`)
   }
-  /** 中文说明：该循环依次处理仓库文件或模型；循环变量仅在当前循环中有效。 */
   for (const item of value) {
     if (typeof item === 'string') {
       names.push(parsePythonRequirement(item))
@@ -598,7 +510,6 @@ function collectPythonRequirementArray(
 }
 
 /** Read an optional TOML table and reject a present non-table value. */
-/* 中文说明：函数 optionalTomlTable 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function optionalTomlTable(value: TomlValueWithoutBigInt | undefined, location: string): TomlTableWithoutBigInt | undefined {
   if (value === undefined || isTomlTable(value)) return value
   throw new Error(`gen-third-party-notices: ${location} must be a table.`)
@@ -614,17 +525,11 @@ function optionalTomlTable(value: TomlValueWithoutBigInt | undefined, location: 
  * @param text - the complete `pyproject.toml` contents.
  * @returns the local project name and declared requirement names.
  */
-/* 中文说明：函数 parsePyproject 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function parsePyproject(text: string): { projectName?: string; requirements: string[] } {
-  /** 中文说明：变量 names 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const names: string[] = []
-  /** 中文说明：变量 document 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const document = parseToml(text, { integersAsBigInt: false })
-  /** 中文说明：变量 buildSystem 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const buildSystem = optionalTomlTable(document['build-system'], '[build-system]')
-  /** 中文说明：变量 project 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const project = optionalTomlTable(document.project, '[project]')
-  /** 中文说明：变量 projectName 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const projectName = project?.name
   if (projectName !== undefined && typeof projectName !== 'string') {
     throw new Error('gen-third-party-notices: [project].name must be a string.')
@@ -632,16 +537,12 @@ function parsePyproject(text: string): { projectName?: string; requirements: str
   collectPythonRequirementArray(names, buildSystem?.requires, '[build-system].requires')
   collectPythonRequirementArray(names, project?.dependencies, '[project].dependencies')
 
-  /** 中文说明：变量 optional 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const optional = optionalTomlTable(project?.['optional-dependencies'], '[project.optional-dependencies]')
-  /** 中文说明：该循环依次处理仓库文件或模型；循环变量仅在当前循环中有效。 */
   for (const [group, requirements] of Object.entries(optional ?? {})) {
     collectPythonRequirementArray(names, requirements, `[project.optional-dependencies].${group}`)
   }
 
-  /** 中文说明：变量 groups 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const groups = optionalTomlTable(document['dependency-groups'], '[dependency-groups]')
-  /** 中文说明：该循环依次处理仓库文件或模型；循环变量仅在当前循环中有效。 */
   for (const [group, requirements] of Object.entries(groups ?? {})) {
     collectPythonRequirementArray(names, requirements, `[dependency-groups].${group}`, true)
   }
@@ -655,13 +556,11 @@ function parsePyproject(text: string): { projectName?: string; requirements: str
  * @param text - the complete `pyproject.toml` contents.
  * @returns each declared requirement's distribution name, in file order.
  */
-/* 中文说明：函数 parsePyprojectRequirements 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 export function parsePyprojectRequirements(text: string): string[] {
   return parsePyproject(text).requirements
 }
 
 /** Normalize a Python distribution name according to the packaging name rule. */
-/* 中文说明：函数 normalizePythonDistributionName 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function normalizePythonDistributionName(name: string): string {
   return name.toLowerCase().replace(/[-_.]+/g, '-')
 }
@@ -672,23 +571,18 @@ function normalizePythonDistributionName(name: string): string {
  * @param metadata - disclosure metadata for every external dependency.
  * @returns disclosed dependencies in normalized name order.
  */
-/* 中文说明：函数 collectPythonDependencies 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 export function collectPythonDependencies(
   pyprojects: string[],
   metadata: PythonMetadata = PYTHON_METADATA,
 ): { name: string; license: string; repo: string; role: string }[] {
-  /** 中文说明：变量 parsed 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const parsed = pyprojects.map(parsePyproject)
-  /** 中文说明：函数值 firstParty 封装本脚本的局部步骤；参数和返回值由右侧签名约束；示例见本脚本调用。 */
   const firstParty = new Set(parsed.flatMap(({ projectName }) => (
     projectName === undefined ? [] : [normalizePythonDistributionName(projectName)]
   )))
-  /** 中文说明：变量 found 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const found = new Set(parsed
     .flatMap(({ requirements }) => requirements.map(normalizePythonDistributionName))
     .filter(name => !firstParty.has(name)))
   return [...found].sort((a, b) => a.localeCompare(b)).map((name) => {
-    /** 中文说明：变量 entry 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const entry = metadata[name]
     if (entry === undefined) throw new Error(`gen-third-party-notices: python dependency ${name} is missing from PYTHON_METADATA.`)
     return { name, ...entry }
@@ -696,28 +590,21 @@ export function collectPythonDependencies(
 }
 
 /** Direct Python dependencies named by the `pyproject.toml` manifests under `python/`. */
-/* 中文说明：函数 collectPython 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function collectPython(): { name: string; license: string; repo: string; role: string }[] {
-  /** 中文说明：变量 manifests 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const manifests = globSync('python/*/pyproject.toml', { cwd: root })
   if (manifests.length === 0) throw new Error('gen-third-party-notices: no python/*/pyproject.toml found; the Python tree moved.')
   return collectPythonDependencies(manifests.map(path => readFileSync(resolve(root, path), 'utf8')))
 }
 
 /** pnpm-patched external packages, from `pnpm-workspace.yaml`. */
-/* 中文说明：函数 collectPatched 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function collectPatched(): { spec: string; patch: string }[] {
-  /** 中文说明：变量 workspace 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const workspace = yaml.load(readFileSync(resolve(root, 'pnpm-workspace.yaml'), 'utf8')) as { patchedDependencies?: Record<string, string> }
   return Object.entries(workspace.patchedDependencies ?? {}).map(([spec, patch]) => ({ spec, patch }))
 }
 
 /** Verify each build-time tool pin still appears in its owning script. */
-/* 中文说明：函数 verifyBuildTimePins 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function verifyBuildTimePins(): void {
-  /** 中文说明：该循环依次处理仓库文件或模型；循环变量仅在当前循环中有效。 */
   for (const tool of BUILD_TIME_TOOLS) {
-    /** 中文说明：变量 text 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const text = readFileSync(resolve(root, tool.pinSource), 'utf8')
     if (!text.includes(tool.name)) {
       throw new Error(`gen-third-party-notices: ${tool.pinSource} no longer references ${tool.name}; update BUILD_TIME_TOOLS.`)
@@ -726,11 +613,9 @@ function verifyBuildTimePins(): void {
 }
 
 /** SPDX identifiers this project may ship without further review. */
-/* 中文说明：常量 PERMISSIVE_LICENSES 保存本脚本共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const PERMISSIVE_LICENSES = new Set(['MIT', 'ISC', 'BSD-2-Clause', 'BSD-3-Clause', 'Apache-2.0', '0BSD', 'Unlicense', 'CC0-1.0', 'BlueOak-1.0.0', 'Python-2.0'])
 
 /** Evaluate a parsed SPDX expression under the repository's license policy. */
-/* 中文说明：函数 isPermissiveSpdx 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function isPermissiveSpdx(expression: ReturnType<typeof parseSpdx>): boolean {
   if ('conjunction' in expression) {
     return expression.conjunction === 'and'
@@ -752,10 +637,8 @@ function isPermissiveSpdx(expression: ReturnType<typeof parseSpdx>): boolean {
  * @param license - the SPDX expression from the package manifest.
  * @returns true when the expression's obligations are all permissive.
  */
-/* 中文说明：函数 isPermissive 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 export function isPermissive(license: string): boolean {
   // Some npm manifests use a slash for a choice despite SPDX requiring `OR`.
-  /** 中文说明：变量 normalized 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const normalized = license.replace(/\s*\/\s*/g, ' OR ').trim()
   try {
     return isPermissiveSpdx(parseSpdx(normalized))
@@ -770,32 +653,24 @@ export function isPermissive(license: string): boolean {
  * @param deps - development dependencies whose license is not permissive.
  * @returns the paragraph to place after the development table.
  */
-/* 中文说明：函数 renderNonPermissiveNote 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function renderNonPermissiveNote(deps: ExternalDep[]): string {
   if (deps.length === 0) return ''
-  /** 中文说明：函数值 named 封装本脚本的局部步骤；参数和返回值由右侧签名约束；示例见本脚本调用。 */
   const named = deps.map(dep => `\`${dep.name}\` (${dep.license})`)
-  /** 中文说明：变量 subject 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const subject = named.length === 1 ? named[0] : `${named.slice(0, -1).join(', ')} and ${named.at(-1)}`
   return `\n${subject} ${named.length === 1 ? 'runs' : 'run'} only as development tooling; their code is not linked into or distributed with any DeepSeek Harness artifact.\n`
 }
 
 /** Render one npm dependency table. */
-/* 中文说明：函数 renderNpmTable 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function renderNpmTable(deps: ExternalDep[]): string {
-  /** 中文说明：变量 lines 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const lines = ['| Package | License |', '| --- | --- |']
-  /** 中文说明：该循环依次处理仓库文件或模型；循环变量仅在当前循环中有效。 */
   for (const dep of deps) lines.push(`| [\`${dep.name}\`](${dep.repo}) | ${dep.license} |`)
   return lines.join('\n')
 }
 
-/** 中文说明：函数 renderClaudeDistribution 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function renderClaudeDistribution(
   distribution: ClaudeDistribution | undefined,
 ): string {
   if (distribution === undefined) return ''
-  /** 中文说明：函数值 rows 封装本脚本的局部步骤；参数和返回值由右侧签名约束；示例见本脚本调用。 */
   const rows = distribution.payloads.map(payload =>
     `| [\`${payload.name}\`](https://www.npmjs.com/package/${payload.name}) | ${payload.version} | ${CLAUDE_PLATFORM_DECLARED_LICENSE} |`,
   )
@@ -816,32 +691,26 @@ ${rows.join('\n')}
  * Render the complete notices document.
  * @returns the exact bytes `THIRD_PARTY_NOTICES.md` must hold.
  */
-/* 中文说明：函数 render 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 export function render(): string {
   verifyBuildTimePins()
-  /** 中文说明：变量 npm 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-  const npm = collectNpmDeps()
-  /** 中文说明：函数值 runtimeDeps 封装本脚本的局部步骤；参数和返回值由右侧签名约束；示例见本脚本调用。 */
+  // The linked-manifest cache is keyed by name only, so it must not outlive
+  // the manifests map it was resolved from; render() owns that single load.
+  workspaceLinkedManifestCache.clear()
+  const { manifests, names } = loadWorkspaceManifests()
+  const npm = collectNpmDeps(manifests, names)
   const runtimeDeps = npm.filter(dep => dep.runtime)
-  /** 中文说明：函数值 devDeps 封装本脚本的局部步骤；参数和返回值由右侧签名约束；示例见本脚本调用。 */
   const devDeps = npm.filter(dep => !dep.runtime)
-  /** 中文说明：变量 vendored 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const vendored = collectVendored()
-  /** 中文说明：变量 python 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const python = collectPython()
-  /** 中文说明：变量 patched 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const patched = collectPatched()
-  /** 中文说明：变量 claudeDistribution 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const claudeDistribution = runtimeDeps.some(
     dep => dep.name === CLAUDE_AGENT_SDK_PACKAGE,
   )
-    ? collectClaudeDistribution()
+    ? collectClaudeDistribution(manifests)
     : undefined
-  /** 中文说明：函数值 nonPermissiveDev 封装本脚本的局部步骤；参数和返回值由右侧签名约束；示例见本脚本调用。 */
   const nonPermissiveDev = devDeps.filter(dep => !isPermissive(dep.license))
   // A copyleft license reaching a shipped surface is a distribution decision,
   // not a rendering detail; the notices cannot quietly absorb it.
-  /** 中文说明：函数值 nonPermissiveRuntime 封装本脚本的局部步骤；参数和返回值由右侧签名约束；示例见本脚本调用。 */
   const nonPermissiveRuntime = runtimeDeps.filter(dep =>
     !isPermissive(dep.license)
     && !isOwnerAuthorizedRuntime(dep.name),
@@ -849,7 +718,6 @@ export function render(): string {
   if (nonPermissiveRuntime.length > 0) {
     throw new Error(`gen-third-party-notices: runtime ${nonPermissiveRuntime.map(dep => `${dep.name} (${dep.license})`).join(', ')} is not a permissive license; review the distribution terms and record the decision before regenerating.`)
   }
-  /** 中文说明：函数值 patchedLines 封装本脚本的局部步骤；参数和返回值由右侧签名约束；示例见本脚本调用。 */
   const patchedLines = patched.map(({ spec, patch }) => `- \`${spec}\` — [\`${patch}\`](${patch})`)
 
   return `<!-- Generated by scripts/gen-third-party-notices.ts — do not edit by hand.
@@ -912,12 +780,9 @@ ${BUILD_TIME_TOOLS.map(tool => `| [\`${tool.name}\`](${tool.repo}) | ${tool.lice
 /** CLI entry: default writes the notices, `--check` fails if the committed copy
  * is stale. Guarded behind an entry-point check so importing this module for
  * tests neither regenerates the committed file nor calls process.exit. */
-/* 中文说明：函数 main 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function main(): void {
-  /** 中文说明：变量 content 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const content = render()
   if (process.argv.includes('--check')) {
-    /** 中文说明：变量 committed 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     let committed: string | null = null
     try {
       committed = readFileSync(resolve(root, OUT), 'utf8')

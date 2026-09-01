@@ -1,41 +1,25 @@
-/**
- * 文件职责：验证 loader-composition.e2e.ts 覆盖的子代理进程与协议行为与生命周期。
- * 技术维度：使用 TypeScript、Vitest、Cordis 插件、文件存储或受控子进程协议。
- * 产品维度：保障 Agent 的子代理进程与协议能力稳定、安全且可诊断。
- * 逻辑维度：准备或解析输入，执行核心流程，再处理结果、错误与资源清理。
- * 关键边界：外部进程和持久化数据不可信；敏感环境需净化；清理必须等待资源完全停止。
- * 新手阅读建议：先看导出类型和夹具，再读主流程，最后关注协议错误、恢复和清理。
- */
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
-import {
-  LOADER_SMOKE_TEST_TIMEOUT_MS,
-  runLoaderSmoke,
-} from '@deepseek-ai/dsh-loader-smoke'
+import { runLoaderSmoke } from '@deepseek-ai/dsh-loader-smoke'
 
-/** 中文说明：变量 fixtureDir 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
+const PRODUCTION_PROFILE_PROCESS_TIMEOUT_MS = 60_000
+const PRODUCTION_PROFILE_TEST_TIMEOUT_MS = PRODUCTION_PROFILE_PROCESS_TIMEOUT_MS + 15_000
+
 const fixtureDir = fileURLToPath(new URL(
   './fixtures/loader/',
   import.meta.url,
 ))
-/** 中文说明：变量 driver 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const driver = join(fixtureDir, 'driver.ts')
-/** 中文说明：变量 configPath 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-const configPath = join(fixtureDir, 'cordis.yml')
-/** 中文说明：变量 packageDir 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
+const configPath = join(fixtureDir, 'claude-code.patch.yml')
 const packageDir = fileURLToPath(new URL('..', import.meta.url))
-/** 中文说明：变量 manifest 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const manifest = JSON.parse(readFileSync(join(packageDir, 'package.json'), 'utf8')) as {
   dsh?: { bundle?: { patch?: string } }
 }
-/** 中文说明：变量 bundlePatch 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const bundlePatch = manifest.dsh?.bundle?.patch
 if (bundlePatch === undefined) throw new Error('Claude Code package must declare a Bundle patch')
-/** 中文说明：变量 bundlePatchPath 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const bundlePatchPath = join(packageDir, bundlePatch)
-/** 中文说明：变量 repoTsconfig 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const repoTsconfig = fileURLToPath(new URL('../../../../tsconfig.json', import.meta.url))
 
 describe('product-provider public Loader composition', () => {
@@ -48,6 +32,7 @@ describe('product-provider public Loader composition', () => {
       configPath,
       binArgs: [configPath, bundlePatchPath],
       tsconfigPath: repoTsconfig,
+      processTimeoutMs: PRODUCTION_PROFILE_PROCESS_TIMEOUT_MS,
       env: {
         // Loading the optional package must not probe or start a Claude binary.
         PATH: '',
@@ -128,5 +113,5 @@ describe('product-provider public Loader composition', () => {
       jobTools: ['job_kill', 'job_list', 'job_output'],
       starts: 0,
     })
-  }, LOADER_SMOKE_TEST_TIMEOUT_MS)
+  }, PRODUCTION_PROFILE_TEST_TIMEOUT_MS)
 })

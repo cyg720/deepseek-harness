@@ -1,7 +1,6 @@
 /** Test adapter for the production conversation.details.tool registration. */
-import type { ConnectionGeneration } from '@deepseek-ai/dsh-client-connection/client'
 import type { SessionLiveEventEntry } from '@deepseek-ai/dsh-api-session-controller/client'
-import { isJsonValue, type JsonValue } from '@deepseek-ai/dsh-session'
+import { isJsonValue, type JsonValue } from '@deepseek-ai/dsh-util-values'
 import type {
   ChatConversationViewNode, ChatSnapshot, ConversationNode, DetailsSlotProps,
   DetailsToolOwnerProps, RunningToolCall, ToolResultNode,
@@ -29,14 +28,11 @@ function jsonFixture(value: unknown): JsonValue {
 }
 
 /** Build the canonical Chat slice consumed by Tool rows and details tests. */
-/* 中文说明：函数 toolChatSnapshot 的参数见签名，返回结果供展示流程使用；示例见本文件。 */
 export function toolChatSnapshot(
   settled: readonly ConversationNode[] = [],
   running: readonly RunningToolCall[] = [],
 ): ChatSnapshot {
-  /** 中文说明：测试局部值 roots，由紧邻初始化决定。 */
   const roots = [...settled.filter(node => node.kind === 'tool-result'), ...running]
-  /** 中文说明：测试局部值 nodes，由紧邻初始化决定。 */
   const nodes: ChatConversationViewNode[] = roots.map(root => ({
     key: `tool:${root.callId}`,
     kind: 'tool-call',
@@ -47,9 +43,7 @@ export function toolChatSnapshot(
     visibility: 'visible',
     data: { root },
   }))
-  /** 中文说明：测试局部值 byKey，由紧邻初始化决定。 */
   const byKey = new Map(nodes.map(node => [node.key, node]))
-  /** 中文说明：测试局部值 empty，由紧邻初始化决定。 */
   const empty: readonly string[] = []
   return {
     order: nodes.map(node => node.key),
@@ -149,23 +143,21 @@ export function toolSessionEvents(nodes: readonly ToolResultNode[]): readonly Se
 /**
  * Bind ui-tool's details renderer to the conversation slot callback shape.
  * @param t - conversation locale seat used by Tool cards.
- * @param generation - optional Connection generation carrying the Host home.
+ * @param home - optional Host account home for POSIX `~` summaries.
  * @returns a direct-test renderSlot implementation.
  */
-/* 中文说明：函数 renderToolDetails 的参数见签名，返回结果供展示流程使用；示例见本文件。 */
 export function renderToolDetails(
   t: TranslateNS<'conversation'>,
-  generation?: ConnectionGeneration,
+  home?: string,
 ): DetailsSlotProps['renderSlot'] {
   return (_key, owner) => {
     // PropsRenderSlots keeps its key generic even for this one-key share;
     // recover the concrete owner selected by the adapter's fixed slot.
-    /** 中文说明：测试局部值 details，由紧邻初始化决定。 */
     const details = owner as unknown as DetailsToolOwnerProps
     return <ToolDetails
       block={details.block}
       cwd={details.cwd}
-      useConnectionGeneration={selector => selector(generation)}
+      useHostInfo={selector => selector({ home, isLoopback: true })}
       t={t}
     />
   }

@@ -1,11 +1,3 @@
-/**
- * 文件职责：验证Pi AI LLM的 catalog.spec.ts 行为与网络边界。
- * 技术维度：TypeScript、Fetch、SSE、OAuth/密钥认证、模型目录和运行时模式校验。
- * 产品维度：让 Agent 能稳定调用供应商模型、发现能力并接收流式结果。
- * 逻辑维度：构造请求或模拟服务器，驱动适配器并断言事件与错误。
- * 关键边界：网络响应属于不可信输入；密钥和令牌不得记录；取消必须终止请求与流。
- * 新手阅读建议：先读 config/auth/catalog，再看 adapter/stream，最后阅读错误和重放测试。
- */
 import { mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -14,7 +6,6 @@ import { Context } from '@deepseek-ai/cordis'
 import LlmRuntime, { createUserMessage, ReasoningEffortId } from '@deepseek-ai/dsh-llm'
 import type { StreamChunk } from '@deepseek-ai/dsh-llm'
 import FileSettingsProvider from '@deepseek-ai/dsh-settings-file'
-import { settingsNamespace } from '@deepseek-ai/dsh-settings'
 import * as LlmPiAi from '@deepseek-ai/dsh-llm-pi-ai'
 import { PiAiAdapter } from '@deepseek-ai/dsh-llm-pi-ai'
 import { getBuiltinModels } from '@earendil-works/pi-ai/providers/all'
@@ -26,13 +17,11 @@ import { assemble } from './assemble.ts'
 import { memoryAuth } from './auth-double.ts'
 import { closeMockServers, mockServer, textEvents } from './mock-server.ts'
 
-/** 中文说明：测试局部值 homes，由紧邻初始化决定。 */
 const homes: string[] = []
 
 // Routes name their credential by reference; the value lives in the
 // environment, which is the layer the adapter falls back to without a
 // mounted credentials seam.
-/** 中文说明：测试局部值 KEY_ENV，由紧邻初始化决定。 */
 const KEY_ENV = 'PI_TEST_KEY'
 
 beforeEach(() => {
@@ -46,9 +35,7 @@ afterEach(async () => {
 })
 
 /** A throwaway $DSH_HOME with an empty settings document. */
-/* 中文说明：函数 home 的参数见签名，返回结果供模型流程使用；示例见本文件。 */
 async function home(): Promise<string> {
-  /** 中文说明：测试局部值 dir，由紧邻初始化决定。 */
   const dir = await mkdtemp(join(tmpdir(), 'dsh-pi-catalog-'))
   homes.push(dir)
   await writeFile(join(dir, 'settings.yaml'), '')
@@ -56,9 +43,7 @@ async function home(): Promise<string> {
 }
 
 /** The dormant composition plus a real settings service, as the product mounts it. */
-/* 中文说明：函数 bootWithSettings 的参数见签名，返回结果供模型流程使用；示例见本文件。 */
 async function bootWithSettings(dir: string, config: LlmPiAi.Config): Promise<Context> {
-  /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
   const ctx = new Context()
   await ctx.plugin(LlmRuntime)
   await ctx.plugin(FileSettingsProvider, { path: join(dir, 'settings.yaml'), watch: false })
@@ -67,7 +52,6 @@ async function bootWithSettings(dir: string, config: LlmPiAi.Config): Promise<Co
 }
 
 /** A complete hand-declared route: nothing about it exists in pi-ai's catalog. */
-/* 中文说明：函数 gateway 的参数见签名，返回结果供模型流程使用；示例见本文件。 */
 function gateway(baseURL: string, overrides: Record<string, unknown> = {}): LlmPiAi.Config {
   return {
     providers: {
@@ -83,9 +67,7 @@ function gateway(baseURL: string, overrides: Record<string, unknown> = {}): LlmP
   }
 }
 
-/** 中文说明：函数 harness 的参数见签名，返回结果供模型流程使用；示例见本文件。 */
 async function harness(config: LlmPiAi.Config): Promise<Context> {
-  /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
   const ctx = new Context()
   await ctx.plugin(LlmRuntime)
   await ctx.plugin(LlmPiAi, config)
@@ -94,12 +76,9 @@ async function harness(config: LlmPiAi.Config): Promise<Context> {
 
 describe('hand-declared providers', () => {
   it('serves a route pi-ai has never heard of from its own declaration', async () => {
-    /** 中文说明：测试局部值 server，由紧邻初始化决定。 */
     const server = await mockServer([{ events: textEvents }])
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await harness(gateway(`${server.url}/v1`))
 
-    /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
     const result = await assemble(ctx, {
       provider: 'acme-gateway',
       model: 'acme-large',
@@ -117,15 +96,12 @@ describe('hand-declared providers', () => {
   })
 
   it('lists and resolves the declared models rather than a catalog', async () => {
-    /** 中文说明：测试局部值 server，由紧邻初始化决定。 */
     const server = await mockServer([])
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await harness(gateway(`${server.url}/v1`))
 
     expect(await ctx.llm.listModels('acme-gateway')).toEqual([
       { provider: 'acme-gateway', id: 'acme-large', name: 'Acme Large', inputModalities: ['text'] },
     ])
-    /** 中文说明：测试局部值 info，由紧邻初始化决定。 */
     const info = await ctx.llm.resolveModelInfo('acme-gateway', 'acme-large')
     expect(info).toMatchObject({
       provider: 'acme-gateway',
@@ -137,9 +113,7 @@ describe('hand-declared providers', () => {
   })
 
   it('offers no reasoning control it could not honour', async () => {
-    /** 中文说明：测试局部值 server，由紧邻初始化决定。 */
     const server = await mockServer([])
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await harness(gateway(`${server.url}/v1`))
 
     // pi-ai reports a model with no reasoning metadata as supporting the single
@@ -151,9 +125,7 @@ describe('hand-declared providers', () => {
 
     // A catalog route is unaffected: its models carry the metadata that makes
     // `off` actually disable thinking.
-    /** 中文说明：测试局部值 withCatalog，由紧邻初始化决定。 */
     const withCatalog = await harness({ providers: { deepseek: { baseURL: server.url } } })
-    /** 中文说明：测试局部值 [catalogModel]，由紧邻初始化决定。 */
     const [catalogModel] = getBuiltinModels('deepseek')
     if (catalogModel === undefined) throw new Error('the installed catalog ships no deepseek model')
     expect((await withCatalog.llm.resolveModelInfo('deepseek', catalogModel.id)).reasoning?.efforts.map(e => e.id))
@@ -161,11 +133,8 @@ describe('hand-declared providers', () => {
   })
 
   it('joins the configurable-provider directory so a settings surface can reach it', async () => {
-    /** 中文说明：测试局部值 server，由紧邻初始化决定。 */
     const server = await mockServer([])
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await harness(gateway(`${server.url}/v1`))
-    /** 中文说明：测试局部值 directory，由紧邻初始化决定。 */
     const directory = ctx.llm.listConfigurableProviders()
 
     expect(directory).toContainEqual({
@@ -185,7 +154,6 @@ describe('hand-declared providers', () => {
   })
 
   it('sizes a model the catalog cannot describe from the route\u2019s own fallbacks', () => {
-    /** 中文说明：测试局部值 resolved，由紧邻初始化决定。 */
     const resolved = resolveProfiles({
       'acme-gateway': {
         api: 'openai-completions',
@@ -202,7 +170,6 @@ describe('hand-declared providers', () => {
         models: [{ id: 'bare' }],
       },
     })
-    /** 中文说明：测试局部值 modelsOf，由紧邻初始化决定。 */
     const modelsOf = (route: string): readonly { id: string; contextWindow: number; maxTokens: number }[] =>
       resolved.get(route)?.piProvider.getModels() ?? []
 
@@ -220,10 +187,8 @@ describe('hand-declared providers', () => {
   })
 
   it('takes a model’s declared modalities, then the catalog’s, then the route’s', () => {
-    /** 中文说明：测试局部值 vision，由紧邻初始化决定。 */
     const vision = getBuiltinModels('anthropic').find(model => model.input.includes('image'))
     if (vision === undefined) throw new Error('the installed catalog ships no anthropic vision model')
-    /** 中文说明：测试局部值 resolved，由紧邻初始化决定。 */
     const resolved = resolveProfiles({
       'acme-gateway': {
         api: 'openai-completions',
@@ -244,7 +209,6 @@ describe('hand-declared providers', () => {
       // exactly as it keeps its own contextWindow.
       'anthropic': { defaultInput: ['text'] },
     })
-    /** 中文说明：测试局部值 inputOf，由紧邻初始化决定。 */
     const inputOf = (route: string, id: string): readonly string[] | undefined =>
       resolved.get(route)?.piProvider.getModels().find(model => model.id === id)?.input
 
@@ -260,11 +224,9 @@ describe('hand-declared providers', () => {
     // The resolver-level cases above cannot see a break between the settings
     // document and `LlmModelInfo`, so each rung is asserted once more through
     // a written section, the plugin's own registration, and `ctx.llm`.
-    /** 中文说明：测试局部值 dir，由紧邻初始化决定。 */
     const dir = await home()
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await bootWithSettings(dir, {})
-    await ctx.settings.update(settingsNamespace('llm-pi-ai'), {
+    await ctx.settings.update('llm-pi-ai', {
       providers: {
         'acme-gateway': {
           api: 'openai-completions',
@@ -281,7 +243,6 @@ describe('hand-declared providers', () => {
       },
     })
 
-    /** 中文说明：测试局部值 listed，由紧邻初始化决定。 */
     const listed = async (provider: string): Promise<Record<string, readonly string[] | undefined>> =>
       Object.fromEntries((await ctx.llm.listModels(provider)).map(model => [model.id, model.inputModalities]))
 
@@ -291,7 +252,6 @@ describe('hand-declared providers', () => {
 
     // A catalog vision model keeps what the catalog records even under a
     // narrower route default: the route value is a fallback, not an override.
-    /** 中文说明：测试局部值 vision，由紧邻初始化决定。 */
     const vision = getBuiltinModels('anthropic').find(model => model.input.includes('image'))
     if (vision === undefined) throw new Error('the installed catalog ships no anthropic vision model')
     expect((await ctx.llm.resolveModelInfo('anthropic', vision.id)).inputModalities).toEqual(vision.input)
@@ -303,10 +263,8 @@ describe('hand-declared providers', () => {
     // materializes `[]` for an absent array, so an entry naming a catalog
     // model without declaring modalities must keep the catalog's rather than
     // describe a model that accepts nothing.
-    /** 中文说明：测试局部值 [catalogModel]，由紧邻初始化决定。 */
     const [catalogModel] = getBuiltinModels('deepseek')
     if (catalogModel === undefined) throw new Error('the installed catalog ships no deepseek model')
-    /** 中文说明：测试局部值 resolved，由紧邻初始化决定。 */
     const resolved = resolveProfiles({
       'deepseek': { baseURL: 'https://catalog.test', models: [{ id: catalogModel.id, input: [] }] },
       'acme-gateway': {
@@ -331,7 +289,6 @@ describe('hand-declared providers', () => {
   })
 
   it('rejects a model the route cannot identify', () => {
-    /** 中文说明：测试局部值 declare，由紧邻初始化决定。 */
     const declare = (model: LlmPiAi.PiAiModelProfile): (() => unknown) =>
       () => resolveProfiles({ 'acme-gateway': { api: 'openai-completions', baseURL: 'https://acme.test', models: [model] } })
 
@@ -368,7 +325,6 @@ describe('hand-declared providers', () => {
   )
 
   it('rejects a protocol this build cannot serve, and a route that names none', () => {
-    /** 中文说明：测试局部值 spec，由紧邻初始化决定。 */
     const spec = { provider: 'acme-gateway', displayName: 'Acme Gateway', models: [], namesCredential: true }
     expect(() => buildProvider({ ...spec, api: 'quantum-telepathy' }))
       .toThrow(/cannot serve; supported protocols are/)
@@ -376,7 +332,6 @@ describe('hand-declared providers', () => {
   })
 
   it('leaves an unauthenticated route to its protocol rather than inventing a credential', async () => {
-    /** 中文说明：测试局部值 server，由紧邻初始化决定。 */
     const server = await mockServer([{ events: textEvents }])
     // Naming no credential is the deliberately unauthenticated posture — a
     // named reference that resolved to nothing would have failed with
@@ -384,7 +339,6 @@ describe('hand-declared providers', () => {
     // configured and the protocol decides: pi-ai's OpenAI-compatible
     // implementation wants a key or an Authorization header of its own, and
     // says so instead of the harness guessing a placeholder.
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await harness({
       providers: {
         'local-llm': {
@@ -395,7 +349,6 @@ describe('hand-declared providers', () => {
       },
     })
 
-    /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
     const result = await assemble(ctx, { provider: 'local-llm', model: 'qwen3', messages: [] })
     expect(result.finish).toMatchObject({
       kind: 'error',
@@ -405,9 +358,7 @@ describe('hand-declared providers', () => {
   })
 
   it('authenticates an unauthenticated route through a configured header', async () => {
-    /** 中文说明：测试局部值 server，由紧邻初始化决定。 */
     const server = await mockServer([{ events: textEvents }])
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await harness({
       providers: {
         'local-llm': {
@@ -419,14 +370,12 @@ describe('hand-declared providers', () => {
       },
     })
 
-    /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
     const result = await assemble(ctx, { provider: 'local-llm', model: 'qwen3', messages: [] })
     expect(result.finish).toEqual({ kind: 'stop' })
     expect(server.headers[0]?.authorization).toBe('Bearer local')
   })
 
   it('rejects a capacity that is not a positive integer', () => {
-    /** 中文说明：测试局部值 declare，由紧邻初始化决定。 */
     const declare = (model: LlmPiAi.PiAiModelProfile): (() => unknown) =>
       () => resolveProfiles({ 'acme-gateway': { api: 'openai-completions', baseURL: 'https://acme.test', models: [model] } })
 
@@ -437,7 +386,6 @@ describe('hand-declared providers', () => {
   })
 
   it('names the route key when no displayName is configured', () => {
-    /** 中文说明：测试局部值 resolved，由紧邻初始化决定。 */
     const resolved = resolveProfiles({
       'acme-gateway': {
         api: 'openai-completions',
@@ -452,24 +400,18 @@ describe('hand-declared providers', () => {
 
 describe('catalog routes with per-model configuration', () => {
   it('serves the installed catalog untouched when the profile lists no models', async () => {
-    /** 中文说明：测试局部值 server，由紧邻初始化决定。 */
     const server = await mockServer([])
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await harness({ providers: { deepseek: { baseURL: server.url } } })
 
-    /** 中文说明：测试局部值 listed，由紧邻初始化决定。 */
     const listed = await ctx.llm.listModels('deepseek')
     expect(listed.map(model => model.id).sort())
       .toEqual(getBuiltinModels('deepseek').map(model => model.id).sort())
   })
 
   it('overrides one catalog model field and defaults the rest from the catalog', async () => {
-    /** 中文说明：测试局部值 server，由紧邻初始化决定。 */
     const server = await mockServer([])
-    /** 中文说明：测试局部值 [catalogModel]，由紧邻初始化决定。 */
     const [catalogModel] = getBuiltinModels('deepseek')
     if (catalogModel === undefined) throw new Error('the installed catalog ships no deepseek model')
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await harness({
       providers: {
         deepseek: {
@@ -479,7 +421,6 @@ describe('catalog routes with per-model configuration', () => {
       },
     })
 
-    /** 中文说明：测试局部值 info，由紧邻初始化决定。 */
     const info = await ctx.llm.resolveModelInfo('deepseek', catalogModel.id)
     // The configured field wins and the name still comes from the catalog. The
     // catalog's own output cap is the model's capability, not a cap anyone
@@ -492,12 +433,9 @@ describe('catalog routes with per-model configuration', () => {
   })
 
   it('materializes a request default only from a configured output cap', async () => {
-    /** 中文说明：测试局部值 server，由紧邻初始化决定。 */
     const server = await mockServer([])
-    /** 中文说明：测试局部值 [catalogModel]，由紧邻初始化决定。 */
     const [catalogModel] = getBuiltinModels('deepseek')
     if (catalogModel === undefined) throw new Error('the installed catalog ships no deepseek model')
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await harness({
       providers: {
         deepseek: {
@@ -513,9 +451,7 @@ describe('catalog routes with per-model configuration', () => {
   })
 
   it('adds a model the installed catalog does not describe to a catalog route', async () => {
-    /** 中文说明：测试局部值 server，由紧邻初始化决定。 */
     const server = await mockServer([{ events: textEvents }])
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await harness({
       providers: {
         deepseek: {
@@ -526,7 +462,6 @@ describe('catalog routes with per-model configuration', () => {
       },
     })
 
-    /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
     const result = await assemble(ctx, { provider: 'deepseek', model: 'deepseek-preview', messages: [] })
     expect(result.finish).toEqual({ kind: 'stop' })
     // The catalog route keeps its catalog protocol, so the new model reaches
@@ -535,16 +470,13 @@ describe('catalog routes with per-model configuration', () => {
   })
 
   it('fails an unconfigured model id before any provider request', async () => {
-    /** 中文说明：测试局部值 server，由紧邻初始化决定。 */
     const server = await mockServer([])
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await harness({
       providers: {
         deepseek: { baseURL: server.url, models: [{ id: 'deepseek-preview', contextWindow: 1, maxTokens: 1 }] },
       },
     })
 
-    /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
     const result = await assemble(ctx, { provider: 'deepseek', model: 'not-configured', messages: [] })
 
     expect(result.finish).toMatchObject({ kind: 'error', failure: { code: 'UNKNOWN_MODEL' } })
@@ -555,40 +487,30 @@ describe('catalog routes with per-model configuration', () => {
     // Some catalog models carry provider-required request headers; overriding a
     // capacity must not drop them, because configuration has no way to restate
     // them.
-    /** 中文说明：测试局部值 headered，由紧邻初始化决定。 */
     const headered = (getBuiltinModels('nvidia') as { id: string; headers?: unknown }[])
       .find(model => model.headers !== undefined)
     if (headered === undefined) throw new Error('the installed catalog ships no nvidia model with headers')
 
-    /** 中文说明：测试局部值 resolved，由紧邻初始化决定。 */
     const resolved = resolveProfiles({
       nvidia: { models: [{ id: headered.id, contextWindow: 4096 }] },
     })
-    /** 中文说明：测试局部值 [model]，由紧邻初始化决定。 */
     const [model] = resolved.get('nvidia')?.piProvider.getModels() ?? []
     expect(model?.headers).toEqual(headered.headers)
     expect(model?.contextWindow).toBe(4096)
   })
 
   it('delegates both stream methods back to the reused catalog provider', async () => {
-    /** 中文说明：测试局部值 server，由紧邻初始化决定。 */
     const server = await mockServer([{ events: textEvents }, { events: textEvents }])
-    /** 中文说明：测试局部值 resolved，由紧邻初始化决定。 */
     const resolved = resolveProfiles({ deepseek: { baseURL: `${server.url}/v1` } })
-    /** 中文说明：测试局部值 built，由紧邻初始化决定。 */
     const built = resolved.get('deepseek')?.piProvider
     if (built === undefined) throw new Error('the deepseek route built no provider')
-    /** 中文说明：测试局部值 [model]，由紧邻初始化决定。 */
     const [model] = built.getModels()
     if (model === undefined) throw new Error('the deepseek route resolved no models')
-    /** 中文说明：测试局部值 context，由紧邻初始化决定。 */
     const context = { messages: [{ role: 'user' as const, content: 'hi', timestamp: 0 }] }
 
     // `stream` is interface-required and unused by the harness adapter, which
     // only calls `streamSimple`; both must still reach the catalog provider.
-    /** 中文说明：测试局部值 _event，由紧邻初始化决定。 */
     for await (const _event of built.stream(model, context, { apiKey: 'k' })) { /* drain */ }
-    /** 中文说明：测试局部值 _event，由紧邻初始化决定。 */
     for await (const _event of built.streamSimple(model, context, { apiKey: 'k' })) { /* drain */ }
 
     expect(server.paths).toEqual(['/v1/chat/completions', '/v1/chat/completions'])
@@ -597,9 +519,7 @@ describe('catalog routes with per-model configuration', () => {
   it('keeps each model its own endpoint when the catalog route declares none', () => {
     // `opencode` ships no provider-level endpoint: the address lives on every
     // catalog model, so the route resolves without any configured baseURL.
-    /** 中文说明：测试局部值 resolved，由紧邻初始化决定。 */
     const resolved = resolveProfiles({ opencode: {} })
-    /** 中文说明：测试局部值 models，由紧邻初始化决定。 */
     const models = resolved.get('opencode')?.piProvider.getModels() ?? []
     expect(models.length).toBeGreaterThan(0)
     expect(models.every(model => model.baseUrl.length > 0)).toBe(true)
@@ -607,9 +527,7 @@ describe('catalog routes with per-model configuration', () => {
   })
 
   it('repoints a catalog route at another wire protocol without restating its endpoint', () => {
-    /** 中文说明：测试局部值 resolved，由紧邻初始化决定。 */
     const resolved = resolveProfiles({ openai: { api: 'openai-completions' } })
-    /** 中文说明：测试局部值 models，由紧邻初始化决定。 */
     const models = resolved.get('openai')?.piProvider.getModels() ?? []
     // The protocol changes for the whole route; each model keeps the catalog
     // endpoint it already had.
@@ -618,9 +536,7 @@ describe('catalog routes with per-model configuration', () => {
   })
 
   it('repoints a catalog route at another wire protocol', async () => {
-    /** 中文说明：测试局部值 server，由紧邻初始化决定。 */
     const server = await mockServer([{ events: textEvents }])
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await harness({
       providers: {
         // openai's catalog models speak the Responses API; naming the protocol
@@ -642,7 +558,6 @@ describe('catalog routes with per-model configuration', () => {
     // Which environment a provider reads is a property of the provider, not of
     // the wire format its models speak: naming an api must not cost a profile
     // its provider-native discovery.
-    /** 中文说明：测试局部值 resolved，由紧邻初始化决定。 */
     const resolved = resolveProfiles({ openai: { api: 'openai-completions' } })
     expect(resolved.get('openai')?.piProvider.auth.apiKey?.name).toBe('OpenAI API key')
   })
@@ -652,17 +567,12 @@ describe('catalog routes with per-model configuration', () => {
     // declares an api-key method. `openai-codex` ships OAuth alone, so without
     // the harness method beside it the route refuses its own configured key as
     // `Provider is not configured` before any request goes out.
-    /** 中文说明：测试局部值 resolved，由紧邻初始化决定。 */
     const resolved = resolveProfiles({ 'openai-codex': { apiKeyEnv: 'CODEX_TOKEN' } })
-    /** 中文说明：测试局部值 provider，由紧邻初始化决定。 */
     const provider = resolved.get('openai-codex')?.piProvider
     expect(provider?.auth.oauth).toBeDefined()
-    /** 中文说明：测试局部值 models，由紧邻初始化决定。 */
     const models = createModels()
     models.setProvider(provider as Provider)
-    /** 中文说明：测试局部值 model，由紧邻初始化决定。 */
     const model = provider?.getModels()[0] as Model<Api>
-    /** 中文说明：测试局部值 auth，由紧邻初始化决定。 */
     const auth = await models.getAuth(model, { apiKey: 'codex-token' })
     expect(auth?.auth.apiKey).toBe('codex-token')
   })
@@ -671,7 +581,6 @@ describe('catalog routes with per-model configuration', () => {
     // Nothing to add: this adapter resolves credentials through its own seam
     // and holds no OAuth store, so declaring the provider configured would
     // trade a truthful refusal for an endpoint's 401.
-    /** 中文说明：测试局部值 resolved，由紧邻初始化决定。 */
     const resolved = resolveProfiles({ 'openai-codex': {} })
     expect(resolved.get('openai-codex')?.piProvider.auth.apiKey).toBeUndefined()
   })
@@ -679,22 +588,18 @@ describe('catalog routes with per-model configuration', () => {
 
 describe('per-model reasoning efforts', () => {
   /** One hand-declared route holding exactly the given models. */
-  /* 中文说明：函数 declared 的参数见签名，返回结果供模型流程使用；示例见本文件。 */
   function declared(models: LlmPiAi.PiAiModelProfile[]): Record<string, LlmPiAi.PiAiProviderProfile> {
     return { 'acme-gateway': { api: 'openai-completions', baseURL: 'https://acme.test', models } }
   }
 
   /** The first materialized model of one route, or throw. */
-  /* 中文说明：函数 modelOf 的参数见签名，返回结果供模型流程使用；示例见本文件。 */
   function modelOf(providers: Record<string, LlmPiAi.PiAiProviderProfile>, route = 'acme-gateway'): Model<Api> {
-    /** 中文说明：测试局部值 [model]，由紧邻初始化决定。 */
     const [model] = resolveProfiles(providers).get(route)?.piProvider.getModels() ?? []
     if (model === undefined) throw new Error(`route "${route}" resolved no models`)
     return model
   }
 
   it('declares selectable levels with their wire spellings on a hand-declared model', () => {
-    /** 中文说明：测试局部值 model，由紧邻初始化决定。 */
     const model = modelOf(declared([{
       id: 'acme-think',
       reasoningEfforts: { off: null, low: 'low', high: 'high', max: 'ultra' },
@@ -718,25 +623,21 @@ describe('per-model reasoning efforts', () => {
   })
 
   it('keeps a declared off value in the map for dispatch to send', () => {
-    /** 中文说明：测试局部值 model，由紧邻初始化决定。 */
     const model = modelOf(declared([{ id: 'm', reasoningEfforts: { off: 'none', high: 'high' } }]))
     expect(model.thinkingLevelMap?.off).toBe('none')
     expect(getSupportedThinkingLevels(model)).toEqual(['off', 'high'])
   })
 
   it('offers exactly the declared keys: leaving off out makes thinking mandatory', () => {
-    /** 中文说明：测试局部值 model，由紧邻初始化决定。 */
     const model = modelOf(declared([{ id: 'm', reasoningEfforts: { high: 'high' } }]))
     expect(getSupportedThinkingLevels(model)).toEqual(['high'])
   })
 
   it('narrows a catalog model’s levels in place', () => {
-    /** 中文说明：测试局部值 [catalogModel]，由紧邻初始化决定。 */
     const [catalogModel] = getBuiltinModels('deepseek')
     if (catalogModel === undefined) throw new Error('the installed catalog ships no deepseek model')
     expect(getSupportedThinkingLevels(catalogModel as Model<Api>)).toEqual(['off', 'low', 'high', 'max'])
 
-    /** 中文说明：测试局部值 model，由紧邻初始化决定。 */
     const model = modelOf({
       deepseek: { models: [{ id: catalogModel.id, reasoningEfforts: { off: null, high: 'high' } }] },
     }, 'deepseek')
@@ -748,12 +649,10 @@ describe('per-model reasoning efforts', () => {
   })
 
   it('strips reasoning from a catalog model with false', () => {
-    /** 中文说明：测试局部值 [catalogModel]，由紧邻初始化决定。 */
     const [catalogModel] = getBuiltinModels('deepseek')
     if (catalogModel === undefined) throw new Error('the installed catalog ships no deepseek model')
     expect(catalogModel.reasoning).toBe(true)
 
-    /** 中文说明：测试局部值 model，由紧邻初始化决定。 */
     const model = modelOf({ deepseek: { models: [{ id: catalogModel.id, reasoningEfforts: false }] } }, 'deepseek')
 
     expect(model.reasoning).toBe(false)
@@ -761,11 +660,9 @@ describe('per-model reasoning efforts', () => {
   })
 
   it('inherits the catalog capability when the field is absent', () => {
-    /** 中文说明：测试局部值 [catalogModel]，由紧邻初始化决定。 */
     const [catalogModel] = getBuiltinModels('deepseek')
     if (catalogModel === undefined) throw new Error('the installed catalog ships no deepseek model')
 
-    /** 中文说明：测试局部值 model，由紧邻初始化决定。 */
     const model = modelOf({ deepseek: { models: [{ id: catalogModel.id }] } }, 'deepseek')
 
     expect(model.reasoning).toBe(catalogModel.reasoning)
@@ -773,7 +670,6 @@ describe('per-model reasoning efforts', () => {
   })
 
   it('rejects a declaration that offers nothing or spells a level it cannot send', () => {
-    /** 中文说明：测试局部值 declare，由紧邻初始化决定。 */
     const declare = (efforts: NonNullable<LlmPiAi.PiAiModelProfile['reasoningEfforts']>): (() => unknown) =>
       () => resolveProfiles(declared([{ id: 'm', reasoningEfforts: efforts }]))
 
@@ -789,20 +685,15 @@ describe('per-model reasoning efforts', () => {
 })
 
 describe('modelOverrides', () => {
-  /** 中文说明：测试局部值 deepseekModel，由紧邻初始化决定。 */
   const deepseekModel = (): Model<Api> => {
-    /** 中文说明：测试局部值 [model]，由紧邻初始化决定。 */
     const [model] = getBuiltinModels('deepseek')
     if (model === undefined) throw new Error('the installed catalog ships no deepseek model')
     return model
   }
 
   it('reshapes one catalog model while the rest of the catalog keeps serving', () => {
-    /** 中文说明：测试局部值 catalogSize，由紧邻初始化决定。 */
     const catalogSize = getBuiltinModels('deepseek').length
-    /** 中文说明：测试局部值 target，由紧邻初始化决定。 */
     const target = deepseekModel()
-    /** 中文说明：测试局部值 resolved，由紧邻初始化决定。 */
     const resolved = resolveProfiles({
       deepseek: {
         modelOverrides: {
@@ -814,9 +705,7 @@ describe('modelOverrides', () => {
         },
       },
     })
-    /** 中文说明：测试局部值 models，由紧邻初始化决定。 */
     const models = resolved.get('deepseek')?.piProvider.getModels() ?? []
-    /** 中文说明：测试局部值 reshaped，由紧邻初始化决定。 */
     const reshaped = models.find(model => model.id === target.id)
     if (reshaped === undefined) throw new Error('the overridden model vanished from the route')
 
@@ -829,7 +718,6 @@ describe('modelOverrides', () => {
     // default exactly as a models entry's would.
     expect(resolved.get('deepseek')?.configuredMaxTokens.get(target.id)).toBe(4096)
     // A sibling the overrides do not name is byte-identical to the catalog.
-    /** 中文说明：测试局部值 sibling，由紧邻初始化决定。 */
     const sibling = models.find(model => model.id !== target.id)
     expect(sibling?.maxTokens).toBe(getBuiltinModels('deepseek').find(model => model.id === sibling?.id)?.maxTokens)
   })
@@ -846,7 +734,6 @@ describe('modelOverrides', () => {
         modelOverrides: { m: { name: 'renamed' } },
       },
     })).toThrow(/a declared route spells every model out/)
-    /** 中文说明：测试局部值 declaredOnly，由紧邻初始化决定。 */
     const declaredOnly = deepseekModel()
     expect(() => resolveProfiles({
       deepseek: {
@@ -861,7 +748,6 @@ describe('modelOverrides', () => {
     // the model it meant to customize. The schema passes unknown keys
     // through, so resolution is the boundary that refuses it — the variable
     // indirection mirrors that boundary by sidestepping the literal check.
-    /** 中文说明：测试局部值 smuggled，由紧邻初始化决定。 */
     const smuggled = { name: 'x', id: 'other' }
     expect(() => resolveProfiles({
       deepseek: { modelOverrides: { [deepseekModel().id]: smuggled } },
@@ -871,15 +757,12 @@ describe('modelOverrides', () => {
 
 describe('compat switches', () => {
   /** The materialized models of one route, keyed by id. */
-  /* 中文说明：函数 modelsOf 的参数见签名，返回结果供模型流程使用；示例见本文件。 */
   function modelsOf(providers: Record<string, LlmPiAi.PiAiProviderProfile>, route: string): Map<string, Model<Api>> {
-    /** 中文说明：测试局部值 models，由紧邻初始化决定。 */
     const models = resolveProfiles(providers).get(route)?.piProvider.getModels() ?? []
     return new Map(models.map(model => [model.id, model]))
   }
 
   it('applies route switches to every openai-completions model, entries winning per field', () => {
-    /** 中文说明：测试局部值 models，由紧邻初始化决定。 */
     const models = modelsOf({
       'acme-gateway': {
         api: 'openai-completions',
@@ -897,14 +780,11 @@ describe('compat switches', () => {
   })
 
   it('merges the switches over the catalog entry’s own compat instead of replacing it', () => {
-    /** 中文说明：测试局部值 [catalogModel]，由紧邻初始化决定。 */
     const [catalogModel] = getBuiltinModels('deepseek')
     if (catalogModel === undefined) throw new Error('the installed catalog ships no deepseek model')
-    /** 中文说明：测试局部值 inherited，由紧邻初始化决定。 */
     const inherited = catalogModel.compat as OpenAICompletionsCompat
     expect(inherited.requiresReasoningContentOnAssistantMessages).toBe(true)
 
-    /** 中文说明：测试局部值 models，由紧邻初始化决定。 */
     const models = modelsOf({
       deepseek: { models: [{ id: catalogModel.id, compat: { thinkingFormat: 'openai' } }] },
     }, 'deepseek')
@@ -917,15 +797,11 @@ describe('compat switches', () => {
   it('skips models of other protocols on a mixed route instead of failing them', () => {
     // xai ships both completions and responses models, so a route-level switch
     // must land on the former without invalidating the latter.
-    /** 中文说明：测试局部值 catalog，由紧邻初始化决定。 */
     const catalog = getBuiltinModels('xai') as readonly Model<Api>[]
-    /** 中文说明：测试局部值 completions，由紧邻初始化决定。 */
     const completions = catalog.find(model => model.api === 'openai-completions')
-    /** 中文说明：测试局部值 responses，由紧邻初始化决定。 */
     const responses = catalog.find(model => model.api === 'openai-responses')
     if (completions === undefined || responses === undefined) throw new Error('xai no longer ships a mixed catalog')
 
-    /** 中文说明：测试局部值 models，由紧邻初始化决定。 */
     const models = modelsOf({
       xai: {
         compat: { supportsReasoningEffort: false },
@@ -955,7 +831,6 @@ describe('compat switches', () => {
     // pi-ai reads this switch only for a reasoning model, and detects it from
     // the endpoint URL — which for a private gateway answers as though it were
     // OpenAI itself, so the route must be able to say otherwise.
-    /** 中文说明：测试局部值 models，由紧邻初始化决定。 */
     const models = modelsOf({
       'acme-gateway': {
         api: 'openai-completions',
@@ -972,7 +847,6 @@ describe('compat switches', () => {
   })
 
   it('carries a switch both OpenAI protocols declare onto an openai-responses route', () => {
-    /** 中文说明：测试局部值 models，由紧邻初始化决定。 */
     const models = modelsOf({
       'acme-responses': {
         api: 'openai-responses',
@@ -986,7 +860,6 @@ describe('compat switches', () => {
   })
 
   it('carries an anthropic-only switch onto an anthropic-messages route', () => {
-    /** 中文说明：测试局部值 models，由紧邻初始化决定。 */
     const models = modelsOf({
       'acme-claude': {
         api: 'anthropic-messages',
@@ -1003,15 +876,11 @@ describe('compat switches', () => {
   })
 
   it('lands each route switch only on the models whose protocol declares it', () => {
-    /** 中文说明：测试局部值 catalog，由紧邻初始化决定。 */
     const catalog = getBuiltinModels('xai') as readonly Model<Api>[]
-    /** 中文说明：测试局部值 completions，由紧邻初始化决定。 */
     const completions = catalog.find(model => model.api === 'openai-completions')
-    /** 中文说明：测试局部值 responses，由紧邻初始化决定。 */
     const responses = catalog.find(model => model.api === 'openai-responses')
     if (completions === undefined || responses === undefined) throw new Error('xai no longer ships a mixed catalog')
 
-    /** 中文说明：测试局部值 models，由紧邻初始化决定。 */
     const models = modelsOf({
       xai: {
         // Both protocols take the first switch; only completions takes the second.
@@ -1020,18 +889,15 @@ describe('compat switches', () => {
       },
     }, 'xai')
 
-    /** 中文说明：测试局部值 onCompletions，由紧邻初始化决定。 */
     const onCompletions = models.get(completions.id)?.compat as OpenAICompletionsCompat
     expect(onCompletions.supportsDeveloperRole).toBe(false)
     expect(onCompletions.thinkingFormat).toBe('openai')
-    /** 中文说明：测试局部值 onResponses，由紧邻初始化决定。 */
     const onResponses = models.get(responses.id)?.compat as { supportsDeveloperRole?: boolean; thinkingFormat?: string }
     expect(onResponses.supportsDeveloperRole).toBe(false)
     expect(onResponses.thinkingFormat).toBeUndefined()
   })
 
   it('carries chat-template kwargs beside the thinking format that dispatches through them', () => {
-    /** 中文说明：测试局部值 models，由紧邻初始化决定。 */
     const models = modelsOf({
       'acme-qwen': {
         api: 'openai-completions',
@@ -1093,11 +959,9 @@ describe('compat switches', () => {
     // judged by this adapter's section validator before it is stored.
     // schemastery keeps the null, so nothing but that check stands between it
     // and `Model.compat`.
-    /** 中文说明：测试局部值 dir，由紧邻初始化决定。 */
     const dir = await home()
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await bootWithSettings(dir, {})
-    await expect(ctx.settings.update(settingsNamespace('llm-pi-ai'), {
+    await expect(ctx.settings.update('llm-pi-ai', {
       providers: {
         'acme-gateway': {
           api: 'openai-completions',
@@ -1113,13 +977,10 @@ describe('compat switches', () => {
     // End to end for the reported gap: the switch enters as configuration and
     // changes the request the provider receives, not merely the resolved model.
     vi.stubEnv(KEY_ENV, 'test-key')
-    /** 中文说明：测试局部值 server，由紧邻初始化决定。 */
     const server = await mockServer([{ events: textEvents }])
-    /** 中文说明：测试局部值 dir，由紧邻初始化决定。 */
     const dir = await home()
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await bootWithSettings(dir, {})
-    await ctx.settings.update(settingsNamespace('llm-pi-ai'), {
+    await ctx.settings.update('llm-pi-ai', {
       providers: {
         'acme-gateway': {
           apiKeyEnv: KEY_ENV,
@@ -1139,7 +1000,6 @@ describe('compat switches', () => {
       messages: [],
     })
 
-    /** 中文说明：测试局部值 request，由紧邻初始化决定。 */
     const request = server.requests[0] as { messages: { role: string }[] }
     expect(request.messages.map(message => message.role)).toEqual(['system'])
   })
@@ -1182,20 +1042,15 @@ describe('compat switches', () => {
   it('serves the Responses compat type on every protocol pi-ai gives it to', () => {
     // pi-ai types azure-openai-responses and openai-codex-responses with the
     // same OpenAIResponsesCompat, so a switch settable on one is settable on all.
-    /** 中文说明：测试局部值 route，由紧邻初始化决定。 */
     for (const route of ['azure-openai-responses', 'openai-codex']) {
-      /** 中文说明：测试局部值 models，由紧邻初始化决定。 */
       const models = modelsOf({ [route]: { compat: { supportsDeveloperRole: false } } }, route)
-      /** 中文说明：测试局部值 [first]，由紧邻初始化决定。 */
       const [first] = [...models.values()]
       expect((first?.compat as { supportsDeveloperRole?: boolean }).supportsDeveloperRole).toBe(false)
     }
   })
 
   it('serves the Bedrock compat type on its own protocol', () => {
-    /** 中文说明：测试局部值 models，由紧邻初始化决定。 */
     const models = modelsOf({ 'amazon-bedrock': { compat: { supportsStrictMode: false } } }, 'amazon-bedrock')
-    /** 中文说明：测试局部值 [first]，由紧邻初始化决定。 */
     const [first] = [...models.values()]
     expect((first?.compat as { supportsStrictMode?: boolean }).supportsStrictMode).toBe(false)
   })
@@ -1228,15 +1083,10 @@ describe('compat switches', () => {
 
 describe('resolution snapshots', () => {
   it('finishes an in-flight request under the configuration it started with', async () => {
-    /** 中文说明：测试局部值 server，由紧邻初始化决定。 */
     const server = await mockServer([{ events: textEvents }])
-    /** 中文说明：测试局部值 current，由紧邻初始化决定。 */
     let current = resolveProfiles({ deepseek: { baseURL: `${server.url}/v1` } })
-    /** 中文说明：测试局部值 release，由紧邻初始化决定。 */
     let release: () => void = () => {}
-    /** 中文说明：测试局部值 held，由紧邻初始化决定。 */
     const held = new Promise<void>((resolve) => { release = resolve })
-    /** 中文说明：测试局部值 adapter，由紧邻初始化决定。 */
     const adapter = new PiAiAdapter({
       profiles: () => current,
       // Credential resolution is the real await inside a stream call, and the
@@ -1245,11 +1095,8 @@ describe('resolution snapshots', () => {
       auth: memoryAuth(),
     })
 
-    /** 中文说明：测试局部值 chunks，由紧邻初始化决定。 */
     const chunks: StreamChunk[] = []
-    /** 中文说明：测试局部值 inFlight，由紧邻初始化决定。 */
     const inFlight = (async () => {
-      /** 中文说明：测试局部值 chunk，由紧邻初始化决定。 */
       for await (const chunk of adapter.stream({
         provider: 'deepseek',
         model: 'deepseek-v4-flash',
@@ -1271,21 +1118,15 @@ describe('resolution snapshots', () => {
   })
 
   it('serves the next request from the new configuration', async () => {
-    /** 中文说明：测试局部值 first，由紧邻初始化决定。 */
     const first = await mockServer([{ events: textEvents }])
-    /** 中文说明：测试局部值 second，由紧邻初始化决定。 */
     const second = await mockServer([{ events: textEvents }])
-    /** 中文说明：测试局部值 current，由紧邻初始化决定。 */
     let current = resolveProfiles({ deepseek: { baseURL: `${first.url}/v1` } })
-    /** 中文说明：测试局部值 adapter，由紧邻初始化决定。 */
     const adapter = new PiAiAdapter({
       profiles: () => current,
       resolveApiKey: () => Promise.resolve('k'),
       auth: memoryAuth(),
     })
-    /** 中文说明：测试局部值 drain，由紧邻初始化决定。 */
     const drain = async (): Promise<void> => {
-      /** 中文说明：测试局部值 _chunk，由紧邻初始化决定。 */
       for await (const _chunk of adapter.stream({
         provider: 'deepseek', model: 'deepseek-v4-flash', messages: [],
       })) { /* drain */ }
@@ -1302,18 +1143,15 @@ describe('resolution snapshots', () => {
 
 describe('configurable-provider directory', () => {
   it('keeps the previous directory when a route collides with another adapter family', async () => {
-    /** 中文说明：测试局部值 dir，由紧邻初始化决定。 */
     const dir = await home()
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await bootWithSettings(dir, {})
     ctx.llm.registerConfigurableProviders([
       { provider: 'deepseek-official', displayName: 'DeepSeek', settingsNs: 'llm-deepseek', settingsPath: [] },
     ])
-    /** 中文说明：测试局部值 before，由紧邻初始化决定。 */
     const before = ctx.llm.listConfigurableProviders().length
     expect(before).toBeGreaterThan(30)
 
-    await ctx.settings.update(settingsNamespace('llm-pi-ai'), {
+    await ctx.settings.update('llm-pi-ai', {
       providers: {
         'deepseek-official': {
           api: 'openai-completions',
@@ -1331,14 +1169,11 @@ describe('configurable-provider directory', () => {
   })
 
   it('replaces its entries atomically as declared routes come and go', async () => {
-    /** 中文说明：测试局部值 dir，由紧邻初始化决定。 */
     const dir = await home()
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await bootWithSettings(dir, {})
-    /** 中文说明：测试局部值 catalogOnly，由紧邻初始化决定。 */
     const catalogOnly = ctx.llm.listConfigurableProviders().length
 
-    await ctx.settings.update(settingsNamespace('llm-pi-ai'), {
+    await ctx.settings.update('llm-pi-ai', {
       providers: {
         'acme-gateway': {
           displayName: 'Acme Gateway',
@@ -1352,14 +1187,12 @@ describe('configurable-provider directory', () => {
     expect(ctx.llm.listConfigurableProviders().find(entry => entry.provider === 'acme-gateway')?.displayName)
       .toBe('Acme Gateway')
 
-    await ctx.settings.replace(settingsNamespace('llm-pi-ai'), {})
+    await ctx.settings.replace('llm-pi-ai', {})
     expect(ctx.llm.listConfigurableProviders()).toHaveLength(catalogOnly)
   })
 
   it('offers every installed catalog route, including one that only signs in', async () => {
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await harness({})
-    /** 中文说明：测试局部值 offered，由紧邻初始化决定。 */
     const offered = ctx.llm.listConfigurableProviders().map(entry => entry.provider)
 
     // `openai-codex` is the one installed provider that authenticates through
@@ -1374,7 +1207,6 @@ describe('configurable-provider directory', () => {
   it('lists a route a stored profile names as a catalog route, not a declared one', async () => {
     // `declared` answers catalog membership, so a profile stored against a
     // route pi-ai ships is not mislabelled as one this deployment invented.
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await harness({ providers: { 'openai-codex': { apiKeyEnv: KEY_ENV } } })
 
     expect(ctx.llm.listConfigurableProviders()).toContainEqual({

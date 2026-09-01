@@ -1,22 +1,3 @@
-/*
- * ================================ 文件注释 ================================
- * 【文件职责】可续聊子代理的内部控制管理器：稳定子代理 ID、描述符持久化、Activation 准入、
- *   实时所有权图、冷恢复、子优先释放、以及向父代理投递结算通知，全部收在 ctx.subagents 背后。
- * 【技术维度】一个续聊子代理 = 一个持久 Session + 至多一个进程内 Activation（驻留 epoch）；
- *   Agent 收件箱（inbox）是唯一回合队列；用 ChildLock 按 childId 串行化关键区；
- *   watchSettlement 以 Agent 静默 + ownedChildren 推导驻留状态，不用第二套状态机。
- * 【产品维度】后台续聊子代理可以跨多次指令持续工作（收件箱 FIFO 回合），父代理在子代理
- *   结算时收到通知；主代理可中断、可追问、可选择性释放，适合异步多轮任务编排。
- * 【逻辑维度】按代码顺序：消息来源类型 → 报告/起点选项 → 内部状态与输入类型 → ChildLock →
- *   SubagentContinuationManager（startContinuable/followup/interrupt/reportFrom/drain 系列/
- *   物化与冷恢复/结算观察/释放与通知）。
- * 【关键边界】Agent 收件箱是唯一队列 ⇒ 每条被接受消息只有一个可观察顺序；物化在首次
- *   接受前失败会完全回滚（无 ID 返回、无生命周期边）；dispose 事务存在即准入截止。
- * 【新手阅读建议】先读顶部英文 JSDoc 理解 Activation 概念，再看 startContinuable 与
- *   coldResume 两条物化路径，最后看 watchSettlement/dispose 的子优先释放。
- * ==========================================================================
- */
-
 /**
  * Internal continuable-subagent manager: stable child ids, descriptor
  * persistence, activation admission, the live ownership graph, cold resume,
@@ -42,6 +23,7 @@
 
 import { randomUUID } from 'node:crypto'
 import type { Context } from '@deepseek-ai/cordis'
+import { brandString } from '@deepseek-ai/dsh-brand'
 import type {
   Agent,
   AgentHandle,
@@ -49,10 +31,9 @@ import type {
   AgentSetupCommit,
   CreateAgentOptions,
 } from '@deepseek-ai/dsh-agent'
-import { ReasoningEffortId, boundContextSummary, createUserMessage, errorChain } from '@deepseek-ai/dsh-llm'
+import { ReasoningEffortId, boundContextSummary, contentHasImage, createUserMessage, errorChain } from '@deepseek-ai/dsh-llm'
 import type { ContentBlock, MessageId, MessageSource } from '@deepseek-ai/dsh-llm'
-import { SessionId } from '@deepseek-ai/dsh-session'
-import type { SessionEvent } from '@deepseek-ai/dsh-session'
+import type { SessionEvent, SessionId } from '@deepseek-ai/dsh-session'
 import type { SessionPersistence } from '@deepseek-ai/dsh-session-persistence'
 import type { SessionObservation, SessionQueryEngine } from '@deepseek-ai/dsh-session-query'
 import type { ToolRestriction } from '@deepseek-ai/dsh-tools'
@@ -75,8 +56,6 @@ import { SubagentError } from './error.ts'
 import type SubagentActivationSetupRegistry from './activation-setup-registry.ts'
 
 /** Attribution for a model coordinator's follow-up to one of its children. */
-// 中文：模型协调者给其子代理发追问消息时的持久化来源标记：relay 形式，
-// senderSessionId 记录发起该工具调用的代理会话。
 export interface CoordinatorMessageSource {
   readonly kind: 'coordinator'
   /** A message another agent addressed to this one (`relay` context form). */
@@ -86,8 +65,6 @@ export interface CoordinatorMessageSource {
 }
 
 /** Durable attribution for a continuable child's explicit parent report. */
-// 中文：续聊子代理向直接父代理显式上报内容时的持久化来源标记：relay 形式，
-// senderSessionId 是上报的子代理会话。
 export interface SubagentReportMessageSource {
   readonly kind: 'subagent-report'
   /** A message another agent addressed to this one (`relay` context form). */
@@ -103,8 +80,6 @@ export interface SubagentReportMessageSource {
  * while this message is the manager stating what became of the child, and a
  * transcript that merged them would credit the child with words it never wrote.
  */
-// 中文：运行时"子代理已结算"通知的持久化来源标记：与子代理主动上报刻意区分——
-// 这是管理器陈述子代理的结局（notice 形式），不是子代理自己写的内容。
 export interface SubagentSettledMessageSource {
   readonly kind: 'subagent-settled'
   /** A runtime account shown without expanding the row (`notice` context form). */
@@ -124,12 +99,9 @@ declare module '@deepseek-ai/dsh-llm' {
 }
 
 /** Deployment scheduling policy for accepted child reports. */
-// 中文：子代理上报内容在父代理侧的投递策略：quiet 直接注入收件箱，next-step 则
-// 合并进父代理的下一个步骤批次（多个子代理同时结算时只占一步）。
 export type SubagentReportDelivery = 'quiet' | 'next-step'
 
 /** Options for one continuable child's report to its direct parent. */
-// 中文：一次续聊子代理上报的选项：已解析的父侧调度策略与"授权/接收前"生效的取消信号。
 export interface SubagentReportOptions {
   /** Already-resolved parent scheduling policy. */
   readonly delivery: SubagentReportDelivery
@@ -138,9 +110,6 @@ export interface SubagentReportOptions {
 }
 
 /** What a caller asks for when starting a continuable background child. */
-// 中文：启动一个续聊后台子代理的完整规格：provider 名、持久化标签、可选调用方预留
-// 子代理 ID（免二次身份握手）、省略 label/signal/outputSchema 后的委托请求、
-// 以及只拥有"收件箱接受前"控制权的取消信号。
 export interface ContinuableStartSpec {
   /** The `ctx.subagents` provider whose continuable-creation capability establishes the child. */
   readonly provider: string
@@ -162,8 +131,6 @@ export interface ContinuableStartSpec {
 }
 
 /** Identities returned once a continuable child accepted its initial prompt. */
-// 中文：续聊子代理接受初始提示词后返回的身份对：持久子代理会话 ID（跨 Activation 稳定）
-// 与被接受的初始消息收件箱 ID。
 export interface ContinuableStart {
   /** The durable child session id, stable across activations. */
   readonly childId: SessionId
@@ -176,15 +143,11 @@ export interface ContinuableStart {
  * durable direct-parent address a human client presented; `ancestor` carries
  * the exact live Agent object whose recorded lineage must contain the caller.
  */
-// 中文：一次中断请求的授权来源：user 携带人类客户端出示的持久直接父地址；
-// ancestor 携带精确的活体祖先 Agent 对象（其记录血缘必须包含调用者）。
 export type SubagentInterruptAuthority =
   | { readonly kind: 'user'; readonly parentSessionId: SessionId }
   | { readonly kind: 'ancestor'; readonly agent: Agent }
 
 /** Options for following up with one continuable child. */
-// 中文：给一个续聊子代理发后续消息的选项：投递消息上保留的来源标记（不授予任何权限）
-// 与"收件箱接受前"生效的取消信号。
 export interface SubagentFollowupOptions {
   /** Durable attribution retained on the delivered message; it grants no authority. */
   readonly source: MessageSource
@@ -200,9 +163,6 @@ export interface SubagentFollowupOptions {
  * `settled` — quiescent with every owned child disposed, so the manager
  * disposes the `AgentHandle` and removes the Activation.
  */
-// 中文：一个续聊子代理的驻留状态（从 Agent 静默与子集推导，非独立状态机）：
-// running = 有活跃接收/回合或待醒收件箱工作；waiting = 静默但仍持有未释放子代理；
-// settled = 静默且所有子代理已释放 → 管理器处置句柄并移除 Activation。
 type ActivationState = 'running' | 'waiting' | 'settled'
 
 /**
@@ -211,8 +171,6 @@ type ActivationState = 'running' | 'waiting' | 'settled'
  * depending back on the whole {@link SubagentRuntime}. Package-private: no
  * consumer outside this package supplies a host.
  */
-// 中文：管理器对所属服务（SubagentRuntime）的需求钩子：包内私有，声明在依赖方一侧，
-// 使管理器只需依赖这两个操作而不用依赖整个运行时。
 interface ContinuationHost {
   /**
    * Resolve one provider's continuable-creation contribution, or reject when
@@ -237,8 +195,6 @@ interface ContinuationHost {
  * owns the published `AgentHandle`; the manager's private activation-owner
  * scope is its structural Cordis owner.
  */
-// 中文：一次续聊子代理的驻留 epoch：直接持有已发布的 AgentHandle（其结构性 Cordis 所有者
-// 是管理器的私有 activation-owner 作用域）；settlement 前 retained，dispose 后移除。
 interface Activation {
   /** The durable child this Activation is an epoch of. */
   readonly childId: SessionId
@@ -291,9 +247,6 @@ interface Activation {
 }
 
 /** Inputs shared by fresh and resumed Activation materialization. */
-// 中文：新建与恢复两种物化共享的输入：create 只在新建时存在（冷恢复直接加载持久化会话，
-// 包括委派策略事件，因此恢复绝不重新捕获父代理策略）；agentOptions/composition/signal
-// 两者都来自描述符或请求。
 interface MaterializeInputs {
   childId: SessionId
   provider: string
@@ -319,8 +272,6 @@ interface MaterializeInputs {
  * synchronous admission boundary. Retaining identities lets a scoped teardown
  * keep waiting even if an intermediate Agent leaves the registry meanwhile.
  */
-// 中文：一次已准入的物化记录：保留准入时刻观察到的精确活体血缘与结算 promise，
-// 使作用域式拆解在中间祖先离开注册表后仍能继续等待。
 interface Materialization {
   readonly lineage: readonly Agent[]
   readonly settled: Promise<void>
@@ -333,8 +284,6 @@ interface Materialization {
  * @param activation - the Activation to inspect.
  * @returns the in-flight or settled disposal, or `undefined` while resident.
  */
-// 中文：读取一个 Activation 当前的处置事务。间接函数是为了让长生命周期闭包内的
-// TypeScript 不把重复读取的可变字段窄化冻结，而是每次重新读运行时状态。
 function disposalOf(activation: Activation): Promise<void> | undefined {
   return activation.disposal
 }
@@ -346,8 +295,6 @@ function disposalOf(activation: Activation): Promise<void> | undefined {
  * @param stopReason - how the child's last ordinary turn ended.
  * @returns the model-facing opening line of the settlement notice.
  */
-// 中文：生成一行结算通知：用父代理自己的任务词汇告诉它后台子代理已结束及原因
-// （completed/aborted/max-tokens/refusal/error，未知扩展原因也按未完成报告）。
 function settlementSummary(childId: SessionId, stopReason: SubagentResult['stopReason']): string {
   const subject = `Background subagent ${childId}`
   switch (stopReason) {
@@ -372,15 +319,11 @@ function settlementSummary(childId: SessionId, stopReason: SubagentResult['stopR
 }
 
 /** Whether one settlement attempt opened the disposal transaction. */
-// 中文：一次结算尝试的结果：settling:false 表示该轮观察不是结算时机（仍在运行或等待子代）；
-// settling:true 携带已开启的处置事务 promise（在子锁临界区内同步开启）。
 type SettlementAttempt =
   | { readonly settling: false }
   | { readonly settling: true; readonly done: Promise<void> }
 
 /** Serialize each durable child's delivery, release, and disposal. */
-// 中文：按持久子代理 ID 串行化关键区：同一子代理的投递/释放/处置严格排队执行，
-// 前序失败不会让后序调用者因链式拒绝而失败（吸收拒绝的尾链）。
 class ChildLock {
   private tails = new Map<SessionId, Promise<unknown>>()
 
@@ -410,19 +353,12 @@ class ChildLock {
  * one-shot delegation keeps calling `ctx.subagents.start()` and never enters
  * this lifecycle.
  */
-// 中文：ctx.subagents 背后的可续聊子代理编排服务：工具 schema 与宿主适配器都消费这
-// 一个契约；前台一次性委托仍走 ctx.subagents.start()，不进入本生命周期。
 export class SubagentContinuationManager {
-  // 中文：子代理会话 ID → 其活体 Activation（进程内状态，永不持久化）。
   /** Child session id → its live Activation. Process-local, never durable. */
   private activations = new Map<SessionId, Activation>()
-  // 中文：drain 前已准入的物化，跟踪到发布或回滚完成（drain 屏障的数据来源）。
   /** Materializations admitted before drain, tracked through publication or rollback. */
   private readonly materializations = new Set<Materialization>()
-  // 中文：按子代理 ID 串行化关键区的锁实例。
   private readonly locks = new ChildLock()
-  // 中文：所有 Activation 句柄的结构性 Cordis 所有者作用域（先注册其释放器，再注册 drain，
-  // 使反向卸载时先 drain 后释放作用域）。
   /** Structural Cordis owner of every Activation handle. */
   private readonly ownerCtx: Context
   /**
@@ -431,15 +367,9 @@ export class SubagentContinuationManager {
    * Agent registry, closing admission throughout its host's teardown without
    * poisoning a later same-id replacement.
    */
-  // 中文：已开始宿主拆解的精确根 → 其下观察到的活体血缘成员；条目保留到该根离开
-  // Agent 注册表，全程关闭其树内的续聊准入而不毒化后来的同 ID 替换者。
   private readonly closingScopes = new Map<Agent, Set<Agent>>()
-  // 中文：整个管理器是否正在拆解（drain 开始后关闭全部准入）。
   private draining = false
 
-  // 中文：构造器：创建私有 activation-owner 作用域（结构性持有所有句柄）、监听
-  // agent/disposed 清理关闭作用域条目，并按"先注册作用域释放、再注册 drain"的顺序
-  // 挂 effect，使反向卸载先 drain 后释放作用域（子优先顺序才可能成立）。
   constructor(
     private readonly ctx: Context,
     private readonly host: ContinuationHost,
@@ -477,15 +407,13 @@ export class SubagentContinuationManager {
    * @param spec - provider, delegation request, and caller cancellation.
    * @returns the durable child id and the accepted initial prompt's message id.
    */
-  // 中文：启动一个续聊后台子代理：保留持久 ID → 解析 provider 创建规格 → 子锁内
-  // 物化 + 提交初始提示词；接受前任何失败都无 ID 返回并整体回滚。
   async startContinuable(spec: ContinuableStartSpec): Promise<ContinuableStart> {
     const request = spec.request
     const parent = request.parent
     this.assertAdmitting(parent)
     const persistence = this.requirePersistence()
     assertSubagentMaxDepth(request.maxDepth)
-    const childId = spec.childId ?? SessionId(randomUUID())
+    const childId = spec.childId ?? brandString<SessionId>(randomUUID())
     this.assertChildIdAvailable(childId)
     const childDepth = resolveChildDepth(parent, request.maxDepth)
     // Snapshot before any await: invalid descriptor JSON rejects the call
@@ -552,7 +480,6 @@ export class SubagentContinuationManager {
   }
 
   /** Reject one child identity already owned by a live Agent or Session. */
-  // 中文：拒绝已被活体 Agent 或会话占用的子代理 ID（重复身份预留给定时也在这里兜底）。
   private assertChildIdAvailable(childId: SessionId): void {
     if (this.ctx.agents.get(childId) !== undefined || this.ctx.get('sessions')?.get(childId) !== undefined) {
       throw new SubagentError(`subagent "${childId}" already exists`, 'DUPLICATE_CHILD')
@@ -576,9 +503,6 @@ export class SubagentContinuationManager {
    * @returns the accepted message's inbox id.
    * @throws when parent authority, availability, or admission rejects the delivery.
    */
-  // 中文：给一个已知续聊子代理投递后续消息（下一个 FIFO 回合）：按驻留状态路由——
-  // running 入队、waiting 唤醒同一 Agent、absent 则冷恢复新 Activation；
-  // 与处置事务竞速时等待释放后冷恢复重试。
   async followup(
     parent: Agent,
     childId: SessionId,
@@ -592,12 +516,25 @@ export class SubagentContinuationManager {
         if (activation === undefined) return this.coldResume(parent, childId, content, options)
         // A delivery that arrives after the disposal transaction began must not
         // reach a handle being torn down; wait for release, then cold-resume.
+        const disposal = activation.disposal
         /* v8 ignore next 3 -- the send-versus-dispose cutoff: reaching this arm needs a
          * delivery to observe the transaction inside the same critical section that opened it,
          * which no test can schedule deterministically. The behavior is covered end-to-end by
          * "cold-resumes a delivery that lost the race with final disposal". */
-        if (activation.disposal !== undefined) {
-          return activation.disposal.then(() => undefined, () => undefined)
+        if (disposal !== undefined) {
+          return disposal.then(() => undefined, () => undefined)
+        }
+        // Text-only delivery stays await-free, so the disposal-cutoff check
+        // above and the submit share one critical window. The image path
+        // awaits a capability read, so it re-checks the cutoff afterwards; a
+        // disposal that began during the read is waited out and retried like
+        // one observed on entry.
+        if (contentHasImage(content)) {
+          await this.assertImageCapable(activation.handle.agent, options.signal)
+          if (activation.disposal !== undefined) {
+            await Promise.allSettled([activation.disposal])
+            return undefined
+          }
         }
         return this.submitAdmitted(activation, content, options.source, parent, options.signal)
       })
@@ -631,9 +568,6 @@ export class SubagentContinuationManager {
    *   parent address that is not the live target's durable direct parent, or
    *   an ancestor outside the target's recorded live lineage.
    */
-  // 中文：中断一个驻留续聊子代理的当前回合：准入是同步的、效果是异步的——先授权调用者，
-  // 再对目标 Agent 请求 cancel(keepInbox:true)，不等待目标观察信号或到达静默；
-  // 目标不存在/无管理器/处置事务已开启时是接受的无操作。
   interrupt(targetSessionId: SessionId, authority: SubagentInterruptAuthority): void {
     if (authority.kind === 'ancestor') {
       const caller = authority.agent
@@ -688,8 +622,6 @@ export class SubagentContinuationManager {
    * @throws {SubagentError} when the sender is unauthorized, the parent is not
    *   live, or continuation admission is closing.
    */
-  // 中文：子代理显式上报：子代理本身就是授权凭证；发送方授权、父解析与发送接受共享
-  // 一个无 await 的时间跨度（pragma 说明为何无需 yield 语义）。
   // oxlint-disable-next-line typescript/require-await -- keep rejection semantics without yielding during admission
   async reportFrom(
     child: Agent,
@@ -704,8 +636,6 @@ export class SubagentContinuationManager {
   }
 
   /** Authorize only the exact Agent of one resident Activation. */
-  // 中文：只授权"某个驻留 Activation 的精确 Agent 对象"上报：handle 已被替换或
-  // 处置事务已开启时拒绝（UNAUTHORIZED / ACTIVATION_CLOSING）。
   private authorizeReporter(child: Agent): Activation {
     const activation = this.activations.get(child.id)
     if (activation === undefined || activation.handle.agent !== child) {
@@ -726,8 +656,6 @@ export class SubagentContinuationManager {
   }
 
   /** Resolve the reporting child's live direct parent from durable lineage. */
-  // 中文：从持久化血缘解析上报子代理的活体直接父代理：父不在注册表中时报
-  // PARENT_UNAVAILABLE（上报不投递）。
   private resolveReportParent(child: Agent): Agent {
     const parentId = child.session.header.parentSession
     /* v8 ignore next -- every continuation-managed child has direct-parent metadata. */
@@ -742,8 +670,6 @@ export class SubagentContinuationManager {
   }
 
   /** Deliver one framed report through the selected parent scheduling preset. */
-  // 中文：投递一条带框上报：包裹"Background subagent X reported:"前缀并打上
-  // subagent-report 来源标记；next-step 走唤醒投递，quiet 直接注入。
   private deliverReport(
     activation: Activation,
     parent: Agent,
@@ -778,8 +704,6 @@ export class SubagentContinuationManager {
    * @param message - the message whose id is accounted.
    * @param send - the synchronous waking send to perform.
    */
-  // 中文：向父代理执行一次"唤醒式"发送：父代理自身是续聊子代理时把消息 ID 计入其
-  // 接受集合（避免在发送与微任务接收之间的窗口被误判为静默），否则直接发送。
   private sendWaking(
     parent: Agent,
     message: ReturnType<typeof createUserMessage>,
@@ -794,8 +718,6 @@ export class SubagentContinuationManager {
   }
 
   /** Send one report while translating only the parent's own rejection. */
-  // 中文：发送一条上报消息，只把父代理自身的拒绝翻译成 PARENT_UNAVAILABLE
-  // （next-step 用 steer 合入下一步，quiet 用 inject 注入收件箱）。
   private sendReport(
     parent: Agent,
     message: ReturnType<typeof createUserMessage>,
@@ -822,8 +744,6 @@ export class SubagentContinuationManager {
    * @returns once materialization is quiescent and every live Activation released its handle.
    * @throws an aggregate error when any branch failed to release.
    */
-  // 中文：整体拆解：同步关闭准入 → 等待全部已准入物化（发布或回滚）→ 快照"根"
-  // （不被任何活体 Activation 拥有的 Activation）→ 子优先释放整片森林。
   async drain(): Promise<void> {
     // Close admission synchronously before the first await. Materializations
     // already past that cutoff remain tracked until their handle is installed
@@ -849,8 +769,6 @@ export class SubagentContinuationManager {
    * @returns once every retained descendant Activation released its handle.
    * @throws an aggregate error after all scoped branches settle when any failed.
    */
-  // 中文：只停掉精确活体宿主根的续聊后代：这些根树准入关闭直到根离开注册表，
-  // 无关树与管理器全局准入保持存活；同步开启全部目标处置事务后先等物化再子优先释放。
   async drainDescendants(parents: readonly Agent[]): Promise<void> {
     const roots = new Set(parents.filter(parent => this.ctx.agents.get(parent.id) === parent))
     if (roots.size === 0) return
@@ -914,8 +832,6 @@ export class SubagentContinuationManager {
    * @throws {SubagentError} `UNAUTHORIZED` when a resident target is not the
    *   parent's direct continuable child or the parent identity is stale.
    */
-  // 中文：释放指定父代理的若干驻留直接子代理（不关闭其其他续聊子代理的准入）：
-  // 同步开启全部目标处置事务，再等全部子优先释放；非直子/陈旧父身份拒绝。
   async drainChildren(parent: Agent, childIds: readonly SessionId[]): Promise<void> {
     if (this.ctx.agents.get(parent.id) !== parent) {
       throw new SubagentError('selected child teardown requires the exact live parent agent', 'UNAUTHORIZED')
@@ -943,7 +859,6 @@ export class SubagentContinuationManager {
   }
 
   /** Dispose independent roots and report every branch failure after all settle. */
-  // 中文：独立释放一组根 Activation，全部结算后汇总每个分支的失败（一次失败不阻止其余）。
   private async disposeRoots(
     roots: readonly Activation[],
     failureSubject: 'activation(s)' | 'scoped activation(s)' | 'selected activation(s)',
@@ -1031,8 +946,6 @@ export class SubagentContinuationManager {
    * observer would see `settled` while a turn is already queued. `accepted`
    * holds the ids this manager admitted but has not yet seen drained.
    */
-  // 中文：从 Agent 静默与 ownedChildren 推导驻留状态：accepted 集合弥补
-  // "已接受唤醒发送但尚未被微任务接收"的静默窗口。
   private stateOf(activation: Activation): ActivationState {
     if (activation.handle.agent.status === 'running' || activation.accepted.size > 0) return 'running'
     if (activation.ownedChildren.size > 0) return 'waiting'
@@ -1121,6 +1034,15 @@ export class SubagentContinuationManager {
     signal: AbortSignal,
   ): Promise<MessageId> {
     try {
+      if (contentHasImage(content)) {
+        // The capability read awaits with the activation already published, so
+        // the disposal cutoff is re-checked before the submit; a drain that
+        // began during the read turns into a clean closing rejection.
+        await this.assertImageCapable(activation.handle.agent, signal)
+        if (activation.disposal !== undefined) {
+          throw new SubagentError(`subagent "${activation.childId}" is closing`, 'ACTIVATION_CLOSING')
+        }
+      }
       return this.submitAdmitted(activation, content, source, parent, signal)
     } catch (error: unknown) {
       /* v8 ignore next -- rollback disposal failures must not mask the
@@ -1131,13 +1053,42 @@ export class SubagentContinuationManager {
   }
 
   /**
+   * Refuse image content addressed to a child whose model accepts text only.
+   * Callers guard with `contentHasImage`, so text-only delivery never awaits.
+   * The check runs inside the per-child delivery lock, before the message
+   * exists, so a rejection leaves no partial user message. When the child's
+   * route is not fixed by its options (a request-waterfall listener owns it)
+   * or no LLM registry is composed, delivery proceeds and the LLM layer's
+   * text-only projection replaces each image with its stable placeholder.
+   * @param agent - the live or freshly materialized child agent.
+   * @param signal - caller cancellation bounding the model-info read.
+   * @throws {SubagentError} `MODEL_DOES_NOT_SUPPORT_IMAGES` when the child's resolved model declines image input.
+   */
+  private async assertImageCapable(
+    agent: Agent,
+    signal: AbortSignal,
+  ): Promise<void> {
+    const { provider, model } = agent.options
+    if (provider === undefined || model === undefined) return
+    const llm = this.ctx.get('llm')
+    /* v8 ignore next -- a deployment without the LLM registry serves no model
+     * to refuse against; delivery then defers to the text-only projection. */
+    if (llm === undefined) return
+    const info = await llm.resolveModelInfo(provider, model, signal)
+    if (info.inputModalities !== undefined && !info.inputModalities.includes('image')) {
+      throw new SubagentError(
+        `Model "${model}" does not support image input.`,
+        'MODEL_DOES_NOT_SUPPORT_IMAGES',
+      )
+    }
+  }
+
+  /**
    * Create or resume the child Agent through the private activation-owner
    * scope, install the handle in a fresh Activation, and register ownership on
    * a continuation-managed parent. Rejection leaves no Activation, no handle,
    * and no ownership membership.
    */
-  // 中文：创建或恢复子代理 Agent（经私有 activation-owner 作用域）、安装新 Activation
-  // 并登记父所有权；拒绝时不留下任何 Activation/句柄/所有权成员。
   private materialize(inputs: MaterializeInputs): Promise<Activation> {
     this.assertAdmitting(inputs.parent)
     const settled = Promise.withResolvers<void>()
@@ -1469,8 +1420,6 @@ export class SubagentContinuationManager {
    * @param activation - the Activation whose disposal transaction is installed.
    * @returns once the handle and ownership edge are released.
    */
-  // 中文：完成一次拆解：先自上而下传播停止、再等待子代理拆解与静默、冲刷最终状态、
-  // 快照终止事实、释放句柄与所有权、向父代理投递结算通知并发射 end 边。
   private async finishDisposal(activation: Activation): Promise<void> {
     this.wake(activation)
     const { childId } = activation
@@ -1574,8 +1523,6 @@ export class SubagentContinuationManager {
    * @param activation - the settling Activation, still owned by its parent.
    * @param terminal - how this epoch ended, as the terminal edge will report it.
    */
-  // 中文：告诉持久直接父代理这个子代理已不会再产出：凡调用方拿到过 ID 的子代理
-  // 都无条件通知（结算/超限/失败/取消正是最需要通知的情形）；投递失败只记日志。
   private notifySettlement(activation: Activation, terminal: ActivationTerminal): void {
     if (!activation.announced) return
     try {

@@ -3,26 +3,17 @@
 // One tiny recorded turn (text-only) drives the whole spec: the empty-state
 // hero materializes a real Workspace + Session on first send (the jsdom
 // workspace-flow suite pins the object-layer state machine over the fixture
-// client; THIS spec pins the same flow through HTTP RPC + SSE + the host
+// client; THIS spec pins the same flow through HTTP RPC + WebSocket + the host
 // gateway), reload replays everything from the log (zero further model
 // calls), and the theme scenario proves the shipped dark palette actually
 // cascades: attribute -> alias token flip -> painted surface change. No
 // theme/layout golden: aria snapshots are color-blind (lane scope: the
 // browser-e2e-lane Agent Note); the hero's waiting state gets the one golden
 // here.
-// 中文说明：该浏览器测试用真实 HTTP、SSE 和主机网关固定工作区首发、重载恢复与主题切换行为。
-/**
- * 文件职责：验证 Web 应用从空状态创建会话、持久化恢复、命令菜单和明暗主题的完整生命周期。
- * 技术维度：使用 Vitest、Playwright、回放 fixture、HTTP RPC、SSE 以及无障碍快照。
- * 产品维度：保障用户首次发送、刷新页面、执行命令和切换主题时获得连续且一致的体验。
- * 逻辑维度：启动真实 Web 脚手架，覆盖菜单与计划状态，发送固定请求，重载恢复并比较主题样式。
- * 关键边界：依赖 Chromium、已准备的 fixture 与快照；录制和回放模式走不同分支。
- * 新手阅读建议：先看 beforeAll 的环境搭建，再读首发与重载测试，最后理解命令菜单和 CSS 取样。
- */
 import { readFile } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
 import { join } from 'node:path'
-import type { Browser, Page } from 'playwright'
+import type { Browser, Page, WebSocketRoute } from 'playwright'
 import { chromium } from 'playwright'
 import { afterAll, beforeAll, describe, expect, it, onTestFailed } from 'vitest'
 import type { SessionEvent } from '@deepseek-ai/dsh-session'
@@ -31,43 +22,32 @@ import {
   captureStableAria, compareOrRefreshGolden, fixtureUserPrompts,
   launchWebScaffold, recordFixture, watchConsole, webSnapshotMode, type WebScaffold,
 } from './scaffold.ts'
-import { connectFreshWorkspace, newEnglishPage, saveFailureShot, writeComposerDraft } from './support.ts'
+import {
+  connectFreshWorkspace, newEnglishPage, saveFailureShot, writeComposerDraft,
+} from './support.ts'
 
 const SNAPSHOT_DIR = fileURLToPath(new URL('../../../snapshots/web/lifecycle-chrome', import.meta.url))
 const FIXTURE = join(SNAPSHOT_DIR, 'session.jsonl')
-/** 控制回放行为的覆盖文档。 */
 const REPLAY_OVERRIDE = join(SNAPSHOT_DIR, 'replay.override.json')
-/** 空状态首发等待界面的预期快照。 */
 const HERO_EXPECTED = join(SNAPSHOT_DIR, 'hero.expected.md')
-/** 命令菜单初始状态的预期快照。 */
 const COMMAND_MENU_EXPECTED = join(SNAPSHOT_DIR, 'command-menu.expected.md')
-/** 命令菜单模糊检索后的预期快照。 */
 const FUZZY_COMMAND_MENU_EXPECTED = join(SNAPSHOT_DIR, 'command-menu-fuzzy.expected.md')
-/** 计划模式启用后的预期快照。 */
 const PLAN_ACTIVE_EXPECTED = join(SNAPSHOT_DIR, 'plan-active.expected.md')
+const CONNECTION_ERROR_EXPECTED = join(SNAPSHOT_DIR, 'connection-error.expected.md')
 // Post-reload golden: the same settled conversation rebuilt purely from
 // persistence + history — byte-equal rendering is exactly the recovery claim.
-// 中文说明：重载后的会话完全由持久化历史重建，字节一致快照用于证明恢复结果不漂移。
-/** 页面重载并完成历史恢复后的预期快照。 */
 const RELOADED_EXPECTED = join(SNAPSHOT_DIR, 'reloaded.expected.md')
 const RELOADED_EXPANDED_EXPECTED = join(SNAPSHOT_DIR, 'reloaded-expanded.expected.md')
 const MODE = webSnapshotMode()
 
-/** 录制 fixture 时发送给模型的固定提示词。 */
 const PROMPT = 'Reply with the single word LIGHTHOUSE and stop.'
-/** 回放每个片段之间的延迟，用于稳定观察加载状态。 */
 const REPLAY_PACE_MS = 100
 
 describe('web e2e: lifecycle & chrome (workspace flow / reload / dark mode)', () => {
-  /** 提供真实 Web 服务、fixture 回放和会话查询的脚手架。 */
   let scaffold: WebScaffold
-  /** 所有场景共享的 Chromium 实例。 */
   let browser: Browser
-  /** 当前场景操作的浏览器页面。 */
   let page: Page
-  /** 收集页面错误和控制台警告的监视器。 */
   let tripwire: ReturnType<typeof watchConsole>
-  /** 主机实际写入的会话事件，用于验证持久化生命周期。 */
   const sessionEvents: SessionEvent[] = []
 
   beforeAll(async () => {
@@ -305,12 +285,138 @@ describe('web e2e: lifecycle & chrome (workspace flow / reload / dark mode)', ()
     expect(tripwire.pageErrors).toEqual([])
   }, 60_000)
 
+  it.skipIf(MODE === 'record')('shows automatic and user-requested connection recovery beside Settings', async () => {
+    const recoveryPage = await newEnglishPage(browser)
+    const recoveryTripwire = watchConsole(recoveryPage)
+    const sockets: WebSocketRoute[] = []
+    let rejectConnections = false
+    await recoveryPage.routeWebSocket('**/api/remote.mux', (route) => {
+      sockets.push(route)
+      if (rejectConnections) {
+        void route.close({ code: 4001, reason: 'connection recovery test' })
+        return
+      }
+      route.connectToServer()
+    })
+    onTestFailed(() => saveFailureShot(recoveryPage, 'web-e2e-connection-recovery'))
+    try {
+      await recoveryPage.goto(scaffold.authenticatedUrl, { waitUntil: 'load' })
+      await recoveryPage.waitForSelector('[class*="frame"]', { timeout: 30_000 })
+      await expect.poll(() => sockets.length).toBe(1)
+      rejectConnections = true
+      await recoveryPage.context().setOffline(true)
+      await expect.poll(() => recoveryPage.evaluate(() => navigator.onLine)).toBe(false)
+      const offline = recoveryPage.getByRole('button', {
+        name: 'Disconnected, reconnect now', exact: true,
+      })
+      await offline.waitFor({ timeout: 2_000 })
+      await recoveryPage.waitForTimeout(750)
+      expect(sockets).toHaveLength(1)
+
+      await recoveryPage.context().setOffline(false)
+      await expect.poll(() => recoveryPage.evaluate(() => navigator.onLine)).toBe(true)
+      const connecting = recoveryPage.getByRole('button', {
+        name: 'Connecting, restart now', exact: true,
+      })
+      await connecting.waitFor({ timeout: 10_000 })
+      expect(await connecting.innerText()).toMatch(/^Connecting\.{1,3}$/)
+      const connectingGeometry = await connectionIndicatorGeometry(connecting)
+      expect(await connectionIndicatorTextAlignment(connecting)).toBe('left')
+      await connecting.hover()
+      expect(await connecting.innerText()).toBe('Reconnect now')
+      expect(await connectionIndicatorGeometry(connecting)).toEqual(connectingGeometry)
+      await recoveryPage.mouse.move(0, 0)
+
+      await expect.poll(() => sockets.length, { timeout: 40_000 }).toBe(7)
+      const indicator = recoveryPage.getByRole('button', {
+        name: 'Disconnected, reconnect now', exact: true,
+      })
+      await indicator.waitFor({ timeout: 10_000 })
+      expect(await connectionIndicatorGeometry(indicator)).toEqual(connectingGeometry)
+      expect(await connectionIndicatorTextAlignment(indicator)).toBe('left')
+      const snapshot = await captureStableAria(recoveryPage, '[class*="footArea"]', scaffold.workspaceCwd)
+      await compareOrRefreshGolden(CONNECTION_ERROR_EXPECTED, snapshot, MODE)
+      const style = await indicator.evaluate((element) => {
+        const probe = document.createElement('span')
+        probe.style.color = 'var(--dsw-alias-state-warn-label)'
+        probe.style.backgroundColor = 'var(--dsw-alias-state-warn-tertiary)'
+        document.body.append(probe)
+        const actual = getComputedStyle(element)
+        const reference = getComputedStyle(probe)
+        const result = {
+          background: actual.backgroundColor,
+          color: actual.color,
+          referenceBackground: reference.backgroundColor,
+          referenceColor: reference.color,
+        }
+        probe.remove()
+        return result
+      })
+      expect(style.background).toBe(style.referenceBackground)
+      expect(style.color).toBe(style.referenceColor)
+      expect(await indicator.locator('svg').count()).toBe(1)
+      expect(await indicator.getAttribute('title')).toBeNull()
+      const idleBackground = await indicator.evaluate(element => getComputedStyle(element).backgroundColor)
+      await indicator.hover()
+      expect(await indicator.innerText()).toBe('Reconnect now')
+      const hoverBackground = await indicator.evaluate(element => getComputedStyle(element).backgroundColor)
+      expect(hoverBackground).toBe(idleBackground)
+      await recoveryPage.mouse.down()
+      await expect.poll(() => indicator.evaluate(element => getComputedStyle(element).backgroundColor))
+        .not.toBe(hoverBackground)
+      rejectConnections = false
+      await recoveryPage.mouse.up()
+
+      await expect.poll(() => sockets.length).toBe(8)
+      const recovered = recoveryPage.getByRole('status')
+      await recovered.waitFor({ timeout: 10_000 })
+      expect(await recovered.innerText()).toBe('Connected')
+      expect(await connectionIndicatorGeometry(recovered)).toEqual(connectingGeometry)
+      expect(await connectionIndicatorTextAlignment(recovered)).toBe('left')
+      await recovered.waitFor({ state: 'detached', timeout: 5_000 })
+      expect(recoveryTripwire.pageErrors).toEqual([])
+      expect(recoveryTripwire.warnings.filter(warning => /connection lost, retry #[1-6]/i.test(warning)))
+        .toHaveLength(7)
+    } finally {
+      await recoveryPage.close()
+    }
+  }, 60_000)
+
   it.skipIf(MODE === 'record')('keeps the fixture inventory closed', async () => {
     expect(tripwire.warnings).toEqual([])
     await assertFixtureInventory(SNAPSHOT_DIR, [
       'session.jsonl', 'replay.override.json', 'command-menu.expected.md',
-      'command-menu-fuzzy.expected.md', 'hero.expected.md', 'plan-active.expected.md',
+      'command-menu-fuzzy.expected.md', 'connection-error.expected.md', 'hero.expected.md', 'plan-active.expected.md',
       'reloaded.expected.md', 'reloaded-expanded.expected.md',
     ])
   })
 })
+
+async function connectionIndicatorGeometry(locator: ReturnType<Page['getByRole']>): Promise<{
+  readonly outer: readonly number[]
+  readonly icon: readonly number[]
+  readonly label: readonly number[]
+}> {
+  return await locator.evaluate((element) => {
+    const outer = element.getBoundingClientRect()
+    const icon = element.children.item(0)?.getBoundingClientRect()
+    const label = element.children.item(1)?.getBoundingClientRect()
+    if (icon === undefined || label === undefined) throw new Error('connection indicator children missing')
+    const rounded = (values: readonly number[]): readonly number[] => values.map(value => Math.round(value * 100) / 100)
+    return {
+      outer: rounded([outer.x, outer.y, outer.width, outer.height]),
+      icon: rounded([icon.x - outer.x, icon.y - outer.y, icon.width, icon.height]),
+      label: rounded([label.x - outer.x, label.y - outer.y, label.width, label.height]),
+    }
+  })
+}
+
+async function connectionIndicatorTextAlignment(
+  locator: ReturnType<Page['getByRole']>,
+): Promise<string> {
+  return await locator.evaluate((element) => {
+    const label = element.children.item(1)
+    if (label === null) throw new Error('connection indicator label missing')
+    return getComputedStyle(label).textAlign
+  })
+}

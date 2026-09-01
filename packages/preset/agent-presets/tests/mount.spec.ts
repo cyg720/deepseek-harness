@@ -1,11 +1,3 @@
-/**
- * 文件职责：验证 mount.spec.ts 覆盖的 Agent 预设发现、装载与会话行为。
- * 技术维度：使用 TypeScript、Vitest、Cordis 插件上下文和临时配置目录。
- * 产品维度：保障用户选择的 Agent 预设能稳定生效并保持会话一致。
- * 逻辑维度：准备预设配置，装载插件，触发会话流程，再核对状态与错误。
- * 关键边界：配置来源和优先级必须明确；临时资源必须在用例结束时释放。
- * 新手阅读建议：先看夹具与辅助函数，再按发现、装载、会话顺序阅读用例。
- */
 import { mkdir, mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
@@ -18,27 +10,25 @@ import LlmRuntime from '@deepseek-ai/dsh-llm'
 import SessionStore, { SessionId } from '@deepseek-ai/dsh-session'
 import SystemPrompt from '@deepseek-ai/dsh-system-prompt'
 import ToolRuntime from '@deepseek-ai/dsh-tools'
+import SessionProjectionRegistry from '@deepseek-ai/dsh-session-projection'
 import AgentRegistry, { assembleContextFor, type Agent } from '@deepseek-ai/dsh-agent'
 import AgentLoop from '@deepseek-ai/dsh-agent-loop'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import AgentPresets, {
-  COMPOSITION_FILE, leakedServices, livePresetMounts, mountPreset, PresetMountError, serviceForAgent,
+  COMPOSITION_FILE, leakedServices, livePresetMounts, mountPreset, serviceForAgent,
 } from '@deepseek-ai/dsh-agent-presets'
 import type { Config } from '@deepseek-ai/dsh-agent-presets'
 import type {} from '@deepseek-ai/dsh-agent-presets/types'
 import { bindScopeParent, createScope, scopeOf } from '@deepseek-ai/dsh-scope'
 
 declare module '@deepseek-ai/cordis' {
-  /** 中文说明：interface Context 定义本测试所需的数据或行为，用于表达预设场景。 */
   interface Context {
     /** Published by the `isolated` fixture preset behind an entry-local realm. */
     fixtureIsolatedSvc: { label: string }
   }
 }
 
-/** 中文说明：常量 FIXTURES 保存本测试共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const FIXTURES = join(dirname(fileURLToPath(import.meta.url)), 'fixtures')
-/** 中文说明：常量 ROOTS 保存本测试共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const ROOTS = [
   { path: join(FIXTURES, 'system'), trust: 'system' as const },
   { path: join(FIXTURES, 'user'), trust: 'user' as const },
@@ -64,13 +54,13 @@ async function harness(roster: Config = { default: 'standard', roots: ROOTS, inc
   await ctx.plugin(SystemPrompt, { persona: '' })
   await ctx.plugin(ToolRuntime)
   await ctx.plugin(AgentRegistry)
+  await ctx.plugin(SessionProjectionRegistry)
   await ctx.plugin(AgentLoop, { agents: [] })
   await ctx.plugin(AgentPresets, roster)
   return ctx
 }
 
 async function agentOn(ctx: Context, id: string, presetId?: string): Promise<Agent> {
-  /** 中文说明：变量 handle 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const handle = await ctx.agents.create({
     sessionId: SessionId(id),
     setup: async (agentCtx: Context) => void await ctx.agentPresets.mount(agentCtx, presetId),
@@ -78,14 +68,11 @@ async function agentOn(ctx: Context, id: string, presetId?: string): Promise<Age
   return handle.agent
 }
 
-/** 中文说明：函数值 toolNames 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
 const toolNames = (ctx: Context, agent?: Agent): string[] =>
   ctx.tools.schemas(agent).map(schema => schema.name).sort()
 
 /** Every service registration in the runtime, regardless of which realm holds it. */
-/* 中文说明：函数 providedServiceNames 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function providedServiceNames(ctx: Context): string[] {
-  /** 中文说明：变量 store 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const store = ctx.reflect.store
   return Object.getOwnPropertySymbols(store)
     .map(key => store[key]?.name)
@@ -93,14 +80,11 @@ function providedServiceNames(ctx: Context): string[] {
 }
 
 /** Whether the root realm maps `name` to a live registration. */
-/* 中文说明：函数 rootResolves 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function rootResolves(ctx: Context, name: string): boolean {
-  /** 中文说明：变量 key 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const key = ctx.root[Context.isolate][name]
   return key !== undefined && ctx.reflect.store[key] !== undefined
 }
 
-/** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 let ctx: Context
 beforeEach(async () => {
   ctx = await harness()
@@ -108,11 +92,8 @@ beforeEach(async () => {
 
 describe('composing an agent from a preset', () => {
   it('hands an absolute plugin path to Node as a file URL', async () => {
-    /** 中文说明：变量 root 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const root = await mkdtemp(join(tmpdir(), 'dsh-preset-absolute-plugin-'))
-    /** 中文说明：变量 presetDir 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const presetDir = join(root, 'absolute')
-    /** 中文说明：变量 plugin 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const plugin = join(FIXTURES, 'plugins', 'contribute.js')
     await mkdir(presetDir)
     await writeFile(
@@ -128,9 +109,7 @@ describe('composing an agent from a preset', () => {
   })
 
   it('gives each session only its own preset\'s tools', async () => {
-    /** 中文说明：变量 alpha 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const alpha = await agentOn(ctx, 'sess-alpha', 'standard')
-    /** 中文说明：变量 beta 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const beta = await agentOn(ctx, 'sess-beta', 'minimal')
 
     expect(toolNames(ctx, alpha)).toEqual(['alpha'])
@@ -139,14 +118,10 @@ describe('composing an agent from a preset', () => {
   })
 
   it('scopes prompt sections and assembled schemas to the same session', async () => {
-    /** 中文说明：变量 alpha 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const alpha = await agentOn(ctx, 'sess-alpha', 'standard')
-    /** 中文说明：变量 beta 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const beta = await agentOn(ctx, 'sess-beta', 'minimal')
 
-    /** 中文说明：变量 alphaPrompt 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const alphaPrompt = await ctx.systemPrompt.assemble(assembleContextFor(alpha))
-    /** 中文说明：变量 betaPrompt 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const betaPrompt = await ctx.systemPrompt.assemble(assembleContextFor(beta))
 
     expect(alphaPrompt.sections.map(section => section.name)).toContain('preset:alpha')
@@ -156,16 +131,13 @@ describe('composing an agent from a preset', () => {
   })
 
   it('mounts the default preset when the caller names none', async () => {
-    /** 中文说明：变量 agent 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const agent = await agentOn(ctx, 'sess-default')
 
     expect(toolNames(ctx, agent)).toEqual(['alpha'])
   })
 
   it('lets two sessions share one preset without colliding', async () => {
-    /** 中文说明：变量 first 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const first = await agentOn(ctx, 'sess-first', 'standard')
-    /** 中文说明：变量 second 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const second = await agentOn(ctx, 'sess-second', 'standard')
 
     expect(toolNames(ctx, first)).toEqual(['alpha'])
@@ -173,12 +145,10 @@ describe('composing an agent from a preset', () => {
   })
 
   it('unwinds one session\'s composition without touching another\'s', async () => {
-    /** 中文说明：变量 handle 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const handle = await ctx.agents.create({
       sessionId: SessionId('sess-gone'),
       setup: async (agentCtx: Context) => void await ctx.agentPresets.mount(agentCtx, 'standard'),
     })
-    /** 中文说明：变量 survivor 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const survivor = await agentOn(ctx, 'sess-stays', 'minimal')
     expect(toolNames(ctx, handle.agent)).toEqual(['alpha'])
 
@@ -192,9 +162,7 @@ describe('composing an agent from a preset', () => {
 
 describe('composing a child agent from its parent', () => {
   /** Create one agent joined to `parent`'s composition, as a child creation window does. */
-  /* 中文说明：函数 childOf 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
   async function childOf(ctx: Context, id: string, parent: Agent): Promise<Agent> {
-    /** 中文说明：变量 handle 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const handle = await ctx.agents.create({
       sessionId: SessionId(id),
       setup: (childCtx: Context) => void ctx.agentPresets.composeFrom(childCtx, parent.ctx),
@@ -203,22 +171,17 @@ describe('composing a child agent from its parent', () => {
   }
 
   it('gives the child its parent\'s tools and prompt sections', async () => {
-    /** 中文说明：变量 parent 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const parent = await agentOn(ctx, 'sess-parent', 'standard')
 
-    /** 中文说明：变量 child 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const child = await childOf(ctx, 'sess-child', parent)
 
     expect(toolNames(ctx, child)).toEqual(['alpha'])
-    /** 中文说明：变量 prompt 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const prompt = await ctx.systemPrompt.assemble(assembleContextFor(child))
     expect(prompt.sections.map(section => section.name)).toContain('preset:alpha')
   })
 
   it('joins the parent\'s own generation rather than remounting its preset', async () => {
-    /** 中文说明：变量 parent 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const parent = await agentOn(ctx, 'sess-shared', 'standard')
-    /** 中文说明：变量 before 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const before = livePresetMounts().length
 
     await childOf(ctx, 'sess-shared-child', parent)
@@ -229,12 +192,10 @@ describe('composing a child agent from its parent', () => {
   })
 
   it('keeps the child composed after its parent is disposed', async () => {
-    /** 中文说明：变量 parentHandle 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const parentHandle = await ctx.agents.create({
       sessionId: SessionId('sess-dying-parent'),
       setup: async (agentCtx: Context) => void await ctx.agentPresets.mount(agentCtx, 'standard'),
     })
-    /** 中文说明：变量 child 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const child = await childOf(ctx, 'sess-orphan', parentHandle.agent)
 
     await parentHandle.dispose()
@@ -245,10 +206,8 @@ describe('composing a child agent from its parent', () => {
   })
 
   it('reports the preset id the child joined, for the durable header', async () => {
-    /** 中文说明：变量 parent 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const parent = await agentOn(ctx, 'sess-named', 'minimal')
 
-    /** 中文说明：变量 child 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const child = await childOf(ctx, 'sess-named-child', parent)
 
     expect(ctx.agentPresets.composedPreset(parent.ctx)).toBe('minimal')
@@ -258,10 +217,8 @@ describe('composing a child agent from its parent', () => {
   it('composes nothing when the parent joined no preset', async () => {
     // The rosterless deployment: model-facing rows sit in the host composition
     // and the child already resolves them through the registry's global layer.
-    /** 中文说明：变量 bare 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const bare = (await ctx.agents.create({ sessionId: SessionId('sess-bare-parent') })).agent
 
-    /** 中文说明：变量 child 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const child = await childOf(ctx, 'sess-bare-child', bare)
 
     expect(ctx.agentPresets.composedPreset(bare.ctx)).toBeUndefined()
@@ -270,7 +227,6 @@ describe('composing a child agent from its parent', () => {
   })
 
   it('refuses to compose an unscoped context', async () => {
-    /** 中文说明：变量 parent 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const parent = await agentOn(ctx, 'sess-unscoped-parent', 'standard')
 
     expect(() => ctx.agentPresets.composeFrom(ctx, parent.ctx)).toThrow(/unscoped context/)
@@ -323,7 +279,6 @@ describe('rejecting a composition that cannot be used', () => {
   })
 
   it('accepts the same provider behind an isolate realm', async () => {
-    /** 中文说明：变量 agent 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const agent = await agentOn(ctx, 'sess-isolated', 'isolated')
 
     expect(agent.id).toBe(SessionId('sess-isolated'))
@@ -333,18 +288,14 @@ describe('rejecting a composition that cannot be used', () => {
   })
 
   it('addresses the standing instance of a realm-private service through either agent', async () => {
-    /** 中文说明：变量 first 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const first = await agentOn(ctx, 'sess-reach-a', 'isolated')
-    /** 中文说明：变量 second 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const second = await agentOn(ctx, 'sess-reach-b', 'isolated')
 
     // The realm keeps the service out of every host context, so a caller
     // holding the agent is how a request from OUTSIDE the session reads the
     // instance it is about.
     expect(rootResolves(ctx, 'fixtureIsolatedSvc')).toBe(false)
-    /** 中文说明：变量 mine 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const mine = ctx.agentPresets.serviceFor(first, 'fixtureIsolatedSvc')
-    /** 中文说明：变量 theirs 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const theirs = ctx.agentPresets.serviceFor(second, 'fixtureIsolatedSvc')
     expect(mine).toBeDefined()
     // ONE composition per preset: both agents joined the same standing mount,
@@ -358,7 +309,6 @@ describe('rejecting a composition that cannot be used', () => {
     // the lookup finds the NAME and must still refuse it: the instance lives
     // under another mount's fiber, not this agent's composition.
     await agentOn(ctx, 'sess-reach-other', 'isolated')
-    /** 中文说明：变量 agent 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const agent = await agentOn(ctx, 'sess-reach-none', 'standard')
 
     expect(ctx.agentPresets.serviceFor(agent, 'fixtureIsolatedSvc')).toBeUndefined()
@@ -369,10 +319,8 @@ describe('rejecting a composition that cannot be used', () => {
     // owns are the three ways a context can fail to name a standing mount;
     // each is an answer, not a throw, because the caller asked a question.
     expect(serviceForAgent(ctx, { ctx }, 'fixtureIsolatedSvc')).toBeUndefined()
-    /** 中文说明：变量 loner 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const loner = createScope(ctx, { test: 'loner' })
     expect(serviceForAgent(ctx, { ctx: loner.ctx }, 'fixtureIsolatedSvc')).toBeUndefined()
-    /** 中文说明：变量 orphan 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const orphan = createScope(ctx, { test: 'orphan' })
     bindScopeParent(scopeOf(orphan.ctx)!, { agentPreset: 'never-mounted' })
     expect(serviceForAgent(ctx, { ctx: orphan.ctx }, 'fixtureIsolatedSvc')).toBeUndefined()
@@ -381,7 +329,6 @@ describe('rejecting a composition that cannot be used', () => {
   it('refuses to mount a preset directly into an unscoped context', async () => {
     // The service's own mount() guards this before delegating; the exported
     // function is callable on its own, so the boundary holds there too.
-    /** 中文说明：变量 preset 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const preset = await ctx.agentPresets.resolve('standard')
 
     await expect(mountPreset(ctx, preset)).rejects.toThrow(/unscoped context/)
@@ -395,7 +342,6 @@ describe('rejecting a composition that cannot be used', () => {
 
 describe('the preset roster', () => {
   it('lists every root\'s presets with the earlier root winning', async () => {
-    /** 中文说明：变量 listed 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const listed = await ctx.agentPresets.list()
 
     // `not-a-preset` is the fixture ghost: no composition file, listed broken.
@@ -412,9 +358,7 @@ describe('the preset roster', () => {
 
 describe('composing from a broken preset', () => {
   /** A roster whose only user preset carries `composition`. */
-  /* 中文说明：函数 rosterWith 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
   async function rosterWith(composition: string): Promise<Context> {
-    /** 中文说明：变量 root 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const root = await mkdtemp(join(tmpdir(), 'dsh-preset-broken-'))
     await mkdir(join(root, 'damaged'))
     await writeFile(join(root, 'damaged', COMPOSITION_FILE), composition)
@@ -422,19 +366,18 @@ describe('composing from a broken preset', () => {
   }
 
   it('refuses the mount up front with the discovery-reported reason', async () => {
-    /** 中文说明：变量 scoped 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const scoped = await rosterWith('- id: x\n  name: [unclosed\n')
 
     // The refusal happens before the loader ever sees the file, so every
-    // unloadable shape gets the same early PresetMountError — and a rejected
-    // setup rolls the whole agent creation back.
-    await expect(agentOn(scoped, 'sess-broken', 'damaged')).rejects.toThrow(PresetMountError)
+    // unloadable shape gets the same early agent-preset/invalid — and a
+    // rejected setup rolls the whole agent creation back.
+    await expect(agentOn(scoped, 'sess-broken', 'damaged'))
+      .rejects.toMatchObject({ code: 'agent-preset/invalid' })
     await expect(agentOn(scoped, 'sess-broken-2', 'damaged')).rejects.toThrow(/not valid YAML/)
     expect(livePresetMounts().filter(mount => mount.presetId === 'damaged')).toHaveLength(0)
   })
 
   it('refuses the standing key a cold reader would mount by', async () => {
-    /** 中文说明：变量 scoped 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const scoped = await rosterWith('rows: not-a-list\n')
 
     await expect(scoped.agentPresets.standingKeyFor('damaged'))
@@ -442,7 +385,6 @@ describe('composing from a broken preset', () => {
   })
 
   it('still resolves the broken row for the surfaces that manage it', async () => {
-    /** 中文说明：变量 scoped 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const scoped = await rosterWith('- id: x\n  name: [unclosed\n')
 
     // Deleting and reporting need the row; only composing refuses it.
@@ -452,10 +394,10 @@ describe('composing from a broken preset', () => {
 
 describe('a roster with nothing in it', () => {
   it('says so instead of naming an empty list of candidates', async () => {
-    /** 中文说明：变量 bare 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const bare = new Context()
     bare.baseUrl = pathToFileURL(FIXTURES).href + '/'
     await bare.plugin(Loader)
+    await bare.plugin(SessionProjectionRegistry)
     await bare.plugin(AgentPresets, { default: 'standard', roots: [], includeShippedRoot: false, includeUserRoot: false })
 
     await expect(bare.agentPresets.resolve())
@@ -471,6 +413,7 @@ describe('a roster with no base to resolve from', () => {
     // exactly the failure the check exists to report.
     const baseless = new Context()
     await baseless.plugin(Loader)
+    await baseless.plugin(SessionProjectionRegistry)
 
     await expect(baseless.plugin(AgentPresets, {
       default: 'standard', roots: ROOTS, includeShippedRoot: false, includeUserRoot: false,
@@ -484,14 +427,10 @@ describe('the preset file is an input, never a persistence target', () => {
     // `write()` override the Loader REWRITES the composition it read, so a
     // committed fixture would be mutated by the very run that proves the bug
     // and every later run would compare against the damaged file and pass.
-    /** 中文说明：变量 root 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const root = await mkdtemp(join(tmpdir(), 'dsh-preset-write-'))
-    /** 中文说明：变量 dir 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const dir = join(root, 'self-disposing')
     await mkdir(dir)
-    /** 中文说明：变量 path 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const path = join(dir, COMPOSITION_FILE)
-    /** 中文说明：变量 composition 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const composition = [
       '- id: tool-kept',
       `  name: ${join(FIXTURES, 'plugins', 'contribute.js')}`,
@@ -503,7 +442,6 @@ describe('the preset file is an input, never a persistence target', () => {
     ].join('\n')
     await writeFile(path, composition)
 
-    /** 中文说明：变量 scoped 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const scoped = new Context()
     scoped.baseUrl = pathToFileURL(FIXTURES).href + '/'
     await scoped.plugin(Loader)
@@ -514,6 +452,7 @@ describe('the preset file is an input, never a persistence target', () => {
     await scoped.plugin(SystemPrompt, { persona: '' })
     await scoped.plugin(ToolRuntime)
     await scoped.plugin(AgentRegistry)
+    await scoped.plugin(SessionProjectionRegistry)
     await scoped.plugin(AgentLoop, { agents: [] })
     await scoped.plugin(AgentPresets, { default: 'self-disposing', roots: [{ path: root, trust: 'user' as const }], includeShippedRoot: false, includeUserRoot: false })
 
@@ -539,7 +478,6 @@ describe('the preset file is an input, never a persistence target', () => {
 
 describe('attributing a service to a subtree', () => {
   it('attributes nothing to a subtree that is already torn down', async () => {
-    /** 中文说明：变量 handle 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const handle = await ctx.agents.create({
       sessionId: SessionId('sess-torn'),
       setup: async (agentCtx: Context) => void await ctx.agentPresets.mount(agentCtx, 'standard'),
@@ -557,9 +495,7 @@ describe('attributing a service to a subtree', () => {
 
 describe('replacing a composition', () => {
   it('publishes a committed preset selection for remote consumers', async () => {
-    /** 中文说明：变量 agent 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const agent = await agentOn(ctx, 'sess-selected', 'standard')
-    /** 中文说明：变量 selected 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const selected: Array<[SessionId, string]> = []
     ctx.on('agent-preset/selected', (sessionId, agentPreset) => {
       selected.push([sessionId, agentPreset])
@@ -571,9 +507,7 @@ describe('replacing a composition', () => {
   })
 
   it('swaps the agent\'s tools without touching another session', async () => {
-    /** 中文说明：变量 keeper 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const keeper = await agentOn(ctx, 'sess-keeper', 'standard')
-    /** 中文说明：变量 handle 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const handle = await ctx.agents.create({
       sessionId: SessionId('sess-swap'),
       setup: async (agentCtx: Context) => void await ctx.agentPresets.mount(agentCtx, 'standard'),
@@ -609,7 +543,6 @@ describe('replacing a composition', () => {
   })
 
   it('leaves the agent on its previous composition when the new one is unknown', async () => {
-    /** 中文说明：变量 handle 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const handle = await ctx.agents.create({
       sessionId: SessionId('sess-unknown'),
       setup: async (agentCtx: Context) => void await ctx.agentPresets.mount(agentCtx, 'standard'),
@@ -623,7 +556,6 @@ describe('replacing a composition', () => {
   })
 
   it('restores the previous composition when the new one fails to mount', async () => {
-    /** 中文说明：变量 handle 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const handle = await ctx.agents.create({
       sessionId: SessionId('sess-restore'),
       setup: async (agentCtx: Context) => void await ctx.agentPresets.mount(agentCtx, 'standard'),
@@ -638,9 +570,7 @@ describe('replacing a composition', () => {
   })
 
   it('names an agent that was published without joining any preset', async () => {
-    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await harness()
-    /** 中文说明：变量 warnings 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const warnings: string[] = []
     ctx.logger.warn = ((message: unknown) => { warnings.push(String(message)) }) as typeof ctx.logger.warn
 
@@ -674,7 +604,6 @@ describe('replacing a composition', () => {
     // An agent created without a preset has no binding to re-link, so the
     // switch is its first bind — exactly a mount — and once bound only the
     // roster's kept binding can move it again.
-    /** 中文说明：变量 handle 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const handle = await ctx.agents.create({ sessionId: SessionId('sess-bare') })
 
     await ctx.agentPresets.recompose(handle.agent.ctx, 'minimal')
@@ -683,7 +612,6 @@ describe('replacing a composition', () => {
   })
 
   it('refuses a bare agent\'s broken composition without restoring anything', async () => {
-    /** 中文说明：变量 handle 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const handle = await ctx.agents.create({ sessionId: SessionId('sess-bare-broken') })
 
     await expect(ctx.agentPresets.recompose(handle.agent.ctx, 'broken'))
@@ -696,14 +624,12 @@ describe('replacing a composition', () => {
   it('keeps the agent on its standing composition when a switch fails, even with the source deleted', async () => {
     // A preset root this test owns, so removing the composition mid-flight
     // cannot disturb the shipped fixtures.
-    /** 中文说明：变量 root 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const root = await mkdtemp(join(tmpdir(), 'dsh-preset-restore-'))
     const seeded: [string, string][] = [['first', `- id: only\n  name: ${join(FIXTURES, 'plugins', 'contribute.js')}\n  config:\n    tool: only\n`], ['broken', `- id: nope\n  name: ${join(FIXTURES, 'plugins', 'throws.js')}\n  config:\n    message: refuses\n`]]
     for (const [id, body] of seeded) {
       await mkdir(join(root, id))
       await writeFile(join(root, id, COMPOSITION_FILE), body)
     }
-    /** 中文说明：变量 scoped 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const scoped = new Context()
     scoped.baseUrl = pathToFileURL(FIXTURES).href + '/'
     await scoped.plugin(Loader)
@@ -714,6 +640,7 @@ describe('replacing a composition', () => {
     await scoped.plugin(SystemPrompt, { persona: '' })
     await scoped.plugin(ToolRuntime)
     await scoped.plugin(AgentRegistry)
+    await scoped.plugin(SessionProjectionRegistry)
     await scoped.plugin(AgentLoop, { agents: [] })
     await scoped.plugin(AgentPresets, { default: 'first', roots: [{ path: root, trust: 'user' as const }], includeShippedRoot: false, includeUserRoot: false })
     const handle = await scoped.agents.create({
@@ -743,7 +670,6 @@ describe('replacing a composition', () => {
 
 describe('editing a composition file', () => {
   /** One-row composition whose single tool is named `tool`. */
-  /* 中文说明：函数值 rowFor 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
   const rowFor = (tool: string): string =>
     `- id: only\n  name: ${join(FIXTURES, 'plugins', 'contribute.js')}\n  config:\n    tool: ${tool}\n`
 
@@ -751,12 +677,9 @@ describe('editing a composition file', () => {
    * A context over a temp root holding one editable preset. The id is
    * per-test because `livePresetMounts()` is a process-global registry.
    */
-  /* 中文说明：函数 editable 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
   async function editable(id: string): Promise<{ scoped: Context; path: string }> {
-    /** 中文说明：变量 root 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const root = await mkdtemp(join(tmpdir(), 'dsh-preset-edit-'))
     await mkdir(join(root, id))
-    /** 中文说明：变量 path 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const path = join(root, id, COMPOSITION_FILE)
     await writeFile(path, rowFor('before'))
     const scoped = await harness({ default: id, roots: [{ path: root, trust: 'user' as const }], includeShippedRoot: false, includeUserRoot: false })
@@ -765,7 +688,6 @@ describe('editing a composition file', () => {
 
   it('starts a new generation for later sessions while joined ones keep theirs', async () => {
     const { scoped, path } = await editable('edited')
-    /** 中文说明：变量 first 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const first = await agentOn(scoped, 'sess-gen-first', 'edited')
     expect(toolNames(scoped, first)).toEqual(['before'])
 
@@ -773,7 +695,6 @@ describe('editing a composition file', () => {
     // so the standing mount notices the file's stamp changing on its own.
     await writeFile(path, rowFor('afterwards'))
 
-    /** 中文说明：变量 second 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const second = await agentOn(scoped, 'sess-gen-second', 'edited')
     expect(toolNames(scoped, second)).toEqual(['afterwards'])
     // The joined session keeps the generation it runs on.
@@ -799,10 +720,8 @@ describe('editing a composition file', () => {
 
   it('keeps a newer generation pointer when a stale refresh loses the swap race', async () => {
     const { scoped, path } = await editable('guarded-refresh')
-    /** 中文说明：变量 preset 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const preset = await scoped.agentPresets.resolve('guarded-refresh')
     await agentOn(scoped, 'sess-guarded-refresh-seed', 'guarded-refresh')
-    /** 中文说明：变量 service 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const service = scoped.agentPresets as unknown as {
       standing: Map<string, Promise<{
         key: unknown
@@ -811,20 +730,15 @@ describe('editing a composition file', () => {
       }>>
       ensureStanding(current: typeof preset): Promise<unknown>
     }
-    /** 中文说明：变量 stalePromise 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const stalePromise = service.standing.get(preset.id)!
-    /** 中文说明：变量 stale 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const stale = await stalePromise
     await writeFile(path, rowFor('afterwards'))
     const { mtimeMs, size } = await stat(path)
-    /** 中文说明：变量 newer 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const newer = { ...stale, stamp: { mtimeMs, size } }
-    /** 中文说明：变量 newerPromise 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const newerPromise = Promise.resolve(newer)
 
     // `await pending` yields before the guarded delete, letting the winning
     // refresher replace the pointer deterministically instead of by timing.
-    /** 中文说明：变量 refresh 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const refresh = service.ensureStanding(preset)
     service.standing.set(preset.id, newerPromise)
 
@@ -835,7 +749,6 @@ describe('editing a composition file', () => {
   it('hands a host reader the standing key without starting an agent', async () => {
     const { scoped } = await editable('cold-read')
 
-    /** 中文说明：变量 key 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const key = await scoped.agentPresets.standingKeyFor('cold-read')
 
     // The mount exists for the reader; no agent, session, or turn started.
@@ -853,12 +766,11 @@ describe('editing a composition file', () => {
     // Discovery would refuse the preset too; a caller that resolved just
     // before the deletion must get a mount failure, not an unstamped
     // generation that no later edit could ever refresh.
-    /** 中文说明：变量 racer 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const racer = scoped.agentPresets as unknown as {
       ensureStanding(preset: { id: string; trust: 'user'; path: string }): Promise<unknown>
     }
     await expect(racer.ensureStanding({ id: 'unstampable', trust: 'user', path }))
-      .rejects.toThrow(PresetMountError)
+      .rejects.toMatchObject({ code: 'agent-preset/invalid' })
     expect(livePresetMounts().filter(mount => mount.presetId === 'unstampable')).toHaveLength(0)
   })
 
@@ -873,7 +785,6 @@ describe('editing a composition file', () => {
     // public route cannot reach this state — but a caller that resolved just
     // before the deletion still can, and it must be served the standing
     // generation rather than failed over a stat.
-    /** 中文说明：变量 racer 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const racer = scoped.agentPresets as unknown as {
       ensureStanding(preset: { id: string; trust: 'user'; path: string }): Promise<unknown>
     }

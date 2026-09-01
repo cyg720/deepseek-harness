@@ -8,16 +8,17 @@ import { tmpdir } from 'node:os'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
 import AgentRegistry, { type Agent, type AgentHandle } from '@deepseek-ai/dsh-agent'
+import AgentLoop from '@deepseek-ai/dsh-agent-loop'
+import { mountAgentLoopTestDependencies } from '@deepseek-ai/dsh-agent-loop-testkit'
 
 import SessionStore, { SessionId } from '@deepseek-ai/dsh-session'
-import * as agentCore from '@deepseek-ai/dsh-agent-spine-demo'
+import SessionProjectionRegistry from '@deepseek-ai/dsh-session-projection'
 import JsonlSessionPersistence from '@deepseek-ai/dsh-session-persistence-jsonl'
 import * as LlmDeepSeek from '@deepseek-ai/dsh-llm-deepseek'
 import SubagentRuntime, { type SubagentResult, type SubagentRunEndInfo } from '@deepseek-ai/dsh-subagent'
 import type { JsonRpcTransportPeer } from '@deepseek-ai/dsh-sdk-protocol'
 import { HarnessSdkJsonRpcServer } from '../src/index.ts'
 
-/** 中文说明：class FakeTransport 定义本测试所需的数据或行为，用于表达SDK 通信场景。 */
 class FakeTransport implements JsonRpcTransportPeer {
   notifications: { method: string; params?: Record<string, unknown> }[] = []
 
@@ -30,7 +31,6 @@ class FakeTransport implements JsonRpcTransportPeer {
   }
 }
 
-/** 中文说明：变量 servers 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const servers: Server[] = []
 
 afterEach(async () => {
@@ -38,15 +38,10 @@ afterEach(async () => {
   vi.unstubAllEnvs()
 })
 
-/** 中文说明：函数 mockCompletionServer 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 async function mockCompletionServer(): Promise<{ url: string; requests: unknown[]; headers: IncomingMessage['headers'][] }> {
-  /** 中文说明：变量 requests 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const requests: unknown[] = []
-  /** 中文说明：变量 headers 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const headers: IncomingMessage['headers'][] = []
-  /** 中文说明：函数值 server 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
   const server = createServer((request: IncomingMessage, response: ServerResponse) => {
-    /** 中文说明：变量 body 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     let body = ''
     request.on('data', (chunk: Buffer) => { body += chunk.toString('utf8') })
     request.on('end', () => {
@@ -62,17 +57,16 @@ async function mockCompletionServer(): Promise<{ url: string; requests: unknown[
   })
   servers.push(server)
   await new Promise<void>(resolve => server.listen(0, '127.0.0.1', resolve))
-  /** 中文说明：变量 address 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const address = server.address()
   if (address === null || typeof address === 'string') throw new Error('no port')
   return { url: `http://127.0.0.1:${address.port}`, requests, headers }
 }
 
-/** 中文说明：函数 makeHarness 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 async function makeHarness(storageDir: string) {
-  /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const ctx = new Context()
-  await ctx.plugin(agentCore, { workspaceContext: false })
+  await mountAgentLoopTestDependencies(ctx)
+  await ctx.plugin(SessionProjectionRegistry)
+  await ctx.plugin(AgentLoop, { agents: [] })
   await ctx.plugin(SubagentRuntime)
   await ctx.plugin(JsonlSessionPersistence, { root: storageDir })
   await new Promise(resolve => setTimeout(resolve, 50))
@@ -80,16 +74,13 @@ async function makeHarness(storageDir: string) {
 }
 
 /** Drive the owning service so test lifecycle events carry the real parent scope. */
-/* 中文说明：函数 settleSubagent 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 async function settleSubagent(
   ctx: Context,
   parent: Agent,
   info: Omit<SubagentRunEndInfo, 'runId' | 'local'> & { localAgent: Agent | undefined },
   beforeSettle?: () => Promise<void>,
 ): Promise<void> {
-  /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const result = Promise.withResolvers<SubagentResult>()
-  /** 中文说明：变量 disposeProvider 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const disposeProvider = ctx.subagents.registerProvider({
     name: info.provider,
     capabilities: { agentOptions: false, outputSchema: false, depthLimit: false, toolFilter: false, persona: false },
@@ -104,7 +95,6 @@ async function settleSubagent(
     },
   })
   try {
-    /** 中文说明：变量 run 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const run = await ctx.subagents.start(info.provider, {
       parent,
       prompt: [],
@@ -125,21 +115,15 @@ async function settleSubagent(
 
 describe('HarnessSdkJsonRpcServer', () => {
   it('creates a harness agent and calls the configured OpenAI-compatible endpoint', { timeout: 15_000 }, async () => {
-    /** 中文说明：变量 storageDir 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const storageDir = await mkdtemp(join(tmpdir(), 'dsh-jsonrpc-'))
-    /** 中文说明：变量 llmServer 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const llmServer = await mockCompletionServer()
     vi.stubEnv('DEEPSEEK_API_KEY', 'test-key')
     vi.stubEnv('DEEPSEEK_BASE_URL', llmServer.url)
-    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await makeHarness(storageDir)
     try {
-      /** 中文说明：变量 transport 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const transport = new FakeTransport()
-      /** 中文说明：变量 server 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const server = new HarnessSdkJsonRpcServer(ctx, transport)
 
-      /** 中文说明：变量 init 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const init = await server.handleRequest('initialize', {
         cwd: storageDir,
         provider: 'deepseek-official',
@@ -149,7 +133,6 @@ describe('HarnessSdkJsonRpcServer', () => {
       }) as { serverInfo: { name: string } }
       expect(init.serverInfo.name).toBe('deepseek-harness-sdk-runtime')
 
-      /** 中文说明：变量 receipt 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const receipt = await server.handleRequest('session/prompt', {
         sessionId: 'main',
         contentBlocks: [{ type: 'text', text: 'fix it' }],
@@ -183,7 +166,6 @@ describe('HarnessSdkJsonRpcServer', () => {
       })
       await vi.waitFor(() => { expect(llmServer.requests).toHaveLength(2) })
 
-      /** 中文说明：变量 orphanHandle 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const orphanHandle = await ctx.agents.create({
         sessionId: SessionId('orphan-session'),
         meta: { cwd: storageDir },
@@ -202,36 +184,26 @@ describe('HarnessSdkJsonRpcServer', () => {
   })
 
   it('queues overlapping prompts for one session without blocking other sessions', async () => {
-    /** 中文说明：变量 mainFollowup 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const mainFollowup = vi.fn<Agent['followup']>()
-    /** 中文说明：变量 mainAgent 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const mainAgent = ({
       id: SessionId('main'),
       followup: mainFollowup,
     } satisfies Pick<Agent, 'id' | 'followup'>) as unknown as Agent
-    /** 中文说明：变量 otherFollowup 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const otherFollowup = vi.fn<Agent['followup']>()
-    /** 中文说明：变量 otherAgent 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const otherAgent = ({
       id: SessionId('other'),
       followup: otherFollowup,
     } satisfies Pick<Agent, 'id' | 'followup'>) as unknown as Agent
-    /** 中文说明：函数值 mainHandle 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const mainHandle = { agent: mainAgent, dispose: vi.fn(() => Promise.resolve()) }
-    /** 中文说明：函数值 otherHandle 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const otherHandle = { agent: otherAgent, dispose: vi.fn(() => Promise.resolve()) }
-    /** 中文说明：函数值 create 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const create = vi.fn(async (options: { sessionId: SessionId }) =>
       String(options.sessionId) === 'main' ? mainHandle : otherHandle)
-    /** 中文说明：变量 liveAgents 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const liveAgents = new Map<string, Agent>([['main', mainAgent], ['other', otherAgent]])
-    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = {
       on: vi.fn(() => () => undefined),
       agents: { create, get: (id: SessionId) => liveAgents.get(String(id)) },
       get: () => undefined,
     } as unknown as Context
-    /** 中文说明：变量 server 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const server = new HarnessSdkJsonRpcServer(ctx, new FakeTransport())
     // This isolated prompt test begins after the handshake boundary.
     ;(server as unknown as { initialized: boolean }).initialized = true
@@ -346,21 +318,16 @@ describe('HarnessSdkJsonRpcServer', () => {
   })
 
   it('rejects a prompt for a session whose agent was disposed outside the server', async () => {
-    /** 中文说明：变量 followup 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const followup = vi.fn<Agent['followup']>()
-    /** 中文说明：变量 agent 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const agent = ({
       id: SessionId('zombie'),
       followup,
       whenIdle: vi.fn(() => Promise.resolve()),
     } satisfies Pick<Agent, 'id' | 'followup' | 'whenIdle'>) as unknown as Agent
-    /** 中文说明：函数值 handle 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const handle = { agent, dispose: vi.fn(() => Promise.resolve()) }
     // The registry drops the agent after creation, modelling an agent-loop-only
     // reload that leaves the server's SessionRecord pointing at a detached agent.
-    /** 中文说明：变量 live 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     let live = true
-    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = {
       on: vi.fn(() => () => undefined),
       agents: {
@@ -369,7 +336,6 @@ describe('HarnessSdkJsonRpcServer', () => {
       },
       get: () => undefined,
     } as unknown as Context
-    /** 中文说明：变量 server 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const server = new HarnessSdkJsonRpcServer(ctx, new FakeTransport())
     // This isolated prompt test begins after the handshake boundary.
     ;(server as unknown as { initialized: boolean }).initialized = true
@@ -387,17 +353,12 @@ describe('HarnessSdkJsonRpcServer', () => {
   })
 
   it('forwards whole-agent status without attributing a turn outcome', async () => {
-    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
     await ctx.plugin(SessionStore)
     await ctx.plugin(AgentRegistry)
-    /** 中文说明：变量 transport 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const transport = new FakeTransport()
-    /** 中文说明：变量 server 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const server = new HarnessSdkJsonRpcServer(ctx, transport)
-    /** 中文说明：变量 session 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const session = ctx.sessions.create(SessionId('message-outcome'))
-    /** 中文说明：变量 agent 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const agent = ({
       id: SessionId('message-outcome'),
       session,
@@ -416,14 +377,10 @@ describe('HarnessSdkJsonRpcServer', () => {
   })
 
   it('notifies the host when a child session is created with parent lineage', async () => {
-    /** 中文说明：变量 storageDir 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const storageDir = await mkdtemp(join(tmpdir(), 'dsh-jsonrpc-subagent-'))
-    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await makeHarness(storageDir)
     try {
-      /** 中文说明：变量 transport 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const transport = new FakeTransport()
-      /** 中文说明：变量 server 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const server = new HarnessSdkJsonRpcServer(ctx, transport)
 
       ctx.sessions.create(SessionId('root-session'), {
@@ -449,16 +406,12 @@ describe('HarnessSdkJsonRpcServer', () => {
   })
 
   it('creates an SDK session without an optional system prompt', { timeout: 15_000 }, async () => {
-    /** 中文说明：变量 storageDir 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const storageDir = await mkdtemp(join(tmpdir(), 'dsh-jsonrpc-no-system-'))
-    /** 中文说明：变量 llmServer 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const llmServer = await mockCompletionServer()
     vi.stubEnv('DEEPSEEK_API_KEY', 'test-key')
     vi.stubEnv('DEEPSEEK_BASE_URL', llmServer.url)
-    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await makeHarness(storageDir)
     try {
-      /** 中文说明：变量 server 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const server = new HarnessSdkJsonRpcServer(ctx, new FakeTransport())
 
       await server.initialize({ cwd: storageDir, provider: 'deepseek-official', model: 'plain-model' })
@@ -476,17 +429,12 @@ describe('HarnessSdkJsonRpcServer', () => {
   })
 
   it('notifies the host when a subagent run settles', async () => {
-    /** 中文说明：变量 storageDir 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const storageDir = await mkdtemp(join(tmpdir(), 'dsh-jsonrpc-subagent-end-'))
-    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await makeHarness(storageDir)
     try {
-      /** 中文说明：变量 transport 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const transport = new FakeTransport()
-      /** 中文说明：变量 server 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const server = new HarnessSdkJsonRpcServer(ctx, transport)
 
-      /** 中文说明：变量 parentHandle 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const parentHandle = await ctx.agents.create({
         sessionId: SessionId('main'),
         meta: { cwd: storageDir },
@@ -494,14 +442,12 @@ describe('HarnessSdkJsonRpcServer', () => {
       })
       // A custom in-process provider may own its child at the provider/root
       // scope while preserving durable parent lineage.
-      /** 中文说明：变量 handle 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const handle = await ctx.agents.create({
         sessionId: SessionId('child-session'),
         meta: { cwd: storageDir, parentSession: SessionId('main') },
         agentOptions: { provider: 'deepseek-official', model: 'deepseek-official' },
       })
       expect(ctx.agents.roots()).toContain(handle.agent)
-      /** 中文说明：变量 parentlessHandle 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const parentlessHandle = await parentHandle.agent.ctx.agents.create({
         sessionId: SessionId('parentless-child-session'),
         meta: { cwd: storageDir },
@@ -554,22 +500,16 @@ describe('HarnessSdkJsonRpcServer', () => {
   })
 
   it('ignores a remote run id that collides with a local child of the same parent', async () => {
-    /** 中文说明：变量 storageDir 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const storageDir = await mkdtemp(join(tmpdir(), 'dsh-jsonrpc-subagent-remote-collision-'))
-    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await makeHarness(storageDir)
     try {
-      /** 中文说明：变量 transport 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const transport = new FakeTransport()
-      /** 中文说明：变量 server 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const server = new HarnessSdkJsonRpcServer(ctx, transport)
-      /** 中文说明：变量 parentHandle 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const parentHandle = await ctx.agents.create({
         sessionId: SessionId('collision-parent'),
         meta: { cwd: storageDir },
         agentOptions: { model: 'deepseek-official' },
       })
-      /** 中文说明：变量 collidingChild 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const collidingChild = await parentHandle.agent.ctx.agents.create({
         sessionId: SessionId('remote-run-id'),
         meta: { cwd: storageDir, parentSession: SessionId('collision-parent') },
@@ -599,22 +539,16 @@ describe('HarnessSdkJsonRpcServer', () => {
   })
 
   it('retains locality across continuation runs on one live child', async () => {
-    /** 中文说明：变量 storageDir 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const storageDir = await mkdtemp(join(tmpdir(), 'dsh-jsonrpc-subagent-continuation-'))
-    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await makeHarness(storageDir)
     try {
-      /** 中文说明：变量 transport 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const transport = new FakeTransport()
-      /** 中文说明：变量 server 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const server = new HarnessSdkJsonRpcServer(ctx, transport)
-      /** 中文说明：变量 parentHandle 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const parentHandle = await ctx.agents.create({
         sessionId: SessionId('continuation-parent'),
         meta: { cwd: storageDir },
         agentOptions: { model: 'deepseek-official' },
       })
-      /** 中文说明：变量 childHandle 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const childHandle = await parentHandle.agent.ctx.agents.create({
         sessionId: SessionId('continuation-child'),
         meta: { cwd: storageDir, parentSession: SessionId('continuation-parent') },
@@ -650,46 +584,32 @@ describe('HarnessSdkJsonRpcServer', () => {
   })
 
   it('correlates reused local ids by parent scope when runs settle out of order', async () => {
-    /** 中文说明：变量 storageDir 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const storageDir = await mkdtemp(join(tmpdir(), 'dsh-jsonrpc-subagent-reuse-'))
-    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await makeHarness(storageDir)
     try {
-      /** 中文说明：变量 transport 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const transport = new FakeTransport()
-      /** 中文说明：变量 server 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const server = new HarnessSdkJsonRpcServer(ctx, transport)
-      /** 中文说明：变量 oldParent 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const oldParent = await ctx.agents.create({
         sessionId: SessionId('old-parent'),
         meta: { cwd: storageDir },
         agentOptions: { model: 'deepseek-official' },
       })
-      /** 中文说明：变量 oldChild 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const oldChild = await oldParent.agent.ctx.agents.create({
         sessionId: SessionId('reused-child'),
         meta: { cwd: storageDir, parentSession: SessionId('old-parent') },
         agentOptions: { model: 'deepseek-official' },
       })
-      /** 中文说明：变量 first 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const first = Promise.withResolvers<SubagentResult>()
-      /** 中文说明：变量 sameLifetime 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const sameLifetime = Promise.withResolvers<SubagentResult>()
-      /** 中文说明：变量 replacement 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const replacement = Promise.withResolvers<SubagentResult>()
-      /** 中文说明：变量 results 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const results = [first.promise, sameLifetime.promise, replacement.promise]
-      /** 中文说明：变量 starts 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       let starts = 0
-      /** 中文说明：变量 currentLocalAgent 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       let currentLocalAgent = oldChild.agent
-      /** 中文说明：变量 disposeProvider 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const disposeProvider = ctx.subagents.registerProvider({
         name: 'reused',
         capabilities: { agentOptions: false, outputSchema: false, depthLimit: false, toolFilter: false, persona: false },
         inheritsParentContext: false,
         start() {
-          /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
           const result = results[starts]
           starts += 1
           if (result === undefined) throw new Error('unexpected fourth reused-id run')
@@ -697,13 +617,11 @@ describe('HarnessSdkJsonRpcServer', () => {
         },
       })
 
-      /** 中文说明：变量 firstRun 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const firstRun = await ctx.subagents.start('reused', {
         parent: oldParent.agent,
         prompt: [],
         signal: new AbortController().signal,
       })
-      /** 中文说明：变量 sameLifetimeRun 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const sameLifetimeRun = await ctx.subagents.start('reused', {
         parent: oldParent.agent,
         prompt: [],
@@ -712,20 +630,17 @@ describe('HarnessSdkJsonRpcServer', () => {
       sameLifetime.resolve({ output: [{ type: 'text', text: 'same lifetime' }], stopReason: 'completed' })
       await sameLifetimeRun.result
       await oldChild.dispose()
-      /** 中文说明：变量 newParent 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const newParent = await ctx.agents.create({
         sessionId: SessionId('new-parent'),
         meta: { cwd: storageDir },
         agentOptions: { model: 'deepseek-official' },
       })
-      /** 中文说明：变量 newChild 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const newChild = await newParent.agent.ctx.agents.create({
         sessionId: SessionId('reused-child'),
         meta: { cwd: storageDir, parentSession: SessionId('new-parent') },
         agentOptions: { model: 'deepseek-official' },
       })
       currentLocalAgent = newChild.agent
-      /** 中文说明：变量 secondRun 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const secondRun = await ctx.subagents.start('reused', {
         parent: newParent.agent,
         prompt: [],
@@ -738,7 +653,6 @@ describe('HarnessSdkJsonRpcServer', () => {
       await firstRun.result
       await Promise.resolve()
 
-      /** 中文说明：函数值 finished 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
       const finished = transport.notifications.filter(notification =>
         notification.method === 'subagent.finished'
         && notification.params?.childSessionId === 'reused-child',
@@ -769,32 +683,23 @@ describe('HarnessSdkJsonRpcServer', () => {
   })
 
   it('keeps locality bound to the accepted run across provider re-registration', async () => {
-    /** 中文说明：变量 storageDir 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const storageDir = await mkdtemp(join(tmpdir(), 'dsh-jsonrpc-subagent-provider-reuse-'))
-    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await makeHarness(storageDir)
     try {
-      /** 中文说明：变量 transport 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const transport = new FakeTransport()
-      /** 中文说明：变量 server 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const server = new HarnessSdkJsonRpcServer(ctx, transport)
-      /** 中文说明：变量 parent 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const parent = await ctx.agents.create({
         sessionId: SessionId('provider-reuse-parent'),
         meta: { cwd: storageDir },
         agentOptions: { model: 'deepseek-official' },
       })
-      /** 中文说明：变量 child 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const child = await parent.agent.ctx.agents.create({
         sessionId: SessionId('provider-reuse-child'),
         meta: { cwd: storageDir, parentSession: SessionId('provider-reuse-parent') },
         agentOptions: { model: 'deepseek-official' },
       })
-      /** 中文说明：变量 localResult 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const localResult = Promise.withResolvers<SubagentResult>()
-      /** 中文说明：变量 remoteResult 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const remoteResult = Promise.withResolvers<SubagentResult>()
-      /** 中文说明：变量 unregisterLocal 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const unregisterLocal = ctx.subagents.registerProvider({
         name: 'reused-provider',
         capabilities: { agentOptions: false, outputSchema: false, depthLimit: false, toolFilter: false, persona: false },
@@ -806,7 +711,6 @@ describe('HarnessSdkJsonRpcServer', () => {
           dispose: () => Promise.resolve(),
         }),
       })
-      /** 中文说明：变量 localRun 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const localRun = await ctx.subagents.start('reused-provider', {
         parent: parent.agent,
         prompt: [],
@@ -814,7 +718,6 @@ describe('HarnessSdkJsonRpcServer', () => {
       })
       unregisterLocal()
 
-      /** 中文说明：变量 unregisterRemote 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const unregisterRemote = ctx.subagents.registerProvider({
         name: 'reused-provider',
         capabilities: { agentOptions: false, outputSchema: false, depthLimit: false, toolFilter: false, persona: false },
@@ -826,7 +729,6 @@ describe('HarnessSdkJsonRpcServer', () => {
           dispose: () => Promise.resolve(),
         }),
       })
-      /** 中文说明：变量 remoteRun 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const remoteRun = await ctx.subagents.start('reused-provider', {
         parent: parent.agent,
         prompt: [],
@@ -873,15 +775,10 @@ describe('HarnessSdkJsonRpcServer', () => {
   })
 
   it('uses the recorded local flag when start was missed and ignores remote runs', async () => {
-    /** 中文说明：变量 storageDir 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const storageDir = await mkdtemp(join(tmpdir(), 'dsh-jsonrpc-subagent-fallback-'))
-    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await makeHarness(storageDir)
-    /** 中文说明：变量 parentHandle 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     let parentHandle: AgentHandle | undefined
-    /** 中文说明：变量 handle 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     let handle: AgentHandle | undefined
-    /** 中文说明：变量 failedHandle 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     let failedHandle: AgentHandle | undefined
     try {
       parentHandle = await ctx.agents.create({
@@ -894,16 +791,13 @@ describe('HarnessSdkJsonRpcServer', () => {
         meta: { cwd: storageDir, parentSession: SessionId('fallback-parent') },
         agentOptions: { provider: 'deepseek-official', model: 'deepseek-official' },
       })
-      /** 中文说明：变量 fallbackChild 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const fallbackChild = handle.agent
       failedHandle = await parentHandle.agent.ctx.agents.create({
         sessionId: SessionId('failed-child-session'),
         meta: { cwd: storageDir },
         agentOptions: { provider: 'deepseek-official', model: 'deepseek-official' },
       })
-      /** 中文说明：变量 missedStartResult 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const missedStartResult = Promise.withResolvers<SubagentResult>()
-      /** 中文说明：变量 disposeMissedStartProvider 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const disposeMissedStartProvider = ctx.subagents.registerProvider({
         name: 'fork',
         capabilities: { agentOptions: false, outputSchema: false, depthLimit: false, toolFilter: false, persona: false },
@@ -917,15 +811,12 @@ describe('HarnessSdkJsonRpcServer', () => {
       })
       // Start before the server subscribes. The terminal payload still carries
       // this run's exact local child without reconstructing it from ids.
-      /** 中文说明：变量 missedStartRun 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const missedStartRun = await ctx.subagents.start('fork', {
         parent: parentHandle.agent,
         prompt: [],
         signal: new AbortController().signal,
       })
-      /** 中文说明：变量 transport 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const transport = new FakeTransport()
-      /** 中文说明：变量 server 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const server = new HarnessSdkJsonRpcServer(ctx, transport, { maxTokensAsSuccess: true })
 
       missedStartResult.resolve({ output: [], stopReason: 'max-tokens' })
@@ -995,16 +886,12 @@ describe('HarnessSdkJsonRpcServer', () => {
   })
 
   it('does not re-register an LLM adapter whose provider already has an owner', async () => {
-    /** 中文说明：变量 storageDir 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const storageDir = await mkdtemp(join(tmpdir(), 'dsh-jsonrpc-existing-llm-'))
-    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await makeHarness(storageDir)
     vi.stubEnv('DEEPSEEK_API_KEY', 'test-key')
     await ctx.plugin(LlmDeepSeek)
     try {
-      /** 中文说明：变量 server 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const server = new HarnessSdkJsonRpcServer(ctx, new FakeTransport())
-      /** 中文说明：变量 inspect 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const inspect = server as unknown as { hasAdapterFor(provider: string): boolean }
 
       expect(inspect.hasAdapterFor('deepseek-official')).toBe(true)
@@ -1020,14 +907,11 @@ describe('HarnessSdkJsonRpcServer', () => {
   })
 
   it('rejects a missing non-DeepSeek provider when an LLM service already exists', async () => {
-    /** 中文说明：变量 storageDir 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const storageDir = await mkdtemp(join(tmpdir(), 'dsh-jsonrpc-new-llm-'))
-    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await makeHarness(storageDir)
     vi.stubEnv('DEEPSEEK_API_KEY', 'test-key')
     await ctx.plugin(LlmDeepSeek)
     try {
-      /** 中文说明：变量 server 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const server = new HarnessSdkJsonRpcServer(ctx, new FakeTransport())
 
       await expect(server.initialize({ cwd: storageDir, provider: 'private', model: 'new-model' }))
@@ -1044,12 +928,9 @@ describe('HarnessSdkJsonRpcServer', () => {
   it.each([0, -1, 1.5, Number.NaN, Number.MAX_SAFE_INTEGER + 1])(
     'rejects invalid initialize maxTokens %s at the wire boundary',
     async (maxTokens) => {
-      /** 中文说明：变量 storageDir 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const storageDir = await mkdtemp(join(tmpdir(), 'dsh-jsonrpc-invalid-max-tokens-'))
-      /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const ctx = await makeHarness(storageDir)
       try {
-        /** 中文说明：变量 server 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
         const server = new HarnessSdkJsonRpcServer(ctx, new FakeTransport())
         await expect(server.initialize({
           cwd: storageDir,
@@ -1173,10 +1054,8 @@ describe('HarnessSdkJsonRpcServer', () => {
   })
 
   it('reports no adapter when the LLM service is absent', async () => {
-    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
     try {
-      /** 中文说明：变量 server 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const server = new HarnessSdkJsonRpcServer(ctx, new FakeTransport()) as unknown as {
         hasAdapterFor(model: string): boolean
         shutdown(): Promise<Record<string, never>>
@@ -1190,12 +1069,9 @@ describe('HarnessSdkJsonRpcServer', () => {
   })
 
   it('rejects unknown JSON-RPC runtime methods', async () => {
-    /** 中文说明：变量 storageDir 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const storageDir = await mkdtemp(join(tmpdir(), 'dsh-jsonrpc-unknown-'))
-    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await makeHarness(storageDir)
     try {
-      /** 中文说明：变量 server 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const server = new HarnessSdkJsonRpcServer(ctx, new FakeTransport())
 
       await expect(server.handleRequest('does/not/exist', {}))
@@ -1210,34 +1086,25 @@ describe('HarnessSdkJsonRpcServer', () => {
   })
 
   it('coalesces concurrent session creation and retries a failed creation', async () => {
-    /** 中文说明：函数值 resolveShared 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     let resolveShared: ((handle: AgentHandle) => void) | undefined
-    /** 中文说明：函数值 sharedCreation 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const sharedCreation = new Promise<AgentHandle>((resolve) => { resolveShared = resolve })
-    /** 中文说明：函数值 sharedHandle 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const sharedHandle = { agent: {} as Agent, dispose: vi.fn(() => Promise.resolve()) }
-    /** 中文说明：函数值 retryHandle 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const retryHandle = { agent: {} as Agent, dispose: vi.fn(() => Promise.resolve()) }
-    /** 中文说明：函数值 create 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const create = vi.fn<(options: unknown) => Promise<AgentHandle>>()
       .mockReturnValueOnce(sharedCreation)
       .mockRejectedValueOnce(new Error('creation failed'))
       .mockResolvedValueOnce(retryHandle)
-    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = {
       on: vi.fn(() => () => undefined),
       agents: { create, get: () => undefined },
       get: () => undefined,
     } as unknown as Context
-    /** 中文说明：变量 server 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const server = new HarnessSdkJsonRpcServer(ctx, new FakeTransport()) as unknown as {
       getOrCreateSession(sessionId: string): Promise<{ handle: AgentHandle }>
       shutdown(): Promise<Record<string, never>>
     }
 
-    /** 中文说明：变量 first 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const first = server.getOrCreateSession('shared')
-    /** 中文说明：变量 second 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const second = server.getOrCreateSession('shared')
     expect(create).toHaveBeenCalledTimes(1)
     resolveShared?.(sharedHandle)
@@ -1255,7 +1122,6 @@ describe('HarnessSdkJsonRpcServer', () => {
   })
 
   it('resolves a relative cwd before creating the session', async () => {
-    /** 中文说明：函数值 create 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const create = vi.fn<(options: unknown) => Promise<AgentHandle>>()
       .mockResolvedValue({ agent: {} as Agent, dispose: () => Promise.resolve() })
     const resolveCallConfig = vi.fn(async (config: unknown) => config)
@@ -1264,7 +1130,6 @@ describe('HarnessSdkJsonRpcServer', () => {
       agents: { create, get: () => undefined },
       get: () => ({ listProviders: () => [{ id: 'mock', name: 'Mock' }], resolveCallConfig }),
     } as unknown as Context
-    /** 中文说明：变量 server 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const server = new HarnessSdkJsonRpcServer(ctx, new FakeTransport()) as unknown as {
       initialize(params: { cwd: string; provider: string; model: string; reasoningEffort?: string; maxTokens?: number }): Promise<unknown>
       getOrCreateSession(sessionId: string): Promise<unknown>
@@ -1293,17 +1158,13 @@ describe('HarnessSdkJsonRpcServer', () => {
   })
 
   it('settles every teardown and aggregates multiple failures', async () => {
-    /** 中文说明：函数值 firstDispose 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const firstDispose = vi.fn(() => { throw new Error('first teardown failed') })
-    /** 中文说明：函数值 secondDispose 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const secondDispose = vi.fn(() => Promise.reject(new Error('second teardown failed')))
-    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = {
       on: vi.fn(() => () => undefined),
       agents: { create: vi.fn(), get: () => undefined },
       get: () => undefined,
     } as unknown as Context
-    /** 中文说明：变量 server 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const server = new HarnessSdkJsonRpcServer(ctx, new FakeTransport()) as unknown as {
       sessions: Map<string, { handle: AgentHandle; lastTurnEnd: undefined; activePrompt: boolean }>
       shutdown(): Promise<Record<string, never>>
@@ -1317,22 +1178,17 @@ describe('HarnessSdkJsonRpcServer', () => {
   })
 
   it('continues teardown after a subscription disposer fails', async () => {
-    /** 中文说明：变量 subscription 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     let subscription = 0
-    /** 中文说明：变量 listenerFailure 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const listenerFailure = new Error('listener teardown failed')
-    /** 中文说明：函数值 on 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const on = vi.fn(() => {
       subscription += 1
       return subscription === 1 ? () => { throw listenerFailure } : () => undefined
     })
-    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = {
       on,
       agents: { create: vi.fn(), get: () => undefined },
       get: () => undefined,
     } as unknown as Context
-    /** 中文说明：变量 server 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const server = new HarnessSdkJsonRpcServer(ctx, new FakeTransport())
 
     await expect(server.shutdown()).rejects.toBe(listenerFailure)

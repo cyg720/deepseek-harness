@@ -3,15 +3,6 @@
 // and file-reference guidance plus its HTTP, retry, sandbox, and approval defaults.
 // No browser and no model call — these are composition facts, and the browser
 // scenarios in this lane cover the surface itself.
-// 中文说明：不启动浏览器或模型，直接验证正式 Web 组合给模型提供的工具、提示和安全默认值。
-/**
- * 文件职责：验证已发布 Web 组合的模型可见工具目录、文件引用指导、重试、沙箱和审批默认配置。
- * 技术维度：使用 Vitest、真实 Cordis 组合、工具注册表、设置作用域和沙箱路径计算。
- * 产品维度：确保正式 Web 运行时只暴露经过安全审查的能力，并采用预期权限默认值。
- * 逻辑维度：启动共享脚手架，创建智能体，读取组合服务与模型请求，再比较工具和策略事实。
- * 关键边界：不调用模型、不启动浏览器；依赖 ripgrep 的工具按宿主能力单独判断；每个测试后清理脚手架。
- * 新手阅读建议：先读 EXPECTED_TOOLS 与刻意缺失项说明，再看首个组合断言，最后看后台任务注册表场景。
- */
 import { readFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { fileURLToPath } from 'node:url'
@@ -19,7 +10,6 @@ import { afterEach, expect, it } from 'vitest'
 import { ToolCallId } from '@deepseek-ai/dsh-llm'
 import { canonicalPath, writableRoots } from '@deepseek-ai/dsh-sandbox'
 import { SessionId } from '@deepseek-ai/dsh-session'
-import { settingsNamespace } from '@deepseek-ai/dsh-settings'
 // Empty type imports carry the tools/sandboxPolicy/approval Context merges.
 import type {} from '@deepseek-ai/dsh-tools'
 import type {} from '@deepseek-ai/dsh-sandbox-policy'
@@ -30,7 +20,6 @@ import type {} from '@deepseek-ai/dsh-commands'
 import type {} from '@deepseek-ai/dsh-system-prompt'
 import { launchWebScaffold, type WebScaffold } from './scaffold.ts'
 
-/** 文件引用运行时指导的预期提示文件路径。 */
 const FILE_REFERENCE_PROMPT = fileURLToPath(new URL(
   './expected/web-runtime-context/file-reference-prompt.expected.md', import.meta.url,
 ))
@@ -44,8 +33,6 @@ const FILE_REFERENCE_PROMPT = fileURLToPath(new URL(
  * approval now confine its model-selected request target. The composition
  * Agent Note owns the rationale and its sources.
  */
-/* 中文说明：正式组合应向模型公开的工具，排除下方依赖 ripgrep 的两项和主动禁用的高风险工具。 */
-/** 与宿主可选依赖无关的固定模型工具名称列表。 */
 const EXPECTED_TOOLS = [
   'ask_user_question',
   'bash',
@@ -79,10 +66,8 @@ const EXPECTED_TOOLS = [
  * is always present on every host — asserted as fixed members, not a host
  * dependency.
  */
-/* 只有宿主安装可用 ripgrep 时才公开的文件搜索工具。 */
 const RIPGREP_TOOLS = ['glob', 'grep']
 
-/** 当前测试启动的脚手架，afterEach 中安全释放。 */
 let scaffold: WebScaffold | undefined
 
 afterEach(async () => {
@@ -115,7 +100,7 @@ it('assembles the shipped Web transport, catalog, guidance, and defaults', async
       ],
     }
   `)
-  await ctx.settings.update(settingsNamespace('llm-deepseek'), {
+  await ctx.settings.update('llm-deepseek', {
     retryPolicy: { mode: 'always', maxRetries: 5 },
   })
   expect(ctx.llm.providerRetryPolicy('deepseek-official')).toMatchInlineSnapshot(`
@@ -126,7 +111,7 @@ it('assembles the shipped Web transport, catalog, guidance, and defaults', async
       "mode": "always",
     }
   `)
-  await ctx.settings.update(settingsNamespace('llm-pi-ai'), {
+  await ctx.settings.update('llm-pi-ai', {
     providers: {
       openai: {},
       anthropic: { retryPolicy: { mode: 'always' } },

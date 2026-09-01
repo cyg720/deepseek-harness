@@ -1,11 +1,3 @@
-/**
- * 文件职责：端到端验证发布版 Web 组合中的代理预设、工具目录、提示词、子代理和设置选择行为。
- * 技术维度：使用真实 Cordis 配置层、临时 Profile 包链接、会话代理创建和 Vitest 生命周期。
- * 产品维度：保证 standard、minimal、code、cordis 四种预设提供准确能力并能安全恢复与委派。
- * 逻辑维度：组装去除外部副作用的真实 Web 树，创建各预设代理，再逐项检查工具、服务与日志。
- * 关键边界：网络、端口和开发者本机设置必须隔离；预设能力仍使用真实发布 bundle 与包依赖。
- * 新手阅读建议：先读 bootWeb 的隔离覆盖层，再看 toolNames 辅助函数，最后按四种预设场景阅读。
- */
 import { randomUUID } from 'node:crypto'
 import { mkdir, mkdtemp, readFile, stat, symlink, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
@@ -18,7 +10,6 @@ import { SessionId } from '@deepseek-ai/dsh-session'
 import type { Agent } from '@deepseek-ai/dsh-agent'
 import type { PatchOptions } from '@deepseek-ai/cordis-plugin-include'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
-import { settingsNamespace } from '@deepseek-ai/dsh-settings'
 import { SUBAGENT_MODEL_SELECTION_SETTINGS_NAMESPACE } from '@deepseek-ai/dsh-tool-subagent/model-selection-settings'
 import { SETTINGS_NAMESPACE, SHIPPED_PRESET_ROOT } from '@deepseek-ai/dsh-agent-presets'
 import { applyChildComposition, childSessionMeta } from '@deepseek-ai/dsh-subagent'
@@ -27,26 +18,18 @@ import type {} from '@deepseek-ai/dsh-compaction-basic'
 import type {} from '@deepseek-ai/dsh-skill'
 import type {} from '@deepseek-ai/dsh-tools'
 // Type-only: resolves `ctx.get('sessionProjections')` and `ctx.get('tokenMeter')`.
-// 仅用于让 TypeScript 识别 sessionProjections 与 tokenMeter 服务键。
 import type {} from '@deepseek-ai/dsh-session-projection'
 import type {} from '@deepseek-ai/dsh-token-meter'
 
 const REPO_ROOT = fileURLToPath(new URL('../../..', import.meta.url))
 /** The shipped Web surface: the dsh-base and dsh-web-app bundle patches over an empty preset root. */
-/* 发布版 Web 表面由基础和 Web 应用两个 bundle 补丁组成。 */
 const BASE_PATCH = join(REPO_ROOT, 'packages/bundle/base/cordis.patch.yml')
-/** Web 应用 bundle 补丁路径。 */
 const WEB_PATCH = join(REPO_ROOT, 'packages/bundle/web-app/cordis.patch.yml')
-/** Codex 子代理产品包目录。 */
 const CODEX_PACKAGE_DIR = join(REPO_ROOT, 'packages/subagent/subagent-codex')
-/** Claude Code 子代理产品包目录。 */
 const CLAUDE_CODE_PACKAGE_DIR = join(REPO_ROOT, 'packages/subagent/subagent-claude-code')
 /** The installation anchor whose dependency surface the preset module fallback mirrors. */
-/* 预设模块回退复制依赖面的 CLI 安装锚点。 */
 const INSTALL_ANCHOR = join(REPO_ROOT, 'apps/cli/package.json')
-/** minimal 预设应产生的精确人格提示词。 */
 const MINIMAL_PROMPT = 'You are a helpful software engineer assistant.'
-/** minimal 预设中 bash 工具应使用的精确模型可见说明。 */
 const MINIMAL_BASH_DESCRIPTION = `Run commands in a bash shell
 * When invoking this tool, the contents of the "command" parameter does NOT need to be XML-escaped.
 * You don't have access to the internet via this tool.
@@ -61,24 +44,13 @@ const MINIMAL_BASH_DESCRIPTION = `Run commands in a bash shell
  * touch the network, or write outside the test. Everything that decides an
  * agent's capabilities is the real thing, including both shipped presets.
  */
-/*
- * 启动去除端口、网络和本机写入副作用后的真实 Web 组合。
- * @param settingsFile 隔离设置文件路径。
- * @param extra 附加在发布层后的测试覆盖补丁。
- * @param profilePackages 要链接进临时 Profile 的产品包目录。
- * @param profileBundles 可选的真实 Profile bundle 顺序。
- * @returns 已稳定启动的 Cordis 根上下文。
- * @example `await bootWeb(settingsFile)`
- */
 async function bootWeb(
   settingsFile: string,
   extra: PatchOptions[] = [],
   profilePackages: readonly string[] = [],
   profileBundles?: readonly string[],
 ): Promise<Context> {
-  /** 与设置文件同一临时根下的隔离存储目录。 */
   const storageRoot = join(dirname(settingsFile), 'storages')
-  /** 禁用外部副作用并固定测试输入的配置覆盖层。 */
   const overrides: PatchOptions[] = [
     // The settings row defaults to `$DSH_HOME/settings.yaml`. Left alone it
     // reads the developer's own document — and since the default preset is a
@@ -90,7 +62,6 @@ async function bootWeb(
     // file writes the developer's own `~/.dsh/storages/` — and then reads it
     // back on the next run, so a stored document from any other build decides
     // this test's boot. Same reason the settings row above is pinned.
-    // JSON 存储固定到临时根，避免读写真实 DSH_HOME 的历史数据。
     { id: 'storage-json', config: { root: storageRoot } },
     // Host rows with side effects outside this process: a bound port, a served
     // asset tree, a telemetry exporter. `api-gateway` and `directory-picker`
@@ -99,13 +70,11 @@ async function bootWeb(
     // it would hide exactly the breakage this file exists to catch: a service
     // moved into the presets that a host row still waits for. The boot audit
     // is that assertion.
-    // 仅禁用真正的外部副作用行，API 代理等代理平面宿主行保持启用以验证完整依赖。
     { id: 'webserver', disabled: true },
     // The web bundle's runtime row injects `webServer`, so it cannot
     // activate without the bound port disabled above. It owns dist serving
     // and the URL prompt line — surface glue, not anything that decides an
     // agent's capabilities, which is all this file asserts.
-    // Web 运行时依赖已禁用端口，只负责表面托管，不参与本测试关注的代理能力。
     { id: 'web-runtime', disabled: true },
     { id: 'session-telemetry-otel', disabled: true },
     // A deployment-level skill on the host registry's GLOBAL layer — the same
@@ -119,12 +88,10 @@ async function bootWeb(
     { id: 'session-log-download', disabled: true },
     // The always-on reload chain waits for the browser roster and bound port
     // disabled above.
-    // 客户端热重载依赖已禁用的浏览器名册和端口，因此在测试中关闭。
     { id: 'client-hmr', disabled: true },
     // The shipped `-auto` chooser resolves its interaction from a running
     // host and so waits for the webserver disabled above; the browse variant
     // supplies `directoryPicker` without one.
-    // 自动目录选择器依赖 Web 主机，改用无需端口的 browse 实现。
     { id: 'directory-picker', disabled: true },
     { insert: [
       { id: 'directory-picker-browse', name: '@deepseek-ai/dsh-host-directory-picker-browse' },
@@ -142,8 +109,6 @@ async function bootWeb(
   // outside this workspace and bare plugin names cannot resolve by Node's
   // upward walk. The flat fallback the preset boot maintains is what makes
   // them resolvable — the same mechanism, not a test-only shim.
-  // 空根位于工作区外，使用正式 Profile 模块回退解析裸插件名。
-  /** 临时 Profile 主目录。 */
   const home = dirname(settingsFile)
   await healProfilesModuleFallback({ installAnchor: INSTALL_ANCHOR, home })
   const profileDir = join(home, 'profiles', 'spec')
@@ -152,16 +117,12 @@ async function bootWeb(
   // pnpm's package link for only the selected products; their own production
   // dependencies resolve from the linked workspace packages, while shared
   // peers still resolve through the installation fallback above.
-  // 产品 bundle 链接到 Profile，包自身依赖从工作区解析，共享 peer 仍走安装回退。
   for (const packageDir of profilePackages) {
-    /** 当前产品包的名称字段。 */
     const manifest = JSON.parse(await readFile(join(packageDir, 'package.json'), 'utf8')) as { name: string }
-    /** 模拟 pnpm 安装生成的包链接位置。 */
     const link = join(profileDir, 'node_modules', manifest.name)
     await mkdir(dirname(link), { recursive: true })
     await symlink(packageDir, link, 'junction')
   }
-  /** 默认从发布基础和 Web 补丁加载的 bundle 层。 */
   let bundlePatches: PatchOptions[] = [
     ...loadOverlayPatches('dsh-test', BASE_PATCH),
     ...loadOverlayPatches('dsh-test', WEB_PATCH),
@@ -172,11 +133,9 @@ async function bootWeb(
       dependencies: Object.fromEntries(profileBundles.map(name => [name, 'workspace:*'])),
       dsh: { profile: { bundles: profileBundles } },
     }, null, 2) + '\n')
-    /** 按指定 bundle 清单解析出的真实临时 Profile。 */
     const profile = loadProfile('dsh-test', 'spec', INSTALL_ANCHOR, home, { userLayer: false })
     bundlePatches = profile.layers.flatMap(layer => layer.patches)
   }
-  /** Loader 用作补丁组合锚点的空根配置。 */
   const rootConfig = join(profileDir, 'cordis.yml')
   await writeFile(rootConfig, '[]\n')
   return await boot('dsh-test', rootConfig, [...bundlePatches, ...overrides], (bootCtx) => {
@@ -184,23 +143,12 @@ async function bootWeb(
   })
 }
 
-/** 返回指定代理可见的排序工具名称；未传代理时读取全局层。 */
 const toolNames = (ctx: Context, agent?: Agent): string[] =>
   ctx.tools.schemas(agent).map(schema => schema.name).sort()
 
-/**
- * 返回指定工具 JSON Schema 中按字母排序的参数名称。
- * @param ctx 提供工具注册表的根上下文。
- * @param agent 目标代理作用域。
- * @param toolName 要查询的工具名称。
- * @returns 工具参数名称列表。
- * @example `toolParameterNames(ctx, agent, 'bash')`
- */
 function toolParameterNames(ctx: Context, agent: Agent, toolName: string): string[] {
-  /** 目标代理工具目录中的指定 Schema。 */
   const schema = ctx.tools.schemas(agent).find(tool => tool.name === toolName)
   if (schema === undefined) throw new Error(`missing tool schema ${toolName}`)
-  /** Schema 中要求为普通对象的 properties 映射。 */
   const properties = schema.parameters.properties
   if (typeof properties !== 'object' || properties === null || Array.isArray(properties)) {
     throw new Error(`${toolName} has invalid parameter properties`)
@@ -208,22 +156,11 @@ function toolParameterNames(ctx: Context, agent: Agent, toolName: string): strin
   return Object.keys(properties).sort()
 }
 
-/**
- * 从预设 YAML 文本中删除指定行的 disabled: true，以启用测试目标工具。
- * @param composition 完整预设配置文本。
- * @param id 要启用的配置行编号。
- * @returns 只移除目标禁用字段的新文本。
- * @example `enablePresetTool(source, 'tool-bash')`
- */
 function enablePresetTool(composition: string, id: string): string {
-  /** 目标配置行的精确起始文本。 */
   const row = `    - id: ${id}\n`
-  /** 目标配置行在文本中的起始位置。 */
   const start = composition.indexOf(row)
   if (start < 0) throw new Error(`missing preset row ${id}`)
-  /** 下一配置行的起点，用于限定查找范围。 */
   const end = composition.indexOf('\n    - id:', start + row.length)
-  /** 目标行内部 disabled: true 的位置。 */
   const disabled = composition.indexOf('      disabled: true\n', start)
   if (disabled < 0 || (end >= 0 && disabled > end)) {
     throw new Error(`preset row ${id} is not disabled`)
@@ -231,11 +168,8 @@ function enablePresetTool(composition: string, id: string): string {
   return composition.slice(0, disabled) + composition.slice(disabled + '      disabled: true\n'.length)
 }
 
-/** 所有预设测试共享的真实 Web 根上下文。 */
 let ctx: Context
-/** 整个测试文件开始前创建隔离设置并启动一次 Web 组合。 */
 beforeAll(async () => {
-  /** 位于唯一临时目录中的设置文件。 */
   const settingsFile = join(await mkdtemp(join(tmpdir(), 'dsh-web-presets-')), 'settings.yaml')
   await writeFile(settingsFile, '{}\n')
   ctx = await bootWeb(settingsFile)
@@ -929,7 +863,7 @@ describe('the default preset as a user setting', () => {
   it('composes an unnamed session from the stored default, not the composed one', async () => {
     expect(ctx.agentPresets.defaultId).toBe('standard')
 
-    await ctx.settings.update(settingsNamespace(SETTINGS_NAMESPACE), { default: 'minimal' })
+    await ctx.settings.update(SETTINGS_NAMESPACE, { default: 'minimal' })
     try {
       expect(ctx.agentPresets.defaultId).toBe('minimal')
 
@@ -948,7 +882,7 @@ describe('the default preset as a user setting', () => {
       // The context is shared with the rest of the file. `replace({})` drops
       // the user section wholesale so the field re-inherits the composition
       // base; `update` merges, and would leave the override standing.
-      await ctx.settings.replace(settingsNamespace(SETTINGS_NAMESPACE), {})
+      await ctx.settings.replace(SETTINGS_NAMESPACE, {})
     }
 
     expect(ctx.agentPresets.defaultId).toBe('standard')

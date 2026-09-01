@@ -1,11 +1,3 @@
-/**
- * 文件职责：全面验证会话事件到可渲染对话快照的投影规则和异常边界。
- * 技术维度：Vitest、类型化 SessionEvent、事件脚本、快照对象和判别联合。
- * 产品维度：保证聊天消息、思考、工具调用、审批、队列和错误在界面中准确呈现。
- * 逻辑维度：按产品场景构造事件序列，逐个送入组装器，再检查消息、状态和索引。
- * 关键边界：事件顺序和关联编号必须有效；未知必需事件、重复结束和缺失起始需按契约处理。
- * 新手阅读建议：先读事件构造辅助函数，再按消息、工具、审批、错误和边缘情况分组阅读。
- */
 import { describe, expect, it, vi } from 'vitest'
 import type {
   SessionEventLike, SessionEventLikeEntry, SessionLiveEventEntry,
@@ -13,18 +5,16 @@ import type {
 import type { ChunkRowEvent } from '@deepseek-ai/dsh-api-session-controller/types'
 import type { ChunkRow } from '@deepseek-ai/dsh-session/chunk-rows'
 import type { SessionEvent } from '@deepseek-ai/dsh-session/types'
-import { ConversationNodeAssembler } from '@deepseek-ai/dsh-client-ui-conversation/client'
+import { ConversationNodeAssembler as RuntimeConversationNodeAssembler } from '@deepseek-ai/dsh-client-ui-conversation/client'
 import type {
   ConversationMatch, ConversationNodeContext,
   ConversationNodeDefinition, ConversationViewDefinition, ConversationViewNode,
 } from '@deepseek-ai/dsh-client-ui-conversation/client'
 
-/** 中文说明：类型 `ScopeProbeStepData` 约束本文件使用的数据字段和取值范围，避免调用方传入不完整状态。 */
 interface ScopeProbeStepData {
   readonly value: number
 }
 
-/** 中文说明：类型 `ScopeProbeTurnData` 约束本文件使用的数据字段和取值范围，避免调用方传入不完整状态。 */
 interface ScopeProbeTurnData {
   readonly valueSeenFromStep: number
 }
@@ -34,26 +24,20 @@ declare module '@deepseek-ai/dsh-client-ui-conversation/client' {
     'scope-probe': ScopeProbeStepData
   }
 
-  /** 中文说明：类型 `ConversationTurnDataMap` 约束本文件使用的数据字段和取值范围，避免调用方传入不完整状态。 */
   interface ConversationTurnDataMap {
     'scope-probe': ScopeProbeTurnData
   }
 }
 
-/** 中文说明：类型 `TestSnapshot` 约束本文件使用的数据字段和取值范围，避免调用方传入不完整状态。 */
 interface TestSnapshot {
   readonly order: readonly string[]
   readonly nodes: ReadonlyMap<string, ConversationViewNode>
 }
 
-/** 中文说明：类 `TestEventDefinitions` 负责提供可控测试场景，实例由调用方创建并按生命周期释放。 */
 class TestEventDefinitions {
-  /** 中文说明：类成员 `definitions` 保存可编排行为或观测状态；取值范围由声明类型限定，并随实例生命周期使用。 */
   readonly definitions: readonly ConversationNodeDefinition[]
-  /** 中文说明：类成员 `fallback` 保存可编排行为或观测状态；取值范围由声明类型限定，并随实例生命周期使用。 */
   readonly fallback: ConversationNodeDefinition | undefined
 
-  /** 中文说明：测试类方法 `constructor`；参数含义见签名，返回值用于驱动或观察场景；例如由本类公开流程或下方用例调用。 */
   constructor(
     definitions: readonly ConversationNodeDefinition[],
     fallback?: ConversationNodeDefinition,
@@ -62,36 +46,36 @@ class TestEventDefinitions {
     this.fallback = fallback
   }
 
-  /** 中文说明：测试类方法 `entries`；参数含义见签名，返回值用于驱动或观察场景；例如由本类公开流程或下方用例调用。 */
   entries(): readonly ConversationNodeDefinition[] {
     return this.definitions
   }
 
-  /** 中文说明：测试类方法 `fallbackEntry`；参数含义见签名，返回值用于驱动或观察场景；例如由本类公开流程或下方用例调用。 */
   fallbackEntry(): ConversationNodeDefinition | undefined {
     return this.fallback
   }
 }
 
-/** 中文说明：类 `TestViewDefinitions` 负责提供可控测试场景，实例由调用方创建并按生命周期释放。 */
 class TestViewDefinitions {
-  /** 中文说明：测试类方法 `constructor`；参数含义见签名，返回值用于驱动或观察场景；例如由本类公开流程或下方用例调用。 */
   constructor(readonly definitions: readonly ConversationViewDefinition[]) {}
 
-  /** 中文说明：测试类方法 `entries`；参数含义见签名，返回值用于驱动或观察场景；例如由本类公开流程或下方用例调用。 */
   entries(): readonly ConversationViewDefinition[] {
     return this.definitions
   }
 }
 
-/** 中文说明：测试辅助函数 `testView`；参数含义见签名，返回值用于驱动或断言场景；例如按本文件中的调用位置使用。 */
+class ConversationNodeAssembler extends RuntimeConversationNodeAssembler {
+  constructor(events: TestEventDefinitions, views: TestViewDefinitions) {
+    super(events, views)
+    for (const view of views.entries()) this.activateTarget(view.target)
+  }
+}
+
 function testView(
   apply = vi.fn(),
 ): ConversationViewDefinition<ConversationViewNode, TestSnapshot> {
   return {
     target: 'test',
     create: () => {
-      /** 中文说明：当前测试场景使用的局部状态或中间值；变量 `current` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
       let current: TestSnapshot = { order: [], nodes: new Map() }
       return {
         empty: current,
@@ -101,11 +85,8 @@ function testView(
         },
         apply: ({ upserts }) => {
           apply(upserts)
-          /** 中文说明：当前测试场景使用的局部状态或中间值；变量 `nodes` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
           const nodes = new Map(current.nodes)
-          /** 中文说明：当前测试场景使用的局部状态或中间值；变量 `order` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
           const order = [...current.order]
-          /** 中文说明：当前测试场景使用的局部状态或中间值；变量 `node` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
           for (const node of upserts) {
             if (!nodes.has(node.key)) order.push(node.key)
             nodes.set(node.key, node)
@@ -118,7 +99,21 @@ function testView(
   }
 }
 
-/** 中文说明：测试辅助函数 `at`；参数含义见签名，返回值用于驱动或断言场景；例如按本文件中的调用位置使用。 */
+function trackedView(target: string) {
+  const replace = vi.fn(({ nodes }: { readonly nodes: readonly ConversationViewNode[] }) => nodes)
+  const apply = vi.fn(({ upserts }: { readonly upserts: readonly ConversationViewNode[] }) => upserts)
+  const create = vi.fn(() => ({
+    empty: [] as readonly ConversationViewNode[],
+    replace,
+    apply,
+  }))
+  const definition: ConversationViewDefinition<ConversationViewNode, readonly ConversationViewNode[]> = {
+    target,
+    create,
+  }
+  return { definition, create, replace, apply }
+}
+
 function at(seq: number, type: string, data: unknown): SessionEvent {
   return { seq, time: 1_700_000_000_000 + seq, type, data } as SessionEvent
 }
@@ -141,7 +136,6 @@ function testSnapshot(assembler: ConversationNodeAssembler): TestSnapshot | unde
   return assembler.snapshot('test') as TestSnapshot | undefined
 }
 
-/** 中文说明：测试辅助函数 `node`；参数含义见签名，返回值用于驱动或断言场景；例如按本文件中的调用位置使用。 */
 function node(
   context: Parameters<NonNullable<ConversationNodeDefinition['buildViewNode']>>[0],
   data: unknown,
@@ -155,7 +149,6 @@ function node(
   }
 }
 
-/** 中文说明：测试辅助函数 `fallbackDefinition`；参数含义见签名，返回值用于驱动或断言场景；例如按本文件中的调用位置使用。 */
 function fallbackDefinition(start: () => string): ConversationNodeDefinition<string> {
   return {
     kind: 'fallback',
@@ -168,18 +161,98 @@ function fallbackDefinition(start: () => string): ConversationNodeDefinition<str
 }
 
 describe('ConversationNodeAssembler', () => {
+  it('reports a replacement only when an active target has a registered builder', () => {
+    const assembler = new RuntimeConversationNodeAssembler(
+      new TestEventDefinitions([]),
+      new TestViewDefinitions([]),
+    )
+
+    expect(assembler.activateTarget('registered-later')).toBe(false)
+    assembler.replaceWindow([], false)
+
+    expect(assembler.flush()).toBe(false)
+  })
+
+  it('updates only active targets and never deactivates one after first use', () => {
+    type State = { readonly updates: number }
+    const definition = (
+      target: string,
+      buildViewNode: NonNullable<ConversationNodeDefinition<State>['buildViewNode']>,
+    ): ConversationNodeDefinition<State> => ({
+      kind: `active-${target}`,
+      target,
+      match: (event) => {
+        const type = event.type as string
+        if (type === 'active/start') return { id: 'one', role: 'start' }
+        if (type === 'active/update') return { id: 'one', role: 'update' }
+        return null
+      },
+      start: () => ({ updates: 0 }),
+      update: context => ({ updates: context.state.updates + 1 }),
+      buildViewNode,
+    })
+    const chat = trackedView('chat')
+    const trajectory = trackedView('trajectory')
+    const build = (target: string) => vi.fn((context: ConversationNodeContext<State>): ConversationViewNode => ({
+      key: context.key,
+      kind: context.kind,
+      id: context.id,
+      target,
+      data: context.state,
+    }))
+    const buildChat = build('chat')
+    const buildTrajectory = build('trajectory')
+    const assembler = new RuntimeConversationNodeAssembler(
+      new TestEventDefinitions([
+        definition('chat', buildChat),
+        definition('trajectory', buildTrajectory),
+      ]),
+      new TestViewDefinitions([chat.definition, trajectory.definition]),
+    )
+
+    assembler.replaceWindow([input(at(1, 'active/start', {}))], false)
+    expect(assembler.flush()).toBe(false)
+    expect(chat.create).not.toHaveBeenCalled()
+    expect(trajectory.create).not.toHaveBeenCalled()
+    expect(buildChat).not.toHaveBeenCalled()
+    expect(buildTrajectory).not.toHaveBeenCalled()
+
+    expect(assembler.activateTarget('chat')).toBe(true)
+    expect(chat.replace).toHaveBeenCalledOnce()
+    expect(trajectory.replace).not.toHaveBeenCalled()
+    expect(buildChat).toHaveBeenCalledOnce()
+    expect(buildTrajectory).not.toHaveBeenCalled()
+
+    assembler.append(input(at(2, 'active/update', {})))
+    expect(assembler.flush()).toBe(true)
+    expect(chat.apply).toHaveBeenCalledOnce()
+    expect(trajectory.apply).not.toHaveBeenCalled()
+    expect(buildTrajectory).not.toHaveBeenCalled()
+
+    expect(assembler.activateTarget('trajectory')).toBe(true)
+    expect(trajectory.replace).toHaveBeenCalledOnce()
+    expect((assembler.snapshot('trajectory') as readonly ConversationViewNode[])
+      .map(node => node.data)).toEqual([{ updates: 1 }])
+
+    assembler.append(input(at(3, 'active/update', {})))
+    expect(assembler.flush()).toBe(true)
+    expect(chat.apply).toHaveBeenCalledTimes(2)
+    expect(trajectory.apply).toHaveBeenCalledOnce()
+    expect(assembler.activateTarget('chat')).toBe(false)
+    expect(assembler.activateTarget('trajectory')).toBe(false)
+    expect(chat.replace).toHaveBeenCalledOnce()
+    expect(trajectory.replace).toHaveBeenCalledOnce()
+  })
+
   it('appends through an exact business-id Context without replaying unrelated Contexts', () => {
-    /** 中文说明：当前测试场景使用的局部状态或中间值；变量 `starts` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const starts = vi.fn((
       _context: ConversationNodeContext<{ callSeq: number; results: number }>,
       match: ConversationMatch,
     ) => ({ callSeq: match.event.seq, results: 0 }))
-    /** 中文说明：保存索引、集合或按顺序观测值的数据结构；变量 `updates` 是可调用函数，其参数与返回值见类型签名；例如由相邻流程调用。 */
     const updates = vi.fn((context: { state: { callSeq: number; results: number } }) => ({
       ...context.state,
       results: context.state.results + 1,
     }))
-    /** 中文说明：当前测试场景使用的局部状态或中间值；变量 `definition` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const definition: ConversationNodeDefinition<{ callSeq: number; results: number }> = {
       kind: 'tool',
       match: (event) => {
@@ -192,7 +265,6 @@ describe('ConversationNodeAssembler', () => {
       target: 'test',
       buildViewNode: context => node(context, context.state),
     }
-    /** 中文说明：当前会话或对话投影对象；变量 `assembler` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const assembler = new ConversationNodeAssembler(
       new TestEventDefinitions([definition]),
       new TestViewDefinitions([testView()]),
@@ -221,19 +293,14 @@ describe('ConversationNodeAssembler', () => {
   })
 
   it('keeps one Match collection while a long Context appends without replay', () => {
-    /** 中文说明：当前测试场景使用的局部状态或中间值；变量 `starts` 是可调用函数，其参数与返回值见类型签名；例如由相邻流程调用。 */
     const starts = vi.fn(() => 0)
-    /** 中文说明：保存索引、集合或按顺序观测值的数据结构；变量 `updates` 是可调用函数，其参数与返回值见类型签名；例如由相邻流程调用。 */
     const updates = vi.fn((context: ConversationNodeContext<number> & { readonly state: number }) => (
       context.state + 1
     ))
-    /** 中文说明：当前测试场景使用的局部状态或中间值；变量 `matchCollections` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const matchCollections = new Set<readonly ConversationMatch[]>()
-    /** 中文说明：当前测试场景使用的局部状态或中间值；变量 `definition` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const definition: ConversationNodeDefinition<number> = {
       kind: 'append-linear',
       match: (event) => {
-        /** 中文说明：当前测试场景使用的局部状态或中间值；变量 `type` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
         const type: string = event.type
         if (type === 'linear/start') return { id: 'one', role: 'start' }
         if (type === 'linear/update') return { id: 'one', role: 'update' }
@@ -250,7 +317,6 @@ describe('ConversationNodeAssembler', () => {
       target: 'test',
       buildViewNode: context => node(context, context.state),
     }
-    /** 中文说明：当前会话或对话投影对象；变量 `assembler` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const assembler = new ConversationNodeAssembler(
       new TestEventDefinitions([definition]),
       new TestViewDefinitions([testView()]),
@@ -258,7 +324,6 @@ describe('ConversationNodeAssembler', () => {
     assembler.replaceWindow([input(at(1, 'linear/start', {}))], false)
     starts.mockClear()
 
-    /** 中文说明：标识对象、顺序或版本的标量值；变量 `seq` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     for (let seq = 2; seq <= 1_001; seq++) {
       assembler.append(input(at(seq, 'linear/update', {})))
     }
@@ -480,17 +545,13 @@ describe('ConversationNodeAssembler', () => {
   })
 
   it('merges an older page and replays its affected Context once', () => {
-    /** 中文说明：当前测试场景使用的局部状态或中间值；变量 `starts` 是可调用函数，其参数与返回值见类型签名；例如由相邻流程调用。 */
     const starts = vi.fn(() => 0)
-    /** 中文说明：保存索引、集合或按顺序观测值的数据结构；变量 `updates` 是可调用函数，其参数与返回值见类型签名；例如由相邻流程调用。 */
     const updates = vi.fn((context: ConversationNodeContext<number> & { readonly state: number }) => (
       context.state + 1
     ))
-    /** 中文说明：当前测试场景使用的局部状态或中间值；变量 `definition` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const definition: ConversationNodeDefinition<number> = {
       kind: 'prepend-linear',
       match: (event) => {
-        /** 中文说明：当前测试场景使用的局部状态或中间值；变量 `type` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
         const type: string = event.type
         if (type === 'linear/start') return { id: 'one', role: 'start' }
         if (type === 'linear/update') return { id: 'one', role: 'update' }
@@ -501,12 +562,10 @@ describe('ConversationNodeAssembler', () => {
       target: 'test',
       buildViewNode: context => node(context, context.state),
     }
-    /** 中文说明：当前会话或对话投影对象；变量 `assembler` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const assembler = new ConversationNodeAssembler(
       new TestEventDefinitions([definition]),
       new TestViewDefinitions([testView()]),
     )
-    /** 中文说明：当前测试场景使用的局部状态或中间值；变量 `current` 是可调用函数，其参数与返回值见类型签名；例如由相邻流程调用。 */
     const current = Array.from({ length: 100 }, (_, index) => (
       input(at(index + 102, 'linear/update', {}))
     ))
@@ -515,7 +574,6 @@ describe('ConversationNodeAssembler', () => {
     expect(starts).not.toHaveBeenCalled()
     expect(updates).not.toHaveBeenCalled()
 
-    /** 中文说明：当前测试场景使用的局部状态或中间值；变量 `older` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const older = [
       input(at(1, 'linear/start', {})),
       ...Array.from({ length: 100 }, (_, index) => (
@@ -531,9 +589,7 @@ describe('ConversationNodeAssembler', () => {
   })
 
   it('collects an update before its start and replays it once prepend supplies the start', () => {
-    /** 中文说明：保存索引、集合或按顺序观测值的数据结构；变量 `updates` 是可调用函数，其参数与返回值见类型签名；例如由相邻流程调用。 */
     const updates = vi.fn((context: { state: { settled: boolean } }) => ({ ...context.state, settled: true }))
-    /** 中文说明：当前测试场景使用的局部状态或中间值；变量 `definition` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const definition: ConversationNodeDefinition<{ settled: boolean }> = {
       kind: 'tool',
       match: (event) => {
@@ -546,7 +602,6 @@ describe('ConversationNodeAssembler', () => {
       target: 'test',
       buildViewNode: context => node(context, context.state ?? { pendingStart: true }),
     }
-    /** 中文说明：当前会话或对话投影对象；变量 `assembler` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const assembler = new ConversationNodeAssembler(
       new TestEventDefinitions([definition]),
       new TestViewDefinitions([testView()]),
@@ -571,7 +626,6 @@ describe('ConversationNodeAssembler', () => {
   })
 
   it('rejects a Definition whose declared start follows an update in log order', () => {
-    /** 中文说明：当前测试场景使用的局部状态或中间值；变量 `definition` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const definition: ConversationNodeDefinition<null> = {
       kind: 'invalid-lifecycle',
       match: event => event.type === 'turn/end'
@@ -582,7 +636,6 @@ describe('ConversationNodeAssembler', () => {
       target: 'test',
       buildViewNode: () => null,
     }
-    /** 中文说明：当前会话或对话投影对象；变量 `assembler` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const assembler = new ConversationNodeAssembler(
       new TestEventDefinitions([definition]),
       new TestViewDefinitions([testView()]),
@@ -595,7 +648,6 @@ describe('ConversationNodeAssembler', () => {
   })
 
   it('replays a window-gap reader when prepend supplies a nearer predecessor', () => {
-    /** 中文说明：当前测试场景使用的局部状态或中间值；变量 `source` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const source: ConversationNodeDefinition<number> = {
       kind: 'source',
       match: event => event.type === 'user/message'
@@ -606,13 +658,11 @@ describe('ConversationNodeAssembler', () => {
       target: 'test',
       buildViewNode: () => null,
     }
-    /** 中文说明：当前测试场景使用的局部状态或中间值；变量 `consumerStart` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const consumerStart = vi.fn((
       _context: Parameters<ConversationNodeDefinition<number>['start']>[0],
       _match: Parameters<ConversationNodeDefinition<number>['start']>[1],
       reader: Parameters<ConversationNodeDefinition<number>['start']>[2],
     ) => reader.previous<number>('source')?.state ?? -1)
-    /** 中文说明：当前测试场景使用的局部状态或中间值；变量 `consumer` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const consumer: ConversationNodeDefinition<number> = {
       kind: 'consumer',
       match: event => event.type === 'assistant/message'
@@ -623,7 +673,6 @@ describe('ConversationNodeAssembler', () => {
       target: 'test',
       buildViewNode: context => node(context, context.state),
     }
-    /** 中文说明：当前会话或对话投影对象；变量 `assembler` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const assembler = new ConversationNodeAssembler(
       new TestEventDefinitions([source, consumer]),
       new TestViewDefinitions([testView()]),
@@ -644,7 +693,6 @@ describe('ConversationNodeAssembler', () => {
   })
 
   it('keeps the predecessor index ordered across prepend and append', () => {
-    /** 中文说明：当前测试场景使用的局部状态或中间值；变量 `source` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const source: ConversationNodeDefinition<number> = {
       kind: 'source',
       match: event => event.type === 'user/message'
@@ -655,7 +703,6 @@ describe('ConversationNodeAssembler', () => {
       target: 'test',
       buildViewNode: () => null,
     }
-    /** 中文说明：当前测试场景使用的局部状态或中间值；变量 `consumer` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const consumer: ConversationNodeDefinition<number> = {
       kind: 'consumer',
       match: event => event.type === 'assistant/message'
@@ -666,7 +713,6 @@ describe('ConversationNodeAssembler', () => {
       target: 'test',
       buildViewNode: context => node(context, context.state),
     }
-    /** 中文说明：当前会话或对话投影对象；变量 `assembler` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const assembler = new ConversationNodeAssembler(
       new TestEventDefinitions([source, consumer]),
       new TestViewDefinitions([testView()]),
@@ -697,13 +743,11 @@ describe('ConversationNodeAssembler', () => {
   })
 
   it('replays a window-gap reader when an empty prepend closes the unknown prefix', () => {
-    /** 中文说明：当前测试场景使用的局部状态或中间值；变量 `consumerStart` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const consumerStart = vi.fn((
       _context: Parameters<ConversationNodeDefinition<number>['start']>[0],
       _match: Parameters<ConversationNodeDefinition<number>['start']>[1],
       reader: Parameters<ConversationNodeDefinition<number>['start']>[2],
     ) => reader.previous<number>('source')?.state ?? -1)
-    /** 中文说明：当前测试场景使用的局部状态或中间值；变量 `consumer` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const consumer: ConversationNodeDefinition<number> = {
       kind: 'consumer',
       match: event => event.type === 'assistant/message'
@@ -714,7 +758,6 @@ describe('ConversationNodeAssembler', () => {
       target: 'test',
       buildViewNode: context => node(context, context.state),
     }
-    /** 中文说明：当前会话或对话投影对象；变量 `assembler` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const assembler = new ConversationNodeAssembler(
       new TestEventDefinitions([consumer]),
       new TestViewDefinitions([testView()]),
@@ -732,7 +775,6 @@ describe('ConversationNodeAssembler', () => {
   })
 
   it('replays direct dependents when an append revises their predecessor Context', () => {
-    /** 中文说明：当前测试场景使用的局部状态或中间值；变量 `source` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const source: ConversationNodeDefinition<number> = {
       kind: 'source',
       match: (event) => {
@@ -745,13 +787,11 @@ describe('ConversationNodeAssembler', () => {
       target: 'test',
       buildViewNode: () => null,
     }
-    /** 中文说明：当前测试场景使用的局部状态或中间值；变量 `consumerStart` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const consumerStart = vi.fn((
       _context: Parameters<ConversationNodeDefinition<number>['start']>[0],
       _match: Parameters<ConversationNodeDefinition<number>['start']>[1],
       reader: Parameters<ConversationNodeDefinition<number>['start']>[2],
     ) => reader.previous<number>('source')?.state ?? -1)
-    /** 中文说明：当前测试场景使用的局部状态或中间值；变量 `consumer` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const consumer: ConversationNodeDefinition<number> = {
       kind: 'consumer',
       match: event => event.type === 'assistant/message'
@@ -762,7 +802,6 @@ describe('ConversationNodeAssembler', () => {
       target: 'test',
       buildViewNode: context => node(context, context.state),
     }
-    /** 中文说明：当前会话或对话投影对象；变量 `assembler` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const assembler = new ConversationNodeAssembler(
       new TestEventDefinitions([source, consumer]),
       new TestViewDefinitions([testView()]),
@@ -781,7 +820,6 @@ describe('ConversationNodeAssembler', () => {
   })
 
   it('replays a transitive dependency closure in start order', () => {
-    /** 中文说明：当前测试场景使用的局部状态或中间值；变量 `sourceA` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const sourceA: ConversationNodeDefinition<number> = {
       kind: 'diamond-a',
       match: (event) => {
@@ -794,7 +832,6 @@ describe('ConversationNodeAssembler', () => {
       target: 'test',
       buildViewNode: () => null,
     }
-    /** 中文说明：当前测试场景使用的局部状态或中间值；变量 `sourceX` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const sourceX: ConversationNodeDefinition<number> = {
       kind: 'diamond-x',
       match: (event) => {
@@ -807,7 +844,6 @@ describe('ConversationNodeAssembler', () => {
       target: 'test',
       buildViewNode: () => null,
     }
-    /** 中文说明：标识对象、顺序或版本的标量值；变量 `middle` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const middle: ConversationNodeDefinition<number> = {
       kind: 'diamond-b',
       match: event => event.type === 'assistant/message'
@@ -821,7 +857,6 @@ describe('ConversationNodeAssembler', () => {
       target: 'test',
       buildViewNode: context => node(context, context.state),
     }
-    /** 中文说明：当前测试场景使用的局部状态或中间值；变量 `consumer` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const consumer: ConversationNodeDefinition<number> = {
       kind: 'diamond-c',
       match: event => event.type === 'tool/call'
@@ -835,7 +870,6 @@ describe('ConversationNodeAssembler', () => {
       target: 'test',
       buildViewNode: context => node(context, context.state),
     }
-    /** 中文说明：当前会话或对话投影对象；变量 `assembler` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const assembler = new ConversationNodeAssembler(
       new TestEventDefinitions([sourceA, sourceX, middle, consumer]),
       new TestViewDefinitions([testView()]),
@@ -857,14 +891,11 @@ describe('ConversationNodeAssembler', () => {
   })
 
   it('replays Location-derived State and rebuilds only owned Nodes when a step closes', () => {
-    /** 中文说明：当前测试场景使用的局部状态或中间值；变量 `apply` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const apply = vi.fn()
-    /** 中文说明：当前测试场景使用的局部状态或中间值；变量 `starts` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const starts = vi.fn((
       _context: Parameters<ConversationNodeDefinition<string>['start']>[0],
       match: Parameters<ConversationNodeDefinition<string>['start']>[1],
     ) => match.location.kind === 'step' ? match.location.step.status : 'missing')
-    /** 中文说明：当前测试场景使用的局部状态或中间值；变量 `definition` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const definition: ConversationNodeDefinition<string> = {
       kind: 'step',
       match: event => event.type === 'step/start'
@@ -875,7 +906,6 @@ describe('ConversationNodeAssembler', () => {
       target: 'test',
       buildViewNode: context => node(context, context.state),
     }
-    /** 中文说明：当前会话或对话投影对象；变量 `assembler` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const assembler = new ConversationNodeAssembler(
       new TestEventDefinitions([definition]),
       new TestViewDefinitions([testView(apply)]),
@@ -896,14 +926,12 @@ describe('ConversationNodeAssembler', () => {
   })
 
   it('lets one Context publish Step and Turn data in phase order', () => {
-    /** 中文说明：类型 `State` 约束本文件使用的数据字段和取值范围，避免调用方传入不完整状态。 */
     interface State {
       readonly turn: number
       readonly step: number
       readonly value: number
     }
 
-    /** 中文说明：当前测试场景使用的局部状态或中间值；变量 `definition` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const definition: ConversationNodeDefinition<State> = {
       kind: 'scope-probe',
       match: (event) => {
@@ -925,7 +953,6 @@ describe('ConversationNodeAssembler', () => {
         value: (match.event.data as unknown as { value: number }).value,
       }),
       buildLocationData: (context, scope) => {
-        /** 中文说明：当前测试场景使用的局部状态或中间值；变量 `state` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
         const state = context.state
         if (state === undefined) return null
         if (scope === 'step') {
@@ -937,9 +964,7 @@ describe('ConversationNodeAssembler', () => {
             value: { value: state.value },
           }
         }
-        /** 中文说明：当前测试场景使用的局部状态或中间值；变量 `location` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
         const location = context.start?.location
-        /** 中文说明：当前测试场景使用的局部状态或中间值；变量 `stepValue` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
         const stepValue = location?.kind === 'step'
           ? location.step.data.get('scope-probe')?.value
           : undefined
@@ -952,7 +977,6 @@ describe('ConversationNodeAssembler', () => {
       },
       target: 'test',
       buildViewNode: (context) => {
-        /** 中文说明：当前测试场景使用的局部状态或中间值；变量 `location` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
         const location = context.start?.location
         if (location?.kind !== 'step') return null
         return node(context, {
@@ -961,7 +985,6 @@ describe('ConversationNodeAssembler', () => {
         })
       },
     }
-    /** 中文说明：当前会话或对话投影对象；变量 `assembler` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const assembler = new ConversationNodeAssembler(
       new TestEventDefinitions([definition]),
       new TestViewDefinitions([testView()]),
@@ -982,9 +1005,7 @@ describe('ConversationNodeAssembler', () => {
   })
 
   it('updates existing turn Locations when their Step membership changes', () => {
-    /** 中文说明：当前测试场景使用的局部状态或中间值；变量 `apply` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const apply = vi.fn()
-    /** 中文说明：当前测试场景使用的局部状态或中间值；变量 `definition` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const definition: ConversationNodeDefinition<null> = {
       kind: 'turn-probe',
       match: event => event.type === 'turn/start'
@@ -997,7 +1018,6 @@ describe('ConversationNodeAssembler', () => {
         ? context.start.location.turn.steps.length
         : -1),
     }
-    /** 中文说明：当前会话或对话投影对象；变量 `assembler` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const assembler = new ConversationNodeAssembler(
       new TestEventDefinitions([definition]),
       new TestViewDefinitions([testView(apply)]),
@@ -1014,9 +1034,7 @@ describe('ConversationNodeAssembler', () => {
   })
 
   it('publishes a changed timeline even when no business Definition claims the boundary', () => {
-    /** 中文说明：当前测试场景使用的局部状态或中间值；变量 `apply` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const apply = vi.fn()
-    /** 中文说明：当前会话或对话投影对象；变量 `assembler` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const assembler = new ConversationNodeAssembler(
       new TestEventDefinitions([]),
       new TestViewDefinitions([testView(apply)]),
@@ -1032,7 +1050,6 @@ describe('ConversationNodeAssembler', () => {
   })
 
   it('clears the prior Step at a new Turn and honors explicit session ownership', () => {
-    /** 中文说明：当前测试场景使用的局部状态或中间值；变量 `definition` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const definition: ConversationNodeDefinition<null> = {
       kind: 'location-probe',
       match: (event) => {
@@ -1054,16 +1071,13 @@ describe('ConversationNodeAssembler', () => {
       update: context => context.state,
       target: 'test',
       buildViewNode: (context) => {
-        /** 中文说明：当前测试场景使用的局部状态或中间值；变量 `location` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
         const location = context.start?.location
-        /** 中文说明：当前测试场景使用的局部状态或中间值；变量 `data` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
         const data = location?.kind === 'step'
           ? `step:${location.turn.turn}:${location.step.step}`
           : location?.kind === 'turn' ? `turn:${location.turn.turn}` : location?.kind
         return node(context, data)
       },
     }
-    /** 中文说明：当前会话或对话投影对象；变量 `assembler` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const assembler = new ConversationNodeAssembler(
       new TestEventDefinitions([definition]),
       new TestViewDefinitions([testView()]),
@@ -1082,7 +1096,6 @@ describe('ConversationNodeAssembler', () => {
   })
 
   it('assigns turn boundaries to the Turn even when a Step remains open', () => {
-    /** 中文说明：当前测试场景使用的局部状态或中间值；变量 `definition` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const definition: ConversationNodeDefinition<null> = {
       kind: 'turn-boundary-probe',
       match: event => event.type === 'turn/end'
@@ -1093,7 +1106,6 @@ describe('ConversationNodeAssembler', () => {
       target: 'test',
       buildViewNode: context => node(context, context.start?.location.kind),
     }
-    /** 中文说明：当前会话或对话投影对象；变量 `assembler` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const assembler = new ConversationNodeAssembler(
       new TestEventDefinitions([definition]),
       new TestViewDefinitions([testView()]),
@@ -1111,7 +1123,6 @@ describe('ConversationNodeAssembler', () => {
   })
 
   it('carries explicit coordinates across coordinate-free events in a partial window and live tail', () => {
-    /** 中文说明：当前测试场景使用的局部状态或中间值；变量 `definition` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const definition: ConversationNodeDefinition<null> = {
       kind: 'location-probe',
       match: event => (event.type as string) === 'tool/code-dispatch-start'
@@ -1121,14 +1132,12 @@ describe('ConversationNodeAssembler', () => {
       update: context => context.state,
       target: 'test',
       buildViewNode: (context) => {
-        /** 中文说明：当前测试场景使用的局部状态或中间值；变量 `location` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
         const location = context.start?.location
         return node(context, location?.kind === 'step'
           ? `${location.turn.turn}:${location.step.step}`
           : location?.kind)
       },
     }
-    /** 中文说明：当前会话或对话投影对象；变量 `assembler` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const assembler = new ConversationNodeAssembler(
       new TestEventDefinitions([definition]),
       new TestViewDefinitions([testView()]),
@@ -1147,7 +1156,6 @@ describe('ConversationNodeAssembler', () => {
   })
 
   it('treats loaded end boundaries as closed when their starts precede the window', () => {
-    /** 中文说明：当前测试场景使用的局部状态或中间值；变量 `definition` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const definition: ConversationNodeDefinition<null> = {
       kind: 'location-probe',
       match: event => event.type === 'tool/call'
@@ -1157,14 +1165,12 @@ describe('ConversationNodeAssembler', () => {
       update: context => context.state,
       target: 'test',
       buildViewNode: (context) => {
-        /** 中文说明：当前测试场景使用的局部状态或中间值；变量 `location` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
         const location = context.start?.location
         return node(context, location?.kind === 'step'
           ? `${location.turn.status}:${location.step.status}`
           : location?.kind)
       },
     }
-    /** 中文说明：当前会话或对话投影对象；变量 `assembler` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const assembler = new ConversationNodeAssembler(
       new TestEventDefinitions([definition]),
       new TestViewDefinitions([testView()]),
@@ -1181,12 +1187,10 @@ describe('ConversationNodeAssembler', () => {
   })
 
   it('restarts State creation from undefined when Location changes replay a Context', () => {
-    /** 中文说明：保存索引、集合或按顺序观测值的数据结构；变量 `seen` 是可调用函数，其参数与返回值见类型签名；例如由相邻流程调用。 */
     const seen = vi.fn((context: Parameters<ConversationNodeDefinition<number>['start']>[0]) => {
       expect(context.state).toBeUndefined()
       return 1
     })
-    /** 中文说明：当前测试场景使用的局部状态或中间值；变量 `definition` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const definition: ConversationNodeDefinition<number> = {
       kind: 'replay-probe',
       match: event => event.type === 'step/start'
@@ -1197,7 +1201,6 @@ describe('ConversationNodeAssembler', () => {
       target: 'test',
       buildViewNode: context => node(context, context.state),
     }
-    /** 中文说明：当前会话或对话投影对象；变量 `assembler` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const assembler = new ConversationNodeAssembler(
       new TestEventDefinitions([definition]),
       new TestViewDefinitions([testView()]),
@@ -1212,9 +1215,7 @@ describe('ConversationNodeAssembler', () => {
   })
 
   it('invokes the fallback when only a State-only Definition claims an event', () => {
-    /** 中文说明：当前测试场景使用的局部状态或中间值；变量 `fallbackStart` 是可调用函数，其参数与返回值见类型签名；例如由相邻流程调用。 */
     const fallbackStart = vi.fn(() => 'fallback')
-    /** 中文说明：当前测试场景使用的局部状态或中间值；变量 `claimed` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const claimed: ConversationNodeDefinition<null> = {
       kind: 'claimed-state',
       match: event => (event.type as string) === 'command/run'
@@ -1223,7 +1224,6 @@ describe('ConversationNodeAssembler', () => {
       start: () => null,
       update: context => context.state,
     }
-    /** 中文说明：当前会话或对话投影对象；变量 `assembler` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const assembler = new ConversationNodeAssembler(
       new TestEventDefinitions([claimed], fallbackDefinition(fallbackStart)),
       new TestViewDefinitions([testView()]),
@@ -1237,9 +1237,7 @@ describe('ConversationNodeAssembler', () => {
   })
 
   it('invokes the fallback when only another target claims an event', () => {
-    /** 中文说明：当前测试场景使用的局部状态或中间值；变量 `fallbackStart` 是可调用函数，其参数与返回值见类型签名；例如由相邻流程调用。 */
     const fallbackStart = vi.fn(() => 'fallback')
-    /** 中文说明：当前测试场景使用的局部状态或中间值；变量 `claimed` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const claimed: ConversationNodeDefinition<null> = {
       kind: 'claimed-trajectory',
       target: 'trajectory',
@@ -1250,7 +1248,6 @@ describe('ConversationNodeAssembler', () => {
       update: context => context.state,
       buildViewNode: () => null,
     }
-    /** 中文说明：当前会话或对话投影对象；变量 `assembler` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const assembler = new ConversationNodeAssembler(
       new TestEventDefinitions([claimed], fallbackDefinition(fallbackStart)),
       new TestViewDefinitions([testView()]),
@@ -1264,9 +1261,7 @@ describe('ConversationNodeAssembler', () => {
   })
 
   it('suppresses the fallback when the same target claims an event', () => {
-    /** 中文说明：当前测试场景使用的局部状态或中间值；变量 `fallbackStart` 是可调用函数，其参数与返回值见类型签名；例如由相邻流程调用。 */
     const fallbackStart = vi.fn(() => 'fallback')
-    /** 中文说明：当前测试场景使用的局部状态或中间值；变量 `claimed` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const claimed: ConversationNodeDefinition<null> = {
       kind: 'claimed',
       target: 'test',
@@ -1275,7 +1270,6 @@ describe('ConversationNodeAssembler', () => {
       update: context => context.state,
       buildViewNode: () => null,
     }
-    /** 中文说明：当前会话或对话投影对象；变量 `assembler` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const assembler = new ConversationNodeAssembler(
       new TestEventDefinitions([claimed], fallbackDefinition(fallbackStart)),
       new TestViewDefinitions([testView()]),
@@ -1288,7 +1282,6 @@ describe('ConversationNodeAssembler', () => {
   })
 
   it('rejects withdrawing a previously materialized Node during an incremental update', () => {
-    /** 中文说明：当前测试场景使用的局部状态或中间值；变量 `definition` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const definition: ConversationNodeDefinition<boolean> = {
       kind: 'toggle',
       match: (event) => {
@@ -1301,7 +1294,6 @@ describe('ConversationNodeAssembler', () => {
       target: 'test',
       buildViewNode: context => context.state === true ? node(context, true) : null,
     }
-    /** 中文说明：当前会话或对话投影对象；变量 `assembler` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const assembler = new ConversationNodeAssembler(
       new TestEventDefinitions([definition]),
       new TestViewDefinitions([testView()]),
@@ -1317,7 +1309,6 @@ describe('ConversationNodeAssembler', () => {
   })
 
   it('fails loud when a Definition returns undefined State', () => {
-    /** 中文说明：当前测试场景使用的局部状态或中间值；变量 `startUndefined` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const startUndefined: ConversationNodeDefinition = {
       kind: 'undefined-start',
       match: event => (event.type as string) === 'command/run' ? { id: 'one', role: 'start' } : null,
@@ -1326,7 +1317,6 @@ describe('ConversationNodeAssembler', () => {
       target: 'test',
       buildViewNode: () => null,
     }
-    /** 中文说明：当前会话或对话投影对象；变量 `startAssembler` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const startAssembler = new ConversationNodeAssembler(
       new TestEventDefinitions([startUndefined]),
       new TestViewDefinitions([testView()]),
@@ -1335,7 +1325,6 @@ describe('ConversationNodeAssembler', () => {
       input(at(1, 'command/run', { commandId: 'one', name: 'x' })),
     ], false)).toThrow(/Definition "undefined-start" returned undefined from start/)
 
-    /** 中文说明：当前测试场景使用的局部状态或中间值；变量 `updateUndefined` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const updateUndefined: ConversationNodeDefinition<boolean> = {
       kind: 'undefined-update',
       match: (event) => {
@@ -1348,7 +1337,6 @@ describe('ConversationNodeAssembler', () => {
       target: 'test',
       buildViewNode: context => node(context, context.state),
     }
-    /** 中文说明：当前会话或对话投影对象；变量 `updateAssembler` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const updateAssembler = new ConversationNodeAssembler(
       new TestEventDefinitions([updateUndefined]),
       new TestViewDefinitions([testView()]),
@@ -1362,7 +1350,6 @@ describe('ConversationNodeAssembler', () => {
   })
 
   it('rejects a duplicate start before mutating the existing Context', () => {
-    /** 中文说明：当前测试场景使用的局部状态或中间值；变量 `definition` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const definition: ConversationNodeDefinition<number> = {
       kind: 'single-start',
       match: event => (event.type as string) === 'command/run' ? { id: 'one', role: 'start' } : null,
@@ -1371,7 +1358,6 @@ describe('ConversationNodeAssembler', () => {
       target: 'test',
       buildViewNode: context => node(context, context.state),
     }
-    /** 中文说明：当前会话或对话投影对象；变量 `assembler` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const assembler = new ConversationNodeAssembler(
       new TestEventDefinitions([definition]),
       new TestViewDefinitions([testView()]),

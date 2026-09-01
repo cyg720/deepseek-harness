@@ -7,14 +7,6 @@
  * file created under one). The fence is exercised on a real filesystem: a
  * denied write leaves no file on disk.
  */
-/*
- * 文件职责：验证文件系统与工具的 fs-sandbox.spec.ts 行为与安全边界。
- * 技术维度：TypeScript、Cordis、会话事件、路径策略、判别联合和 Vitest。
- * 产品维度：保证文件系统与工具操作可预测、可审计并在失败时保持一致。
- * 逻辑维度：构造请求与状态，驱动服务并断言输出和清理。
- * 关键边界：文件路径必须经过策略检查；目标引用含版本，过期修改必须拒绝。
- * 新手阅读建议：先读类型与测试夹具，再按校验、执行、事件折叠和错误流程阅读。
- */
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { mkdir, mkdtemp, readFile, rm, symlink, writeFile } from 'node:fs/promises'
@@ -25,25 +17,20 @@ import { Context } from '@deepseek-ai/cordis'
 import { FsError, FsTargetKey } from '@deepseek-ai/dsh-fs'
 import type { FsTarget } from '@deepseek-ai/dsh-fs'
 import SandboxPolicyService from '@deepseek-ai/dsh-sandbox-policy'
+import SessionProjectionRegistry from '@deepseek-ai/dsh-session-projection'
 import type { SandboxMode } from '@deepseek-ai/dsh-sandbox'
 import { SandboxedFileSystem } from '@deepseek-ai/dsh-fs-sandbox'
 
-/** 中文说明：测试局部值 base: string，由紧邻初始化决定。 */
 let base: string
-/** 中文说明：测试局部值 workspace: string，由紧邻初始化决定。 */
 let workspace: string
-/** 中文说明：测试局部值 outside: string，由紧邻初始化决定。 */
 let outside: string
-/** 中文说明：测试局部值 ctx: Context，由紧邻初始化决定。 */
 let ctx: Context
-/** 中文说明：测试局部值 fs: SandboxedFileSystem，由紧邻初始化决定。 */
 let fs: SandboxedFileSystem
-/** 中文说明：测试局部值 解构结果，由紧邻初始化决定。 */
 let fiber: Awaited<ReturnType<Context['plugin']>>
 
-/** 中文说明：函数 boot 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 async function boot(mode: SandboxMode): Promise<void> {
   ctx = new Context()
+  await ctx.plugin(SessionProjectionRegistry)
   await ctx.plugin(SandboxPolicyService, { mode, workspaceRoot: workspace })
   fiber = await ctx.plugin(SandboxedFileSystem, { cwd: workspace })
   fs = ctx.fs as SandboxedFileSystem
@@ -67,7 +54,6 @@ afterEach(async () => {
 })
 
 /** Resolve a path through the backend and return its target. */
-/* 中文说明：函数 target 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function target(path: string): Promise<FsTarget> {
   return fs.resolve(path)
 }
@@ -83,14 +69,12 @@ describe('read-only', () => {
   beforeEach(() => boot('read-only'))
 
   it('denies write, leaving no file on disk', async () => {
-    /** 中文说明：测试局部值 path，由紧邻初始化决定。 */
     const path = join(workspace, 'denied.txt')
     await expect(fs.writeText(await target(path), 'x')).rejects.toMatchObject({ code: 'FS_SANDBOX_DENIED' })
     expect(existsSync(path)).toBe(false)
   })
 
   it('denies edit of an existing file (the content is unchanged)', async () => {
-    /** 中文说明：测试局部值 path，由紧邻初始化决定。 */
     const path = join(workspace, 'file.txt')
     await writeFile(path, 'original')
     await expect(fs.editText(await target(path), { oldString: 'original', newString: 'changed', replaceAll: false }))
@@ -99,7 +83,6 @@ describe('read-only', () => {
   })
 
   it('allows reads (every mode permits reading)', async () => {
-    /** 中文说明：测试局部值 path，由紧邻初始化决定。 */
     const path = join(workspace, 'readable.txt')
     await writeFile(path, 'hello')
     expect(await fs.readText(await target(path))).toBe('hello')
@@ -110,30 +93,25 @@ describe('workspace-write containment', () => {
   beforeEach(() => boot('workspace-write'))
 
   it('a write under the workspace lands', async () => {
-    /** 中文说明：测试局部值 path，由紧邻初始化决定。 */
     const path = join(workspace, 'nested', 'ok.txt')
-    /** 中文说明：测试局部值 outcome，由紧邻初始化决定。 */
     const outcome = await fs.writeText(await target(path), 'inside')
     expect(outcome.operation).toBe('create')
     expect(await readFile(path, 'utf8')).toBe('inside')
   })
 
   it('a write to the platform temp area lands (parity with the bash runner grant)', async () => {
-    /** 中文说明：测试局部值 path，由紧邻初始化决定。 */
     const path = join(await mkdtemp(join(tmpdir(), 'dsh-fssbx-tmp-')), 'temp.txt')
     await fs.writeText(await target(path), 'temp')
     expect(await readFile(path, 'utf8')).toBe('temp')
   })
 
   it('an absolute path outside the workspace is denied, no file created', async () => {
-    /** 中文说明：测试局部值 path，由紧邻初始化决定。 */
     const path = join(outside, 'escape.txt')
     await expect(fs.writeText(await target(path), 'x')).rejects.toMatchObject({ code: 'FS_SANDBOX_DENIED' })
     expect(existsSync(path)).toBe(false)
   })
 
   it('a `..` traversal out of the workspace is denied', async () => {
-    /** 中文说明：测试局部值 path，由紧邻初始化决定。 */
     const path = join(workspace, '..', 'sibling-escape.txt')
     await expect(fs.writeText(await target(path), 'x')).rejects.toMatchObject({ code: 'FS_SANDBOX_DENIED' })
     expect(existsSync(join(workspace, '..', 'sibling-escape.txt'))).toBe(false)
@@ -142,7 +120,6 @@ describe('workspace-write containment', () => {
   it('a symlinked directory inside the workspace pointing OUT is denied (canonicalized before containment)', async () => {
     // workspace/link -> outside ; writing workspace/link/f.txt would land in outside/f.txt.
     await symlink(outside, join(workspace, 'link'))
-    /** 中文说明：测试局部值 path，由紧邻初始化决定。 */
     const path = join(workspace, 'link', 'f.txt')
     await expect(fs.writeText(await target(path), 'x')).rejects.toMatchObject({ code: 'FS_SANDBOX_DENIED' })
     expect(existsSync(join(outside, 'f.txt'))).toBe(false)
@@ -150,14 +127,12 @@ describe('workspace-write containment', () => {
 
   it('a NEW file created under a symlinked-out directory is denied (deepest-ancestor realpath)', async () => {
     await symlink(outside, join(workspace, 'link'))
-    /** 中文说明：测试局部值 path，由紧邻初始化决定。 */
     const path = join(workspace, 'link', 'newdir', 'deep.txt')
     await expect(fs.writeText(await target(path), 'x')).rejects.toMatchObject({ code: 'FS_SANDBOX_DENIED' })
     expect(existsSync(join(outside, 'newdir'))).toBe(false)
   })
 
   it('an edit outside the workspace is denied; the original is untouched', async () => {
-    /** 中文说明：测试局部值 path，由紧邻初始化决定。 */
     const path = join(outside, 'file.txt')
     await writeFile(path, 'original')
     await expect(fs.editText(await target(path), { oldString: 'original', newString: 'x', replaceAll: false }))
@@ -166,10 +141,8 @@ describe('workspace-write containment', () => {
   })
 
   it('an edit inside the workspace lands', async () => {
-    /** 中文说明：测试局部值 path，由紧邻初始化决定。 */
     const path = join(workspace, 'edit.txt')
     await writeFile(path, 'original')
-    /** 中文说明：测试局部值 outcome，由紧邻初始化决定。 */
     const outcome = await fs.editText(await target(path), { oldString: 'original', newString: 'changed', replaceAll: false })
     expect(outcome.after).toBe('changed')
     expect(await readFile(path, 'utf8')).toBe('changed')
@@ -181,9 +154,7 @@ describe('workspace-write containment', () => {
     // resolve() and was swapped in before the write. The fence re-resolves
     // displayPath (now inside) AND delegates with that fresh target, so the byte
     // lands inside and the stale outside path is never written.
-    /** 中文说明：测试局部值 insidePath，由紧邻初始化决定。 */
     const insidePath = join(workspace, 'landed.txt')
-    /** 中文说明：测试局部值 staleTarget，由紧邻初始化决定。 */
     const staleTarget: FsTarget = { displayPath: insidePath, targetKey: FsTargetKey(join(outside, 'escaped.txt')) }
     await fs.writeText(staleTarget, 'inside')
     expect(await readFile(insidePath, 'utf8')).toBe('inside')
@@ -201,15 +172,12 @@ describe('workspace-write with the filesystem root as the workspace (a root endi
   it('grants writes anywhere on that volume', async () => {
     // A degenerate but valid config: the filesystem root containing the target.
     // It exercises the separator-suffixed-root branch on POSIX and Windows.
-    /** 中文说明：测试局部值 rootCtx，由紧邻初始化决定。 */
     const rootCtx = new Context()
+    await rootCtx.plugin(SessionProjectionRegistry)
     await rootCtx.plugin(SandboxPolicyService, { mode: 'workspace-write', workspaceRoot: parse(base).root })
-    /** 中文说明：测试局部值 rootFiber，由紧邻初始化决定。 */
     const rootFiber = await rootCtx.plugin(SandboxedFileSystem, { cwd: workspace })
-    /** 中文说明：测试局部值 rootFs，由紧邻初始化决定。 */
     const rootFs = rootCtx.fs as SandboxedFileSystem
     try {
-      /** 中文说明：测试局部值 path，由紧邻初始化决定。 */
       const path = join(base, 'anywhere.txt') // under HOME, outside temp — allowed only via the filesystem root
       await rootFs.writeText(await rootFs.resolve(path), 'anywhere')
       expect(await readFile(path, 'utf8')).toBe('anywhere')
@@ -223,7 +191,6 @@ describe('danger-full-access', () => {
   beforeEach(() => boot('danger-full-access'))
 
   it('writes anywhere, unfenced', async () => {
-    /** 中文说明：测试局部值 path，由紧邻初始化决定。 */
     const path = join(outside, 'free.txt')
     await fs.writeText(await target(path), 'free')
     expect(await readFile(path, 'utf8')).toBe('free')
@@ -233,7 +200,6 @@ describe('danger-full-access', () => {
 describe('the per-call policy override (escalation)', () => {
   it('a workspace-write stamp on a read-only default lets a contained write land for that call only', async () => {
     await boot('read-only')
-    /** 中文说明：测试局部值 path，由紧邻初始化决定。 */
     const path = join(workspace, 'escalated.txt')
     // Default read-only would deny; the per-call workspace-write policy allows it (contained).
     await fs.writeText(await target(path), 'granted', undefined, undefined, { mode: 'workspace-write', workspaceRoot: workspace })
@@ -245,7 +211,6 @@ describe('the per-call policy override (escalation)', () => {
 
   it('a danger-full-access stamp bypasses the fence for that call', async () => {
     await boot('read-only')
-    /** 中文说明：测试局部值 path，由紧邻初始化决定。 */
     const path = join(outside, 'granted-full.txt')
     await fs.writeText(await target(path), 'full', undefined, undefined, { mode: 'danger-full-access', workspaceRoot: workspace })
     expect(await readFile(path, 'utf8')).toBe('full')
@@ -267,7 +232,6 @@ describe('registration and HMR safety', () => {
 describe('FsError identity', () => {
   it('the denial is a structured FsError distinct from a host permission error', async () => {
     await boot('read-only')
-    /** 中文说明：测试局部值 error，由紧邻初始化决定。 */
     const error = await fs.writeText(await target(join(workspace, 'x.txt')), 'x').catch((e: unknown) => e)
     expect(error).toBeInstanceOf(FsError)
     expect((error as FsError).code).toBe('FS_SANDBOX_DENIED')

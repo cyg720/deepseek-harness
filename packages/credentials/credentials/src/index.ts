@@ -8,36 +8,16 @@
  * @module @deepseek-ai/dsh-credentials
  */
 
-/*
- * ================================ 文件注释 ================================
- * 【文件职责】凭据引用能力缝（ctx.credentials）的服务定义：定义两种互不相交的键空间——
- *   CredentialRef（环境变量名式引用，回答"这个引用背后是什么值"）与 CredentialKey
- *   （<scope>/<id> 记录地址，回答"某插件为某 id 持有什么凭据记录"）；抽象出 Provider 契约。
- * 【技术维度】Cordis Service 抽象类；品牌类型区分两种键空间；抽象方法声明解析/存储/枚举/
- *   串行改写的完整契约；notifyUpdated 做"包含式"事件分发（监听失败不阻断提交结果）。
- * 【产品维度】设置与合成文件只存"引用"而非秘密本身；每次操作重新解析引用，凭据变更无需重启
- *   即生效；配置界面可描述凭据的存在性/可写性而不接触其值。
- * 【逻辑维度】品牌构造与校验函数（credentialRef/credentialKey 等）→ 信息型接口
- *   （ResolvedCredential/CredentialInfo/CredentialRecordInfo）→ 抽象 Provider
- *   （引用半区 + 记录半区）→ 两个通知事件与包含式分发 fanOut。
- * 【关键边界】空存储值视为"处处不存在"，绝不伪装成已配置；记录半区只允许 modifyRecord 串行
- *   读改写（保证 token 刷新在跨进程下安全）；监听失败被包含并记日志，INVARIANT 类失败重抛。
- * 【新手阅读建议】先读 types.ts 弄清两种键空间与记录联合类型，再对照本文件的抽象方法与事件
- *   契约，最后看 credentials-local 包的实现体会"Provider 如何落地"。
- * ==========================================================================
- */
-
 import { Context, Service } from '@deepseek-ai/cordis'
+import { brandString } from '@deepseek-ai/dsh-brand'
 import type { CredentialInfo, CredentialKey, CredentialRecord, CredentialRef } from './types.ts'
 
 export type {
   ApiKeyRecord, CredentialInfo, CredentialKey, CredentialRecord, CredentialRef, GrantRecord,
 } from './types.ts'
 
-// 引用名合法性正则：形如 POSIX 环境变量名（字母或下划线开头，可含字母/数字/下划线）。
 const REF_PATTERN = /^[A-Za-z_][A-Za-z0-9_]*$/
 
-// 记录键单段合法性正则：小写 kebab-case；两段用 '/' 连接，使记录键文法与引用名文法天然不相交。
 /** Both halves of a {@link CredentialKey}; the `/` between them is what keeps it out of {@link REF_PATTERN}. */
 const KEY_SEGMENT_PATTERN = /^[a-z][a-z0-9-]*$/
 
@@ -46,12 +26,11 @@ const KEY_SEGMENT_PATTERN = /^[a-z][a-z0-9-]*$/
  * @param value - candidate reference; a POSIX shell identifier such as `DEEPSEEK_API_KEY`.
  * @returns the branded reference.
  */
-// 把字符串"升级"为 CredentialRef 品牌类型并校验；不合法就抛 TypeError。
 export function credentialRef(value: string): CredentialRef {
   if (!isCredentialRefName(value)) {
     throw new TypeError(`credential ref "${value}" must match ${String(REF_PATTERN)}`)
   }
-  return value as CredentialRef
+  return brandString<CredentialRef>(value)
 }
 
 /**
@@ -63,7 +42,6 @@ export function credentialRef(value: string): CredentialRef {
  * @param value - candidate reference.
  * @returns true when {@link credentialRef} would accept it.
  */
-// 只判断名字是否合法、不抛错：外部来源的名字若不合文法，应读作"未配置"而非报错。
 export function isCredentialRefName(value: string): boolean {
   return REF_PATTERN.test(value)
 }
@@ -77,7 +55,6 @@ export function isCredentialRefName(value: string): boolean {
  * @param value - candidate segment.
  * @returns true when {@link credentialKey} would accept it as either segment.
  */
-// 只判断某段是否可用作记录键的一段、不抛错：不合文法的外来单位应读作"没有存过记录"。
 export function isCredentialKeySegment(value: string): boolean {
   return KEY_SEGMENT_PATTERN.test(value)
 }
@@ -89,14 +66,13 @@ export function isCredentialKeySegment(value: string): boolean {
  * @returns the branded key.
  * @throws TypeError when either segment is not a lowercase hyphenated identifier.
  */
-// 由属主插件名 + 插件自己的寻址单位拼出品牌键 <scope>/<id>；两段都必须是小写连字符标识符。
 export function credentialKey(scope: string, id: string): CredentialKey {
   for (const segment of [scope, id]) {
     if (!KEY_SEGMENT_PATTERN.test(segment)) {
       throw new TypeError(`credential key segment "${segment}" must match ${String(KEY_SEGMENT_PATTERN)}`)
     }
   }
-  return `${scope}/${id}` as CredentialKey
+  return brandString<CredentialKey>(`${scope}/${id}`)
 }
 
 /**
@@ -106,7 +82,6 @@ export function credentialKey(scope: string, id: string): CredentialKey {
  * @returns the branded key.
  * @throws TypeError when the value is not exactly two valid segments.
  */
-// 读盘侧的"解键"：把磁盘上的 <scope>/<id> 字符串还原为品牌键；恰好两段且都合法才算通过。
 export function parseCredentialKey(value: string): CredentialKey {
   const segments = value.split('/')
   const [scope, id] = segments
@@ -123,7 +98,6 @@ export function parseCredentialKey(value: string): CredentialKey {
  * @param key - the key to read.
  * @returns the scope segment.
  */
-// 取键的属主段（'/' 之前）；scope 若对应不到已注册插件，该记录即"孤儿"，配置界面须如实上报。
 export function credentialKeyScope(key: CredentialKey): string {
   // The brand's only constructors both validate two segments, so the split
   // cannot come back short here.
@@ -136,12 +110,10 @@ export function credentialKeyScope(key: CredentialKey): string {
  * @param key - the key to read.
  * @returns the id segment.
  */
-// 取键的 id 段（'/' 之后），即属主自己选择的寻址单位（如某 provider 路由）。
 export function credentialKeyId(key: CredentialKey): string {
   return key.slice(key.indexOf('/') + 1)
 }
 
-// 一次解析的结果：非空秘密值 + 提供它的来源层 id（如 env/file/user-env）。
 /** One resolved credential value and the source layer that supplied it. */
 export interface ResolvedCredential {
   /** The non-empty secret value. */
@@ -165,7 +137,6 @@ export interface CredentialRecordInfo {
   writable: boolean
 }
 
-// 记录枚举项：地址 + 判别标签，不含值——UI 由此列出"我授权了什么"并识别卸载插件留下的孤儿记录。
 /** One stored record's address and tag, for enumeration — never its value. */
 export interface CredentialRecordEntry {
   /** The record's address. */
@@ -174,7 +145,6 @@ export interface CredentialRecordEntry {
   kind: CredentialRecord['kind']
 }
 
-// 把 credentials 服务挂到 Cordis Context：插件代码里 ctx.credentials 即该服务实例。
 declare module '@deepseek-ai/cordis' {
   interface Context {
     credentials: CredentialProvider
@@ -197,8 +167,6 @@ declare module '@deepseek-ai/cordis' {
  * depends on the current value (a token refresh is read-decide-replace under
  * one lock).
  */
-// 抽象凭据服务：引用半区回答"这个环境变量名背后是什么值"（可跨环境/存储/.env 分层），
-// 记录半区回答"这个键存了什么"（不可分层，只能经 modifyRecord 串行读改写）。
 export abstract class CredentialProvider extends Service {
   constructor(ctx: Context) {
     super(ctx, 'credentials')
@@ -212,7 +180,6 @@ export abstract class CredentialProvider extends Service {
    * @param ref - the reference to resolve.
    * @returns the value and its source, or `undefined` while unconfigured.
    */
-  // 每次调用都重新解析、不缓存：正是这种"按操作读取"让凭据变更无需重启即到达下一次操作。
   abstract resolve(ref: CredentialRef): Promise<ResolvedCredential | undefined>
 
   /**
@@ -231,7 +198,6 @@ export abstract class CredentialProvider extends Service {
    * @param ref - the reference to store.
    * @param value - the non-empty secret value.
    */
-  // 在可写来源层持久保存一个值；被只读来源遮蔽时拒绝（避免"写成功但解析仍返回遮蔽值"的假象），空值也拒绝（请用 unset）。
   abstract set(ref: CredentialRef, value: string): Promise<void>
 
   /**
@@ -240,7 +206,6 @@ export abstract class CredentialProvider extends Service {
    * the reference, like {@link set}.
    * @param ref - the reference to remove.
    */
-  // 从可写来源层移除一个引用；移除不存在的引用是空操作；被只读来源遮蔽时同样拒绝。
   abstract unset(ref: CredentialRef): Promise<void>
 
   /**
@@ -249,7 +214,6 @@ export abstract class CredentialProvider extends Service {
    * @param key - the record to read.
    * @returns the record, or `undefined` while none is stored.
    */
-  // 读取一条存储记录；返回属主写入的原样值，GrantRecord 载荷不做任何解读。
   abstract readRecord(key: CredentialKey): Promise<CredentialRecord | undefined>
 
   /**

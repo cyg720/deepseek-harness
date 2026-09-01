@@ -1,21 +1,3 @@
-/*
- * ================================ 文件注释 ================================
- * 【文件职责】浏览器主题注册表（ctx.theme）：持有实时主题偏好（light/dark/system）、
- *             经 prefers-color-scheme 解析 system、发布不可变快照；并从不动 DOM
- *             （ui-layout 的呈现器消费解析后的快照）。同时把"外观"偏好行注册进
- *             设置通用分区。
- * 【技术维度】Cordis 服务 + SettingsScope：偏好存宿主用户设置文档；第三方主题
- *             注册别名层覆盖（overrideTokens 按 seq 堆叠）；theme/change 事件
- *             持续同步。
- * 【产品维度】浅色/深色/跟随系统的外观切换与第三方主题扩展。
- * 【逻辑维度】构造收养持久偏好并监听 OS 方案 → getTheme/exportInspectTokens 读取
- *             → setTheme 写偏好 → register/overrideTokens 注册主题与令牌覆盖 →
- *             buildSnapshot/composeActive 合成活动主题。
- * 【关键边界】system 是偏好不是可注册 id；注销活动主题所在的主题会把偏好重置为
- *             默认；覆盖令牌运行时校验（模型作者可能传裸字符串）。
- * 【新手阅读建议】先看 ThemeSnapshot 与 ThemeDefinition，再读 register/overrideTokens。
- * ==========================================================================
- */
 /**
  * Browser theme registry over the `--dsw-*` token stylesheets. The service
  * owns the live theme preference (light/dark/system), resolves `system` through
@@ -435,7 +417,7 @@ function dynamicToken(name: string): ThemeTokenInspection {
  * row. `remote` carries the forwarded settings invalidation that
  * `ctx.settingsScope.bind(spec)` subscribes to on this context.
  */
-export const inject = ['slots', 'locale', 'connection', 'remote', 'settingsScope']
+export const inject = ['slots', 'locale', 'remote', 'settingsScope']
 
 /**
  * Client plugin body: provide the theme service and register the

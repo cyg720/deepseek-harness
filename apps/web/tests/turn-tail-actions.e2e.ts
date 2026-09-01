@@ -6,15 +6,6 @@
 // narration and the tool result are durable, so the running state is stable by
 // construction rather than by timing; stopping from that park writes the
 // `turn/end` that hands the footer to the turn's transcript tail.
-// 中文说明：第二次模型调用被稳定挂起，证明消息操作栏只在 turn/end 后归属已完成答案尾部。
-/**
- * 文件职责：验证助手消息复制、分支等操作只在整个回合结束后出现，而不会挂在中途叙述旁。
- * 技术维度：使用 Playwright、Vitest、回放挂起 sidecar、会话事件和中途/结束无障碍快照。
- * 产品维度：避免长工具回合中操作栏提前出现又移动，保证操作始终对应最终答案。
- * 逻辑维度：录制同消息叙述与 bash 调用，挂起第二次模型请求，比较运行态，停止后再比较完成态。
- * 关键边界：挂起必须发生在第二次模型调用；叙述与工具调用必须属于同一消息；清理失败视为场景失败。
- * 新手阅读建议：先读 NARRATION 与 PROMPT，再看 sidecar 如何制造稳定中途状态，最后比较两份快照。
- */
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { existsSync } from 'node:fs'
 import { tmpdir } from 'node:os'
@@ -35,7 +26,6 @@ const SNAPSHOT_DIR = fileURLToPath(new URL('../../../snapshots/web/turn-tail-act
 const FIXTURE = join(SNAPSHOT_DIR, 'session.jsonl')
 // Three goldens for the same message: parked mid-turn, aborted, and completed.
 const RUNNING_EXPECTED = join(SNAPSHOT_DIR, 'running.expected.md')
-/** turn/end 后操作栏出现在尾部的预期快照。 */
 const SETTLED_EXPECTED = join(SNAPSHOT_DIR, 'settled.expected.md')
 const USAGE_EXPANDED_EXPECTED = join(SNAPSHOT_DIR, 'usage-expanded.expected.md')
 const COMPLETED_EXPECTED = join(SNAPSHOT_DIR, 'completed.expected.md')
@@ -180,18 +170,37 @@ describe('web e2e: assistant IconActions wait for the turn to end', () => {
     const { settled } = await sendPrompt(120_000)
     await settled
 
-    const disclosure = page.getByRole('button', { name: /Turn usage/ })
-    await expect.poll(() => disclosure.count(), { timeout: 10_000 }).toBe(1)
-    expect(await disclosure.getAttribute('aria-expanded')).toBe('false')
-    expect(await page.getByText('15.8K tok · Cache hit 49.7%', { exact: true }).count()).toBe(1)
+    const trigger = page.getByRole('button', { name: /Usage 15\.8K tok/ })
+    await expect.poll(() => trigger.count(), { timeout: 10_000 }).toBe(1)
+    expect(await trigger.getAttribute('aria-expanded')).toBe('false')
+    // The usage pill carries the icon and the turn total; the time pill beside
+    // it carries the run time, and both keep their details dialog-only.
+    expect(await trigger.textContent()).toBe('Usage 15.8K tok')
+    const timeTrigger = page.getByRole('button', { name: /^Ran for \S+$/ })
+    expect(await timeTrigger.count()).toBe(1)
+    expect(await page.locator('[data-turn-tail]').getByText(/tok\/s|TTFT/).count()).toBe(0)
+    expect(await page.getByRole('dialog').count()).toBe(0)
 
-    await disclosure.click()
-    expect(await disclosure.getAttribute('aria-expanded')).toBe('true')
-    expect(await page.getByText('deepseek-official/deepseek-v4-flash', { exact: true }).count()).toBe(1)
-    expect(await page.getByText('7,891 tok', { exact: true }).count()).toBe(1)
-    expect(await page.getByText('7,808 tok', { exact: true }).count()).toBe(1)
-    expect(await page.getByText('112 tok (42 tok reasoning)', { exact: true }).count()).toBe(1)
-    expect(await page.getByText('15,811 tok', { exact: true }).count()).toBe(1)
+    await trigger.click()
+    expect(await trigger.getAttribute('aria-expanded')).toBe('true')
+    const dialog = page.getByRole('dialog', { name: 'Turn usage' })
+    expect(await dialog.count()).toBe(1)
+    expect(await dialog.getByText('deepseek-official/deepseek-v4-flash', { exact: true }).count()).toBe(1)
+    expect(await dialog.getByText('49.7%', { exact: true }).count()).toBe(1)
+    expect(await dialog.getByText('7,891 tok', { exact: true }).count()).toBe(1)
+    expect(await dialog.getByText('7,808 tok', { exact: true }).count()).toBe(1)
+    expect(await dialog.getByText('112 tok (42 tok reasoning)', { exact: true }).count()).toBe(1)
+    expect(await dialog.getByText('15,811 tok', { exact: true }).count()).toBe(1)
+    await page.keyboard.press('Escape')
+    expect(await page.getByRole('dialog').count()).toBe(0)
+
+    await timeTrigger.click()
+    const timeDialog = page.getByRole('dialog', { name: 'Turn time and speed' })
+    expect(await timeDialog.count()).toBe(1)
+    expect(await timeDialog.getByText(/tok\/s/).count()).toBe(1)
+    expect(await timeDialog.getByText('Time to first token (TTFT)', { exact: true }).count()).toBe(1)
+    await page.keyboard.press('Escape')
+    await trigger.click()
 
     const expanded = await captureStableAria(page, '[class*="centerCol"]', scaffold!.workspaceCwd)
     await compareOrRefreshGolden(USAGE_EXPANDED_EXPECTED, expanded, MODE)

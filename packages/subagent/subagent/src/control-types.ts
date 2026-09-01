@@ -4,19 +4,12 @@
  * browser-facing control surface's prompt, receipts, and failures.
  *
  * @module @deepseek-ai/dsh-subagent/control-types
- * @remarks 文件说明：文件职责：实现 subagent/subagent 中 control types 模块的职责，
- * 并向相邻模块提供可复用能力。；技术维度：主要使用TypeScript/JavaScript 的 ESM 模块、严格类型约束与 Cordis
- * 插件机制，通过当前文件中的类型、函数与数据结构完成实现。；产品维度：支撑 DeepSeek Harness 的
- * subagent/subagent 能力，使上层功能能够稳定组合和扩展。；逻辑维度：建议按“依赖与类型定义 → 常量和状态 → 核心函数或类 →
- * 导出或注册入口”的顺序理解。；关键边界：调用方必须遵守类型、生命周期和错误处理约定；涉及外部输入、异步任务或资源释放时需特别关注异常分支。；
- * 新手阅读建议：先确认导入依赖和公开导出，再沿主要函数调用链阅读，最后结合相邻测试理解输入、输出与边界条件。
  */
 
+import type { PromptContentPart } from '@deepseek-ai/dsh-attachment/types'
 import type { Branded } from '@deepseek-ai/dsh-brand'
 import type { MessageId } from '@deepseek-ai/dsh-llm/brand'
-import type { ContentBlock } from '@deepseek-ai/dsh-llm/types'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
-import type { z as zCore } from 'zod'
 
 /**
  * Client-minted identity of one browser prompt, persisted on the exact accepted
@@ -109,8 +102,12 @@ export interface SubagentPromptRequest {
   readonly childSessionId: SessionId
   /** Required discriminator retained from the browser control address. */
   readonly mode: 'continuable'
-  /** Content delivered as the child's user message. */
-  readonly content: ContentBlock[]
+  /**
+   * Browser prompt parts delivered as the child's user message. The Host
+   * admits and persists image parts before delivery, so the wire never
+   * carries a durable attachment reference the caller could fabricate.
+   */
+  readonly content: readonly PromptContentPart[]
   /** Optional browser zone sampled for this exact human prompt. */
   readonly clientTimeZone?: string
 }
@@ -126,28 +123,24 @@ export interface SubagentInterruptReceipt {
 }
 
 /**
- * Failure details the control surface answers with. The catalog read, the
- * prompt, and the interrupt produce these codes; a Client fabricates
- * `subagent-not-resumable` and `subagent-delivery-unavailable` for a one-shot
- * address it refuses before the call, so both planes read one vocabulary.
+ * Failure details the control surface answers with. Catalog reads, prompts,
+ * and interrupts share this vocabulary with the Client Remote result.
  */
-export interface SubagentControlErrorDetailsMap {
-  'bad-request': { readonly issues: zCore.core.$ZodIssue[] }
-  cancelled: Record<never, never>
-  'invalid-time-zone': { readonly value: string }
-  'subagent-parent-unavailable': { readonly parentSessionId: SessionId }
-  'subagent-not-resumable': { readonly childSessionId: SessionId }
-  'subagent-unauthorized': { readonly childSessionId: SessionId }
-  'subagent-delivery-unavailable': { readonly childSessionId: SessionId }
-  'subagent-projections-unavailable': Record<never, never>
-  internal: Record<never, never>
-}
-
-/** One subagent control failure, returned without a carrier error. */
-export type SubagentControlError = {
-  [Code in keyof SubagentControlErrorDetailsMap]: {
-    readonly code: Code
-    readonly message: string
-    readonly details: SubagentControlErrorDetailsMap[Code]
+declare module '@deepseek-ai/dsh-typert-protocol' {
+  interface RemoteErrorDetailsMap {
+    /** A browser-supplied zone is neither UTC nor a canonical IANA name. */
+    'subagent/invalid-time-zone': { readonly value: string }
+    /** No live Agent carries the addressed parent session. */
+    'subagent/parent-unavailable': { readonly parentSessionId: SessionId }
+    /** The addressed child cannot take a continuation. */
+    'subagent/not-resumable': { readonly childSessionId: SessionId }
+    /** The claimed parent does not own the addressed child. */
+    'subagent/unauthorized': { readonly childSessionId: SessionId }
+    /** Image admission or model image-capability refusal. */
+    'subagent/attachment-invalid': { readonly reason: string }
+    /** The child exists but its inbox cannot admit the message now. */
+    'subagent/delivery-unavailable': { readonly childSessionId: SessionId }
+    /** The deployment mounts no session-projection registry. */
+    'subagent/projections-unavailable': {}
   }
-}[keyof SubagentControlErrorDetailsMap]
+}

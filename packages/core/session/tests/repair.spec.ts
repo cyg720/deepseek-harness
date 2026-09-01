@@ -1,11 +1,3 @@
-/**
- * 文件职责：验证Session 持久状态的 repair.spec.ts 行为与边界。
- * 技术维度：TypeScript、Cordis、Vitest、会话事件、JSON 模式和服务作用域。
- * 产品维度：保证Session 持久状态在配置、错误、恢复和生命周期场景中可靠。
- * 逻辑维度：构造输入并驱动服务，再断言输出、日志和清理。
- * 关键边界：持久与凭据数据属于不可信边界；工具和提示词必须保持模型可见内容可重建。
- * 新手阅读建议：先读类型和夹具，再按正常、非法输入、作用域和清理场景阅读。
- */
 import { describe, expect, it } from 'vitest'
 import { ToolCallId , createMessage, createToolResultMessage } from '@deepseek-ai/dsh-llm'
 import { interruptedTurnClosers, TOOL_NOT_STARTED, TOOL_OUTCOME_UNKNOWN } from '../src/index.ts'
@@ -13,20 +5,18 @@ import type { SessionEvent, SurfaceEvent } from '../src/index.ts'
 
 /**
  * Unit coverage for the crash-recovery closer synthesis. The persistence
- * contract exercises it end-to-end through both backends; these tests pin the
+ * contract exercises it end-to-end through the real JSONL provider; these tests pin the
  * pure function's branches directly — especially the synthetic error
  * `tool/result` for a tool call the crash left unanswered (without it a
  * resumed session replays a dangling assistant tool-call and the provider
  * rejects the transcript).
  */
 
-/* 中文说明：测试局部值 userTurnStart，由紧邻初始化决定。 */
 const userTurnStart = (turn: number, seq: number): SessionEvent =>
   ({ type: 'turn/start', seq, time: seq, data: { turn } })
 
 describe('interruptedTurnClosers', () => {
   it('returns nothing for a balanced log (ends on turn/end)', () => {
-    /** 中文说明：测试局部值 balanced，由紧邻初始化决定。 */
     const balanced: SessionEvent[] = [
       userTurnStart(1, 0),
       { type: 'turn/end', seq: 1, time: 1, data: { turn: 1, reason: { kind: 'completed' } } },
@@ -39,31 +29,25 @@ describe('interruptedTurnClosers', () => {
   })
 
   it('closes an open turn with no open step (turn/end {interrupted} only)', () => {
-    /** 中文说明：测试局部值 events，由紧邻初始化决定。 */
     const events: SessionEvent[] = [userTurnStart(1, 0)]
-    /** 中文说明：测试局部值 closers，由紧邻初始化决定。 */
     const closers = interruptedTurnClosers(events)
     expect(closers.map(e => e.type)).toEqual(['turn/end'])
-    /** 中文说明：测试局部值 end，由紧邻初始化决定。 */
     const end = closers[0]!
     expect(end.seq).toBe(1)
     expect(end.type === 'turn/end' && end.data.reason).toEqual({ kind: 'interrupted' })
   })
 
   it('closes an open step before the turn (step/end then turn/end)', () => {
-    /** 中文说明：测试局部值 events，由紧邻初始化决定。 */
     const events: SessionEvent[] = [
       userTurnStart(1, 0),
       { type: 'step/start', seq: 1, time: 1, data: { turn: 1, step: 1 } },
     ]
-    /** 中文说明：测试局部值 closers，由紧邻初始化决定。 */
     const closers = interruptedTurnClosers(events)
     expect(closers.map(e => e.type)).toEqual(['step/end', 'turn/end'])
     expect(closers.map(e => e.seq)).toEqual([2, 3])
   })
 
   it('marks an assistant tool request with no recorded call as not started', () => {
-    /** 中文说明：测试局部值 events，由紧邻初始化决定。 */
     const events: SessionEvent[] = [
       userTurnStart(2, 0),
       { type: 'step/start', seq: 1, time: 1, data: { turn: 2, step: 1 } },
@@ -82,12 +66,10 @@ describe('interruptedTurnClosers', () => {
         }),
       } },
     ]
-    /** 中文说明：测试局部值 closers，由紧邻初始化决定。 */
     const closers = interruptedTurnClosers(events)
     // tool/result (for the orphaned call) → step/end → turn/end, contiguous seqs.
     expect(closers.map(e => e.type)).toEqual(['tool/result', 'step/end', 'turn/end'])
     expect(closers.map(e => e.seq)).toEqual([3, 4, 5])
-    /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
     const result = closers[0]!
     expect(result.type === 'tool/result' && result.data).toMatchObject({
       turn: 2,
@@ -104,7 +86,6 @@ describe('interruptedTurnClosers', () => {
   })
 
   it('does NOT synthesize a result for a tool-call that already has one', () => {
-    /** 中文说明：测试局部值 events，由紧邻初始化决定。 */
     const events: SessionEvent[] = [
       userTurnStart(2, 0),
       { type: 'step/start', seq: 1, time: 1, data: { turn: 2, step: 1 } },
@@ -131,13 +112,11 @@ describe('interruptedTurnClosers', () => {
       } },
     ]
     // The call is answered, so only the open step + turn need closing.
-    /** 中文说明：测试局部值 closers，由紧邻初始化决定。 */
     const closers = interruptedTurnClosers(events)
     expect(closers.map(e => e.type)).toEqual(['step/end', 'turn/end'])
   })
 
   it('does NOT synthesize a result after the owning step already closed', () => {
-    /** 中文说明：测试局部值 events，由紧邻初始化决定。 */
     const events: SessionEvent[] = [
       userTurnStart(2, 0),
       { type: 'step/start', seq: 1, time: 1, data: { turn: 2, step: 1 } },
@@ -157,7 +136,6 @@ describe('interruptedTurnClosers', () => {
       { type: 'step/end', seq: 3, time: 3, data: { turn: 2, step: 1 } },
     ]
 
-    /** 中文说明：测试局部值 closers，由紧邻初始化决定。 */
     const closers = interruptedTurnClosers(events)
     expect(closers.map(e => e.type)).toEqual(['turn/end'])
     expect(closers[0]?.seq).toBe(4)
@@ -166,7 +144,6 @@ describe('interruptedTurnClosers', () => {
   it('synthesizes results only for the still-open turn, not a committed earlier turn', () => {
     // Turn 1 completed with its own tool call+result (balanced). Turn 2 crashed
     // with an unanswered call. Only turn 2's call must get a synthetic result.
-    /** 中文说明：测试局部值 events，由紧邻初始化决定。 */
     const events: SessionEvent[] = [
       userTurnStart(1, 0),
       { type: 'step/start', seq: 1, time: 1, data: { turn: 1, step: 1 } },
@@ -209,16 +186,13 @@ describe('interruptedTurnClosers', () => {
         }),
       } },
     ]
-    /** 中文说明：测试局部值 closers，由紧邻初始化决定。 */
     const closers = interruptedTurnClosers(events)
     expect(closers.map(e => e.type)).toEqual(['tool/result', 'step/end', 'turn/end'])
-    /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
     const result = closers[0]!
     expect(result.type === 'tool/result' && result.data.message.source.callId).toBe('new-call')
   })
 
   it('synthesizes a result for each of multiple unanswered calls, in log order', () => {
-    /** 中文说明：测试局部值 events，由紧邻初始化决定。 */
     const events: SessionEvent[] = [
       userTurnStart(1, 0),
       { type: 'step/start', seq: 1, time: 1, data: { turn: 1, step: 1 } },
@@ -246,16 +220,13 @@ describe('interruptedTurnClosers', () => {
         }),
       } },
     ]
-    /** 中文说明：测试局部值 closers，由紧邻初始化决定。 */
     const closers = interruptedTurnClosers(events)
     expect(closers.map(e => e.type)).toEqual(['tool/result', 'step/end', 'turn/end'])
-    /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
     const result = closers[0]!
     expect(result.type === 'tool/result' && result.data.message.source.callId).toBe('call-b')
   })
 
   it('synthesized tool/result carries surfaceOp and sourceEventSeqs when tool/call was logged', () => {
-    /** 中文说明：测试局部值 events，由紧邻初始化决定。 */
     const events: SessionEvent[] = [
       userTurnStart(1, 0),
       { type: 'step/start', seq: 1, time: 1, data: { turn: 1, step: 1 } },
@@ -274,10 +245,8 @@ describe('interruptedTurnClosers', () => {
       } },
       { type: 'tool/call', seq: 3, time: 3, data: { turn: 1, step: 1, callId: ToolCallId('call-1'), name: 'bash', arguments: '{}' } },
     ]
-    /** 中文说明：测试局部值 closers，由紧邻初始化决定。 */
     const closers = interruptedTurnClosers(events)
     expect(closers.map(e => e.type)).toEqual(['tool/result', 'step/end', 'turn/end'])
-    /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
     const result = closers[0]!
     expect((result as SurfaceEvent).surfaceOp).toBe('append')
     expect((result as SurfaceEvent).sourceEventSeqs).toEqual([3])
@@ -294,13 +263,11 @@ describe('interruptedTurnClosers', () => {
   it('handles tool/call without a matching assistant/message entry gracefully', () => {
     // A raw tool/call with no assistant-registered pending call has nothing to
     // answer; repair still closes the step and turn without synthesizing a result.
-    /** 中文说明：测试局部值 events，由紧邻初始化决定。 */
     const events: SessionEvent[] = [
       userTurnStart(1, 0),
       { type: 'step/start', seq: 1, time: 1, data: { turn: 1, step: 1 } },
       { type: 'tool/call', seq: 2, time: 2, data: { turn: 1, step: 1, callId: ToolCallId('orphan'), name: 'bash', arguments: '{}' } },
     ]
-    /** 中文说明：测试局部值 closers，由紧邻初始化决定。 */
     const closers = interruptedTurnClosers(events)
     // No pending calls → no synthetic tool/result, just step/end + turn/end.
     expect(closers.map(e => e.type)).toEqual(['step/end', 'turn/end'])

@@ -1,27 +1,3 @@
-/*
- * ================================ 文件注释 ================================
- * 【文件职责】面向模型的 Cordis 运行时工具集入口：注册 cordis_inspect_list/query/
- *             self、cordis_define/run/stop/undefine 七个工具，注入 Cordis 动态插件
- *             系统提示词，注册第一方 inspect 提供者，并在用户提到 @pluginId 时注入
- *             对应插件的修改上下文。
- * 【技术维度】基于 dsh-tools 的 defineTool 定义工具（含参数 schema、输出渲染与
- *             presentCall 展示意图）；底层能力来自 cordis-host-runner 的
- *             dynamicCordisRunner / cordisInspect 服务；通过 agent/pre-step 水瀑布
- *             钩子在模型进入下一步前追加参考上下文。
- * 【产品维度】把"AI 现场编写并激活 Cordis 插件"暴露为模型可调用的一套工具：
- *             查目录 → 查详情 → 定义 → 运行/更新 → 停止/删除，全程由用户面板
- *             确认客户端激活，结果回灌给模型继续决策。
- * 【逻辑维度】常量与 requireAgent 助手 → apply 注册七个工具（inspect 三件套 →
- *             define → run → stop/undefine）→ @pluginId 上下文注入钩子 → 底部纯
- *             辅助函数（JSON 校验、selfSummary/selfState、引用识别与渲染）。
- * 【关键边界】所有工具都以"当前 agent 会话"为所有权边界；inspect_self 的 packageId
- *             不能单独出现；@pluginId 引用只在用户消息中识别；run 的异步结果通过
- *             steering 回灌而非工具内等待。
- * 【新手阅读建议】先看 apply 里 inspect 三件套的注册，再看 cordis_run 的 execute
- *             如何拼接状态，最后看底部 referencedPluginIds/renderReference。
- * ==========================================================================
- */
-
 /**
  * Model-facing Cordis runtime/package inspection, define, run, stop, and remove tools.
  * @module @deepseek-ai/dsh-tool-cordis
@@ -34,11 +10,10 @@ import {
 } from '@deepseek-ai/dsh-cordis-host-runner'
 import type { DynamicCordisReference } from '@deepseek-ai/dsh-cordis-host-runner'
 import { createUserMessage } from '@deepseek-ai/dsh-llm'
-import type { JsonValue } from '@deepseek-ai/dsh-session'
+import type { JsonValue } from '@deepseek-ai/dsh-util-values'
 import type { UserMessage } from '@deepseek-ai/dsh-session'
 import { defineTool } from '@deepseek-ai/dsh-tools'
 import type { ToolExecution } from '@deepseek-ai/dsh-tools'
-import { FIRST_PARTY_SECTION_ORDER } from '@deepseek-ai/dsh-system-prompt'
 import { missingServices, providedServices } from './inspect.ts'
 import {
   presentDefineCall, presentInspectListCall, presentInspectQueryCall, presentInspectSelfCall, presentRunCall,
@@ -48,27 +23,18 @@ import { CORDIS_SYSTEM_PROMPT } from './prompt.ts'
 import { hostInspectProviders } from './providers.ts'
 
 export const name = 'tool-cordis'
-// 依赖注入：tools（注册工具）、systemPrompt（注入提示词）、dynamicCordisRunner 与
-// cordisInspect（host-runner 提供的运行与查询服务）
 export const inject = ['tools', 'systemPrompt', 'dynamicCordisRunner', 'cordisInspect']
 
-/**
- * 从工具执行上下文取出 agent；非 Agent 会话（如无状态执行）直接拒绝。
- */
 function requireAgent(exec: ToolExecution): Agent {
   if (exec.agent === undefined) throw new Error('Cordis dynamic tools require an Agent-backed session')
   return exec.agent
 }
 
 /** Register the Cordis tools and explicit `@pluginId` context injection. */
-/*
- * 插件入口：注入系统提示词段、注册第一方 inspect 提供者，然后注册七个模型工具，
- * 最后挂 agent/pre-step 水瀑布监听为用户显式引用的 @pluginId 注入修改上下文。
- */
 export function apply(ctx: Context): void {
   ctx.systemPrompt.section({
     name: 'tool:cordis',
-    order: FIRST_PARTY_SECTION_ORDER.TOOL_CORDIS,
+    order: ctx.systemPrompt.getSectionOrder('TOOL_CORDIS'),
     text: CORDIS_SYSTEM_PROMPT,
   })
   for (const provider of hostInspectProviders(ctx)) {
@@ -77,7 +43,6 @@ export function apply(ctx: Context): void {
 
   ctx.tools.register(defineTool({
     name: 'cordis_inspect_list',
-    // 工具 1：列出 Host/Client 两侧所有 inspect 提供者（模型写代码前的目录查询）
     description:
       'List every Cordis Inspect Provider currently known to the Host, including local Host Providers and the latest '
       + 'manifests synchronized from the Client. Each entry includes its platform, purpose, read-only methods, and '
@@ -97,7 +62,6 @@ export function apply(ctx: Context): void {
 
   ctx.tools.register(defineTool({
     name: 'cordis_inspect_query',
-    // 工具 2：执行一次提供者声明的只读查询（Host 本地立即执行；Client 等待页面应答）
     description:
       'Run a read-only query explicitly declared by an Inspect Provider. platform, provider, and method must come '
       + 'from cordis_inspect_list, and input must satisfy that method\'s schema. Use this Tool before cordis_define '
@@ -134,7 +98,6 @@ export function apply(ctx: Context): void {
 
   ctx.tools.register(defineTool({
     name: 'cordis_inspect_self',
-    // 工具 3：分层检查当前会话的动态插件（无 ID 列摘要 / 仅 pluginId 看版本 / 带 packageId 返回源码与诊断）
     description:
       'Inspect dynamic Cordis objects owned by the current Session at increasing levels of detail. With no IDs, '
       + 'list only Plugin summaries. With pluginId alone, return version pointers, the latest Run, and every Package '
@@ -187,7 +150,6 @@ export function apply(ctx: Context): void {
 
   ctx.tools.register(defineTool({
     name: 'cordis_define',
-    // 工具 4：定义不可变包版本（新插件给 idPrefix / 既有插件追加），只入库不运行
     description:
       'Define an immutable Cordis Package. For a new Plugin, use kind:"new" and provide only a semantic prefix of '
       + '3–6 lowercase English letters; the Host returns the final pluginId and packageId. To modify an existing '
@@ -280,7 +242,6 @@ export function apply(ctx: Context): void {
 
   ctx.tools.register(defineTool({
     name: 'cordis_run',
-    // 工具 5：激活一个包版本（run 首次/重启/回滚；update 换版本）；含 Client 的包可能进入审批
     description:
       'Activate one exact Package of a dynamic Plugin. Use mode:"run" for the first activation, restarting '
       + 'currentPackageId, or rollback. When current exists, use mode:"update" to switch to a different Package, '
@@ -370,7 +331,6 @@ export function apply(ctx: Context): void {
 
   ctx.tools.register(defineTool({
     name: 'cordis_stop',
-    // 工具 6：停止当前运行并取消待审批请求，但保留定义/授权/版本指针（幂等）
     description:
       'Stop the current Run of a dynamic Plugin and cancel unfinished approval or activation requests. Retain the '
       + 'Plugin, every immutable Package, grants, currentPackageId, and nextPackageId so it can later run or update '
@@ -393,7 +353,6 @@ export function apply(ctx: Context): void {
 
   ctx.tools.register(defineTool({
     name: 'cordis_undefine',
-    // 工具 7：永久删除插件及其全部包版本/授权（先停再删，不可恢复）
     description:
       'Permanently remove a dynamic Plugin owned by the current Session. If it is running or awaiting approval, '
       + 'first stop it and cancel the request, then delete every Package, grant, and version pointer. After this '
@@ -423,8 +382,6 @@ export function apply(ctx: Context): void {
   }))
 
   ctx.on('agent/pre-step', async ({ agent, messages, signal }, next): Promise<PreStepDecision> => {
-    // 在模型进入下一步之前：若用户消息显式引用了 @pluginId，把对应插件的修改
-    // 基准注入本次消息序列（水瀑布中先调用 next() 委托，再追加上下文）
     const decision = await next()
     if (decision.kind === 'reject') return decision
     const ids = referencedPluginIds(messages)
@@ -444,9 +401,6 @@ export function apply(ctx: Context): void {
   })
 }
 
-/**
- * 把输出渲染收到的值强校验为 JSON 对象。
- */
 function requireJsonObject(value: JsonValue): Record<string, JsonValue> {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) {
     throw new Error('expected a JSON object')
@@ -454,9 +408,6 @@ function requireJsonObject(value: JsonValue): Record<string, JsonValue> {
   return value
 }
 
-/**
- * 从 JSON 对象中强取字符串字段。
- */
 function requireJsonString(value: Record<string, JsonValue>, key: string): string {
   const field = value[key]
   if (typeof field !== 'string') throw new Error(`expected JSON string field "${key}"`)
@@ -464,12 +415,7 @@ function requireJsonString(value: Record<string, JsonValue>, key: string): strin
 }
 
 type SelfState = 'defined' | 'awaiting-approval' | 'client-pending' | 'stopped' | 'running' | 'waiting' | 'failed'
-// 插件在 inspect_self 中的汇总状态（由 attempt 状态与活动运行推导）
 
-/**
- * 把一次插件引用（reference）压缩为面向模型的 JSON 摘要：名称/状态/版本指针/
- * 活动运行/待审批信息。
- */
 function selfSummary(reference: DynamicCordisReference & { packages?: readonly unknown[] }): Record<string, JsonValue> {
   const latest = reference.latestRun
   const state = selfState(reference)
@@ -496,10 +442,6 @@ function selfSummary(reference: DynamicCordisReference & { packages?: readonly u
   }
 }
 
-/**
- * 从最近尝试状态与活动运行推导插件的汇总状态（优先尝试状态，其次活动运行，
- * 最后看是否有当前版本）。
- */
 function selfState(reference: DynamicCordisReference): SelfState {
   const status = reference.latestRun?.status
   if (status === 'awaiting-approval') return 'awaiting-approval'
@@ -511,9 +453,6 @@ function selfState(reference: DynamicCordisReference): SelfState {
   return reference.currentPackageId === undefined ? 'defined' : 'stopped'
 }
 
-/**
- * 组装"单个包版本"的详细检查结果：源码、运行时两端状态（提供/等待/错误/渲染失败）。
- */
 function inspectSelfPackage(
   ctx: Context,
   agent: Agent,
@@ -558,9 +497,6 @@ function inspectSelfPackage(
   } as unknown as Record<string, JsonValue>
 }
 
-/**
- * 从用户消息中识别形如 @前缀-序号 的插件引用（仅用户消息、仅文本块，去重后返回）。
- */
 function referencedPluginIds(messages: readonly UserMessage[]): string[] {
   const found = new Set<string>()
   const pattern = /(?:^|\s)@([a-z]{3,6}-\d+)(?=\s|$)/g
@@ -572,10 +508,6 @@ function referencedPluginIds(messages: readonly UserMessage[]): string[] {
   return [...found]
 }
 
-/**
- * 把可用插件引用渲染成注入模型的指令文本：指明修改基准包、先 inspect 再 define、
- * 最后以正确的 run/update 模式激活。
- */
 function renderReference(reference: ReturnType<Context['dynamicCordisRunner']['reference']> & {}): string {
   const mode = reference.currentPackageId === undefined ? 'run' : 'update'
   return [
@@ -590,10 +522,6 @@ function renderReference(reference: ReturnType<Context['dynamicCordisRunner']['r
   ].join('\n')
 }
 
-/**
- * 渲染"引用不可用"的提示：插件可能已删除/属于其他会话/进程重启后丢失，
- * 要求模型如实告知用户而不是谎称已更新或静默重建。
- */
 function renderUnavailableReference(id: string): string {
   return [
     '<cordis_dynamic_plugin_context>',

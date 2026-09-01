@@ -1,11 +1,3 @@
-/**
- * 文件职责：验证宿主连接插件的路由注册、来源防护、RPC 通道、共享拦截和真实 HTTP 服务行为。
- * 技术维度：Cordis Context、Node HTTP/流测试替身、Vitest、Fetch 信封和 Web 路由接口。
- * 产品维度：保证宿主只向允许的浏览器来源提供 API，并让插件 RPC 随生命周期正确挂载和撤销。
- * 逻辑维度：用辅助函数装载插件并构造请求响应，逐类测试路由、信任策略、协议错误和网络监听。
- * 关键边界：高权限与可信宿主规则属于安全行为；物理路由清理和异步服务关闭必须完成。
- * 新手阅读建议：先读 fakeHttpServer、fakeRequest、fakeResponse、mounted，再按路由安全和 RPC 注册分组阅读。
- */
 /** Node half: registers the /api prefix route bridging to the api gateway. */
 import { EventEmitter } from 'node:events'
 import { createServer, request as httpRequest } from 'node:http'
@@ -21,7 +13,6 @@ import { DEFAULT_MAX_REQUEST_BODY_BYTES } from '../src/http-bridge.ts'
 import { provideBrowserCredentials } from './browser-credentials.ts'
 
 /** Structural webServer fake recording both route registries. */
-/* 中文说明：测试辅助函数 `fakeHttpServer`；参数含义见签名，返回值供当前场景驱动或断言；例如按下方测试调用方式使用。 */
 function fakeHttpServer(
   routes: WebRoute[],
   upgrades: WebUpgradeRoute[],
@@ -44,27 +35,21 @@ function fakeHttpServer(
 }
 
 /** Bodyless GET carrying the given headers (enough for the trust fence + bridge). */
-/* 中文说明：测试辅助函数 `fakeRequest`；参数含义见签名，返回值供当前场景驱动或断言；例如按下方测试调用方式使用。 */
 function fakeRequest(headers: Record<string, string>, url = `${API_PATH}/session.list`): IncomingMessage {
-  /** 中文说明：当前场景构造或发出的请求对象；变量 `request` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
   const request = Readable.from([]) as unknown as IncomingMessage
   Object.assign(request, { url, method: 'GET', headers })
   return request
 }
 
 /** JSON POST carrying a complete client-request envelope. */
-/* 中文说明：测试辅助函数 `fakePost`；参数含义见签名，返回值供当前场景驱动或断言；例如按下方测试调用方式使用。 */
 function fakePost(headers: Record<string, string>, url: string, body: unknown): IncomingMessage {
-  /** 中文说明：当前场景构造或发出的请求对象；变量 `request` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
   const request = Readable.from([Buffer.from(JSON.stringify(body))]) as unknown as IncomingMessage
   Object.assign(request, { url, method: 'POST', headers: { 'content-type': 'application/json', ...headers } })
   return request
 }
 
 /** Raw POST for malformed-body and media-type boundary cases. */
-/* 中文说明：测试辅助函数 `fakeRawPost`；参数含义见签名，返回值供当前场景驱动或断言；例如按下方测试调用方式使用。 */
 function fakeRawPost(headers: Record<string, string>, url: string, body: string): IncomingMessage {
-  /** 中文说明：当前场景构造或发出的请求对象；变量 `request` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
   const request = Readable.from([Buffer.from(body)]) as unknown as IncomingMessage
   Object.assign(request, { url, method: 'POST', headers })
   return request
@@ -77,7 +62,6 @@ function fakeResponse(): {
 } {
   const state: { status?: number; headers?: Record<string, string>; body?: unknown } = {}
   const chunks: Buffer[] = []
-  /** 中文说明：当前操作得到的响应或结果，供后续断言；变量 `response` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
   const response = Object.assign(new EventEmitter(), {
     writableEnded: false,
     writeHead(value: number, headers?: Record<string, string>) {
@@ -97,18 +81,14 @@ function fakeResponse(): {
   return { response, state }
 }
 
-/** 中文说明：测试辅助函数 `mounted`；参数含义见签名，返回值供当前场景驱动或断言；例如按下方测试调用方式使用。 */
 async function mounted(config?: { trustedHosts?: string[] }): Promise<{
   routes: WebRoute[]
   upgrades: WebUpgradeRoute[]
   connection: HostConnectionHandle
   dispose: () => Promise<void>
 }> {
-  /** 中文说明：当前测试使用的 Cordis 上下文或所属运行环境；变量 `ctx` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
   const ctx = new Context()
-  /** 中文说明：当前装载过程收集或选中的 Web 路由；变量 `routes` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
   const routes: WebRoute[] = []
-  /** 中文说明：当前装载过程收集或选中的 Web 路由；变量 `upgrades` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
   const upgrades: WebUpgradeRoute[] = []
   provideBrowserCredentials(ctx)
   ctx.provide('webServer', fakeHttpServer(routes, upgrades) as WebServer)
@@ -143,7 +123,6 @@ describe('connection node half', () => {
 
   it('fails loud when the carrier cap cannot hold the configured image batch', async () => {
     const ctx = new Context()
-    /** 中文说明：当前装载过程收集或选中的 Web 路由；变量 `routes` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const routes: WebRoute[] = []
     ctx.provide('webServer', fakeHttpServer(routes, []) as WebServer)
     ctx.provide('attachments', {
@@ -155,11 +134,8 @@ describe('connection node half', () => {
   })
 
   it('fails the load on a trustedHosts entry that is not a bare authority', async () => {
-    /** 中文说明：当前装载过程收集或选中的 Web 路由；变量 `routes` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const routes: WebRoute[] = []
-    /** 中文说明：当前装载过程收集或选中的 Web 路由；变量 `upgrades` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const upgrades: WebUpgradeRoute[] = []
-    /** 中文说明：当前测试使用的 Cordis 上下文或所属运行环境；变量 `ctx` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const ctx = new Context()
     provideBrowserCredentials(ctx)
     ctx.provide('webServer', fakeHttpServer(routes, upgrades) as WebServer)
@@ -180,9 +156,7 @@ describe('connection node half', () => {
   })
 
   it('refuses an untrusted Host on any /api path before the bridge runs', async () => {
-    /** 中文说明：当前装载过程收集或选中的 Web 路由；变量 `{ routes, dispose }` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const { routes, dispose } = await mounted()
-    /** 中文说明：当前操作得到的响应或结果，供后续断言；变量 `{ response, state }` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const { response, state } = fakeResponse()
     await routes[0]!.handler(fakeRequest({
       host: 'harness.example', origin: 'http://harness.example', 'sec-fetch-site': 'same-origin',
@@ -224,7 +198,6 @@ describe('connection node half', () => {
     const { routes, connection, dispose } = await mounted({ trustedHosts: ['harness.example:3080', '192.168.1.5'] })
     // Loopback, no browser markers (curl shape): the fence passes; the carrier
     // answers 404 for a GET unary path — proof the bridge ran.
-    /** 中文说明：当前测试场景使用的局部状态或中间值；变量 `loopback` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const loopback = fakeResponse()
     await routes[0]!.handler(fakeRequest({
       host: '127.0.0.1:3080',
@@ -233,7 +206,6 @@ describe('connection node half', () => {
     expect(loopback.state.status).toBe(404)
     // An all-interfaces composition derives port-less LAN IP literals, which
     // pass markerless curl on any port.
-    /** 中文说明：当前测试场景使用的局部状态或中间值；变量 `lan` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const lan = fakeResponse()
     await routes[0]!.handler(fakeRequest({
       host: '192.168.1.5:3080',
@@ -241,7 +213,6 @@ describe('connection node half', () => {
     }), lan.response)
     expect(lan.state.status).toBe(404)
     // Declared public authority, same-origin browser shape.
-    /** 中文说明：当前测试场景使用的局部状态或中间值；变量 `declared` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const declared = fakeResponse()
     await routes[0]!.handler(fakeRequest({
       host: 'harness.example:3080',
@@ -269,21 +240,16 @@ describe('connection node half', () => {
 
   it('provides a disposable dedicated RPC channel', async () => {
     const ctx = new Context()
-    /** 中文说明：当前装载过程收集或选中的 Web 路由；变量 `routes` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const routes: WebRoute[] = []
     provideBrowserCredentials(ctx)
     ctx.provide('webServer', fakeHttpServer(routes, []) as WebServer)
-    /** 中文说明：当前测试场景使用的局部状态或中间值；变量 `fiber` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const fiber = ctx.plugin({ inject: [...inject], apply })
     await fiber.await()
     expect(routes).toHaveLength(1)
     expect(routes[0]).toMatchObject({ kind: 'prefix', path: API_PATH })
 
-    /** 中文说明：当前场景驱动的连接或 API 测试对象；变量 `connection` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const connection = ctx.get('connection') as HostConnectionHandle
-    /** 中文说明：按发生顺序收集观测值的数组或记录集合；变量 `calls` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const calls: unknown[] = []
-    /** 中文说明：结束注册、订阅或异步等待的清理函数；变量 `remove` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const remove = connection.rpc.handle('/rpc', async (endpoint, payload) => {
       calls.push({ endpoint, payload })
       return { ok: true, value: { accepted: true } }
@@ -291,14 +257,12 @@ describe('connection node half', () => {
     const route = routes.find(candidate => candidate.path === '/rpc')
     expect(route).toBeDefined()
 
-    /** 中文说明：当前场景构造或发出的请求对象；变量 `request` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const request: ClientRequest = {
       type: 'client-request',
       rpcId: RpcId('rpc-dedicated'),
       method: 'goals/create',
       payload: { args: { agentId: 'agent-1' } },
     }
-    /** 中文说明：当前操作得到的响应或结果，供后续断言；变量 `result` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const result = fakeResponse()
     await route!.handler(fakePost({
       host: '127.0.0.1:3080',
@@ -325,17 +289,13 @@ describe('connection node half', () => {
 
   it('dispatches claimed /api endpoints and withdraws the claim', async () => {
     const ctx = new Context()
-    /** 中文说明：当前装载过程收集或选中的 Web 路由；变量 `routes` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const routes: WebRoute[] = []
     provideBrowserCredentials(ctx)
     ctx.provide('webServer', fakeHttpServer(routes, []) as WebServer)
     const fiber = ctx.plugin({ inject: [...inject], apply }, { trustedHosts: ['harness.example'] })
     await fiber.await()
-    /** 中文说明：当前场景驱动的连接或 API 测试对象；变量 `connection` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const connection = ctx.get('connection') as HostConnectionHandle
-    /** 中文说明：按发生顺序收集观测值的数组或记录集合；变量 `calls` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const calls: unknown[] = []
-    /** 中文说明：结束注册、订阅或异步等待的清理函数；变量 `remove` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const remove = connection.rpc.intercept(
       '/api',
       endpoint => endpoint === 'goals/create',
@@ -354,9 +314,7 @@ describe('connection node half', () => {
       () => true,
       async () => ({ ok: true, value: null }),
     )).toThrow('invalid shared RPC channel')
-    /** 中文说明：当前装载过程收集或选中的 Web 路由；变量 `route` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const route = routes.find(candidate => candidate.path === API_PATH)!
-    /** 中文说明：当前场景构造或发出的请求对象；变量 `request` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const request: ClientRequest = {
       type: 'client-request',
       rpcId: RpcId('rpc-shared'),
@@ -364,7 +322,6 @@ describe('connection node half', () => {
       payload: { args: { agentId: 'agent-1' } },
     }
 
-    /** 中文说明：当前测试场景使用的局部状态或中间值；变量 `claimed` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const claimed = fakeResponse()
     const loopbackCookie = browserCookie(connection, '127.0.0.1:3080')
     await route.handler(fakePost({
@@ -380,13 +337,11 @@ describe('connection node half', () => {
       payload: { args: { agentId: 'agent-1' } },
     }])
 
-    /** 中文说明：当前测试场景使用的局部状态或中间值；变量 `denied` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const denied = fakeResponse()
     await route.handler(fakePost({ host: 'other.example' }, '/api/goals/create', request), denied.response)
     expect(denied.state).toMatchObject({ status: 403, body: 'forbidden' })
     expect(calls).toHaveLength(1)
 
-    /** 中文说明：当前测试场景使用的局部状态或中间值；变量 `unclaimed` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const unclaimed = fakeResponse()
     await route.handler(fakeRequest({
       host: '127.0.0.1:3080', cookie: loopbackCookie,
@@ -394,7 +349,6 @@ describe('connection node half', () => {
     expect(unclaimed.state.status).toBe(404)
 
     await remove()
-    /** 中文说明：当前测试场景使用的局部状态或中间值；变量 `withdrawn` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const withdrawn = fakeResponse()
     await route.handler(fakePost({
       host: '127.0.0.1:3080', cookie: loopbackCookie,
@@ -418,30 +372,23 @@ describe('connection node half', () => {
   })
 
   it('applies the configured trust fence and JSON envelope checks to generic channels', async () => {
-    /** 中文说明：当前测试使用的 Cordis 上下文或所属运行环境；变量 `ctx` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const ctx = new Context()
-    /** 中文说明：当前装载过程收集或选中的 Web 路由；变量 `routes` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const routes: WebRoute[] = []
     provideBrowserCredentials(ctx)
     ctx.provide('webServer', fakeHttpServer(routes, []) as WebServer)
-    /** 中文说明：当前测试场景使用的局部状态或中间值；变量 `fiber` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const fiber = ctx.plugin({ inject: [...inject], apply }, { trustedHosts: ['harness.example'] })
     await fiber.await()
-    /** 中文说明：当前场景驱动的连接或 API 测试对象；变量 `connection` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const connection = ctx.get('connection') as HostConnectionHandle
-    /** 中文说明：结束注册、订阅或异步等待的清理函数；变量 `remove` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const remove = connection.rpc.handle('/rpc', async (endpoint) => {
       if (endpoint === 'fail') throw new Error('handler broke')
       return { ok: true, value: null }
     })
-    /** 中文说明：当前装载过程收集或选中的 Web 路由；变量 `route` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const route = routes.find(candidate => candidate.path === '/rpc')!
     const harnessHeaders = {
       host: 'harness.example',
       cookie: browserCookie(connection, 'harness.example'),
     }
 
-    /** 中文说明：当前测试场景使用的局部状态或中间值；变量 `denied` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const denied = fakeResponse()
     await route.handler(fakePost({ host: 'other.example' }, '/rpc/goals/create', {}), denied.response)
     expect(denied.state).toMatchObject({ status: 403, body: 'forbidden' })
@@ -456,10 +403,9 @@ describe('connection node half', () => {
     }), methodMismatch.response)
     expect(JSON.parse(String(methodMismatch.state.body))).toMatchObject({
       rpcId: 'rpc-bad',
-      result: { ok: false, error: { code: 'bad-request' } },
+      result: { ok: false, error: { code: 'gateway/bad-request' } },
     })
 
-    /** 中文说明：当前场景构造或发出的请求对象；变量 `[request` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     for (const [request, status] of [
       [fakeRequest(harnessHeaders, '/rpc/goals/create'), 404],
       [fakePost(harnessHeaders, '/outside/goals/create', {}), 404],
@@ -468,28 +414,24 @@ describe('connection node half', () => {
       [fakeRawPost({ ...harnessHeaders, 'content-type': 'text/plain' }, '/rpc/goals/create', '{}'), 415],
       [fakeRawPost({ ...harnessHeaders, 'content-type': 'application/json; charset=utf-8' }, '/rpc/goals/create', '{'), 400],
     ] as const) {
-      /** 中文说明：当前操作得到的响应或结果，供后续断言；变量 `response` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
       const response = fakeResponse()
       await route.handler(request, response.response)
       expect(response.state.status).toBe(status)
     }
 
-    /** 中文说明：当前场景输入、传输或校验的数据；变量 `[body` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     for (const [body, rpcId] of [
       [{ rpcId: 'retained-id' }, 'retained-id'],
       [{ rpcId: 42 }, 'invalid-request'],
       [null, 'invalid-request'],
     ] as const) {
-      /** 中文说明：当前操作得到的响应或结果，供后续断言；变量 `response` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
       const response = fakeResponse()
       await route.handler(fakePost(harnessHeaders, '/rpc/goals/create', body), response.response)
       expect(JSON.parse(String(response.state.body))).toMatchObject({
         rpcId,
-        result: { ok: false, error: { code: 'bad-request' } },
+        result: { ok: false, error: { code: 'gateway/bad-request' } },
       })
     }
 
-    /** 中文说明：当前测试场景使用的局部状态或中间值；变量 `failed` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const failed = fakeResponse()
     await route.handler(fakePost(harnessHeaders, '/rpc/fail', {
       type: 'client-request', rpcId: 'rpc-fail', method: 'fail', payload: {},
@@ -507,14 +449,11 @@ describe('connection node half', () => {
 
 describe('connection node half over a real HTTP server', () => {
   /** Serve the registered prefix route from a real server and return its port. */
-  /* 中文说明：测试辅助函数 `serve`；参数含义见签名，返回值供当前场景驱动或断言；例如按下方测试调用方式使用。 */
   async function serve(routes: WebRoute[]): Promise<{ port: number; close: () => Promise<void> }> {
-    /** 中文说明：当前场景使用的临时宿主或服务器对象；变量 `server` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const server = createServer((request, response) => {
       void routes[0]!.handler(request, response)
     })
     await new Promise<void>(resolve => server.listen(0, '127.0.0.1', resolve))
-    /** 中文说明：当前测试场景使用的局部状态或中间值；变量 `address` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const address = server.address() as AddressInfo
     return {
       port: address.port,
@@ -530,7 +469,6 @@ describe('connection node half over a real HTTP server', () => {
   /** One real request; `host` spoofs the authority the way a LAN client's browser would send it. */
   function call(port: number, method: string, host: string, cookie?: string): Promise<number> {
     return new Promise((resolve, reject) => {
-      /** 中文说明：当前场景构造或发出的请求对象；变量 `request` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
       const request = httpRequest(
         {
           host: '127.0.0.1',

@@ -7,14 +7,6 @@
  * `ctx.subagents.startContinuable()`.
  * @module @deepseek-ai/dsh-tool-subagent
  */
-/*
- * 文件职责：实现 index.ts 覆盖的子代理工具行为与生命周期。
- * 技术维度：使用 TypeScript、Vitest、Cordis 插件、进程流、终端会话或快照规范化。
- * 产品维度：保障 Agent 的子代理工具能力稳定、可复现且可诊断。
- * 逻辑维度：准备输入和资源，执行核心流程，收集事件或输出，再处理错误与清理。
- * 关键边界：进程退出与取消可能竞态；外部输出不可信；清理必须等待子资源完全停止。
- * 新手阅读建议：先看类型和夹具，再读启动/收集主流程，最后关注平台差异、规范化和清理。
- */
 
 import type { Context } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
@@ -23,7 +15,7 @@ import { defineTool } from '@deepseek-ai/dsh-tools'
 import type { Agent, AgentOptions } from '@deepseek-ai/dsh-agent'
 import { ReasoningEffortId } from '@deepseek-ai/dsh-llm'
 import type { ContentBlock } from '@deepseek-ai/dsh-llm'
-import type { JsonValue } from '@deepseek-ai/dsh-session'
+import type { JsonValue } from '@deepseek-ai/dsh-util-values'
 import {
   assertSubagentMaxDepth,
   parentAgentOptionsForDelegation,
@@ -31,7 +23,6 @@ import {
 } from '@deepseek-ai/dsh-subagent'
 import type { SubagentProvider, SubagentResult, SubagentRun } from '@deepseek-ai/dsh-subagent'
 import type { JobOutcome } from '@deepseek-ai/dsh-jobs'
-import { FIRST_PARTY_SECTION_ORDER } from '@deepseek-ai/dsh-system-prompt'
 import {
   assertAllowedModelSelection,
   hasConfiguredLlmSelection,
@@ -44,19 +35,16 @@ import { registerListSubagentModels } from './list-models.ts'
 import type {} from './model-selection-settings.ts'
 import {
   recordSubagentModelSelection,
+  subagentModelSelectionProjectionDefinition,
   subagentModelSelectionPolicy,
 } from './model-selection-state.ts'
 
-/** 中文说明：变量 name 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 export const name = 'tool-subagent'
-/** 中文说明：变量 inject 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-export const inject = ['tools', 'subagents', 'systemPrompt']
+export const inject = ['tools', 'subagents', 'systemPrompt', 'sessionProjections']
 
 /** Prompt order after bounded delegation policy and before child reporting. */
-const SUBAGENT_SECTION_ORDER = FIRST_PARTY_SECTION_ORDER.TOOL_SUBAGENT
 
 /** Config: which registered provider this tool delegates to, plus child defaults. */
-/* 中文说明：interface Config 定义本模块所需的数据或行为，用于表达子代理工具场景。 */
 export interface Config {
   /** The `ctx.subagents` provider name to start runs on (e.g. `spawn`, `acp`). */
   provider: string
@@ -114,7 +102,6 @@ export interface Config {
   maxDepth?: number | 'provider-managed'
 }
 
-/** 中文说明：变量 Config 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 export const Config: z<Config> = z.object({
   provider: z.string().required(),
   toolName: z.string().default('subagent'),
@@ -143,7 +130,6 @@ export const Config: z<Config> = z.object({
 })
 
 /** Render text blocks from the canonical JSON block array without trusting arbitrary values. */
-/* 中文说明：函数 outputValueText 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function outputValueText(values: JsonValue[]): string {
   return values
     .filter((value): value is { type: 'text'; text: string } =>
@@ -154,7 +140,6 @@ function outputValueText(values: JsonValue[]): string {
 }
 
 /** Settle pending startup without rejecting the task producer contract. */
-/* 中文说明：函数 settleStart 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 async function settleStart(start: Promise<SubagentRun>, signal: AbortSignal): Promise<JobOutcome> {
   try {
     return await settleRun(await start)
@@ -168,7 +153,6 @@ async function settleStart(start: Promise<SubagentRun>, signal: AbortSignal): Pr
 }
 
 /** A non-`completed` stop reason means the child did not finish cleanly. */
-/* 中文说明：函数 stopReasonError 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function stopReasonError(result: SubagentResult): string | undefined {
   switch (result.stopReason) {
     case 'completed':
@@ -196,25 +180,20 @@ function stopReasonError(result: SubagentResult): string | undefined {
  * @param result - the child's terminal result.
  * @returns the headline, diagnostic, and partial text that are present.
  */
-/* 中文说明：函数 withDiagnosticAndPartialText 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function withDiagnosticAndPartialText(error: string, result: SubagentResult): string {
-  /** 中文说明：变量 diagnostic 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const diagnostic = result.diagnostic === undefined
     ? ''
     : `\nDiagnostic: ${result.diagnostic}`
-  /** 中文说明：变量 text 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const text = result.output
     .filter((block): block is Extract<ContentBlock, { type: 'text' }> => block.type === 'text')
     .map(block => block.text)
     .join('')
-  /** 中文说明：变量 partial 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const partial = text.length === 0
     ? ''
     : `\nPartial output before the run ended:\n${text}`
   return `${error}${diagnostic}${partial}`
 }
 
-/** 中文说明：type ForegroundToolResult 定义本模块所需的数据或行为，用于表达子代理工具场景。 */
 type ForegroundToolResult = {
   readonly kind: 'foreground'
   readonly runId: SubagentRun['id']
@@ -225,11 +204,9 @@ type ForegroundToolResult = {
  * Collect and release one foreground run without letting disposal replace an
  * independent result failure.
  */
-/* 中文说明：函数 settleForegroundRun 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 async function settleForegroundRun(run: SubagentRun): Promise<ForegroundToolResult> {
   const [execution] = await Promise.allSettled([
     run.result.then((result): ForegroundToolResult => {
-      /** 中文说明：变量 error 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const error = stopReasonError(result)
       if (error !== undefined) {
         // The registry converts this throw to isError; partial output is not
@@ -271,7 +248,6 @@ async function settleForegroundRun(run: SubagentRun): Promise<ForegroundToolResu
  *   scope, or authority inheritance.
  * @returns the tool `description` and the `prompt` parameter description.
  */
-/* 中文说明：函数 providerWording 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function providerWording(inheritsConversation: boolean): { description: string; promptDescription: string } {
   if (inheritsConversation) {
     return {
@@ -299,18 +275,15 @@ function providerWording(inheritsConversation: boolean): { description: string; 
   }
 }
 
-/** 中文说明：interface DelegationRunRequest 定义本模块所需的数据或行为，用于表达子代理工具场景。 */
 interface DelegationRunRequest {
   readonly run_in_background?: boolean
 }
 
-/** 中文说明：interface DelegationRunSpec 定义本模块所需的数据或行为，用于表达子代理工具场景。 */
 interface DelegationRunSpec {
   readonly runInBackground: boolean
 }
 
 /** Resolve the model's optional scheduling request into one execution route. */
-/* 中文说明：函数 resolveDelegationRun 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function resolveDelegationRun(
   request: DelegationRunRequest,
   options: { readonly backgroundEnabled: boolean; readonly continuable: boolean },
@@ -331,7 +304,6 @@ function resolveDelegationRun(
   }
 }
 
-/** 中文说明：函数 apply 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 export function apply(ctx: Context, config: Config): void {
   // Direct apply() bypasses Schemastery's numeric constraints. A direct-apply
   // omission stays capless (the schema default only runs through the loader).
@@ -340,14 +312,12 @@ export function apply(ctx: Context, config: Config): void {
   if (config.toolFilter !== undefined && config.toolFilter.allow === undefined && config.toolFilter.deny === undefined) {
     throw new Error('tool-subagent: `toolFilter` is configured but names neither `allow` nor `deny` — remove the key or fill the filter')
   }
-  /** 中文说明：变量 backgroundEnabled 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const backgroundEnabled = config.enableRunInBackground !== false
-  /** 中文说明：变量 continuable 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const continuable = (config.backgroundMode ?? 'one-shot') === 'continuable'
-  /** 中文说明：变量 toolName 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const toolName = config.toolName ?? 'subagent'
 
   const modelSelectionCapable = config.modelSelectionSettings === true
+  ctx.sessionProjections.register(subagentModelSelectionProjectionDefinition)
 
   const assertSubagentProviderConfiguration = (subagentProvider: SubagentProvider): void => {
     if (typeof config.maxDepth === 'number' && !subagentProvider.capabilities.depthLimit) {
@@ -621,7 +591,7 @@ export function apply(ctx: Context, config: Config): void {
       // absent, and the registration itself stays owned by this plugin fiber.
       runtimeCtx.systemPrompt.section({
         name: `tool:${toolName}`,
-        order: SUBAGENT_SECTION_ORDER,
+        order: runtimeCtx.systemPrompt.getSectionOrder('TOOL_SUBAGENT'),
         text: context => mounted === undefined || runtimeCtx.tools.get(toolName, context.scope) === undefined
           ? ''
           : `Use ${toolName} in the background by default. Start independent delegations together in one assistant message and continue useful work while they run. Set \`run_in_background: false\` only when your next action depends on that subagent's result. When a background run settles, the runtime sends you a notice containing its outcome and any final assistant message.`,
@@ -647,20 +617,24 @@ export function apply(ctx: Context, config: Config): void {
   }
 
   const selectForAgent = (agent: NonNullable<Context['agent']>): ModelSelectionPolicy | undefined => {
-    let allowedModels = subagentModelSelectionPolicy(agent.session)
+    let allowedModels = subagentModelSelectionPolicy(ctx.sessionProjections, agent.session)
     if (allowedModels === undefined) {
       const parentId = agent.session.header.origin === 'subagent'
         ? agent.session.header.parentSession
         : undefined
       if (parentId !== undefined) {
         const parent = ctx.get('agents')?.get(parentId)
-        allowedModels = parent === undefined ? undefined : subagentModelSelectionPolicy(parent.session)
+        allowedModels = parent === undefined
+          ? undefined
+          : subagentModelSelectionPolicy(ctx.sessionProjections, parent.session)
       } else if (agent.session.firstLiveSeq === 0) {
         const current = settings.current()
         allowedModels = current.enabled ? current.allowedModels : undefined
       }
     }
-    if (allowedModels !== undefined) recordSubagentModelSelection(agent.session, allowedModels)
+    if (allowedModels !== undefined) {
+      recordSubagentModelSelection(ctx.sessionProjections, agent.session, allowedModels)
+    }
     return allowedModels === undefined ? undefined : { routes: allowedModels }
   }
 

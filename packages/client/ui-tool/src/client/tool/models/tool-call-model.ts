@@ -1,23 +1,9 @@
-/*
- * ================================ 文件注释 ================================
- * 【文件职责】工具摘要行的纯行模型推导：从冻结调用切片做变体分类、单行摘要、
- *             展开体文本与扁平化结果输出。
- * 【技术维度】纯派生函数：输入材料来自调用参数（args），输出/错误材料来自已结算
- *             的结果节点；终端卡片的展开体由 views 经 terminalCardModel 提供。
- * 【产品维度】对话中工具调用行的标题/摘要/路径/展开体/结果与状态点。
- * 【逻辑维度】classifyTool 分类 → deriveSummary/deriveFilePath/deriveBody 各维度
- *             → toolRowModel 装配完整行模型。
- * 【关键边界】cordis_define 刻意缺席（ui-cordis 的键控条目替换通用行）；
- *             摘要按变体挑选键、带工作区根与 HOME 缩写。
- * 【新手阅读建议】先看 TOOL_VARIANTS 分类表，再读 toolRowModel 的装配顺序。
- * ==========================================================================
- */
 /**
  * Pure row-model derivation for tool summary rows: variant classification,
- * one-line summary, expanded-body text, and flattened result output from the
- * frozen call slice. Input material comes from the call ARGUMENTS; output and
- * error material from the settled result node. A supported terminal call gets
- * its expanded body from `terminalCardModel` instead.
+ * one-line summary, expansion-time body input, and flattened result output
+ * from the frozen call slice. Input material comes from the call ARGUMENTS;
+ * output and error material from the settled result node. A supported terminal
+ * call gets its expanded body from `terminalCardModel` instead.
  */
 // The block union's defining home is runtime (fold-product types); this
 // contract only forwards it (type-definition authority stays with the layer
@@ -106,8 +92,8 @@ export interface ToolRowModel {
    * relative values against the session cwd before opening.
    */
   filePath: string | undefined
-  /** Expanded-body input text (pretty args); null = no input section. */
-  body: string | null
+  /** Original argument JSON retained for expansion-time body formatting. */
+  bodyRaw: string | null
   /** Flattened result text ({@link resultText}); null while running or when the result carries no text. */
   output: string | null
   /** First line of the result text on an error row; null for every other state. */
@@ -210,7 +196,13 @@ function deriveFilePath(variant: ToolRowVariant, argsRaw: string): string | unde
   return picked === undefined ? undefined : firstLine(picked)
 }
 
-function deriveBody(variant: ToolRowVariant, argsRaw: string): string | null {
+/**
+ * Format one argument payload when its generic input body becomes visible.
+ * @param variant - row presentation selected for the Tool name.
+ * @param argsRaw - original argument JSON or incomplete raw text.
+ * @returns display body, or null for empty input.
+ */
+export function formatToolBody(variant: ToolRowVariant, argsRaw: string): string | null {
   if (argsRaw === '') return null
   const parsed = parseArgs(argsRaw)
   if (parsed === undefined) return argsRaw
@@ -252,12 +244,13 @@ export function toolRowModel(toolName: string, block: ToolCallBlock, cwd?: strin
   // would erase the collapsed error row's summary slot.
   const output = done ? (resultText(block) || null) : null
   const errorSummary = state === 'error' && output !== null ? firstLine(output) : null
+  const bodyRaw = argsRaw === '' ? null : argsRaw
   return {
     variant,
     titleKey: toolTitleKey ?? VARIANT_TITLE_KEYS[variant],
     summary,
     filePath: deriveFilePath(variant, argsRaw),
-    body: deriveBody(variant, argsRaw),
+    bodyRaw,
     output,
     errorSummary,
     state,

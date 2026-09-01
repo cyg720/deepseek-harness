@@ -6,14 +6,6 @@
  * a session log cannot reconstruct them alone.
  * @module @deepseek-ai/dsh-llm-replay
  */
-/*
- * 文件职责：实现 index.ts 覆盖的LLM 测试替身行为与测试协作。
- * 技术维度：使用 TypeScript、Vitest、Cordis 插件、快照、模拟服务器或类型生成。
- * 产品维度：通过可复现的LLM 测试替身能力保障 Agent 功能在集成层稳定。
- * 逻辑维度：准备夹具或输入，执行装载/生成/调用流程，再规范化并核对结果。
- * 关键边界：夹具必须确定且跨平台；模型可见状态应可重放；临时资源必须释放。
- * 新手阅读建议：先看导出类型和夹具，再读主流程，最后关注规范化、失败和清理。
- */
 
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { delimiter as pathDelimiter } from 'node:path'
@@ -34,9 +26,9 @@ import type {
   StreamChunk,
   TokenUsage,
 } from '@deepseek-ai/dsh-llm'
-import { LlmAdapter, LlmError, ReasoningEffortId, assertNever, requestImageHandleText, resolveRetryPolicy } from '@deepseek-ai/dsh-llm'
+import { LlmAdapter, LlmError, ReasoningEffortId, requestImageHandleText, resolveRetryPolicy } from '@deepseek-ai/dsh-llm'
+import { assertNever } from '@deepseek-ai/dsh-util-values'
 
-/** 中文说明：常量 PACKED_CHUNK_ROW_TYPES 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const PACKED_CHUNK_ROW_TYPES = new Set(['text-chunks', 'reasoning-chunks', 'tool-call-chunks'])
 
 /**
@@ -45,7 +37,6 @@ const PACKED_CHUNK_ROW_TYPES = new Set(['text-chunks', 'reasoning-chunks', 'tool
  * streams and complete outputs of explicitly marked local compaction calls;
  * an override sidecar can supply any variant.
  */
-/* 中文说明：type ReplayEntry 定义本模块所需的数据或行为，用于表达LLM 测试替身场景。 */
 export type ReplayEntry =
   | { kind: 'chunks'; chunks: StreamChunk[] }
   | { kind: 'throw'; chunks: StreamChunk[]; message: string; code: string; accepted?: boolean }
@@ -56,7 +47,6 @@ export type ReplayEntry =
   }
 
 /** One model exposed by a replay-only provider catalog. */
-/* 中文说明：interface ReplayModelConfig 定义本模块所需的数据或行为，用于表达LLM 测试替身场景。 */
 export interface ReplayModelConfig {
   /** Model id used for replay requests. */
   id: string
@@ -92,7 +82,6 @@ export interface ReplayModelConfig {
 }
 
 /** One provider route exposed by the replay adapter. */
-/* 中文说明：interface ReplayProviderConfig 定义本模块所需的数据或行为，用于表达LLM 测试替身场景。 */
 export interface ReplayProviderConfig {
   /** Provider route used for replay requests. */
   id: string
@@ -105,7 +94,6 @@ export interface ReplayProviderConfig {
 }
 
 /** Resolved plugin configuration. */
-/* 中文说明：interface ReplayConfig 定义本模块所需的数据或行为，用于表达LLM 测试替身场景。 */
 export interface ReplayConfig {
   /**
    * Path to the PRIMARY (parent) `session.jsonl` fixture. For a single-session
@@ -151,7 +139,6 @@ export interface ReplayConfig {
  * issued fewer calls than recorded, or never bound a recorded child script)
  * into a crisp diagnostic at teardown.
  */
-/* 中文说明：interface ReplayHandle 定义本模块所需的数据或行为，用于表达LLM 测试替身场景。 */
 export interface ReplayHandle {
   /** Remove the registered adapter or waterfall listener (HMR safety). Freestanding closure — safe to destructure. */
   dispose(this: void): void
@@ -167,7 +154,6 @@ export interface ReplayHandle {
  * Recorded calls plus header facts used to order parent and child scripts.
  * Recorded ids are diagnostic; fresh live ids bind by ordered first use.
  */
-/* 中文说明：interface SessionScript 定义本模块所需的数据或行为，用于表达LLM 测试替身场景。 */
 export interface SessionScript {
   /** The recorded session id (diagnostics only — the live id differs). */
   recordedId: string
@@ -192,29 +178,19 @@ export interface SessionScript {
  * @param text - the raw `.jsonl` file contents.
  * @returns every event after the header, in log order.
  */
-/*
- * 中文说明：函数 parseSessionLog 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。
- * @param text 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
- * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
- */
 export function parseSessionLog(text: string): SessionEvent[] {
-  /** 中文说明：变量 events 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const events: SessionEvent[] = []
-  /** 中文说明：变量 nextSeq 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   let nextSeq = 0
-  /** 中文说明：变量 headerSkipped 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   let headerSkipped = false
   // The JSONL backend guarantees line 0 is the session header. Projected
   // fixtures omit event envelopes; synthesize them while decoding so callers
   // still receive complete SessionEvent values.
-  /** 中文说明：该循环依次处理夹具或生成数据；循环变量仅在当前循环中有效。 */
   for (const [index, line] of text.split(/\r?\n/).entries()) {
     if (line.trim().length === 0) continue
     if (!headerSkipped) {
       headerSkipped = true
       continue
     }
-    /** 中文说明：变量 value 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     let value: unknown
     try {
       value = JSON.parse(line) as unknown
@@ -224,17 +200,12 @@ export function parseSessionLog(text: string): SessionEvent[] {
     if (value === null || typeof value !== 'object' || Array.isArray(value)) {
       throw new Error(`session snapshot line ${index + 1} must be a JSON object`)
     }
-    /** 中文说明：变量 record 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const record = value as Record<string, unknown>
-    /** 中文说明：变量 packed 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const packed = PACKED_CHUNK_ROW_TYPES.has(record.type as string)
-    /** 中文说明：变量 seqKey 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const seqKey = packed ? 'seq0' : 'seq'
-    /** 中文说明：变量 timeKey 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const timeKey = packed ? 'time0' : 'time'
     if (!Object.hasOwn(record, seqKey)) record[seqKey] = nextSeq
     if (!Object.hasOwn(record, timeKey)) record[timeKey] = 0
-    /** 中文说明：变量 decoded 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     let decoded: SessionEvent[]
     try {
       if (Object.hasOwn(record, 'sourceEventSeqs')) {
@@ -242,7 +213,6 @@ export function parseSessionLog(text: string): SessionEvent[] {
       }
       decoded = decodeStorageRecord(record)
     } catch (error) {
-      /** 中文说明：变量 detail 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       /* v8 ignore next -- decodeStorageRecord only throws Error instances; the String arm satisfies unknown narrowing. */
       const detail = error instanceof Error ? error.message : String(error)
       throw new Error(`session snapshot line ${index + 1}: ${detail}`, { cause: error })
@@ -259,15 +229,8 @@ export function parseSessionLog(text: string): SessionEvent[] {
  * @param text - the raw `.jsonl` file contents (only the header line is read).
  * @returns the header's `id`, `createdAt`, and `seedLength`, defaulted when absent.
  */
-/*
- * 中文说明：函数 parseSessionHeader 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。
- * @param text 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
- * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
- */
 export function parseSessionHeader(text: string): { id: string; createdAt: number; seedLength: number } {
-  /** 中文说明：函数值 firstLine 封装本模块的局部步骤；参数和返回值由右侧签名约束；示例见本模块调用。 */
   const firstLine = text.split('\n').find(line => line.trim().length > 0) ?? '{}'
-  /** 中文说明：变量 parsed 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const parsed = JSON.parse(firstLine) as { id?: unknown; createdAt?: unknown; seedLength?: unknown }
   return {
     id: typeof parsed.id === 'string' ? parsed.id : '',
@@ -289,19 +252,10 @@ export function parseSessionHeader(text: string): { id: string; createdAt: numbe
  * @param events - the recorded session's events.
  * @returns one `chunks` entry per recorded model call, in call order.
  */
-/*
- * 中文说明：函数 deriveReplayScript 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。
- * @param events 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
- * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
- */
 export function deriveReplayScript(events: SessionEvent[]): ReplayEntry[] {
-  /** 中文说明：变量 script 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const script: ReplayEntry[] = []
-  /** 中文说明：变量 currentKey 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   let currentKey: string | undefined
-  /** 中文说明：变量 current 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   let current: StreamChunk[] = []
-  /** 中文说明：函数值 close 封装本模块的局部步骤；参数和返回值由右侧签名约束；示例见本模块调用。 */
   const close = (key: string | undefined, chunks: StreamChunk[]): void => {
     if (chunks.length === 0) return
     if (chunks[chunks.length - 1]?.type !== 'finish') {
@@ -312,7 +266,6 @@ export function deriveReplayScript(events: SessionEvent[]): ReplayEntry[] {
     }
     script.push({ kind: 'chunks', chunks })
   }
-  /** 中文说明：该循环依次处理夹具或生成数据；循环变量仅在当前循环中有效。 */
   for (const event of events) {
     if (event.type === 'compaction/summary') {
       close(currentKey, current)
@@ -320,7 +273,6 @@ export function deriveReplayScript(events: SessionEvent[]): ReplayEntry[] {
       current = []
       // JSONL decoding crosses an untyped durable boundary, so retain its wider
       // shape even though current in-process producers enforce this correlation.
-      /** 中文说明：变量 persisted 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const persisted: {
         readonly llmStreamCall?: true
         readonly rawOutput?: ContentBlock[]
@@ -330,9 +282,7 @@ export function deriveReplayScript(events: SessionEvent[]): ReplayEntry[] {
         if (persisted.rawOutput === undefined) {
           throw new Error('llm-replay: compaction/summary marks an LLM stream call without rawOutput')
         }
-        /** 中文说明：变量 chunks 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
         const chunks: StreamChunk[] = []
-        /** 中文说明：该循环依次处理夹具或生成数据；循环变量仅在当前循环中有效。 */
         for (const [index, block] of persisted.rawOutput.entries()) {
           chunks.push({ type: 'block-start', index, blockType: block.type })
           chunks.push({ type: 'block-end', index, block })
@@ -345,7 +295,6 @@ export function deriveReplayScript(events: SessionEvent[]): ReplayEntry[] {
     }
     if (event.type !== 'assistant/chunk') continue
     const { turn, step, chunk } = event.data
-    /** 中文说明：变量 key 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const key = `${turn}/${step}`
     if (current.length > 0 && key !== currentKey) {
       close(currentKey, current)
@@ -368,7 +317,6 @@ export function deriveReplayScript(events: SessionEvent[]): ReplayEntry[] {
  * equals the derived length (an extra recorded-after-the-fact call, e.g. the
  * retry attempt following an injected transient throw).
  */
-/* 中文说明：interface ReplayOverridePatch 定义本模块所需的数据或行为，用于表达LLM 测试替身场景。 */
 export interface ReplayOverridePatch {
   /** 0-based call index into the derived script; == length appends. */
   at: number
@@ -382,10 +330,8 @@ export interface ReplayOverridePatch {
  * the JSONL-derived script and swaps only the named call indexes — the shape
  * for "turn N errors, everything else replays as recorded".
  */
-/* 中文说明：type ReplayOverrideDoc 定义本模块所需的数据或行为，用于表达LLM 测试替身场景。 */
 export type ReplayOverrideDoc = ReplayEntry[] | { patches: ReplayOverridePatch[] }
 
-/** 中文说明：常量 REPLAY_CHUNK_TYPES 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const REPLAY_CHUNK_TYPES = new Set<StreamChunk['type']>([
   'block-start',
   'text-delta',
@@ -396,33 +342,26 @@ const REPLAY_CHUNK_TYPES = new Set<StreamChunk['type']>([
   'finish',
 ])
 
-/** 中文说明：常量 FROM_REQUEST_OPEN 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const FROM_REQUEST_OPEN = '{{fromRequest:'
-/** 中文说明：常量 FROM_REQUEST_CLOSE 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const FROM_REQUEST_CLOSE = '}}'
 
 /** Collect every string leaf of one JSON-compatible value, in traversal order. */
-/* 中文说明：函数 collectStrings 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function collectStrings(value: unknown, out: string[]): void {
   if (typeof value === 'string') {
     out.push(value)
     return
   }
   if (Array.isArray(value)) {
-    /** 中文说明：该循环依次处理夹具或生成数据；循环变量仅在当前循环中有效。 */
     for (const item of value) collectStrings(item, out)
     return
   }
   if (value !== null && typeof value === 'object') {
-    /** 中文说明：该循环依次处理夹具或生成数据；循环变量仅在当前循环中有效。 */
     for (const item of Object.values(value)) collectStrings(item, out)
   }
 }
 
 /** Resolve one placeholder pattern against the request corpus; the LAST match wins. */
-/* 中文说明：函数 resolveFromRequest 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function resolveFromRequest(pattern: string, corpus: string): string {
-  /** 中文说明：变量 regex 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   let regex: RegExp
   try {
     regex = new RegExp(pattern, 'g')
@@ -430,9 +369,7 @@ function resolveFromRequest(pattern: string, corpus: string): string {
     // RegExp construction only throws SyntaxError; String() carries its message.
     throw new Error(`llm-replay: fromRequest has an invalid pattern ${JSON.stringify(pattern)}: ${String(error)}`)
   }
-  /** 中文说明：变量 last 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   let last: RegExpExecArray | undefined
-  /** 中文说明：该循环依次处理夹具或生成数据；循环变量仅在当前循环中有效。 */
   for (const match of corpus.matchAll(regex)) last = match
   if (last === undefined) {
     throw new Error(`llm-replay: fromRequest pattern ${JSON.stringify(pattern)} matched nothing in the request`)
@@ -441,17 +378,12 @@ function resolveFromRequest(pattern: string, corpus: string): string {
 }
 
 /** Replace every `{{fromRequest:<pattern>}}` occurrence in one scripted string. */
-/* 中文说明：函数 substituteString 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function substituteString(text: string, corpus: string): string {
-  /** 中文说明：变量 result 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   let result = ''
-  /** 中文说明：变量 cursor 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   let cursor = 0
   while (true) {
-    /** 中文说明：变量 open 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const open = text.indexOf(FROM_REQUEST_OPEN, cursor)
     if (open === -1) return result + text.slice(cursor)
-    /** 中文说明：变量 close 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     let close = text.indexOf(FROM_REQUEST_CLOSE, open + FROM_REQUEST_OPEN.length)
     if (close === -1) {
       throw new Error(`llm-replay: fromRequest placeholder is unterminated in ${JSON.stringify(text)}`)
@@ -459,7 +391,6 @@ function substituteString(text: string, corpus: string): string {
     // The last two braces of a consecutive `}` run terminate the placeholder,
     // so a pattern may end with a brace quantifier like `[0-9a-f]{4}`.
     while (text[close + FROM_REQUEST_CLOSE.length] === '}') close += 1
-    /** 中文说明：变量 pattern 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const pattern = text.slice(open + FROM_REQUEST_OPEN.length, close)
     result += text.slice(cursor, open) + resolveFromRequest(pattern, corpus)
     cursor = close + FROM_REQUEST_CLOSE.length
@@ -467,7 +398,6 @@ function substituteString(text: string, corpus: string): string {
 }
 
 /** Deep-copy one JSON-compatible value with scripted placeholders resolved. */
-/* 中文说明：函数 substituteValue 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function substituteValue(value: unknown, corpus: string): unknown {
   if (typeof value === 'string') {
     return value.includes(FROM_REQUEST_OPEN) ? substituteString(value, corpus) : value
@@ -495,15 +425,8 @@ function substituteValue(value: unknown, corpus: string): unknown {
  * @param messages - the live request messages searched by the placeholders.
  * @returns the entry itself when no placeholder appears, else a resolved deep copy.
  */
-/*
- * 中文说明：函数 resolveScriptedEntry 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。
- * @param entry 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
- * @param messages 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
- * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
- */
 export function resolveScriptedEntry(entry: ReplayEntry, messages: GenerateOptions['messages']): ReplayEntry {
   if (!JSON.stringify(entry).includes(FROM_REQUEST_OPEN)) return entry
-  /** 中文说明：变量 leaves 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const leaves: string[] = []
   collectStrings(messages, leaves)
   return substituteValue(entry, leaves.join('\n')) as ReplayEntry
@@ -554,20 +477,16 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
 
-/** 中文说明：函数 hasExactKeys 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function hasExactKeys(value: Record<string, unknown>, keys: readonly string[]): boolean {
   return Object.keys(value).length === keys.length && keys.every(key => Object.hasOwn(value, key))
 }
 
-/** 中文说明：函数 invalidOverride 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function invalidOverride(file: string, location: string, detail: string): never {
   throw new Error(`llm-replay: invalid override ${file}: ${location} ${detail}`)
 }
 
-/** 中文说明：函数 readChunks 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function readChunks(value: unknown, file: string, location: string): StreamChunk[] {
   if (!Array.isArray(value)) invalidOverride(file, location, 'chunks must be an array')
-  /** 中文说明：该循环依次处理夹具或生成数据；循环变量仅在当前循环中有效。 */
   for (const [index, chunk] of value.entries()) {
     if (!isRecord(chunk)
       || typeof chunk['type'] !== 'string'
@@ -578,7 +497,6 @@ function readChunks(value: unknown, file: string, location: string): StreamChunk
   return value as StreamChunk[]
 }
 
-/** 中文说明：函数 readReplayEntry 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function readReplayEntry(value: unknown, file: string, location: string): ReplayEntry {
   if (!isRecord(value)) invalidOverride(file, location, 'must be an object')
   switch (value['kind']) {
@@ -612,9 +530,7 @@ function readReplayEntry(value: unknown, file: string, location: string): Replay
       }
     }
     case 'hang': {
-      /** 中文说明：变量 readyFile 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const readyFile = value['readyFile']
-      /** 中文说明：变量 keys 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const keys = readyFile === undefined ? ['kind'] : ['kind', 'readyFile']
       if (!hasExactKeys(value, keys)) invalidOverride(file, location, 'has invalid hang-entry fields')
       if (readyFile !== undefined && (typeof readyFile !== 'string' || readyFile.length === 0)) {
@@ -627,7 +543,6 @@ function readReplayEntry(value: unknown, file: string, location: string): Replay
   }
 }
 
-/** 中文说明：函数 readOverrideDoc 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function readOverrideDoc(value: unknown, file: string): ReplayOverrideDoc {
   if (Array.isArray(value)) return value.map((entry, index) => readReplayEntry(entry, file, `entry ${index}`))
   if (!isRecord(value) || !hasExactKeys(value, ['patches']) || !Array.isArray(value['patches'])) {
@@ -635,12 +550,10 @@ function readOverrideDoc(value: unknown, file: string): ReplayOverrideDoc {
   }
   return {
     patches: value['patches'].map((value, index): ReplayOverridePatch => {
-      /** 中文说明：变量 location 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const location = `patch ${index}`
       if (!isRecord(value) || !hasExactKeys(value, ['at', 'entry'])) {
         return invalidOverride(file, location, 'must contain exactly at and entry')
       }
-      /** 中文说明：变量 at 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const at = value['at']
       if (typeof at !== 'number' || !Number.isSafeInteger(at) || at < 0) {
         return invalidOverride(file, location, 'at must be a non-negative safe integer')
@@ -658,23 +571,13 @@ function readOverrideDoc(value: unknown, file: string): ReplayOverrideDoc {
  * @param config - the fixture paths; only `file` and `overrideFile` are consulted.
  * @returns the resolved primary-session script.
  */
-/*
- * 中文说明：函数 loadReplayScript 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。
- * @param config 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
- * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
- */
 export function loadReplayScript(config: ReplayConfig): ReplayEntry[] {
   if (config.overrideFile !== undefined && existsSync(config.overrideFile)) {
-    /** 中文说明：变量 doc 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const doc = readOverrideDoc(JSON.parse(readFileSync(config.overrideFile, 'utf8')) as unknown, config.overrideFile)
     if (Array.isArray(doc)) return doc
-    /** 中文说明：变量 script 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const script = deriveScriptFromFile(config.file)
-    /** 中文说明：变量 derivedLength 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const derivedLength = script.length
-    /** 中文说明：变量 seenIndexes 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const seenIndexes = new Set<number>()
-    /** 中文说明：该循环依次处理夹具或生成数据；循环变量仅在当前循环中有效。 */
     for (const patch of doc.patches) {
       if (patch.at > derivedLength) {
         throw new Error(
@@ -694,7 +597,6 @@ export function loadReplayScript(config: ReplayConfig): ReplayEntry[] {
 }
 
 /** Derive the primary script from the session JSONL, failing loud on a missing fixture. */
-/* 中文说明：函数 deriveScriptFromFile 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function deriveScriptFromFile(file: string): ReplayEntry[] {
   if (!existsSync(file)) {
     throw new Error(`llm-replay: fixture not found: ${file} — run \`pnpm run test:snapshot:record\` first`)
@@ -709,39 +611,26 @@ function deriveScriptFromFile(file: string): ReplayEntry[] {
  * @param config - the fixture paths: the primary log plus any recorded child logs.
  * @returns the primary script first, then the child scripts in bind order.
  */
-/*
- * 中文说明：函数 loadSessionScripts 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。
- * @param config 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
- * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
- */
 export function loadSessionScripts(config: ReplayConfig): SessionScript[] {
-  /** 中文说明：变量 primaryEntries 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const primaryEntries = loadReplayScript(config)
   // The override path replaces the derived script but carries no header; read
   // the header off the JSONL when it exists, else use a stable default so an
   // override-only fixture (header-less) still orders first as the primary.
-  /** 中文说明：变量 primaryHeader 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const primaryHeader = existsSync(config.file)
     ? parseSessionHeader(readFileSync(config.file, 'utf8'))
     : { id: '', createdAt: 0 }
-  /** 中文说明：变量 primary 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const primary: SessionScript = {
     recordedId: primaryHeader.id, createdAt: primaryHeader.createdAt, entries: primaryEntries, primary: true,
   }
-  /** 中文说明：变量 children 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const children: SessionScript[] = []
-  /** 中文说明：该循环依次处理夹具或生成数据；循环变量仅在当前循环中有效。 */
   for (const childFile of config.childFiles ?? []) {
     if (!existsSync(childFile)) {
       throw new Error(`llm-replay: child fixture not found: ${childFile} — re-record the scenario`)
     }
-    /** 中文说明：变量 text 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const text = readFileSync(childFile, 'utf8')
-    /** 中文说明：变量 header 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const header = parseSessionHeader(text)
     // Derive the child's script from its own events only — events AT OR after the seed
     // boundary.
-    /** 中文说明：变量 ownEvents 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ownEvents = parseSessionLog(text).slice(header.seedLength)
     children.push({
       recordedId: header.id,
@@ -757,7 +646,6 @@ export function loadSessionScripts(config: ReplayConfig): SessionScript[] {
 }
 
 /** Replay adapter that makes a configured provider catalog discoverable without provider I/O. */
-/* 中文说明：class ReplayAdapter 定义本模块所需的数据或行为，用于表达LLM 测试替身场景。 */
 class ReplayAdapter extends LlmAdapter {
   private readonly providers: ReadonlyMap<string, ReplayProviderConfig>
 
@@ -770,7 +658,6 @@ class ReplayAdapter extends LlmAdapter {
   }
 
   override providerInfo(provider: string): LlmProviderInfo {
-    /** 中文说明：变量 configured 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const configured = this.providers.get(provider)
     /* v8 ignore next -- LlmRuntime only asks about routes registered from this same map. */
     if (configured === undefined) return super.providerInfo(provider)
@@ -778,7 +665,6 @@ class ReplayAdapter extends LlmAdapter {
   }
 
   override providerRetryPolicy(provider: string): ResolvedRetryPolicy | undefined {
-    /** 中文说明：变量 configured 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const configured = this.providers.get(provider)
     /* v8 ignore next -- LlmRuntime only asks about routes registered from this same map. */
     if (configured === undefined) return super.providerRetryPolicy(provider)
@@ -800,7 +686,6 @@ class ReplayAdapter extends LlmAdapter {
   }
 
   override listModels(provider: string): Promise<readonly LlmModelInfo[]> {
-    /** 中文说明：变量 configured 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const configured = this.providers.get(provider)
     /* v8 ignore next -- LlmRuntime only asks about routes registered from this same map. */
     if (configured === undefined) return Promise.resolve([])
@@ -814,11 +699,9 @@ class ReplayAdapter extends LlmAdapter {
   }
 
   override resolveModel(provider: string, model: string): Promise<LlmResolvedModelInfo> {
-    /** 中文说明：变量 configured 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const configured = this.providers.get(provider)
     /* v8 ignore next -- LlmRuntime only asks about routes registered from this same map. */
     if (configured === undefined) return Promise.resolve({ provider, id: model, name: model })
-    /** 中文说明：函数值 configuredModel 封装本模块的局部步骤；参数和返回值由右侧签名约束；示例见本模块调用。 */
     const configuredModel = configured.models?.find(candidate => candidate.id === model)
     return Promise.resolve({
       provider,
@@ -857,15 +740,12 @@ class ReplayAdapter extends LlmAdapter {
  * moment the signal fires — a paced replay must cancel as promptly as a burst
  * one.
  */
-/* 中文说明：函数 paceDelay 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function paceDelay(paceMs: number, signal: AbortSignal | undefined): Promise<void> {
   return new Promise<void>((resolve, reject) => {
-    /** 中文说明：函数值 timer 封装本模块的局部步骤；参数和返回值由右侧签名约束；示例见本模块调用。 */
     const timer = setTimeout(() => {
       signal?.removeEventListener('abort', onAbort)
       resolve()
     }, paceMs)
-    /** 中文说明：函数值 onAbort 封装本模块的局部步骤；参数和返回值由右侧签名约束；示例见本模块调用。 */
     const onAbort = (): void => {
       clearTimeout(timer)
       reject(new Error('aborted'))
@@ -878,7 +758,6 @@ function paceDelay(paceMs: number, signal: AbortSignal | undefined): Promise<voi
 async function* replayEntry(entry: ReplayEntry, signal: AbortSignal | undefined, paceMs: number): AsyncIterable<StreamChunk> {
   switch (entry.kind) {
     case 'chunks':
-      /** 中文说明：该循环依次处理夹具或生成数据；循环变量仅在当前循环中有效。 */
       for (const chunk of entry.chunks) {
         if (signal?.aborted) throw new Error('aborted')
         if (paceMs > 0) await paceDelay(paceMs, signal)
@@ -890,7 +769,6 @@ async function* replayEntry(entry: ReplayEntry, signal: AbortSignal | undefined,
       // streamed before it threw (so the loop sees the same partial output it
       // saw live), then throw the recorded error (e.g. a provider 401, or a
       // mid-stream STREAM_CLOSED after partial chunks).
-      /** 中文说明：该循环依次处理夹具或生成数据；循环变量仅在当前循环中有效。 */
       for (const chunk of entry.chunks) {
         if (signal?.aborted) throw new Error('aborted')
         if (paceMs > 0) await paceDelay(paceMs, signal)
@@ -940,39 +818,24 @@ function providerAccepted(entry: ReplayEntry): boolean {
  * @param config - the resolved fixture paths (env-var defaulting is `apply`'s job).
  * @returns the {@link ReplayHandle} carrying the disposer and the teardown consumption check.
  */
-/*
- * 中文说明：函数 installLlmReplay 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。
- * @param ctx 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
- * @param config 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
- * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
- */
 export function installLlmReplay(ctx: Context, config: ReplayConfig): ReplayHandle {
-  /** 中文说明：变量 paceMs 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const paceMs = config.paceMs ?? 0
   if (!Number.isInteger(paceMs) || paceMs < 0) {
     throw new Error(`llm-replay: paceMs must be a non-negative integer, got ${String(config.paceMs)}`)
   }
-  /** 中文说明：变量 scripts 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const scripts = loadSessionScripts(config)
   // Live-session → its bound script + cursor. A new live session id claims the
   // next not-yet-bound script (scripts are in bind order); `nextScript` is the
   // index of the next unclaimed one.
-  /** 中文说明：变量 bound 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const bound = new Map<string, { entries: ReplayEntry[]; cursor: number }>()
   const liveSessionIds: (string | undefined)[] = Array.from({ length: scripts.length })
   let nextScript = 0
-  /** 中文说明：常量 ANON 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
   const ANON = '\0anon\0' // the key for a call that carries no sessionId
-  /** 中文说明：函数值 replay 封装本模块的局部步骤；参数和返回值由右侧签名约束；示例见本模块调用。 */
   const replay = (options: GenerateOptions): AsyncIterable<StreamChunk> => {
-    /** 中文说明：变量 key 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const key = options.sessionId ?? ANON
-    /** 中文说明：变量 state 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     let state = bound.get(key)
-    /** 中文说明：变量 unrecorded 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     let unrecorded = false
     if (state === undefined) {
-      /** 中文说明：变量 script 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const script = scripts[nextScript]
       if (script === undefined) {
         // More distinct live sessions made calls than the scenario recorded —
@@ -988,15 +851,10 @@ export function installLlmReplay(ctx: Context, config: ReplayConfig): ReplayHand
         if (key !== ANON) liveSessionIds[scriptIndex] = key
       }
     }
-    /** 中文说明：变量 boundState 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const boundState = state
-    /** 中文说明：变量 seenSessions 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const seenSessions = nextScript
-    /** 中文说明：变量 totalScripts 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const totalScripts = scripts.length
-    /** 中文说明：变量 index 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const index = boundState.cursor++
-    /** 中文说明：变量 entry 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const entry: ReplayEntry | undefined = boundState.entries[index]
     return (async function* () {
       if (unrecorded) {
@@ -1030,24 +888,19 @@ export function installLlmReplay(ctx: Context, config: ReplayConfig): ReplayHand
       yield* replayEntry(resolved, options.signal, paceMs)
     })()
   }
-  /** 中文说明：变量 providers 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const providers = config.providers ?? []
-  /** 中文说明：变量 dispose 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const dispose = providers.length > 0
     ? ctx.llm.registerAdapter(providers.map(provider => provider.id), new ReplayAdapter(providers, replay))
     : ctx.on('llm/stream', (options: GenerateOptions, _next) => replay(options))
   return {
     dispose,
     assertConsumed(): void {
-      /** 中文说明：变量 problems 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const problems: string[] = []
       if (nextScript < scripts.length) {
         problems.push(`${scripts.length - nextScript} recorded script(s) never bound to a live session`)
       }
-      /** 中文说明：该循环依次处理夹具或生成数据；循环变量仅在当前循环中有效。 */
       for (const [key, state] of bound) {
         if (state.cursor < state.entries.length) {
-          /** 中文说明：变量 who 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
           const who = key === ANON ? 'the anonymous session' : `session ${key}`
           problems.push(`${who} consumed ${state.cursor}/${state.entries.length} recorded call(s)`)
         }
@@ -1059,13 +912,10 @@ export function installLlmReplay(ctx: Context, config: ReplayConfig): ReplayHand
   }
 }
 
-/** 中文说明：变量 name 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 export const name = 'llm-replay'
-/** 中文说明：变量 inject 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 export const inject = ['llm']
 
 /** Plugin config: the {@link ReplayConfig} inputs, each defaulting to its `DSH_SNAPSHOT_*` env var in `apply`. */
-/* 中文说明：interface Config 定义本模块所需的数据或行为，用于表达LLM 测试替身场景。 */
 export interface Config {
   /** Override the fixture path; defaults to `$DSH_SNAPSHOT_FILE`. */
   file?: string
@@ -1085,9 +935,7 @@ export interface Config {
 
 function validateConfiguredModels(providers: ReplayProviderConfig[] | undefined): void {
   for (const provider of providers ?? []) {
-    /** 中文说明：该循环依次处理夹具或生成数据；循环变量仅在当前循环中有效。 */
     for (const model of provider.models ?? []) {
-      /** 中文说明：变量 modalities 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const modalities: unknown = model.inputModalities
       if (modalities !== undefined && (!Array.isArray(modalities)
         || !modalities.every((modality: unknown) => modality === 'text' || modality === 'image'))) {
@@ -1117,18 +965,14 @@ function validateConfiguredModels(providers: ReplayProviderConfig[] | undefined)
   }
 }
 
-/** 中文说明：函数 apply 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 export function apply(ctx: Context, config: Config = {}): void {
-  /** 中文说明：变量 file 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const file = config.file ?? process.env.DSH_SNAPSHOT_FILE
   if (file === undefined || file.length === 0) {
     throw new Error('llm-replay: a fixture path is required (Config.file or $DSH_SNAPSHOT_FILE)')
   }
   validateConfiguredModels(config.providers)
   const overrideFile = config.overrideFile ?? process.env.DSH_SNAPSHOT_OVERRIDE
-  /** 中文说明：变量 childEnv 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const childEnv = process.env.DSH_SNAPSHOT_CHILD_FILES
-  /** 中文说明：变量 childFiles 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const childFiles = config.childFiles
     ?? (childEnv !== undefined && childEnv.length > 0 ? childEnv.split(pathDelimiter) : [])
   installLlmReplay(ctx, {

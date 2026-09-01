@@ -12,23 +12,18 @@ export interface ConnectionGeneration {
   readonly host: ConnectionHostInfo
 }
 
-/** Reconnect/backoff tunables (deployment-varying — no hardcoded tunables; these become the
- *  future `ctx.connection` plugin's Config). All fields optional; defaults below. */
+/** Reconnect/backoff tunables. All fields are optional; defaults are below. */
 export interface ConnectionConfig {
   /** First-retry backoff cap in ms (jittered: actual delay is cap/2..cap). */
-  /* 第一次重试的退避上限毫秒数，实际随机延迟为一半至全部。 */
   backoffBaseMs?: number
-  /** Exponential growth factor per consecutive failed attempt. */
-  /* 连续失败次数每增加一次时退避上限的指数倍率。 */
+  /** Exponential growth factor per failed attempt; values at or below 1 make the base tier final. */
   backoffFactor?: number
   /** Upper bound for the backoff cap in ms. */
-  /* 所有重试退避上限的最大毫秒数。 */
   backoffMaxMs?: number
   /** Maximum wait for the registered generation source's ready signal. */
   generationReadyTimeoutMs?: number
 }
 
-// 所有可部署连接调优项的默认值。
 const CONNECTION_DEFAULTS: Required<ConnectionConfig> = {
   backoffBaseMs: 500,
   backoffFactor: 2,
@@ -36,10 +31,11 @@ const CONNECTION_DEFAULTS: Required<ConnectionConfig> = {
   generationReadyTimeoutMs: 3_000,
 }
 
-/** 等待指定毫秒，信号取消时提前结束但不拒绝。 */
+const MANUAL_RECONNECT = new Error('connection: manual reconnect requested')
+const NETWORK_STATE_CHANGED = new Error('connection: browser network state changed')
+
 function sleep(ms: number, signal: AbortSignal): Promise<void> {
   return new Promise((resolve) => {
-    // 正常等待完成时调用done的定时器句柄。
     const t = setTimeout(done, ms)
     signal.addEventListener('abort', done, { once: true })
     function done(): void {
@@ -50,19 +46,27 @@ function sleep(ms: number, signal: AbortSignal): Promise<void> {
   })
 }
 
-/** Coarse connection state for the UI: 'connected' after each generation's handshake,
- *  'reconnecting' the moment the generation fails (covers the whole backoff+retry span). */
-/* UI观察的粗粒度连接状态：握手完成或整个退避重试区间。 */
-export type ConnectionState = 'connected' | 'reconnecting'
+function waitForAbort(signal: AbortSignal): Promise<void> {
+  if (signal.aborted) return Promise.resolve()
+  return new Promise((resolve) => {
+    signal.addEventListener('abort', () => { resolve() }, { once: true })
+  })
+}
+
+/** Connection lifecycle state published after the first attempt has an outcome. */
+export type ConnectionState =
+  | 'connected'
+  | 'disconnected'
+  | 'connecting'
 
 /** Connection-generation callbacks owned by API Gateway. */
 export interface ConnectionSinks {
   /** After the generation source reports ready, first connect included. */
   onConnected?: (host: ConnectionHostInfo) => void
-  /** Coarse state transitions (deduplicated: fires only on change). The initial pre-connect
-   *  span reports nothing — the UI treats "no state yet" as connecting, not as an outage. */
-  /* 去重后的粗粒度状态变化回调，初始连接阶段不调用。 */
+  /** State transitions after the initial attempt has an outcome. Equivalent states are deduplicated. */
   onStateChange?: (state: ConnectionState) => void
+  /** Start one fresh physical-carrier attempt before each logical retry. */
+  onReconnectRequested?: () => void
 }
 
 /**
@@ -84,26 +88,16 @@ export type ConnectionGenerationSource = (
  * Sink exceptions do not kill the generation loop.
  */
 export class ConnectionController {
-  /** 每次尝试连接递增的代际编号，用于拒绝旧代回调。 */
   private generation = 0
-  /** 当前连续失败重试次数，成功握手后归零。 */
   private attempt = 0
-  /** 当前代际的取消控制器；停止后为空。 */
   private current: AbortController | null = null
-  /** 主循环是否应继续创建连接代际。 */
+  private retryDelay: AbortController | null = null
   private running = false
-  /** 最近已发送状态，用于消除重复通知。 */
-  private lastState: ConnectionState | null = null
-  /** 合并默认值后的完整连接配置。 */
+  private immediateRetry = false
+  private networkAvailable = true
+  private lastState: ConnectionState | undefined
   private readonly config: Required<ConnectionConfig>
 
-  /**
-   * 创建连接控制器但不立即启动。
-   * @param api 提供一元握手和两条事件流的API客户端。
-   * @param sinks 业务帧、握手和状态回调。
-   * @param config 可选退避与流打开超时配置。
-   * @example new ConnectionController(api, sinks, {}).start()
-   */
   constructor(
     private readonly source: ConnectionGenerationSource,
     private readonly sinks: ConnectionSinks = {},
@@ -124,14 +118,51 @@ export class ConnectionController {
     this.running = false
     this.current?.abort()
     this.current = null
+    this.retryDelay?.abort()
+    this.retryDelay = null
+  }
+
+  /** Reset the retry sequence and replace the current generation or retry delay immediately. */
+  reconnect(): void {
+    if (!this.running) return
+    this.attempt = 0
+    this.immediateRetry = true
+    this.emitState('connecting')
+    if (!this.isRunning()) return
+    this.current?.abort(MANUAL_RECONNECT)
+    this.retryDelay?.abort(MANUAL_RECONNECT)
+  }
+
+  /**
+   * Suspend automatic retries while offline and restart backoff when the network returns.
+   * @param available - whether the browser reports network access.
+   */
+  setNetworkAvailable(available: boolean): void {
+    if (this.networkAvailable === available) return
+    this.networkAvailable = available
+    this.attempt = 0
+    this.immediateRetry = false
+    if (!this.running) return
+    this.emitState(available ? 'connecting' : 'disconnected')
+    if (!this.isRunning()) return
+    this.current?.abort(NETWORK_STATE_CHANGED)
+    this.retryDelay?.abort(NETWORK_STATE_CHANGED)
+  }
+
+  private backoffCap(attempt: number): number {
+    const { backoffBaseMs, backoffFactor, backoffMaxMs } = this.config
+    return Math.min(backoffMaxMs, backoffBaseMs * backoffFactor ** Math.max(0, attempt - 1))
   }
 
   private backoffDelay(attempt: number): number {
-    // 当前退避计算使用的基础值、倍率和最大值。
-    const { backoffBaseMs, backoffFactor, backoffMaxMs } = this.config
-    // 当前失败次数对应且不超过最大值的随机退避上限。
-    const cap = Math.min(backoffMaxMs, backoffBaseMs * backoffFactor ** Math.max(0, attempt - 1))
+    const cap = this.backoffCap(attempt)
     return cap / 2 + Math.random() * (cap / 2)
+  }
+
+  private isFinalBackoffTier(attempt: number): boolean {
+    const cap = this.backoffCap(attempt)
+    const nextCap = this.backoffCap(attempt + 1)
+    return cap >= this.config.backoffMaxMs || !Number.isFinite(nextCap) || nextCap <= cap
   }
 
   /** Read through a method: stop() flips the flag across awaits, so narrowing from the loop condition must not stick. */
@@ -145,10 +176,50 @@ export class ConnectionController {
   }
 
   private async loop(): Promise<void> {
+    let retry = false
     while (this.running) {
-      // 当前新连接代际的唯一编号。
+      if (!this.networkAvailable && !this.immediateRetry) {
+        const retryDelay = new AbortController()
+        this.retryDelay = retryDelay
+        this.emitState('disconnected')
+        await waitForAbort(retryDelay.signal)
+        if (this.retryDelay === retryDelay) this.retryDelay = null
+        if (!this.isRunning()) return
+        retry = true
+        continue
+      }
+
+      let manualAttempt = false
+      if (retry) {
+        const immediate = this.immediateRetry
+        this.immediateRetry = false
+        if (immediate) this.attempt = 0
+        manualAttempt = immediate
+        if (!immediate && this.attempt > 0 && this.isFinalBackoffTier(this.attempt)) {
+          const retryDelay = new AbortController()
+          this.retryDelay = retryDelay
+          this.emitState('disconnected')
+          await waitForAbort(retryDelay.signal)
+          if (this.retryDelay === retryDelay) this.retryDelay = null
+          continue
+        }
+        const attempt = ++this.attempt
+        this.emitState('connecting')
+        if (!this.isRunning()) return
+        if (!immediate) {
+          const retryDelay = new AbortController()
+          this.retryDelay = retryDelay
+          await sleep(this.backoffDelay(attempt), retryDelay.signal)
+          if (this.retryDelay === retryDelay) this.retryDelay = null
+          if (!this.isRunning()) return
+          if (retryDelay.signal.aborted) continue
+        }
+        console.warn(`[connection] connection lost, retry #${String(attempt)}`)
+        this.callSink(() => { this.sinks.onReconnectRequested?.() })
+        if (!this.isRunning()) return
+      }
+
       const gen = ++this.generation
-      // 当前代际两条流和握手共享的取消控制器。
       const ac = new AbortController()
       this.current = ac
 
@@ -169,9 +240,7 @@ export class ConnectionController {
         resolveReady(host)
       }
 
-      // 任一流结束或失败时解决并中止本代的共享失败门。
       const failed = new Promise<void>((resolve) => {
-        /** 收敛两条流结束，只让当前代际执行取消。 */
         const settle = (): void => {
           if (gen === this.generation && !ac.signal.aborted) ac.abort()
           resolve()
@@ -209,17 +278,13 @@ export class ConnectionController {
           this.callSink(() => { this.sinks.onConnected?.(host) })
         }
       } catch {
-        // Transport failure: treat as generation failure, fall through to the shared backoff.
-        if (!ac.signal.aborted) ac.abort()
+        // Source settlement and controller cancellation already abort the generation.
       }
 
       await failed
       if (!this.isRunning()) return
-      this.emitState('reconnecting')
-      this.attempt += 1
-      console.warn(`[connection] connection lost, retry #${this.attempt}`)
-      const idle = new AbortController()
-      await sleep(this.backoffDelay(this.attempt), idle.signal)
+      if (manualAttempt) this.attempt = 0
+      retry = true
     }
   }
 
@@ -240,12 +305,12 @@ export class ConnectionController {
   }
 }
 
-/** Await source readiness without letting a stalled carrier wedge startup forever. */
+/** Await source readiness while reporting, but not cancelling, a slow Host. */
 function waitForReady<T>(ready: Promise<T>, timeoutMs: number, signal: AbortSignal): Promise<T> {
   return new Promise<T>((resolve, reject) => {
     let settled = false
     const timeout = setTimeout(() => {
-      finish({ error: new Error(`connection generation was not ready within ${String(timeoutMs)}ms`) })
+      console.warn(`[connection] generation is still not ready after ${String(timeoutMs)}ms`)
     }, timeoutMs)
     const aborted = (): void => {
       finish({ error: new Error('connection generation aborted', { cause: signal.reason }) })

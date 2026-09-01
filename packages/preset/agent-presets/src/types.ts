@@ -31,30 +31,18 @@ export interface AgentPresetRoster {
   readonly authorable: boolean
 }
 
-/** Stable details for agent-preset failures returned by the Remote namespace. */
-export interface AgentPresetErrorDetailsMap {
-  /** A required preset id is empty. */
-  'bad-request': Record<never, never>
-  /** No configured root supplies the requested id. */
-  'agent-preset-not-found': { readonly agentPreset: string; readonly available: readonly string[] }
-  /** The id is unusable, already taken, or its composition cannot be installed. */
-  'agent-preset-invalid': { readonly agentPreset: string; readonly reason: string }
-  /** The preset ships with the deployment and is not the user's to change. */
-  'agent-preset-read-only': { readonly agentPreset: string; readonly reason: string }
-  /** The session's conversation has started, so its composition is fixed. */
-  'agent-preset-locked': { readonly sessionId: SessionId; readonly agentPreset: string }
-  /** The preset operation failed without a caller-actionable classification. */
-  internal: Record<never, never>
-}
-
-/** One agent-preset refusal as a client reads it. */
-export type AgentPresetError = {
-  [Code in keyof AgentPresetErrorDetailsMap]: {
-    readonly code: Code
-    readonly message: string
-    readonly details: AgentPresetErrorDetailsMap[Code]
+declare module '@deepseek-ai/dsh-typert-protocol' {
+  interface RemoteErrorDetailsMap {
+    /** No configured root supplies the requested id. */
+    'agent-preset/not-found': { readonly agentPreset: string; readonly available: readonly string[] }
+    /** The id is unusable, already taken, or its composition cannot be installed. */
+    'agent-preset/invalid': { readonly agentPreset: string; readonly reason: string }
+    /** The preset ships with the deployment and is not the user's to change. */
+    'agent-preset/read-only': { readonly agentPreset: string; readonly reason: string }
+    /** The session's conversation has started, so its composition is fixed. */
+    'agent-preset/locked': { readonly sessionId: SessionId; readonly agentPreset: string }
   }
-}[keyof AgentPresetErrorDetailsMap]
+}
 
 /** One preset's composition text beside the row it belongs to. */
 export interface AgentPresetDocument {
@@ -80,9 +68,7 @@ declare module '@deepseek-ai/dsh-session-projection/types' {
   }
 }
 
-// 类型扩充：把代理预设领域拥有的事件合并到 Cordis 的全局事件映射中。
 declare module '@deepseek-ai/cordis' {
-  // Events：Cordis 的事件名到监听函数签名的映射；这里只增加一个预设选择事件。
   interface Events {
     /**
      * One session committed a different agent preset to its durable log.
@@ -91,18 +77,8 @@ declare module '@deepseek-ai/cordis' {
      * @param sessionId - the session whose composition changed.
      * @param agentPreset - the preset recorded by the committed selection.
      */
-    /*
-     * 一个会话把新的代理预设提交到持久日志后发出此事件。
-     * 消费方只应失效由该会话组合派生的状态。
-     * @mode emit
-     * @param sessionId - 发生组合变化的品牌化会话标识。
-     * @param agentPreset - 已提交选择所记录的预设名称。
-     * @returns 不返回值；该事件仅用于通知监听者。
-     * @example ctx.emit('agent-preset/selected', sessionId, 'default')
-     */
     'agent-preset/selected'(sessionId: SessionId, agentPreset: string): void
   }
 }
 
-// 空导出：确保模块扩充在模块作用域生效，不产生运行时代码。
 export {}

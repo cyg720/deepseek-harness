@@ -1,11 +1,3 @@
-/**
- * 文件职责：把持久会话事件增量组装为客户端可渲染的对话、工具调用和运行状态。
- * 技术维度：TypeScript 判别联合、事件投影、不可变快照、Map 索引与严格穷尽检查。
- * 产品维度：为会话界面提供稳定的消息时间线、实时流式内容和工具执行展示。
- * 逻辑维度：按序接收事件，更新消息与调用索引，合并流式片段，最终生成对话快照。
- * 关键边界：输入事件必须按会话序号有序；未知必需事件不可静默忽略；投影状态不能泄漏可变引用。
- * 新手阅读建议：先读导出类型与状态结构，再看入口 reduce/append，最后按事件标签追踪各分支。
- */
 import type {
   SessionEventLikeEntry, SessionLiveEventEntry,
 } from '@deepseek-ai/dsh-api-session-controller/client'
@@ -22,7 +14,6 @@ import {
   ConversationLocationIndex, type ConversationLocationDataChange,
 } from './location-index.ts'
 
-/** 中文说明：类型 `Dependency` 约束本文件使用的数据字段和取值范围，避免调用方传入不完整状态。 */
 interface Dependency {
   readonly kind: string
   readonly key: string | undefined
@@ -30,7 +21,6 @@ interface Dependency {
   readonly windowGap: boolean
 }
 
-/** 中文说明：类型 `InternalContext` 约束本文件使用的数据字段和取值范围，避免调用方传入不完整状态。 */
 interface InternalContext {
   readonly key: string
   readonly kind: string
@@ -46,37 +36,32 @@ interface InternalContext {
   dependencies: Map<string, Dependency>
 }
 
-/** 中文说明：类型 `PendingMatch` 约束本文件使用的数据字段和取值范围，避免调用方传入不完整状态。 */
 interface PendingMatch {
   readonly definition: ConversationNodeDefinition
   readonly id: string
   readonly match: ConversationMatch
 }
 
-/** 中文说明：类型 `ViewState` 约束本文件使用的数据字段和取值范围，避免调用方传入不完整状态。 */
 interface ViewState {
   readonly target: string
-  readonly builder: ConversationViewBuilder
+  readonly definition: ConversationViewDefinition
   readonly isActive: ((snapshot: unknown) => boolean) | undefined
+  builder: ConversationViewBuilder | undefined
   snapshot: unknown
 }
 
-/** 中文说明：当前处理步骤使用的局部状态或中间值；变量 `PUBLICATION_RANK` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
 const PUBLICATION_RANK: Record<ConversationPublication, number> = {
   none: 0,
   'animation-frame': 1,
   immediate: 2,
 }
 
-/** 中文说明：当前处理步骤使用的局部状态或中间值；变量 `LOCATION_DATA_SCOPES` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
 const LOCATION_DATA_SCOPES: readonly ConversationLocationDataScope[] = ['step', 'turn']
 
-/** 中文说明：内部函数 `emptyLocationData`；参数含义见签名，返回值用于后续处理；例如按本文件中的调用位置使用。 */
 function emptyLocationData(): Record<ConversationLocationDataScope, ConversationLocationData | null> {
   return { step: null, turn: null }
 }
 
-/** 中文说明：内部函数 `maximumPublication`；参数含义见签名，返回值用于后续处理；例如按本文件中的调用位置使用。 */
 function maximumPublication(
   left: ConversationPublication,
   right: ConversationPublication,
@@ -84,21 +69,15 @@ function maximumPublication(
   return PUBLICATION_RANK[left] >= PUBLICATION_RANK[right] ? left : right
 }
 
-/** 中文说明：内部函数 `startSeq`；参数含义见签名，返回值用于后续处理；例如按本文件中的调用位置使用。 */
 function startSeq(context: InternalContext): number | undefined {
   return context.startSeq
 }
 
-/** 中文说明：内部函数 `insertionIndex`；参数含义见签名，返回值用于后续处理；例如按本文件中的调用位置使用。 */
 function insertionIndex(contexts: readonly InternalContext[], seq: number): number {
-  /** 中文说明：当前处理步骤使用的局部状态或中间值；变量 `low` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
   let low = 0
-  /** 中文说明：当前处理步骤使用的局部状态或中间值；变量 `high` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
   let high = contexts.length
   while (low < high) {
-    /** 中文说明：标识对象、顺序或版本的标量值；变量 `middle` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const middle = low + Math.floor((high - low) / 2)
-    /** 中文说明：标识对象、顺序或版本的标量值；变量 `candidate` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const candidate = contexts[middle]
     if (candidate !== undefined && (candidate.startSeq as number) < seq) low = middle + 1
     else high = middle
@@ -106,7 +85,6 @@ function insertionIndex(contexts: readonly InternalContext[], seq: number): numb
   return low
 }
 
-/** 中文说明：内部函数 `contextSnapshot`；参数含义见签名，返回值用于后续处理；例如按本文件中的调用位置使用。 */
 function contextSnapshot<State>(context: InternalContext): ConversationNodeContext<State> {
   return {
     key: context.key,
@@ -119,22 +97,16 @@ function contextSnapshot<State>(context: InternalContext): ConversationNodeConte
   }
 }
 
-/** 中文说明：内部函数 `mergeMatches`；参数含义见签名，返回值用于后续处理；例如按本文件中的调用位置使用。 */
 function mergeMatches(
   key: string,
   additions: readonly ConversationMatch[],
   existing: readonly ConversationMatch[],
 ): ConversationMatch[] {
-  /** 中文说明：当前处理步骤使用的局部状态或中间值；变量 `merged` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
   const merged: ConversationMatch[] = []
-  /** 中文说明：当前处理步骤使用的局部状态或中间值；变量 `added` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
   let added = 0
-  /** 中文说明：当前处理步骤使用的局部状态或中间值；变量 `current` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
   let current = 0
   while (added < additions.length || current < existing.length) {
-    /** 中文说明：当前处理步骤使用的局部状态或中间值；变量 `left` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const left = additions[added]
-    /** 中文说明：当前处理步骤使用的局部状态或中间值；变量 `right` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const right = existing[current]
     if (left !== undefined && right !== undefined && left.event.seq === right.event.seq) {
       throw new Error(`conversation Context ${key} received duplicate Match ${left.event.seq}`)
@@ -166,7 +138,6 @@ function conversationMatch(
 }
 
 /** Event Registry subset consumed by a Session-owned Assembler. */
-/* 中文说明：类型 `ConversationEventDefinitions` 约束本文件使用的数据字段和取值范围，避免调用方传入不完整状态。 */
 export interface ConversationEventDefinitions {
   /** @returns ordinary Definitions in registration order. */
   entries(): readonly ConversationNodeDefinition[]
@@ -175,7 +146,6 @@ export interface ConversationEventDefinitions {
 }
 
 /** View Registry subset consumed by a Session-owned Assembler. */
-/* 中文说明：类型 `ConversationViewDefinitions` 约束本文件使用的数据字段和取值范围，避免调用方传入不完整状态。 */
 export interface ConversationViewDefinitions {
   /** @returns view builder factories in registration order. */
   entries(): readonly ConversationViewDefinition[]
@@ -185,36 +155,27 @@ export interface ConversationViewDefinitions {
  * Session-owned incremental engine that assembles business Contexts from a
  * contiguous Event window and materializes registered view snapshots.
  */
-/* 中文说明：类 `ConversationNodeAssembler` 负责封装本文件的核心状态与操作，实例由调用方创建并按生命周期释放。 */
 export class ConversationNodeAssembler implements ConversationViewSnapshotStore {
-  /** 中文说明：类方法 `contexts`；参数含义见签名，返回值用于更新或读取会话状态；例如由本类公开流程或下方用例调用。 */
   private readonly contexts = new Map<string, InternalContext>()
-  /** 中文说明：类方法 `contextsByKind`；参数含义见签名，返回值用于更新或读取会话状态；例如由本类公开流程或下方用例调用。 */
   private readonly contextsByKind = new Map<string, InternalContext[]>()
-  /** 中文说明：类方法 `contextsBySeq`；参数含义见签名，返回值用于更新或读取会话状态；例如由本类公开流程或下方用例调用。 */
   private readonly contextsBySeq = new Map<number, Set<InternalContext>>()
+  private readonly contextsByTarget = new Map<string, Set<InternalContext>>()
   private readonly inputs = new Map<number, SessionEventLikeEntry>()
   private readonly locationIndex = new ConversationLocationIndex()
-  /** 中文说明：类方法 `dirty`；参数含义见签名，返回值用于更新或读取会话状态；例如由本类公开流程或下方用例调用。 */
   private readonly dirty = new Set<InternalContext>()
-  /** 中文说明：类方法 `revised`；参数含义见签名，返回值用于更新或读取会话状态；例如由本类公开流程或下方用例调用。 */
+  private readonly dirtyByTarget = new Map<string, Set<InternalContext>>()
   private readonly revised = new Set<InternalContext>()
-  /** 中文说明：类方法 `dependents`；参数含义见签名，返回值用于更新或读取会话状态；例如由本类公开流程或下方用例调用。 */
   private readonly dependents = new Map<string, Set<InternalContext>>()
-  /** 中文说明：类方法 `views`；参数含义见签名，返回值用于更新或读取会话状态；例如由本类公开流程或下方用例调用。 */
   private readonly views = new Map<string, ViewState>()
-  /** 中文说明：类成员 `hasMore` 保存该实例拥有的运行状态；取值范围由声明类型限定，并随实例生命周期使用。 */
+  private readonly activeTargets = new Set<string>()
   private hasMore = false
-  /** 中文说明：类成员 `replacePending` 保存该实例拥有的运行状态；取值范围由声明类型限定，并随实例生命周期使用。 */
   private replacePending = true
-  /** 中文说明：类成员 `timelineDirty` 保存该实例拥有的运行状态；取值范围由声明类型限定，并随实例生命周期使用。 */
   private timelineDirty = true
 
   /**
    * @param eventDefinitions - live Event Definition registry.
    * @param viewDefinitions - live view builder registry.
    */
-  /* 中文说明：类方法 `constructor`；参数含义见签名，返回值用于更新或读取会话状态；例如由本类公开流程或下方用例调用。 */
   constructor(
     private readonly eventDefinitions: ConversationEventDefinitions,
     private readonly viewDefinitions: ConversationViewDefinitions,
@@ -232,23 +193,21 @@ export class ConversationNodeAssembler implements ConversationViewSnapshotStore 
     this.contexts.clear()
     this.contextsByKind.clear()
     this.contextsBySeq.clear()
+    this.contextsByTarget.clear()
     this.inputs.clear()
     this.dirty.clear()
+    this.dirtyByTarget.clear()
     this.revised.clear()
     this.dependents.clear()
     this.hasMore = hasMore
-    /** 中文说明：当前处理步骤使用的局部状态或中间值；变量 `sorted` 是可调用函数，其参数与返回值见类型签名；例如由相邻流程调用。 */
     const sorted = [...entries].sort((left, right) => left.event.seq - right.event.seq)
-    /** 中文说明：当前处理步骤使用的局部状态或中间值；变量 `entry` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     for (const entry of sorted) this.inputs.set(entry.event.seq, entry)
     this.locationIndex.rebuild(sorted)
     this.timelineDirty = true
-    /** 中文说明：当前处理步骤使用的局部状态或中间值；变量 `entry` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     for (const entry of sorted) this.matchInput(entry)
     this.replayDependencies()
     this.revised.clear()
-    /** 中文说明：当前操作所属的 Cordis 上下文；变量 `context` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
-    for (const context of this.contexts.values()) this.dirty.add(context)
+    for (const context of this.contexts.values()) this.markDirty(context)
     this.replacePending = true
     return 'immediate'
   }
@@ -290,27 +249,18 @@ export class ConversationNodeAssembler implements ConversationViewSnapshotStore 
    */
   prepend(entries: readonly SessionEventLikeEntry[], hasMore: boolean): ConversationPublication {
     this.revised.clear()
-    /** 中文说明：当前处理步骤使用的局部状态或中间值；变量 `publication` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     let publication: ConversationPublication = 'none'
-    /** 中文说明：当前处理步骤使用的局部状态或中间值；变量 `previousHasMore` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const previousHasMore = this.hasMore
-    /** 中文说明：当前处理步骤使用的局部状态或中间值；变量 `fresh` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const fresh = entries
       .filter(entry => !this.inputs.has(entry.event.seq))
       .sort((left, right) => left.event.seq - right.event.seq)
-    /** 中文说明：当前处理步骤使用的局部状态或中间值；变量 `entry` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     for (const entry of fresh) this.inputs.set(entry.event.seq, entry)
     this.hasMore = hasMore
-    /** 中文说明：当前处理步骤使用的局部状态或中间值；变量 `previousTimeline` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const previousTimeline = this.locationIndex.snapshot()
-    /** 中文说明：当前处理步骤使用的局部状态或中间值；变量 `changedLocations` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const changedLocations = this.locationIndex.rebuild(this.sortedInputs())
     if (this.locationIndex.snapshot() !== previousTimeline) this.timelineDirty = true
-    /** 中文说明：当前处理步骤使用的局部状态或中间值；变量 `affected` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const affected = this.refreshMatchLocations(changedLocations)
-    /** 中文说明：协调异步执行顺序或保存待完成工作的 Promise；变量 `pending` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const pending = new Map<string, PendingMatch[]>()
-    /** 中文说明：当前处理步骤使用的局部状态或中间值；变量 `entry` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     for (const entry of fresh) {
       publication = maximumPublication(publication, this.collectInput(entry, pending))
     }
@@ -328,102 +278,80 @@ export class ConversationNodeAssembler implements ConversationViewSnapshotStore 
    * Rebuild against the current Registry set after a low-frequency plugin change.
    * @returns immediate publication request.
    */
-  /*
-   * 中文说明：类方法 `rebuildRegistry`；参数含义见签名，返回值用于更新或读取会话状态；例如由本类公开流程或下方用例调用。
-   * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
-   */
   rebuildRegistry(): ConversationPublication {
     this.resetViewBuilders()
     return this.replaceWindow(this.sortedInputs(), this.hasMore)
   }
 
   /**
-   * Materialize dirty Contexts and advance every registered view builder.
+   * Materialize dirty Contexts and advance every active view builder.
    * @returns whether any view snapshot was rebuilt or incrementally applied.
-   */
-  /*
-   * 中文说明：类方法 `flush`；参数含义见签名，返回值用于更新或读取会话状态；例如由本类公开流程或下方用例调用。
-   * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
    */
   flush(): boolean {
     if (!this.replacePending && this.dirty.size === 0 && !this.timelineDirty) return false
     if (this.replacePending) {
       this.replaceLocationData()
-      /** 中文说明：保存索引、集合或按顺序观测值的数据结构；变量 `allByTarget` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
-      const allByTarget = new Map<string, ConversationViewNode[]>()
-      /** 中文说明：当前处理步骤使用的局部状态或中间值；变量 `target` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
-      for (const target of this.views.keys()) allByTarget.set(target, [])
-      /** 中文说明：当前操作所属的 Cordis 上下文；变量 `context` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
-      for (const context of this.contexts.values()) {
-        /** 中文说明：当前处理步骤使用的局部状态或中间值；变量 `target` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
-        const target = context.definition.target
-        if (target === undefined || !this.views.has(target)) continue
-        /** 中文说明：当前处理步骤使用的局部状态或中间值；变量 `node` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
-        const node = this.buildNode(context, target)
-        context.current.set(target, node)
-        if (node !== null) allByTarget.get(target)?.push(node)
-      }
-      /** 中文说明：当前处理步骤使用的局部状态或中间值；变量 `view` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
-      for (const view of this.views.values()) {
-        view.snapshot = view.builder.replace({
-          nodes: allByTarget.get(view.target) ?? [],
+      let published = false
+      for (const target of this.activeTargets) {
+        const view = this.views.get(target)
+        if (view === undefined) continue
+        const builder = view.builder ?? view.definition.create()
+        view.builder = builder
+        view.snapshot = builder.replace({
+          nodes: this.buildTargetNodes(target, this.contextsByTarget.get(target)),
           timeline: this.locationIndex.snapshot(),
         })
+        published = true
       }
       this.replacePending = false
       this.dirty.clear()
+      this.dirtyByTarget.clear()
       this.timelineDirty = false
-      return true
+      return published
     }
 
-    /** 中文说明：保存索引、集合或按顺序观测值的数据结构；变量 `upsertsByTarget` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
-    const upsertsByTarget = new Map<string, ConversationViewNode[]>()
-    /** 中文说明：当前处理步骤使用的局部状态或中间值；变量 `target` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
-    for (const target of this.views.keys()) upsertsByTarget.set(target, [])
+    let published = false
     if (this.applyDirtyLocationData()) this.timelineDirty = true
-    /** 中文说明：当前操作所属的 Cordis 上下文；变量 `context` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
-    for (const context of this.dirty) {
-      /** 中文说明：当前处理步骤使用的局部状态或中间值；变量 `target` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
-      const target = context.definition.target
-      if (target === undefined || !this.views.has(target)) continue
-      /** 中文说明：当前处理步骤使用的局部状态或中间值；变量 `previous` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
-      const previous = context.current.get(target) ?? null
-      /** 中文说明：当前处理步骤使用的局部状态或中间值；变量 `node` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
-      const node = this.buildNode(context, target)
-      if (node === null && previous !== null) {
-        throw new Error(
-          `conversation Definition "${context.kind}" withdrew materialized target "${target}"; return the same key with hidden visibility instead`,
-        )
-      }
-      context.current.set(target, node)
-      if (node !== null) upsertsByTarget.get(target)?.push(node)
-    }
-    this.dirty.clear()
-    /** 中文说明：当前处理步骤使用的局部状态或中间值；变量 `timelineDirty` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const timelineDirty = this.timelineDirty
-    this.timelineDirty = false
-    /** 中文说明：当前处理步骤使用的局部状态或中间值；变量 `view` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
-    for (const view of this.views.values()) {
-      /** 中文说明：当前处理步骤使用的局部状态或中间值；变量 `upserts` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
-      const upserts = upsertsByTarget.get(view.target) ?? []
+    for (const target of this.activeTargets) {
+      const view = this.views.get(target)
+      if (view === undefined) continue
+      const builder = view.builder
+      if (builder === undefined) continue
+      const upserts = this.buildTargetUpserts(target, this.dirtyByTarget.get(target))
       if (upserts.length === 0 && !timelineDirty) continue
-      view.snapshot = view.builder.apply({
+      view.snapshot = builder.apply({
         upserts,
         timeline: this.locationIndex.snapshot(),
       })
+      published = true
     }
+    this.dirty.clear()
+    this.dirtyByTarget.clear()
+    this.timelineDirty = false
+    return published
+  }
+
+  /**
+   * Add one target to the monotonic active set and materialize its current snapshot.
+   * Pending Context work is flushed before the first complete replacement.
+   * @param target - registered or subsequently registered view target.
+   * @returns whether any active target snapshot changed.
+   */
+  activateTarget(target: string): boolean {
+    const view = this.views.get(target)
+    if (this.activeTargets.has(target)) return false
+    const published = this.flush()
+    this.activeTargets.add(target)
+    if (view === undefined) return published
+    this.replaceView(view)
     return true
   }
 
   /**
    * Read the latest snapshot of a registered target.
    * @param target - registered view target.
-   * @returns target snapshot, or undefined when no builder is registered.
-   */
-  /*
-   * 中文说明：类方法 `snapshot`；参数含义见签名，返回值用于更新或读取会话状态；例如由本类公开流程或下方用例调用。
-   * @param target 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
-   * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
+   * @returns target snapshot, or undefined before registration or activation.
    */
   snapshot(target: string): unknown {
     return this.views.get(target)?.snapshot
@@ -437,11 +365,13 @@ export class ConversationNodeAssembler implements ConversationViewSnapshotStore 
 
   /**
    * Read targets whose owners classify their latest snapshot as visible activity.
-   * @returns active target ids.
+   * @returns target ids contributing visible activity.
    */
-  activeTargets(): ReadonlySet<string> {
+  activityTargets(): ReadonlySet<string> {
     const active = new Set<string>()
-    for (const view of this.views.values()) {
+    for (const target of this.activeTargets) {
+      const view = this.views.get(target)
+      if (view === undefined) continue
       if (view.isActive?.(view.snapshot) === true) active.add(view.target)
     }
     return active
@@ -456,13 +386,11 @@ export class ConversationNodeAssembler implements ConversationViewSnapshotStore 
       this.acceptMatch(definition, id, role, input))
   }
 
-  /** 中文说明：类方法 `collectInput`；参数含义见签名，返回值用于更新或读取会话状态；例如由本类公开流程或下方用例调用。 */
   private collectInput(
     input: SessionEventLikeEntry,
     pending: Map<string, PendingMatch[]>,
   ): ConversationPublication {
     return this.dispatchInput(input, (definition, id, role) => {
-      /** 中文说明：当前处理步骤使用的局部状态或中间值；变量 `key` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
       const key = conversationContextKey(definition.kind, id)
       const match = conversationMatch(
         key,
@@ -477,7 +405,6 @@ export class ConversationNodeAssembler implements ConversationViewSnapshotStore 
     })
   }
 
-  /** 中文说明：类方法 `dispatchInput`；参数含义见签名，返回值用于更新或读取会话状态；例如由本类公开流程或下方用例调用。 */
   private dispatchInput(
     input: SessionEventLikeEntry,
     accept: (
@@ -488,18 +415,14 @@ export class ConversationNodeAssembler implements ConversationViewSnapshotStore 
   ): ConversationPublication {
     const event = input.event
     const matchedTargets = new Set<string>()
-    /** 中文说明：当前处理步骤使用的局部状态或中间值；变量 `publication` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     let publication: ConversationPublication = 'none'
-    /** 中文说明：当前处理步骤使用的局部状态或中间值；变量 `definition` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     for (const definition of this.eventDefinitions.entries()) {
       const result = definition.match(event)
       if (result === null) continue
       if (definition.target !== undefined) matchedTargets.add(definition.target)
       publication = maximumPublication(publication, accept(definition, result.id, result.role))
     }
-    /** 中文说明：当前处理步骤使用的局部状态或中间值；变量 `fallback` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const fallback = this.eventDefinitions.fallbackEntry()
-    /** 中文说明：当前处理步骤使用的局部状态或中间值；变量 `target` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const target = fallback?.target
     if (fallback !== undefined && target !== undefined && !matchedTargets.has(target)) {
       const result = fallback.match(event)
@@ -510,37 +433,42 @@ export class ConversationNodeAssembler implements ConversationViewSnapshotStore 
     return publication
   }
 
-  /** 中文说明：类方法 `acceptMatch`；参数含义见签名，返回值用于更新或读取会话状态；例如由本类公开流程或下方用例调用。 */
+  private createContext(
+    definition: ConversationNodeDefinition,
+    id: string,
+    key: string,
+  ): InternalContext {
+    const context: InternalContext = {
+      key,
+      kind: definition.kind,
+      id,
+      definition,
+      startSeq: undefined,
+      start: undefined,
+      matches: [],
+      state: undefined,
+      revision: 0,
+      current: new Map(),
+      locationData: emptyLocationData(),
+      dependencies: new Map(),
+    }
+    this.contexts.set(key, context)
+    this.indexTargetContext(context)
+    return context
+  }
+
   private acceptMatch(
     definition: ConversationNodeDefinition,
     id: string,
     role: ConversationMatch['role'],
     input: SessionEventLikeEntry,
   ): ConversationPublication {
-    /** 中文说明：当前处理步骤使用的局部状态或中间值；变量 `key` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const key = conversationContextKey(definition.kind, id)
-    /** 中文说明：当前操作所属的 Cordis 上下文；变量 `context` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     let context = this.contexts.get(key)
     if (role === 'start' && context?.start !== undefined) {
       throw new Error(`conversation Context ${key} received more than one start Match`)
     }
-    if (context === undefined) {
-      context = {
-        key,
-        kind: definition.kind,
-        id,
-        definition,
-        startSeq: undefined,
-        start: undefined,
-        matches: [],
-        state: undefined,
-        revision: 0,
-        current: new Map(),
-        locationData: emptyLocationData(),
-        dependencies: new Map(),
-      }
-      this.contexts.set(key, context)
-    }
+    context ??= this.createContext(definition, id, key)
     const match = conversationMatch(
       key,
       input,
@@ -560,7 +488,6 @@ export class ConversationNodeAssembler implements ConversationViewSnapshotStore 
       context.start = match
       this.indexStartedContext(context)
     }
-    /** 中文说明：当前处理步骤使用的局部状态或中间值；变量 `owners` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const owners = this.contextsBySeq.get(input.event.seq) ?? new Set<InternalContext>()
     owners.add(context)
     this.contextsBySeq.set(input.event.seq, owners)
@@ -568,47 +495,25 @@ export class ConversationNodeAssembler implements ConversationViewSnapshotStore 
     if (match.role === 'start') {
       this.replayContext(context)
     } else if (context.state !== undefined) {
-      /** 中文说明：当前处理步骤使用的局部状态或中间值；变量 `typed` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
       const typed = contextSnapshot(context) as ConversationNodeContext & { readonly state: unknown }
       context.state = requireState(definition, 'update', definition.update(typed, match))
       context.revision++
       this.revised.add(context)
     }
-    this.dirty.add(context)
+    this.markDirty(context)
     return definition.publication?.(match) ?? 'immediate'
   }
 
-  /** 中文说明：类方法 `applyPendingMatches`；参数含义见签名，返回值用于更新或读取会话状态；例如由本类公开流程或下方用例调用。 */
   private applyPendingMatches(
     pending: ReadonlyMap<string, readonly PendingMatch[]>,
     affected: Set<InternalContext>,
   ): void {
-    /** 中文说明：保存索引、集合或按顺序观测值的数据结构；变量 `startsByKind` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const startsByKind = new Map<string, InternalContext[]>()
-    /** 中文说明：当前处理步骤使用的局部状态或中间值；变量 `[key` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     for (const [key, entries] of pending) {
-      /** 中文说明：当前处理步骤使用的局部状态或中间值；变量 `first` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
       const first = entries[0]
       if (first === undefined) continue
-      /** 中文说明：当前操作所属的 Cordis 上下文；变量 `context` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
       let context = this.contexts.get(key)
-      if (context === undefined) {
-        context = {
-          key,
-          kind: first.definition.kind,
-          id: first.id,
-          definition: first.definition,
-          startSeq: undefined,
-          start: undefined,
-          matches: [],
-          state: undefined,
-          revision: 0,
-          current: new Map(),
-          locationData: emptyLocationData(),
-          dependencies: new Map(),
-        }
-        this.contexts.set(key, context)
-      }
+      context ??= this.createContext(first.definition, first.id, key)
       let discoveredStart: ConversationStartMatch | undefined
       const additions = entries
         .map((entry) => {
@@ -621,7 +526,6 @@ export class ConversationNodeAssembler implements ConversationViewSnapshotStore 
             }
             discoveredStart = entry.match
           }
-          /** 中文说明：当前处理步骤使用的局部状态或中间值；变量 `owners` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
           const owners = this.contextsBySeq.get(entry.match.event.seq) ?? new Set<InternalContext>()
           owners.add(context)
           this.contextsBySeq.set(entry.match.event.seq, owners)
@@ -632,7 +536,6 @@ export class ConversationNodeAssembler implements ConversationViewSnapshotStore 
       if (discoveredStart !== undefined) {
         context.start = discoveredStart
         context.startSeq = discoveredStart.event.seq
-        /** 中文说明：当前处理步骤使用的局部状态或中间值；变量 `starts` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
         const starts = startsByKind.get(context.kind) ?? []
         starts.push(context)
         startsByKind.set(context.kind, starts)
@@ -641,31 +544,25 @@ export class ConversationNodeAssembler implements ConversationViewSnapshotStore 
         throw new Error(`conversation Context ${context.key} received an update before its start Match`)
       }
       affected.add(context)
-      this.dirty.add(context)
+      this.markDirty(context)
     }
-    /** 中文说明：当前处理步骤使用的局部状态或中间值；变量 `[kind` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     for (const [kind, contexts] of startsByKind) this.indexStartedContexts(kind, contexts)
   }
 
-  /** 中文说明：类方法 `replayContexts`；参数含义见签名，返回值用于更新或读取会话状态；例如由本类公开流程或下方用例调用。 */
   private replayContexts(contexts: ReadonlySet<InternalContext>): void {
-    /** 中文说明：当前处理步骤使用的局部状态或中间值；变量 `ordered` 是可调用函数，其参数与返回值见类型签名；例如由相邻流程调用。 */
     const ordered = [...contexts].sort((left, right) =>
       (left.startSeq ?? Number.POSITIVE_INFINITY) - (right.startSeq ?? Number.POSITIVE_INFINITY))
-    /** 中文说明：当前操作所属的 Cordis 上下文；变量 `context` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     for (const context of ordered) {
       if (context.start === undefined) {
         context.state = undefined
-        this.dirty.add(context)
+        this.markDirty(context)
         continue
       }
       this.replayContext(context)
     }
   }
 
-  /** 中文说明：类方法 `replayContext`；参数含义见签名，返回值用于更新或读取会话状态；例如由本类公开流程或下方用例调用。 */
   private replayContext(context: InternalContext): void {
-    /** 中文说明：当前处理步骤使用的局部状态或中间值；变量 `start` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const start = context.start
     if (start === undefined) {
       context.state = undefined
@@ -674,9 +571,7 @@ export class ConversationNodeAssembler implements ConversationViewSnapshotStore 
     if (context.matches[0] !== start) {
       throw new Error(`conversation Context ${context.key} received an update before its start Match`)
     }
-    /** 中文说明：当前处理步骤使用的局部状态或中间值；变量 `dependencies` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const dependencies = new Map<string, Dependency>()
-    /** 中文说明：当前处理步骤使用的局部状态或中间值；变量 `reader` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const reader = this.readerFor(start.event.seq, dependencies)
     context.state = undefined
     context.state = requireState(
@@ -685,12 +580,9 @@ export class ConversationNodeAssembler implements ConversationViewSnapshotStore 
       context.definition.start(contextSnapshot(context), start, reader),
     )
     this.replaceDependencies(context, dependencies)
-    /** 中文说明：保存索引、集合或按顺序观测值的数据结构；变量 `index` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     for (let index = 1; index < context.matches.length; index++) {
-      /** 中文说明：当前处理步骤使用的局部状态或中间值；变量 `match` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
       const match = context.matches[index]
       if (match === undefined || match.role !== 'update') continue
-      /** 中文说明：当前处理步骤使用的局部状态或中间值；变量 `typed` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
       const typed = contextSnapshot(context) as ConversationNodeContext & { readonly state: unknown }
       context.state = requireState(
         context.definition,
@@ -700,42 +592,48 @@ export class ConversationNodeAssembler implements ConversationViewSnapshotStore 
     }
     context.revision++
     this.revised.add(context)
-    this.dirty.add(context)
+    this.markDirty(context)
   }
 
-  /** 中文说明：类方法 `replaceDependencies`；参数含义见签名，返回值用于更新或读取会话状态；例如由本类公开流程或下方用例调用。 */
+  private indexTargetContext(context: InternalContext): void {
+    const target = context.definition.target
+    if (target === undefined) return
+    const contexts = this.contextsByTarget.get(target) ?? new Set<InternalContext>()
+    contexts.add(context)
+    this.contextsByTarget.set(target, contexts)
+  }
+
+  private markDirty(context: InternalContext): void {
+    this.dirty.add(context)
+    const target = context.definition.target
+    if (target === undefined || !this.activeTargets.has(target)) return
+    const contexts = this.dirtyByTarget.get(target) ?? new Set<InternalContext>()
+    contexts.add(context)
+    this.dirtyByTarget.set(target, contexts)
+  }
+
   private replaceDependencies(context: InternalContext, dependencies: Map<string, Dependency>): void {
-    /** 中文说明：当前处理步骤使用的局部状态或中间值；变量 `dependency` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     for (const dependency of context.dependencies.values()) {
       if (dependency.key === undefined) continue
-      /** 中文说明：当前处理步骤使用的局部状态或中间值；变量 `current` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
       const current = this.dependents.get(dependency.key)
       current?.delete(context)
       if (current?.size === 0) this.dependents.delete(dependency.key)
     }
     context.dependencies = dependencies
-    /** 中文说明：当前处理步骤使用的局部状态或中间值；变量 `dependency` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     for (const dependency of dependencies.values()) {
       if (dependency.key === undefined) continue
-      /** 中文说明：当前处理步骤使用的局部状态或中间值；变量 `current` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
       const current = this.dependents.get(dependency.key) ?? new Set()
       current.add(context)
       this.dependents.set(dependency.key, current)
     }
   }
 
-  /** 中文说明：类方法 `replayRevisedDependents`；参数含义见签名，返回值用于更新或读取会话状态；例如由本类公开流程或下方用例调用。 */
   private replayRevisedDependents(): boolean {
-    /** 中文说明：协调异步执行顺序或保存待完成工作的 Promise；变量 `pending` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const pending = [...this.revised]
-    /** 中文说明：当前处理步骤使用的局部状态或中间值；变量 `affected` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const affected = new Set<InternalContext>()
-    /** 中文说明：保存索引、集合或按顺序观测值的数据结构；变量 `index` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     for (let index = 0; index < pending.length; index++) {
-      /** 中文说明：当前处理步骤使用的局部状态或中间值；变量 `dependency` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
       const dependency = pending[index]
       if (dependency === undefined) continue
-      /** 中文说明：当前处理步骤使用的局部状态或中间值；变量 `dependent` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
       for (const dependent of this.dependents.get(dependency.key) ?? []) {
         if (affected.has(dependent)) continue
         affected.add(dependent)
@@ -746,14 +644,12 @@ export class ConversationNodeAssembler implements ConversationViewSnapshotStore 
     return affected.size > 0
   }
 
-  /** 中文说明：类方法 `readerFor`；参数含义见签名，返回值用于更新或读取会话状态；例如由本类公开流程或下方用例调用。 */
   private readerFor(
     beforeSeq: number,
     dependencies: Map<string, Dependency>,
   ): ConversationContextReader {
     return {
       previous: <State>(kind: string): ConversationPreviousContext<State> | undefined => {
-        /** 中文说明：当前处理步骤使用的局部状态或中间值；变量 `predecessor` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
         const predecessor = this.previousContext(kind, beforeSeq)
         dependencies.set(kind, {
           kind,
@@ -762,7 +658,6 @@ export class ConversationNodeAssembler implements ConversationViewSnapshotStore 
           windowGap: predecessor === undefined && this.hasMore,
         })
         if (predecessor?.state === undefined) return undefined
-        /** 中文说明：标识对象、顺序或版本的标量值；变量 `seq` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
         const seq = startSeq(predecessor)
         if (seq === undefined) return undefined
         return {
@@ -777,15 +672,10 @@ export class ConversationNodeAssembler implements ConversationViewSnapshotStore 
     }
   }
 
-  /** 中文说明：类方法 `previousContext`；参数含义见签名，返回值用于更新或读取会话状态；例如由本类公开流程或下方用例调用。 */
   private previousContext(kind: string, beforeSeq: number): InternalContext | undefined {
-    /** 中文说明：标识对象、顺序或版本的标量值；变量 `candidates` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const candidates = this.contextsByKind.get(kind) ?? []
-    /** 中文说明：保存索引、集合或按顺序观测值的数据结构；变量 `indexBefore` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const indexBefore = insertionIndex(candidates, beforeSeq)
-    /** 中文说明：保存索引、集合或按顺序观测值的数据结构；变量 `index` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     for (let index = indexBefore - 1; index >= 0; index--) {
-      /** 中文说明：标识对象、顺序或版本的标量值；变量 `candidate` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
       const candidate = candidates[index]
       if (candidate?.state !== undefined) return candidate
     }
@@ -793,38 +683,26 @@ export class ConversationNodeAssembler implements ConversationViewSnapshotStore 
   }
 
   /** Insert one newly discovered start into its Definition's ordered predecessor index. */
-  /* 中文说明：类方法 `indexStartedContext`；参数含义见签名，返回值用于更新或读取会话状态；例如由本类公开流程或下方用例调用。 */
   private indexStartedContext(context: InternalContext): void {
-    /** 中文说明：标识对象、顺序或版本的标量值；变量 `seq` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const seq = context.startSeq
     if (seq === undefined) return
-    /** 中文说明：标识对象、顺序或版本的标量值；变量 `candidates` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const candidates = this.contextsByKind.get(context.kind) ?? []
-    /** 中文说明：当前处理步骤使用的局部状态或中间值；变量 `previous` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const previous = candidates.at(-1)
     if (previous === undefined || (previous.startSeq as number) < seq) candidates.push(context)
     else candidates.splice(insertionIndex(candidates, seq), 0, context)
     this.contextsByKind.set(context.kind, candidates)
   }
 
-  /** 中文说明：类方法 `indexStartedContexts`；参数含义见签名，返回值用于更新或读取会话状态；例如由本类公开流程或下方用例调用。 */
   private indexStartedContexts(kind: string, additions: readonly InternalContext[]): void {
     if (additions.length === 0) return
-    /** 中文说明：当前处理步骤使用的局部状态或中间值；变量 `sorted` 是可调用函数，其参数与返回值见类型签名；例如由相邻流程调用。 */
     const sorted = [...additions].sort((left, right) =>
       (left.startSeq as number) - (right.startSeq as number))
-    /** 中文说明：当前处理步骤使用的局部状态或中间值；变量 `existing` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const existing = this.contextsByKind.get(kind) ?? []
-    /** 中文说明：当前处理步骤使用的局部状态或中间值；变量 `merged` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const merged: InternalContext[] = []
-    /** 中文说明：当前处理步骤使用的局部状态或中间值；变量 `before` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     let before = 0
-    /** 中文说明：当前处理步骤使用的局部状态或中间值；变量 `added` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     let added = 0
     while (before < existing.length || added < sorted.length) {
-      /** 中文说明：当前处理步骤使用的局部状态或中间值；变量 `left` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
       const left = existing[before]
-      /** 中文说明：当前处理步骤使用的局部状态或中间值；变量 `right` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
       const right = sorted[added]
       if (right === undefined || (left !== undefined && (left.startSeq as number) < (right.startSeq as number))) {
         merged.push(left as InternalContext)
@@ -837,27 +715,18 @@ export class ConversationNodeAssembler implements ConversationViewSnapshotStore 
     this.contextsByKind.set(kind, merged)
   }
 
-  /** 中文说明：类方法 `replayDependencies`；参数含义见签名，返回值用于更新或读取会话状态；例如由本类公开流程或下方用例调用。 */
   private replayDependencies(): boolean {
-    /** 中文说明：当前处理步骤使用的局部状态或中间值；变量 `replayed` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     let replayed = false
-    /** 中文说明：当前处理步骤使用的局部状态或中间值；变量 `ordered` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const ordered = [...this.contexts.values()]
       .filter(context => startSeq(context) !== undefined)
       .sort((left, right) => (startSeq(left) as number) - (startSeq(right) as number))
-    /** 中文说明：当前操作所属的 Cordis 上下文；变量 `context` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     for (const context of ordered) {
       if (context.state === undefined || context.dependencies.size === 0) continue
-      /** 中文说明：当前处理步骤使用的局部状态或中间值；变量 `before` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
       const before = startSeq(context)
       if (before === undefined) continue
-      /** 中文说明：当前处理步骤使用的局部状态或中间值；变量 `changed` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
       let changed = false
-      /** 中文说明：当前处理步骤使用的局部状态或中间值；变量 `dependency` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
       for (const dependency of context.dependencies.values()) {
-        /** 中文说明：当前处理步骤使用的局部状态或中间值；变量 `current` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
         const current = this.previousContext(dependency.kind, before)
-        /** 中文说明：当前处理步骤使用的局部状态或中间值；变量 `windowGap` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
         const windowGap = current === undefined && this.hasMore
         if (current?.key !== dependency.key
           || current?.revision !== dependency.revision
@@ -874,21 +743,14 @@ export class ConversationNodeAssembler implements ConversationViewSnapshotStore 
     return replayed
   }
 
-  /** 中文说明：类方法 `refreshMatchLocations`；参数含义见签名，返回值用于更新或读取会话状态；例如由本类公开流程或下方用例调用。 */
   private refreshMatchLocations(changedSeqs: ReadonlySet<number>): Set<InternalContext> {
-    /** 中文说明：当前处理步骤使用的局部状态或中间值；变量 `affected` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const affected = new Set<InternalContext>()
     if (changedSeqs.size === 0) return affected
-    /** 中文说明：标识对象、顺序或版本的标量值；变量 `seq` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     for (const seq of changedSeqs) {
-      /** 中文说明：当前操作所属的 Cordis 上下文；变量 `context` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
       for (const context of this.contextsBySeq.get(seq) ?? []) affected.add(context)
     }
-    /** 中文说明：当前操作所属的 Cordis 上下文；变量 `context` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     for (const context of affected) {
-      /** 中文说明：当前处理步骤使用的局部状态或中间值；变量 `start` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
       let start = context.start
-      /** 中文说明：当前处理步骤使用的局部状态或中间值；变量 `matches` 是可调用函数，其参数与返回值见类型签名；例如由相邻流程调用。 */
       const matches = context.matches.map((match): ConversationMatch => {
         if (!changedSeqs.has(match.event.seq)) return match
         if (match.role === 'start') {
@@ -907,10 +769,8 @@ export class ConversationNodeAssembler implements ConversationViewSnapshotStore 
     return affected
   }
 
-  /** 中文说明：类方法 `buildNode`；参数含义见签名，返回值用于更新或读取会话状态；例如由本类公开流程或下方用例调用。 */
   private buildNode(context: InternalContext, target: string): ConversationViewNode | null {
     if (context.definition.target !== target || context.definition.buildViewNode === undefined) return null
-    /** 中文说明：当前处理步骤使用的局部状态或中间值；变量 `node` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const node = context.definition.buildViewNode(contextSnapshot(context))
     if (node === null) return null
     if (node.key !== context.key) {
@@ -922,13 +782,52 @@ export class ConversationNodeAssembler implements ConversationViewSnapshotStore 
     return node
   }
 
-  /** 中文说明：类方法 `buildLocationData`；参数含义见签名，返回值用于更新或读取会话状态；例如由本类公开流程或下方用例调用。 */
+  private replaceView(view: ViewState): void {
+    const builder = view.builder ?? view.definition.create()
+    view.builder = builder
+    view.snapshot = builder.replace({
+      nodes: this.buildTargetNodes(view.target, this.contextsByTarget.get(view.target)),
+      timeline: this.locationIndex.snapshot(),
+    })
+  }
+
+  private buildTargetNodes(
+    target: string,
+    contexts: Iterable<InternalContext> | undefined,
+  ): ConversationViewNode[] {
+    const nodes: ConversationViewNode[] = []
+    for (const context of contexts ?? []) {
+      const node = this.buildNode(context, target)
+      context.current.set(target, node)
+      if (node !== null) nodes.push(node)
+    }
+    return nodes
+  }
+
+  private buildTargetUpserts(
+    target: string,
+    contexts: Iterable<InternalContext> | undefined,
+  ): ConversationViewNode[] {
+    const upserts: ConversationViewNode[] = []
+    for (const context of contexts ?? []) {
+      const previous = context.current.get(target) ?? null
+      const node = this.buildNode(context, target)
+      if (node === null && previous !== null) {
+        throw new Error(
+          `conversation Definition "${context.kind}" withdrew materialized target "${target}"; return the same key with hidden visibility instead`,
+        )
+      }
+      context.current.set(target, node)
+      if (node !== null) upserts.push(node)
+    }
+    return upserts
+  }
+
   private buildLocationData(
     context: InternalContext,
     scope: ConversationLocationDataScope,
   ): ConversationLocationData | null {
     if (context.definition.buildLocationData === undefined) return null
-    /** 中文说明：当前处理步骤使用的局部状态或中间值；变量 `data` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const data = context.definition.buildLocationData(contextSnapshot(context), scope)
     if (data === null) return null
     if (data.kind !== scope) {
@@ -950,15 +849,10 @@ export class ConversationNodeAssembler implements ConversationViewSnapshotStore 
     return data
   }
 
-  /** 中文说明：类方法 `replaceLocationData`；参数含义见签名，返回值用于更新或读取会话状态；例如由本类公开流程或下方用例调用。 */
   private replaceLocationData(): void {
-    /** 中文说明：保存索引、集合或按顺序观测值的数据结构；变量 `entries` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const entries: { owner: string; data: ConversationLocationData }[] = []
-    /** 中文说明：当前处理步骤使用的局部状态或中间值；变量 `scope` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     for (const scope of LOCATION_DATA_SCOPES) {
-      /** 中文说明：当前操作所属的 Cordis 上下文；变量 `context` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
       for (const context of this.contexts.values()) {
-        /** 中文说明：当前处理步骤使用的局部状态或中间值；变量 `data` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
         const data = this.buildLocationData(context, scope)
         context.locationData[scope] = data
         if (data !== null) entries.push({ owner: context.key, data })
@@ -969,19 +863,12 @@ export class ConversationNodeAssembler implements ConversationViewSnapshotStore 
     }
   }
 
-  /** 中文说明：类方法 `applyDirtyLocationData`；参数含义见签名，返回值用于更新或读取会话状态；例如由本类公开流程或下方用例调用。 */
   private applyDirtyLocationData(): boolean {
-    /** 中文说明：当前处理步骤使用的局部状态或中间值；变量 `changed` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     let changed = false
-    /** 中文说明：当前处理步骤使用的局部状态或中间值；变量 `scope` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     for (const scope of LOCATION_DATA_SCOPES) {
-      /** 中文说明：当前处理步骤使用的局部状态或中间值；变量 `changes` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
       const changes: ConversationLocationDataChange[] = []
-      /** 中文说明：当前操作所属的 Cordis 上下文；变量 `context` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
       for (const context of this.dirty) {
-        /** 中文说明：当前处理步骤使用的局部状态或中间值；变量 `previous` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
         const previous = context.locationData[scope]
-        /** 中文说明：当前处理步骤使用的局部状态或中间值；变量 `next` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
         const next = this.buildLocationData(context, scope)
         context.locationData[scope] = next
         if (previous !== next) changes.push({ owner: context.key, previous, next })
@@ -991,32 +878,28 @@ export class ConversationNodeAssembler implements ConversationViewSnapshotStore 
     return changed
   }
 
-  /** 中文说明：类方法 `resetViewBuilders`；参数含义见签名，返回值用于更新或读取会话状态；例如由本类公开流程或下方用例调用。 */
   private resetViewBuilders(): void {
     this.views.clear()
-    /** 中文说明：当前处理步骤使用的局部状态或中间值；变量 `definition` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     for (const definition of this.viewDefinitions.entries()) {
-      /** 中文说明：当前处理步骤使用的局部状态或中间值；变量 `builder` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
-      const builder = definition.create()
-      this.views.set(definition.target, {
+      const view: ViewState = {
         target: definition.target,
-        builder,
+        definition,
         isActive: definition.isActive === undefined
           ? undefined
           : snapshot => definition.isActive?.(snapshot) === true,
-        snapshot: builder.empty,
-      })
+        builder: undefined,
+        snapshot: undefined,
+      }
+      this.views.set(definition.target, view)
     }
     this.replacePending = true
   }
 }
 
-/** 中文说明：内部函数 `isLocationBoundary`；参数含义见签名，返回值用于后续处理；例如按本文件中的调用位置使用。 */
 function isLocationBoundary(type: string): boolean {
   return type === 'turn/start' || type === 'turn/end' || type === 'step/start' || type === 'step/end'
 }
 
-/** 中文说明：内部函数 `requireState`；参数含义见签名，返回值用于后续处理；例如按本文件中的调用位置使用。 */
 function requireState(
   definition: ConversationNodeDefinition,
   phase: 'start' | 'update',

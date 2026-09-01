@@ -1,15 +1,8 @@
-/**
- * 文件职责：为 Headless E2E 组装真实模型、agent loop、bash、todo、压缩、令牌计量和持久化插件栈。
- * 技术维度：使用 Cordis、DeepSeek 适配器、本地子进程、JSONL 会话存储和可选 BasicCompactionEngine。
- * 产品维度：让多个无界面示例测试复用与正式运行相近的编码智能体环境。
- * 逻辑维度：定义系统提示与选项，codingHarness 按配置安装插件，再提供等待空闲和提取最终文本的辅助函数。
- * 关键边界：只有请求的插件才挂载；持久化和压缩配置归调用者所有；调用者必须释放返回的 Context。
- * 新手阅读建议：先读两个系统提示，再看 CodingHarnessOptions，最后逐行阅读 codingHarness 的插件安装顺序。
- */
 import { Context } from '@deepseek-ai/cordis'
 import type { SessionEvent } from '@deepseek-ai/dsh-session'
 import type { Agent } from '@deepseek-ai/dsh-agent'
 import AgentLoop from '@deepseek-ai/dsh-agent-loop'
+import SessionProjectionRegistry from '@deepseek-ai/dsh-session-projection'
 import { mountAgentLoopTestDependencies } from '@deepseek-ai/dsh-agent-loop-testkit'
 import { LocalBashExecutor } from '@deepseek-ai/dsh-bash-local'
 import * as BashEnvPlugin from '@deepseek-ai/dsh-shell-env'
@@ -30,15 +23,12 @@ import type { BasicCompactionConfig } from '@deepseek-ai/dsh-compaction-basic'
  * outside the *.e2e.ts pattern so importing it never re-registers another
  * file's tests.
  */
-/* 中文说明：共享 Harness 位于 e2e 命名模式之外，避免被导入时重复注册其他测试文件的用例。 */
 
-/* 普通编码任务的系统角色提示，要求用 bash 操作文件并简洁报告。 */
 export const SYSTEM_PROMPT = 'You are a coding agent. Use bash for file operations '
   + 'with cat/grep/heredocs; check [exit code: N] markers, '
   + 'and report results briefly.'
 
 /** System prompt for the todo_write e2e: nudges the model to plan with the tool. */
-/* todo_write 场景的系统提示，要求持续维护完整且及时更新的任务列表。 */
 export const TODO_SYSTEM_PROMPT = 'You are a coding agent. For multi-step work, '
   + 'use the todo_write tool to track a task list: send the WHOLE list each call, '
   + 'mark every task being actively worked on in_progress (several at once when '
@@ -46,7 +36,6 @@ export const TODO_SYSTEM_PROMPT = 'You are a coding agent. For multi-step work, 
   + 'completed as soon as it is done.'
 
 /** Options for {@link codingHarness}. */
-/* 控制共享编码 Harness 的角色、持久化、压缩和模型上下文容量。 */
 export interface CodingHarnessOptions {
   /**
    * Deployment persona for the tree (the system-prompt plugin's `persona`
@@ -65,10 +54,9 @@ export interface CodingHarnessOptions {
   modelContextWindow?: number
 }
 
-/** 在 workdir 中按 options 组装编码 Harness 并返回 Context。示例：await codingHarness(dir, { persona })。 */
 export async function codingHarness(workdir: string, options: CodingHarnessOptions = {}): Promise<Context> {
-  /** 承载完整 Headless 插件栈的 Cordis 根上下文。 */
   const ctx = new Context()
+  await ctx.plugin(SessionProjectionRegistry)
   await mountAgentLoopTestDependencies(ctx, {
     systemPrompt: { persona: options.persona ?? '' },
   })

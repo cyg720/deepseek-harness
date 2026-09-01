@@ -6,41 +6,27 @@
  * continuation delivery without exposing discovery.
  * @module @deepseek-ai/dsh-tool-subagent-control/list-agents
  */
-/*
- * 文件职责：实现 list-agents.ts 覆盖的子代理工具行为与生命周期。
- * 技术维度：使用 TypeScript、Vitest、Cordis 插件、进程流、终端会话或快照规范化。
- * 产品维度：保障 Agent 的子代理工具能力稳定、可复现且可诊断。
- * 逻辑维度：准备输入和资源，执行核心流程，收集事件或输出，再处理错误与清理。
- * 关键边界：进程退出与取消可能竞态；外部输出不可信；清理必须等待子资源完全停止。
- * 新手阅读建议：先看类型和夹具，再读启动/收集主流程，最后关注平台差异、规范化和清理。
- */
 
 import type { Context } from '@deepseek-ai/cordis'
 import { defineTool } from '@deepseek-ai/dsh-tools'
 import type { Agent } from '@deepseek-ai/dsh-agent'
 import type { SessionId } from '@deepseek-ai/dsh-session'
-import { assertNever } from '@deepseek-ai/dsh-llm'
 import type { SubagentDescendantListEntry, SubagentListEntry } from '@deepseek-ai/dsh-subagent'
+import { assertNever } from '@deepseek-ai/dsh-util-values'
 
-/** 中文说明：变量 name 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 export const name = 'tool-subagent-list-agents'
-/** 中文说明：变量 inject 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 export const inject = ['tools', 'subagents', 'agents']
 
-/** 中文说明：type ListAgentsScope 定义本模块所需的数据或行为，用于表达子代理工具场景。 */
 type ListAgentsScope = 'children' | 'descendants'
 
-/** 中文说明：interface ListAgentsRequest 定义本模块所需的数据或行为，用于表达子代理工具场景。 */
 interface ListAgentsRequest {
   readonly scope?: ListAgentsScope
 }
 
-/** 中文说明：interface ListAgentsSpec 定义本模块所需的数据或行为，用于表达子代理工具场景。 */
 interface ListAgentsSpec {
   readonly scope: ListAgentsScope
 }
 
-/** 中文说明：type ListAgentsEntry 定义本模块所需的数据或行为，用于表达子代理工具场景。 */
 type ListAgentsEntry =
   | {
     readonly kind: 'child'
@@ -59,7 +45,6 @@ type ListAgentsEntry =
   }
 
 /** Resolve the optional model request into an internal required-scope spec. */
-/* 中文说明：函数 resolveListAgentsRequest 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function resolveListAgentsRequest(request: ListAgentsRequest): ListAgentsSpec {
   return { scope: request.scope ?? 'children' }
 }
@@ -71,22 +56,18 @@ function resolveListAgentsRequest(request: ListAgentsRequest): ListAgentsSpec {
  * `ready` preserves resumability without presenting an inactive conversation
  * as a terminal result to collect.
  */
-/* 中文说明：函数 statusOf 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function statusOf(agents: { get(id: SessionId): Agent | undefined }, id: SessionId): 'running' | 'idle' | 'ready' {
-  /** 中文说明：变量 agent 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const agent = agents.get(id)
   if (agent === undefined) return 'ready'
   return agent.status === 'running' ? 'running' : 'idle'
 }
 
 /** Project one service row into the model-facing entry, or omit a one-shot child. */
-/* 中文说明：函数 project 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function project(
   agents: { get(id: SessionId): Agent | undefined },
   entry: SubagentListEntry,
   position?: Pick<SubagentDescendantListEntry, 'parentId' | 'depth'>,
 ): ListAgentsEntry | undefined {
-  /** 中文说明：变量 at 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const at = position === undefined ? {} : { parent: position.parentId, depth: position.depth }
   if (entry.kind === 'diagnostic') {
     return { kind: 'diagnostic', id: entry.id, reason: entry.reason, ...at }
@@ -107,7 +88,6 @@ function project(
  * Register the `list_agents` tool.
  * @param ctx - context carrying the tool registry, subagent service, and live Agent registry.
  */
-/* 中文说明：函数 apply 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 export function apply(ctx: Context): void {
   ctx.tools.register(defineTool({
     name: 'list_agents',
@@ -162,7 +142,6 @@ export function apply(ctx: Context): void {
         },
       },
       render: (args, entries) => {
-        /** 中文说明：变量 request 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
         const request = resolveListAgentsRequest(args)
         return [{
           type: 'text',
@@ -172,7 +151,6 @@ export function apply(ctx: Context): void {
               // A descendants row always carries its position; children rows
               // never render it. String() spans the schema-optional shape
               // without a dead fallback branch.
-              /** 中文说明：变量 at 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
               const at = request.scope === 'descendants'
                 ? ` parent=${String(entry.parent)} depth=${String(entry.depth)}`
                 : ''
@@ -184,26 +162,22 @@ export function apply(ctx: Context): void {
       },
     },
     async execute(args, exec) {
-      /** 中文说明：变量 parent 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const parent = exec.agent
       if (!parent) {
         // Non-agent callers have no session whose children could be listed.
         throw new Error('list_agents requires a calling agent (exec.agent was undefined)')
       }
-      /** 中文说明：变量 request 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const request = resolveListAgentsRequest(args)
       // The registry drains started tool bodies, so the scan must observe the
       // call's signal rather than finish a slow catalog after cancellation.
       switch (request.scope) {
         case 'children': {
-          /** 中文说明：变量 entries 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
           const entries = await ctx.subagents.listChildren(parent.id, exec.signal)
           return entries
             .map(entry => project(ctx.agents, entry))
             .filter(entry => entry !== undefined)
         }
         case 'descendants': {
-          /** 中文说明：变量 entries 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
           const entries = await ctx.subagents.listDescendants(parent.id, exec.signal)
           return entries
             .map(entry => project(ctx.agents, entry, entry))

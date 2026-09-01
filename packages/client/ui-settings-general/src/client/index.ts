@@ -1,18 +1,3 @@
-/*
- * ================================ 文件注释 ================================
- * 【文件职责】设置外壳与"无主文案"插件的浏览器侧入口：渲染 sidebar.settings
- *             占用者（面板铬、分区导航、引导舞台），并注册不属于任何单个功能的
- *             设置页内容（触发/头部铬、本地文档动作、通用分区与 settings 字典）。
- * 【技术维度】Cordis 浏览器插件 + 槽位：外壳声明六个设置槽位；导航行与引导步骤
- *             从槽位账本投影（uSES 缓存，含 locale 修订键）。
- * 【产品维度】设置面板的外壳交互、导航与通用设置分区。
- * 【逻辑维度】1) 注册字典；2) 建本地文档控制器（仅回环）；
- *             3) 注册外壳（含槽位声明与注入）；4) 注册铬内容与通用分区。
- * 【关键边界】功能拥有的行/分区留在各自功能包；文案新鲜度由框架的 t 席位与
- *             导航标签 thunk 承担。
- * 【新手阅读建议】先看 shell-contract.ts 的投影类型，再看 apply 的注册顺序。
- * ==========================================================================
- */
 /**
  * Settings shell and ownerless-copy plugin, browser half: renders the
  * `sidebar.settings` occupant — panel chrome, section navigation, and the
@@ -23,7 +8,9 @@
  * Export discipline: packages/client/AGENTS.md.
  */
 import type { Context as ClientContext } from '@deepseek-ai/cordis'
-import type { ConnectionHandle } from '@deepseek-ai/dsh-api-remotes/client'
+// Type-only: pulls the ctx.remote merge and its fixed Host facts.
+import type {} from '@deepseek-ai/dsh-api-remotes/client'
+import type { ConnectionHandle } from '@deepseek-ai/dsh-client-connection/client'
 import { resolveSlotLabel } from '@deepseek-ai/dsh-client-ui-slots'
 // Type-only: the settings slot declarations plus the ctx.settingsScope Context
 // merge. Cross-plugin collaboration goes through the service, never a value
@@ -79,15 +66,15 @@ export const inject = ['slots', 'locale', 'connection', 'remote', 'remote.settin
  */
 export function apply(ctx: ClientContext): void {
   ctx.effect(() => ctx.locale.register(NS, { zh, en }), 'ui-settings-general: dictionaries')
+  const connection = ctx.get('connection') as ConnectionHandle
 
   // Copy freshness is framework-owned: components read the standard `t`
   // seat, and the nav label is a thunk the owner resolves per render — no
   // locale/change re-registration wiring.
   const t = ctx.locale.bind(NS)
-  const connection = ctx.get('connection') as ConnectionHandle
   // The shared SettingsScope mirror updates after document commits and reconnects.
-  const documentController = connection.isLoopback
-    ? new SettingsDocumentStore(ctx.remote, ctx.settingsScope.describe())
+  const documentController = ctx.remote.$host.isLoopback
+    ? new SettingsDocumentStore(ctx, ctx.settingsScope.describe())
     : undefined
   const documentInjected = documentController === undefined
     ? undefined
@@ -107,7 +94,9 @@ export function apply(ctx: ClientContext): void {
   let onboardingVersion = -1
   let onboardingSteps: readonly SettingsOnboardingStep[] = []
   const shellInjected = (): SettingsRootInjected => ({
+    reconnect: () => { connection.reconnect() },
     hooks: {
+      connectionState: connection.state,
       sections: {
         getSnapshot: () => {
           const version = ctx.slots.getVersion('settings.section')
@@ -156,6 +145,7 @@ export function apply(ctx: ClientContext): void {
   })
   ctx.slots.inject('sidebar.settings', () => ctx.slots.register({
     name: 'sidebar.settings',
+    locale: NS,
     children: {
       'settings.trigger': { kind: 'single', scope: 'root' },
       'settings.header': { kind: 'single', scope: 'root' },

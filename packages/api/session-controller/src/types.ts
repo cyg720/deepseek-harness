@@ -1,11 +1,4 @@
-/** Browser-safe request, result, and lifecycle vocabulary for the Session Remote service.
- * @remarks 文件说明：文件职责：实现 api/session-controller 中 types 模块的职责，并向相邻模块提供可复用能力。
- * ；技术维度：主要使用TypeScript/JavaScript 的 ESM 模块、严格类型约束与 Cordis 插件机制，
- * 通过当前文件中的类型、函数与数据结构完成实现。；产品维度：支撑 DeepSeek Harness 的
- * api/session-controller 能力，使上层功能能够稳定组合和扩展。；逻辑维度：建议按“依赖与类型定义 → 常量和状态 →
- * 核心函数或类 → 导出或注册入口”的顺序理解。；关键边界：调用方必须遵守类型、生命周期和错误处理约定；
- * 涉及外部输入、异步任务或资源释放时需特别关注异常分支。；新手阅读建议：先确认导入依赖和公开导出，再沿主要函数调用链阅读，
- * 最后结合相邻测试理解输入、输出与边界条件。 */
+/** Browser-safe request, result, and lifecycle vocabulary for the Session Remote service. */
 
 import type {
   AttachmentIdType, ImageAttachmentLimits, ImageAttachmentRef, ImageMediaType,
@@ -14,9 +7,10 @@ import type { Branded } from '@deepseek-ai/dsh-brand'
 import type { MessageId } from '@deepseek-ai/dsh-llm/brand'
 import type { ContentBlock } from '@deepseek-ai/dsh-llm/types'
 import type { ChunkRow } from '@deepseek-ai/dsh-session/chunk-rows'
-import type { JsonValue, SessionHeader, SessionId, SurfaceOp } from '@deepseek-ai/dsh-session/types'
+import type { SessionHeader, SessionId, SurfaceOp } from '@deepseek-ai/dsh-session/types'
 import type { SessionProjectionMap } from '@deepseek-ai/dsh-session-projection/types'
 import type { JobId } from '@deepseek-ai/dsh-jobs/brand'
+import type { JsonValue } from '@deepseek-ai/dsh-util-values'
 import type { WorkspaceId } from '@deepseek-ai/dsh-workspace/types'
 
 declare module '@deepseek-ai/dsh-session-projection/types' {
@@ -175,65 +169,44 @@ export interface SessionSearchItem {
   readonly snippet: string
 }
 
-/** Maximum number of Sessions returned by one search.
- * @remarks 中文说明：常量说明：SESSION_SEARCH_RESULT_LIMIT 用于处理
- * SESSION_SEARCH_RESULT_LIMIT 相关数据，作用于当前作用域；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。 */
+/** Maximum number of Sessions returned by one search. */
 export const SESSION_SEARCH_RESULT_LIMIT = 20
 
-/** Maximum search snippet length in Unicode code points.
- * @remarks 中文说明：常量说明：SESSION_SEARCH_SNIPPET_MAX_CODE_POINTS 用于处理
- * SESSION_SEARCH_SNIPPET_MAX_CODE_POINTS 相关数据，作用于当前作用域；初始化后不可重新赋值，
- * 但对象内部是否可变仍由其类型决定。 */
+/** Maximum search snippet length in Unicode code points. */
 export const SESSION_SEARCH_SNIPPET_MAX_CODE_POINTS = 240
 
-/** Error details returned by Session Remote methods. */
-export interface SessionErrorDetailsMap {
-  'bad-request': Record<never, never>
-  cancelled: Record<never, never>
-  'session-not-found': { readonly sessionId: SessionId }
-  'model-unavailable': { readonly provider: string; readonly model: string }
-  'session-conflict': {
-    readonly sessionId: SessionId
-    readonly requestedCwd: string
-    readonly existingCwd?: string
+declare module '@deepseek-ai/dsh-typert-protocol' {
+  interface RemoteErrorDetailsMap {
+    'session/model-unavailable': { readonly provider: string; readonly model: string }
+    'session/conflict': {
+      readonly sessionId: SessionId
+      readonly requestedCwd: string
+      readonly existingCwd?: string
+    }
+    'session/agent-busy': { readonly reason: string }
+    'session/invalid-time-zone': { readonly value: string }
+    'session/workspace-attach-failed': { readonly sessionId: SessionId; readonly workspaceId: string }
+    'agent-preset/conflict': {
+      readonly sessionId: SessionId
+      readonly requestedPreset: string
+      readonly existingPreset?: string
+    }
+    'session/attachment-invalid': { readonly reason: string }
+    'session/queue-item-not-found': { readonly itemId: MessageId }
+    'session/steer-unavailable': { readonly itemId: MessageId }
+    'session/title-invalid': { readonly sessionId: SessionId }
+    'session/fork-unavailable': { readonly sessionId: SessionId }
+    'subagent/not-found': {
+      readonly parentSessionId: SessionId
+      readonly childSessionId: SessionId
+    }
+    'subagent/catalog-diagnostic': {
+      readonly parentSessionId: SessionId
+      readonly childSessionId: SessionId
+      readonly reason: 'corrupt' | 'unsupported' | 'unavailable'
+    }
   }
-  'invalid-time-zone': { readonly value: string }
-  'workspace-attach-failed': { readonly sessionId: SessionId; readonly workspaceId: string }
-  'workspace-not-found': { readonly workspaceId: string }
-  'agent-preset-conflict': {
-    readonly sessionId: SessionId
-    readonly requestedPreset: string
-    readonly existingPreset?: string
-  }
-  'agent-preset-not-found': { readonly agentPreset: string; readonly available: readonly string[] }
-  'agent-preset-invalid': { readonly agentPreset: string; readonly reason: string }
-  'agent-busy': { readonly reason: string }
-  'attachment-error': { readonly reason: string }
-  'queue-item-not-found': { readonly itemId: MessageId }
-  'steer-unavailable': { readonly itemId: MessageId }
-  'title-invalid': { readonly sessionId: SessionId }
-  'fork-unavailable': { readonly sessionId: SessionId }
-  'subagent-not-found': {
-    readonly parentSessionId: SessionId
-    readonly childSessionId: SessionId
-  }
-  'subagent-catalog-diagnostic': {
-    readonly parentSessionId: SessionId
-    readonly childSessionId: SessionId
-    readonly reason: 'corrupt' | 'unsupported' | 'unavailable'
-  }
-  'subagent-unauthorized': { readonly childSessionId: SessionId }
-  internal: Record<never, never>
 }
-
-/** Session business failure returned without throwing a carrier error. */
-export type SessionError = {
-  [Code in keyof SessionErrorDetailsMap]: {
-    readonly code: Code
-    readonly message: string
-    readonly details: SessionErrorDetailsMap[Code]
-  }
-}[keyof SessionErrorDetailsMap]
 
 /** Session-addressed request for the human-invocable skill catalog. */
 export interface SkillListRequest {
@@ -436,6 +409,7 @@ export interface SessionWireEvent {
   readonly seq: number
   readonly time: number
   readonly data: JsonValue
+  readonly ignorable?: true
   readonly sourceEventSeqs?: number[]
   readonly surfaceOp?: SurfaceOp
 }
@@ -525,20 +499,12 @@ declare module '@deepseek-ai/cordis' {
      * A Session became visible to Session list consumers.
      * @mode emit
      * @param summary - initial list row for the Session.
-     * @remarks 中文说明：功能说明：处理 'api-session/added' 相关流程；使用场景由所在模块及调用位置决定。；
-     * 参数说明：summary（SessionSummary）：提供本次调用所需的数据；必须满足声明的类型及调用时序要求。；返回值：void；
-     * 调用方应按声明类型处理，不应假定未声明的附加状态。；使用示例：典型用法：在完成前置校验后调用
-     * 'api-session/added'(summary)，并按返回类型处理结果。
      */
     'api-session/added'(summary: SessionSummary): void
     /**
      * A Session left the live Host registry.
      * @mode emit
      * @param sessionId - removed Session identity.
-     * @remarks 中文说明：功能说明：处理 'api-session/removed' 相关流程；使用场景由所在模块及调用位置决定。；
-     * 参数说明：sessionId（SessionId）：提供本次调用所需的数据；必须满足声明的类型及调用时序要求。；返回值：void；
-     * 调用方应按声明类型处理，不应假定未声明的附加状态。；使用示例：典型用法：在完成前置校验后调用
-     * 'api-session/removed'(sessionId)，并按返回类型处理结果。
      */
     'api-session/removed'(sessionId: SessionId): void
     /**
@@ -546,11 +512,6 @@ declare module '@deepseek-ai/cordis' {
      * @mode emit
      * @param sessionId - Agent and Session identity.
      * @param running - whether the Agent is running.
-     * @remarks 中文说明：功能说明：处理 'api-session/status' 相关流程；使用场景由所在模块及调用位置决定。；
-     * 参数说明：sessionId（SessionId）：提供本次调用所需的数据；必须满足声明的类型及调用时序要求。；
-     * 参数说明：running（boolean）：提供本次调用所需的数据；必须满足声明的类型及调用时序要求。；返回值：void；调用方应按声明类型处理，
-     * 不应假定未声明的附加状态。；使用示例：典型用法：在完成前置校验后调用 'api-session/status'(sessionId,
-     * running)，并按返回类型处理结果。
      */
     'api-session/status'(sessionId: SessionId, running: boolean): void
     /**
@@ -558,11 +519,6 @@ declare module '@deepseek-ai/cordis' {
      * @mode emit
      * @param sessionId - addressed Session identity.
      * @param updatedAt - durable message time used for list ordering.
-     * @remarks 中文说明：功能说明：处理 'api-session/activity' 相关流程；使用场景由所在模块及调用位置决定。；
-     * 参数说明：sessionId（SessionId）：提供本次调用所需的数据；必须满足声明的类型及调用时序要求。；
-     * 参数说明：updatedAt（number）：提供本次调用所需的数据；必须满足声明的类型及调用时序要求。；返回值：void；
-     * 调用方应按声明类型处理，不应假定未声明的附加状态。；使用示例：典型用法：在完成前置校验后调用
-     * 'api-session/activity'(sessionId, updatedAt)，并按返回类型处理结果。
      */
     'api-session/activity'(sessionId: SessionId, updatedAt: number): void
     /**
@@ -570,11 +526,6 @@ declare module '@deepseek-ai/cordis' {
      * @mode emit
      * @param sessionId - Agent and Session identity.
      * @param message - user-safe failure chain.
-     * @remarks 中文说明：功能说明：处理 'api-session/error' 相关流程；使用场景由所在模块及调用位置决定。；
-     * 参数说明：sessionId（SessionId）：提供本次调用所需的数据；必须满足声明的类型及调用时序要求。；
-     * 参数说明：message（string）：提供本次调用所需的数据；必须满足声明的类型及调用时序要求。；返回值：void；调用方应按声明类型处理，
-     * 不应假定未声明的附加状态。；使用示例：典型用法：在完成前置校验后调用 'api-session/error'(sessionId,
-     * message)，并按返回类型处理结果。
      */
     'api-session/error'(sessionId: SessionId, message: string): void
   }

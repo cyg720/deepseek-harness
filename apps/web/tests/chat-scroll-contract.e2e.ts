@@ -2,15 +2,6 @@
 // deliberately virtualizer-neutral: they assert semantic-row position,
 // bottom ownership, interaction state, and the real outer scroll host rather
 // than DOM cardinality or implementation-specific spacer markup.
-// 断言关注语义行位置、底部归属、交互状态和真实外层滚动容器，不固定 DOM 数量或占位实现。
-/**
- * 文件职责：用多组长聊天场景验证滚动定位、底部跟随、会话恢复、实时流和非滚轮输入行为。
- * 技术维度：使用 Playwright、确定性长历史夹具、模型回放、真实工具流和浏览器几何测量。
- * 产品维度：用户阅读旧消息、快速滚动、切换会话或等待实时回复时不会突然跳位或丢失上下文。
- * 逻辑维度：构造多个隔离 ScrollWorld，播种长会话，按场景驱动滚轮/键盘/触摸和实时增量。
- * 关键边界：只固定用户可感知的语义和少量容差，不依赖虚拟列表内部 DOM；每个世界独立清理。
- * 新手阅读建议：先看 ScrollWorld 与 launch/close 包装，再按各 describe 的滚动所有权场景阅读。
- */
 import { access, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -31,21 +22,13 @@ import {
 } from './scaffold.ts'
 import { expandOwningTurnProcess, newEnglishPage, saveFailureShot } from './support.ts'
 
-/** 当前快照运行模式。 */
 const MODE = webSnapshotMode()
-/** 纯历史滚动场景会话编号。 */
 const HISTORY_SESSION_ID = 'chat-scroll-history-e2e'
-/** 实时工具场景会话编号。 */
 const TOOL_SESSION_ID = 'chat-scroll-tool-e2e'
-/** 恢复场景第一个会话编号。 */
 const RESTORE_SESSION_A_ID = 'chat-scroll-restore-a-e2e'
-/** 恢复场景第二个会话编号。 */
 const RESTORE_SESSION_B_ID = 'chat-scroll-restore-b-e2e'
-/** 避免长历史触发回放上下文裁剪的窗口大小。 */
 const REPLAY_CONTEXT_WINDOW = 10_000_000
-/** 实时回放增量发送间隔。 */
 const STREAM_PACE_MS = 24
-/** 几何断言允许的亚像素误差。 */
 const GEOMETRY_TOLERANCE = 2
 const RESPONSIVE_REFLOW_TOLERANCE = 32
 const LIVE_TEXT_PROMPT = 'CHAT_SCROLL_LIVE_USER Continue this long conversation while I inspect older history.'
@@ -59,51 +42,44 @@ const LIVE_TOOL_DONE = 'CHAT_SCROLL_TOOL_STREAM_DONE'
 const TOOL_READY_FILE = '.chat-scroll-tool-ready'
 const TOOL_RELEASE_FILE = '.chat-scroll-tool-release'
 const INPUTS_SESSION_ID = 'chat-scroll-inputs-e2e'
+const RAIL_SESSION_ID = 'chat-scroll-rail-e2e'
 const FLING_SESSION_ID = 'chat-scroll-fling-e2e'
 const LIVE_FLING_PROMPT = 'CHAT_SCROLL_FLING_USER Keep streaming while I fling back through older output.'
 const LIVE_FLING_FIRST = 'CHAT_SCROLL_FLING_STREAM_FIRST'
 const LIVE_FLING_DONE = 'CHAT_SCROLL_FLING_STREAM_DONE'
 
-/** 纯历史滚动长会话夹具。 */
 const HISTORY_FIXTURE = createChatScrollFixture({
   markerPrefix: 'HISTORY',
   title: 'CHAT_SCROLL_HISTORY long paging session',
 })
-/** 含实时工具调用的长会话夹具。 */
 const TOOL_FIXTURE = createChatScrollFixture({
   markerPrefix: 'TOOL',
   title: 'CHAT_SCROLL_TOOL live tool session',
 })
-/** 用于验证会话 A 滚动位置恢复的夹具。 */
 const RESTORE_FIXTURE_A = createChatScrollFixture({
   markerPrefix: 'RESTORE_A',
   title: 'CHAT_SCROLL_RESTORE_A long session',
 })
-/** 用于切换比较的较短会话 B 夹具。 */
 const RESTORE_FIXTURE_B = createChatScrollFixture({
   markerPrefix: 'RESTORE_B',
   title: 'CHAT_SCROLL_RESTORE_B comparison session',
   turns: 32,
 })
-/** 用于键盘和触摸等非滚轮输入的长会话夹具。 */
 const INPUTS_FIXTURE = createChatScrollFixture({
   markerPrefix: 'INPUTS',
   title: 'CHAT_SCROLL_INPUTS non-wheel reader input session',
 })
 
-/** 当前滚动位置及距底部距离的几何快照。 */
 interface ScrollGeometry {
   readonly distanceFromBottom: number
   readonly scrollTop: number
 }
 
-/** 虚拟聊天语义锚点的键与顶部位置。 */
 interface FlowAnchor {
   readonly key: string
   readonly top: number
 }
 
-/** 一个隔离滚动场景拥有的事件、页面、服务和可选回放目录。 */
 interface ScrollWorld {
   readonly events: SessionEvent[]
   readonly page: Page
@@ -112,22 +88,18 @@ interface ScrollWorld {
   readonly tripwire: ReturnType<typeof watchConsole>
 }
 
-/** 创建滚动世界所需的失败截图名、回放脚本和播种会话。 */
 interface ScrollWorldOptions {
   readonly failureShot: string
   readonly replay?: ReplayOverrideDoc
   readonly seeds: readonly { fixture: ChatScrollFixture; id: string }[]
 }
 
-/** 生成带首尾标记的确定性文本增量流。 */
 function textStream(first: string, done: string, deltaCount: number): StreamChunk[] {
-  /** 按位置生成的文本增量列表。 */
   const deltas = Array.from({ length: deltaCount }, (_, index) => {
     if (index === 0) return `${first} `
     if (index === deltaCount - 1) return `${done}.`
     return `stream-chunk-${String(index).padStart(3, '0')} ${'incremental response '.repeat(3)}`
   })
-  /** 所有文本增量拼接后的最终回复。 */
   const response = deltas.join('')
   return [
     { type: 'block-start', index: 0, blockType: 'text' },
@@ -141,16 +113,13 @@ function textStream(first: string, done: string, deltaCount: number): StreamChun
   ]
 }
 
-/** 生成等待释放文件后输出 64 行结果的真实 Bash 工具调用流。 */
 function toolStream(): StreamChunk[] {
-  /** 等待测试释放并输出稳定行的 Bash 命令。 */
   const command = [
     `: > ${TOOL_READY_FILE}`,
     `while [ ! -f ${TOOL_RELEASE_FILE} ]; do sleep 0.02; done`,
     'line=1',
     `while [ "$line" -le 64 ]; do printf '${LIVE_TOOL_RESULT} line %02d\\n' "$line"; line=$((line + 1)); done`,
   ].join('; ')
-  /** 工具调用的 JSON 参数文本。 */
   const args = JSON.stringify({ command, description: LIVE_TOOL_RESULT })
   return [
     { type: 'block-start', index: 0, blockType: 'tool-call' },
@@ -171,28 +140,17 @@ function toolStream(): StreamChunk[] {
   ]
 }
 
-/** 把一组增量包装为回放条目。 */
 function replayEntry(chunks: StreamChunk[]): ReplayEntry {
   return { kind: 'chunks', chunks }
 }
 
-/**
- * 创建一个完全隔离的浏览器滚动场景世界。
- * @param options 回放脚本、播种会话和失败截图名。
- * @returns 已加载页面、服务、事件列表和可选临时目录。
- * @example `await launchScrollWorld({ failureShot: 'x', seeds: [] })`
- */
 async function launchScrollWorld(options: ScrollWorldOptions): Promise<ScrollWorld> {
-  /** 使用回放时创建的临时目录。 */
   let replayDir: string | undefined
-  /** 当前世界启动的 Web 服务脚手架。 */
   let scaffold: WebScaffold | undefined
-  /** 当前世界打开的隔离浏览器页面。 */
   let page: Page | undefined
   try {
     if (options.replay !== undefined) {
       replayDir = await mkdtemp(join(tmpdir(), 'dsh-chat-scroll-replay-'))
-      /** 当前世界的回放覆盖 JSON。 */
       const replayOverride = join(replayDir, 'replay.override.json')
       await writeFile(replayOverride, JSON.stringify(options.replay))
       scaffold = await launchWebScaffold({
@@ -205,11 +163,9 @@ async function launchScrollWorld(options: ScrollWorldOptions): Promise<ScrollWor
       scaffold = await launchWebScaffold({})
     }
     for (const seed of options.seeds) await seedSession(scaffold, seed.fixture.log, seed.id)
-    /** 当前世界捕获的所有新会话事件。 */
     const events: SessionEvent[] = []
     scaffold.ctx.on('session/event', (_session, event: SessionEvent) => { events.push(event) })
     page = await newEnglishPage(browser, 900)
-    /** 当前页面的错误与警告监视器。 */
     const tripwire = watchConsole(page)
     await page.goto(scaffold.authenticatedUrl, { waitUntil: 'load' })
     await page.waitForSelector('[class*="frame"]', { timeout: 30_000 })
@@ -217,7 +173,6 @@ async function launchScrollWorld(options: ScrollWorldOptions): Promise<ScrollWor
     // for the seeded baseline before openSeed starts the lazy content query
     // (the compact layout dropped group session counts; the Ungrouped bucket
     // row is the barrier).
-    // 会话列表初始化可能覆盖受控搜索状态，因此等待 Ungrouped 播种基线后再执行场景。
     await page.getByText('Ungrouped', { exact: true }).waitFor({ timeout: 30_000 })
     return {
       events,
@@ -227,7 +182,6 @@ async function launchScrollWorld(options: ScrollWorldOptions): Promise<ScrollWor
       ...(replayDir === undefined ? {} : { replayDir }),
     }
   } catch (error) {
-    /** 原始启动错误及清理期间追加的错误。 */
     const failures: unknown[] = [error]
     if (page !== undefined) await page.context().close().catch((cleanupError: unknown) => failures.push(cleanupError))
     if (scaffold !== undefined) await scaffold.close().catch((cleanupError: unknown) => failures.push(cleanupError))
@@ -239,14 +193,11 @@ async function launchScrollWorld(options: ScrollWorldOptions): Promise<ScrollWor
   }
 }
 
-/** 关闭一个滚动世界拥有的浏览器上下文、服务和临时目录。 */
 async function closeScrollWorld(world: ScrollWorld): Promise<void> {
-  /** 清理各资源时聚合的错误。 */
   const failures: unknown[] = []
   // newEnglishPage/browser.newPage owns an isolated context. Close the whole
   // context so its SSE connection and cache cannot leak into the next world
   // in this file's shared Chromium process.
-  // newEnglishPage 拥有隔离上下文，关闭整个上下文防止 SSE 和缓存泄漏到下个世界。
   await world.page.context().close().catch((error: unknown) => failures.push(error))
   await world.scaffold.close().catch((error: unknown) => failures.push(error))
   if (world.replayDir !== undefined) {
@@ -256,14 +207,11 @@ async function closeScrollWorld(world: ScrollWorld): Promise<void> {
   if (failures.length > 1) throw new AggregateError(failures, 'chat-scroll browser world cleanup failed')
 }
 
-/** 运行一个滚动世界场景，并保证失败截图和资源清理都得到处理。 */
 async function withScrollWorld(
   options: ScrollWorldOptions,
   run: (world: ScrollWorld) => Promise<void>,
 ): Promise<void> {
-  /** 为当前场景创建的隔离滚动世界。 */
   const world = await launchScrollWorld(options)
-  /** 场景主体抛出的错误。 */
   let runFailure: unknown
   try {
     await run(world)
@@ -273,10 +221,8 @@ async function withScrollWorld(
       await saveFailureShot(world.page, options.failureShot)
     } catch {
       // Best-effort evidence must never prevent cleanup of the owned world.
-      // 失败截图是尽力而为的证据，不能阻止清理当前世界资源。
     }
   }
-  /** 世界清理阶段抛出的错误。 */
   let cleanupFailure: unknown
   try {
     await closeScrollWorld(world)
@@ -290,7 +236,6 @@ async function withScrollWorld(
   if (cleanupFailure !== undefined) throw cleanupFailure
 }
 
-/** 等待字体就绪并跨过两次动画帧，使浏览器布局稳定。 */
 async function nextPaint(page: Page): Promise<void> {
   await page.evaluate(async () => {
     await document.fonts.ready
@@ -609,6 +554,68 @@ describe('web e2e: long Chat scroll contract', () => {
       expect(await world.page.locator('[data-conversation-scroll]')
         .getByText(HISTORY_FIXTURE.markers.user(1), { exact: false }).count()).toBe(1)
       expect(await world.page.getByRole('button', { name: 'Load earlier', exact: true }).count()).toBe(0)
+      assertClean(world)
+    })
+  }, 180_000)
+
+  it.skipIf(MODE === 'record')('offers every outline turn on the rail and jumps to an unloaded one', async () => {
+    await withScrollWorld({
+      failureShot: 'web-e2e-turn-rail-jump',
+      seeds: [{ fixture: HISTORY_FIXTURE, id: RAIL_SESSION_ID }],
+    }, async (world) => {
+      await openSeed(world.page, HISTORY_FIXTURE, HISTORY_FIXTURE.markers.assistant(HISTORY_FIXTURE.turns))
+      await expectBottom(world.page)
+
+      // The whole-log outline reaches the rail before any paging: one mark
+      // per fixture turn, the oldest still in its load-and-jump form.
+      const rail = world.page.getByRole('navigation', { name: 'Turn navigation' })
+      await expect.poll(() => rail.getByRole('button').count(), { timeout: 15_000 })
+        .toBe(HISTORY_FIXTURE.turns)
+      const firstUnloaded = rail.getByRole('button', { name: 'Load and jump to turn 1', exact: true })
+      expect(await firstUnloaded.count()).toBe(1)
+      // Fixed pitch: the ladder keeps its natural height, scrolls inside the
+      // frame, and (following the active tail mark) fades its upper end.
+      expect(await rail.evaluate(nav => nav.style.getPropertyValue('--turn-natural-height')))
+        .toBe(`${String((HISTORY_FIXTURE.turns - 1) * 10 + 12)}px`)
+      const railScroller = rail.locator('[class*="scroller"]')
+      await expect.poll(() => railScroller.evaluate(el => el.scrollHeight > el.clientHeight)).toBe(true)
+      await expect.poll(() => rail.locator('[class*="fadeTop"]').count(), { timeout: 15_000 }).toBe(1)
+
+      // Activate the unloaded mark by keyboard: pointer input belongs to the
+      // rail frame, while each mark is the keyboard/AT destination. Focus
+      // first shows the outline-backed preview: prompt and settled response
+      // both travel ahead of the events.
+      const beforeRows = await loadedFlowRows(world.page)
+      await firstUnloaded.focus()
+      const tooltip = world.page.getByRole('tooltip')
+      await expect.poll(() => tooltip.count(), { timeout: 15_000 }).toBe(1)
+      expect(await tooltip.textContent()).toContain(HISTORY_FIXTURE.markers.user(1))
+      expect(await tooltip.textContent()).toContain(HISTORY_FIXTURE.markers.assistant(1))
+      await world.page.keyboard.press('Enter')
+
+      // The jump pages history in and lands on turn 1: its mark flips to the
+      // loaded label and becomes current, the window grew, and the turn-1
+      // user row sits at the reading line.
+      const firstLoaded = rail.getByRole('button', { name: 'Jump to turn 1', exact: true })
+      await expect.poll(() => firstLoaded.count(), { timeout: 60_000 }).toBe(1)
+      await expect.poll(() => firstLoaded.getAttribute('aria-current'), { timeout: 15_000 }).toBe('true')
+      expect(await loadedFlowRows(world.page)).toBeGreaterThan(beforeRows)
+      // Drop mark focus so its hover/focus preview (which echoes the prompt
+      // marker) leaves the DOM before the transcript count below.
+      await firstLoaded.evaluate((el) => { (el as HTMLElement).blur() })
+      await expect.poll(() => world.page.getByRole('tooltip').count(), { timeout: 15_000 }).toBe(0)
+      await nextPaint(world.page)
+      const marker = world.page.locator('[data-conversation-scroll]')
+        .getByText(HISTORY_FIXTURE.markers.user(1), { exact: false })
+      expect(await marker.count()).toBe(1)
+      const scrollport = await world.page.locator('[data-conversation-scroll]').boundingBox()
+      const row = await marker.boundingBox()
+      if (scrollport === null || row === null) throw new Error('turn-1 row or scrollport has no layout box')
+      expect(row.y - scrollport.y).toBeGreaterThanOrEqual(0)
+      expect(row.y - scrollport.y).toBeLessThanOrEqual(160)
+      // The rail followed the landing to the ladder top, so the fade now
+      // marks the other (downward) end.
+      await expect.poll(() => rail.locator('[class*="fadeBottom"]').count(), { timeout: 15_000 }).toBe(1)
       assertClean(world)
     })
   }, 180_000)

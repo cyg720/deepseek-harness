@@ -1,14 +1,3 @@
-/*
- * ================================ 文件注释 ================================
- * 【文件职责】`workspace` 命名空间的双语文案字典：浏览区（段头/搜索/树行/对话框）
- *             与选择/添加流程。运行时失败消息（线缆错误串）按策略不翻译直通。
- * 【技术维度】zh 为键集基准，en 受 Record<WorkspaceKey, string> 约束。
- * 【产品维度】侧边栏工作区浏览区与英雄区选择器的全部可见文字。
- * 【逻辑维度】zh 定义键 → WorkspaceKey 推导 → en 补齐。
- * 【关键边界】zh 是键的单一事实来源。
- * 【新手阅读建议】纯数据文件。
- * ==========================================================================
- */
 /**
  * `workspace` namespace dictionaries: the browsing region (section header,
  * search, tree rows, dialogs) and the pick/add flow. Runtime failure
@@ -69,6 +58,7 @@ export const zh = {
   'status.planReview': '计划待审',
   'status.waitingAnswer': '等待回答',
   'status.completed': '已完成',
+  'schedule.active': '有活动定时任务',
   'hover.created': '创建于 {time}',
   'hover.copied': '已复制',
   'date.ymd': '{y}年{m}月{d}日',
@@ -138,6 +128,7 @@ export const en = {
   'status.planReview': 'Plan awaiting review',
   'status.waitingAnswer': 'Waiting for answer',
   'status.completed': 'Completed',
+  'schedule.active': 'Has active scheduled task',
   'hover.created': 'Created {time}',
   'hover.copied': 'Copied',
   'date.ymd': '{y}-{m}-{d}',

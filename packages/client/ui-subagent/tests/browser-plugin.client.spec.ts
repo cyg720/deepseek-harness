@@ -1,12 +1,4 @@
 /** ui-subagent browser half: catalog actions and read-only composer routing. */
-/*
- * 文件职责：验证子代理谱系的 browser-plugin.client.spec.ts 行为。
- * 技术维度：Vitest、React 渲染、DOM 事件和服务替身。
- * 产品维度：防止子代理谱系显示、导航或生命周期回归。
- * 逻辑维度：构造状态，触发交互并断言输出和清理。
- * 关键边界：全局主题、DOM 尺寸和订阅必须在用例后恢复。
- * 新手阅读建议：先读夹具，再按加载、交互和卸载场景阅读。
- */
 import { Context } from '@deepseek-ai/cordis'
 import { stubSettingsScope } from '@deepseek-ai/dsh-client-test-runtime'
 import { describe, expect, it } from 'vitest'
@@ -26,7 +18,6 @@ import {
 } from '../src/client/SubagentReadOnlyComposer.tsx'
 import { apply, inject } from '../src/client/index.ts'
 
-/** 中文说明：函数 summary 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function summary(partial: Partial<SessionSummary> & { id: SessionId }): SessionSummary {
   return {
     displayTitle: partial.id,
@@ -36,19 +27,13 @@ function summary(partial: Partial<SessionSummary> & { id: SessionId }): SessionS
   } as SessionSummary
 }
 
-/** 中文说明：测试局部值 sid，由紧邻初始化决定。 */
 const sid = (id: string) => id as SessionId
 
 /** Fake root sessions face for catalog actions. */
-/* 中文说明：函数 sessionsWith 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function sessionsWith(sessions: SessionSummary[]) {
-  /** 中文说明：测试局部值 byId，由紧邻初始化决定。 */
   const byId: Record<string, SessionSummary> = {}
-  /** 中文说明：测试局部值 s，由紧邻初始化决定。 */
   for (const s of sessions) byId[s.id] = s
-  /** 中文说明：测试局部值 snapshot，由紧邻初始化决定。 */
   const snapshot = { ids: sessions.map(s => s.id), byId, current: undefined } as unknown as SessionListState
-  /** 中文说明：测试局部值 actionCalls，由紧邻初始化决定。 */
   const actionCalls: { method: string; args: unknown[] }[] = []
   return {
     list: {
@@ -69,7 +54,6 @@ function sessionsWith(sessions: SessionSummary[]) {
   }
 }
 
-/** 中文说明：函数 provideSlotFaces 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 async function provideSlotFaces(ctx: Context): Promise<void> {
   await ctx.plugin(SlotRegistry).await()
   ctx.slots.register({
@@ -82,14 +66,10 @@ async function provideSlotFaces(ctx: Context): Promise<void> {
 }
 
 /** Boot the plugin over fake sessions and slot faces. */
-/* 中文说明：函数 fullBench 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 async function fullBench(sessions: SessionSummary[]) {
-  /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
   const ctx = new Context()
-  /** 中文说明：测试局部值 face，由紧邻初始化决定。 */
   const face = sessionsWith(sessions)
   ctx.provide('sessions', face)
-  ctx.provide('connection', { api: { settings: {} }, isLoopback: false } as never)
   ctx.provide('remote', { $on: () => () => {} } as never)
   ctx.provide('settingsScope', { bind: () => stubSettingsScope().scope } as never)
   await provideSlotFaces(ctx)
@@ -98,7 +78,6 @@ async function fullBench(sessions: SessionSummary[]) {
   return { face, ctx }
 }
 
-/** 中文说明：测试局部值 FAMILY，由紧邻初始化决定。 */
 const FAMILY: SessionSummary[] = [
   summary({ id: sid('parent'), displayTitle: 'parent', running: true }),
   summary({ id: sid('c1'), parentId: sid('parent'), displayTitle: 'worker-1', running: true }),
@@ -115,14 +94,10 @@ describe('apply', () => {
   })
 
   it('registers catalog actions and selects read-only subagent composers from session facts', async () => {
-    /** 中文说明：测试局部值 { ctx, face }，由紧邻初始化决定。 */
     const { ctx, face } = await fullBench(FAMILY)
-    /** 中文说明：测试局部值 catalogEntry，由紧邻初始化决定。 */
     const catalogEntry = ctx.slots.entries('conversation.session.header.lineage')
       .find(entry => entry.component === SubagentHeaderLineage)!
-    /** 中文说明：测试局部值 actions，由紧邻初始化决定。 */
     const actions = (catalogEntry.inject as unknown as (id: SessionId) => SubagentCatalogInjected)(sid('parent'))
-    /** 中文说明：测试局部值 address，由紧邻初始化决定。 */
     const address: SubagentAddress = {
       parentSessionId: sid('parent'),
       childSessionId: sid('c1'),
@@ -137,12 +112,9 @@ describe('apply', () => {
       { method: 'setSubagentCatalogOpen', args: [sid('parent'), true] },
     ])
 
-    /** 中文说明：测试局部值 composerEntry，由紧邻初始化决定。 */
     const composerEntry = ctx.slots.entries('conversation.composer')
       .find(entry => entry.component === SubagentReadOnlyComposer)!
-    /** 中文说明：测试局部值 select，由紧邻初始化决定。 */
     const select = composerEntry.select as (owner: ComposerChainProps) => SubagentReadOnlyMatch | null
-    /** 中文说明：测试局部值 owner，由紧邻初始化决定。 */
     const owner = (
       subagent: SessionSnapshot['subagent'] | undefined,
       running = false,

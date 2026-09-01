@@ -1,11 +1,3 @@
-/**
- * 文件职责：验证Pi AI LLM的 adapter.spec.ts 行为与网络边界。
- * 技术维度：TypeScript、Fetch、SSE、OAuth/密钥认证、模型目录和运行时模式校验。
- * 产品维度：让 Agent 能稳定调用供应商模型、发现能力并接收流式结果。
- * 逻辑维度：构造请求或模拟服务器，驱动适配器并断言事件与错误。
- * 关键边界：网络响应属于不可信输入；密钥和令牌不得记录；取消必须终止请求与流。
- * 新手阅读建议：先读 config/auth/catalog，再看 adapter/stream，最后阅读错误和重放测试。
- */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { Context, Service } from '@deepseek-ai/cordis'
 import { AttachmentId, AttachmentStore, ImageVariantId } from '@deepseek-ai/dsh-attachment'
@@ -32,7 +24,6 @@ afterEach(async () => {
   await closeMockServers()
 })
 
-/** 中文说明：测试局部值 IMAGE_REF，由紧邻初始化决定。 */
 const IMAGE_REF: ImageAttachmentRef = {
   attachmentId: AttachmentId(`sha256:${'a'.repeat(64)}`),
   mediaType: 'image/png',
@@ -53,10 +44,8 @@ class MappedFileSystem extends Service {
   }
 }
 
-/** 中文说明：函数 harness 的参数见签名，返回结果供模型流程使用；示例见本文件。 */
 async function harness(baseURL: string, overrides: Record<string, unknown> = {}): Promise<Context> {
   vi.stubEnv('PI_TEST_KEY', 'test-key')
-  /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
   const ctx = new Context()
   await ctx.plugin(LlmRuntime)
   await ctx.plugin(LlmPiAi, {
@@ -66,7 +55,6 @@ async function harness(baseURL: string, overrides: Record<string, unknown> = {})
 }
 
 /** Direct adapter over the real profile resolver, with a fixed key per call. */
-/* 中文说明：函数 adapterOf 的参数见签名，返回结果供模型流程使用；示例见本文件。 */
 function adapterOf(
   providers: Record<string, LlmPiAi.PiAiProviderProfile>,
   apiKey: string | undefined = 'test-key',
@@ -86,11 +74,8 @@ beforeEach(() => {
 
 describe('PiAiAdapter provider routing', () => {
   it('resolves a catalog model dynamically and uses a private endpoint', async () => {
-    /** 中文说明：测试局部值 server，由紧邻初始化决定。 */
     const server = await mockServer([{ events: textEvents }])
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await harness(server.url)
-    /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
     const result = await assemble(ctx, {
       model: 'deepseek-v4-flash',
       messages: [createUserMessage({
@@ -105,15 +90,11 @@ describe('PiAiAdapter provider routing', () => {
   })
 
   it('keeps prepared model metadata and dispatch on one profile snapshot', async () => {
-    /** 中文说明：测试局部值 first，由紧邻初始化决定。 */
     const first = await mockServer([{ events: textEvents }])
-    /** 中文说明：测试局部值 second，由紧邻初始化决定。 */
     const second = await mockServer([])
-    /** 中文说明：测试局部值 providers，由紧邻初始化决定。 */
     let providers: Record<string, LlmPiAi.PiAiProviderProfile> = {
       deepseek: { apiKeyEnv: 'PI_TEST_KEY', baseURL: first.url },
     }
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = new Context()
     await ctx.plugin(LlmRuntime)
     ctx.llm.registerAdapter(['deepseek'], new PiAiAdapter({
@@ -122,12 +103,9 @@ describe('PiAiAdapter provider routing', () => {
       auth: memoryAuth(),
     }))
 
-    /** 中文说明：测试局部值 prepared，由紧邻初始化决定。 */
     const prepared = await ctx.llm.prepareCall({ provider: 'deepseek', model: 'deepseek-v4-flash' })
     providers = { deepseek: { apiKeyEnv: 'PI_TEST_KEY', baseURL: second.url } }
-    /** 中文说明：测试局部值 chunks，由紧邻初始化决定。 */
     const chunks: unknown[] = []
-    /** 中文说明：测试局部值 chunk，由紧邻初始化决定。 */
     for await (const chunk of prepared.stream({ ...prepared.config, messages: [] })) chunks.push(chunk)
 
     expect(chunks.length).toBeGreaterThan(0)
@@ -136,9 +114,7 @@ describe('PiAiAdapter provider routing', () => {
   })
 
   it('merges profile headers with Harness attribution winning', async () => {
-    /** 中文说明：测试局部值 server，由紧邻初始化决定。 */
     const server = await mockServer([{ events: textEvents }])
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await harness(server.url, {
       headers: { 'x-company': 'private', 'User-Agent': 'wrong' },
     })
@@ -148,9 +124,7 @@ describe('PiAiAdapter provider routing', () => {
   })
 
   it('forwards common stream options and profile reasoning', async () => {
-    /** 中文说明：测试局部值 server，由紧邻初始化决定。 */
     const server = await mockServer([{ events: textEvents }])
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await harness(server.url, {
       reasoning: 'max',
       cacheRetention: 'none',
@@ -161,14 +135,14 @@ describe('PiAiAdapter provider routing', () => {
       thinkingBudgets: { high: 2048 },
     })
     await assemble(ctx, {
-      model: 'deepseek-v4-flash',
+      model: 'deepseek-v4-pro',
       messages: [],
       temperature: 0.2,
       maxTokens: 77,
       sessionId: 'session-for-pi' as never,
     })
     expect(server.requests[0]).toMatchObject({
-      model: 'deepseek-v4-flash',
+      model: 'deepseek-v4-pro',
       temperature: 0.2,
       max_tokens: 77,
       thinking: { type: 'enabled' },
@@ -179,9 +153,7 @@ describe('PiAiAdapter provider routing', () => {
   })
 
   it('uses a dynamic request effort and reports unsupported efforts before network I/O', async () => {
-    /** 中文说明：测试局部值 server，由紧邻初始化决定。 */
     const server = await mockServer([{ events: textEvents }, { events: textEvents }])
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await harness(server.url, { reasoning: 'max' })
 
     await assemble(ctx, {
@@ -199,7 +171,6 @@ describe('PiAiAdapter provider routing', () => {
     expect(server.requests[1]).toMatchObject({ thinking: { type: 'disabled' } })
     expect(server.requests[1]).not.toHaveProperty('reasoning_effort')
 
-    /** 中文说明：测试局部值 unsupported，由紧邻初始化决定。 */
     const unsupported = await assemble(ctx, {
       model: 'deepseek-v4-flash',
       reasoningEffort: ReasoningEffortId('xhigh'),
@@ -213,23 +184,19 @@ describe('PiAiAdapter provider routing', () => {
   })
 
   it('preserves omitted profile options when constructing the adapter directly', async () => {
-    /** 中文说明：测试局部值 server，由紧邻初始化决定。 */
     const server = await mockServer([{ events: textEvents }])
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = new Context()
     await ctx.plugin(LlmRuntime)
     ctx.llm.registerAdapter(['deepseek'], adapterOf({
       deepseek: { apiKeyEnv: 'PI_TEST_KEY', baseURL: server.url },
     }))
 
-    /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
     const result = await assemble(ctx, { model: 'deepseek-v4-flash', messages: [] })
 
     expect(result.message.content).toEqual([{ type: 'text', text: 'hello' }])
   })
 
   it('names a route by its displayName, and by its own key once the profiles drop it', () => {
-    /** 中文说明：测试局部值 adapter，由紧邻初始化决定。 */
     const adapter = adapterOf({ 'acme-gateway': {
       displayName: 'Acme Gateway',
       api: 'openai-completions',
@@ -246,37 +213,28 @@ describe('PiAiAdapter provider routing', () => {
   })
 
   it('reports unsupported stop sequences rather than silently ignoring them', async () => {
-    /** 中文说明：测试局部值 server，由紧邻初始化决定。 */
     const server = await mockServer([])
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await harness(server.url)
-    /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
     const result = await assemble(ctx, { model: 'deepseek-v4-flash', messages: [], stop: ['END'] })
     expect(result.finish).toMatchObject({ kind: 'error', failure: { code: 'UNSUPPORTED_OPTION' } })
     expect(server.requests).toEqual([])
   })
 
   it('reports unknown catalog models before network I/O', async () => {
-    /** 中文说明：测试局部值 server，由紧邻初始化决定。 */
     const server = await mockServer([])
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await harness(server.url)
-    /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
     const result = await assemble(ctx, { model: 'not-in-the-catalog', messages: [] })
     expect(result.finish).toMatchObject({ kind: 'error', failure: { code: 'UNKNOWN_MODEL' } })
     expect(server.requests).toEqual([])
   })
 
   it('uses the catalog API implementation, including OpenAI Responses', async () => {
-    /** 中文说明：测试局部值 server，由紧邻初始化决定。 */
     const server = await mockServer([{ status: 401, body: JSON.stringify({ error: { message: 'expected mock failure' } }) }])
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = new Context()
     await ctx.plugin(LlmRuntime)
     await ctx.plugin(LlmPiAi, {
       providers: { openai: { apiKeyEnv: 'PI_TEST_KEY', baseURL: `${server.url}/v1` } },
     })
-    /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
     const result = await assemble(ctx, { provider: 'openai', model: 'gpt-4.1', messages: [] })
     expect(result.finish.kind).toBe('error')
     expect(server.paths).toEqual(['/v1/responses'])
@@ -284,9 +242,7 @@ describe('PiAiAdapter provider routing', () => {
 
   it('resolves attachment and filesystem services mounted after the adapter when dispatching an image', async () => {
     const server = await mockServer([{ status: 401, body: JSON.stringify({ error: { message: 'expected mock failure' } }) }])
-    /** 中文说明：测试局部值 attachmentId，由紧邻初始化决定。 */
     const attachmentId = AttachmentId(`sha256:${'a'.repeat(64)}`)
-    /** 中文说明：测试局部值 ref，由紧邻初始化决定。 */
     const ref: ImageAttachmentRef = {
       attachmentId,
       mediaType: 'image/png',
@@ -294,10 +250,8 @@ describe('PiAiAdapter provider routing', () => {
       width: 1,
       height: 1,
     }
-    /** 中文说明：测试局部值 readImage，由紧邻初始化决定。 */
     const readImage = vi.fn((_ref: ImageAttachmentRef): Promise<StoredImageAttachment> =>
       Promise.resolve({ ref, data: Uint8Array.of(1) }))
-    /** 中文说明：测试局部值 readImageRequest，由紧邻初始化决定。 */
     const readImageRequest = vi.fn((
       value: ImageAttachmentRef,
       _policy: ImageRequestPolicy,
@@ -317,7 +271,6 @@ describe('PiAiAdapter provider routing', () => {
       })
     ))
 
-    /** 中文说明：类型或类 LateAttachmentStore 约束模型请求、认证或流事件职责。 */
     class LateAttachmentStore extends AttachmentStore {
       readonly imageLimits: ImageAttachmentLimits = {
         maxImageBytes: 1,
@@ -353,7 +306,6 @@ describe('PiAiAdapter provider routing', () => {
       }
     }
 
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = new Context()
     await ctx.plugin(LlmRuntime)
     await ctx.plugin(LlmPiAi, {
@@ -362,7 +314,6 @@ describe('PiAiAdapter provider routing', () => {
     await ctx.plugin(LateAttachmentStore)
     await ctx.plugin(MappedFileSystem)
 
-    /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
     const result = await assemble(ctx, {
       provider: 'openai',
       model: 'gpt-4.1',
@@ -382,7 +333,6 @@ describe('PiAiAdapter provider routing', () => {
   })
 
   it('forces one wire request for an SDK-retryable provider failure', async () => {
-    /** 中文说明：测试局部值 server，由紧邻初始化决定。 */
     const server = await mockServer([
       {
         status: 429,
@@ -392,14 +342,12 @@ describe('PiAiAdapter provider routing', () => {
       { status: 500, body: JSON.stringify({ error: { message: 'hidden SDK retry' } }) },
       { status: 500, body: JSON.stringify({ error: { message: 'second hidden SDK retry' } }) },
     ])
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = new Context()
     await ctx.plugin(LlmRuntime)
     await ctx.plugin(LlmPiAi, {
       providers: { openai: { apiKeyEnv: 'PI_TEST_KEY', baseURL: `${server.url}/v1` } },
     })
 
-    /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
     const result = await assemble(ctx, { provider: 'openai', model: 'gpt-4.1', messages: [] })
 
     expect(result.finish).toMatchObject({ kind: 'error' })
@@ -407,9 +355,7 @@ describe('PiAiAdapter provider routing', () => {
   })
 
   it('uses OpenAI Responses against an Azure project v1 path with its API key header', async () => {
-    /** 中文说明：测试局部值 server，由紧邻初始化决定。 */
     const server = await mockServer([{ status: 401, body: JSON.stringify({ error: { message: 'expected mock failure' } }) }])
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = new Context()
     await ctx.plugin(LlmRuntime)
     await ctx.plugin(LlmPiAi, {
@@ -421,7 +367,6 @@ describe('PiAiAdapter provider routing', () => {
         },
       },
     })
-    /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
     const result = await assemble(ctx, { provider: 'openai', model: 'gpt-5.5', messages: [] })
     expect(result.finish.kind).toBe('error')
     expect(server.paths).toEqual(['/api/projects/openai/openai/v1/responses'])
@@ -435,21 +380,16 @@ describe('PiAiAdapter provider routing', () => {
     [429, 'RATE_LIMIT'],
     [500, 'SERVER'],
   ] as const)('maps HTTP %s failures to %s', async (status, code) => {
-    /** 中文说明：测试局部值 server，由紧邻初始化决定。 */
     const server = await mockServer([{ status, body: JSON.stringify({ error: { message: `provider ${status}` } }) }])
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await harness(server.url)
-    /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
     const result = await assemble(ctx, { model: 'deepseek-v4-flash', messages: [] })
     expect(result.finish).toMatchObject({ kind: 'error', failure: { code } })
     expect(server.paths).toEqual(['/chat/completions'])
   })
 
   it('uses the resolved catalog context window for usage-based overflow detection', async () => {
-    /** 中文说明：测试局部值 model，由紧邻初始化决定。 */
     const model = getBuiltinModels('deepseek').find(candidate => candidate.id === 'deepseek-v4-flash')
     if (model === undefined) throw new Error('deepseek-v4-flash missing from pi-ai test catalog')
-    /** 中文说明：测试局部值 events，由紧邻初始化决定。 */
     const events = [
       '{"choices":[{"delta":{"role":"assistant","content":""},"index":0,"finish_reason":null}]}',
       JSON.stringify({
@@ -458,12 +398,9 @@ describe('PiAiAdapter provider routing', () => {
       }),
       '[DONE]',
     ]
-    /** 中文说明：测试局部值 server，由紧邻初始化决定。 */
     const server = await mockServer([{ events }])
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await harness(server.url)
 
-    /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
     const result = await assemble(ctx, { model: model.id, messages: [] })
 
     expect(result.finish).toEqual({
@@ -476,12 +413,9 @@ describe('PiAiAdapter provider routing', () => {
   })
 
   it('stops the SDK request when the adapter idle watchdog expires', async () => {
-    /** 中文说明：测试局部值 server，由紧邻初始化决定。 */
     const server = await mockServer([{ events: textEvents, delayMs: 200 }])
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await harness(server.url, { streamIdleTimeoutMs: 20 })
 
-    /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
     const result = await assemble(ctx, { model: 'deepseek-v4-flash', messages: [] })
     expect(result.finish).toMatchObject({ kind: 'error', failure: { code: 'TIMEOUT' } })
     await Promise.race([
@@ -498,7 +432,6 @@ describe('PiAiAdapter provider routing', () => {
 
 describe('provider profile lifecycle', () => {
   it('keeps adapter helpers off the package root', () => {
-    /** 中文说明：测试局部值 helper，由紧邻初始化决定。 */
     for (const helper of [
       'resolveProfiles',
       'toPiContext',
@@ -511,10 +444,8 @@ describe('provider profile lifecycle', () => {
   })
 
   it('registers every profile atomically and unregisters on dispose', async () => {
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = new Context()
     await ctx.plugin(LlmRuntime)
-    /** 中文说明：测试局部值 fiber，由紧邻初始化决定。 */
     const fiber = await ctx.plugin(LlmPiAi, {
       providers: {
         openai: {
@@ -545,24 +476,20 @@ describe('provider profile lifecycle', () => {
   })
 
   it('exposes the installed pi-ai model catalog through provider-neutral metadata', async () => {
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = new Context()
     await ctx.plugin(LlmRuntime)
     await ctx.plugin(LlmPiAi, { providers: { openai: {} } })
-    /** 中文说明：测试局部值 models，由紧邻初始化决定。 */
     const models = await ctx.llm.listModels('openai')
     expect(models.find(model => model.id === 'gpt-4.1')).toEqual({
       provider: 'openai', id: 'gpt-4.1', name: 'GPT-4.1',
       inputModalities: ['text', 'image'],
     })
     expect(models.every(model => model.provider === 'openai')).toBe(true)
-    /** 中文说明：测试局部值 info，由紧邻初始化决定。 */
     const info = await ctx.llm.resolveModelInfo('openai', 'gpt-4.1')
     expect(typeof info.context?.contextWindow).toBe('number')
   })
 
   it('exposes pi-ai model thinking levels verbatim without inventing a provider default', async () => {
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = new Context()
     await ctx.plugin(LlmRuntime)
     await ctx.plugin(LlmPiAi, {
@@ -580,7 +507,6 @@ describe('provider profile lifecycle', () => {
           ],
         },
       })
-    /** 中文说明：测试局部值 extended，由紧邻初始化决定。 */
     const extended = await ctx.llm.resolveModelInfo('openai', 'gpt-5.6-sol')
     expect(extended.reasoning?.efforts.map(effort => effort.id)).toEqual([
       ReasoningEffortId('off'),
@@ -598,7 +524,6 @@ describe('provider profile lifecycle', () => {
   })
 
   it('uses a supported profile reasoning value as the model default and rejects an unsupported one', async () => {
-    /** 中文说明：测试局部值 supported，由紧邻初始化决定。 */
     const supported = new Context()
     await supported.plugin(LlmRuntime)
     await supported.plugin(LlmPiAi, {
@@ -612,13 +537,11 @@ describe('provider profile lifecycle', () => {
     // that throws takes its whole provider out of every picker — one mis-set
     // field would hide every model on the route, including the ones that do
     // support the level. The request path below is where it is refused.
-    /** 中文说明：测试局部值 unsupported，由紧邻初始化决定。 */
     const unsupported = new Context()
     await unsupported.plugin(LlmRuntime)
     await unsupported.plugin(LlmPiAi, {
       providers: { deepseek: { reasoning: 'medium' } },
     })
-    /** 中文说明：测试局部值 described，由紧邻初始化决定。 */
     const described = await unsupported.llm.resolveModelInfo('deepseek', 'deepseek-v4-flash')
     expect(described.reasoning?.defaultEffort).toBeUndefined()
     expect(described.reasoning?.efforts.length).toBeGreaterThan(0)
@@ -628,7 +551,6 @@ describe('provider profile lifecycle', () => {
       finish: { kind: 'error', failure: { code: 'UNSUPPORTED_REASONING_EFFORT' } },
     })
 
-    /** 中文说明：测试局部值 disabled，由紧邻初始化决定。 */
     const disabled = new Context()
     await disabled.plugin(LlmRuntime)
     await disabled.plugin(LlmPiAi, {
@@ -639,7 +561,6 @@ describe('provider profile lifecycle', () => {
   })
 
   it('serves declared reasoning efforts to selectors and honours the profile default', async () => {
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = new Context()
     await ctx.plugin(LlmRuntime)
     await ctx.plugin(LlmPiAi, {
@@ -675,9 +596,7 @@ describe('provider profile lifecycle', () => {
 
   it('sends the declared wire spelling and refuses undeclared levels before network I/O', async () => {
     vi.stubEnv('PI_TEST_KEY', 'test-key')
-    /** 中文说明：测试局部值 server，由紧邻初始化决定。 */
     const server = await mockServer([{ events: textEvents }])
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = new Context()
     await ctx.plugin(LlmRuntime)
     await ctx.plugin(LlmPiAi, {
@@ -705,7 +624,6 @@ describe('provider profile lifecycle', () => {
     // The declared value, not the canonical level name, goes on the wire.
     expect(server.requests[0]).toMatchObject({ reasoning_effort: 'ultra' })
 
-    /** 中文说明：测试局部值 undeclared，由紧邻初始化决定。 */
     const undeclared = await assemble(ctx, {
       provider: 'acme-gateway',
       model: 'acme-think',
@@ -721,9 +639,7 @@ describe('provider profile lifecycle', () => {
 
   it('dispatches the compat-switched dialect on a declared route', async () => {
     vi.stubEnv('PI_TEST_KEY', 'test-key')
-    /** 中文说明：测试局部值 server，由紧邻初始化决定。 */
     const server = await mockServer([{ events: textEvents }, { events: textEvents }])
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = new Context()
     await ctx.plugin(LlmRuntime)
     await ctx.plugin(LlmPiAi, {
@@ -744,7 +660,6 @@ describe('provider profile lifecycle', () => {
         },
       },
     })
-    /** 中文说明：测试局部值 prompt，由紧邻初始化决定。 */
     const prompt = (effort: string): Promise<unknown> => assemble(ctx, {
       provider: 'acme-gateway',
       model: 'acme-think',
@@ -762,9 +677,7 @@ describe('provider profile lifecycle', () => {
 
   it('keeps the system role on a declared route whose gateway rejects the developer one', async () => {
     vi.stubEnv('PI_TEST_KEY', 'test-key')
-    /** 中文说明：测试局部值 server，由紧邻初始化决定。 */
     const server = await mockServer([{ events: textEvents }, { events: textEvents }])
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = new Context()
     await ctx.plugin(LlmRuntime)
     await ctx.plugin(LlmPiAi, {
@@ -784,7 +697,6 @@ describe('provider profile lifecycle', () => {
         },
       },
     })
-    /** 中文说明：测试局部值 roles，由紧邻初始化决定。 */
     const roles = async (model: string): Promise<string[]> => {
       await assemble(ctx, {
         provider: 'acme-gateway',
@@ -793,7 +705,6 @@ describe('provider profile lifecycle', () => {
         system: 'you are a harness',
         messages: [],
       })
-      /** 中文说明：测试局部值 request，由紧邻初始化决定。 */
       const request = server.requests.at(-1) as { messages: { role: string }[] }
       return request.messages.map(message => message.role)
     }
@@ -806,9 +717,7 @@ describe('provider profile lifecycle', () => {
 
   it('sends a declared off value as the effort parameter instead of omitting it', async () => {
     vi.stubEnv('PI_TEST_KEY', 'test-key')
-    /** 中文说明：测试局部值 server，由紧邻初始化决定。 */
     const server = await mockServer([{ events: textEvents }])
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = new Context()
     await ctx.plugin(LlmRuntime)
     await ctx.plugin(LlmPiAi, {
@@ -841,9 +750,7 @@ describe('provider profile lifecycle', () => {
 
   it('holds back reasoning_effort when the endpoint cannot take it', async () => {
     vi.stubEnv('PI_TEST_KEY', 'test-key')
-    /** 中文说明：测试局部值 server，由紧邻初始化决定。 */
     const server = await mockServer([{ events: textEvents }])
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = new Context()
     await ctx.plugin(LlmRuntime)
     await ctx.plugin(LlmPiAi, {
@@ -874,11 +781,9 @@ describe('provider profile lifecycle', () => {
 
   it('accepts absent credentials for pi-ai ambient authentication', async () => {
     vi.stubEnv('DEEPSEEK_API_KEY', 'ambient-key')
-    /** 中文说明：测试局部值 server，由紧邻初始化决定。 */
     const server = await mockServer([{ events: textEvents }])
     // A profile that names no reference at all is the one case that defers to
     // pi-ai's own provider-native discovery.
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await harness(server.url, { apiKeyEnv: undefined })
     await assemble(ctx, { model: 'deepseek-v4-flash', messages: [] })
     expect(server.headers[0]?.authorization).toBe('Bearer ambient-key')
@@ -886,9 +791,7 @@ describe('provider profile lifecycle', () => {
 
   it('falls back to the ambient environment for apiKeyEnv without the credentials seam', async () => {
     vi.stubEnv('PI_CUSTOM_REF_KEY', 'custom-ref-key')
-    /** 中文说明：测试局部值 server，由紧邻初始化决定。 */
     const server = await mockServer([{ events: textEvents }])
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await harness(server.url, { apiKey: undefined, apiKeyEnv: 'PI_CUSTOM_REF_KEY' })
     await assemble(ctx, { model: 'deepseek-v4-flash', messages: [] })
     expect(server.headers[0]?.authorization).toBe('Bearer custom-ref-key')
@@ -900,14 +803,10 @@ describe('provider profile lifecycle', () => {
     // discovery here would authenticate as another tenant.
     vi.stubEnv('PI_CUSTOM_REF_KEY', '')
     vi.stubEnv('DEEPSEEK_API_KEY', 'ambient-key')
-    /** 中文说明：测试局部值 server，由紧邻初始化决定。 */
     const server = await mockServer([{ events: textEvents }])
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await harness(server.url, { apiKey: undefined, apiKeyEnv: 'PI_CUSTOM_REF_KEY' })
-    /** 中文说明：测试局部值 first，由紧邻初始化决定。 */
     const first = await assemble(ctx, { model: 'deepseek-v4-flash', messages: [] })
     expect(first.finish).toMatchObject({ kind: 'error', failure: { code: 'MISSING_CREDENTIAL' } })
-    /** 中文说明：测试局部值 second，由紧邻初始化决定。 */
     const second = await assemble(ctx, { model: 'deepseek-v4-flash', messages: [] })
     expect(second.finish.kind).toBe('error')
     if (second.finish.kind !== 'error') throw new Error('expected an error finish')
@@ -940,10 +839,8 @@ describe('provider profile lifecycle', () => {
   it.each(['maxRetries', 'maxRetryDelayMs'] as const)(
     'rejects removed profile field %s instead of silently restoring hidden SDK retries',
     async (field) => {
-      /** 中文说明：测试局部值 legacy，由紧邻初始化决定。 */
       const legacy = { [field]: 2 }
       expect(() => resolveProfiles({ openai: legacy })).toThrow(/removed.*agent recovery/i)
-      /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
       const ctx = new Context()
       await ctx.plugin(LlmRuntime)
       await expect(ctx.plugin(LlmPiAi, { providers: { openai: legacy } }))
@@ -952,7 +849,6 @@ describe('provider profile lifecycle', () => {
   )
 
   it('rejects invalid stream tunables at plugin load', async () => {
-    /** 中文说明：测试局部值 invalid，由紧邻初始化决定。 */
     const invalid = [
       { timeoutMs: -1 },
       { websocketConnectTimeoutMs: -1 },
@@ -963,9 +859,7 @@ describe('provider profile lifecycle', () => {
       { maxRequestImageBytes: 1.5 },
       { maxRequestImageBytes: Number.NaN },
     ]
-    /** 中文说明：测试局部值 entry，由紧邻初始化决定。 */
     for (const entry of invalid) {
-      /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
       const ctx = new Context()
       await ctx.plugin(LlmRuntime)
       await expect(ctx.plugin(LlmPiAi, { providers: { openai: { ...entry } } }))
@@ -978,7 +872,6 @@ describe('provider profile lifecycle', () => {
       openai: { retryPolicy: { mode: 'always', backoff: { jitterRatio: -1 } } },
     })).toThrow(/retryPolicy\.backoff\.jitterRatio/)
 
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = new Context()
     await ctx.plugin(LlmRuntime)
     await expect(ctx.plugin(LlmPiAi, {
@@ -988,7 +881,6 @@ describe('provider profile lifecycle', () => {
   })
 
   it('constructs the adapter directly and rejects routes it does not own', async () => {
-    /** 中文说明：测试局部值 adapter，由紧邻初始化决定。 */
     const adapter = adapterOf({ openai: {} })
     await expect(adapter.listModels('anthropic')).rejects.toMatchObject({ code: 'NO_ADAPTER' })
     await expect(adapter.resolveModel('anthropic', 'claude-sonnet-4'))
@@ -996,18 +888,14 @@ describe('provider profile lifecycle', () => {
     await expect(adapter.resolveModel('openai', 'not-a-catalog-model'))
       .rejects.toMatchObject({ code: 'UNKNOWN_MODEL' })
     await expect((async () => {
-      /** 中文说明：测试局部值 _chunk，由紧邻初始化决定。 */
       for await (const _chunk of adapter.stream({ provider: 'anthropic', model: 'claude-sonnet-4', messages: [] })) { /* drain */ }
     })()).rejects.toMatchObject({ code: 'NO_ADAPTER' })
     expect(new LlmError('x', 'X')).toBeInstanceOf(Error)
   })
 
   it('rejects unsupported or unresolved image input before provider I/O', async () => {
-    /** 中文说明：测试局部值 adapter，由紧邻初始化决定。 */
     const adapter = adapterOf({ openai: {}, deepseek: {} })
-    /** 中文说明：测试局部值 drain，由紧邻初始化决定。 */
     const drain = async (options: Parameters<PiAiAdapter['stream']>[0]): Promise<void> => {
-      /** 中文说明：测试局部值 _chunk，由紧邻初始化决定。 */
       for await (const _chunk of adapter.stream(options)) { /* drain */ }
     }
 
@@ -1057,17 +945,12 @@ describe('provider profile lifecycle', () => {
 
 describe('abort wiring', () => {
   it('preserves an unknown pre-dispatch adapter Error exactly', async () => {
-    /** 中文说明：测试局部值 original，由紧邻初始化决定。 */
     const original = new Error('SDK context conversion exploded')
-    /** 中文说明：测试局部值 message，由紧邻初始化决定。 */
     const message = Object.defineProperty({}, 'content', {
       get() { throw original },
     })
-    /** 中文说明：测试局部值 adapter，由紧邻初始化决定。 */
     const adapter = adapterOf({ deepseek: {} })
-    /** 中文说明：测试局部值 drain，由紧邻初始化决定。 */
     const drain = async (): Promise<void> => {
-      /** 中文说明：测试局部值 _chunk，由紧邻初始化决定。 */
       for await (const _chunk of adapter.stream({
         provider: 'deepseek',
         model: 'deepseek-v4-flash',
@@ -1079,22 +962,16 @@ describe('abort wiring', () => {
   })
 
   it('lets a concurrent caller abort classify a pre-dispatch adapter failure', async () => {
-    /** 中文说明：测试局部值 controller，由紧邻初始化决定。 */
     const controller = new AbortController()
-    /** 中文说明：测试局部值 original，由紧邻初始化决定。 */
     const original = new Error('conversion lost its caller')
-    /** 中文说明：测试局部值 message，由紧邻初始化决定。 */
     const message = Object.defineProperty({}, 'content', {
       get() {
         controller.abort('caller cancelled during conversion')
         throw original
       },
     })
-    /** 中文说明：测试局部值 adapter，由紧邻初始化决定。 */
     const adapter = adapterOf({ deepseek: {} })
-    /** 中文说明：测试局部值 drain，由紧邻初始化决定。 */
     const drain = async (): Promise<void> => {
-      /** 中文说明：测试局部值 _chunk，由紧邻初始化决定。 */
       for await (const _chunk of adapter.stream({
         provider: 'deepseek',
         model: 'deepseek-v4-flash',
@@ -1107,14 +984,10 @@ describe('abort wiring', () => {
   })
 
   it('resolves catalog endpoints without an override before honoring pre-abort', async () => {
-    /** 中文说明：测试局部值 adapter，由紧邻初始化决定。 */
     const adapter = adapterOf({ deepseek: {} })
-    /** 中文说明：测试局部值 controller，由紧邻初始化决定。 */
     const controller = new AbortController()
     controller.abort('already stopped')
-    /** 中文说明：测试局部值 chunks，由紧邻初始化决定。 */
     const chunks = []
-    /** 中文说明：测试局部值 chunk，由紧邻初始化决定。 */
     for await (const chunk of adapter.stream({
       provider: 'deepseek',
       model: 'deepseek-v4-flash',
@@ -1128,41 +1001,29 @@ describe('abort wiring', () => {
   })
 
   it('honors a pre-aborted caller signal', async () => {
-    /** 中文说明：测试局部值 server，由紧邻初始化决定。 */
     const server = await mockServer([{ events: textEvents, delayMs: 20 }])
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await harness(server.url)
-    /** 中文说明：测试局部值 controller，由紧邻初始化决定。 */
     const controller = new AbortController()
     controller.abort('already stopped')
-    /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
     const result = await assemble(ctx, { model: 'deepseek-v4-flash', messages: [], signal: controller.signal })
     expect(result.finish.kind).toBe('aborted')
   })
 
   it('forwards an abort that arrives while provider streaming is active', async () => {
-    /** 中文说明：测试局部值 server，由紧邻初始化决定。 */
     const server = await mockServer([{ events: textEvents, delayMs: 30 }])
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await harness(server.url)
-    /** 中文说明：测试局部值 controller，由紧邻初始化决定。 */
     const controller = new AbortController()
-    /** 中文说明：测试局部值 resultPromise，由紧邻初始化决定。 */
     const resultPromise = assemble(ctx, {
       model: 'deepseek-v4-flash', messages: [], signal: controller.signal,
     })
     setTimeout(() => { controller.abort('stopped during stream') }, 10)
-    /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
     const result = await resultPromise
     expect(result.finish.kind).toBe('aborted')
   })
 
   it('aborts upstream when a consumer stops early', async () => {
-    /** 中文说明：测试局部值 server，由紧邻初始化决定。 */
     const server = await mockServer([{ events: textEvents, delayMs: 30 }])
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await harness(server.url)
-    /** 中文说明：测试局部值 chunk，由紧邻初始化决定。 */
     for await (const chunk of ctx.llm.stream({ provider: 'deepseek', model: 'deepseek-v4-flash', messages: [] })) {
       if (chunk.type === 'block-start') break
     }

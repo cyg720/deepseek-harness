@@ -4,14 +4,6 @@
  * catalog injection, advisory pass-through models, and the prompt-assembly
  * boundary for a running selection change.
  */
-/*
- * 文件职责：验证Host API Proxy的 api-proxy-models.spec.ts 行为与边界。
- * 技术维度：TypeScript、Cordis、Fetch/RPC 信封、运行时模式校验、Node/Windows 宿主接口。
- * 产品维度：保证浏览器 API、Hook 或目录操作在各种状态下可靠且可诊断。
- * 逻辑维度：构造请求与宿主服务，调用端点并断言响应和清理。
- * 关键边界：网络与路径输入必须校验；原生对话框和宿主路径操作只允许受信调用。
- * 新手阅读建议：先读请求/响应夹具，再按 API 域、错误码和生命周期场景阅读。
- */
 
 import { describe, expect, it, vi } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
@@ -30,7 +22,7 @@ import type { SessionPromptRequest, SessionRequestId } from '../src/types.ts'
 import { ApiSessionAgentController } from '../src/agent.ts'
 import { buildModelCatalog } from '../src/catalog.ts'
 import SystemPrompt from '@deepseek-ai/dsh-system-prompt'
-import { TypertRemoteFailure } from '@deepseek-ai/dsh-typert-protocol'
+import { RemoteError } from '@deepseek-ai/dsh-typert-protocol'
 import { createSessionTestRemote } from './test-remote.ts'
 
 function request<P>(payload: P): P {
@@ -47,7 +39,6 @@ function promptRequest(
   }
 }
 
-/** 中文说明：类型或类 CatalogAdapter 约束 API、Hook 或目录数据职责。 */
 class CatalogAdapter extends LlmAdapter {
   constructor(
     private readonly name: string,
@@ -83,7 +74,6 @@ class CatalogAdapter extends LlmAdapter {
   }
 }
 
-/** 中文说明：测试局部值 REASONING，由紧邻初始化决定。 */
 const REASONING: LlmModelReasoningInfo = {
   efforts: [
     { id: ReasoningEffortId('off'), name: 'Off' },
@@ -93,7 +83,6 @@ const REASONING: LlmModelReasoningInfo = {
   defaultEffort: ReasoningEffortId('high'),
 }
 
-/** 中文说明：函数 harness 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 async function harness(logged?: {
   provider: string
   model: string
@@ -104,7 +93,6 @@ async function harness(logged?: {
   agent: Agent
   sessionId: SessionId
 }> {
-  /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
   const ctx = new Context()
   await ctx.plugin(SessionStore)
   await ctx.plugin(SystemPrompt, { persona: '' })
@@ -122,18 +110,13 @@ async function harness(logged?: {
     'Remote Rejected',
     [],
     undefined,
-    new TypertRemoteFailure({
-      code: 'fixture-rejected',
-      message: 'fixture rejected the selection',
-      details: { provider: 'remote-rejected' },
-    }),
+    new RemoteError('gateway/internal', 'fixture rejected the selection', {}),
   ))
   ctx.llm.registerAdapter(['empty'], new CatalogAdapter('Empty Provider', []))
   ctx.llm.registerAdapter(['duplicate'], new CatalogAdapter('Duplicate Provider', [
     { provider: 'duplicate', id: 'same', name: 'Same' },
     { provider: 'duplicate', id: 'same', name: 'Same Again' },
   ]))
-  /** 中文说明：测试局部值 session，由紧邻初始化决定。 */
   const session = ctx.sessions.create()
   if (logged !== undefined) {
     const { adapterDefaults, ...config } = logged
@@ -142,7 +125,6 @@ async function harness(logged?: {
       reason: 'initial',
     })
   }
-  /** 中文说明：测试局部值 agent，由紧邻初始化决定。 */
   const agent = {
     id: session.id,
     session,
@@ -159,7 +141,6 @@ function expectValue<T>(result: { ok: true; value: T } | { ok: false }): T {
   return result.value
 }
 
-/** 中文说明：函数 registerTextOnly 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function registerTextOnly(ctx: Context): void {
   ctx.llm.registerAdapter(['text-only'], new class extends CatalogAdapter {
     override resolveModel(provider: string, model: string): Promise<LlmResolvedModelInfo> {
@@ -178,11 +159,8 @@ function currentSelection(ctx: Context, sessionId: SessionId) {
 
 describe('Web session model selection', () => {
   it('validates an ordered image batch before persisting any member', async () => {
-    /** 中文说明：测试局部值 { ctx, agent, sessionId }，由紧邻初始化决定。 */
     const { ctx, agent, sessionId } = await harness()
-    /** 中文说明：测试局部值 validateImage，由紧邻初始化决定。 */
     const validateImage = vi.fn((_input: { data: Uint8Array }) => Promise.resolve())
-    /** 中文说明：测试局部值 saveImage，由紧邻初始化决定。 */
     const saveImage = vi.fn((input: { data: Uint8Array; mediaType: 'image/png'; name?: string }) => Promise.resolve({
       attachmentId: `att-${String(input.data[0])}`,
       mediaType: input.mediaType,
@@ -191,7 +169,6 @@ describe('Web session model selection', () => {
       height: 1,
       ...input.name === undefined ? {} : { name: input.name },
     }))
-    /** 中文说明：测试局部值 attachments，由紧邻初始化决定。 */
     const attachments = {
       imageLimits: {
         maxImageBytes: 4,
@@ -205,7 +182,6 @@ describe('Web session model selection', () => {
       saveImage,
     }
     ctx.provide('attachments', Object.setPrototypeOf(attachments, AttachmentStore.prototype) as never)
-    /** 中文说明：测试局部值 followup，由紧邻初始化决定。 */
     const followup = vi.fn()
     Object.assign(agent, { followup })
     const remote = createSessionTestRemote(ctx, {
@@ -245,21 +221,71 @@ describe('Web session model selection', () => {
     }))
     expect(denied).toMatchObject({
       ok: false,
-      error: { code: 'attachment-error', details: { reason: 'TOO_MANY_IMAGES' } },
+      error: { code: 'session/attachment-invalid', details: { reason: 'TOO_MANY_IMAGES' } },
     })
     expect(saveImage).toHaveBeenCalledTimes(2)
     await ctx.fiber.dispose()
   })
 
+  it('delivers an admitted image batch through steer with the same ordered content as queue', async () => {
+    const { ctx, agent, sessionId } = await harness()
+    const attachments = {
+      imageLimits: {
+        maxImageBytes: 4,
+        maxImagesPerMessage: 2,
+        maxMessageImageBytes: 4,
+        maxImagePixels: 4,
+        maxImageDimension: 2000,
+        mediaTypes: ['image/png'],
+      },
+      validateImage: vi.fn(() => Promise.resolve()),
+      saveImage: vi.fn((input: { data: Uint8Array; mediaType: 'image/png'; name?: string }) => Promise.resolve({
+        attachmentId: `att-${String(input.data[0])}`,
+        mediaType: input.mediaType,
+        bytes: input.data.byteLength,
+        width: 1,
+        height: 1,
+        ...input.name === undefined ? {} : { name: input.name },
+      })),
+    }
+    ctx.provide('attachments', Object.setPrototypeOf(attachments, AttachmentStore.prototype) as never)
+    const steer = vi.fn()
+    const followup = vi.fn()
+    Object.assign(agent, { steer, followup })
+    const remote = createSessionTestRemote(ctx, {
+      defaultModelSelection: () => ({ provider: 'deepseek-official', model: 'deepseek-chat' }),
+      cwd: '/tmp',
+    })
+
+    const result = await remote.prompt(promptRequest({
+      sessionId,
+      mode: 'steer' as const,
+      content: [
+        { type: 'text' as const, text: 'look at this' },
+        { type: 'image' as const, mediaType: 'image/png' as const, data: 'AQ==', name: 'mid-turn.png' },
+      ],
+    }))
+    expect(result.ok).toBe(true)
+    expect(followup).not.toHaveBeenCalled()
+    expect((steer.mock.calls[0]?.[0] as UserMessage).content).toEqual([
+      { type: 'text', text: 'look at this' },
+      {
+        type: 'image',
+        attachment: {
+          attachmentId: 'att-1', mediaType: 'image/png', bytes: 1, width: 1, height: 1, name: 'mid-turn.png',
+        },
+      },
+    ])
+    await ctx.fiber.dispose()
+  })
+
   it('allows a text-only selection while durable or pending images remain available for later models', async () => {
-    /** 中文说明：测试局部值 { ctx, agent, sessionId }，由紧邻初始化决定。 */
     const { ctx, agent, sessionId } = await harness()
     registerTextOnly(ctx)
     const remote = createSessionTestRemote(ctx, {
       defaultModelSelection: () => ({ provider: 'deepseek-official', model: 'deepseek-chat' }),
       cwd: '/tmp',
     })
-    /** 中文说明：测试局部值 image，由紧邻初始化决定。 */
     const image = {
       type: 'image' as const,
       attachment: { attachmentId: 'att-history', mediaType: 'image/png' as const, bytes: 1, width: 1, height: 1 },
@@ -288,13 +314,10 @@ describe('Web session model selection', () => {
   })
 
   it('authorizes attachment bytes only when the session event stream references the id', async () => {
-    /** 中文说明：测试局部值 { ctx, agent, sessionId }，由紧邻初始化决定。 */
     const { ctx, agent, sessionId } = await harness()
-    /** 中文说明：测试局部值 ref，由紧邻初始化决定。 */
     const ref = {
       attachmentId: 'att-authorized', mediaType: 'image/png' as const, bytes: 2, width: 1, height: 1,
     }
-    /** 中文说明：测试局部值 readImage，由紧邻初始化决定。 */
     const readImage = vi.fn(() => Promise.resolve({ ref, data: Uint8Array.of(1, 2) }))
     ctx.provide('attachments', { readImage } as never)
     const remote = createSessionTestRemote(ctx, {
@@ -319,13 +342,12 @@ describe('Web session model selection', () => {
     }))
     expect(denied).toMatchObject({
       ok: false,
-      error: { code: 'attachment-error', details: { reason: 'ATTACHMENT_NOT_REFERENCED' } },
+      error: { code: 'session/attachment-invalid', details: { reason: 'ATTACHMENT_NOT_REFERENCED' } },
     })
     expect(readImage).toHaveBeenCalledOnce()
     await ctx.fiber.dispose()
   })
   it('groups successful providers and leaves an unlisted current selection out of the catalog', async () => {
-    /** 中文说明：测试局部值 { ctx, sessionId }，由紧邻初始化决定。 */
     const { ctx, sessionId } = await harness({
       provider: 'deepseek-official',
       model: 'private-preview',
@@ -407,11 +429,9 @@ describe('Web session model selection', () => {
   })
 
   it('accepts an advisory-unlisted model, rejects an unavailable provider, and switches only after the next assembly', async () => {
-    /** 中文说明：测试局部值 { ctx, agent, sessionId }，由紧邻初始化决定。 */
     const { ctx, agent, sessionId } = await harness()
     const remote = createSessionTestRemote(ctx, { defaultModelSelection: () => ({ provider: 'deepseek-official', model: 'deepseek-chat' }), cwd: '/tmp' })
     const seed: LlmCallConfig = { provider: 'seed', model: 'seed', temperature: 0.2 }
-    /** 中文说明：测试局部值 signal，由紧邻初始化决定。 */
     const signal = new AbortController().signal
 
     expect(currentSelection(ctx, sessionId))
@@ -451,7 +471,7 @@ describe('Web session model selection', () => {
     expect(unsupported).toMatchObject({
       ok: false,
       error: {
-        code: 'model-unavailable',
+        code: 'session/model-unavailable',
         message: 'provider "deepseek-official" model "private-preview" does not support reasoning effort "medium"',
       },
     })
@@ -461,10 +481,10 @@ describe('Web session model selection', () => {
       provider: 'missing',
       model: 'model',
     }))
-    expect(rejected).toEqual({
+    expect(rejected).toMatchObject({
       ok: false,
       error: {
-        code: 'model-unavailable',
+        code: 'session/model-unavailable',
         message: 'no adapter registered for provider "missing"',
         details: { provider: 'missing', model: 'model' },
       },
@@ -473,12 +493,12 @@ describe('Web session model selection', () => {
       sessionId,
       provider: 'remote-rejected',
       model: 'model',
-    }))).toEqual({
+    }))).toMatchObject({
       ok: false,
       error: {
-        code: 'fixture-rejected',
+        code: 'gateway/internal',
         message: 'fixture rejected the selection',
-        details: { provider: 'remote-rejected' },
+        details: {},
       },
     })
     expect(currentSelection(ctx, sessionId))
@@ -487,9 +507,7 @@ describe('Web session model selection', () => {
   })
 
   it('reads the Agent default live for a session whose log names no selection', async () => {
-    /** 中文说明：测试局部值 { ctx, sessionId }，由紧邻初始化决定。 */
     const { ctx, sessionId } = await harness()
-    /** 中文说明：测试局部值 stored，由紧邻初始化决定。 */
     let stored = { provider: 'deepseek-official', model: 'deepseek-chat' }
     createSessionTestRemote(ctx, {
       defaultModelSelection: () => stored,
@@ -508,12 +526,10 @@ describe('Web session model selection', () => {
   })
 
   it('keeps a session on its logged selection when the Agent default differs', async () => {
-    /** 中文说明：测试局部值 { ctx, sessionId }，由紧邻初始化决定。 */
     const { ctx, sessionId } = await harness({
       provider: 'deepseek-official',
       model: 'deepseek-chat',
     })
-    /** 中文说明：测试局部值 stored，由紧邻初始化决定。 */
     let stored = { provider: 'deepseek-official', model: 'deepseek-chat' }
     createSessionTestRemote(ctx, {
       defaultModelSelection: () => stored,
@@ -544,11 +560,8 @@ describe('Web session model selection', () => {
   })
 
   it('saves an accepted selection as the default and survives a storage failure', async () => {
-    /** 中文说明：测试局部值 { ctx, sessionId }，由紧邻初始化决定。 */
     const { ctx, sessionId } = await harness()
-    /** 中文说明：测试局部值 saved，由紧邻初始化决定。 */
     const saved: unknown[] = []
-    /** 中文说明：测试局部值 reject，由紧邻初始化决定。 */
     let reject = false
     const remote = createSessionTestRemote(ctx, {
       defaultModelSelection: () => ({ provider: 'deepseek-official', model: 'deepseek-chat' }),
@@ -583,7 +596,6 @@ describe('Web session model selection', () => {
   })
 
   it('refuses a prompt no adapter can route, and reports it on the directory', async () => {
-    /** 中文说明：测试局部值 { ctx, sessionId }，由紧邻初始化决定。 */
     const { ctx, sessionId } = await harness()
     const remote = createSessionTestRemote(ctx, {
       defaultModelSelection: () => ({ provider: 'deleted-gateway', model: 'deleted-model' }),
@@ -597,7 +609,7 @@ describe('Web session model selection', () => {
     }))
     expect(refused).toMatchObject({
       ok: false,
-      error: { code: 'model-unavailable', details: { provider: 'deleted-gateway', model: 'deleted-model' } },
+      error: { code: 'session/model-unavailable', details: { provider: 'deleted-gateway', model: 'deleted-model' } },
     })
     const unavailableCatalog = await buildModelCatalog(ctx)
     expect(unavailableCatalog.routableProviders.includes(currentSelection(ctx, sessionId).provider)).toBe(false)
@@ -615,7 +627,6 @@ describe('Web session model selection', () => {
   })
 
   it('serves a session and its catalog when the stored default names a route that is gone', async () => {
-    /** 中文说明：测试局部值 { ctx, sessionId }，由紧邻初始化决定。 */
     const { ctx, sessionId } = await harness()
     createSessionTestRemote(ctx, {
       // What a Models-page removal leaves behind: the settings document still
@@ -658,9 +669,7 @@ describe('Web session model selection', () => {
       saveImages: () => {
         if (saveMode === 'error') return Promise.reject(new Error('image store offline'))
         if (saveMode === 'remote') {
-          return Promise.reject(new TypertRemoteFailure({
-            code: 'fixture-rejected', message: 'fixture rejected', details: {},
-          }))
+          return Promise.reject(new RemoteError('gateway/internal', 'fixture rejected', {}))
         }
         return Promise.resolve([savedRef])
       },
@@ -680,7 +689,7 @@ describe('Web session model selection', () => {
       sessionId, mode: 'queue', content: [image],
     }))).toMatchObject({
       ok: false,
-      error: { code: 'attachment-error', details: { reason: 'MODEL_DOES_NOT_SUPPORT_IMAGES' } },
+      error: { code: 'session/attachment-invalid', details: { reason: 'MODEL_DOES_NOT_SUPPORT_IMAGES' } },
     })
 
     expectValue(await remote.selectModel(request({
@@ -690,17 +699,17 @@ describe('Web session model selection', () => {
       sessionId, mode: 'queue', content: [{ ...image, data: '' }],
     }))).toMatchObject({
       ok: false,
-      error: { code: 'attachment-error', details: { reason: 'INVALID_IMAGE_BASE64' } },
+      error: { code: 'session/attachment-invalid', details: { reason: 'INVALID_IMAGE_BASE64' } },
     })
 
     saveMode = 'error'
     expect(await remote.prompt(promptRequest({
       sessionId, mode: 'queue', content: [image],
-    }))).toMatchObject({ ok: false, error: { code: 'agent-busy' } })
+    }))).toMatchObject({ ok: false, error: { code: 'session/agent-busy' } })
     saveMode = 'remote'
     expect(await remote.prompt(promptRequest({
       sessionId, mode: 'queue', content: [image],
-    }))).toMatchObject({ ok: false, error: { code: 'fixture-rejected' } })
+    }))).toMatchObject({ ok: false, error: { code: 'gateway/internal', message: 'fixture rejected' } })
     saveMode = 'success'
     expectValue(await remote.prompt(promptRequest({ sessionId, mode: 'queue', content: [image] })))
     expect(followup).toHaveBeenCalledOnce()
@@ -718,13 +727,13 @@ describe('Web session model selection', () => {
     expect(await remote.selectModel(request({
       sessionId, provider: 'metadata-broken', model: 'broken',
     }))).toMatchObject({
-      ok: false, error: { code: 'model-unavailable', message: 'reasoning metadata offline' },
+      ok: false, error: { code: 'session/model-unavailable', message: 'reasoning metadata offline' },
     })
     expect(await remote.selectModel(request({
       sessionId, provider: 'string-error', model: 'broken',
     }))).toMatchObject({
       ok: false,
-      error: { code: 'model-unavailable', message: 'string selection failure' },
+      error: { code: 'session/model-unavailable', message: 'string selection failure' },
     })
     await ctx.fiber.dispose()
   })

@@ -1,21 +1,3 @@
-/*
- * ================================ 文件注释 ================================
- * 【文件职责】进程内子代理的共享组装逻辑：委派深度预算、持久会话元数据、解析后的子代理
- *   AgentOptions、委派策略种子（sandbox/approval）、以及子代理创建窗口内的作用域组装。
- * 【技术维度】一次性 provider 驱动与续聊管理器都用同一套函数组装子代理，保证深度记账、
- *   血缘盖章、委派策略只有一个出处；通过 ctx.get() 机会式读取可选服务（preset/sandbox/approval）。
- * 【产品维度】子代理继承父代理的 preset 与系统提示上下文、固定委派范围声明，并可被
- *   单独覆盖 persona/工具过滤，使子代理在"继承 + 收紧"的安全模型下运行。
- * 【逻辑维度】按代码顺序：SubagentDepthError → resolveChildDepth → resolveChildAgentOptions →
- *   childSessionMeta → ChildComposition → SUBAGENT_DELEGATION_CONTEXT → applyChildComposition →
- *   DelegatedPolicyOverrides → captureDelegatedPolicyOverrides → appendDelegatedPolicyOverrides →
- *   ChildCreateInputs。
- * 【关键边界】委派策略在首次 await 前同步捕获（父代理后续切换不属于本子代理）；
- *   子代理的审批策略被钉死为 'never'（只在自己的沙箱范围内行动）。
- * 【新手阅读建议】applyChildComposition 是组装核心；capture/append 两个函数理解"策略随日志持久化"。
- * ==========================================================================
- */
-
 /**
  * Shared in-process child composition: the delegation-depth budget, the
  * durable session metadata, the resolved child `AgentOptions`, the delegated
@@ -30,7 +12,7 @@ import type { Context } from '@deepseek-ai/cordis'
 import type { Agent, AgentOptions, CreateAgentOptions } from '@deepseek-ai/dsh-agent'
 import type { SandboxMode } from '@deepseek-ai/dsh-sandbox'
 import type { Session, SessionId } from '@deepseek-ai/dsh-session'
-import { PERSONA_ORDER } from '@deepseek-ai/dsh-system-prompt'
+import type {} from '@deepseek-ai/dsh-system-prompt'
 import type { ToolRestriction } from '@deepseek-ai/dsh-tools'
 // Type-only: make `ctx.get('sandboxPolicy')` / `ctx.get('approval')` resolve
 // to the policy services when composed — delegation consumes both
@@ -47,8 +29,6 @@ import type {} from '@deepseek-ai/dsh-agent-presets'
 import { delegationDepthOf } from './depth.ts'
 
 /** Thrown when starting a child would exceed the requested depth cap. */
-// 中文：当解析出的子代理深度超过请求的 maxDepth 上限时抛出；attemptedDepth 是
-// 实际深度、maxDepth 是上限，两者都随异常暴露给调用方。
 export class SubagentDepthError extends Error {
   constructor(public readonly attemptedDepth: number, public readonly maxDepth: number) {
     super(`subagent depth ${attemptedDepth} exceeds maxDepth ${maxDepth}`)
@@ -66,7 +46,6 @@ export class SubagentDepthError extends Error {
  * @throws {SubagentDepthError} when the resolved depth exceeds `maxDepth`.
  * @throws {RangeError} when the resolved depth leaves the safe-integer range.
  */
-// 中文：解析子代理深度 = 父代理深度 + 1，并在可选上限内校验；超限抛 SubagentDepthError。
 export function resolveChildDepth(parent: Agent, maxDepth: number | undefined): number {
   const childDepth = delegationDepthOf(parent) + 1
   if (!Number.isSafeInteger(childDepth)) {
@@ -116,8 +95,6 @@ export function parentAgentOptionsForDelegation(parent: Agent): AgentOptions {
  * @param childDepth - the resolved delegation depth to stamp.
  * @returns the resolved options for `ctx.agents.create()`.
  */
-// 中文：解析子代理 AgentOptions：默认继承父代理的 provider/model/maxTokens 路由，
-// 请求显式覆盖时以请求为准，最后盖戳上子代理自己的委派深度。
 export function resolveChildAgentOptions(
   parent: Agent,
   requested: AgentOptions | undefined,
@@ -158,9 +135,6 @@ export function resolveChildAgentOptions(
  * @param lineageSeedLength - how many leading events came from the parent's log.
  * @returns the `meta` for `ctx.agents.create()`.
  */
-// 中文：构建子代理会话的持久化创建元数据：工作目录、agentPreset（读父代理实时作用域，
-// 而非 header，因为切换过 preset 的父代理 header 仍是旧的）、血缘（parentSession）、
-// 来源标记 origin:'subagent'、必须跨持久化存活的委派深度、以及 fork seed 边界 seedLength。
 export function childSessionMeta(
   parent: Agent,
   childDepth: number,
@@ -182,8 +156,6 @@ export function childSessionMeta(
 }
 
 /** The scoped composition a child agent's creation window applies. */
-// 中文：单个子代理的自定义组成：persona（覆盖部署 persona 的逐子代理提示词）与
-// toolFilter（子代理可见与可用的工具范围）。
 export interface ChildComposition {
   /** Per-child persona shadowing the deployment persona. */
   readonly persona?: string | undefined
@@ -196,8 +168,6 @@ export interface ChildComposition {
  * runtime-context contribution rather than a system-prompt section, so the
  * deployment's system prompt stays uniform across parents and children.
  */
-// 中文：每个进程内子代理的"委派范围声明"：以运行时上下文（order 120）注入系统提示，
-// 告知模型其权限在启动时已固定、超范围操作会被自动拒绝且不要重试。
 export const SUBAGENT_DELEGATION_CONTEXT
   = 'You are a delegated subagent: your permission scope was fixed when you were started and cannot be '
     + 'widened from inside this session — operations that require approval are rejected automatically. '
@@ -226,26 +196,28 @@ export const SUBAGENT_DELEGATION_CONTEXT
  * @param parent - the delegating parent whose composition the child joins.
  * @param composition - the per-child persona and tool filter to install.
  */
-// 中文：在子代理创建窗口内组装它：先并入父代理的 preset（保证子代理能看到与父代理
-// 一致的模型面工具与提示段），再注册委派范围声明，最后安装本子代理的 persona 与
-// 工具限制——全部归属子作用域，对父代理与兄弟不可见。创建与冷恢复都走这里。
 export function applyChildComposition(
   childCtx: Context,
   parent: Agent,
   composition: ChildComposition,
 ): void {
   childCtx.get('agentPresets')?.composeFrom(childCtx, parent.ctx)
-  // Order 120: after the sandbox:policy (110) and approval:policy (115) sentences.
-  childCtx.systemPrompt.context({ name: 'subagent:delegation', order: 120, text: SUBAGENT_DELEGATION_CONTEXT })
+  childCtx.systemPrompt.context({
+    name: 'subagent:delegation',
+    order: childCtx.systemPrompt.getContextOrder('SUBAGENT_DELEGATION'),
+    text: SUBAGENT_DELEGATION_CONTEXT,
+  })
   if (composition.persona !== undefined) {
-    childCtx.systemPrompt.section({ name: 'deployment:persona', order: PERSONA_ORDER, text: composition.persona })
+    childCtx.systemPrompt.section({
+      name: 'deployment:persona',
+      order: childCtx.systemPrompt.getSectionOrder('DEPLOYMENT_PERSONA'),
+      text: composition.persona,
+    })
   }
   if (composition.toolFilter !== undefined) childCtx.tools.restrict(composition.toolFilter)
 }
 
 /** Policy seeded onto a child session's log at the delegation boundary. */
-// 中文：委派边界写入子代理日志的策略种子：父会话的显式沙箱模式覆盖（无则 undefined），
-// 以及审批策略钉死的 'never'（有审批能力时）——子代理只在自己的沙箱范围内行动。
 export interface DelegatedPolicyOverrides {
   /** The parent session's explicit sandbox-mode override, or `undefined` without one. */
   readonly sandboxMode: SandboxMode | undefined
@@ -267,8 +239,6 @@ export interface DelegatedPolicyOverrides {
  * @param parent - the delegating parent agent.
  * @returns the sandbox override (or `undefined` without one) and the approval pin.
  */
-// 中文：在子代理首次 await 前同步捕获委派策略：只取父会话的显式沙箱覆盖（不含部署默认
-// 或一次性授权），审批策略无论父代理自身策略如何都钉死为 'never'。
 export function captureDelegatedPolicyOverrides(parent: Agent): DelegatedPolicyOverrides {
   return {
     sandboxMode: parent.ctx.get('sandboxPolicy')?.overrideOf(parent.session),
@@ -285,8 +255,6 @@ export function captureDelegatedPolicyOverrides(parent: Agent): DelegatedPolicyO
  * @param childSession - the unpublished child's session.
  * @param overrides - the policy captured at delegation.
  */
-// 中文：把委派策略以 source:'delegation' 事件追加到子代理自己的日志（创建窗口内），
-// 使子代理的有效策略可仅凭日志重建；追加发生在 fork seed 之后，新鲜策略胜过期种子。
 export function appendDelegatedPolicyOverrides(
   childSession: Session,
   overrides: DelegatedPolicyOverrides,
@@ -300,8 +268,6 @@ export function appendDelegatedPolicyOverrides(
 }
 
 /** Identity and lineage inputs shared by every in-process child creation. */
-// 中文：每个进程内子代理创建共享的身份与血缘输入：保留的会话 ID、委托父代理、
-// 解析后的深度、来自父日志的前缀种子长度。
 export interface ChildCreateInputs {
   /** The child's reserved session id. */
   readonly sessionId: SessionId

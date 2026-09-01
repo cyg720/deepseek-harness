@@ -1,19 +1,3 @@
-/*
- * ================================ 文件注释 ================================
- * 【文件职责】可持久化的子代理描述符：版本化、模型不可见的 subagent/descriptor 会话事件，
- *   标识每个有会话备份的子代理并记录其一次性/续聊模式；续聊描述符额外保存冷恢复所需的组成。
- * 【技术维度】显式快照字段而非整个 AgentOptions（避免不可 JSON 化的扩展值破坏续聊）；
- *   提供 snapshot（构造）/fold（从日志恢复）/parse（校验持久化载荷）三组操作。
- * 【产品维度】子代理列表（listChildren/listDescendants）与冷恢复都依赖描述符判断
- *   一个子代理是什么、能不能恢复，而不必重放父代理的工具结果。
- * 【逻辑维度】按代码顺序：事件声明合并 → 版本常量 → Data 接口族 → Input 接口族 →
- *   键集合常量与解析辅助 → snapshotSubagentDescriptor（重载）→ foldSubagentDescriptor。
- * 【关键边界】当前版本为 2，识别不了未知版本时 fold 返回 undefined（不抛错）；
- *   日志中第一条描述符事件权威，后到的同类型事件不会改写声明。
- * 【新手阅读建议】先看 Data 接口族（one-shot vs continuable），再读 snapshot 与 fold 两个入口。
- * ==========================================================================
- */
-
 /**
  * The durable subagent-child descriptor: the versioned, model-hidden
  * `subagent/descriptor` session event that identifies every session-backed
@@ -37,7 +21,7 @@
  * @module @deepseek-ai/dsh-subagent/descriptor
  */
 
-import { snapshotJsonValue } from '@deepseek-ai/dsh-session'
+import { snapshotJsonValue } from '@deepseek-ai/dsh-util-values'
 import type { SessionEvent } from '@deepseek-ai/dsh-session'
 import type { ReasoningEffortId } from '@deepseek-ai/dsh-llm'
 import type { ToolRestriction } from '@deepseek-ai/dsh-tools'
@@ -64,7 +48,6 @@ declare module '@deepseek-ai/dsh-session/types' {
 export const SUBAGENT_DESCRIPTOR_VERSION = 3
 
 /** Fields shared by every supported `subagent/descriptor` payload. */
-// 中文：所有描述符载荷共享的公共字段：版本、模式（one-shot/continuable）、建立它的提供者名。
 interface SubagentDescriptorBase {
   /** Descriptor format version ({@link SUBAGENT_DESCRIPTOR_VERSION}). */
   readonly version: number
@@ -75,8 +58,6 @@ interface SubagentDescriptorBase {
 }
 
 /** A session-backed subagent that cannot be cold-resumed after its run. */
-// 中文：一次性（one-shot）子代理的持久化描述符数据：运行结束即终结，不可冷恢复；
-// label 是创建时的短描述，供枚举识别会话，可选。
 export interface OneShotSubagentDescriptorData extends SubagentDescriptorBase {
   readonly mode: 'one-shot'
   /**
@@ -88,8 +69,6 @@ export interface OneShotSubagentDescriptorData extends SubagentDescriptorBase {
 }
 
 /** A session-backed subagent whose declared composition supports cold resume. */
-// 中文：续聊（continuable）子代理的持久化描述符数据：额外记录冷恢复所需的组成
-// （agentProvider/agentModel/persona/toolFilter），label 必填用于持久化枚举。
 export interface ContinuableSubagentDescriptorData extends SubagentDescriptorBase {
   readonly mode: 'continuable'
   /** The initial delegation's short `description`, used for durable enumeration. */
@@ -107,14 +86,11 @@ export interface ContinuableSubagentDescriptorData extends SubagentDescriptorBas
 }
 
 /** The supported durable subagent identity and optional continuation composition. */
-// 中文：描述符数据的最终联合：one-shot 或 continuable 二选一，是 subagent/descriptor
-// 事件载荷的类型，也是 fold/snapshot 两侧共用的数据形状。
 export type SubagentDescriptorData =
   | OneShotSubagentDescriptorData
   | ContinuableSubagentDescriptorData
 
 /** Fields shared by descriptor snapshot inputs. */
-// 中文：快照输入共享的公共字段：模式与将建立的提供者名（不带版本，版本由 snapshot 固定写入）。
 interface SubagentDescriptorInputBase {
   /** Whether the child is a terminal one-shot run or a resumable conversation. */
   readonly mode: 'one-shot' | 'continuable'
@@ -123,7 +99,6 @@ interface SubagentDescriptorInputBase {
 }
 
 /** Input for a one-shot child's durable identity. */
-// 中文：一次性子代理的快照输入：mode 固定为 'one-shot'，label 可选。
 export interface OneShotSubagentDescriptorInput extends SubagentDescriptorInputBase {
   readonly mode: 'one-shot'
   /** Optional initial delegation `description` used as the durable creation label. */
@@ -131,8 +106,6 @@ export interface OneShotSubagentDescriptorInput extends SubagentDescriptorInputB
 }
 
 /** Input for a continuable child's durable identity and resumable composition. */
-// 中文：续聊子代理的快照输入：label 必填，agentProvider/agentModel/persona/toolFilter
-// 是请求中声明的组成，cold resume 时据此重建。
 export interface ContinuableSubagentDescriptorInput extends SubagentDescriptorInputBase {
   readonly mode: 'continuable'
   /** Initial delegation `description` used for durable enumeration. */
@@ -149,14 +122,11 @@ export interface ContinuableSubagentDescriptorInput extends SubagentDescriptorIn
   readonly toolFilter?: ToolRestriction
 }
 
-// 中文：snapshot 入口接受的输入联合（one-shot 或 continuable），
-// 与输出 Data 联合保持一一对应。
 /** Inputs {@link snapshotSubagentDescriptor} validates and detaches. */
 export type SubagentDescriptorInput =
   | OneShotSubagentDescriptorInput
   | ContinuableSubagentDescriptorInput
 
-// 中文：一次性描述符允许的字段键集合（公共 + label）。
 const DESCRIPTOR_BASE_KEYS = [
   'version',
   'mode',
@@ -175,12 +145,10 @@ const CONTINUABLE_DESCRIPTOR_KEYS = new Set([
 const TOOL_FILTER_KEYS = new Set(['allow', 'deny'])
 
 /** Whether a persisted JSON value is an object record. */
-// 中文：判断持久化 JSON 值是否为"对象记录"（排除 null 与数组）。
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
 
-// 中文：拒绝记录里出现声明之外的多余字段（fail loud，未知字段即视为数据损坏）。
 /** Reject fields outside one versioned record's declared schema. */
 function assertKnownKeys(value: Record<string, unknown>, keys: ReadonlySet<string>, path: string): void {
   const unknown = Object.keys(value).find(key => !keys.has(key))
@@ -200,7 +168,6 @@ function optionalString(value: Record<string, unknown>, key: string): string | u
 }
 
 /** Read one optional string-array field from a persisted tool restriction. */
-// 中文：读取持久化工具限制里的可选字符串数组字段，类型不符即报错。
 function optionalStringArray(value: Record<string, unknown>, key: string): string[] | undefined {
   if (!Object.hasOwn(value, key)) return undefined
   const field = value[key]
@@ -214,7 +181,6 @@ function optionalStringArray(value: Record<string, unknown>, key: string): strin
   return items as string[]
 }
 
-// 中文：校验并重建持久化的工具限制：必须是对象、只允许 allow/deny 键、至少声明其一。
 /** Validate and reconstruct a persisted tool restriction. */
 function parseToolFilter(value: unknown): ToolRestriction {
   if (!isRecord(value)) {
@@ -233,8 +199,6 @@ function parseToolFilter(value: unknown): ToolRestriction {
 }
 
 /** Validate one persisted descriptor payload for the current runtime. */
-// 中文：解析一条持久化描述符载荷：版本不符返回 undefined（本运行时无法分类），
-// 当前版本则按模式严格校验字段并重建数据对象；工具限制与可选字段逐一解析。
 function parseSubagentDescriptor(value: unknown): SubagentDescriptorData | undefined {
   if (!isRecord(value)) {
     throw new Error('persisted subagent descriptor payload must be an object')
@@ -312,8 +276,6 @@ export function snapshotSubagentDescriptor(
 export function snapshotSubagentDescriptor(
   input: ContinuableSubagentDescriptorInput,
 ): ContinuableSubagentDescriptorData
-// 中文：把调用方收集的组成字段校验并"脱离"成可持久化的版本化载荷：经 snapshotJsonValue
-// 无损 JSON 化，失败（含不可序列化值）在任何 Task 或子代理创建之前就抛错。
 export function snapshotSubagentDescriptor(input: SubagentDescriptorInput): SubagentDescriptorData {
   const candidate: SubagentDescriptorData = input.mode === 'one-shot'
     ? {
@@ -352,8 +314,6 @@ export function snapshotSubagentDescriptor(input: SubagentDescriptorInput): Suba
  * @throws when a current-version persisted payload does not match its complete
  *   declared schema.
  */
-// 中文：把子代理日志折叠成受支持的描述符：第一条 subagent/descriptor 事件权威（建立者
-// 只追加一条）；没有或版本不受支持时返回 undefined（本运行时无法分类，不抛错）。
 export function foldSubagentDescriptor(events: readonly SessionEvent[]): SubagentDescriptorData | undefined {
   const event = events.find(
     (candidate): candidate is SessionEvent<'subagent/descriptor'> => candidate.type === 'subagent/descriptor',

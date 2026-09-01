@@ -1,25 +1,16 @@
 // Resident conversation skeleton. Hero chrome, composer positioning, the
 // chain, AND the composer bar (session-maybe slot) stay mounted across
 // no-session/session transitions — the bar renders inert via owner props.
-/**
- * 文件职责：实现会话骨架中的 ConversationRoot 组件。
- * 技术维度：React、TypeScript、Cordis 插槽、响应式状态和 CSS Modules。
- * 产品维度：支持用户查看和操作会话骨架。
- * 逻辑维度：读取属性与服务，派生显示状态，处理事件并渲染界面。
- * 关键边界：空状态、禁用状态、异步取消和可访问性属性必须一致。
- * 新手阅读建议：先读 Props，再看局部状态、effect 和 JSX。
- */
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import clsx from 'clsx'
 import type { WorkspaceId } from '@deepseek-ai/dsh-workspace/types'
 import type { ConversationSlotProps, InputZone } from '../contract/slots.ts'
 import { conversationPhase } from '../contract/snapshot.ts'
-import { HeroGlow, HeroShell, WorkspaceChip, workspaceLabel } from './EmptyHero.tsx'
+import { HeroShell, WorkspaceChip, workspaceLabel } from './EmptyHero.tsx'
 import css from './ConversationRoot.module.css'
 
 /** Full props composed from the slot contract. */
-/* 中文说明：类型或类 ConversationRootProps 约束本文件的数据或组件职责。 */
 export type ConversationRootProps = ConversationSlotProps
 
 /** localStorage key for the dragged transcript width preference (px). */
@@ -151,22 +142,15 @@ export function ConversationRoot({
     : conversationPhase(session, conversation)
   const openState = session?.openState
   const inputState = useInput(s => s)
-  /** 中文说明：组件局部值 cwd，取值由紧邻初始化决定。 */
   const cwd = useSessions(s => sessionId === undefined ? undefined : s.byId[sessionId]?.cwd)
-  /** 中文说明：组件局部值 summaryBlank，取值由紧邻初始化决定。 */
   const summaryBlank = useSessions(s => sessionId === undefined ? undefined : s.byId[sessionId]?.blank)
-  /** 中文说明：组件局部值 workspaces，取值由紧邻初始化决定。 */
   const workspaces = useWorkspaces(s => s)
   // A plugin this package cannot import (ui-model-selection) says this session cannot
   // send; its reason is already localized by whoever raised it.
-  /** 中文说明：组件局部值 composerBlock，取值由紧邻初始化决定。 */
   const composerBlock = useComposerBlock(block => block)
 
-  /** 中文说明：组件局部值 解构结果，取值由紧邻初始化决定。 */
   const [pickerOpen, setPickerOpen] = useState(false)
-  /** 中文说明：组件局部值 解构结果，取值由紧邻初始化决定。 */
   const [pendingWorkspaceId, setPendingWorkspaceId] = useState<WorkspaceId | undefined>()
-  /** 中文说明：组件局部值 pickerAnchor，取值由紧邻初始化决定。 */
   const pickerAnchor = useRef<HTMLButtonElement>(null)
 
   // Publishes the two live measurements floating View chrome reads off the
@@ -177,11 +161,9 @@ export function ConversationRoot({
   // observer churn while the first blank session fills the resident body
   // outlet.
   const seatObserver = useRef<ResizeObserver | null>(null)
-  /** 中文说明：组件局部值 seatResizeRef，取值由紧邻初始化决定。 */
   const seatResizeRef = useCallback((seat: HTMLDivElement | null): void => {
     seatObserver.current?.disconnect()
     seatObserver.current = null
-    /** 中文说明：组件局部值 scroller，取值由紧邻初始化决定。 */
     const scroller = seat?.parentElement ?? null
     if (seat === null || scroller === null) return
     seatObserver.current = new ResizeObserver(() => {
@@ -255,7 +237,6 @@ export function ConversationRoot({
   const sessionWorkspace = sessionId === undefined
     ? undefined
     : workspaces.items.find(workspace => workspace.sessionIds.includes(sessionId))
-  /** 中文说明：组件局部值 pendingWorkspace，取值由紧邻初始化决定。 */
   const pendingWorkspace = workspaces.items.find(
     workspace => workspace.workspaceId === pendingWorkspaceId,
   )
@@ -301,7 +282,6 @@ export function ConversationRoot({
   //      flash on refresh (empty cwd → placeholder);
   //   5. list ready but no owning workspace (deleted from the sidebar) →
   //      placeholder, never the deleted folder's name via cwd.
-  /** 中文说明：组件局部值 chipTitle，取值由紧邻初始化决定。 */
   const chipTitle = pendingWorkspace?.title
     ?? (sessionId === undefined
       ? undefined
@@ -310,7 +290,6 @@ export function ConversationRoot({
           ? undefined
           : workspaceLabel(cwd)))
 
-  /** 中文说明：当前数据 heroWorkspaceRow，取值由紧邻初始化决定。 */
   const heroWorkspaceRow = (
     <div className={css.heroWorkspaceRow}>
       <WorkspaceChip
@@ -342,14 +321,11 @@ export function ConversationRoot({
   // blank session whose workspace vanished (deleted from the sidebar). The
   // bar is ONE session-maybe slot rendered unconditionally — inert is a prop,
   // not a different tree, so the textarea DOM survives the transition.
-  /** 中文说明：组件局部值 inert，取值由紧邻初始化决定。 */
   const inert = sessionId === undefined || (hero && chipTitle === undefined)
   // A raised block is the same inert posture with the blocker's own reason:
   // one disabled textarea, never a second tree. The no-workspace state wins
   // when both hold — picking a workspace is the earlier prerequisite.
-  /** 中文说明：组件局部值 blocked，取值由紧邻初始化决定。 */
   const blocked = !inert && composerBlock !== undefined
-  /** 中文说明：组件局部值 inputBar，取值由紧邻初始化决定。 */
   const inputBar = renderSlot('conversation.composer.bar', {
     variant: hero ? 'hero' : 'composer',
     ...(inert
@@ -372,10 +348,8 @@ export function ConversationRoot({
     footer: !hero && zone !== undefined ? renderSlot('conversation.composer.dock', zone) : null,
   })
 
-  /** 中文说明：组件局部值 composerBar，取值由紧邻初始化决定。 */
   const composerBar = (
     <div className={clsx(css.composerStack, hero && css.composerHero)}>
-      {hero && <HeroGlow className={css.heroGlow} />}
       {hero && <HeroShell t={t} renderSlot={renderSlot} />}
       {hero && heroWorkspaceRow}
       {zone !== undefined && renderSlot('conversation.input.dock', zone)}
@@ -383,9 +357,7 @@ export function ConversationRoot({
     </div>
   )
 
-  /** 中文说明：组件局部值 phase，取值由紧邻初始化决定。 */
   const phase = settling ? 'settling' : hero ? 'hero' : 'active'
-  /** 中文说明：组件局部值 composer，取值由紧邻初始化决定。 */
   const composer = renderSlotChain(
     'conversation.composer',
     { sessionId, session, pendingInteraction },
@@ -396,7 +368,6 @@ export function ConversationRoot({
   // only `.composerStack`: overlay:true renders those as siblings, and sticky
   // on the fallback alone would leave a business-owned takeover at the content
   // end off-screen when the user is not pinned to the floor.
-  /** 中文说明：组件局部值 composerSeat，取值由紧邻初始化决定。 */
   const composerSeat = (
     <div ref={seatResizeRef} className={css.composerSeat} data-composer-seat="">
       {composer}
@@ -406,22 +377,24 @@ export function ConversationRoot({
   return (
     <div ref={rootResizeRef} className={css.root} data-phase={phase}>
       {sessionId === undefined ? null : renderSlot('conversation.session.header', {})}
-      <div className={css.scrollBody} data-conversation-scroll="">
-        {sessionId === undefined ? null : renderSlot('conversation.session', {})}
-        {composerSeat}
+      <div className={css.body}>
+        <div className={css.scrollBody} data-conversation-scroll="">
+          {sessionId === undefined ? null : renderSlot('conversation.session', {})}
+          {composerSeat}
+        </div>
+        {/* Width handles only while a transcript is on screen; the hero has no
+            content column to size. */}
+        {phase === 'active' && (['left', 'right'] as const).map(side => (
+          <WidthHandle
+            key={side}
+            side={side}
+            onStart={onHandleStart}
+            onDrag={onHandleDrag}
+            onCommit={onHandleCommit}
+            onEnd={onHandleEnd}
+          />
+        ))}
       </div>
-      {/* Width handles only while a transcript is on screen; the hero has no
-          content column to size. */}
-      {phase === 'active' && (['left', 'right'] as const).map(side => (
-        <WidthHandle
-          key={side}
-          side={side}
-          onStart={onHandleStart}
-          onDrag={onHandleDrag}
-          onCommit={onHandleCommit}
-          onEnd={onHandleEnd}
-        />
-      ))}
     </div>
   )
 }

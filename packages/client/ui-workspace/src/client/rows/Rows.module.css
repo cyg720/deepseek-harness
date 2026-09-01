@@ -1,11 +1,3 @@
-/**
- * 文件职责：实现 client/ui-workspace 中 Rows module 模块的职责，并向相邻模块提供可复用能力。
- * 技术维度：主要使用CSS Modules、层叠样式与项目统一的设计变量，通过当前文件中的类型、函数与数据结构完成实现。
- * 产品维度：支撑 DeepSeek Harness 的 client/ui-workspace 能力，使上层功能能够稳定组合和扩展。
- * 逻辑维度：建议按“依赖与类型定义 → 常量和状态 → 核心函数或类 → 导出或注册入口”的顺序理解。
- * 关键边界：调用方必须遵守类型、生命周期和错误处理约定；涉及外部输入、异步任务或资源释放时需特别关注异常分支。
- * 新手阅读建议：先确认导入依赖和公开导出，再沿主要函数调用链阅读，最后结合相邻测试理解输入、输出与边界条件。
- */
 .projectRow,
 .sessionRow {
   display: flex;
@@ -58,6 +50,7 @@
 }
 
 .searchResultTitle {
+  flex: 0 1 auto;
   min-width: 0;
   margin-left: 4px;
   overflow: hidden;
@@ -123,8 +116,6 @@
 .flatSessionRowWithoutStatus .title {
   margin-left: 0;
 }
-
-/* 动画说明：row-in 定义可复用的关键帧流程；调用处需同时遵守时长、缓动和可访问性约定。 */
 
 @keyframes row-in {
   from { opacity: 0; }
@@ -215,6 +206,22 @@
   font-size: 12px;
   line-height: 20px;
   color: var(--dsw-alias-label-tertiary);
+}
+
+.scheduleIndicator {
+  display: inline-flex;
+  flex: none;
+  width: 16px;
+  height: 20px;
+  align-items: center;
+  justify-content: center;
+  margin-right: 6px;
+  color: var(--dsw-alias-label-tertiary);
+}
+
+.searchScheduleIndicator {
+  margin-right: 0;
+  margin-left: 4px;
 }
 
 .dot {

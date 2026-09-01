@@ -13,33 +13,23 @@
  * projections. Direct driving is deliberate: this spec owns only the
  * source's own contract.
  */
-/*
- * 文件职责：验证技能入口的 browser-plugin.client.spec.ts 行为。
- * 技术维度：Vitest、React 渲染、DOM 事件和服务替身。
- * 产品维度：防止技能入口显示、导航或生命周期回归。
- * 逻辑维度：构造状态，触发交互并断言输出和清理。
- * 关键边界：全局主题、DOM 尺寸和订阅必须在用例后恢复。
- * 新手阅读建议：先读夹具，再按加载、交互和卸载场景阅读。
- */
 import { Context } from '@deepseek-ai/cordis'
 import { describe, expect, it, vi } from 'vitest'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import { SlotRegistry } from '@deepseek-ai/dsh-client-ui-renderer/client'
 import { InputTriggerService } from '@deepseek-ai/dsh-client-ui-input-trigger/client'
-import { TestRemote } from '@deepseek-ai/dsh-client-test-runtime'
+import { RemoteError, TestRemote } from '@deepseek-ai/dsh-client-test-runtime'
+import type { RemoteFailure } from '@deepseek-ai/dsh-api-remotes/client'
 import type { ClientSessionContext, InputTriggerSource } from '@deepseek-ai/dsh-client-ui-input-trigger/client'
 import { apply, inject } from '../src/client/index.ts'
 import { SkillRow as SkillToolRow } from '../src/client/SkillRow.tsx'
 
-/** 中文说明：类型或类 SkillRow 约束模块数据或组件职责。 */
 type SkillRow = { name: string; description: string; whenToUse?: string; modelInvocable?: boolean }
-/** 中文说明：类型或类 ListResult 约束模块数据或组件职责。 */
 type ListResult =
   | { ok: true; value: { skills: SkillRow[] } }
-  | { ok: false; error: { code: string; message: string; details: object } }
+  | { ok: false; error: RemoteFailure }
 type ListFn = (payload: object, signal?: AbortSignal) => Promise<ListResult>
 
-/** 中文说明：类型或类 PresentationCapture 约束模块数据或组件职责。 */
 interface PresentationCapture {
   slots: SlotRegistry
   dictionaries: Array<{ namespace: string; dictionaries: unknown }>
@@ -47,15 +37,12 @@ interface PresentationCapture {
 }
 
 /** Provide the presentation registries and capture the plugin's registrations. */
-/* 中文说明：函数 providePresentation 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function providePresentation(ctx: Context): PresentationCapture {
-  /** 中文说明：测试局部值 slots，由紧邻初始化决定。 */
   const slots = new SlotRegistry(ctx)
   slots.register({
     name: 'root',
     children: { 'tool.call.toolview': { kind: 'keyed', scope: 'session' } },
   } as never, () => null)
-  /** 中文说明：测试局部值 capture，由紧邻初始化决定。 */
   const capture: PresentationCapture = {
     slots,
     dictionaries: [],
@@ -75,10 +62,8 @@ function providePresentation(ctx: Context): PresentationCapture {
 /** Boot the plugin over fake slash/connection faces; returns the captured source and its ctx. */
 async function bench(list: ListFn, addressed?: SessionId) {
   const ctx = new Context()
-  /** 中文说明：测试局部值 解构结果，由紧邻初始化决定。 */
   let captured: InputTriggerSource | undefined
   ctx.provide('inputTriggers', { registerSource: (src: InputTriggerSource) => { captured = src; return () => {} } })
-  ctx.provide('connection', {})
   ctx.provide('sessions', {
     subagentAddress: (id: SessionId) => id === addressed
       ? { parentSessionId: sid('parent'), childSessionId: id, mode: 'continuable' as const }
@@ -90,7 +75,6 @@ async function bench(list: ListFn, addressed?: SessionId) {
   return { ctx, source: captured!, remote }
 }
 
-/** 中文说明：测试局部值 CATALOG，由紧邻初始化决定。 */
 const CATALOG: SkillRow[] = [
   { name: 'commit-helper', description: 'commit flow', modelInvocable: true },
   { name: 'code-review', description: 'review flow', whenToUse: 'reviews', modelInvocable: true },
@@ -100,11 +84,8 @@ const CATALOG: SkillRow[] = [
 const listOk = (skills: SkillRow[]): ListFn => () => Promise.resolve({ ok: true as const, value: { skills } })
 
 /** Counting fake: records payloads, resolves the shared catalog. */
-/* 中文说明：函数 countingList 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function countingList(skills: SkillRow[] = CATALOG) {
-  /** 中文说明：测试局部值 payloads，由紧邻初始化决定。 */
   const payloads: object[] = []
-  /** 中文说明：测试局部值 list，由紧邻初始化决定。 */
   const list: ListFn = (payload) => {
     payloads.push(payload)
     return listOk(skills)(payload)
@@ -112,31 +93,25 @@ function countingList(skills: SkillRow[] = CATALOG) {
   return { list, payloads }
 }
 
-/** 中文说明：测试局部值 sid，由紧邻初始化决定。 */
 const sid = (id: string) => id as SessionId
 
-/** 中文说明：测试局部值 proj，由紧邻初始化决定。 */
 const proj = (id: string): ClientSessionContext => ({ sessionId: sid(id) })
 
-/** 中文说明：测试局部值 req，由紧邻初始化决定。 */
 const req = (query: string, signal?: AbortSignal) =>
   ({ query, position: 'leading' as const, drilled: false, signal: signal ?? new AbortController().signal })
 
 describe('apply', () => {
   it('declares the services it binds', () => {
-    expect(inject).toEqual(['inputTriggers', 'connection', 'sessions', 'slots', 'locale', 'remote', 'remote.skills'])
+    expect(inject).toEqual(['inputTriggers', 'sessions', 'slots', 'locale', 'remote', 'remote.skills'])
   })
 
   it('registers the dedicated skill row and its locale dictionaries', async () => {
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = new Context()
     ctx.provide('inputTriggers', { registerSource: () => () => {} })
-    ctx.provide('connection', {})
     ctx.provide('sessions', { subagentAddress: () => undefined })
     new TestRemote(ctx, { skills: { list: listOk(CATALOG) } })
     const presentation = providePresentation(ctx)
     await ctx.plugin({ inject: [...inject], apply }).await()
-    /** 中文说明：测试局部值 entry，由紧邻初始化决定。 */
     const entry = presentation.slots.entries('tool.call.toolview')[0]
     expect(entry?.options).toMatchObject({ key: 'skill' })
     expect(entry?.locale).toBe('skill')
@@ -166,20 +141,15 @@ describe('apply', () => {
   })
 
   it('registers the "/" skill source; disposal frees the name (HMR safety)', async () => {
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = new Context()
     // InputTriggerService itself injects 'sessions'; the stub unblocks its fiber.
     ctx.provide('sessions', {})
     await ctx.plugin(InputTriggerService).await()
-    ctx.provide('connection', {})
     new TestRemote(ctx, { skills: { list: listOk(CATALOG) } })
     const presentation = providePresentation(ctx)
-    /** 中文说明：测试局部值 fiber，由紧邻初始化决定。 */
     const fiber = ctx.plugin({ inject: [...inject], apply })
     await fiber.await()
-    /** 中文说明：测试局部值 inputTriggers，由紧邻初始化决定。 */
     const inputTriggers = ctx.get('inputTriggers') as InputTriggerService
-    /** 中文说明：测试局部值 rival，由紧邻初始化决定。 */
     const rival = {
       trigger: '/' as const,
       name: 'skill',
@@ -198,11 +168,8 @@ describe('apply', () => {
 
 describe('candidates: sessionId addressing', () => {
   it('lists via {sessionId} and filters by startsWith(query)', async () => {
-    /** 中文说明：测试局部值 { list, payloads }，由紧邻初始化决定。 */
     const { list, payloads } = countingList()
-    /** 中文说明：测试局部值 { source }，由紧邻初始化决定。 */
     const { source } = await bench(list)
-    /** 中文说明：测试局部值 items，由紧邻初始化决定。 */
     const items = await source.candidates(proj('s1'), req('co'))
     // Exact payload: session address only — no agent or transport vocabulary.
     expect(payloads).toEqual([{ sessionId: 's1' }])
@@ -213,18 +180,15 @@ describe('candidates: sessionId addressing', () => {
   })
 
   it('rejects on a failed result (the slash shell owns the menu-side fold)', async () => {
-    /** 中文说明：测试局部值 { source }，由紧邻初始化决定。 */
     const { source } = await bench(() => Promise.resolve({
-      ok: false, error: { code: 'internal', message: 'boom', details: {} },
+      ok: false, error: new RemoteError('gateway/internal', 'boom', {}),
     }))
     await expect(source.candidates(proj('s1'), req('co')))
-      .rejects.toThrow('skills/list failed: internal: boom')
+      .rejects.toThrow('skills/list failed: gateway/internal: boom')
   })
 
   it('does not fetch Agent-bound skills for an addressed child', async () => {
-    /** 中文说明：测试局部值 { list, payloads }，由紧邻初始化决定。 */
     const { list, payloads } = countingList()
-    /** 中文说明：测试局部值 { source }，由紧邻初始化决定。 */
     const { source } = await bench(list, sid('child'))
     await expect(source.candidates(proj('child'), req(''))).resolves.toEqual([])
     source.warm!(proj('child'))
@@ -234,12 +198,9 @@ describe('candidates: sessionId addressing', () => {
 
 describe('catalog cache', () => {
   it('re-polls on the same session filter locally: one RPC across keystrokes', async () => {
-    /** 中文说明：测试局部值 { list, payloads }，由紧邻初始化决定。 */
     const { list, payloads } = countingList()
-    /** 中文说明：测试局部值 { source }，由紧邻初始化决定。 */
     const { source } = await bench(list)
     await source.candidates(proj('s1'), req(''))
-    /** 中文说明：测试局部值 second，由紧邻初始化决定。 */
     const second = await source.candidates(proj('s1'), req('co'))
     expect(payloads).toHaveLength(1)
     expect(second).toEqual([
@@ -252,11 +213,8 @@ describe('catalog cache', () => {
   })
 
   it('single-flight: concurrent candidates on one cold key share one RPC', async () => {
-    /** 中文说明：测试局部值 { list, payloads }，由紧邻初始化决定。 */
     const { list, payloads } = countingList()
-    /** 中文说明：测试局部值 { source }，由紧邻初始化决定。 */
     const { source } = await bench(list)
-    /** 中文说明：测试局部值 [a, b]，由紧邻初始化决定。 */
     const [a, b] = await Promise.all([
       source.candidates(proj('s1'), req('dep')),
       source.candidates(proj('s1'), req('co')),
@@ -267,11 +225,8 @@ describe('catalog cache', () => {
   })
 
   it('an aborted caller yields empty but leaves the shared fetch warm', async () => {
-    /** 中文说明：测试局部值 { list, payloads }，由紧邻初始化决定。 */
     const { list, payloads } = countingList()
-    /** 中文说明：测试局部值 { source }，由紧邻初始化决定。 */
     const { source } = await bench(list)
-    /** 中文说明：测试局部值 aborted，由紧邻初始化决定。 */
     const aborted = new AbortController()
     aborted.abort()
     await expect(source.candidates(proj('s1'), req('co', aborted.signal))).resolves.toEqual([])
@@ -281,15 +236,12 @@ describe('catalog cache', () => {
   })
 
   it('a failed fetch does not poison the key: the next caller retries', async () => {
-    /** 中文说明：测试局部值 fail，由紧邻初始化决定。 */
     let fail = true
-    /** 中文说明：测试局部值 payloads，由紧邻初始化决定。 */
     const payloads: object[] = []
-    /** 中文说明：测试局部值 { source }，由紧邻初始化决定。 */
     const { source } = await bench((payload) => {
       payloads.push(payload)
       return fail
-        ? Promise.resolve({ ok: false as const, error: { code: 'internal', message: 'boom', details: {} } })
+        ? Promise.resolve({ ok: false as const, error: new RemoteError('gateway/internal', 'boom', {}) })
         : listOk(CATALOG)(payload)
     })
     await expect(source.candidates(proj('s1'), req(''))).rejects.toThrow('boom')
@@ -299,9 +251,7 @@ describe('catalog cache', () => {
   })
 
   it('the scope-birth warm prewarms the session key fire-and-forget', async () => {
-    /** 中文说明：测试局部值 { list, payloads }，由紧邻初始化决定。 */
     const { list, payloads } = countingList()
-    /** 中文说明：测试局部值 { source }，由紧邻初始化决定。 */
     const { source } = await bench(list)
     source.warm!(proj('s1'))
     await vi.waitFor(() => { expect(payloads).toHaveLength(1) })
@@ -315,7 +265,6 @@ describe('catalog cache', () => {
   })
 
   it('agent-preset/selected clears only the recomposed session', async () => {
-    /** 中文说明：测试局部值 { list, payloads }，由紧邻初始化决定。 */
     const { list, payloads } = countingList()
     const { source, remote } = await bench(list)
     await source.candidates(proj('s1'), req(''))
@@ -331,9 +280,7 @@ describe('catalog cache', () => {
   })
 
   it('connection/reset clears every cached session', async () => {
-    /** 中文说明：测试局部值 { list, payloads }，由紧邻初始化决定。 */
     const { list, payloads } = countingList()
-    /** 中文说明：测试局部值 { ctx, source }，由紧邻初始化决定。 */
     const { ctx, source } = await bench(list)
     await source.candidates(proj('s1'), req(''))
     await source.candidates(proj('s2'), req(''))
@@ -347,18 +294,14 @@ describe('catalog cache', () => {
 
 describe('lexicon', () => {
   it('is undefined before the session catalog settles and serves names after', async () => {
-    /** 中文说明：测试局部值 release，由紧邻初始化决定。 */
     let release: (() => void) | undefined
-    /** 中文说明：测试局部值 gate，由紧邻初始化决定。 */
     const gate = new Promise<void>((resolve) => { release = resolve })
-    /** 中文说明：测试局部值 { source }，由紧邻初始化决定。 */
     const { source } = await bench(async (payload) => {
       await gate
       return listOk(CATALOG)(payload)
     })
     // Cold: nothing cached for the session.
     expect(source.lexicon!(proj('s1'))).toBeUndefined()
-    /** 中文说明：测试局部值 pending，由紧邻初始化决定。 */
     const pending = source.candidates(proj('s1'), req(''))
     // In flight: still no synchronous snapshot.
     expect(source.lexicon!(proj('s1'))).toBeUndefined()
@@ -370,13 +313,9 @@ describe('lexicon', () => {
   })
 
   it('subscribeLexicon notifies on catalog settle and on invalidation, per session', async () => {
-    /** 中文说明：测试局部值 { list }，由紧邻初始化决定。 */
     const { list } = countingList()
-    /** 中文说明：测试局部值 { ctx, source }，由紧邻初始化决定。 */
     const { ctx, source } = await bench(list)
-    /** 中文说明：测试局部值 s1，由紧邻初始化决定。 */
     const s1 = vi.fn()
-    /** 中文说明：测试局部值 s2，由紧邻初始化决定。 */
     const s2 = vi.fn()
     source.subscribeLexicon!(proj('s1'), s1)
     source.subscribeLexicon!(proj('s2'), s2)
@@ -391,13 +330,9 @@ describe('lexicon', () => {
   })
 
   it('an unsubscribed lexicon listener stops receiving notifications', async () => {
-    /** 中文说明：测试局部值 { list }，由紧邻初始化决定。 */
     const { list } = countingList()
-    /** 中文说明：测试局部值 { source }，由紧邻初始化决定。 */
     const { source } = await bench(list)
-    /** 中文说明：测试局部值 listener，由紧邻初始化决定。 */
     const listener = vi.fn()
-    /** 中文说明：测试局部值 off，由紧邻初始化决定。 */
     const off = source.subscribeLexicon!(proj('s1'), listener)
     off()
     await source.candidates(proj('s1'), req(''))
@@ -407,9 +342,7 @@ describe('lexicon', () => {
 
 describe('pick lands plain text', () => {
   it('onPick returns the literal /name text with a closing space', async () => {
-    /** 中文说明：测试局部值 { source }，由紧邻初始化决定。 */
     const { source } = await bench(listOk(CATALOG))
-    /** 中文说明：测试局部值 outcome，由紧邻初始化决定。 */
     const outcome = source.onPick({
       candidate: { name: 'commit-helper', description: 'commit flow' },
       session: proj('s1'),
@@ -422,7 +355,6 @@ describe('pick lands plain text', () => {
   })
 
   it('keeps the legacy reference codec removed and stays out of adjudication', async () => {
-    /** 中文说明：测试局部值 { source }，由紧邻初始化决定。 */
     const { source } = await bench(listOk(CATALOG))
     // Determinism lives host-side (the pre-step gesture boundary), so the
     // source neither claims lines nor serializes reference markup.
@@ -434,14 +366,11 @@ describe('pick lands plain text', () => {
 
 describe('user-only marking', () => {
   it('prefixes the description of candidates the model cannot invoke', async () => {
-    /** 中文说明：测试局部值 rows，由紧邻初始化决定。 */
     const rows: SkillRow[] = [
       { name: 'shared-skill', description: 'both surfaces', modelInvocable: true },
       { name: 'user-only-skill', description: 'user surface only', modelInvocable: false },
     ]
-    /** 中文说明：测试局部值 { source }，由紧邻初始化决定。 */
     const { source } = await bench(listOk(rows))
-    /** 中文说明：测试局部值 candidates，由紧邻初始化决定。 */
     const candidates = await source.candidates(proj('s1'), req(''))
     expect(candidates).toEqual([
       { name: 'shared-skill', description: 'both surfaces' },

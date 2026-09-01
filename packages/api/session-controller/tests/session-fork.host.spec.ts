@@ -14,16 +14,13 @@ import {
   createSessionTestRemote, installSessionReadTestServices, testSessionPersistence,
 } from './test-remote.ts'
 
-/** 中文说明：测试局部值 sid，由紧邻初始化决定。 */
 const sid = (id: string): SessionId => id as SessionId
 
 function request<P>(payload: P): P {
   return payload
 }
 
-/** 中文说明：函数 composed 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 async function composed(workspaces: readonly Workspace[] = []): Promise<Context> {
-  /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
   const ctx = new Context()
   await ctx.plugin(SessionStore)
   await ctx.plugin(SystemPrompt, { persona: '' })
@@ -32,14 +29,11 @@ async function composed(workspaces: readonly Workspace[] = []): Promise<Context>
   ctx.provide('workspaceRegistry', { list: () => workspaces } as never)
   ctx.agents.setFactory({
     createAgent: async (ownerCtx: Context, options: CreateAgentOptions): Promise<AgentHandle> => {
-      /** 中文说明：测试局部值 session，由紧邻初始化决定。 */
       const session = ctx.sessions.create(options.sessionId, {
         ...options.seed === undefined ? {} : { seed: [...options.seed] },
         ...options.meta === undefined ? {} : { meta: options.meta },
       })
-      /** 中文说明：测试局部值 agent，由紧邻初始化决定。 */
       const agent = {} as Agent
-      /** 中文说明：测试局部值 agentCtx，由紧邻初始化决定。 */
       const agentCtx = ownerCtx.extend({ agent })
       Object.assign(agent, { id: session.id, session, status: 'idle', ctx: agentCtx })
       await options.setup?.(agentCtx)
@@ -52,10 +46,8 @@ async function composed(workspaces: readonly Workspace[] = []): Promise<Context>
 }
 
 /** Tail turn appended after the completed ones: left open, or closed as aborted (a stopped turn). */
-/* 中文说明：类型或类 Tail 约束 API、Hook 或目录数据职责。 */
 type Tail = 'none' | 'open' | 'aborted'
 
-/** 中文说明：函数 liveAgent 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function liveAgent(
   ctx: Context,
   id: string,
@@ -63,9 +55,7 @@ function liveAgent(
   tail: Tail = 'none',
   lineage: { parentSession?: SessionId; origin?: 'subagent' } = {},
 ): Session {
-  /** 中文说明：测试局部值 session，由紧邻初始化决定。 */
   const session = ctx.sessions.create(sid(id), { meta: { cwd: '/proj', ...lineage } })
-  /** 中文说明：测试局部值 turn，由紧邻初始化决定。 */
   for (let turn = 1; turn <= turns; turn++) {
     session.append('turn/start', { turn })
     session.append('user/message', createUserMessage({
@@ -96,9 +86,7 @@ const remote = (ctx: Context) => createSessionTestRemote(ctx, {
 
 describe('sessions.fork', () => {
   it('cuts at the anchored completed turn and records lineage and cwd', async () => {
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await composed()
-    /** 中文说明：测试局部值 source，由紧邻初始化决定。 */
     const source = liveAgent(ctx, 'session-source', 2)
     const response = await remote(ctx).fork(request({ sessionId: source.id, atSeq: 1 }))
     expect(response.ok).toBe(true)
@@ -113,27 +101,20 @@ describe('sessions.fork', () => {
   })
 
   it('attaches a subagent fork to its nearest workspace-owning ancestor', async () => {
-    /** 中文说明：测试局部值 accounted，由紧邻初始化决定。 */
     const accounted: SessionId[] = []
-    /** 中文说明：测试局部值 attachSession，由紧邻初始化决定。 */
     const attachSession = vi.fn<(sessionId: SessionId) => Promise<void>>()
       .mockResolvedValue(undefined)
-    /** 中文说明：测试局部值 workspace，由紧邻初始化决定。 */
     const workspace = {
       sessionIds: accounted,
       attachSession,
     } as unknown as Workspace
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await composed([workspace])
-    /** 中文说明：测试局部值 owner，由紧邻初始化决定。 */
     const owner = liveAgent(ctx, 'session-owner', 1)
     accounted.push(owner.id)
-    /** 中文说明：测试局部值 child，由紧邻初始化决定。 */
     const child = liveAgent(ctx, 'session-child', 1, 'none', {
       parentSession: owner.id,
       origin: 'subagent',
     })
-    /** 中文说明：测试局部值 grandchild，由紧邻初始化决定。 */
     const grandchild = liveAgent(ctx, 'session-grandchild', 1, 'none', {
       parentSession: child.id,
       origin: 'subagent',
@@ -163,13 +144,9 @@ describe('sessions.fork', () => {
   })
 
   it('forks a persisted subagent without resuming its Agent', async () => {
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await composed()
-    /** 中文说明：测试局部值 sourceId，由紧邻初始化决定。 */
     const sourceId = sid('session-cold-subagent')
-    /** 中文说明：测试局部值 parentId，由紧邻初始化决定。 */
     const parentId = sid('session-cold-parent')
-    /** 中文说明：测试局部值 header，由紧邻初始化决定。 */
     const header: SessionHeader = {
       version: 0,
       id: sourceId,
@@ -178,7 +155,6 @@ describe('sessions.fork', () => {
       parentSession: parentId,
       origin: 'subagent',
     }
-    /** 中文说明：测试局部值 events，由紧邻初始化决定。 */
     const events = [
       { type: 'turn/start', seq: 0, time: 1, data: { turn: 1, trigger: { kind: 'message', source: { kind: 'user' } } } },
       {
@@ -211,9 +187,7 @@ describe('sessions.fork', () => {
   })
 
   it('uses the last completed turn only for omitted and past-end anchors', async () => {
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await composed()
-    /** 中文说明：测试局部值 source，由紧邻初始化决定。 */
     const source = liveAgent(ctx, 'session-tail', 2, 'open')
     const proxy = remote(ctx)
     const expectedTypes = [
@@ -242,20 +216,17 @@ describe('sessions.fork', () => {
 
     for (const atSeq of [-1, 0.5]) {
       await expect(proxy.fork(request({ sessionId: sid('missing'), atSeq })))
-        .resolves.toMatchObject({ ok: false, error: { code: 'bad-request' } })
+        .resolves.toMatchObject({ ok: false, error: { code: 'gateway/bad-request' } })
     }
     expect(ctx.sessions.list()).toEqual([])
     await ctx.fiber.dispose()
   })
 
   it('cuts through an aborted turn: stopped is closed, not open', async () => {
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await composed()
-    /** 中文说明：测试局部值 source，由紧邻初始化决定。 */
     const source = liveAgent(ctx, 'session-aborted', 1, 'aborted')
     // What a stopped message's fork button anchors on: the frozen node sits
     // one event before its turn/end, floored client-side to that event's seq.
-    /** 中文说明：测试局部值 anchor，由紧邻初始化决定。 */
     const anchor = (source.events.at(-1)?.seq ?? 0) - 1
     const response = await remote(ctx).fork(request({ sessionId: source.id, atSeq: anchor }))
     expect(response.ok).toBe(true)
@@ -269,25 +240,20 @@ describe('sessions.fork', () => {
   })
 
   it('rejects an in-log anchor whose turn is still open', async () => {
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await composed()
-    /** 中文说明：测试局部值 source，由紧邻初始化决定。 */
     const source = liveAgent(ctx, 'session-open', 1, 'open')
-    /** 中文说明：测试局部值 anchor，由紧邻初始化决定。 */
     const anchor = source.events.at(-1)?.seq ?? 0
     const response = await remote(ctx).fork(request({ sessionId: source.id, atSeq: anchor }))
     expect(response).toMatchObject({
       ok: false,
-      error: { code: 'fork-unavailable', details: { sessionId: source.id } },
+      error: { code: 'session/fork-unavailable', details: { sessionId: source.id } },
     })
     if (!response.ok) expect(response.error.message).toMatch(/has not completed/)
     await ctx.fiber.dispose()
   })
 
   it('installs the latest logged model selection before the child can run', async () => {
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await composed()
-    /** 中文说明：测试局部值 source，由紧邻初始化决定。 */
     const source = liveAgent(ctx, 'session-routed', 1)
     source.append('request/header', {
       header: {
@@ -304,13 +270,11 @@ describe('sessions.fork', () => {
     if (!response.ok) return
     const child = ctx.agents.get(response.value.sessionId)
     if (child === undefined) throw new Error('fork did not publish the child agent')
-    /** 中文说明：测试局部值 assembly，由紧邻初始化决定。 */
     const assembly = await child.ctx.systemPrompt.assemble()
     expect(assembly.variables).toMatchObject({
       provider: 'inherited-provider',
       model: 'inherited-model',
     })
-    /** 中文说明：测试局部值 fallback，由紧邻初始化决定。 */
     const fallback: LlmCallConfig = { provider: 'default-provider', model: 'default-model' }
     await expect(agentEvents(child.ctx, child).waterfall(
       'agent/request', { turn: 1, step: 0, signal: new AbortController().signal }, () => Promise.resolve(fallback),

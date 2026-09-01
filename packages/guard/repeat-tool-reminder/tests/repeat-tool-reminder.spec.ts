@@ -1,11 +1,3 @@
-/**
- * 文件职责：验证循环守卫的 repeat-tool-reminder.spec.ts 行为与边界。
- * 技术维度：TypeScript、Cordis、JSON 编解码、子进程、事件匹配和严格联合类型。
- * 产品维度：保证循环守卫可预测地传递事件、限制循环或适配外部工具。
- * 逻辑维度：构造事件与配置，驱动入口并断言结果。
- * 关键边界：线协议输入必须校验；外部 Hook 失败不得破坏会话日志或核心循环。
- * 新手阅读建议：先读 types/events，再看 codec/matcher/runner，最后阅读桥接配置。
- */
 import { describe, expect, it } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
 import { createUserMessage, ToolCallId  } from '@deepseek-ai/dsh-llm'
@@ -14,11 +6,11 @@ import { defineContentToolFixture } from '@deepseek-ai/dsh-tools'
 import type { Agent } from '@deepseek-ai/dsh-agent'
 import AgentLoop from '@deepseek-ai/dsh-agent-loop'
 import { mountAgentLoopTestDependencies } from '@deepseek-ai/dsh-agent-loop-testkit'
+import SessionProjectionRegistry from '@deepseek-ai/dsh-session-projection'
 import * as RepeatToolGuard from '@deepseek-ai/dsh-repeat-tool-reminder'
 import type { Config } from '@deepseek-ai/dsh-repeat-tool-reminder'
 import { MockAdapter, textResponse, toolCallResponse } from '../../../core/agent-loop/tests/mock-adapter.ts'
 
-/** 中文说明：测试局部值 testToolSignal，由紧邻初始化决定。 */
 const testToolSignal = new AbortController().signal
 
 /**
@@ -30,11 +22,11 @@ const testToolSignal = new AbortController().signal
  */
 
 /** Boot the core spine + the guard; the caller registers adapters and extra listeners. */
-/* 中文说明：函数 harness 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 async function harness(config: Config = {}): Promise<Context> {
-  /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
   const ctx = new Context()
   await mountAgentLoopTestDependencies(ctx)
+  // AgentLoop declares the registry as a required injection.
+  await ctx.plugin(SessionProjectionRegistry)
   await ctx.plugin(AgentLoop, { agents: [] })
   await ctx.plugin(RepeatToolGuard, config)
   ctx.tools.register(defineContentToolFixture({ name: 'probe', description: 'p', parameters: {}, async execute() { return [{ type: 'text', text: 'ok' }] } }))
@@ -42,13 +34,11 @@ async function harness(config: Config = {}): Promise<Context> {
   return ctx
 }
 
-/** 中文说明：函数 waitForIdle 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function waitForIdle(ctx: Context, agent: Agent): Promise<void> {
   return new Promise((resolve) => { const d = ctx.on('agent/status', ({ agent: s, status: st }) => { if (s === agent && st === 'idle') { d(); resolve() } }) })
 }
 
 /** Every injected-context user message in the agent's log, flattened to joined text + source for terse assertions. */
-/* 中文说明：函数 reminders 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function reminders(agent: Agent): { text: string; source: unknown }[] {
   return [...agent.session.events]
     .filter((e): e is SessionEvent<'user/message'> => e.type === 'user/message' && e.data.source.kind !== 'user')
@@ -60,7 +50,6 @@ function reminders(agent: Agent): { text: string; source: unknown }[] {
 
 // The reminder is a `notice`-form context; its summary names the repeated
 // call so a reader sees it without expanding the row.
-/** 中文说明：测试局部值 guardSource，由紧邻初始化决定。 */
 const guardSource = (tool: string, count: number) => ({
   kind: 'plugin',
   plugin: 'repeat-tool-reminder',
@@ -70,20 +59,16 @@ const guardSource = (tool: string, count: number) => ({
 
 describe('threshold escalation', () => {
   it('reminds gently at the first default threshold (3) and in detail at the second (5)', async () => {
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await harness()
-    /** 中文说明：测试局部值 adapter，由紧邻初始化决定。 */
     const adapter = new MockAdapter([
       ...Array.from({ length: 5 }, (_, i) => toolCallResponse(`c${i}`, 'probe', { q: 'same' })),
       textResponse('done'),
     ])
     ctx.llm.registerAdapter(['mock'], adapter)
-    /** 中文说明：测试局部值 agent，由紧邻初始化决定。 */
     const agent = ctx.agentLoop.create(SessionId('a1'), { provider: 'mock', model: 'mock' })
     agent.followup(createUserMessage({ content: [{ type: 'text', text: 'go' }], source: { kind: 'user' } }))
     await waitForIdle(ctx, agent)
 
-    /** 中文说明：测试局部值 found，由紧邻初始化决定。 */
     const found = reminders(agent)
     expect(found).toHaveLength(2)
     expect(found[0]!.text).toContain('repeating the exact same tool call')
@@ -95,20 +80,16 @@ describe('threshold escalation', () => {
   })
 
   it('keys the gentle text to thresholds[0], not the literal 3', async () => {
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await harness({ thresholds: [4, 2] }) // unsorted on purpose: normalized ascending
-    /** 中文说明：测试局部值 adapter，由紧邻初始化决定。 */
     const adapter = new MockAdapter([
       ...Array.from({ length: 4 }, (_, i) => toolCallResponse(`c${i}`, 'probe', {})),
       textResponse('done'),
     ])
     ctx.llm.registerAdapter(['mock'], adapter)
-    /** 中文说明：测试局部值 agent，由紧邻初始化决定。 */
     const agent = ctx.agentLoop.create(SessionId('a1'), { provider: 'mock', model: 'mock' })
     agent.followup(createUserMessage({ content: [{ type: 'text', text: 'go' }], source: { kind: 'user' } }))
     await waitForIdle(ctx, agent)
 
-    /** 中文说明：测试局部值 found，由紧邻初始化决定。 */
     const found = reminders(agent)
     expect(found).toHaveLength(2)
     expect(found[0]!.text).toContain('repeating the exact same tool call') // gentle at 2
@@ -118,11 +99,8 @@ describe('threshold escalation', () => {
 
 describe('chain semantics', () => {
   it('caps the detailed reminder arguments at argumentsPreviewChars (detection still keys on the full string)', async () => {
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await harness({ thresholds: [2, 3], argumentsPreviewChars: 24 })
-    /** 中文说明：测试局部值 bigPayload，由紧邻初始化决定。 */
     const bigPayload = 'x'.repeat(400)
-    /** 中文说明：测试局部值 adapter，由紧邻初始化决定。 */
     const adapter = new MockAdapter([
       toolCallResponse('c1', 'probe', { body: bigPayload }),
       toolCallResponse('c2', 'probe', { body: bigPayload }),
@@ -130,15 +108,12 @@ describe('chain semantics', () => {
       textResponse('done'),
     ])
     ctx.llm.registerAdapter(['mock'], adapter)
-    /** 中文说明：测试局部值 agent，由紧邻初始化决定。 */
     const agent = ctx.agentLoop.create(SessionId('a1'), { provider: 'mock', model: 'mock' })
     agent.followup(createUserMessage({ content: [{ type: 'text', text: 'go' }], source: { kind: 'user' } }))
     await waitForIdle(ctx, agent)
 
-    /** 中文说明：测试局部值 found，由紧邻初始化决定。 */
     const found = reminders(agent)
     expect(found).toHaveLength(2) // gentle at 2, detailed at 3 — full-key matching survived the cap
-    /** 中文说明：测试局部值 detailed，由紧邻初始化决定。 */
     const detailed = found[1]!.text
     expect(detailed).toContain('- arguments: {"body":"xxxxxxxxxxxxxx') // 24-char head
     expect(detailed).toContain('… (+387 more chars)')
@@ -146,9 +121,7 @@ describe('chain semantics', () => {
   })
 
   it('a different tracked call resets the chain', async () => {
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await harness()
-    /** 中文说明：测试局部值 adapter，由紧邻初始化决定。 */
     const adapter = new MockAdapter([
       toolCallResponse('c1', 'probe', { q: 1 }),
       toolCallResponse('c2', 'probe', { q: 1 }),
@@ -159,7 +132,6 @@ describe('chain semantics', () => {
       textResponse('done'),
     ])
     ctx.llm.registerAdapter(['mock'], adapter)
-    /** 中文说明：测试局部值 agent，由紧邻初始化决定。 */
     const agent = ctx.agentLoop.create(SessionId('a1'), { provider: 'mock', model: 'mock' })
     agent.followup(createUserMessage({ content: [{ type: 'text', text: 'go' }], source: { kind: 'user' } }))
     await waitForIdle(ctx, agent)
@@ -168,9 +140,7 @@ describe('chain semantics', () => {
   })
 
   it('excluded calls are transparent: they neither count nor reset', async () => {
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await harness({ exclude: ['other'] })
-    /** 中文说明：测试局部值 adapter，由紧邻初始化决定。 */
     const adapter = new MockAdapter([
       toolCallResponse('c1', 'probe', { q: 1 }),
       toolCallResponse('c2', 'other', {}), // excluded → invisible to the chain
@@ -180,21 +150,17 @@ describe('chain semantics', () => {
       textResponse('done'),
     ])
     ctx.llm.registerAdapter(['mock'], adapter)
-    /** 中文说明：测试局部值 agent，由紧邻初始化决定。 */
     const agent = ctx.agentLoop.create(SessionId('a1'), { provider: 'mock', model: 'mock' })
     agent.followup(createUserMessage({ content: [{ type: 'text', text: 'go' }], source: { kind: 'user' } }))
     await waitForIdle(ctx, agent)
 
-    /** 中文说明：测试局部值 found，由紧邻初始化决定。 */
     const found = reminders(agent)
     expect(found).toHaveLength(1)
     expect(found[0]!.text).toContain('repeating the exact same tool call')
   })
 
   it('include patterns track only matching tools (wildcard star)', async () => {
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await harness({ include: ['pro*'] })
-    /** 中文说明：测试局部值 adapter，由紧邻初始化决定。 */
     const adapter = new MockAdapter([
       toolCallResponse('c1', 'other', {}),
       toolCallResponse('c2', 'other', {}),
@@ -205,27 +171,22 @@ describe('chain semantics', () => {
       textResponse('done'),
     ])
     ctx.llm.registerAdapter(['mock'], adapter)
-    /** 中文说明：测试局部值 agent，由紧邻初始化决定。 */
     const agent = ctx.agentLoop.create(SessionId('a1'), { provider: 'mock', model: 'mock' })
     agent.followup(createUserMessage({ content: [{ type: 'text', text: 'go' }], source: { kind: 'user' } }))
     await waitForIdle(ctx, agent)
 
-    /** 中文说明：测试局部值 found，由紧邻初始化决定。 */
     const found = reminders(agent)
     expect(found).toHaveLength(1)
     expect(found[0]!.text).toContain('repeating the exact same tool call')
   })
 
   it('escapes regex metacharacters in patterns (a dot matches only a literal dot)', async () => {
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await harness({ exclude: ['pr.be'] }) // would match 'probe' as a regex; must not as a wildcard
-    /** 中文说明：测试局部值 adapter，由紧邻初始化决定。 */
     const adapter = new MockAdapter([
       ...Array.from({ length: 3 }, (_, i) => toolCallResponse(`c${i}`, 'probe', {})),
       textResponse('done'),
     ])
     ctx.llm.registerAdapter(['mock'], adapter)
-    /** 中文说明：测试局部值 agent，由紧邻初始化决定。 */
     const agent = ctx.agentLoop.create(SessionId('a1'), { provider: 'mock', model: 'mock' })
     agent.followup(createUserMessage({ content: [{ type: 'text', text: 'go' }], source: { kind: 'user' } }))
     await waitForIdle(ctx, agent)
@@ -234,9 +195,7 @@ describe('chain semantics', () => {
   })
 
   it('canonicalization ignores property order, deeply', async () => {
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await harness()
-    /** 中文说明：测试局部值 adapter，由紧邻初始化决定。 */
     const adapter = new MockAdapter([
       toolCallResponse('c1', 'probe', { a: 1, nested: { x: [1, 2], y: null } }),
       toolCallResponse('c2', 'probe', { nested: { y: null, x: [1, 2] }, a: 1 }),
@@ -244,7 +203,6 @@ describe('chain semantics', () => {
       textResponse('done'),
     ])
     ctx.llm.registerAdapter(['mock'], adapter)
-    /** 中文说明：测试局部值 agent，由紧邻初始化决定。 */
     const agent = ctx.agentLoop.create(SessionId('a1'), { provider: 'mock', model: 'mock' })
     agent.followup(createUserMessage({ content: [{ type: 'text', text: 'go' }], source: { kind: 'user' } }))
     await waitForIdle(ctx, agent)
@@ -253,7 +211,6 @@ describe('chain semantics', () => {
   })
 
   it('keys chains per agent: one agent repeating never trips another', async () => {
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await harness()
     ctx.llm.registerAdapter(['mock-a'], new MockAdapter([
       toolCallResponse('a1', 'probe', { q: 1 }),
@@ -266,9 +223,7 @@ describe('chain semantics', () => {
       toolCallResponse('b3', 'probe', { q: 1 }),
       textResponse('done'),
     ]))
-    /** 中文说明：测试局部值 agentA，由紧邻初始化决定。 */
     const agentA = ctx.agentLoop.create(SessionId('a'), { provider: 'mock-a', model: 'model-a' })
-    /** 中文说明：测试局部值 agentB，由紧邻初始化决定。 */
     const agentB = ctx.agentLoop.create(SessionId('b'), { provider: 'mock-b', model: 'model-b' })
     agentA.followup(createUserMessage({ content: [{ type: 'text', text: 'go' }], source: { kind: 'user' } }))
     agentB.followup(createUserMessage({ content: [{ type: 'text', text: 'go' }], source: { kind: 'user' } }))
@@ -279,9 +234,7 @@ describe('chain semantics', () => {
   })
 
   it('a new user prompt resets the chain', async () => {
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await harness()
-    /** 中文说明：测试局部值 adapter，由紧邻初始化决定。 */
     const adapter = new MockAdapter([
       toolCallResponse('c1', 'probe', { q: 1 }),
       toolCallResponse('c2', 'probe', { q: 1 }),
@@ -290,7 +243,6 @@ describe('chain semantics', () => {
       textResponse('turn two done'),
     ])
     ctx.llm.registerAdapter(['mock'], adapter)
-    /** 中文说明：测试局部值 agent，由紧邻初始化决定。 */
     const agent = ctx.agentLoop.create(SessionId('a1'), { provider: 'mock', model: 'mock' })
     agent.followup(createUserMessage({ content: [{ type: 'text', text: 'go' }], source: { kind: 'user' } }))
     await waitForIdle(ctx, agent)
@@ -301,7 +253,6 @@ describe('chain semantics', () => {
   })
 
   it('drops an agent chain on disposal', async () => {
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await harness({ thresholds: [2] })
     ctx.llm.registerAdapter(['mock'], new MockAdapter([
       toolCallResponse('c1', 'probe', { q: 1 }),
@@ -311,9 +262,7 @@ describe('chain semantics', () => {
     ]))
     // Loop agents are torn down by disposing the scope that created them
     // (the loop.spec pattern): a child plugin fiber owns `first`.
-    /** 中文说明：测试局部值 first!: Agent，由紧邻初始化决定。 */
     let first!: Agent
-    /** 中文说明：测试局部值 fiber，由紧邻初始化决定。 */
     const fiber = await ctx.plugin(Object.assign((inner: Context) => {
       first = inner.agentLoop.create(SessionId('reused'), { provider: 'mock', model: 'mock' })
     }, { inject: ['agentLoop'] }))
@@ -322,7 +271,6 @@ describe('chain semantics', () => {
     await fiber.dispose()
     await first.whenIdle()
 
-    /** 中文说明：测试局部值 second，由紧邻初始化决定。 */
     const second = ctx.agentLoop.create(SessionId('reused'), { provider: 'mock', model: 'mock' })
     second.followup(createUserMessage({ content: [{ type: 'text', text: 'go' }], source: { kind: 'user' } }))
     await waitForIdle(ctx, second)
@@ -331,17 +279,14 @@ describe('chain semantics', () => {
   })
 
   it('counts denied calls: hammering a denied tool still draws the reminder', async () => {
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await harness({ thresholds: [2] })
     ctx.on('tools/pre-execute', async () => ({ kind: 'deny' as const, reason: 'sealed' }))
-    /** 中文说明：测试局部值 adapter，由紧邻初始化决定。 */
     const adapter = new MockAdapter([
       toolCallResponse('c1', 'probe', { q: 1 }),
       toolCallResponse('c2', 'probe', { q: 1 }),
       textResponse('done'),
     ])
     ctx.llm.registerAdapter(['mock'], adapter)
-    /** 中文说明：测试局部值 agent，由紧邻初始化决定。 */
     const agent = ctx.agentLoop.create(SessionId('a1'), { provider: 'mock', model: 'mock' })
     agent.followup(createUserMessage({ content: [{ type: 'text', text: 'go' }], source: { kind: 'user' } }))
     await waitForIdle(ctx, agent)
@@ -350,7 +295,6 @@ describe('chain semantics', () => {
   })
 
   it('ignores direct executes with no agent (they neither crash nor advance any chain)', async () => {
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await harness({ thresholds: [2] })
     const direct = await ctx.tools.execute({ signal: testToolSignal, callId: ToolCallId('d1'), name: 'probe', arguments: { q: 1 } })
     expect(direct.isError).toBe(false)
@@ -359,7 +303,6 @@ describe('chain semantics', () => {
       toolCallResponse('c1', 'probe', { q: 1 }), // if the direct call had counted, this would be #2
       textResponse('done'),
     ]))
-    /** 中文说明：测试局部值 agent，由紧邻初始化决定。 */
     const agent = ctx.agentLoop.create(SessionId('a1'), { provider: 'mock', model: 'mock' })
     agent.followup(createUserMessage({ content: [{ type: 'text', text: 'go' }], source: { kind: 'user' } }))
     await waitForIdle(ctx, agent)
@@ -370,7 +313,6 @@ describe('chain semantics', () => {
 
 describe('fold onto the downstream decision', () => {
   it('folds the reminder onto a downstream block and keeps its feedback', async () => {
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await harness({ thresholds: [2] })
     ctx.on('tools/post-execute', async () => ({
       kind: 'block' as const,
@@ -379,19 +321,16 @@ describe('fold onto the downstream decision', () => {
         content: [{ type: 'text' as const, text: 'downstream-ctx' }], source: { kind: 'plugin' as const, plugin: 'test' },
       })],
     }))
-    /** 中文说明：测试局部值 adapter，由紧邻初始化决定。 */
     const adapter = new MockAdapter([
       toolCallResponse('c1', 'probe', { q: 1 }),
       toolCallResponse('c2', 'probe', { q: 1 }),
       textResponse('done'),
     ])
     ctx.llm.registerAdapter(['mock'], adapter)
-    /** 中文说明：测试局部值 agent，由紧邻初始化决定。 */
     const agent = ctx.agentLoop.create(SessionId('a1'), { provider: 'mock', model: 'mock' })
     agent.followup(createUserMessage({ content: [{ type: 'text', text: 'go' }], source: { kind: 'user' } }))
     await waitForIdle(ctx, agent)
 
-    /** 中文说明：测试局部值 found，由紧邻初始化决定。 */
     const found = reminders(agent)
     expect(found).toHaveLength(3)
     // Only the repeated call adds guard context; downstream source fields survive.
@@ -401,80 +340,67 @@ describe('fold onto the downstream decision', () => {
     expect(found[1]!.source).toEqual(guardSource('probe', 2))
     expect(found[2]).toEqual({ text: 'downstream-ctx', source: { kind: 'plugin', plugin: 'test' } })
     // The block's feedback reached the tool result unchanged.
-    /** 中文说明：测试局部值 results，由紧邻初始化决定。 */
     const results = [...agent.session.events].filter((e): e is SessionEvent<'tool/result'> => e.type === 'tool/result')
     expect(results.every(r => r.data.message.content[0].isError)).toBe(true)
     expect(results[1]!.data.message.content[0].content).toEqual([{ type: 'text', text: 'nope' }])
   })
 
   it('preserves a downstream canonical value replacement while folding', async () => {
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await harness({ thresholds: [2] })
     ctx.on('tools/post-execute', async () => ({
       kind: 'accept' as const,
       value: [{ type: 'text' as const, text: 'replaced' }],
     }))
-    /** 中文说明：测试局部值 adapter，由紧邻初始化决定。 */
     const adapter = new MockAdapter([
       toolCallResponse('c1', 'probe', { q: 1 }),
       toolCallResponse('c2', 'probe', { q: 1 }),
       textResponse('done'),
     ])
     ctx.llm.registerAdapter(['mock'], adapter)
-    /** 中文说明：测试局部值 agent，由紧邻初始化决定。 */
     const agent = ctx.agentLoop.create(SessionId('a1'), { provider: 'mock', model: 'mock' })
     agent.followup(createUserMessage({ content: [{ type: 'text', text: 'go' }], source: { kind: 'user' } }))
     await waitForIdle(ctx, agent)
 
-    /** 中文说明：测试局部值 found，由紧邻初始化决定。 */
     const found = reminders(agent)
     expect(found).toHaveLength(1)
     expect(found[0]!.text).toContain('repeating the exact same tool call')
-    /** 中文说明：测试局部值 results，由紧邻初始化决定。 */
     const results = [...agent.session.events].filter((e): e is SessionEvent<'tool/result'> => e.type === 'tool/result')
     expect(results[1]!.data.message.content[0].content).toEqual([{ type: 'text', text: 'replaced' }])
   })
 })
 
 describe('config validation fails loud', () => {
-  /** 中文说明：函数 spine 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
   async function spine(): Promise<Context> {
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = new Context()
     await mountAgentLoopTestDependencies(ctx)
+    await ctx.plugin(SessionProjectionRegistry)
     await ctx.plugin(AgentLoop, { agents: [] })
     return ctx
   }
 
   it('rejects an empty thresholds list', async () => {
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await spine()
     await expect(ctx.plugin(RepeatToolGuard, { thresholds: [] })).rejects.toThrow(/must not be empty/)
   })
 
   it('rejects a threshold below 2', async () => {
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await spine()
     await expect(ctx.plugin(RepeatToolGuard, { thresholds: [1, 3] })).rejects.toThrow(/integer >= 2/)
   })
 
   it('rejects a non-integer threshold', async () => {
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await spine()
     await expect(ctx.plugin(RepeatToolGuard, { thresholds: [2.5] })).rejects.toThrow(/integer >= 2/)
   })
 
   it('rejects duplicate thresholds', async () => {
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await spine()
     await expect(ctx.plugin(RepeatToolGuard, { thresholds: [3, 3] })).rejects.toThrow(/duplicates/)
   })
 
   it('rejects a non-positive or fractional argumentsPreviewChars', async () => {
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await spine()
     await expect(ctx.plugin(RepeatToolGuard, { argumentsPreviewChars: 0 })).rejects.toThrow(/argumentsPreviewChars/)
-    /** 中文说明：测试局部值 ctx2，由紧邻初始化决定。 */
     const ctx2 = await spine()
     await expect(ctx2.plugin(RepeatToolGuard, { argumentsPreviewChars: 12.5 })).rejects.toThrow(/argumentsPreviewChars/)
   })

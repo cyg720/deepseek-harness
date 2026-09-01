@@ -1,20 +1,6 @@
-/*
- * ================================ 文件注释 ================================
- * 【文件职责】会话插件的 'conversation' 命名空间字典：覆盖视图标签、输入框、图片、上下文、
- *             统计、设置、审批、队列、终端等全量 UI 文案的中英双语。
- * 【技术维度】zh 字典是键集合的事实来源（satisfies Record<string, string>），ConversationKey
- *             由 keyof typeof zh 推导；en 用 satisfies Record<ConversationKey, string> 保证覆盖。
- * 【产品维度】桌面客户端全部会话界面文案随语言切换。
- * 【逻辑维度】1) 共享字符串常量；2) zh 字典；3) 键联合类型；4) en 字典。
- * 【关键边界】新增文案必须同时改两份字典；支持 {placeholder} 插值；部分文案（如 LLM、
- *             tok/s）是产品既定的英文术语。
- * 【新手阅读建议】需要加文案时，在 zh 加键 → 类型自动收紧 → en 必须补齐。
- * ==========================================================================
- */
 /** `conversation` namespace dictionaries. */
 
 /** Dictionary namespace owned by this plugin. */
-// 本插件拥有的字典命名空间名。
 export const NS = 'conversation'
 
 // The claimed /plan hint and the plan-mode textarea placeholder describe the same next action.
@@ -59,7 +45,6 @@ export const zh = {
   'image.tooManyPixels': '图片分辨率过大，请压缩后重试',
   'image.dimensionTooLarge': '图片宽高不能超过 {size}px，请缩小后重试',
   'image.modelUnsupported': '当前模型不支持图片，请切换支持图片的模型',
-  'image.subagentUnsupported': '子智能体会话暂不支持图片',
   'image.sendFailed': '图片发送失败（{reason}），请重新添加图片后再试',
   'context.aria': '上下文已用 {percent}',
   'context.used': '上下文已用',
@@ -70,12 +55,14 @@ export const zh = {
   'settings.enter.description': '仅在智能体运行时生效；Cmd/Ctrl+Enter 使用另一行为',
   'settings.enter.queue': '排队发送',
   'settings.enter.steer': '插话发送',
-  'access.confirm.title': '确认启用 Full access？',
-  'access.confirm.description': '启用 Full access 后，agent 将减少确认步骤，并且可以直接执行更多操作，包括敏感操作、文件修改或外部命令。仅建议在你信任当前任务时使用。',
+  'access.preset.readOnly': '仅可查看',
+  'access.preset.workspaceWrite': '工作区内修改',
+  'access.preset.fullAccess': '完全权限',
+  'access.confirm.title': '确认启用完全权限？',
+  'access.confirm.description': '启用完全权限后，智能体将减少确认步骤，并且可以直接执行更多操作，包括敏感操作、文件修改或外部命令。仅建议在你信任当前任务时使用。',
   'access.confirm.acknowledge': '我已了解风险，并愿意继续',
   'access.confirm.cancel': '取消',
-  'access.confirm.enable': '启用 Full access',
-  'access.fullLabel': 'Full access',
+  'access.confirm.enable': '启用完全权限',
   'hero.headline': '探索未至之境',
   'hero.preview': '预览版',
   'hero.chooseWorkspace': '选择工作区',
@@ -143,6 +130,7 @@ export const zh = {
   'web.contentTruncated': '内容已截断',
   'details.running': '运行中…',
   'queue.count': '{n} 条排队消息',
+  'queue.image': '排队消息图片',
   'queue.edit': '编辑排队消息',
   'queue.edit.unsupported': '包含非文本内容，暂不支持编辑',
   'queue.save': '保存排队消息',
@@ -167,7 +155,6 @@ export const zh = {
 } satisfies Record<string, string>
 
 /** The conversation namespace key union. */
-// conversation 命名空间的键联合（由 zh 键集合推导）。
 export type ConversationKey = keyof typeof zh
 
 /** English dictionary, checked complete against the zh key set. */
@@ -208,7 +195,6 @@ export const en = {
   'image.tooManyPixels': 'Image resolution is too high; compress it and try again',
   'image.dimensionTooLarge': 'Image sides must be at most {size}px; downscale it and try again',
   'image.modelUnsupported': 'The current model does not support images; switch to a model that does',
-  'image.subagentUnsupported': 'Subagent sessions do not support images yet',
   'image.sendFailed': 'Sending images failed ({reason}); re-add them and try again',
   'context.aria': '{percent} of context used',
   'context.used': 'of context used',
@@ -219,12 +205,14 @@ export const en = {
   'settings.enter.description': 'Busy only; Cmd/Ctrl+Enter uses the other behavior',
   'settings.enter.queue': 'Queue',
   'settings.enter.steer': 'Steer',
+  'access.preset.readOnly': 'Read Only',
+  'access.preset.workspaceWrite': 'Workspace Write',
+  'access.preset.fullAccess': 'Full access',
   'access.confirm.title': 'Enable Full access?',
   'access.confirm.description': 'Full access reduces confirmation steps and lets the agent perform more actions directly, including sensitive operations, file changes, or external commands. Only use it when you trust the current task.',
   'access.confirm.acknowledge': 'I understand the risks and want to continue',
   'access.confirm.cancel': 'Cancel',
   'access.confirm.enable': 'Enable Full access',
-  'access.fullLabel': 'Full access',
   'hero.headline': 'Into the Unknown',
   'hero.preview': 'Preview',
   'hero.chooseWorkspace': 'Choose workspace',
@@ -292,6 +280,7 @@ export const en = {
   'web.contentTruncated': 'Content truncated',
   'details.running': 'Running…',
   'queue.count': '{n} queued messages',
+  'queue.image': 'Queued message image',
   'queue.edit': 'Edit queued message',
   'queue.edit.unsupported': 'Contains non-text content; editing is not supported yet',
   'queue.save': 'Save queued message',

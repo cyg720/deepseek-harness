@@ -1,22 +1,3 @@
-/*
- * ================================ 文件注释 ================================
- * 【文件职责】session-projection 能力缝的 Service Definition 与驱动注册表：
- *   定义投影单元契约（ProjectionDefinition）、变更馈送监听器、一致性快照读取面，
- *   并提供 ctx.sessionProjections 注册表驱动所有已注册单元在已提交会话事件上向前折叠。
- * 【技术维度】基于 Cordis Service；领域宿主插件贡献纯同步折叠（apply）与可选客户端视图（wire）；
- *   框架拥有订阅、每会话 watermark 缓存与变更通知；快照/检查点/冷恢复三套读取配方。
- * 【产品维度】把"会话日志"折叠成"持久可查的投影值"（如子代理身份、回合耗时），
- *   查询与枚举不必重放整个日志，API 与前端可消费一致视图。
- * 【逻辑维度】按代码顺序：类型导出 → ProjectionDefinition → 变更监听器 → ProjectionSnapshot
- *   → 检查点行 → 内部擦除定义/单元格/注册 → SessionProjectionRegistry（register/onChanged/
- *   stateOf/snapshot/checkpoint/restoreFloor/viewCheckpoint/restore/buildCell/cellFor/drive）。
- * 【关键边界】整值事件规则（载荷必须携带完整变更后状态而非差值）；apply 必须同步且返回
- *   相同引用表示"无变化"；state 必须是纯 JSON（持久化缓存前提）；stateVersion 不符即废弃旧行。
- * 【新手阅读建议】先读 ProjectionDefinition 的契约（apply/view/stateVersion），再看
- *   register 与 drive 如何把事件推给每个单元，最后看 snapshot/checkpoint/restore 三套读取。
- * ==========================================================================
- */
-
 /**
  * Service Definition and drive registry for the session-projection capability seam: the merge-extensible state and client-view type
  * tables, the `ProjectionDefinition` state-driven computation unit contract,
@@ -58,9 +39,6 @@ export type { SessionProjectionMap, SessionProjectionStateMap } from './types.ts
  * synchronous (an async unit would tear the carriers' consistency cut), and
  * `state` MUST be plain JSON (the persisted-cache precondition).
  */
-// 中文：领域宿主贡献的"状态驱动计算单元"：纯同步折叠 apply + 状态声明 + 可选客户端视图。
-// 框架对每条已提交会话事件调用 apply；单元不持有任何订阅，只拥有计算。
-// 所有函数必须同步（异步会撕裂载体的一致性切面），state 必须是纯 JSON（持久化缓存前提）。
 export interface ProjectionDefinition<
   K extends keyof SessionProjectionStateMap,
   S extends SessionProjectionStateMap[K] = SessionProjectionStateMap[K],
@@ -89,7 +67,10 @@ export interface ProjectionDefinition<
     /** Validates the wire payload before it leaves the host. */
     viewSchema: ZodType<SessionProjectionMap[K]>
     /**
-     * State → wire payload (the read-side projection).
+     * State → wire payload (the read-side projection). The live drive keeps
+     * the two latest raw results and compares them with `Object.is`; an
+     * object-valued view must reuse its reference to suppress publication
+     * across internal-only state changes.
      * @param state - the current state.
      * @returns the whole current value for this unit's key.
      */
@@ -105,12 +86,10 @@ export interface ProjectionDefinition<
 }
 
 /**
- * Change-feed listener: one unit's value changed for one session. `value` is
- * the schema-validated `view` output; `seq` is the unit's watermark at
- * emission (the seq of the event that caused the change).
+ * Change-feed listener: one unit's raw `view` result changed by `Object.is`
+ * for one session. `value` is the schema-validated output; `seq` is the
+ * unit's watermark at emission (the seq of the event that caused the change).
  */
-// 中文：变更馈送监听器：某会话的某单元值发生变化时被调用一次；value 是经过视图
-// schema 校验的 view 输出，seq 是发射时刻该单元的水位（导致变化的那条事件序号）。
 export type ProjectionChangeListener = (
   session: Session,
   key: Extract<keyof SessionProjectionMap, string>,
@@ -123,8 +102,6 @@ export type ProjectionChangeListener = (
  * `asOfSeq` is the shared watermark — the seq of the last event every value
  * reflects (`-1` for an empty log).
  */
-// 中文：一个会话上所有已注册客户端可见单元的"一致读取切面"：asOfSeq 是共享水位
-// （每个值都反映到的事件序号；空日志为 -1，与 session/subscribed.lastSeq 对齐）。
 export interface ProjectionSnapshot {
   /** Seq of the last event the values reflect; -1 for an empty log. */
   asOfSeq: number
@@ -140,9 +117,6 @@ export interface ProjectionSnapshot {
  * never authoritative, only a fold shortcut: `restore` discards it on a
  * version mismatch or when it claims events past the stored log end.
  */
-// 中文：一个单元的一次检查点行：内部状态（纯 JSON）、最后折叠进的事件 seq、产生它的
-// stateVersion——即持久化缓存行 (sessionId, key, ver, seq, val) 去掉外层两键。
-// 行永远只是折叠捷径而非权威：版本不符或声称超过存储日志末尾时 restore 直接丢弃。
 export interface ProjectionCheckpointRow {
   /** The registering unit's `stateVersion` at fold time. */
   ver: number
@@ -153,12 +127,9 @@ export interface ProjectionCheckpointRow {
 }
 
 /** Checkpoint rows keyed by projection key (one session's persisted cache value). */
-// 中文：按投影键组织的检查点行集合（一个会话的持久化缓存值）。
 export type ProjectionCheckpoint = Record<string, ProjectionCheckpointRow>
 
 /** Type-erased unit view the drive machinery works with (the registration contract already proved the typed form). */
-// 中文：驱动机制使用的"擦除类型"单元视图：注册时的类型化契约已证明其形态，
-// 运行时这里统一成 unknown 收发，避免为每种单元生成独立驱动代码。
 interface ErasedDefinition {
   key: string
   stateSchema: { parse(value: unknown): unknown }
@@ -168,13 +139,13 @@ interface ErasedDefinition {
   stateVersion: number
 }
 
-/** Per-session per-unit watermark cache row. */
-// 中文：每会话每单元的 watermark 缓存行：state 是当前折叠状态，observedSeq 是
-// 最后一条经 apply 的事件 seq（无论是否变化）。
+/** Per-session per-unit watermark and fixed live-drive view buffer. */
 interface UnitCell {
   state: unknown
   /** Seq of the last event passed through `apply` (regardless of change). */
   observedSeq: number
+  /** `[previousView, currentView]`; undefined slots mean no cached comparison. */
+  readonly views: [unknown, unknown]
 }
 
 /**
@@ -188,9 +159,6 @@ interface UnitCell {
  * registrant would own the disposer, and its session ending would strip the
  * projection from every other live session.
  */
-// 中文：一条存活注册：单元 + 每会话单元格（最后一个注册者离开时整体丢弃）。
-// refs 计数的原因：同一单元定义服务所有会话（单元格按 Session 键控），而注册者
-// 是按会话出现的——同一工具包在 N 个 agent preset 里挂 N 次，键要活到最后一个卸载。
 interface Registration {
   readonly def: ErasedDefinition
   readonly cells: WeakMap<Session, UnitCell>
@@ -201,23 +169,21 @@ interface Registration {
 /**
  * `ctx.sessionProjections`: the projection unit table and its drive. The
  * service subscribes to `session/event` once; every committed event passes
- * every registered unit's `apply` (eager drive), and a changed state
- * reference in a client-visible unit notifies the change feed with the
- * schema-validated view.
+ * every registered unit's `apply` (eager drive). A changed state reference
+ * computes the next client view; the change feed is notified only when its
+ * raw result changes by `Object.is`.
  * Cells build lazily — a unit registered after events flowed, or a session
  * older than the registry, folds `init` over the in-memory log on first
  * touch (event or read). Registration is an effect (disposer rides the
  * calling fiber): an unloaded domain plugin's key disappears from snapshots
- * and clients read it as capability absence. Domain
- * plugins register under `ctx.inject(['sessionProjections'], …)` so headless
- * assemblies without the registry stay unaffected. Registrants sharing a key
+ * and clients read it as capability absence. A host reader either declares
+ * `sessionProjections` in its plugin `inject` or fails explicitly when the
+ * registry or required key is absent. Contributors may preserve optional
+ * registration through `ctx.inject(['sessionProjections'], ...)`. Registrants sharing a key
  * share one unit and are counted: the same tool package mounted in N agent
  * presets registers N times, and the key survives until the last one
  * unloads.
  */
-// 中文：ctx.sessionProjections 投影单元表与其驱动：订阅一次 session/event，把每条
-// 已提交事件推给所有已注册单元的 apply（急切驱动），客户端可见单元状态引用变化时
-// 以 schema 校验后的视图通知变更馈送；单元格按需惰性折叠。
 export class SessionProjectionRegistry extends Service {
   private readonly registrations = new Map<string, Registration>()
   private readonly listeners = new Set<ProjectionChangeListener>()
@@ -235,6 +201,7 @@ export class SessionProjectionRegistry extends Service {
         registration.cells.set(session, {
           state: registration.def.init(session.header),
           observedSeq: -1,
+          views: [undefined, undefined],
         })
       }
     })
@@ -316,7 +283,7 @@ export class SessionProjectionRegistry extends Service {
   /**
    * Subscribe to the change feed. The registration is an effect on the
    * calling context's fiber.
-   * @param listener - called once per client-visible unit whose state reference changed, per committed event.
+   * @param listener - called once per client-visible unit whose raw view changed by `Object.is`, per committed event.
    * @returns the exact disposer that unsubscribes.
    */
   onChanged(listener: ProjectionChangeListener): () => void {
@@ -598,6 +565,7 @@ export class SessionProjectionRegistry extends Service {
       registration.cells.set(session, {
         state: row.val,
         observedSeq: row.seq,
+        views: [undefined, undefined],
       })
     }
     return restored.snapshot
@@ -616,7 +584,7 @@ export class SessionProjectionRegistry extends Service {
   ): UnitCell {
     let state = def.init(header)
     for (const event of events) state = def.apply(state, event)
-    return { state, observedSeq: (events.at(-1)?.seq ?? -1) }
+    return { state, observedSeq: (events.at(-1)?.seq ?? -1), views: [undefined, undefined] }
   }
 
   /** Read (or lazily build, folding the full in-memory log) one unit's cell. */
@@ -645,12 +613,16 @@ export class SessionProjectionRegistry extends Service {
         throw new Error(`session projection ${JSON.stringify(def.key)} cannot advance across missing seq ${String(seq)}`)
       }
       const next = def.apply(cell.state, event)
+      if (!Object.is(next, cell.state)) {
+        cell.views[0] = cell.views[1]
+        cell.views[1] = undefined
+      }
       cell.state = next
       cell.observedSeq = seq
     }
   }
 
-  /** Eager drive: pass one committed event through every registered unit; notify on changed references. */
+  /** Eager drive: pass one committed event through every unit; notify on changed raw view references. */
   private drive(session: Session, event: SessionEvent): void {
     for (const registration of this.registrations.values()) {
       let cell = registration.cells.get(session)
@@ -663,16 +635,29 @@ export class SessionProjectionRegistry extends Service {
       } else {
         this.advanceCell(registration.def, cell, session.events, event.seq - 1)
       }
-      const next = registration.def.apply(cell.state, event)
-      const changed = !Object.is(next, cell.state)
+      const previousState = cell.state
+      const next = registration.def.apply(previousState, event)
+      const changed = !Object.is(next, previousState)
       cell.state = next
       cell.observedSeq = event.seq
-      if (changed && registration.def.wire !== undefined && this.listeners.size > 0) {
-        const value = this.viewCell(registration, cell)
-        for (const listener of this.listeners) {
-          listener(session, registration.def.key as Extract<keyof SessionProjectionMap, string>, value, event.seq)
+      const wire = registration.def.wire
+      if (changed && wire !== undefined) {
+        const views = cell.views
+        views[0] = views[1]
+        if (this.listeners.size > 0) {
+          views[1] = wire.view(next)
+          if (!Object.is(views[0], views[1])) {
+            const value = wire.viewSchema.parse(views[1])
+            for (const listener of this.listeners) {
+              listener(session, registration.def.key as Extract<keyof SessionProjectionMap, string>, value, event.seq)
+            }
+          }
+        } else {
+          views[1] = undefined
         }
       }
+      // An unchanged state keeps its current view as the valid comparison
+      // value for the next state change.
     }
   }
 

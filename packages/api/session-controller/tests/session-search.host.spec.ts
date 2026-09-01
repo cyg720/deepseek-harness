@@ -3,14 +3,6 @@
  * filters and result bound, cancellation mapping, and unavailable/failure
  * behavior.
  */
-/*
- * 文件职责：验证Host API Proxy的 api-proxy-search.spec.ts 行为与边界。
- * 技术维度：TypeScript、Cordis、Fetch/RPC 信封、运行时模式校验、Node/Windows 宿主接口。
- * 产品维度：保证浏览器 API、Hook 或目录操作在各种状态下可靠且可诊断。
- * 逻辑维度：构造请求与宿主服务，调用端点并断言响应和清理。
- * 关键边界：网络与路径输入必须校验；原生对话框和宿主路径操作只允许受信调用。
- * 新手阅读建议：先读请求/响应夹具，再按 API 域、错误码和生命周期场景阅读。
- */
 
 import { describe, expect, it, vi } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
@@ -18,27 +10,23 @@ import AgentRegistry from '@deepseek-ai/dsh-agent'
 import { createUserMessage } from '@deepseek-ai/dsh-llm'
 import SessionStore from '@deepseek-ai/dsh-session'
 import type { SessionHeader, SessionId } from '@deepseek-ai/dsh-session'
+import SessionProjectionRegistry from '@deepseek-ai/dsh-session-projection'
 import {
   SessionQueryEngine,
   SessionQueryError,
-  /** 中文说明：类型或类 SessionSearchHit 约束 API、Hook 或目录数据职责。 */
   type SessionSearchHit,
-  /** 中文说明：类型或类 SessionSearchRequest 约束 API、Hook 或目录数据职责。 */
   type SessionSearchRequest,
 } from '@deepseek-ai/dsh-session-query'
 import { createSessionTestRemote } from './test-remote.ts'
 import { ApiSessionList } from '../src/list.ts'
 
-/** 中文说明：测试局部值 sid，由紧邻初始化决定。 */
 const sid = (value: string): SessionId => value as SessionId
-/** 中文说明：测试局部值 defaults，由紧邻初始化决定。 */
 const defaults = { defaultModelSelection: () => ({ provider: 'p', model: 'm' }), cwd: '/tmp' }
 
 function request(query: string): { query: string } {
   return { query }
 }
 
-/** 中文说明：函数 header 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function header(id: string, cwd: string | null = '/project'): SessionHeader {
   return {
     version: 0,
@@ -48,9 +36,7 @@ function header(id: string, cwd: string | null = '/project'): SessionHeader {
   }
 }
 
-/** 中文说明：函数 hit 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function hit(id: string, index = 0): SessionSearchHit {
-  /** 中文说明：测试局部值 session，由紧邻初始化决定。 */
   const session = header(id)
   return {
     header: session,
@@ -67,12 +53,11 @@ function hit(id: string, index = 0): SessionSearchHit {
   }
 }
 
-/** 中文说明：函数 baseContext 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 async function baseContext(): Promise<Context> {
-  /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
   const ctx = new Context()
   await ctx.plugin(SessionStore)
   await ctx.plugin(AgentRegistry)
+  await ctx.plugin(SessionProjectionRegistry)
   return ctx
 }
 
@@ -113,30 +98,25 @@ describe('session.search', () => {
     const list = new ApiSessionList(ctx, 0)
 
     await expect(list.search('query', new AbortController().signal)).rejects.toMatchObject({
-      failure: { code: 'internal' },
+      code: 'gateway/internal',
     })
     await ctx.fiber.dispose()
   })
 
   it('searches only list-visible ids and current conversation-message events', async () => {
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await baseContext()
-    /** 中文说明：测试局部值 live，由紧邻初始化决定。 */
     const live = ctx.sessions.create(sid('live'), { meta: header('live', '/live') })
     live.append('user/message', createUserMessage({
       content: [{ type: 'text', text: 'live text' }],
       source: { kind: 'user' },
     }), { surfaceOp: 'append' })
-    /** 中文说明：测试局部值 cold，由紧邻初始化决定。 */
     const cold = header('cold', '/cold')
-    /** 中文说明：测试局部值 legacy，由紧邻初始化决定。 */
     const legacy = header('legacy', null)
     ctx.provide('sessionPersistence', {
       list: () => Promise.resolve([cold, legacy]),
       locate: () => undefined,
     } as never)
 
-    /** 中文说明：测试局部值 searchSessions，由紧邻初始化决定。 */
     const searchSessions = vi.fn((
       _request: SessionSearchRequest,
       _exec?: { signal?: AbortSignal },
@@ -184,7 +164,6 @@ describe('session.search', () => {
       },
     })
     expect(searchSessions).toHaveBeenCalledOnce()
-    /** 中文说明：测试局部值 [query, exec]，由紧邻初始化决定。 */
     const [query, exec] = searchSessions.mock.calls[0] as unknown as [
       SessionSearchRequest,
       { signal: AbortSignal },
@@ -212,16 +191,14 @@ describe('session.search', () => {
 
     for (const query of ['', '   ', 'contains\0nul', 'x'.repeat(501)]) {
       await expect(remote.search(request(query), new AbortController().signal))
-        .resolves.toMatchObject({ ok: false, error: { code: 'bad-request' } })
+        .resolves.toMatchObject({ ok: false, error: { code: 'gateway/bad-request' } })
     }
     expect(searchSessions).not.toHaveBeenCalled()
     await ctx.fiber.dispose()
   })
 
   it('returns an empty page without invoking the index when no session is visible', async () => {
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await baseContext()
-    /** 中文说明：测试局部值 searchSessions，由紧邻初始化决定。 */
     const searchSessions = vi.fn()
     installSearchQuery(ctx, searchSessions)
     const remote = createSessionTestRemote(ctx, defaults)
@@ -239,17 +216,13 @@ describe('session.search', () => {
   })
 
   it('rejects snippets whose recorded provider violates the Host filters', async () => {
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await baseContext()
-    /** 中文说明：测试局部值 visible，由紧邻初始化决定。 */
     const visible = hit('visible')
     ctx.sessions.create(visible.header.id, { meta: visible.header })
-    /** 中文说明：测试局部值 withBestMatch，由紧邻初始化决定。 */
     const withBestMatch = (
       index: number,
       bestMatch: Partial<SessionSearchHit['bestMatch']>,
     ): SessionSearchHit => {
-      /** 中文说明：测试局部值 base，由紧邻初始化决定。 */
       const base = hit('visible', index)
       return { ...base, bestMatch: { ...base.bestMatch, ...bestMatch } }
     }
@@ -277,13 +250,11 @@ describe('session.search', () => {
   })
 
   it('pages the globally ranked stream until the 20-item Host boundary is known', async () => {
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await baseContext()
     const items = Array.from({ length: 22 }, (_, index) => hit(`visible-${index}`, index))
     for (const item of items) {
       ctx.sessions.create(item.header.id, { meta: item.header })
     }
-    /** 中文说明：测试局部值 searchSessions，由紧邻初始化决定。 */
     const searchSessions = vi.fn()
       .mockResolvedValueOnce({
         items: [hit('hidden-ranked-first'), ...items.slice(0, 19)],
@@ -308,30 +279,22 @@ describe('session.search', () => {
   })
 
   it('learns a provider maxLimit of 10 and collects the 20-item result plus lookahead', async () => {
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await baseContext()
-    /** 中文说明：测试局部值 items，由紧邻初始化决定。 */
     const items = Array.from({ length: 21 }, (_, index) => hit(`visible-${index}`, index))
-    /** 中文说明：测试局部值 item，由紧邻初始化决定。 */
     for (const item of items) {
       ctx.sessions.create(item.header.id, { meta: item.header })
     }
-    /** 中文说明：测试局部值 invalidLimit，由紧邻初始化决定。 */
     const invalidLimit = new SessionQueryError(
       'provider accepts at most 10 items',
       'SESSION_QUERY_INVALID_LIMIT',
     )
-    /** 中文说明：测试局部值 searchSessions，由紧邻初始化决定。 */
     const searchSessions = vi.fn((providerRequest: SessionSearchRequest) => {
-      /** 中文说明：测试局部值 limit，由紧邻初始化决定。 */
       const limit = providerRequest.limit
       if (limit === undefined) throw new Error('Host search must request an explicit provider limit')
       if (limit > 10) return Promise.reject(invalidLimit)
-      /** 中文说明：测试局部值 offset，由紧邻初始化决定。 */
       const offset = providerRequest.cursor === undefined
         ? 0
         : Number.parseInt(providerRequest.cursor.slice('offset-'.length), 10)
-      /** 中文说明：测试局部值 end，由紧邻初始化决定。 */
       const end = Math.min(items.length, offset + limit)
       return Promise.resolve({
         items: items.slice(offset, end),
@@ -364,15 +327,12 @@ describe('session.search', () => {
   })
 
   it('counts a page-limit probe inside the 100-call budget', async () => {
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await baseContext()
     ctx.sessions.create(sid('visible'), { meta: header('visible') })
-    /** 中文说明：测试局部值 invalidLimit，由紧邻初始化决定。 */
     const invalidLimit = new SessionQueryError(
       'provider accepts at most 10 items',
       'SESSION_QUERY_INVALID_LIMIT',
     )
-    /** 中文说明：测试局部值 searchSessions，由紧邻初始化决定。 */
     const searchSessions = vi.fn((providerRequest: SessionSearchRequest) => {
       if (searchSessions.mock.calls.length === 1) {
         expect(providerRequest).toMatchObject({ limit: 20 })
@@ -393,39 +353,29 @@ describe('session.search', () => {
 
     expect(response.ok).toBe(false)
     if (response.ok) throw new Error('unreachable')
-    expect(response.error).toMatchObject({ code: 'internal' })
+    expect(response.error).toMatchObject({ code: 'gateway/internal' })
     expect(response.error.message).toContain('100-call work budget')
     expect(searchSessions).toHaveBeenCalledTimes(100)
   })
 
   it('restarts a stale continuation with its learned limit and original visibility snapshot', async () => {
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await baseContext()
-    /** 中文说明：测试局部值 oldOnly，由紧邻初始化决定。 */
     const oldOnly = hit('old-only', 0)
-    /** 中文说明：测试局部值 shared，由紧邻初始化决定。 */
     const shared = hit('shared', 1)
-    /** 中文说明：测试局部值 freshFirst，由紧邻初始化决定。 */
     const freshFirst = hit('fresh-first', 2)
-    /** 中文说明：测试局部值 freshLast，由紧邻初始化决定。 */
     const freshLast = hit('fresh-last', 3)
-    /** 中文说明：测试局部值 item，由紧邻初始化决定。 */
     for (const item of [oldOnly, shared, freshFirst, freshLast]) {
       ctx.sessions.create(item.header.id, { meta: item.header })
     }
-    /** 中文说明：测试局部值 late，由紧邻初始化决定。 */
     const late = hit('late-visible', 4)
-    /** 中文说明：测试局部值 stale，由紧邻初始化决定。 */
     const stale = new SessionQueryError(
       'provider generation changed',
       'SESSION_QUERY_STALE_CURSOR',
     )
-    /** 中文说明：测试局部值 invalidLimit，由紧邻初始化决定。 */
     const invalidLimit = new SessionQueryError(
       'provider accepts at most 10 items',
       'SESSION_QUERY_INVALID_LIMIT',
     )
-    /** 中文说明：测试局部值 searchSessions，由紧邻初始化决定。 */
     const searchSessions = vi.fn((providerRequest: SessionSearchRequest) => {
       switch (searchSessions.mock.calls.length) {
         case 1:
@@ -481,17 +431,13 @@ describe('session.search', () => {
   })
 
   it('counts continuous stale restarts against the 100-call budget', async () => {
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await baseContext()
-    /** 中文说明：测试局部值 partial，由紧邻初始化决定。 */
     const partial = hit('partial')
     ctx.sessions.create(partial.header.id, { meta: partial.header })
-    /** 中文说明：测试局部值 stale，由紧邻初始化决定。 */
     const stale = new SessionQueryError(
       'provider generation changed',
       'SESSION_QUERY_STALE_CURSOR',
     )
-    /** 中文说明：测试局部值 searchSessions，由紧邻初始化决定。 */
     const searchSessions = vi.fn((providerRequest: SessionSearchRequest) => {
       if (searchSessions.mock.calls.length > 100) {
         return Promise.reject(new Error('provider was called after the shared budget'))
@@ -511,24 +457,20 @@ describe('session.search', () => {
 
     expect(response.ok).toBe(false)
     if (response.ok) throw new Error('unreachable')
-    expect(response.error.code).toBe('internal')
+    expect(response.error.code).toBe('gateway/internal')
     expect(response.error.message).toContain('100-call work budget')
     expect(response).not.toHaveProperty('value')
     expect(searchSessions).toHaveBeenCalledTimes(100)
   })
 
   it('gives abort priority over a coincident stale continuation failure', async () => {
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await baseContext()
     ctx.sessions.create(sid('visible'), { meta: header('visible') })
-    /** 中文说明：测试局部值 controller，由紧邻初始化决定。 */
     const controller = new AbortController()
-    /** 中文说明：测试局部值 stale，由紧邻初始化决定。 */
     const stale = new SessionQueryError(
       'provider generation changed',
       'SESSION_QUERY_STALE_CURSOR',
     )
-    /** 中文说明：测试局部值 searchSessions，由紧邻初始化决定。 */
     const searchSessions = vi.fn()
       .mockResolvedValueOnce({ items: [], nextCursor: 'stale-cursor' })
       .mockImplementationOnce(() => {
@@ -544,16 +486,14 @@ describe('session.search', () => {
 
     expect(response).toMatchObject({
       ok: false,
-      error: { code: 'cancelled' },
+      error: { code: 'gateway/cancelled' },
     })
     expect(searchSessions).toHaveBeenCalledTimes(2)
   })
 
   it('does not retry a stale first-page failure', async () => {
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await baseContext()
     ctx.sessions.create(sid('visible'), { meta: header('visible') })
-    /** 中文说明：测试局部值 searchSessions，由紧邻初始化决定。 */
     const searchSessions = vi.fn(() => Promise.reject(new SessionQueryError(
       'provider generation changed before paging',
       'SESSION_QUERY_STALE_CURSOR',
@@ -567,17 +507,15 @@ describe('session.search', () => {
 
     expect(response).toMatchObject({
       ok: false,
-      error: { code: 'internal' },
+      error: { code: 'gateway/internal' },
     })
     expect(response).not.toHaveProperty('value')
     expect(searchSessions).toHaveBeenCalledOnce()
   })
 
   it('does not adapt an invalid-limit continuation failure', async () => {
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await baseContext()
     ctx.sessions.create(sid('visible'), { meta: header('visible') })
-    /** 中文说明：测试局部值 searchSessions，由紧邻初始化决定。 */
     const searchSessions = vi.fn()
       .mockResolvedValueOnce({ items: [], nextCursor: 'page-2' })
       .mockRejectedValueOnce(new SessionQueryError(
@@ -593,7 +531,7 @@ describe('session.search', () => {
 
     expect(response).toMatchObject({
       ok: false,
-      error: { code: 'internal' },
+      error: { code: 'gateway/internal' },
     })
     expect(searchSessions).toHaveBeenCalledTimes(2)
     expect(searchSessions.mock.calls.map(([providerRequest]) => (
@@ -603,10 +541,8 @@ describe('session.search', () => {
   })
 
   it('stops page-limit adaptation at one item', async () => {
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await baseContext()
     ctx.sessions.create(sid('visible'), { meta: header('visible') })
-    /** 中文说明：测试局部值 searchSessions，由紧邻初始化决定。 */
     const searchSessions = vi.fn((providerRequest: SessionSearchRequest) => Promise.reject(
       new SessionQueryError(
         `provider rejects ${providerRequest.limit}`,
@@ -622,19 +558,16 @@ describe('session.search', () => {
 
     expect(response).toMatchObject({
       ok: false,
-      error: { code: 'internal' },
+      error: { code: 'gateway/internal' },
     })
     expect(searchSessions.mock.calls.map(([providerRequest]) => providerRequest.limit))
       .toEqual([20, 10, 5, 2, 1])
   })
 
   it('gives abort priority over a coincident invalid first-page limit', async () => {
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await baseContext()
     ctx.sessions.create(sid('visible'), { meta: header('visible') })
-    /** 中文说明：测试局部值 controller，由紧邻初始化决定。 */
     const controller = new AbortController()
-    /** 中文说明：测试局部值 searchSessions，由紧邻初始化决定。 */
     const searchSessions = vi.fn(() => {
       controller.abort()
       return Promise.reject(new SessionQueryError(
@@ -651,18 +584,15 @@ describe('session.search', () => {
 
     expect(response).toMatchObject({
       ok: false,
-      error: { code: 'cancelled' },
+      error: { code: 'gateway/cancelled' },
     })
     expect(searchSessions).toHaveBeenCalledOnce()
   })
 
   it('rejects an oversized provider page', async () => {
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await baseContext()
     ctx.sessions.create(sid('visible'), { meta: header('visible') })
-    /** 中文说明：测试局部值 oversized，由紧邻初始化决定。 */
     const oversized = Array.from({ length: 21 }, (_, index) => hit(`oversized-${index}`))
-    /** 中文说明：测试局部值 searchSessions，由紧邻初始化决定。 */
     const searchSessions = vi.fn(() => Promise.resolve({ items: oversized }))
     installSearchQuery(ctx, searchSessions)
 
@@ -673,17 +603,14 @@ describe('session.search', () => {
 
     expect(response.ok).toBe(false)
     if (response.ok) throw new Error('unreachable')
-    expect(response.error).toMatchObject({ code: 'internal' })
+    expect(response.error).toMatchObject({ code: 'gateway/internal' })
     expect(response.error.message).toContain('returned 21 items; maximum is 20')
   })
 
   it('uses the learned provider limit for the overproduction guard', async () => {
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await baseContext()
     ctx.sessions.create(sid('visible'), { meta: header('visible') })
-    /** 中文说明：测试局部值 oversized，由紧邻初始化决定。 */
     const oversized = Array.from({ length: 11 }, (_, index) => hit(`oversized-${index}`))
-    /** 中文说明：测试局部值 searchSessions，由紧邻初始化决定。 */
     const searchSessions = vi.fn((providerRequest: SessionSearchRequest) => {
       if (providerRequest.limit === 20) {
         return Promise.reject(new SessionQueryError(
@@ -702,20 +629,16 @@ describe('session.search', () => {
 
     expect(response.ok).toBe(false)
     if (response.ok) throw new Error('unreachable')
-    expect(response.error).toMatchObject({ code: 'internal' })
+    expect(response.error).toMatchObject({ code: 'gateway/internal' })
     expect(response.error.message).toContain('returned 11 items; maximum is 10')
     expect(searchSessions).toHaveBeenCalledTimes(2)
   })
 
   it('bounds provider snippets to 240 Unicode code points without splitting astral text', async () => {
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await baseContext()
-    /** 中文说明：测试局部值 visible，由紧邻初始化决定。 */
     const visible = hit('visible')
     ctx.sessions.create(visible.header.id, { meta: visible.header })
-    /** 中文说明：测试局部值 expected，由紧邻初始化决定。 */
     const expected = `${'x'.repeat(239)}😀`
-    /** 中文说明：测试局部值 overlong，由紧邻初始化决定。 */
     const overlong = {
       ...visible,
       bestMatch: {
@@ -740,10 +663,8 @@ describe('session.search', () => {
   })
 
   it('fails closed when the provider repeats a continuation cursor', async () => {
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await baseContext()
     ctx.sessions.create(sid('visible'), { meta: header('visible') })
-    /** 中文说明：测试局部值 searchSessions，由紧邻初始化决定。 */
     const searchSessions = vi.fn()
       .mockResolvedValueOnce({ items: [], nextCursor: 'repeated' })
       .mockResolvedValueOnce({ items: [], nextCursor: 'repeated' })
@@ -756,21 +677,17 @@ describe('session.search', () => {
 
     expect(response.ok).toBe(false)
     if (response.ok) throw new Error('unreachable')
-    expect(response.error).toMatchObject({ code: 'internal' })
+    expect(response.error).toMatchObject({ code: 'gateway/internal' })
     expect(response.error.message).toContain('repeated a continuation cursor')
     expect(searchSessions).toHaveBeenCalledTimes(2)
   })
 
   it('validates a repeated cursor before accepting the authorized lookahead', async () => {
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await baseContext()
-    /** 中文说明：测试局部值 items，由紧邻初始化决定。 */
     const items = Array.from({ length: 21 }, (_, index) => hit(`visible-${index}`, index))
-    /** 中文说明：测试局部值 item，由紧邻初始化决定。 */
     for (const item of items) {
       ctx.sessions.create(item.header.id, { meta: item.header })
     }
-    /** 中文说明：测试局部值 searchSessions，由紧邻初始化决定。 */
     const searchSessions = vi.fn()
       .mockResolvedValueOnce({ items: items.slice(0, 20), nextCursor: 'repeated' })
       .mockResolvedValueOnce({ items: items.slice(20), nextCursor: 'repeated' })
@@ -783,7 +700,7 @@ describe('session.search', () => {
 
     expect(response).toMatchObject({
       ok: false,
-      error: { code: 'internal' },
+      error: { code: 'gateway/internal' },
     })
     expect(response).not.toHaveProperty('value')
     if (response.ok) throw new Error('unreachable')
@@ -792,15 +709,11 @@ describe('session.search', () => {
   })
 
   it('does not count duplicate session ids toward the result or lookahead boundary', async () => {
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await baseContext()
-    /** 中文说明：测试局部值 items，由紧邻初始化决定。 */
     const items = Array.from({ length: 21 }, (_, index) => hit(`visible-${index}`, index))
-    /** 中文说明：测试局部值 item，由紧邻初始化决定。 */
     for (const item of items) {
       ctx.sessions.create(item.header.id, { meta: item.header })
     }
-    /** 中文说明：测试局部值 searchSessions，由紧邻初始化决定。 */
     const searchSessions = vi.fn()
       .mockResolvedValueOnce({ items: items.slice(0, 20), nextCursor: 'page-2' })
       .mockResolvedValueOnce({ items: items.slice(0, 20), nextCursor: 'page-3' })
@@ -824,12 +737,9 @@ describe('session.search', () => {
   })
 
   it('cancels on a continuation page and passes the carrier signal to both calls', async () => {
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await baseContext()
     ctx.sessions.create(sid('visible'), { meta: header('visible') })
-    /** 中文说明：测试局部值 controller，由紧邻初始化决定。 */
     const controller = new AbortController()
-    /** 中文说明：测试局部值 searchSessions，由紧邻初始化决定。 */
     const searchSessions = vi.fn()
       .mockResolvedValueOnce({ items: [], nextCursor: 'page-2' })
       .mockImplementationOnce(() => {
@@ -845,19 +755,16 @@ describe('session.search', () => {
 
     expect(response).toMatchObject({
       ok: false,
-      error: { code: 'cancelled' },
+      error: { code: 'gateway/cancelled' },
     })
     expect(searchSessions).toHaveBeenCalledTimes(2)
-    /** 中文说明：测试局部值 call，由紧邻初始化决定。 */
     for (const call of searchSessions.mock.calls) {
       expect(call[1]).toEqual({ signal: controller.signal })
     }
   })
 
   it('keeps visibility sets above SQLite variable limits out of provider bindings', async () => {
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await baseContext()
-    /** 中文说明：测试局部值 cold，由紧邻初始化决定。 */
     const cold = Array.from(
       { length: 32_751 },
       (_, index) => header(`cold-${index}`, `/cold-${index}`),
@@ -866,7 +773,6 @@ describe('session.search', () => {
       list: () => Promise.resolve(cold),
       locate: () => undefined,
     } as never)
-    /** 中文说明：测试局部值 searchSessions，由紧邻初始化决定。 */
     const searchSessions = vi.fn((_request: SessionSearchRequest) => Promise.resolve({
       items: [hit('cold-32750')],
     }))
@@ -890,17 +796,13 @@ describe('session.search', () => {
 
   it('propagates cancellation through the lightweight visibility listing', async () => {
     const ctx = await baseContext()
-    /** 中文说明：测试局部值 controller，由紧邻初始化决定。 */
     const controller = new AbortController()
-    /** 中文说明：测试局部值 cold，由紧邻初始化决定。 */
     const cold = Array.from({ length: 32 }, (_, index) => header(`cold-${index}`, `/cold-${index}`))
-    /** 中文说明：测试局部值 list，由紧邻初始化决定。 */
     const list = vi.fn((signal?: AbortSignal) => {
       expect(signal).toBe(controller.signal)
       controller.abort()
       return Promise.resolve(cold)
     })
-    /** 中文说明：测试局部值 locateCalls，由紧邻初始化决定。 */
     let locateCalls = 0
     ctx.provide('sessionPersistence', {
       list,
@@ -909,7 +811,6 @@ describe('session.search', () => {
         return undefined
       },
     } as never)
-    /** 中文说明：测试局部值 searchSessions，由紧邻初始化决定。 */
     const searchSessions = vi.fn()
     installSearchQuery(ctx, searchSessions)
 
@@ -920,7 +821,7 @@ describe('session.search', () => {
 
     expect(response).toMatchObject({
       ok: false,
-      error: { code: 'cancelled' },
+      error: { code: 'gateway/cancelled' },
     })
     expect(list).toHaveBeenCalledOnce()
     expect(locateCalls).toBe(0)
@@ -962,14 +863,12 @@ describe('session.search', () => {
     )
     expect(cancelledBeforeLookup).toMatchObject({
       ok: false,
-      error: { code: 'cancelled' },
+      error: { code: 'gateway/cancelled' },
     })
 
     const ctx = await baseContext()
     ctx.sessions.create(sid('visible'), { meta: header('visible') })
-    /** 中文说明：测试局部值 aborted，由紧邻初始化决定。 */
     const aborted = new SessionQueryError('provider stopped', 'SESSION_QUERY_ABORTED')
-    /** 中文说明：测试局部值 searchSessions，由紧邻初始化决定。 */
     const searchSessions = vi.fn()
       .mockRejectedValueOnce(aborted)
       .mockRejectedValueOnce(new Error('database unavailable'))
@@ -982,7 +881,7 @@ describe('session.search', () => {
     )
     expect(cancelled).toMatchObject({
       ok: false,
-      error: { code: 'cancelled' },
+      error: { code: 'gateway/cancelled' },
     })
 
     const failed = await remote.search(
@@ -991,7 +890,7 @@ describe('session.search', () => {
     )
     expect(failed.ok).toBe(false)
     if (failed.ok) throw new Error('unreachable')
-    expect(failed.error.code).toBe('internal')
+    expect(failed.error.code).toBe('gateway/internal')
     expect(failed.error.message).toContain('database unavailable')
   })
 })

@@ -12,11 +12,8 @@ type FileMutationRowProps = ToolCallViewProps & PropsLocale<'conversation'>
 /**
  * Lets users expand an applied file diff and open the reported path.
  */
-/* 中文说明：函数 FileMutationRow 的参数见签名，返回结果供展示流程使用；示例见本文件。 */
 export function FileMutationRow({ toolName, block, cwd, home, openFile, inspect, t }: FileMutationRowProps) {
-  /** 中文说明：视图局部值 model，由紧邻初始化决定。 */
   const model = toolRowModel(toolName, block, cwd, home)
-  /** 中文说明：视图局部值 diff，由紧邻初始化决定。 */
   const diff = diffCardModel(block)
   return (
     <ToolRow
@@ -26,7 +23,6 @@ export function FileMutationRow({ toolName, block, cwd, home, openFile, inspect,
       icon={<IconEditOutline16 size={14} />}
       title={t(model.titleKey)}
       summary={model.summary}
-      body={null}
       output={model.output}
       errorSummary={model.errorSummary}
       diff={diff}

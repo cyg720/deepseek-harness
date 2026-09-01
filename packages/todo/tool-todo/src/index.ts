@@ -4,14 +4,6 @@
  * caller has no owning list and is rejected. Named exports preserve loader injection metadata.
  * @module @deepseek-ai/dsh-tool-todo
  */
-/*
- * 文件职责：实现 index.ts 覆盖的Todo 工具行为与测试协作。
- * 技术维度：使用 TypeScript、Vitest、Cordis 插件、快照、模拟服务器或类型生成。
- * 产品维度：通过可复现的Todo 工具能力保障 Agent 功能在集成层稳定。
- * 逻辑维度：准备夹具或输入，执行装载/生成/调用流程，再规范化并核对结果。
- * 关键边界：夹具必须确定且跨平台；模型可见状态应可重放；临时资源必须释放。
- * 新手阅读建议：先看导出类型和夹具，再读主流程，最后关注规范化、失败和清理。
- */
 
 import type { Context } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
@@ -19,7 +11,7 @@ import { z as zod } from 'zod'
 import type { ZodType } from 'zod'
 import { defineTool } from '@deepseek-ai/dsh-tools'
 import type { TodoItem } from './types.ts'
-// Type-only: resolves ctx.sessionProjections for the optional unit child.
+// Type-only: resolves the required ctx.sessionProjections service declaration.
 import type {} from '@deepseek-ai/dsh-session-projection'
 // The `todos` projection-key declaration lives in src/types.ts (its one home);
 // this re-export projects the type face onto the package root AND keeps the
@@ -27,17 +19,13 @@ import type {} from '@deepseek-ai/dsh-session-projection'
 // declarations still receive the SessionProjectionMap merge.
 export type * from './types.ts'
 
-/** 中文说明：变量 name 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 export const name = 'tool-todo'
-/** 中文说明：变量 inject 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-export const inject = ['tools']
+export const inject = ['tools', 'sessionProjections']
 
 /** The valid {@link TodoItem} statuses, as a runtime set for input narrowing. */
-/* 中文说明：常量 STATUSES 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const STATUSES = ['pending', 'in_progress', 'completed'] as const
 
 /** Model-facing todo tool configuration. */
-/* 中文说明：interface Config 定义本模块所需的数据或行为，用于表达Todo 工具场景。 */
 export interface Config {
   /**
    * Required deployment choice for whether several todos may be `in_progress` at once. True suits
@@ -50,31 +38,26 @@ export interface Config {
 }
 
 /** Schemastery configuration for the todo tool consumer. */
-/* 中文说明：变量 Config 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 export const Config: z<Config> = z.object({
   allowParallelInProgress: z.boolean().required(),
 })
 
-/** 中文说明：常量 DESCRIPTION_HEAD 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const DESCRIPTION_HEAD =
   'Record and update a structured task list for the current work. Send the ENTIRE '
   + 'list every call — it REPLACES the previous list (there are no partial updates, '
   + 'no per-item edits). Use it to plan multi-step work and show progress: add one '
   + 'todo per concrete step before you start. '
 
-/** 中文说明：常量 DESCRIPTION_PARALLEL 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const DESCRIPTION_PARALLEL =
   'Mark every todo being actively worked '
   + 'on `in_progress` — several at once when work genuinely runs in parallel (e.g. '
   + 'concurrent subagents or background commands), one for sequential work; while '
   + 'work remains, at least one task should be `in_progress`. '
 
-/** 中文说明：常量 DESCRIPTION_SINGLE 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const DESCRIPTION_SINGLE =
   'Keep AT MOST ONE todo `in_progress` at a '
   + 'time; while work remains, exactly one active task should be `in_progress`. '
 
-/** 中文说明：常量 DESCRIPTION_TAIL 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const DESCRIPTION_TAIL =
   'Mark a todo '
   + '`completed` the moment it is done (do not batch completions), and allow no '
@@ -88,7 +71,6 @@ const DESCRIPTION_TAIL =
  * @param allowParallel - whether several todos may be `in_progress` at once.
  * @returns the composed tool description.
  */
-/* 中文说明：函数 describe 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function describe(allowParallel: boolean): string {
   return DESCRIPTION_HEAD
     + (allowParallel ? DESCRIPTION_PARALLEL : DESCRIPTION_SINGLE)
@@ -106,17 +88,11 @@ function describe(allowParallel: boolean): string {
  * @param allowParallel - whether several items may be `in_progress` at once.
  * @returns the canonical list.
  */
-/* 中文说明：函数 toTodoList 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function toTodoList(raw: { content: string; status: string }[], allowParallel: boolean): TodoItem[] {
-  /** 中文说明：变量 todos 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const todos: TodoItem[] = []
-  /** 中文说明：变量 seen 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const seen = new Set<string>()
-  /** 中文说明：变量 active 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   let active = 0
-  /** 中文说明：该循环依次处理夹具或生成数据；循环变量仅在当前循环中有效。 */
   for (const item of raw) {
-    /** 中文说明：变量 content 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const content = item.content.trim()
     if (content.length === 0) {
       throw new Error('invalid todo: `content` must be a non-empty string')
@@ -135,7 +111,6 @@ function toTodoList(raw: { content: string; status: string }[], allowParallel: b
 }
 
 /** Wire payload schema of the `todos` projection (whole list or pre-first-write null). */
-/* 中文说明：变量 todosProjectionSchema 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const todosProjectionSchema: ZodType<TodoItem[] | null> = zod.union([
   zod.array(zod.object({
     content: zod.string(),
@@ -145,33 +120,28 @@ const todosProjectionSchema: ZodType<TodoItem[] | null> = zod.union([
 ])
 
 /**
- * Register the `todo_write` tool on `ctx.tools` and, when the session-projection seam is composed,
- * the `todos` unit.
- * @param ctx - registrant context carrying the tool registry.
+ * Register the `todo_write` tool on `ctx.tools` and the `todos` unit on
+ * `ctx.sessionProjections`.
+ * @param ctx - registrant context carrying the tool and session-projection registries.
  * @param config - deployment's explicit todo policy.
  */
-/* 中文说明：函数 apply 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 export function apply(ctx: Context, config: Config): void {
-  /** 中文说明：变量 allowParallel 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const allowParallel = config.allowParallelInProgress
-  // The unit child activates only when a projection registry is composed
-  // (headless assemblies without the seam stay unaffected). Standing-plan fold:
-  // latest whole todo/write list, cleared by the next turn/start (turn/end keeps
-  // the finished checklist visible); null before the first write or after a
-  // later turn begins; every other event returns the same state reference.
-  ctx.inject(['sessionProjections'], (projectionCtx) => {
-    projectionCtx.sessionProjections.register<'todos', TodoItem[] | null>({
-      key: 'todos',
-      stateSchema: todosProjectionSchema,
-      init: () => null,
-      apply: (state, event) => {
-        if (event.type === 'todo/write') return event.data.todos
-        if (event.type === 'turn/start') return null
-        return state
-      },
-      wire: { viewSchema: todosProjectionSchema, view: state => state },
-      stateVersion: 2,
-    })
+  // Standing-plan fold: latest whole todo/write list, cleared by the next
+  // turn/start (turn/end keeps the finished checklist visible); null before the
+  // first write or after a later turn begins; every other event returns the
+  // same state reference.
+  ctx.sessionProjections.register<'todos', TodoItem[] | null>({
+    key: 'todos',
+    stateSchema: todosProjectionSchema,
+    init: () => null,
+    apply: (state, event) => {
+      if (event.type === 'todo/write') return event.data.todos
+      if (event.type === 'turn/start') return null
+      return state
+    },
+    wire: { viewSchema: todosProjectionSchema, view: state => state },
+    stateVersion: 2,
   })
   ctx.tools.register(defineTool({
     name: 'todo_write',
@@ -231,7 +201,6 @@ export function apply(ctx: Context, config: Config): void {
       }],
     },
     execute(args, exec) {
-      /** 中文说明：变量 todos 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const todos = toTodoList(args.todos, allowParallel)
       if (!exec.agent) {
         // The list is per-agent-session state; a non-agent caller (no owning
@@ -239,7 +208,6 @@ export function apply(ctx: Context, config: Config): void {
         throw new Error('todo_write requires an owning agent session')
       }
       exec.agent.session.append('todo/write', { todos })
-      /** 中文说明：函数值 count 封装本模块的局部步骤；参数和返回值由右侧签名约束；示例见本模块调用。 */
       const count = (status: TodoItem['status']): number => todos.filter(t => t.status === status).length
       return Promise.resolve({
         todos: todos.map(todo => ({ content: todo.content, status: todo.status })),

@@ -2,14 +2,6 @@
  * Exercises scheduler ordering and cancellation with deterministic gated tools.
  * ACP expected outputs own transcript-facing coverage.
  */
-/*
- * 文件职责：验证Agent Loop的 tool-calls.spec.ts 行为与不变量。
- * 技术维度：Vitest、Cordis、会话事件、模型适配器和可控工具夹具。
- * 产品维度：防止Agent Loop在取消、恢复、错误或并发场景中产生回归。
- * 逻辑维度：构造服务与事件，驱动执行流程，再断言日志、请求、状态和清理。
- * 关键边界：测试后台任务必须结束；模型可见输入必须可从日志重建；工具调用顺序不可破坏。
- * 新手阅读建议：先读 mock/辅助函数，再按成功、错误、恢复和生命周期场景阅读。
- */
 
 import { describe, expect, it } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
@@ -20,16 +12,16 @@ import LlmRuntime from '@deepseek-ai/dsh-llm'
 import ToolRuntime, { defineContentToolFixture, TOOL_ABORTED_BEFORE_DISPATCH, TOOL_RUNTIME_SCHEDULER, type PostToolDecision, type PreToolDecision } from '@deepseek-ai/dsh-tools'
 import AgentRegistry, { type Agent } from '@deepseek-ai/dsh-agent'
 import AgentLoop, { DEFAULT_MAX_PARALLEL_TOOL_CALLS } from '@deepseek-ai/dsh-agent-loop'
+import SessionProjectionRegistry from '@deepseek-ai/dsh-session-projection'
 import { MockAdapter, textResponse } from './mock-adapter.ts'
 import { CodeRuntime } from '@deepseek-ai/dsh-code-runtime'
 import type { CodeRunRequest, CodeRunResult } from '@deepseek-ai/dsh-code-runtime'
 
-/** 中文说明：测试辅助函数 harness 的参数见签名，返回值用于驱动或断言场景；示例见下方用例。 */
 async function harness(adapter: MockAdapter, maxParallelToolCalls?: number) {
-  /** 中文说明：测试局部值 ctx，由紧邻初始化决定，仅在当前场景使用。 */
   const ctx = new Context()
   await ctx.plugin(LlmRuntime)
   await ctx.plugin(SessionStore)
+  await ctx.plugin(SessionProjectionRegistry)
   await ctx.plugin(SystemPrompt, { persona: '' })
   await ctx.plugin(ToolRuntime)
   await ctx.plugin(AgentRegistry)
@@ -41,25 +33,20 @@ async function harness(adapter: MockAdapter, maxParallelToolCalls?: number) {
   return ctx
 }
 
-/** 中文说明：测试辅助函数 waitForIdle 的参数见签名，返回值用于驱动或断言场景；示例见下方用例。 */
 function waitForIdle(ctx: Context, agent: Agent): Promise<void> {
   return new Promise((resolve) => {
-    /** 中文说明：测试局部值 dispose，由紧邻初始化决定，仅在当前场景使用。 */
     const dispose = ctx.on('agent/status', ({ agent: subject, status }) => {
       if (subject === agent && status === 'idle') { dispose(); resolve() }
     })
   })
 }
 
-/** 中文说明：测试辅助函数 events 的参数见签名，返回值用于驱动或断言场景；示例见下方用例。 */
 function events(agent: Agent): SessionEvent[] {
   return [...agent.session.events]
 }
 
 /** Build one assistant response containing the supplied tool calls. */
-/* 中文说明：测试辅助函数 multiCall 的参数见签名，返回值用于驱动或断言场景；示例见下方用例。 */
 function multiCall(calls: { id: string; name: string; args: object }[]): StreamChunk[] {
-  /** 中文说明：测试局部值 chunks，由紧邻初始化决定，仅在当前场景使用。 */
   const chunks: StreamChunk[] = []
   calls.forEach((call, index) => {
     chunks.push(
@@ -75,13 +62,9 @@ function multiCall(calls: { id: string; name: string; args: object }[]): StreamC
 }
 
 /** A tool whose calls block until the test releases them by callId. */
-/* 中文说明：测试辅助函数 gatedTool 的参数见签名，返回值用于驱动或断言场景；示例见下方用例。 */
 function gatedTool(name: string, parallel: boolean) {
-  /** 中文说明：测试局部值 gates，由紧邻初始化决定，仅在当前场景使用。 */
   const gates = new Map<string, () => void>()
-  /** 中文说明：测试局部值 started，由紧邻初始化决定，仅在当前场景使用。 */
   const started: string[] = []
-  /** 中文说明：测试局部值 tool，由紧邻初始化决定，仅在当前场景使用。 */
   const tool = defineContentToolFixture({
     name,
     description: `gated ${name}`,
@@ -101,37 +84,29 @@ function gatedTool(name: string, parallel: boolean) {
   }
 }
 
-/** 中文说明：测试辅助函数 gatedParallelTool 的参数见签名，返回值用于驱动或断言场景；示例见下方用例。 */
 function gatedParallelTool(name: string) {
   return gatedTool(name, true)
 }
 
-/** 中文说明：测试辅助函数 gatedExclusiveTool 的参数见签名，返回值用于驱动或断言场景；示例见下方用例。 */
 function gatedExclusiveTool(name: string) {
   return gatedTool(name, false)
 }
 
 /** Poll until `predicate` holds, letting microtasks/timers drain between checks. */
-/* 中文说明：测试辅助函数 until 的参数见签名，返回值用于驱动或断言场景；示例见下方用例。 */
 async function until(predicate: () => boolean): Promise<void> {
-  /** 中文说明：测试局部值 i，由紧邻初始化决定，仅在当前场景使用。 */
   for (let i = 0; i < 1000 && !predicate(); i++) await new Promise(r => setTimeout(r, 0))
   if (!predicate()) throw new Error('until: condition never held')
 }
 
 describe('tool-call scheduler: grouping and barriers', () => {
   it('runs parallel-safe siblings concurrently (all start before any completes)', async () => {
-    /** 中文说明：测试局部值 adapter，由紧邻初始化决定，仅在当前场景使用。 */
     const adapter = new MockAdapter([
       multiCall([{ id: 'c1', name: 'p', args: { id: '1' } }, { id: 'c2', name: 'p', args: { id: '2' } }, { id: 'c3', name: 'p', args: { id: '3' } }]),
       textResponse('done'),
     ])
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定，仅在当前场景使用。 */
     const ctx = await harness(adapter)
-    /** 中文说明：测试局部值 gated，由紧邻初始化决定，仅在当前场景使用。 */
     const gated = gatedParallelTool('p')
     ctx.tools.register(gated.tool)
-    /** 中文说明：测试局部值 agent，由紧邻初始化决定，仅在当前场景使用。 */
     const agent = ctx.agentLoop.create(SessionId('a1'), { provider: 'mock', model: 'mock' })
 
     agent.followup(createUserMessage({ content: [{ type: 'text', text: 'go' }], source: { kind: 'user' } }))
@@ -142,9 +117,7 @@ describe('tool-call scheduler: grouping and barriers', () => {
   })
 
   it('an exclusive call between two parallel-safe calls forms a barrier (3 groups)', async () => {
-    /** 中文说明：测试局部值 order，由紧邻初始化决定，仅在当前场景使用。 */
     const order: string[] = []
-    /** 中文说明：测试局部值 adapter，由紧邻初始化决定，仅在当前场景使用。 */
     const adapter = new MockAdapter([
       multiCall([
         { id: 'c1', name: 'r', args: { id: 'A1' } },
@@ -153,7 +126,6 @@ describe('tool-call scheduler: grouping and barriers', () => {
       ]),
       textResponse('done'),
     ])
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定，仅在当前场景使用。 */
     const ctx = await harness(adapter)
     ctx.tools.register(defineContentToolFixture({
       name: 'r', description: 'read', parameters: { id: { type: 'string', required: true } },
@@ -164,7 +136,6 @@ describe('tool-call scheduler: grouping and barriers', () => {
       name: 'w', description: 'write', parameters: { id: { type: 'string', required: true } },
       async execute(args) { order.push(`w-${args.id}`); return [{ type: 'text', text: 'w' }] },
     }))
-    /** 中文说明：测试局部值 agent，由紧邻初始化决定，仅在当前场景使用。 */
     const agent = ctx.agentLoop.create(SessionId('a1'), { provider: 'mock', model: 'mock' })
     agent.followup(createUserMessage({ content: [{ type: 'text', text: 'go' }], source: { kind: 'user' } }))
     await waitForIdle(ctx, agent)
@@ -173,7 +144,6 @@ describe('tool-call scheduler: grouping and barriers', () => {
   })
 
   it('reclassifies pending calls after an exclusive barrier replaces their tool', async () => {
-    /** 中文说明：测试局部值 adapter，由紧邻初始化决定，仅在当前场景使用。 */
     const adapter = new MockAdapter([
       multiCall([
         { id: 'c1', name: 'replace', args: { id: '0' } },
@@ -182,11 +152,8 @@ describe('tool-call scheduler: grouping and barriers', () => {
       ]),
       textResponse('done'),
     ])
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定，仅在当前场景使用。 */
     const ctx = await harness(adapter)
-    /** 中文说明：测试局部值 replacement，由紧邻初始化决定，仅在当前场景使用。 */
     const replacement = gatedExclusiveTool('x')
-    /** 中文说明：测试局部值 disposeSafe，由紧邻初始化决定，仅在当前场景使用。 */
     const disposeSafe = ctx.tools.register(defineContentToolFixture({
       name: 'x',
       description: 'initially safe',
@@ -204,7 +171,6 @@ describe('tool-call scheduler: grouping and barriers', () => {
         return [{ type: 'text', text: 'replaced' }]
       },
     }))
-    /** 中文说明：测试局部值 agent，由紧邻初始化决定，仅在当前场景使用。 */
     const agent = ctx.agentLoop.create(SessionId('a1'), { provider: 'mock', model: 'mock' })
 
     agent.followup(createUserMessage({ content: [{ type: 'text', text: 'go' }], source: { kind: 'user' } }))
@@ -219,7 +185,6 @@ describe('tool-call scheduler: grouping and barriers', () => {
   })
 
   it('stops replenishing when a result observer makes the next call exclusive', async () => {
-    /** 中文说明：测试局部值 adapter，由紧邻初始化决定，仅在当前场景使用。 */
     const adapter = new MockAdapter([
       multiCall([
         { id: 'c1', name: 'x', args: { id: '1' } },
@@ -228,20 +193,15 @@ describe('tool-call scheduler: grouping and barriers', () => {
       ]),
       textResponse('done'),
     ])
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定，仅在当前场景使用。 */
     const ctx = await harness(adapter, 2)
-    /** 中文说明：测试局部值 initial，由紧邻初始化决定，仅在当前场景使用。 */
     const initial = gatedParallelTool('x')
-    /** 中文说明：测试局部值 replacement，由紧邻初始化决定，仅在当前场景使用。 */
     const replacement = gatedExclusiveTool('x')
-    /** 中文说明：测试局部值 disposeInitial，由紧邻初始化决定，仅在当前场景使用。 */
     const disposeInitial = ctx.tools.register(initial.tool)
     ctx.on('tools/result', (exec) => {
       if (exec.callId !== ToolCallId('c1')) return
       disposeInitial()
       ctx.tools.register(replacement.tool)
     })
-    /** 中文说明：测试局部值 agent，由紧邻初始化决定，仅在当前场景使用。 */
     const agent = ctx.agentLoop.create(SessionId('a1'), { provider: 'mock', model: 'mock' })
 
     agent.followup(createUserMessage({ content: [{ type: 'text', text: 'go' }], source: { kind: 'user' } }))
@@ -261,55 +221,43 @@ describe('tool-call scheduler: grouping and barriers', () => {
 
 describe('tool-call scheduler: model-order results despite out-of-order settlement', () => {
   it('commits tool/result in model order even when a later call settles first', async () => {
-    /** 中文说明：测试局部值 adapter，由紧邻初始化决定，仅在当前场景使用。 */
     const adapter = new MockAdapter([
       multiCall([{ id: 'c1', name: 'p', args: { id: '1' } }, { id: 'c2', name: 'p', args: { id: '2' } }]),
       textResponse('done'),
     ])
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定，仅在当前场景使用。 */
     const ctx = await harness(adapter)
-    /** 中文说明：测试局部值 gated，由紧邻初始化决定，仅在当前场景使用。 */
     const gated = gatedParallelTool('p')
     ctx.tools.register(gated.tool)
-    /** 中文说明：测试局部值 agent，由紧邻初始化决定，仅在当前场景使用。 */
     const agent = ctx.agentLoop.create(SessionId('a1'), { provider: 'mock', model: 'mock' })
 
     agent.followup(createUserMessage({ content: [{ type: 'text', text: 'go' }], source: { kind: 'user' } }))
     await until(() => gated.started.length === 2)
     gated.release('2')
     await new Promise(r => setTimeout(r, 5))
-    /** 中文说明：测试局部值 beforeFirst，由紧邻初始化决定，仅在当前场景使用。 */
     const beforeFirst = events(agent).filter(e => e.type === 'tool/result')
     expect(beforeFirst).toEqual([])
     gated.release('1')
     await waitForIdle(ctx, agent)
 
-    /** 中文说明：测试局部值 results，由紧邻初始化决定，仅在当前场景使用。 */
     const results = events(agent).filter(e => e.type === 'tool/result')
     expect(results.map(e => e.data.message.source.callId)).toEqual([ToolCallId('c1'), ToolCallId('c2')])
   })
 
   it('derived history pairs calls in model order regardless of tool/call log interleaving', async () => {
-    /** 中文说明：测试局部值 adapter，由紧邻初始化决定，仅在当前场景使用。 */
     const adapter = new MockAdapter([
       multiCall([{ id: 'c1', name: 'p', args: { id: '1' } }, { id: 'c2', name: 'p', args: { id: '2' } }]),
       textResponse('done'),
     ])
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定，仅在当前场景使用。 */
     const ctx = await harness(adapter)
-    /** 中文说明：测试局部值 gated，由紧邻初始化决定，仅在当前场景使用。 */
     const gated = gatedParallelTool('p')
     ctx.tools.register(gated.tool)
-    /** 中文说明：测试局部值 agent，由紧邻初始化决定，仅在当前场景使用。 */
     const agent = ctx.agentLoop.create(SessionId('a1'), { provider: 'mock', model: 'mock' })
     agent.followup(createUserMessage({ content: [{ type: 'text', text: 'go' }], source: { kind: 'user' } }))
     await until(() => gated.started.length === 2)
     gated.release('2'); gated.release('1')
     await waitForIdle(ctx, agent)
 
-    /** 中文说明：测试局部值 messages，由紧邻初始化决定，仅在当前场景使用。 */
     const messages = agent.session.deriveMessages()
-    /** 中文说明：测试局部值 toolResults，由紧邻初始化决定，仅在当前场景使用。 */
     const toolResults = messages.flatMap(m => m.content.filter(b => b.type === 'tool-result'))
     expect(toolResults.map(b => b.toolCallId)).toEqual([ToolCallId('c1'), ToolCallId('c2')])
   })
@@ -322,6 +270,8 @@ describe('tool-call scheduler: rolling pool honors maxParallelToolCalls', () => 
   })
 
   it('defensively rejects invalid caps when direct construction bypasses the config schema', () => {
+    // Validation precedes the turnBoundary registration, so a rejected
+    // constructor registers nothing and needs no fiber cleanup.
     expect(() => new AgentLoop(new Context(), { agents: [], maxParallelToolCalls: 0 }))
       .toThrow('maxParallelToolCalls must be a positive integer')
     expect(() => new AgentLoop(new Context(), { agents: [], maxParallelToolCalls: 1.5 }))
@@ -329,32 +279,27 @@ describe('tool-call scheduler: rolling pool honors maxParallelToolCalls', () => 
   })
 
   it('defaults the cap when direct construction bypasses the config schema', async () => {
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定，仅在当前场景使用。 */
     const ctx = new Context()
     await ctx.plugin(LlmRuntime)
     await ctx.plugin(SessionStore)
+    await ctx.plugin(SessionProjectionRegistry)
     await ctx.plugin(SystemPrompt, { persona: '' })
     await ctx.plugin(ToolRuntime)
     await ctx.plugin(AgentRegistry)
 
-    /** 中文说明：测试局部值 loop，由紧邻初始化决定，仅在当前场景使用。 */
     const loop = new AgentLoop(ctx, { agents: [] })
     expect(loop.config.maxParallelToolCalls).toBe(DEFAULT_MAX_PARALLEL_TOOL_CALLS)
     await ctx.fiber.dispose()
   })
 
   it('starts at most the cap, replenishing as calls settle', async () => {
-    /** 中文说明：测试局部值 adapter，由紧邻初始化决定，仅在当前场景使用。 */
     const adapter = new MockAdapter([
       multiCall([1, 2, 3, 4].map(n => ({ id: `c${n}`, name: 'p', args: { id: String(n) } }))),
       textResponse('done'),
     ])
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定，仅在当前场景使用。 */
     const ctx = await harness(adapter, 2)
-    /** 中文说明：测试局部值 gated，由紧邻初始化决定，仅在当前场景使用。 */
     const gated = gatedParallelTool('p')
     ctx.tools.register(gated.tool)
-    /** 中文说明：测试局部值 agent，由紧邻初始化决定，仅在当前场景使用。 */
     const agent = ctx.agentLoop.create(SessionId('a1'), { provider: 'mock', model: 'mock' })
 
     agent.followup(createUserMessage({ content: [{ type: 'text', text: 'go' }], source: { kind: 'user' } }))
@@ -380,17 +325,13 @@ describe('tool-call scheduler: rolling pool honors maxParallelToolCalls', () => 
   })
 
   it('maxParallelToolCalls: 1 is fully serial (no second start before the first settles)', async () => {
-    /** 中文说明：测试局部值 adapter，由紧邻初始化决定，仅在当前场景使用。 */
     const adapter = new MockAdapter([
       multiCall([{ id: 'c1', name: 'p', args: { id: '1' } }, { id: 'c2', name: 'p', args: { id: '2' } }]),
       textResponse('done'),
     ])
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定，仅在当前场景使用。 */
     const ctx = await harness(adapter, 1)
-    /** 中文说明：测试局部值 gated，由紧邻初始化决定，仅在当前场景使用。 */
     const gated = gatedParallelTool('p')
     ctx.tools.register(gated.tool)
-    /** 中文说明：测试局部值 agent，由紧邻初始化决定，仅在当前场景使用。 */
     const agent = ctx.agentLoop.create(SessionId('a1'), { provider: 'mock', model: 'mock' })
     agent.followup(createUserMessage({ content: [{ type: 'text', text: 'go' }], source: { kind: 'user' } }))
     await until(() => gated.started.length === 1)
@@ -403,24 +344,21 @@ describe('tool-call scheduler: rolling pool honors maxParallelToolCalls', () => 
   })
 
   it('applies the configured cap to every factory-created agent', async () => {
-    /** 中文说明：测试局部值 adapter，由紧邻初始化决定，仅在当前场景使用。 */
     const adapter = new MockAdapter([
       multiCall([{ id: 'c1', name: 'p', args: { id: '1' } }, { id: 'c2', name: 'p', args: { id: '2' } }]),
       textResponse('done'),
     ])
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定，仅在当前场景使用。 */
     const ctx = new Context()
     await ctx.plugin(LlmRuntime)
     await ctx.plugin(SessionStore)
+    await ctx.plugin(SessionProjectionRegistry)
     await ctx.plugin(SystemPrompt, { persona: '' })
     await ctx.plugin(ToolRuntime)
     await ctx.plugin(AgentRegistry)
     await ctx.plugin(AgentLoop, { agents: [], maxParallelToolCalls: 1 })
     ctx.llm.registerAdapter(['mock'], adapter)
-    /** 中文说明：测试局部值 gated，由紧邻初始化决定，仅在当前场景使用。 */
     const gated = gatedParallelTool('p')
     ctx.tools.register(gated.tool)
-    /** 中文说明：测试局部值 agent，由紧邻初始化决定，仅在当前场景使用。 */
     const agent = ctx.agentLoop.create(SessionId('a1'), { provider: 'mock', model: 'mock' })
     agent.followup(createUserMessage({ content: [{ type: 'text', text: 'go' }], source: { kind: 'user' } }))
     await until(() => gated.started.length === 1)
@@ -436,23 +374,17 @@ describe('tool-call scheduler: rolling pool honors maxParallelToolCalls', () => 
 
 describe('tool-call scheduler: ordered middleware and additional contexts', () => {
   it('tools/pre-execute and tools/post-execute observe model call order', async () => {
-    /** 中文说明：测试局部值 adapter，由紧邻初始化决定，仅在当前场景使用。 */
     const adapter = new MockAdapter([
       multiCall([{ id: 'c1', name: 'p', args: { id: '1' } }, { id: 'c2', name: 'p', args: { id: '2' } }, { id: 'c3', name: 'p', args: { id: '3' } }]),
       textResponse('done'),
     ])
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定，仅在当前场景使用。 */
     const ctx = await harness(adapter)
-    /** 中文说明：测试局部值 gated，由紧邻初始化决定，仅在当前场景使用。 */
     const gated = gatedParallelTool('p')
     ctx.tools.register(gated.tool)
-    /** 中文说明：测试局部值 pre，由紧邻初始化决定，仅在当前场景使用。 */
     const pre: string[] = []
-    /** 中文说明：测试局部值 post，由紧邻初始化决定，仅在当前场景使用。 */
     const post: string[] = []
     ctx.on('tools/pre-execute', async (exec, next): Promise<PreToolDecision> => { pre.push(String(exec.callId)); return next() })
     ctx.on('tools/post-execute', async (exec, _result, next): Promise<PostToolDecision> => { post.push(String(exec.callId)); return next() })
-    /** 中文说明：测试局部值 agent，由紧邻初始化决定，仅在当前场景使用。 */
     const agent = ctx.agentLoop.create(SessionId('a1'), { provider: 'mock', model: 'mock' })
 
     agent.followup(createUserMessage({ content: [{ type: 'text', text: 'go' }], source: { kind: 'user' } }))
@@ -465,21 +397,17 @@ describe('tool-call scheduler: ordered middleware and additional contexts', () =
   })
 
   it('injects additional contexts in model call order, not settlement order', async () => {
-    /** 中文说明：测试局部值 adapter，由紧邻初始化决定，仅在当前场景使用。 */
     const adapter = new MockAdapter([
       multiCall([{ id: 'c1', name: 'p', args: { id: '1' } }, { id: 'c2', name: 'p', args: { id: '2' } }]),
       textResponse('done'),
     ])
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定，仅在当前场景使用。 */
     const ctx = await harness(adapter, 2)
-    /** 中文说明：测试局部值 gated，由紧邻初始化决定，仅在当前场景使用。 */
     const gated = gatedParallelTool('p')
     ctx.tools.register(gated.tool)
     ctx.on('tools/post-execute', async (exec, _result): Promise<PostToolDecision> =>
       ({ kind: 'accept', additionalContexts: [createUserMessage({
         content: [{ type: 'text', text: `ctx-${exec.callId}` }], source: { kind: 'plugin', plugin: 'p' },
       })] }))
-    /** 中文说明：测试局部值 agent，由紧邻初始化决定，仅在当前场景使用。 */
     const agent = ctx.agentLoop.create(SessionId('a1'), { provider: 'mock', model: 'mock' })
 
     agent.followup(createUserMessage({ content: [{ type: 'text', text: 'go' }], source: { kind: 'user' } }))
@@ -487,21 +415,16 @@ describe('tool-call scheduler: ordered middleware and additional contexts', () =
     gated.release('2'); gated.release('1')
     await waitForIdle(ctx, agent)
 
-    /** 中文说明：测试局部值 log，由紧邻初始化决定，仅在当前场景使用。 */
     const log = events(agent)
-    /** 中文说明：测试局部值 contextTexts，由紧邻初始化决定，仅在当前场景使用。 */
     const contextTexts = log.filter(e => e.type === 'user/message' && e.data.source.kind === 'plugin')
       .map(e => ((e.data as { content: { text: string }[] }).content[0]!).text)
     expect(contextTexts).toEqual(['ctx-c1', 'ctx-c2'])
-    /** 中文说明：测试局部值 lastResult，由紧邻初始化决定，仅在当前场景使用。 */
     const lastResult = log.findLastIndex(e => e.type === 'tool/result')
-    /** 中文说明：测试局部值 firstContext，由紧邻初始化决定，仅在当前场景使用。 */
     const firstContext = log.findIndex(e => e.type === 'user/message' && e.data.source.kind === 'plugin')
     expect(lastResult).toBeLessThan(firstContext)
   })
 
   it('orders pre-execute denials and errors without dispatching them', async () => {
-    /** 中文说明：测试局部值 adapter，由紧邻初始化决定，仅在当前场景使用。 */
     const adapter = new MockAdapter([
       multiCall([
         { id: 'c1', name: 'p', args: { id: '1' } },
@@ -510,12 +433,9 @@ describe('tool-call scheduler: ordered middleware and additional contexts', () =
       ]),
       textResponse('done'),
     ])
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定，仅在当前场景使用。 */
     const ctx = await harness(adapter)
-    /** 中文说明：测试局部值 gated，由紧邻初始化决定，仅在当前场景使用。 */
     const gated = gatedParallelTool('p')
     ctx.tools.register(gated.tool)
-    /** 中文说明：测试局部值 post，由紧邻初始化决定，仅在当前场景使用。 */
     const post: string[] = []
     ctx.on('tools/pre-execute', async (exec, next): Promise<PreToolDecision> => {
       if (exec.callId === ToolCallId('c2')) return { kind: 'deny', reason: 'blocked by policy' }
@@ -526,7 +446,6 @@ describe('tool-call scheduler: ordered middleware and additional contexts', () =
       post.push(String(exec.callId))
       return next()
     })
-    /** 中文说明：测试局部值 agent，由紧邻初始化决定，仅在当前场景使用。 */
     const agent = ctx.agentLoop.create(SessionId('a1'), { provider: 'mock', model: 'mock' })
 
     agent.followup(createUserMessage({ content: [{ type: 'text', text: 'go' }], source: { kind: 'user' } }))
@@ -536,7 +455,6 @@ describe('tool-call scheduler: ordered middleware and additional contexts', () =
 
     expect(gated.started).toEqual(['1'])
     expect(post).toEqual(['c1', 'c2'])
-    /** 中文说明：测试局部值 results，由紧邻初始化决定，仅在当前场景使用。 */
     const results = events(agent).filter(e => e.type === 'tool/result')
     expect(results.map(e => e.data.message.source.callId)).toEqual([ToolCallId('c1'), ToolCallId('c2'), ToolCallId('c3')])
     expect((results[1]!.data.message.content[0].content[0] as { text: string }).text).toContain('blocked by policy')
@@ -546,17 +464,13 @@ describe('tool-call scheduler: ordered middleware and additional contexts', () =
 
 describe('tool-call scheduler: abort handling', () => {
   it('starts no calls when the signal is already aborted before a parallel group', async () => {
-    /** 中文说明：测试局部值 adapter，由紧邻初始化决定，仅在当前场景使用。 */
     const adapter = new MockAdapter([
       multiCall([{ id: 'c1', name: 'p', args: { id: '1' } }, { id: 'c2', name: 'p', args: { id: '2' } }]),
       textResponse('should never be requested'),
     ])
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定，仅在当前场景使用。 */
     const ctx = await harness(adapter)
-    /** 中文说明：测试局部值 gated，由紧邻初始化决定，仅在当前场景使用。 */
     const gated = gatedParallelTool('p')
     ctx.tools.register(gated.tool)
-    /** 中文说明：测试局部值 agent，由紧邻初始化决定，仅在当前场景使用。 */
     const agent = ctx.agentLoop.create(SessionId('a1'), { provider: 'mock', model: 'mock' })
     ctx.on('session/event', (session, event) => {
       if (session === agent.session && event.type === 'assistant/message') {
@@ -581,17 +495,13 @@ describe('tool-call scheduler: abort handling', () => {
   })
 
   it('skips dispatch and stops starting siblings when abort fires during ordered pre-execute', async () => {
-    /** 中文说明：测试局部值 adapter，由紧邻初始化决定，仅在当前场景使用。 */
     const adapter = new MockAdapter([
       multiCall([{ id: 'c1', name: 'p', args: { id: '1' } }, { id: 'c2', name: 'p', args: { id: '2' } }]),
       textResponse('should never be requested'),
     ])
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定，仅在当前场景使用。 */
     const ctx = await harness(adapter)
-    /** 中文说明：测试局部值 gated，由紧邻初始化决定，仅在当前场景使用。 */
     const gated = gatedParallelTool('p')
     ctx.tools.register(gated.tool)
-    /** 中文说明：测试局部值 agent，由紧邻初始化决定，仅在当前场景使用。 */
     const agent = ctx.agentLoop.create(SessionId('a1'), { provider: 'mock', model: 'mock' })
     ctx.on('tools/pre-execute', async (exec, next): Promise<PreToolDecision> => {
       if (exec.callId === ToolCallId('c1')) {
@@ -617,14 +527,11 @@ describe('tool-call scheduler: abort handling', () => {
   })
 
   it('stops replenishing after abort, commits started results, and parks accepted additional contexts', async () => {
-    /** 中文说明：测试局部值 adapter，由紧邻初始化决定，仅在当前场景使用。 */
     const adapter = new MockAdapter([
       multiCall([1, 2, 3, 4].map(n => ({ id: `c${n}`, name: 'p', args: { id: String(n) } }))),
       textResponse('after wake'),
     ])
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定，仅在当前场景使用。 */
     const ctx = await harness(adapter, 2)
-    /** 中文说明：测试局部值 gated，由紧邻初始化决定，仅在当前场景使用。 */
     const gated = gatedParallelTool('p')
     ctx.tools.register(gated.tool)
     ctx.on('tools/post-execute', async (exec, _result, next): Promise<PostToolDecision> => ({
@@ -633,7 +540,6 @@ describe('tool-call scheduler: abort handling', () => {
         content: [{ type: 'text', text: `ctx-${exec.callId}` }], source: { kind: 'plugin', plugin: 'p' },
       })],
     }))
-    /** 中文说明：测试局部值 agent，由紧邻初始化决定，仅在当前场景使用。 */
     const agent = ctx.agentLoop.create(SessionId('a1'), { provider: 'mock', model: 'mock' })
 
     agent.followup(createUserMessage({ content: [{ type: 'text', text: 'go' }], source: { kind: 'user' } }))
@@ -665,7 +571,6 @@ describe('tool-call scheduler: abort handling', () => {
           error: { name: 'AbortError', code: TOOL_ABORTED_BEFORE_DISPATCH },
         },
       ])
-    /** 中文说明：测试局部值 settled，由紧邻初始化决定，仅在当前场景使用。 */
     const settled = events(agent).filter(e => e.type === 'tool/result'
       || (e.type === 'user/message' && e.data.source.kind === 'plugin'))
     expect(settled.map(e => e.type))
@@ -676,7 +581,6 @@ describe('tool-call scheduler: abort handling', () => {
         { type: 'text', text: 'ctx-c2' },
       ])
 
-    /** 中文说明：测试局部值 idle，由紧邻初始化决定，仅在当前场景使用。 */
     const idle = waitForIdle(ctx, agent)
     agent.followup(createUserMessage({ content: [{ type: 'text', text: 'wake' }], source: { kind: 'user' } }))
     await idle
@@ -691,7 +595,6 @@ describe('tool-call scheduler: abort handling', () => {
   })
 
   it('does not run an exclusive barrier after a parallel group aborts', async () => {
-    /** 中文说明：测试局部值 adapter，由紧邻初始化决定，仅在当前场景使用。 */
     const adapter = new MockAdapter([
       multiCall([
         { id: 'c1', name: 'p', args: { id: '1' } },
@@ -700,11 +603,8 @@ describe('tool-call scheduler: abort handling', () => {
       ]),
       textResponse('should never be requested'),
     ])
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定，仅在当前场景使用。 */
     const ctx = await harness(adapter, 2)
-    /** 中文说明：测试局部值 gated，由紧邻初始化决定，仅在当前场景使用。 */
     const gated = gatedParallelTool('p')
-    /** 中文说明：测试局部值 exclusive，由紧邻初始化决定，仅在当前场景使用。 */
     const exclusive: string[] = []
     ctx.tools.register(gated.tool)
     ctx.tools.register(defineContentToolFixture({
@@ -713,7 +613,6 @@ describe('tool-call scheduler: abort handling', () => {
       parameters: { id: { type: 'string', required: true } },
       async execute(args) { exclusive.push(args.id); return [{ type: 'text', text: 'x' }] },
     }))
-    /** 中文说明：测试局部值 agent，由紧邻初始化决定，仅在当前场景使用。 */
     const agent = ctx.agentLoop.create(SessionId('a1'), { provider: 'mock', model: 'mock' })
 
     agent.followup(createUserMessage({ content: [{ type: 'text', text: 'go' }], source: { kind: 'user' } }))
@@ -739,7 +638,6 @@ describe('tool-call scheduler: abort handling', () => {
 
 describe('tool-call scheduler: failure quiescence', () => {
   it('stops new dispatches and drains started bodies before surfacing the first failure', async () => {
-    /** 中文说明：测试局部值 adapter，由紧邻初始化决定，仅在当前场景使用。 */
     const adapter = new MockAdapter([
       multiCall([
         { id: 'c1', name: 'p', args: { id: '1' } },
@@ -747,25 +645,17 @@ describe('tool-call scheduler: failure quiescence', () => {
         { id: 'c3', name: 'p', args: { id: '3' } },
       ]),
     ])
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定，仅在当前场景使用。 */
     const ctx = await harness(adapter, 3)
-    /** 中文说明：测试局部值 gated，由紧邻初始化决定，仅在当前场景使用。 */
     const gated = gatedParallelTool('p')
     ctx.tools.register(gated.tool)
     // The registry contains expected failures as results; replace its internal
     // view only to inject the invariant violation this boundary must contain.
-    /** 中文说明：测试局部值 scheduler，由紧邻初始化决定，仅在当前场景使用。 */
     const scheduler = ctx.tools[TOOL_RUNTIME_SCHEDULER]
-    /** 中文说明：测试局部值 prepare，由紧邻初始化决定，仅在当前场景使用。 */
     const prepare = scheduler.prepare.bind(scheduler)
-    /** 中文说明：测试局部值 dispatch，由紧邻初始化决定，仅在当前场景使用。 */
     const dispatch = scheduler.dispatch.bind(scheduler)
-    /** 中文说明：测试局部值 prepareGate，由紧邻初始化决定，仅在当前场景使用。 */
     const prepareGate = Promise.withResolvers<undefined>()
-    /** 中文说明：测试局部值 thirdPrepareEntered，由紧邻初始化决定，仅在当前场景使用。 */
     let thirdPrepareEntered = false
     scheduler.prepare = async (exec) => {
-      /** 中文说明：测试局部值 prepared，由紧邻初始化决定，仅在当前场景使用。 */
       const prepared = await prepare(exec)
       if (exec.callId === ToolCallId('c3')) {
         thirdPrepareEntered = true
@@ -773,20 +663,14 @@ describe('tool-call scheduler: failure quiescence', () => {
       }
       return prepared
     }
-    /** 中文说明：测试局部值 schedulerError，由紧邻初始化决定，仅在当前场景使用。 */
     const schedulerError = new Error('scheduler exploded')
-    /** 中文说明：测试局部值 drainedError，由紧邻初始化决定，仅在当前场景使用。 */
     const drainedError = new Error('sibling failed while draining')
-    /** 中文说明：测试局部值 rejectFirst，由紧邻初始化决定，仅在当前场景使用。 */
     let rejectFirst: ((error: Error) => void) | undefined
     scheduler.dispatch = exec => exec.callId === ToolCallId('c1')
       ? new Promise((_resolve, reject) => { rejectFirst = reject })
       : dispatch(exec).then(() => { throw drainedError })
-    /** 中文说明：测试局部值 agent，由紧邻初始化决定，仅在当前场景使用。 */
     const agent = ctx.agentLoop.create(SessionId('scheduler-failure'), { provider: 'mock', model: 'mock' })
-    /** 中文说明：测试局部值 idle，由紧邻初始化决定，仅在当前场景使用。 */
     let idle = false
-    /** 中文说明：测试局部值 idlePromise，由紧邻初始化决定，仅在当前场景使用。 */
     const idlePromise = waitForIdle(ctx, agent).then(() => { idle = true })
 
     agent.followup(createUserMessage({ content: [{ type: 'text', text: 'go' }], source: { kind: 'user' } }))
@@ -796,13 +680,9 @@ describe('tool-call scheduler: failure quiescence', () => {
     prepareGate.resolve(undefined)
     await new Promise<void>(resolve => setImmediate(resolve))
 
-    /** 中文说明：测试局部值 startedBeforeDrain，由紧邻初始化决定，仅在当前场景使用。 */
     const startedBeforeDrain = [...gated.started]
-    /** 中文说明：测试局部值 idleBeforeDrain，由紧邻初始化决定，仅在当前场景使用。 */
     const idleBeforeDrain = idle
-    /** 中文说明：测试局部值 turnEndBeforeDrain，由紧邻初始化决定，仅在当前场景使用。 */
     const turnEndBeforeDrain = events(agent).find(event => event.type === 'turn/end')
-    /** 中文说明：测试局部值 id，由紧邻初始化决定，仅在当前场景使用。 */
     for (const id of gated.pending()) gated.release(id)
     await idlePromise
 
@@ -818,7 +698,6 @@ describe('tool-call scheduler: failure quiescence', () => {
 
 describe('PTC mode native-tool denial through the agent loop', () => {
   /** A minimal in-process code runtime for test purposes — never actually runs. */
-  /* 中文说明：测试类型或类 FakeCodeRuntime 约束夹具数据和行为。 */
   class FakeCodeRuntime extends CodeRuntime {
     readonly language = 'typescript'
     readonly isolation = 'fake' as const
@@ -831,6 +710,7 @@ describe('PTC mode native-tool denial through the agent loop', () => {
     const ctx = new Context()
     await ctx.plugin(LlmRuntime)
     await ctx.plugin(SessionStore)
+    await ctx.plugin(SessionProjectionRegistry)
     await ctx.plugin(SystemPrompt, { persona: '' })
     await ctx.plugin(ToolRuntime, { mode: 'ptc' })
     // eslint-disable-next-line @typescript-eslint/no-explicit-any -- FakeCodeRuntime is an internal test helper with an opaque type shape
@@ -843,7 +723,6 @@ describe('PTC mode native-tool denial through the agent loop', () => {
 
   it('denies a model-direct native-tool call under PTC mode: tool body never runs and session records UNKNOWN_TOOL', async () => {
     let toolInvoked = false
-    /** 中文说明：测试局部值 tool，由紧邻初始化决定，仅在当前场景使用。 */
     const tool = defineContentToolFixture({
       name: 'write',
       description: 'Write a file.',
@@ -859,7 +738,6 @@ describe('PTC mode native-tool denial through the agent loop', () => {
 
     // Scripted model emits a native tool call under PTC mode — the wire
     // never advertised it, but a non-compliant provider may still emit one.
-    /** 中文说明：测试局部值 adapter，由紧邻初始化决定，仅在当前场景使用。 */
     const adapter = new MockAdapter([
       [
         ...multiCall([{ id: 'call-1', name: 'write', args: { file_path: '/tmp/test', content: 'hello' } }]),
@@ -870,7 +748,6 @@ describe('PTC mode native-tool denial through the agent loop', () => {
     const ctx = await ptcModeHarness(adapter)
     ctx.tools.register(tool)
 
-    /** 中文说明：测试局部值 agent，由紧邻初始化决定，仅在当前场景使用。 */
     const agent = ctx.agentLoop.create(SessionId('code-native'), { provider: 'mock', model: 'mock' })
     agent.followup(createUserMessage({ content: [{ type: 'text', text: 'write a file' }], source: { kind: 'user' } }))
     await waitForIdle(ctx, agent)
@@ -881,9 +758,7 @@ describe('PTC mode native-tool denial through the agent loop', () => {
 
     // The session must record a tool/result with UNKNOWN_TOOL error so the
     // transcript faithfully captures that the call was denied.
-    /** 中文说明：测试局部值 sessionEvents，由紧邻初始化决定，仅在当前场景使用。 */
     const sessionEvents = events(agent)
-    /** 中文说明：测试局部值 toolResult，由紧邻初始化决定，仅在当前场景使用。 */
     const toolResult = sessionEvents.find(e => e.type === 'tool/result')
     expect(toolResult).toBeDefined()
     expect(toolResult!.data.error).toMatchObject({

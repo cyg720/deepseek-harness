@@ -11,21 +11,12 @@
  *
  * @module @deepseek-ai/dsh-client-ui-reference/client
  */
-/*
- * 文件职责：实现客户端统一引用搜索的数据来源（index.ts）。
- * 技术维度：TypeScript、并行异步查询、取消信号与生成的 Remote API。
- * 产品维度：让用户能在输入框中快速引用文件和会话。
- * 逻辑维度：并行查询远端来源，统一排序并映射为引用项。
- * 关键边界：请求可取消，结果排序必须稳定，客户端不得直接依赖 Host 实现。
- * 新手阅读建议：先看导出入口，再看查询合并，最后看标签和排序规则。
- */
 // Type-only: pulls the generated Remote API and ctx.remote merge through the Client assembly boundary.
 import type {} from '@deepseek-ai/dsh-api-remotes/client'
 // Type-only: pulls the locale plugin's Context merge (ctx.locale).
 import type {} from '@deepseek-ai/dsh-client-locale/client'
 import type { Context as ClientContext } from '@deepseek-ai/cordis'
 import type { ISessions } from '@deepseek-ai/dsh-api-session-controller/client'
-import type { ConnectionHandle } from '@deepseek-ai/dsh-client-connection/client'
 import { relativeTime } from '@deepseek-ai/dsh-client-ui-primitives'
 import type {
   ClientSessionContext, InputTriggerCrumb, InputTriggerServiceContract, InputTriggerSource,
@@ -37,9 +28,8 @@ import { abbreviateHomePath } from '@deepseek-ai/dsh-util-workspace-path'
 import { en, NS, zh, type ReferenceKey } from './locales.ts'
 
 /** Required services: the trigger registry, the Remote namespaces, and the copy. */
-/* 中文说明：变量 inject 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 export const inject = [
-  'inputTriggers', 'locale', 'connection', 'sessions', 'remote', 'remote.fileReferences',
+  'inputTriggers', 'locale', 'sessions', 'remote', 'remote.fileReferences',
   'remote.sessionReferenceResolver',
 ]
 
@@ -47,35 +37,28 @@ export const inject = [
  * Register the combined `@file` / `@session` source.
  * @param ctx - client root context.
  */
-/* 中文说明：函数 apply 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 export function apply(ctx: ClientContext): void {
   ctx.effect(() => ctx.locale.register(NS, { zh, en }), 'ui-reference: dictionaries')
-  /** 中文说明：变量 t 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const t = ctx.locale.bind(NS)
-  const connection = ctx.get('connection') as ConnectionHandle
   const sessions = ctx.get('sessions') as ISessions
   const source: InputTriggerSource = {
     trigger: '@',
     name: 'reference',
     showGroupTitle: false,
     async candidates(session: ClientSessionContext, { query, quoted, drilled, signal }) {
-      const fileLookup = ctx.remote.fileReferences.list(session.sessionId, query, signal).then(
-        result => result.ok ? result.value : [],
-        () => [],
-      )
+      const fileLookup = ctx.remote.fileReferences.list(session.sessionId, query, signal)
+        .then(result => result.ok ? result.value : [])
       const sessionLookup = quoted === true
         ? Promise.resolve([] as SessionReferenceMentionCandidate[])
-        : ctx.remote.sessionReferenceResolver.candidates(session.sessionId, query, signal).then(
-          result => result.ok ? result.value : [],
-          () => [],
-        )
+        : ctx.remote.sessionReferenceResolver.candidates(session.sessionId, query, signal)
+          .then(result => result.ok ? result.value : [])
       const [fileItems, sessionItems] = await Promise.all([fileLookup, sessionLookup])
       if (signal.aborted) return []
       // The header already names the directory being listed; rows repeat it only
       // when there is no header to carry it.
       const withLocation = crumbsFor(query, quoted === true, drilled, t) === undefined
       const now = Date.now()
-      const home = connection.generation.getSnapshot()?.host.home
+      const home = ctx.remote.$host.home
       const listed = sessions.list.getSnapshot().byId
       return [
         ...fileItems.flatMap(candidate => fileCandidate(candidate, quoted === true, withLocation, t)),
@@ -129,14 +112,12 @@ export function apply(ctx: ClientContext): void {
       serialize: ref => Promise.resolve(ref),
     },
   }
-  /** 中文说明：变量 inputTriggers 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const inputTriggers = ctx.get('inputTriggers') as InputTriggerServiceContract
   ctx.effect(() => inputTriggers.registerSource(source), 'ui-reference: @ source')
 }
 
 type Translate = (key: ReferenceKey, params?: Record<string, unknown>) => string
 
-/** 中文说明：type ReferenceCandidateValue 定义本模块所需的数据或行为，用于表达当前功能场景。 */
 type ReferenceCandidateValue =
   | { kind: 'file'; fileKind: FileReferenceCandidate['kind']; label: string; mention: string }
   | { kind: 'session'; label: string; mention: string }
@@ -201,7 +182,6 @@ function fileCandidate(
   const name = candidate.path.slice(slash + 1)
   const parent = slash < 0 ? '' : candidate.path.slice(0, slash)
   const directory = candidate.kind === 'directory'
-  /** 中文说明：变量 value 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const value: ReferenceCandidateValue = {
     kind: 'file',
     fileKind: candidate.kind,
@@ -248,7 +228,6 @@ function sessionCandidate(
   }
 }
 
-/** 中文说明：函数 parseCandidate 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function parseCandidate(value: string | undefined): ReferenceCandidateValue | undefined {
   if (value === undefined) return undefined
   return JSON.parse(value) as ReferenceCandidateValue

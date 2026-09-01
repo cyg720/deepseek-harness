@@ -3,7 +3,7 @@
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { GoalSnapshot } from '@deepseek-ai/dsh-goal/client'
-import { makeTranslate } from '@deepseek-ai/dsh-client-test-runtime'
+import { makeTranslate, RemoteError } from '@deepseek-ai/dsh-client-test-runtime'
 import { zh as commonZh } from '@deepseek-ai/dsh-client-locale/src/locales/zh.ts'
 import { GoalBar } from '../src/client/GoalBar.tsx'
 import type { GoalActionResult, GoalBarActions } from '../src/client/slots.ts'
@@ -13,7 +13,6 @@ const t: Parameters<typeof GoalBar>[0]['t'] = makeTranslate(zh, commonZh)
 
 afterEach(cleanup)
 
-/** 中文说明：函数 makeGoal 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function makeGoal(over: Partial<GoalSnapshot> = {}): GoalSnapshot {
   return {
     id: 'g1' as GoalSnapshot['id'],
@@ -25,7 +24,6 @@ function makeGoal(over: Partial<GoalSnapshot> = {}): GoalSnapshot {
   }
 }
 
-/** 中文说明：函数 makeActions 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function makeActions() {
   return {
     onEdit: vi.fn<GoalBarActions['onEdit']>(() => Promise.resolve({ ok: true, value: undefined })),
@@ -37,25 +35,20 @@ function makeActions() {
 
 describe('GoalBar', () => {
   it('renders nothing while loading, absent, or when the goal is complete', () => {
-    /** 中文说明：测试局部值 actions，由紧邻初始化决定。 */
     const actions = makeActions()
-    /** 中文说明：测试局部值 loading，由紧邻初始化决定。 */
     const loading = render(<GoalBar goal={undefined} {...actions} t={t} />)
     expect(loading.container.firstChild).toBeNull()
     cleanup()
 
-    /** 中文说明：测试局部值 absent，由紧邻初始化决定。 */
     const absent = render(<GoalBar goal={null} {...actions} t={t} />)
     expect(absent.container.firstChild).toBeNull()
     cleanup()
 
-    /** 中文说明：测试局部值 complete，由紧邻初始化决定。 */
     const complete = render(<GoalBar goal={makeGoal({ phase: 'complete' })} {...actions} t={t} />)
     expect(complete.container.firstChild).toBeNull()
   })
 
   it('active goal: goal glyph, "进行中的目标", truncated objective, edit and clear actions', () => {
-    /** 中文说明：测试局部值 actions，由紧邻初始化决定。 */
     const actions = makeActions()
     render(<GoalBar goal={makeGoal()} {...actions} t={t} />)
     expect(screen.getByText('进行中的目标')).toBeTruthy()
@@ -65,14 +58,10 @@ describe('GoalBar', () => {
   })
 
   it('single-flights rapid clear clicks and hides the committed goal before its projection catches up', async () => {
-    /** 中文说明：测试局部值 actions，由紧邻初始化决定。 */
     const actions = makeActions()
-    /** 中文说明：测试局部值 resolveClear，由紧邻初始化决定。 */
     let resolveClear!: (result: GoalActionResult) => void
     actions.onClear.mockImplementation(() => new Promise((resolve) => { resolveClear = resolve }))
-    /** 中文说明：测试局部值 { container, rerender }，由紧邻初始化决定。 */
     const { container, rerender } = render(<GoalBar goal={makeGoal()} {...actions} t={t} />)
-    /** 中文说明：测试局部值 clear，由紧邻初始化决定。 */
     const clear = screen.getByRole<HTMLButtonElement>('button', { name: '清除目标' })
 
     act(() => {
@@ -90,11 +79,9 @@ describe('GoalBar', () => {
   })
 
   it('edit swaps the strip for a prefilled form; Enter saves, empty stays disabled', async () => {
-    /** 中文说明：测试局部值 actions，由紧邻初始化决定。 */
     const actions = makeActions()
     render(<GoalBar goal={makeGoal()} {...actions} t={t} />)
     fireEvent.click(screen.getByRole('button', { name: '编辑目标' }))
-    /** 中文说明：测试局部值 box，由紧邻初始化决定。 */
     const box = screen.getByRole('textbox', { name: '目标内容' })
     expect(box).toHaveProperty('value', 'Ship the redesign')
 
@@ -108,7 +95,6 @@ describe('GoalBar', () => {
   })
 
   it('Esc cancels the edit without calling onEdit', () => {
-    /** 中文说明：测试局部值 actions，由紧邻初始化决定。 */
     const actions = makeActions()
     render(<GoalBar goal={makeGoal()} {...actions} t={t} />)
     fireEvent.click(screen.getByRole('button', { name: '编辑目标' }))
@@ -118,7 +104,6 @@ describe('GoalBar', () => {
   })
 
   it('the cancel button exits the form and drops the draft (re-edit starts from the objective)', () => {
-    /** 中文说明：测试局部值 actions，由紧邻初始化决定。 */
     const actions = makeActions()
     render(<GoalBar goal={makeGoal()} {...actions} t={t} />)
     fireEvent.click(screen.getByRole('button', { name: '编辑目标' }))
@@ -132,11 +117,9 @@ describe('GoalBar', () => {
   })
 
   it('Enter with a blank draft neither saves nor closes the form', () => {
-    /** 中文说明：测试局部值 actions，由紧邻初始化决定。 */
     const actions = makeActions()
     render(<GoalBar goal={makeGoal()} {...actions} t={t} />)
     fireEvent.click(screen.getByRole('button', { name: '编辑目标' }))
-    /** 中文说明：测试局部值 box，由紧邻初始化决定。 */
     const box = screen.getByRole('textbox', { name: '目标内容' })
     fireEvent.change(box, { target: { value: '   ' } })
     fireEvent.keyDown(box, { key: 'Enter' })
@@ -145,7 +128,6 @@ describe('GoalBar', () => {
   })
 
   it('active goal: the pause action pauses', () => {
-    /** 中文说明：测试局部值 actions，由紧邻初始化决定。 */
     const actions = makeActions()
     render(<GoalBar goal={makeGoal()} {...actions} t={t} />)
     fireEvent.click(screen.getByRole('button', { name: '暂停目标' }))
@@ -153,7 +135,6 @@ describe('GoalBar', () => {
   })
 
   it('paused goal: "已暂停的目标" with a resume action before edit', () => {
-    /** 中文说明：测试局部值 actions，由紧邻初始化决定。 */
     const actions = makeActions()
     render(<GoalBar goal={makeGoal({ phase: 'paused' })} {...actions} t={t} />)
     expect(screen.getByText('已暂停的目标')).toBeTruthy()
@@ -162,9 +143,7 @@ describe('GoalBar', () => {
   })
 
   it('a new goal identity drops the edit form (no stale draft over the new goal)', () => {
-    /** 中文说明：测试局部值 actions，由紧邻初始化决定。 */
     const actions = makeActions()
-    /** 中文说明：测试局部值 { rerender }，由紧邻初始化决定。 */
     const { rerender } = render(<GoalBar goal={makeGoal()} {...actions} t={t} />)
     fireEvent.click(screen.getByRole('button', { name: '编辑目标' }))
     fireEvent.change(screen.getByRole('textbox', { name: '目标内容' }), { target: { value: 'stale draft' } })
@@ -179,9 +158,7 @@ describe('GoalBar', () => {
   })
 
   it('blocked goal: "受阻的目标" with the block reason as the strip tooltip', () => {
-    /** 中文说明：测试局部值 actions，由紧邻初始化决定。 */
     const actions = makeActions()
-    /** 中文说明：测试局部值 goal，由紧邻初始化决定。 */
     const goal = makeGoal({ phase: 'blocked', blockedReason: { code: 'stalled', message: 'No progress in 3 rounds' } })
     render(<GoalBar goal={goal} {...actions} t={t} />)
     expect(screen.getByText('受阻的目标')).toBeTruthy()
@@ -189,7 +166,6 @@ describe('GoalBar', () => {
   })
 
   it('blocked goal without a reason carries no tooltip', () => {
-    /** 中文说明：测试局部值 actions，由紧邻初始化决定。 */
     const actions = makeActions()
     render(<GoalBar goal={makeGoal({ phase: 'blocked' })} {...actions} t={t} />)
     expect(screen.getByText('受阻的目标')).toBeTruthy()
@@ -197,33 +173,33 @@ describe('GoalBar', () => {
   })
 
   it('keeps the edit draft open and reports a failed save', async () => {
-    /** 中文说明：测试局部值 actions，由紧邻初始化决定。 */
     const actions = makeActions()
-    actions.onEdit.mockResolvedValue({ ok: false, error: { code: 'agent-busy', message: 'stale revision', details: {} } })
+    actions.onEdit.mockResolvedValue({
+      ok: false, error: new RemoteError('session/agent-busy', 'stale revision', { reason: 'stale revision' }),
+    })
     render(<GoalBar goal={makeGoal()} {...actions} t={t} />)
     fireEvent.click(screen.getByRole('button', { name: '编辑目标' }))
-    /** 中文说明：测试局部值 box，由紧邻初始化决定。 */
     const box = screen.getByRole('textbox', { name: '目标内容' })
     fireEvent.change(box, { target: { value: 'retry this draft' } })
     fireEvent.click(screen.getByRole('button', { name: '保存目标' }))
 
-    expect((await screen.findByRole('alert')).textContent).toBe('stale revision (agent-busy)')
+    expect((await screen.findByRole('alert')).textContent).toBe('stale revision (session/agent-busy)')
     expect(screen.getByRole('textbox', { name: '目标内容' })).toHaveProperty('value', 'retry this draft')
   })
 
   it('reports resume and clear failures without hiding the goal', async () => {
-    /** 中文说明：测试局部值 actions，由紧邻初始化决定。 */
     const actions = makeActions()
-    actions.onResume.mockResolvedValue({ ok: false, error: { code: 'internal', message: 'resume failed', details: {} } })
-    /** 中文说明：测试局部值 { rerender }，由紧邻初始化决定。 */
+    actions.onResume.mockResolvedValue({ ok: false, error: new RemoteError('gateway/internal', 'resume failed', {}) })
     const { rerender } = render(<GoalBar goal={makeGoal({ phase: 'paused' })} {...actions} t={t} />)
     fireEvent.click(screen.getByRole('button', { name: '恢复目标' }))
-    expect((await screen.findByRole('alert')).textContent).toBe('resume failed (internal)')
+    expect((await screen.findByRole('alert')).textContent).toBe('resume failed (gateway/internal)')
 
-    actions.onClear.mockResolvedValue({ ok: false, error: { code: 'agent-busy', message: 'clear failed', details: {} } })
+    actions.onClear.mockResolvedValue({
+      ok: false, error: new RemoteError('session/agent-busy', 'clear failed', { reason: 'clear failed' }),
+    })
     rerender(<GoalBar goal={makeGoal()} {...actions} t={t} />)
     fireEvent.click(screen.getByRole('button', { name: '清除目标' }))
-    expect((await screen.findByRole('alert')).textContent).toBe('clear failed (agent-busy)')
+    expect((await screen.findByRole('alert')).textContent).toBe('clear failed (session/agent-busy)')
     expect(screen.getByText('Ship the redesign')).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: '清除目标' }))
     await waitFor(() => { expect(actions.onClear).toHaveBeenCalledTimes(2) })

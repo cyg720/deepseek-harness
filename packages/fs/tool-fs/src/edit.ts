@@ -1,46 +1,20 @@
 /**
- * ================================ 文件注释 ================================
- * 【文件职责】面向模型的"字面编辑"工具，默认要求唯一匹配。它从单意图槽取可选守卫，
- * 直接调用 ctx.fs.editText（不单独 stat），然后记录观察到的版本；没有策略时是
- * 无条件原子编辑。
- * 【技术维度】defineTool 注册：schema 校验四个参数（+可选升级字段）；execute 流程 =
- * 解析策略 → 解析目标 → waterfall 取版本守卫 → editText（带信号与策略）→ 发
- * observed 事件 → 返回 { path, before, after }；意图槽本身可能抛 FS_NOT_OBSERVED
- * （未读文件），与提供者守卫失败一起进补救；展示层 presentCall/presentResult 负责
- * diff 卡片。
- * 【产品维度】模型做"精准小改动"的标准工具：字面替换 + 默认唯一匹配（多处命中时
- * 要求更具体的 old_string 或 replace_all），读后编辑由观察态策略强制。
- * 【逻辑维度】按出现顺序：EditInput（校验后输入）→ EditToolArgs（含升级字段参数）→
- * parseEditArgs（约束校验）→ formatEditOutput（结果文案）→ applyEditTool（注册）。
- * 【关键边界】old_string 必须非空且与 new_string 不同（相同 = 必然空操作）；
- * 版本守卫先于字面匹配（过期内容报 STALE 而非 NOT_FOUND）；replaceAll 默认 false。
- * 【新手阅读建议】先看 parseEditArgs 的三个约束，再看 execute 的意图槽与错误链，
- * 最后看 presentCall 的 oldText 约定（匹配 claude-agent-acp 的 Edit 臂）。
- * ==========================================================================
- */
-/**
  * Model-facing literal edit, unique-match by default. It obtains an optional guard from the
  * single intent slot, calls `ctx.fs.editText` without a separate stat, then records the observed
  * version; no policy means an unconditional atomic edit.
  * @module @deepseek-ai/dsh-tool-fs/src/edit
- */
-/*
- * 模块总览：本文件是 edit 工具的定义与执行体。观察态策略加载后，"编辑未读文件"
- * 会被意图槽以 FS_NOT_OBSERVED 拒绝。
  */
 
 import type { Context } from '@deepseek-ai/cordis'
 import { defineTool } from '@deepseek-ai/dsh-tools'
 import type { DiffCallView, DiffResultView, ToolResult } from '@deepseek-ai/dsh-tools'
 import type {} from '@deepseek-ai/dsh-fs'
-import { FIRST_PARTY_SECTION_ORDER } from '@deepseek-ai/dsh-system-prompt'
 import { computeHunkDiffs, diffsFromMeta } from './diff.ts'
 import { remediateFsError } from './error.ts'
 import { sessionResolveOptions } from './session-cwd.ts'
 import type { FsSandboxController } from './sandbox.ts'
 
 /** Validated `edit` arguments after defaulting. */
-/* 默认化后的已校验 edit 参数。 */
 interface EditInput {
   filePath: string
   oldString: string
@@ -52,10 +26,6 @@ interface EditInput {
  * The `edit` tool's validated arguments: the base parameters plus the two
  * escalation fields, advertised only under a confining `ctx.fs` (absent from
  * the schema otherwise, so the validator rejects them before `execute`).
- */
-/*
- * edit 工具的已校验参数：基础参数加两个升级字段（只在有围栏 ctx.fs 下被广告；
- * 否则 schema 里没有它们，校验器在 execute 之前就拒绝）。
  */
 interface EditToolArgs {
   file_path: string
@@ -72,12 +42,6 @@ interface EditToolArgs {
  * (an equal pair would be a guaranteed no-op edit).
  * @param args - the schema-validated raw tool arguments.
  * @returns the camelCased input with `replace_all` defaulted to false.
- */
-/*
- * 校验 schema DSL 表达不了的值约束：file_path 非空白、old_string 非空、
- * old_string 与 new_string 不同（相等 = 必然的空操作编辑）。
- * @param args 已通过 schema 校验的原始工具参数。
- * @returns 驼峰化输入，replace_all 默认 false。
  */
 export function parseEditArgs(args: { file_path: string; old_string: string; new_string: string; replace_all?: boolean }): EditInput {
   if (args.file_path.trim().length === 0) throw new Error('file_path must be a non-empty string')
@@ -97,12 +61,6 @@ export function parseEditArgs(args: { file_path: string; old_string: string; new
  * @param replaceAll - selects the all-occurrences wording over the single-replacement one.
  * @returns the confirmation sentence the model sees as the tool result.
  */
-/*
- * 把编辑成功（单匹配或全替换）格式化成 Claude 风格、模型可见的消息。
- * @param displayPath 展示给模型的后端解析路径。
- * @param replaceAll 选择"全部替换"措辞还是"单次替换"措辞。
- * @returns 模型作为工具结果看到的确认句。
- */
 export function formatEditOutput(displayPath: string, replaceAll: boolean): string {
   return replaceAll
     ? `The file ${displayPath} has been updated. All occurrences were successfully replaced.`
@@ -114,15 +72,10 @@ export function formatEditOutput(displayPath: string, replaceAll: boolean): stri
  * @param ctx - the plugin context; registrations are effects scoped to it, and execution uses its `fs` service.
  * @param sandbox - the shared sandbox-escalation API (advertisement, mode stamping, denial mapping).
  */
-/*
- * 注册 edit 工具与其系统提示指南。
- * @param ctx 插件上下文；注册是作用域于它的副作用，执行使用其 fs 服务。
- * @param sandbox 共享的沙箱升级 API（广告、模式盖章、拒绝映射）。
- */
 export function applyEditTool(ctx: Context, sandbox: FsSandboxController): void {
   ctx.systemPrompt.section({
     name: 'tool:edit',
-    order: FIRST_PARTY_SECTION_ORDER.TOOL_EDIT,
+    order: ctx.systemPrompt.getSectionOrder('TOOL_EDIT'),
     text: 'Use the edit tool for targeted changes to existing UTF-8 text files. It replaces literal old_string with new_string; by default old_string must appear exactly once. If old_string appears multiple times, provide a more specific old_string or set replace_all to true. Read the file first (the default fs-observation-policy requires it), unless you just created or edited it in this session.',
   })
 
@@ -146,7 +99,6 @@ export function applyEditTool(ctx: Context, sandbox: FsSandboxController): void 
           after: { type: 'string', required: true },
         },
       },
-      // 模型可见确认文本 + 结果时展示元数据（字面替换的上下文 diff）。
       render: (args, value) => [{
         type: 'text',
         text: formatEditOutput(value.path, args.replace_all ?? false),
@@ -160,8 +112,6 @@ export function applyEditTool(ctx: Context, sandbox: FsSandboxController): void 
       const input = parseEditArgs(args)
       // Resolve the per-call sandbox policy (approved mode > session override
       // > backend default, plus the session cwd root) BEFORE anything executes.
-      // 中文说明：在一切执行之前解析按调用沙箱策略（批准模式 > 会话覆盖 >
-      // 后端默认，再加会话 cwd 根）。
       const sandboxPolicy = await sandbox.resolvePolicy('edit', args, exec)
       const target = await ctx.fs.resolve(input.filePath, sessionResolveOptions(exec, input.filePath, sandboxPolicy?.workspaceRoot))
       // Single-slot decision: the policy plugin returns { version: vObserved } or
@@ -170,10 +120,6 @@ export function applyEditTool(ctx: Context, sandbox: FsSandboxController): void 
       // slot itself can throw FS_NOT_OBSERVED for an unread target, so it sits
       // inside the try: both that refusal and the provider's guarded-mutation
       // failure get the model-facing remedy below.
-      // 中文说明：单槽决策——策略插件返回 { version: vObserved } 或抛 FS_NOT_OBSERVED；
-      // 裸默认是 undefined（无条件编辑）。不做 stat——裸默认从不制造版本基础。
-      // 意图槽本身可能对未读目标抛 FS_NOT_OBSERVED，所以放在 try 内：它和提供者
-      // 的守卫失败都会在下面获得模型侧补救。
       let outcome
       try {
         const intent = await ctx.waterfall('fs/edit-intent', target, exec, () => undefined)
@@ -188,8 +134,6 @@ export function applyEditTool(ctx: Context, sandbox: FsSandboxController): void 
         // A sandbox denial becomes the shared [sandbox: …] marker (the model
         // recognizes it from bash); stale/not-observed failures gain their
         // model-facing remedy; anything else passes through.
-        // 中文说明：沙箱拒绝变成共享 [sandbox: …] 标记；过期/未观察失败获得
-        // 模型侧补救；其它错误穿透。
         throw remediateFsError(sandbox.mapError(error, sandboxPolicy))
       }
       ctx.emit('fs/observed', target, { kind: 'present', version: outcome.version }, exec)
@@ -202,9 +146,6 @@ export function applyEditTool(ctx: Context, sandbox: FsSandboxController): void 
     // Pure display: a diff card of the literal replacement (old_string → new_string), derived
     // from the call args. `oldText: old_string || null` matches claude-agent-acp's Edit arm;
     // new_string is a required arg here, so it maps straight to newText.
-    // 中文说明：纯展示——字面替换（old_string → new_string）的 diff 卡片，从调用参数
-    // 派生。oldText: old_string 或 null 与 claude-agent-acp 的 Edit 臂一致；new_string
-    // 在这里是必填参数，直接映射到 newText。
     presentCall(args): DiffCallView {
       return {
         card: 'diff',
@@ -215,7 +156,6 @@ export function applyEditTool(ctx: Context, sandbox: FsSandboxController): void 
     },
     // Applied metadata replaces the call-time snippet; errors or malformed replay metadata use
     // the generic result rendering.
-    // 中文说明：已应用元数据替换调用时片段；错误或畸形的重放元数据走通用结果渲染。
     presentResult(args, result: ToolResult): DiffResultView | undefined {
       if (result.isError) return undefined
       const diffs = diffsFromMeta(result.meta)

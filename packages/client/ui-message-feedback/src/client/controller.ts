@@ -1,18 +1,3 @@
-/*
- * ================================ 文件注释 ================================
- * 【文件职责】会话级消息反馈的浏览器本地对象层：一个会话一个实例，支撑该会话内
- *             所有消息控件的赞/踩状态；一次列表读取种子化全部。
- * 【技术维度】HostObservable（快照 + 订阅）+ CAS：每次变更携带控制器最后观察到的
- *             版本号；version-conflict 应答带权威条目，丢失的竞争从应答本身调和。
- * 【产品维度】每条助手消息的赞/踩、备注与清除操作的数据层。
- * 【逻辑维度】ensure 懒加载 → mutate 串行化变更（排队等待前一变更、先种子读取）
- *             → putCommitted/deleteCommitted 带版本提交 → 冲突时用应答条目调和
- *             → commit/publish 发布新视图。
- * 【关键边界】变更必须串行（否则旧版本覆盖新提交）；resync 供重连使用（避免
- *             反序列化的旧列表覆盖新版本）；dispose 后拒绝一切工作。
- * 【新手阅读建议】先看 mutate 的串行化模型，再看 rate/toggle 如何基于已提交条目决策。
- * ==========================================================================
- */
 /**
  * Browser-local object layer over one Session's durable message-feedback
  * sidecar. The Host owns per-item compare-and-set: every mutation carries the
@@ -22,45 +7,19 @@
  * @module @deepseek-ai/dsh-client-ui-message-feedback/client/controller
  */
 
-import type { RemoteResult } from '@deepseek-ai/dsh-typert-protocol'
+import type { Context as ClientContext } from '@deepseek-ai/cordis'
 import type { HostObservable } from '@deepseek-ai/dsh-client-ui-slots'
-import type { MessageId } from '@deepseek-ai/dsh-client-connection/client'
+import type { MessageId } from '@deepseek-ai/dsh-api-remotes/client'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import type {
-  MessageFeedbackDeleteResult,
   MessageFeedbackItem,
-  MessageFeedbackListResult,
-  MessageFeedbackPutResult,
   MessageFeedbackRating,
 } from '@deepseek-ai/dsh-message-feedback/types'
-
-/**
- * The three Remote calls this controller needs. The generated face wraps every
- * business result in {@link RemoteResult}: a carrier failure arrives as the
- * `ok: false` branch rather than a rejection, so this controller reads one
- * envelope and never wraps a call to recover a transport error.
- */
-export interface MessageFeedbackRemote {
-  list: (request: { sessionId: SessionId }) => Promise<RemoteResult<MessageFeedbackListResult>>
-  put: (request: {
-    sessionId: SessionId
-    messageId: MessageId
-    rating: MessageFeedbackRating
-    note?: string
-    ifVersion: MessageFeedbackItem['version'] | null
-  }) => Promise<RemoteResult<MessageFeedbackPutResult>>
-  delete: (request: {
-    sessionId: SessionId
-    messageId: MessageId
-    ifVersion: MessageFeedbackItem['version']
-  }) => Promise<RemoteResult<MessageFeedbackDeleteResult>>
-}
 
 /** Load state of the one list read that seeds every per-message control. */
 export type MessageFeedbackStatus = 'cold' | 'loading' | 'ready' | 'error'
 
 /** Immutable view published to every per-message control in one Session. */
-// 发布给会话内所有消息控件的不可变视图：状态、按消息的条目表与最近错误。
 export interface MessageFeedbackView {
   status: MessageFeedbackStatus
   /** Current item per message, keyed by the addressed message id. */
@@ -127,11 +86,11 @@ export class MessageFeedbackController implements HostObservable<MessageFeedback
   private disposed = false
 
   /**
-   * @param remote - the messageFeedback Remote namespace.
+   * @param ctx - the browser plugin context carrying the messageFeedback Remote namespace.
    * @param sessionId - Session owning every addressed assistant message.
    */
   constructor(
-    private readonly remote: MessageFeedbackRemote,
+    private readonly ctx: ClientContext,
     private readonly sessionId: SessionId,
   ) {}
 
@@ -259,7 +218,7 @@ export class MessageFeedbackController implements HostObservable<MessageFeedback
     note: string | undefined,
     observed: MessageFeedbackItem | undefined,
   ): Promise<MessageFeedbackActionResult> {
-    const carried = await this.remote.put({
+    const carried = await this.ctx.remote.messageFeedback.put({
       sessionId: this.sessionId,
       messageId,
       rating,
@@ -281,7 +240,7 @@ export class MessageFeedbackController implements HostObservable<MessageFeedback
     messageId: MessageId,
     observed: MessageFeedbackItem,
   ): Promise<MessageFeedbackActionResult> {
-    const carried = await this.remote.delete({
+    const carried = await this.ctx.remote.messageFeedback.delete({
       sessionId: this.sessionId,
       messageId,
       ifVersion: observed.version,
@@ -304,34 +263,26 @@ export class MessageFeedbackController implements HostObservable<MessageFeedback
 
   /** Fetch the whole sidecar and publish it as the seeded view. */
   private async load(): Promise<MessageFeedbackActionResult> {
-    try {
-      const carried = await this.remote.list({ sessionId: this.sessionId })
-      if (this.disposed) return OK
-      if (!carried.ok) {
-        this.publish({ status: 'error', items: this.view.items, error: carried.error.message })
-        return carrierFailure(carried.error)
-      }
-      const result = carried.value
-      if (!result.ok) {
-        this.publish({ status: 'error', items: this.view.items, error: describe(result.error.code) })
-        return fail(result.error.code)
-      }
-      const items = new Map<MessageId, MessageFeedbackItem>()
-      for (const item of result.value.items) items.set(item.messageId, item)
-      this.publish({ status: 'ready', items, error: null })
-      return OK
-    } catch (error) {
-      if (this.disposed) return OK
-      const message = error instanceof Error ? error.message : String(error)
-      this.publish({ status: 'error', items: this.view.items, error: message })
-      return { ok: false, error: { code: 'transport', message } }
+    const carried = await this.ctx.remote.messageFeedback.list({ sessionId: this.sessionId })
+    if (this.disposed) return OK
+    if (!carried.ok) {
+      this.publish({ status: 'error', items: this.view.items, error: carried.error.message })
+      return carrierFailure(carried.error)
     }
+    const result = carried.value
+    if (!result.ok) {
+      this.publish({ status: 'error', items: this.view.items, error: describe(result.error.code) })
+      return fail(result.error.code)
+    }
+    const items = new Map<MessageId, MessageFeedbackItem>()
+    for (const item of result.value.items) items.set(item.messageId, item)
+    this.publish({ status: 'ready', items, error: null })
+    return OK
   }
 
   /**
    * Serialize one mutation behind this Session's prior mutation so queued
-   * operations always compare against the committed version, and translate a
-   * transport throw into the same settled shape the controls already render.
+   * operations always compare against the committed version.
    */
   private mutate(
     operation: () => Promise<MessageFeedbackActionResult>,
@@ -347,17 +298,7 @@ export class MessageFeedbackController implements HostObservable<MessageFeedback
         // oxlint-disable-next-line typescript/no-unnecessary-condition -- dispose() can run during the await.
         if (this.disposed) return DISPOSED
       }
-      try {
-        return await operation()
-      } catch (error) {
-        return {
-          ok: false,
-          error: {
-            code: 'transport',
-            message: error instanceof Error ? error.message : String(error),
-          },
-        }
-      }
+      return await operation()
     }
     const result = this.operationTail.then(guarded, guarded)
     // `guarded` settles every carrier and business failure as a

@@ -1,11 +1,3 @@
-/**
- * 文件职责：从构建后的 Node 入口端到端验证 CLI 参数、配置生命周期、环境来源和热重载。
- * 技术维度：使用 Execa、临时文件系统、动态测试插件、模拟 LLM 服务和真实构建产物。
- * 产品维度：保证发布包无需 tsx 即可正确启动各配置、处理错误、响应信号并应用用户补丁。
- * 逻辑维度：提供构建入口运行器和多种临时配置夹具，再按用户场景验证进程输出与持久标记。
- * 关键边界：仅在 lib/bin.js 存在时执行；每个长期进程都必须有超时、退出信号和目录清理。
- * 新手阅读建议：先看 runBuiltBin，再看两个 Fixture 创建器，最后按 describe 中的场景逐项阅读。
- */
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -26,8 +18,6 @@ import * as yaml from 'js-yaml'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 
 /** Published-entry acceptance for argument errors, profile lifecycle, and boot-free config dumps. */
-/* 发布入口的参数错误、配置生命周期和免启动配置导出验收测试。 */
-/** 仓库根目录。 */
 const repoRoot = fileURLToPath(new URL('../../../', import.meta.url))
 // The dsh built bin cold-starts slowly on the contended self-hosted Windows pool; the
 // execa deadline, its error text, the outer vitest case budget, and waitForFile all
@@ -35,33 +25,19 @@ const repoRoot = fileURLToPath(new URL('../../../', import.meta.url))
 const SPAWN_TIMEOUT_MS = 60_000
 // The release version, including a prerelease such as 0.0.1-rc.1: `--version`
 // prints what this manifest carries, so no test may pin it to a literal.
-// 版本断言读取真实清单，包含预发布后缀，不能在测试中写死。
-/** CLI 包清单中的真实发布版本。 */
 const cliVersion = (JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')) as { version: string }).version
-/** 构建后的 CLI Node 入口。 */
 const dshBin = join(repoRoot, 'apps/cli/lib/bin.js')
-/** 用于验证补丁启动失败诊断的非法提供方配置。 */
 const invalidProvider = fileURLToPath(new URL('./fixtures/invalid-provider.cordis.yml', import.meta.url))
 
-/**
- * 运行构建版 CLI 并收集稳定的文本输出与退出码。
- * @param args 用户命令行参数。
- * @param env 覆盖或删除的子进程环境变量。
- * @param cwd 可选启动目录。
- * @returns 标准输出、退出码和标准错误。
- * @example `await runBuiltBin(['--version'])`
- */
 async function runBuiltBin(
   args: readonly string[] = [],
   env: Readonly<Record<string, string | undefined>> = {},
   cwd?: string,
 ): Promise<{ stdout: string; code: number; stderr: string }> {
-  /** 合并当前进程和测试覆盖后移除 undefined 项的子进程环境。 */
   const childEnv = Object.fromEntries(
     Object.entries({ ...process.env, ...env })
       .filter((entry): entry is [string, string] => entry[1] !== undefined),
   )
-  /** 构建版 CLI 子进程的完成结果。 */
   const result = await execa(process.execPath, [dshBin, ...args], {
     input: '',
     timeout: SPAWN_TIMEOUT_MS,
@@ -77,12 +53,6 @@ async function runBuiltBin(
   return { stdout: result.stdout, code: result.exitCode ?? -1, stderr: result.stderr }
 }
 
-/**
- * 轮询等待生命周期标记文件出现。
- * @param file 预期出现的绝对文件路径。
- * @returns 文件出现时完成的 Promise。
- * @example `await waitForFile(fixture.ready)`
- */
 async function waitForFile(file: string): Promise<void> {
   const deadline = Date.now() + SPAWN_TIMEOUT_MS
   while (!existsSync(file)) {
@@ -91,7 +61,6 @@ async function waitForFile(file: string): Promise<void> {
   }
 }
 
-/** 长期配置生命周期夹具的主目录和阶段标记路径。 */
 interface ProfileLifecycleFixture {
   home: string
   ready: string
@@ -105,23 +74,12 @@ interface ProfileLifecycleFixture {
  * dsh.profile.bundles, no dsh-base — proving out-of-box composition machinery without
  * booting the entire product tree.
  */
-/*
- * 创建只含生命周期标记 bundle 的最小临时配置。
- * @returns 配置主目录及就绪、稳定、释放和中断标记路径。
- * @example `const fixture = createProfileLifecycleFixture()`
- */
 function createProfileLifecycleFixture(): ProfileLifecycleFixture {
-  /** 本夹具隔离的 DSH_HOME。 */
   const home = mkdtempSync(join(tmpdir(), 'dsh-profile-lifecycle-'))
-  /** 插件完成初始挂载的标记。 */
   const ready = join(home, 'ready')
-  /** Loader 全部稳定后的标记。 */
   const settled = join(home, 'settled')
-  /** 插件释放效果执行后的标记。 */
   const disposed = join(home, 'disposed')
-  /** Windows 用于模拟 SIGTERM 的文件标记。 */
   const interrupt = join(home, 'interrupt')
-  /** 动态生命周期 bundle 的源码目录。 */
   const bundleDir = join(home, 'lifecycle-bundle')
   mkdirSync(bundleDir, { recursive: true })
   writeFileSync(join(bundleDir, 'plugin.mjs'), [
@@ -174,16 +132,13 @@ function createProfileLifecycleFixture(): ProfileLifecycleFixture {
     dsh: { profile: { bundles: ['dsh-lifecycle-bundle'] } },
   }, undefined, 2))
   // Hand-place the "installed" bundle where profile resolution finds it.
-  // 将 bundle 直接放入配置的 node_modules，使真实解析流程可以找到它。
   writeFileSync(join(profileDir, 'cordis.patch.yml'), '[]\n')
   const linkTarget = join(profileDir, 'node_modules', 'dsh-lifecycle-bundle')
   mkdirSync(join(profileDir, 'node_modules'), { recursive: true })
   try {
     rmSync(linkTarget, { recursive: true, force: true })
   } catch { /* fresh dir */ }
-  /* 新建临时目录通常没有旧链接，此异常可安全忽略。 */
   // Copy-free: a package.json redirecting via a relative main is enough for require.resolve.
-  // 无需额外打包，复制最小包文件即可让 require.resolve 找到测试 bundle。
   mkdirSync(linkTarget, { recursive: true })
   for (const file of ['package.json', 'cordis.patch.yml', 'plugin.mjs']) {
     writeFileSync(join(linkTarget, file), readFileSync(join(bundleDir, file)))
@@ -191,7 +146,6 @@ function createProfileLifecycleFixture(): ProfileLifecycleFixture {
   return { home, ready, settled, disposed, interrupt }
 }
 
-/** 启动长期生命周期测试配置；参数为夹具和应用参数，返回 Execa 子进程。 */
 function startProfileLifecycle(fixture: ProfileLifecycleFixture, args: readonly string[] = []) {
   return execa(process.execPath, [dshBin, '--profile', 'lifecycle', ...args], {
     cwd: fixture.home,
@@ -209,13 +163,6 @@ function startProfileLifecycle(fixture: ProfileLifecycleFixture, args: readonly 
   })
 }
 
-/**
- * 跨平台请求生命周期子进程关闭。
- * @param child 支持发送信号的子进程。
- * @param fixture 提供 Windows 中断标记路径的夹具。
- * @returns 无返回值。
- * @example `requestProfileShutdown(child, fixture)`
- */
 function requestProfileShutdown(
   child: Pick<ReturnType<typeof startProfileLifecycle>, 'kill'>,
   fixture: Pick<ProfileLifecycleFixture, 'interrupt'>,
@@ -227,15 +174,7 @@ function requestProfileShutdown(
   child.kill('SIGTERM')
 }
 
-/**
- * 创建通过真实 LLM 请求回显环境端点和托管凭据的最小配置。
- * @param home 配置主目录。
- * @param project 动态插件文件目录。
- * @returns 无返回值。
- * @example `createEnvironmentProbeProfile(home, project)`
- */
 function createEnvironmentProbeProfile(home: string, project: string): void {
-  /** 动态环境探针插件路径。 */
   const pluginFile = join(project, 'environment-probe.mjs')
   writeFileSync(pluginFile, [
     "export const name = 'environment-probe'",
@@ -258,7 +197,6 @@ function createEnvironmentProbeProfile(home: string, project: string): void {
     '}',
     '',
   ].join('\n'))
-  /** 环境探针配置目录。 */
   const profileDir = join(home, 'profiles', 'environment-probe')
   mkdirSync(profileDir, { recursive: true })
   writeFileSync(join(profileDir, 'package.json'), JSON.stringify({
@@ -275,14 +213,12 @@ function createEnvironmentProbeProfile(home: string, project: string): void {
   ].join('\n'))
 }
 
-/** 应用参数注入与热重载夹具的关键文件路径。 */
 interface StartupFixture {
   home: string
   ready: string
   echo: string
   interrupt: string
   /** An always-running row's echo, used to observe that a user patch reload landed. */
-  /* 常驻行写入的回显文件，用于确认用户补丁重载已经生效。 */
   witness: string
 }
 
@@ -293,21 +229,12 @@ interface StartupFixture {
  * `@deepseek-ai/dsh-cmdline` and `commander` through the profile module
  * fallback, exactly as an installed out-of-tree bundle does.
  */
-/*
- * 创建验证应用参数延迟注入和用户补丁热重载的临时配置。
- * @returns 主目录及就绪、配置回显、中断和监听回显路径。
- * @example `const fixture = createStartupFixture()`
- */
 function createStartupFixture(): StartupFixture {
-  /** 本夹具隔离的 DSH_HOME。 */
   const home = mkdtempSync(join(tmpdir(), 'dsh-profile-startup-'))
-  /** startup 配置目录。 */
   const profileDir = join(home, 'profiles', 'startup')
   // Written straight into the installed location: a row module resolves its
   // own imports from where it is installed, and only inside the profile does
   // Node's parent walk reach the installation fallback these plugins need.
-  // 动态模块直接写入安装位置，使 Node 父级查找能命中配置专属依赖回退。
-  /** 动态 startup bundle 的安装目录。 */
   const bundleDir = join(profileDir, 'node_modules', 'dsh-startup-bundle')
   mkdirSync(bundleDir, { recursive: true })
   writeFileSync(join(bundleDir, 'startup.mjs'), [
@@ -355,7 +282,6 @@ function createStartupFixture(): StartupFixture {
     '      inject: [fixtureStartup]',
     '      config:',
     // Lazy interpolation runs only after the provider's service is injected.
-    // 延迟表达式只会在参数提供方服务注入后求值。
     "        generation: !!js ctx.fixtureStartup.generation ?? 'bundle-default'",
     '    - id: fixture-startup',
     `      name: ${pathToFileURL(join(bundleDir, 'startup.mjs')).href}`,
@@ -385,7 +311,6 @@ function createStartupFixture(): StartupFixture {
   }
 }
 
-/** 启动参数与热重载测试配置；参数为夹具和应用参数，返回 Execa 子进程。 */
 function startStartupProfile(fixture: StartupFixture, args: readonly string[]) {
   return execa(process.execPath, [dshBin, '--profile', 'startup', ...args], {
     cwd: fixture.home,
@@ -1025,13 +950,28 @@ describe.skipIf(!existsSync(dshBin))('dsh BUILT bin (node lib/bin.js, no tsx)', 
         ['plugin-package-inventory-deepseek', '@deepseek-ai/dsh-plugin-package-inventory-deepseek'],
         ['llm-deepseek', '@deepseek-ai/dsh-llm-deepseek'],
         ['sandbox', '@deepseek-ai/dsh-sandbox-local'],
+        ['session-projection', '@deepseek-ai/dsh-session-projection'],
         ['sandbox-policy', '@deepseek-ai/dsh-sandbox-policy'],
         ['subprocess', '@deepseek-ai/dsh-subprocess-local'],
         ['pty', '@deepseek-ai/dsh-terminal'],
         ['terminal-bash', '@deepseek-ai/dsh-terminal-bash'],
         ['terminal-pwsh', '@deepseek-ai/dsh-terminal-bash'],
         ['fs-local', '@deepseek-ai/dsh-fs-local'],
-        ['agent-spine', '@deepseek-ai/dsh-agent-spine-demo'],
+        ['timer', '@deepseek-ai/cordis-plugin-timer'],
+        ['llm', '@deepseek-ai/dsh-llm'],
+        ['session', '@deepseek-ai/dsh-session'],
+        ['session-title', '@deepseek-ai/dsh-session-title'],
+        ['system-prompt', '@deepseek-ai/dsh-system-prompt'],
+        ['tools', '@deepseek-ai/dsh-tools'],
+        ['agent', '@deepseek-ai/dsh-agent'],
+        ['llm-retry', '@deepseek-ai/dsh-llm-retry'],
+        ['jobs', '@deepseek-ai/dsh-jobs-local'],
+        ['invariants', '@deepseek-ai/dsh-invariants'],
+        ['session-invariant', '@deepseek-ai/dsh-session/invariant'],
+        ['agent-invariant', '@deepseek-ai/dsh-agent/invariant'],
+        ['scope-invariant', '@deepseek-ai/dsh-scope/invariant'],
+        ['agent-loop-invariant', '@deepseek-ai/dsh-agent-loop/invariant'],
+        ['agent-loop', '@deepseek-ai/dsh-agent-loop'],
         ['persistent-bash', '@deepseek-ai/dsh-tool-bash-persistent'],
         ['persistent-pwsh', '@deepseek-ai/dsh-tool-pwsh-persistent'],
         ['str-replace-editor', '@deepseek-ai/dsh-tool-str-replace-editor'],

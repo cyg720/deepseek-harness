@@ -26,7 +26,6 @@ import type {
  * declare — an unstubbed call names itself instead of half-working). Extra
  * fixture methods are grafted verbatim for feature-side casts.
  */
-/* 中文说明：class FixtureSession 定义本模块所需的数据或行为，用于表达客户端运行时测试支持场景。 */
 export class FixtureSession implements SessionFace {
   /** Mutable event source consumed only by Conversation assembly. */
   readonly eventSource = new MutableSessionEventSource()
@@ -46,21 +45,16 @@ export class FixtureSession implements SessionFace {
     private readonly store: SnapshotStore<SessionFixtureSnapshot>,
     overrides: Record<string, unknown>,
   ) {
-    /** 中文说明：变量 values 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const values = new Map<string, unknown>()
-    /** 中文说明：函数值 listeners 封装本模块的局部步骤；参数和返回值由右侧签名约束；示例见本模块调用。 */
     const listeners = new Map<string, Set<() => void>>()
-    /** 中文说明：变量 faces 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const faces = new Map<string, ObservableSnapshot<unknown>>()
     this.projections = {
       faceOf: (key: string) => {
-        /** 中文说明：变量 face 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
         let face = faces.get(key)
         if (face === undefined) {
           face = {
             getSnapshot: () => values.get(key),
             subscribe: (fn: () => void) => {
-              /** 中文说明：变量 set 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
               const set = listeners.get(key) ?? new Set()
               set.add(fn)
               listeners.set(key, set)
@@ -73,7 +67,6 @@ export class FixtureSession implements SessionFace {
       },
       set: (key: string, value: unknown) => {
         values.set(key, value)
-        /** 中文说明：该循环依次处理夹具或生成数据；循环变量仅在当前循环中有效。 */
         for (const fn of [...(listeners.get(key) ?? [])]) fn()
       },
     }
@@ -160,6 +153,14 @@ export class FixtureSession implements SessionFace {
   }
 
   /**
+   * Fail-loud stub; supply `loadThrough` on the fixture's session face to exercise it.
+   * @returns never — always throws.
+   */
+  loadThrough(): never {
+    throw new Error(`test session "${this.sessionId}": loadThrough is not stubbed — supply it on the fixture's session face`)
+  }
+
+  /**
    * Fail-loud stub; supply `rename` on the fixture's session face to exercise it.
    * @returns never — always throws.
    */
@@ -169,7 +170,6 @@ export class FixtureSession implements SessionFace {
 }
 
 /** One live test session: fixture-derived stores plus its minted scope state. */
-/* 中文说明：interface SessionRecord 定义本模块所需的数据或行为，用于表达客户端运行时测试支持场景。 */
 interface SessionRecord {
   summary: SessionSummary
   snapshot: SnapshotStore<SessionFixtureSnapshot>
@@ -190,7 +190,6 @@ interface SessionRecord {
  * members (add/updateSessionSnapshot/event-window drivers/setCurrent/remove/
  * behavior/calls/stubs) are bench-only surface.
  */
-/* 中文说明：class TestSessions 定义本模块所需的数据或行为，用于表达客户端运行时测试支持场景。 */
 export class TestSessions implements ISessions {
   /** The useSessions standard feed (list rows + current selection). */
   readonly list: SnapshotStore<SessionListState>
@@ -228,10 +227,8 @@ export class TestSessions implements ISessions {
    * @returns the stable session id (branded view of `fixture.id`).
    */
   async add(fixture: SessionFixture, opts?: { current?: boolean }): Promise<SessionId> {
-    /** 中文说明：变量 id 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const id = fixture.id as SessionId
     if (this.records.has(id)) throw new Error(`test session "${id}" already added`)
-    /** 中文说明：变量 summary 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const summary: SessionSummary = {
       id,
       displayTitle: fixture.id,
@@ -323,7 +320,6 @@ export class TestSessions implements ISessions {
    * @param patch - summary fields to merge over the row.
    */
   async updateSummary(id: string, patch: Partial<Omit<SessionSummary, 'id'>>): Promise<void> {
-    /** 中文说明：变量 record 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const record = this.require(id)
     record.summary = { ...record.summary, ...patch }
     await this.stabilize(() => {
@@ -349,7 +345,6 @@ export class TestSessions implements ISessions {
    * @param id - session id.
    */
   async remove(id: string): Promise<void> {
-    /** 中文说明：变量 record 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const record = this.require(id)
     this.records.delete(id as SessionId)
     await this.stabilize(async () => {
@@ -371,11 +366,9 @@ export class TestSessions implements ISessions {
    * @returns the scoped context, or undefined for unknown sessions.
    */
   scope(id: string): AgentContext | undefined {
-    /** 中文说明：变量 record 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const record = this.records.get(id as SessionId)
     if (record === undefined) return undefined
     if (record.scope === undefined) {
-      /** 中文说明：变量 handle 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const handle = createScope(this.rootCtx, id as SessionId)
       record.scope = handle.ctx
       record.scopeFiber = handle.fiber
@@ -411,7 +404,6 @@ export class TestSessions implements ISessions {
    * @returns the fixture session face, or undefined off-scope.
    */
   sessionOf(ctx: Context): SessionFace | undefined {
-    /** 中文说明：变量 id 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const id = scopeOf(ctx)
     if (id === undefined) return undefined
     return this.records.get(id)?.session
@@ -463,7 +455,6 @@ export class TestSessions implements ISessions {
 
   /** Resolve the current fixture's retained catalog address. */
   subagentAddress(id: SessionId): SubagentAddress | undefined {
-    /** 中文说明：变量 address 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const address = this.list.getSnapshot().currentAddress
     return address?.childSessionId === id ? address : undefined
   }
@@ -538,7 +529,6 @@ export class TestSessions implements ISessions {
 
   /** Dispose minted scope fibers (runtime dispose path). */
   async disposeScopes(): Promise<void> {
-    /** 中文说明：该循环依次处理夹具或生成数据；循环变量仅在当前循环中有效。 */
     for (const record of this.records.values()) {
       if (record.scopeFiber !== undefined) {
         await record.scopeFiber.dispose()
@@ -563,7 +553,6 @@ export class TestSessions implements ISessions {
   }
 
   private require(id: string): SessionRecord {
-    /** 中文说明：变量 record 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const record = this.records.get(id as SessionId)
     if (record === undefined) throw new Error(`test session "${id}" is not added`)
     return record

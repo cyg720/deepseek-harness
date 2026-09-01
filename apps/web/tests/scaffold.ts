@@ -22,15 +22,6 @@
 // llm seam post-boot with installLlmReplay on the settled root ctx
 // (the plugin-row path discards the ReplayHandle; the direct install keeps
 // assertConsumed for the teardown fixture-consumption check).
-// 中文说明：该共享脚手架以临时持久化、隔离技能根和可控模型回放启动真实 Web 组合，并负责快照稳定化与清理。
-/**
- * 文件职责：为无密钥浏览器 E2E 提供真实 Web 组合启动、fixture 录制/注入、快照归一化和资源清理。
- * 技术维度：使用 Cordis Loader/Include、真实 HTTP 服务、模型回放、会话存储、临时目录和 Playwright。
- * 产品维度：让浏览器测试覆盖与正式 dsh web 相同的插件、传输、工具和持久化链路。
- * 逻辑维度：解析运行模式与补丁，启动隔离组合，暴露 WebScaffold，再提供日志、会话和界面快照辅助函数。
- * 关键边界：差异只能通过补丁叠加；回放必须完全消费；临时资源和插件作用域必须在关闭时释放。
- * 新手阅读建议：先读 WebScaffold 与 LaunchOptions，再读 launchWebScaffold，最后按录制、注入、快照辅助函数阅读。
- */
 import { existsSync, readFileSync } from 'node:fs'
 import { createHash } from 'node:crypto'
 import { mkdir, mkdtemp, readFile, readdir, realpath, rm, writeFile } from 'node:fs/promises'
@@ -66,7 +57,6 @@ import {
   type Profile,
 } from '@deepseek-ai/dsh-app-boot'
 import { dshHomePath } from '@deepseek-ai/dsh-home-paths'
-import { settingsNamespace } from '@deepseek-ai/dsh-settings'
 import { LlmAdapter } from '@deepseek-ai/dsh-llm'
 import type {
   LlmModelInfo, LlmProviderInfo, LlmResolvedModelInfo, RetryPolicyConfig, StreamChunk,
@@ -96,13 +86,9 @@ import { REPO_ROOT, requireDist } from './support.ts'
 //   WELCOME_NOTICE_ACK_FIELD, WELCOME_NOTICE_SETTINGS_NAMESPACE,
 //   WELCOME_NOTICE_VERSION, WELCOME_NOTICE_COPY,
 // } from '@deepseek-ai/dsh-client-ui-settings-models'
-/** 欢迎说明确认状态在 settings 中使用的命名空间。 */
 export const WELCOME_NOTICE_SETTINGS_NAMESPACE = 'ui-onboarding'
-/** 欢迎说明确认版本在命名空间内使用的字段名。 */
 export const WELCOME_NOTICE_ACK_FIELD = 'welcomeNoticeVersion'
-/** 当前欢迎说明内容版本，修改说明时需显式更新。 */
 export const WELCOME_NOTICE_VERSION = '2026-08-13.1'
-/** 浏览器 E2E 共享的中英文欢迎说明文案。 */
 export const WELCOME_NOTICE_COPY = {
   zh: {
     title: '内测声明',
@@ -112,14 +98,12 @@ export const WELCOME_NOTICE_COPY = {
 } as const
 
 /** Snapshot mode for the lane, from $DSH_SNAPSHOT (same vocabulary as the other snapshot suites). */
-/* Web 快照运行模式：无密钥回放、真实录制或无密钥刷新预期。 */
 export type WebSnapshotMode = 'replay' | 'record' | 'refresh'
 
 /**
  * Resolve and validate the lane's snapshot mode.
  * @returns the active mode; unset/empty selects replay.
  */
-/* 读取 DSH_SNAPSHOT 并返回合法运行模式。示例：const mode = webSnapshotMode()。 */
 export function webSnapshotMode(): WebSnapshotMode {
   const value = process.env.DSH_SNAPSHOT
   if (value === undefined || value === '' || value === 'replay') return 'replay'
@@ -151,12 +135,9 @@ async function ownsReplayFixture(replayFixture: string | undefined): Promise<boo
 }
 
 /** The shipped composition under test: the dsh-base and dsh-web-app bundle patches over the empty profile root. */
-/* 正式基础 bundle 的补丁入口。 */
 const BASE_PATCH_PATH = join(REPO_ROOT, 'packages/bundle/base/cordis.patch.yml')
-/** 正式 Web 应用 bundle 的补丁入口。 */
 const WEB_PATCH_PATH = join(REPO_ROOT, 'packages/bundle/web-app/cordis.patch.yml')
 /** The installation anchor whose dependency surface the profile module fallback mirrors. */
-/* Loader 解析已安装插件时使用的包锚点。 */
 const INSTALL_ANCHOR = join(REPO_ROOT, 'apps/cli/package.json')
 
 // Replay publishes the provider catalog the gateway routes to (providers
@@ -164,7 +145,6 @@ const INSTALL_ANCHOR = join(REPO_ROOT, 'apps/cli/package.json')
 // catch-all would leave resolveModelInfo unroutable and compaction-basic's
 // post-step pressure check would warn every step). The published
 // contextWindow keeps that pressure path provably inert for small fixtures.
-/** 无密钥回放时投影到模型选择器的固定提供方目录。 */
 const REPLAY_PROVIDERS = [{
   id: 'deepseek-official',
   name: 'DeepSeek',
@@ -211,7 +191,6 @@ class RouteOnlyAdapter extends LlmAdapter {
   }
 }
 
-/** 按 contextWindow 覆盖回放模型上下文长度并返回目录副本。 */
 function replayProviders(contextWindow: number | undefined): typeof REPLAY_PROVIDERS {
   if (contextWindow === undefined) return REPLAY_PROVIDERS
   return REPLAY_PROVIDERS.map(provider => ({
@@ -221,7 +200,6 @@ function replayProviders(contextWindow: number | undefined): typeof REPLAY_PROVI
 }
 
 /** A booted web scaffold: real composition, mode-selected model backend, temp world. */
-/* 一个已启动 Web 测试世界及其服务、路径、同步和关闭能力。 */
 export interface WebScaffold {
   /** The active snapshot mode this scaffold booted under. */
   mode: WebSnapshotMode
@@ -250,7 +228,6 @@ export interface WebScaffold {
 }
 
 /** Options for {@link launchWebScaffold}. */
-/* 控制脚手架模型模式、组合覆盖、首次启动状态和重试策略的选项。 */
 export interface LaunchOptions {
   /** Compare the replayed root session with `replayFixture`; defaults on for a manifest-owned canonical recording. */
   compareReplaySession?: boolean
@@ -370,7 +347,6 @@ export interface LaunchOptions {
 }
 
 /** Dispose the booted tree and remove both owned temp roots, reporting every independent cleanup failure. */
-/* 释放 ctx 并删除两个临时根，返回所有清理错误。 */
 async function cleanupScaffoldWorld(ctx: Context, workspaceCwd: string, persistenceRoot: string): Promise<unknown[]> {
   const failures: unknown[] = []
   await Promise.resolve(ctx.fiber.dispose()).catch((error: unknown) => failures.push(error))
@@ -384,7 +360,6 @@ async function cleanupScaffoldWorld(ctx: Context, workspaceCwd: string, persiste
  * @param options - replay fixture selection and pacing.
  * @returns the running scaffold.
  */
-/* 按 options 启动隔离真实 Web 组合并返回控制句柄。示例：await launchWebScaffold({ replayFixture })。 */
 export async function launchWebScaffold(options: LaunchOptions = {}): Promise<WebScaffold> {
   requireDist()
   const mode = webSnapshotMode()
@@ -660,7 +635,7 @@ export async function launchWebScaffold(options: LaunchOptions = {}): Promise<We
     await ctx.loader.await()
     assertEntriesLoaded(ctx, 'web e2e scaffold')
     if (options.welcomeNoticePending !== true) {
-      await ctx.settings.mutate(settingsNamespace(WELCOME_NOTICE_SETTINGS_NAMESPACE), [{
+      await ctx.settings.mutate(WELCOME_NOTICE_SETTINGS_NAMESPACE, [{
         op: 'set', path: [WELCOME_NOTICE_ACK_FIELD], value: WELCOME_NOTICE_VERSION,
       }])
     }

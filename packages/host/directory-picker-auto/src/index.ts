@@ -1,24 +1,3 @@
-/*
- * ================================ 文件注释 ================================
- * 【文件职责】directory-picker 接缝的自适应选择器：启动时一次性解析宿主的处境
- * （绑定主机、SSH 启动、显示会话、Linux 选择器二进制）并挂载匹配的交互——
- * native 或 browse——作为真实 Loader 条目进入内存根树。
- * 【技术维度】Cordis 插件：依赖 webServer（读有效绑定主机）与 loader（挂载条
- * 目）；每个交互是"后端 + 客户端表面"一对（后端承载接缝能力，表面占据
- * ui-workspace 的目录流空洞），两者都作为普通条目被发现与组合。
- * 【产品维度】一次决定两副面孔：有本地显示器与原生选择器的环境用系统对话框，
- * 远程/无头环境自动退化为应用内目录浏览器——无论哪种，固定一个交互就是直接
- * 组合那对包，而非本行。
- * 【逻辑维度】探针（probe.ts）→ 解析（resolve.ts）→ apply：解析后端种类 →
- * 以"后端先、表面后"顺序创建两个 Loader 条目 → 失败回滚 → 返回卸载器。
- * 【关键边界】只做根树内存挂载（write() 是 no-op，绝不持久化回配置文件）；
- * 卸载按逆序移除条目并等待其 fiber 静止；本包是"固定组合词汇"而非可调项——
- * 后端/表面包名是运行时字符串，静态配置门看不到 yml 行，verify-cordis-config
- * 要求组合本选择器的每个应用把两者声明为依赖。
- * 【新手阅读建议】先读 probe.ts 与 resolve.ts 两个纯决策模块，再读 apply 的
- * 挂载/卸载流程，最后看 BACKEND_PACKAGES/SURFACE_PACKAGES 的固定词汇。
- * ==========================================================================
- */
 /**
  * Adaptive chooser of the directory-picker seam: resolves the host's
  * situation once at boot (bind host, SSH launch, display session, Linux
@@ -34,7 +13,6 @@
 
 import type { Context } from '@deepseek-ai/cordis'
 // Empty type imports carry the `loader` and `webServer` Context merges for the reads below.
-// 空类型导入：为下面的读取携带 loader 与 webServer 的 Context 合并。
 import type {} from '@deepseek-ai/cordis-plugin-loader'
 import type {} from '@deepseek-ai/dsh-host-webserver'
 import { canExecute, hasLinuxChooserBinary } from './probe.ts'
@@ -46,10 +24,8 @@ export type { DirectoryPickerBackendKind, DirectoryPickerEnv, DirectoryPickerHos
 export { resolveDirectoryPickerBackend } from './resolve.ts'
 
 /** Cordis plugin name. */
-// 稳定的 Cordis 插件名。
 export const name = 'directory-picker-auto'
 /** Required services: the effective bind host (`webServer`) and the entry tree the backend mounts into (`loader`). */
-// 依赖服务：有效绑定主机（webServer）与后端挂载其条目的入口树（loader）。
 export const inject = ['webServer', 'loader']
 
 /**
@@ -58,9 +34,6 @@ export const inject = ['webServer', 'loader']
  * config gate cannot see in a yml row: `verify-cordis-config` requires every
  * app composing this chooser to declare both values as dependencies.
  */
-// 按解析结果对应的宿主后端包：固定组合词汇而非可调项。导出是因为引用是静态
-// 配置门在 yml 行里看不见的运行时字符串——verify-cordis-config 要求每个组合
-// 本选择器的应用把两个值都声明为依赖。
 export const BACKEND_PACKAGES: Record<DirectoryPickerBackendKind, string> = {
   native: '@deepseek-ai/dsh-host-directory-picker-native',
   browse: '@deepseek-ai/dsh-host-directory-picker-browse',
@@ -70,13 +43,9 @@ export const BACKEND_PACKAGES: Record<DirectoryPickerBackendKind, string> = {
  * Client surface package per resolved kind, mounted with its backend so one
  * resolved interaction still composes both faces. Declared as dependencies by
  * every composing app for the same reason as {@link BACKEND_PACKAGES}. Only the
- * specifier is referenced here — the packages belong to the Client program, so
- * no import of them exists on this side and knip needs them ignored for this
- * workspace.
+ * specifier is referenced here because the packages belong to the Client
+ * program, so no import of them exists on this side.
  */
-// 按解析结果对应的客户端表面包：与后端一起挂载，一次解析仍组合两副面孔。
-// 每个组合应用都要把它们声明为依赖（理由同 BACKEND_PACKAGES）；本侧只引用
-// 规格字符串——包属于客户端程序，因此这里没有 import，knip 需为此忽略本工作区。
 export const SURFACE_PACKAGES: Record<DirectoryPickerBackendKind, string> = {
   native: '@deepseek-ai/dsh-client-ui-directory-picker-native',
   browse: '@deepseek-ai/dsh-client-ui-directory-picker-browse',
@@ -89,9 +58,6 @@ export const SURFACE_PACKAGES: Record<DirectoryPickerBackendKind, string> = {
  * both faces of the mounted interaction (and their dependents) quiesced.
  * @param ctx - cordis context carrying the injected `webServer` and `loader`.
  */
-// 插件入口：采样一次宿主事实并解析交互，然后把"后端 + 表面"作为 Loader 条目
-// 挂载进根树；卸载器按逆序移除条目并等待其 fiber 的拆除完成，因此卸载本插件
-// 只在两副面孔（及其依赖者）都静止后才返回。
 export async function apply(ctx: Context): Promise<void> {
   const backend = resolveDirectoryPickerBackend({
     bindHost: ctx.webServer.host,

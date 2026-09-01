@@ -1,11 +1,3 @@
-/**
- * 文件职责：验证 search-helpers.spec.ts 覆盖的会话查询行为、持久化与异常场景。
- * 技术维度：使用 TypeScript、Vitest、Cordis 插件、SQLite 或会话事件日志。
- * 产品维度：保障 Agent 的会话查询结果稳定、可追踪且可恢复。
- * 逻辑维度：准备会话和存储数据，执行查询或恢复流程，再核对结果、错误与清理。
- * 关键边界：持久化数据属于不可信输入；事件必须可重放；临时数据库与异步资源必须释放。
- * 新手阅读建议：先看测试夹具和查询条件，再读正常场景，最后关注重启、损坏与失败路径。
- */
 import { describe, expect, it } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
 import { createUserMessage, ToolCallId , createMessage, createToolResultMessage } from '@deepseek-ai/dsh-llm'
@@ -13,6 +5,7 @@ import SessionStore, {
   SESSION_FORMAT_VERSION,
   SessionId,
 } from '@deepseek-ai/dsh-session'
+import SessionProjectionRegistry from '@deepseek-ai/dsh-session-projection'
 import type { SessionEvent, SessionHeader } from '@deepseek-ai/dsh-session'
 import {
   buildSessionEventRecords,
@@ -23,20 +16,16 @@ import {
   filterSessionResults,
   materializeSessionEventResultFilters,
   materializeSessionResultFilters,
-  /** 中文说明：type SessionQueryErrorCode 定义本测试所需的数据或行为，用于表达会话查询场景。 */
   type SessionQueryErrorCode,
 } from '@deepseek-ai/dsh-session-query'
 import { TestSessionQueryEngine } from './test-service.ts'
 
-/** 中文说明：变量 id 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const id = SessionId('session')
 
-/** 中文说明：函数 header 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function header(value: string, extra: Partial<SessionHeader> = {}): SessionHeader {
   return { version: SESSION_FORMAT_VERSION, id: SessionId(value), createdAt: 10, ...extra }
 }
 
-/** 中文说明：函数 expectCode 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function expectCode(code: SessionQueryErrorCode): Error {
   return expect.objectContaining({ code }) as Error
 }
@@ -56,7 +45,6 @@ describe('session-query semantic extraction', () => {
       },
       { type: 'future-content', payload: 'hidden' } as never,
     ]
-    /** 中文说明：变量 events 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const events: SessionEvent[] = [
       { type: 'user/message', seq: 0, time: 1, data: createUserMessage({
         content: messageContent, source: { kind: 'user' },
@@ -106,7 +94,6 @@ describe('session-query semantic extraction', () => {
       { type: 'todo/write', seq: 6, time: 8, data: { todos: [{ status: 'in_progress', content: 'ship search' }] } },
     ]
 
-    /** 中文说明：该循环依次处理输入数据；循环变量仅在当前循环中有效。 */
     for (const event of events.slice(0, 3)) {
       expect(extractSessionEventText(event)).toBe('visible\nread\n{"path":"a"}\nnested')
     }
@@ -132,7 +119,6 @@ describe('session-query semantic extraction', () => {
   })
 
   it('extracts meaningful turn outcomes and skips structural or unknown events', () => {
-    /** 中文说明：变量 reasons 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const reasons: Array<[SessionEvent<'turn/end'>['data']['reason'], string]> = [
       [{ kind: 'error', error: { message: 'boom', code: 'UNKNOWN' } }, 'error\nboom'],
       [{ kind: 'error', error: { message: 'provider boom', code: 'UNKNOWN' } }, 'error\nprovider boom'],
@@ -143,11 +129,9 @@ describe('session-query semantic extraction', () => {
       [{ kind: 'completed' }, ''],
       [{ kind: 'future-status' } as never, ''],
     ]
-    /** 中文说明：该循环依次处理输入数据；循环变量仅在当前循环中有效。 */
     for (const [reason, text] of reasons) {
       expect(extractSessionEventText({ type: 'turn/end', seq: 0, time: 1, data: { turn: 1, reason } })).toBe(text)
     }
-    /** 中文说明：变量 structural 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const structural: SessionEvent[] = [
       { type: 'turn/start', seq: 0, time: 1, data: { turn: 1 } },
       { type: 'step/start', seq: 1, time: 1, data: { turn: 1, step: 1 } },
@@ -161,7 +145,6 @@ describe('session-query semantic extraction', () => {
 })
 
 describe('session-query document and filter helpers', () => {
-  /** 中文说明：变量 events 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const events: SessionEvent[] = [
     { type: 'user/message', seq: 0, time: 10, data: createUserMessage({
       content: [{ type: 'text', text: 'Hello\n(AI)+' }], source: { kind: 'user' },
@@ -184,7 +167,6 @@ describe('session-query document and filter helpers', () => {
   it('classifies every event and omits non-semantic documents', () => {
     expect(buildSessionEventRecords(id, events).map(record => record.surface))
       .toEqual(['shadowed', 'log-only', 'current', 'log-only'])
-    /** 中文说明：变量 documents 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const documents = buildSessionEventSearchDocuments(id, events)
     expect(documents.map(document => [document.seq, document.text, document.surface])).toEqual([
       [0, 'Hello\n(AI)+', 'shadowed'],
@@ -194,9 +176,7 @@ describe('session-query document and filter helpers', () => {
   })
 
   it('applies every session clause with OR values and validates closed values', () => {
-    /** 中文说明：变量 parent 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const parent = SessionId('parent')
-    /** 中文说明：变量 records 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const records = [
       { header: header('a', { cwd: '/a', parentSession: parent }), live: true, persisted: false, marker: 1 },
       { header: header('b', { createdAt: 20 }), live: false, persisted: true, marker: 2 },
@@ -216,7 +196,6 @@ describe('session-query document and filter helpers', () => {
   })
 
   it('applies event metadata and safe literal text clauses', () => {
-    /** 中文说明：函数值 documents 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const documents = buildSessionEventSearchDocuments(id, events).map((document, marker) => ({ ...document, marker }))
     expect(filterSessionEventDocuments(documents, [
       { kind: 'seq', from: 0, to: 1 },
@@ -234,9 +213,7 @@ describe('session-query document and filter helpers', () => {
   })
 
   it('rejects malformed range filters and malformed surfaces', () => {
-    /** 中文说明：变量 documents 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const documents = buildSessionEventSearchDocuments(id, events)
-    /** 中文说明：该循环依次处理输入数据；循环变量仅在当前循环中有效。 */
     for (const filter of [
       { kind: 'seq', from: Number.NaN },
       { kind: 'seq', to: Number.POSITIVE_INFINITY },
@@ -250,7 +227,6 @@ describe('session-query document and filter helpers', () => {
     expect(() => filterSessionResults([{ header: header('x'), live: true, persisted: false }], [
       { kind: 'created-at', from: Number.NaN },
     ])).toThrow(expectCode('SESSION_QUERY_INVALID_FILTER'))
-    /** 中文说明：变量 malformed 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const malformed: SessionEvent[] = [{
       type: 'assistant/message',
       seq: 0,
@@ -297,11 +273,10 @@ describe('session-query document and filter helpers', () => {
   })
 
   it('exposes the scan path on the combined query service', async () => {
-    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
     await ctx.plugin(SessionStore)
+    await ctx.plugin(SessionProjectionRegistry)
     await ctx.plugin(TestSessionQueryEngine)
-    /** 中文说明：变量 session 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const session = ctx.sessions.create(id)
     session.append('user/message', createUserMessage({
       content: [{ type: 'text', text: 'Alpha\n beta' }], source: { kind: 'user' },
@@ -315,12 +290,10 @@ describe('session-query document and filter helpers', () => {
 })
 
 it('registers exact and abstract search behavior under one ctx key', async () => {
-  /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const ctx = new Context()
   await ctx.plugin(SessionStore)
-  /** 中文说明：变量 fiber 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
+  await ctx.plugin(SessionProjectionRegistry)
   const fiber = await ctx.plugin(TestSessionQueryEngine)
-  /** 中文说明：变量 session 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const session = ctx.sessions.create(id)
   await expect(ctx.sessionQuery.searchSessions({ query: 'AI' })).resolves.toEqual({ items: [] })
   await expect(ctx.sessionQuery.searchEvents({ sessionId: id, query: 'AI' }))

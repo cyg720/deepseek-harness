@@ -4,14 +4,6 @@
  * real-provider integration lives in `tests/landlock.e2e.ts`. A mode-0555 directory supplies
  * the Unix denial signature used by the classifier without requiring a real sandbox runner.
  */
-/*
- * 文件职责：验证 sandbox.spec.ts 覆盖的Shell 命令与沙箱行为、并发与异常场景。
- * 技术维度：使用 TypeScript、Vitest、Cordis 插件、临时文件系统或受控子进程。
- * 产品维度：保障 Agent 的Shell 命令与沙箱能力稳定、安全且可诊断。
- * 逻辑维度：准备配置和测试资源，执行被测流程，再核对结果、错误与资源清理。
- * 关键边界：并发写入和进程退出可能竞态；敏感配置不得泄露；资源必须等待完全停止。
- * 新手阅读建议：先看夹具与平台条件，再读正常场景，最后关注并发、安全与失败路径。
- */
 
 import { chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
@@ -19,6 +11,7 @@ import { join, resolve } from 'node:path'
 import { describe, expect, it, vi } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
 import type { ShellRunResult, CollectedOutput } from '@deepseek-ai/dsh-shell'
+import SessionProjectionRegistry from '@deepseek-ai/dsh-session-projection'
 import { SANDBOX_UNAVAILABLE, SandboxProvider, SandboxUnavailableError } from '@deepseek-ai/dsh-sandbox'
 import type { ConfinedArgv, SandboxExecutionPolicy, SandboxMode, SandboxPolicy } from '@deepseek-ai/dsh-sandbox'
 import { SandboxPolicyService } from '@deepseek-ai/dsh-sandbox-policy'
@@ -28,26 +21,21 @@ import type { SubprocessHandle, SubprocessOutputReader } from '@deepseek-ai/dsh-
 import { classifyDenial, classifyRunnerFailure, isRunnerSpawnFailure } from '../src/helpers.ts'
 import type { Config } from '@deepseek-ai/dsh-bash-sandbox'
 
-/** 中文说明：变量 spillDir 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const spillDir = mkdtempSync(join(tmpdir(), 'dsh-bash-sandbox-spec-'))
 
 /** One recorded provider call: the argv handed over and the policy it rode with. */
-/* 中文说明：interface ConfineCall 定义本测试所需的数据或行为，用于表达Shell 命令与沙箱场景。 */
 interface ConfineCall {
   argv: string[]
   policy: SandboxPolicy
 }
 
 /** The Linux file-denial dialects the fake wraps carry — matches the unix-permission denials the tests below produce. */
-/* 中文说明：常量 UNIX_SIGNATURES 保存本测试共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const UNIX_SIGNATURES = ['read-only file system', 'permission denied'] as const
 
 /** The runner-failure rule the fake wraps carry (a fake-runner: error line marks the sandbox itself failing). */
-/* 中文说明：常量 RUNNER_FAILURE 保存本测试共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const RUNNER_FAILURE = [{ fatalSignatures: ['fake-runner: '] }] as const
 
 /** Provider argv[0] forms that all share the caller-owned cwd spawn precondition. */
-/* 中文说明：常量 RUNNER_FORMS 保存本测试共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const RUNNER_FORMS = [
   ['absolute', process.execPath],
   ['bare', 'node'],
@@ -55,7 +43,6 @@ const RUNNER_FORMS = [
 ] as const
 
 /** A passthrough wrap: the caller's argv unchanged, asserted full — commands run unconfined, deterministically. */
-/* 中文说明：函数值 passthrough 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
 const passthrough = (argv: readonly string[]): ConfinedArgv =>
   ({ argv: [...argv], enforcement: 'full', denialSignatures: UNIX_SIGNATURES, runnerFailureRules: RUNNER_FAILURE })
 
@@ -63,23 +50,20 @@ const passthrough = (argv: readonly string[]): ConfinedArgv =>
  * Boot a context with a recording fake `ctx.sandbox` (behavior injectable
  * per test) and the executor under test on top of it.
  */
-/* 中文说明：函数 setup 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 async function setup(
   config: { mode?: SandboxMode; workspaceRoot?: string } & Config = {},
   behavior: (argv: readonly string[], policy: SandboxPolicy) => ConfinedArgv = passthrough,
 ) {
   const { mode, workspaceRoot, ...execConfig } = config
-  /** 中文说明：变量 calls 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const calls: ConfineCall[] = []
-  /** 中文说明：class FakeSandboxProvider 定义本测试所需的数据或行为，用于表达Shell 命令与沙箱场景。 */
   class FakeSandboxProvider extends SandboxProvider {
     confine(argv: readonly string[], policy: SandboxPolicy): ConfinedArgv {
       calls.push({ argv: [...argv], policy })
       return behavior(argv, policy)
     }
   }
-  /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const ctx = new Context()
+  await ctx.plugin(SessionProjectionRegistry)
   await ctx.plugin(FakeSandboxProvider)
   await ctx.plugin(SandboxPolicyService, {
     ...mode !== undefined ? { mode } : {},
@@ -88,22 +72,18 @@ async function setup(
   await ctx.plugin(LocalSubprocessRuntime)
   ;(ctx.subprocess as LocalSubprocessRuntime).internals = { spillDir }
   await ctx.plugin(SandboxBashExecutor, { graceMs: 200, ...execConfig })
-  /** 中文说明：变量 bash 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const bash = ctx.shell as SandboxBashExecutor
   return { ctx, bash, calls }
 }
 
-/** 中文说明：函数 output 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function output(text: string): CollectedOutput {
   return { text, truncated: false }
 }
 
-/** 中文说明：函数 runResult 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function runResult(exitCode: number | null, stderr: string): ShellRunResult {
   return { exitCode, signal: null, timedOut: false, aborted: false, timeoutMs: 1000, stdout: output(''), stderr: output(stderr) }
 }
 
-/** 中文说明：函数 executionPolicy 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function executionPolicy(mode: SandboxMode, workspaceRoot = resolve(process.cwd())): SandboxExecutionPolicy {
   return { mode, workspaceRoot }
 }
@@ -111,7 +91,6 @@ function executionPolicy(mode: SandboxMode, workspaceRoot = resolve(process.cwd(
 describe('the provider hand-off', () => {
   it('hands the provider the exact bash argv and the per-call policy, and runs the returned argv', async () => {
     const { bash, calls } = await setup()
-    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await bash.run(bash.resolve({ command: 'echo \'a b\' "c\'d"' }))
     expect(result.stdout.text).toBe('a b c\'d\n')
     expect(result.sandbox).toEqual({ mode: 'read-only', denied: false, enforcement: 'full' })
@@ -122,12 +101,9 @@ describe('the provider hand-off', () => {
   })
 
   it('hands the provider\'s returned argv directly to ctx.subprocess.spawn', async () => {
-    /** 中文说明：变量 returnedArgv 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const returnedArgv = ['env', 'DSH_WRAP=1', 'bash', '-c', 'printf "%s" "$DSH_WRAP"']
     const { ctx, bash } = await setup({}, () => ({ argv: returnedArgv, enforcement: 'full', denialSignatures: UNIX_SIGNATURES, runnerFailureRules: RUNNER_FAILURE }))
-    /** 中文说明：变量 spawn 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const spawn = vi.spyOn(ctx.subprocess, 'spawn')
-    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await bash.run(bash.resolve({ command: 'printf "%s" "$DSH_WRAP"' }))
     expect(result.stdout.text).toBe('1')
     expect(spawn).toHaveBeenCalledTimes(1)
@@ -136,14 +112,10 @@ describe('the provider hand-off', () => {
   })
 
   it('starts a non-Bash runner before the confined inner Bash evaluates BASH_ENV', async () => {
-    /** 中文说明：变量 dir 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const dir = mkdtempSync(join(tmpdir(), 'dsh-bash-env-order-'))
-    /** 中文说明：变量 hook 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const hook = join(dir, 'hook.sh')
-    /** 中文说明：变量 order 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const order = join(dir, 'order.txt')
     writeFileSync(hook, 'printf "hook\\n" >> "$DSH_ORDER_FILE"\n')
-    /** 中文说明：变量 runnerScript 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const runnerScript = [
       'const { appendFileSync } = require("node:fs");',
       'const { spawnSync } = require("node:child_process");',
@@ -159,7 +131,6 @@ describe('the provider hand-off', () => {
     }))
 
     try {
-      /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const result = await bash.run(bash.resolve({
         command: 'true',
         env: { BASH_ENV: hook },
@@ -174,7 +145,6 @@ describe('the provider hand-off', () => {
 
   it('workspace-write rides the policy, workspaceRoot falling back to process.cwd() when not configured', async () => {
     const { bash, calls } = await setup({ mode: 'workspace-write' })
-    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await bash.run(bash.resolve({ command: 'true' }))
     expect(result.sandbox).toEqual({ mode: 'workspace-write', denied: false, enforcement: 'full' })
     expect(calls[0]?.policy).toEqual({ mode: 'workspace-write', workspaceRoot: resolve(process.cwd()) })
@@ -189,7 +159,6 @@ describe('the provider hand-off', () => {
   it('the provider is consulted per wrap (no caching in the consumer): run and start each hand off', async () => {
     const { bash, calls } = await setup()
     await bash.run(bash.resolve({ command: 'true' }))
-    /** 中文说明：变量 task 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const task = bash.start(bash.resolve({ command: 'true' }))
     await task.done
     expect(calls).toHaveLength(2)
@@ -200,7 +169,6 @@ describe('the provider hand-off', () => {
 describe('fail closed', () => {
   it('propagates the provider\'s structured SANDBOX_UNAVAILABLE on run() and start()', async () => {
     const { bash } = await setup({}, () => { throw new SandboxUnavailableError('read-only') })
-    /** 中文说明：变量 spec 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const spec = bash.resolve({ command: 'echo hi' })
     await expect(bash.run(spec)).rejects.toMatchObject({ name: 'SandboxUnavailableError', code: SANDBOX_UNAVAILABLE })
     expect(() => bash.start(spec)).toThrow(SandboxUnavailableError)
@@ -208,9 +176,7 @@ describe('fail closed', () => {
 
   it('preserves an already-aborted foreground call as cancellation', async () => {
     const { bash } = await setup()
-    /** 中文说明：变量 controller 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const controller = new AbortController()
-    /** 中文说明：变量 reason 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const reason = new Error('caller cancelled before spawn')
     controller.abort(reason)
     await expect(bash.run(bash.resolve({ command: 'true', signal: controller.signal }))).rejects.toBe(reason)
@@ -225,10 +191,8 @@ describe('fail closed', () => {
         denialSignatures: UNIX_SIGNATURES,
         runnerFailureRules: RUNNER_FAILURE,
       }))
-      /** 中文说明：变量 parent 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const parent = mkdtempSync(join(tmpdir(), 'dsh-sandbox-missing-cwd-'))
       try {
-        /** 中文说明：变量 failure 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
         const failure = await bash.run(bash.resolve({ command: 'true', workdir: join(parent, 'missing') }))
           .catch((error: unknown) => error)
         expect(failure).toMatchObject({ code: 'ENOENT' })
@@ -241,10 +205,8 @@ describe('fail closed', () => {
 
   it('keeps an invalid workdir ordinary when danger-full-access bypasses the provider', async () => {
     const { bash } = await setup({ mode: 'danger-full-access' })
-    /** 中文说明：变量 parent 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const parent = mkdtempSync(join(tmpdir(), 'dsh-sandbox-missing-cwd-'))
     try {
-      /** 中文说明：变量 failure 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const failure = await bash.run(bash.resolve({ command: 'true', workdir: join(parent, 'missing') }))
         .catch((error: unknown) => error)
       expect(failure).toMatchObject({ code: 'ENOENT' })
@@ -255,7 +217,6 @@ describe('fail closed', () => {
   })
 
   it('keeps Node-shaped synchronous ENOEXEC ordinary in run() and start()', async () => {
-    /** 中文说明：变量 runner 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const runner = join(spillDir, 'malformed-runner')
     const { ctx, bash } = await setup({}, argv => ({
       argv: [runner, ...argv],
@@ -267,12 +228,10 @@ describe('fail closed', () => {
       throw Object.assign(new Error('spawn ENOEXEC'), { code: 'ENOEXEC', syscall: 'spawn' })
     })
 
-    /** 中文说明：函数值 foreground 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const foreground = await bash.run(bash.resolve({ command: 'true' })).catch((error: unknown) => error)
     expect(foreground).toMatchObject({ code: 'ENOEXEC', syscall: 'spawn' })
     expect(foreground).not.toBeInstanceOf(SandboxUnavailableError)
 
-    /** 中文说明：变量 background 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     let background: unknown
     try {
       bash.start(bash.resolve({ command: 'true' }))
@@ -284,7 +243,6 @@ describe('fail closed', () => {
   })
 
   it('classifies a synchronous SubprocessRuntime EACCES with the exact runner path', async () => {
-    /** 中文说明：变量 runner 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const runner = join(spillDir, 'unexecutable-runner')
     const { ctx, bash } = await setup({}, argv => ({
       argv: [runner, ...argv],
@@ -305,7 +263,6 @@ describe('fail closed', () => {
   })
 
   it('keeps a synchronous cwd-owned ENOENT as the original start() error', async () => {
-    /** 中文说明：变量 runner 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const runner = './sandbox-runner'
     const { ctx, bash } = await setup({}, argv => ({
       argv: [runner, ...argv],
@@ -313,15 +270,11 @@ describe('fail closed', () => {
       denialSignatures: UNIX_SIGNATURES,
       runnerFailureRules: RUNNER_FAILURE,
     }))
-    /** 中文说明：变量 parent 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const parent = mkdtempSync(join(tmpdir(), 'dsh-sandbox-missing-cwd-'))
-    /** 中文说明：变量 workdir 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const workdir = join(parent, 'missing')
-    /** 中文说明：变量 failure 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const failure = Object.assign(new Error('spawn ENOENT'), { code: 'ENOENT', syscall: `spawn ${runner}`, path: runner })
     vi.spyOn(ctx.subprocess, 'spawn').mockImplementation(() => { throw failure })
     try {
-      /** 中文说明：变量 thrown 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       let thrown: unknown
       try {
         bash.start(bash.resolve({ command: 'true', workdir }))
@@ -339,7 +292,6 @@ describe('fail closed', () => {
 describe('danger-full-access', () => {
   it('runs unwrapped: the provider is never consulted, facts carry no enforcement', async () => {
     const { bash, calls } = await setup({ mode: 'danger-full-access' })
-    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await bash.run(bash.resolve({ command: 'echo free' }))
     expect(result.stdout.text).toBe('free\n')
     expect(result.sandbox).toEqual({ mode: 'danger-full-access', denied: false })
@@ -348,7 +300,6 @@ describe('danger-full-access', () => {
 
   it('start() passes through unwrapped and stamps nothing at settle', async () => {
     const { bash, calls } = await setup({ mode: 'danger-full-access' })
-    /** 中文说明：变量 task 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const task = bash.start(bash.resolve({ command: 'echo free-bg' }))
     await task.done
     expect(task.sandbox).toBeUndefined()
@@ -366,7 +317,6 @@ describe('per-call sandbox policy (the session and escalation carrier)', () => {
 
   it('an explicit policy outranks the default at resolve(), and the wrap follows its mode and root', async () => {
     const { bash, calls } = await setup()
-    /** 中文说明：变量 explicit 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const explicit = executionPolicy('workspace-write', '/session/project')
     expect(bash.resolve({ command: 'true', sandboxPolicy: explicit }).sandboxPolicy).toEqual(explicit)
     await bash.run(bash.resolve({ command: 'true', sandboxPolicy: explicit }))
@@ -376,14 +326,12 @@ describe('per-call sandbox policy (the session and escalation carrier)', () => {
 
   it('an escalated run reports the mode it ACTUALLY ran under', async () => {
     const { bash } = await setup()
-    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await bash.run(bash.resolve({ command: 'true', sandboxPolicy: executionPolicy('workspace-write') }))
     expect(result.sandbox).toEqual({ mode: 'workspace-write', denied: false, enforcement: 'full' })
   })
 
   it('escalating to danger-full-access bypasses the provider entirely — the grant, not a probe, is the authority there', async () => {
     const { bash, calls } = await setup()
-    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await bash.run(bash.resolve({ command: 'echo free', sandboxPolicy: executionPolicy('danger-full-access') }))
     expect(result.stdout.text).toBe('free\n')
     expect(result.sandbox).toEqual({ mode: 'danger-full-access', denied: false })
@@ -395,9 +343,7 @@ describe('per-call sandbox policy (the session and escalation carrier)', () => {
     // once — anything keyed off the configured default would misreport the
     // escalated one at its settle stamp.
     const { bash } = await setup()
-    /** 中文说明：变量 escalated 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const escalated = bash.start(bash.resolve({ command: 'sleep 0.3; echo "x: Permission denied" >&2; exit 1', sandboxPolicy: executionPolicy('workspace-write') }))
-    /** 中文说明：变量 plain 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const plain = bash.start(bash.resolve({ command: 'true' }))
     await plain.done
     await escalated.done
@@ -407,7 +353,6 @@ describe('per-call sandbox policy (the session and escalation carrier)', () => {
 
   it('an escalated danger-full-access background job carries no facts (nothing confined it)', async () => {
     const { bash, calls } = await setup()
-    /** 中文说明：变量 task 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const task = bash.start(bash.resolve({ command: 'echo bg-free', sandboxPolicy: executionPolicy('danger-full-access') }))
     await task.done
     expect(task.sandbox).toBeUndefined()
@@ -447,9 +392,7 @@ describe('isRunnerSpawnFailure', () => {
   it.each(['EACCES', 'ENOENT'])(
     'attributes executable-class spawn code %s to argv[0] once cwd ambiguity is eliminated',
     (code) => {
-      /** 中文说明：变量 runner 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const runner = join(spillDir, 'runner')
-      /** 中文说明：变量 error 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const error = Object.assign(new Error('spawn failed'), { code, syscall: `spawn ${runner}`, path: runner })
       expect(isRunnerSpawnFailure(error, runner, process.cwd())).toBe(true)
     },
@@ -458,38 +401,28 @@ describe('isRunnerSpawnFailure', () => {
   it.each(['ENOEXEC', 'ENOTDIR', 'EPERM'])(
     'keeps unproven executable code %s ordinary despite synthetic argv[0] fields',
     (code) => {
-      /** 中文说明：变量 runner 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const runner = join(spillDir, 'runner')
-      /** 中文说明：变量 error 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const error = Object.assign(new Error('spawn failed'), { code, syscall: `spawn ${runner}`, path: runner })
       expect(isRunnerSpawnFailure(error, runner, process.cwd())).toBe(false)
     },
   )
 
   it('requires a usable caller cwd before classifying absolute, bare, or relative runners', () => {
-    /** 中文说明：变量 missingWorkdir 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const missingWorkdir = join(spillDir, 'missing-workdir')
-    /** 中文说明：该循环依次处理测试数据；循环变量仅在当前循环中有效。 */
     for (const [, runner] of RUNNER_FORMS) {
-      /** 中文说明：变量 error 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const error = Object.assign(new Error('spawn failed'), { code: 'ENOENT', syscall: `spawn ${runner}`, path: runner })
       expect(isRunnerSpawnFailure(error, runner, missingWorkdir)).toBe(false)
     }
-    /** 中文说明：变量 fileWorkdir 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const fileWorkdir = join(spillDir, 'not-a-workdir')
     writeFileSync(fileWorkdir, '')
-    /** 中文说明：变量 error 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const error = Object.assign(new Error('spawn failed'), { code: 'ENOTDIR', syscall: 'spawn node', path: 'node' })
     expect(isRunnerSpawnFailure(error, 'node', fileWorkdir)).toBe(false)
   })
 
   it('rejects resource, non-spawn, mismatched-program, and unstructured failures', () => {
-    /** 中文说明：变量 missingRunner 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const missingRunner = join(spillDir, 'definitely-missing-runner')
-    /** 中文说明：函数值 spawnError 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const spawnError = (code: unknown, syscall: unknown = `spawn ${missingRunner}`, path: unknown = missingRunner) =>
       Object.assign(new Error('spawn failed'), { code, syscall, path })
-    /** 中文说明：函数值 spawnErrorWithoutPath 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const spawnErrorWithoutPath = (syscall: string) =>
       Object.assign(new Error('spawn failed'), { code: 'ENOENT', syscall })
 
@@ -509,9 +442,7 @@ describe('isRunnerSpawnFailure', () => {
   })
 
   it('accepts only syscall and error-path facts that identify the exact runner program', () => {
-    /** 中文说明：变量 runner 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const runner = join(spillDir, 'runner with spaces')
-    /** 中文说明：函数值 spawnError 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const spawnError = (syscall: string, path?: string) =>
       Object.assign(new Error('spawn failed'), { code: 'ENOENT', syscall, path })
 
@@ -524,20 +455,15 @@ describe('isRunnerSpawnFailure', () => {
 
 describe('classifyRunnerFailure', () => {
   it('ignores empty and whitespace-only fatal signatures instead of treating exit status or notice text as evidence', () => {
-    /** 中文说明：变量 notice 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const notice = 'landlock-run: partial enforcement (older Landlock ABI)'
-    /** 中文说明：变量 emptyRule 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const emptyRule = [{ allowedExitCodes: [125], fatalSignatures: ['', ' ', '\t'] }]
     expect(classifyRunnerFailure(125, '', emptyRule)).toBeUndefined()
     expect(classifyRunnerFailure(125, notice, emptyRule)).toBeUndefined()
   })
 
   it('keeps valid fatal signatures active beside an ignored empty entry', () => {
-    /** 中文说明：变量 notice 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const notice = 'landlock-run: partial enforcement (older Landlock ABI)'
-    /** 中文说明：变量 fatal 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const fatal = 'landlock-run: ruleset creation failed'
-    /** 中文说明：变量 rules 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const rules = [{
       allowedExitCodes: [125],
       fatalSignatures: ['', ' ', 'landlock-run: '],
@@ -547,9 +473,7 @@ describe('classifyRunnerFailure', () => {
   })
 
   it('requires Landlock exit 125 plus a non-notice fatal line and returns that original line', () => {
-    /** 中文说明：变量 notice 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const notice = 'landlock-run: partial enforcement (older Landlock ABI)'
-    /** 中文说明：变量 rules 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const rules = [{ allowedExitCodes: [125], fatalSignatures: ['landlock-run: '], informationalLines: [notice] }]
     expect(classifyRunnerFailure(1, notice, rules)).toBeUndefined()
     expect(classifyRunnerFailure(2, notice, rules)).toBeUndefined()
@@ -570,7 +494,6 @@ describe('classifyRunnerFailure', () => {
     'landlock-run: out of memory',
     'landlock-run: future fatal diagnostic',
   ])('keeps known and future Landlock fatal diagnostics fail-closed: %s', (fatal) => {
-    /** 中文说明：变量 rules 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const rules = [{
       allowedExitCodes: [125],
       fatalSignatures: ['landlock-run: '],
@@ -588,7 +511,6 @@ describe('result facts', () => {
       denialSignatures: UNIX_SIGNATURES,
       runnerFailureRules: RUNNER_FAILURE,
     }))
-    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await bash.run(bash.resolve({ command: `exit ${exitCode}` }))
     expect(result.exitCode).toBe(exitCode)
     expect(result.sandbox).toEqual({ mode: 'read-only', denied: false, enforcement: 'full' })
@@ -596,11 +518,9 @@ describe('result facts', () => {
 
   it('reports a real permission failure as a sandbox denial with the mode it ran under', async () => {
     const { bash } = await setup()
-    /** 中文说明：变量 lockedDir 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const lockedDir = join(mkdtempSync(join(tmpdir(), 'dsh-sandbox-denied-')), 'locked')
     mkdirSync(lockedDir)
     chmodSync(lockedDir, 0o555)
-    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await bash.run(bash.resolve({ command: `echo x > ${lockedDir}/f` }))
     expect(result.exitCode).not.toBe(0)
     expect(result.sandbox).toEqual({ mode: 'read-only', denied: true, enforcement: 'full' })
@@ -608,7 +528,6 @@ describe('result facts', () => {
 
   it('carries the provider\'s partial-enforcement fact through unchanged', async () => {
     const { bash } = await setup({}, argv => ({ argv: [...argv], enforcement: 'partial', denialSignatures: UNIX_SIGNATURES, runnerFailureRules: RUNNER_FAILURE }))
-    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await bash.run(bash.resolve({ command: 'true' }))
     expect(result.sandbox).toEqual({ mode: 'read-only', denied: false, enforcement: 'partial' })
   })
@@ -622,10 +541,8 @@ describe('background sandbox facts', () => {
       denialSignatures: UNIX_SIGNATURES,
       runnerFailureRules: RUNNER_FAILURE,
     }))
-    /** 中文说明：变量 parent 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const parent = mkdtempSync(join(tmpdir(), 'dsh-sandbox-missing-cwd-'))
     try {
-      /** 中文说明：变量 task 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const task = bash.start(bash.resolve({ command: 'true', workdir: join(parent, 'missing') }))
       await task.done
 
@@ -636,7 +553,6 @@ describe('background sandbox facts', () => {
         denied: false,
         enforcement: 'full',
       })
-      /** 中文说明：变量 accounting 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const accounting = (bash as unknown as { processFacts: Map<unknown, unknown> }).processFacts
       expect(accounting.size).toBe(0)
     } finally {
@@ -646,7 +562,6 @@ describe('background sandbox facts', () => {
 
   it('does not invent runner evidence when a spawn rejection has no structured reason', async () => {
     const { ctx, bash } = await setup()
-    /** 中文说明：变量 emptyReader 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const emptyReader: SubprocessOutputReader = {
       readFrom: () => ({ text: '', nextOffset: 0, lossy: false }),
     }
@@ -663,7 +578,6 @@ describe('background sandbox facts', () => {
       waitForExit: async () => true,
     } satisfies SubprocessHandle)
 
-    /** 中文说明：变量 task 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const task = bash.start(bash.resolve({ command: 'true' }))
     await task.done
 
@@ -677,7 +591,6 @@ describe('background sandbox facts', () => {
 
   it('stamps a settled denial: nonzero exit + permission stderr under a confined mode', async () => {
     const { bash } = await setup()
-    /** 中文说明：变量 task 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const task = bash.start(bash.resolve({ command: 'echo "x: Permission denied" >&2; exit 1' }))
     await task.done
     expect(task.sandbox).toEqual({ mode: 'read-only', denied: true, enforcement: 'full' })
@@ -688,7 +601,6 @@ describe('background sandbox facts', () => {
     // the command never ran — the late twin of the confine-time throw, with
     // the matched fatal stderr line carried as the cause.
     const { bash } = await setup()
-    /** 中文说明：变量 run 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const run = bash.run(bash.resolve({ command: 'echo "fake-runner: ruleset rejected" >&2; exit 125' }))
     await expect(run).rejects.toThrow(expect.objectContaining({ code: SANDBOX_UNAVAILABLE }))
     await expect(run).rejects.toThrow('fake-runner: ruleset rejected')
@@ -702,7 +614,6 @@ describe('background sandbox facts', () => {
 
   it('a settled background runner failure stamps runnerFailed (no error channel remains), not denied', async () => {
     const { bash } = await setup()
-    /** 中文说明：变量 task 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const task = bash.start(bash.resolve({ command: 'echo "fake-runner: cannot open rule path: /x: Permission denied" >&2; exit 125' }))
     await task.done
     expect(task.sandbox).toEqual({ mode: 'read-only', denied: false, enforcement: 'full', runnerFailed: true })
@@ -712,21 +623,16 @@ describe('background sandbox facts', () => {
     // Facts belong to each wrap and may vary between calls. The slow task settles after the
     // quick task starts; a shared latest-wrap field would classify and stamp it with the wrong
     // task's dialect and enforcement.
-    /** 中文说明：变量 wraps 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const wraps: Array<Pick<ConfinedArgv, 'enforcement' | 'denialSignatures'>> = [
       { enforcement: 'partial', denialSignatures: ['permission denied'] },
       { enforcement: 'full', denialSignatures: ['read-only file system'] },
     ]
-    /** 中文说明：变量 call 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     let call = 0
     const { bash } = await setup({}, (argv) => {
-      /** 中文说明：变量 wrap 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const wrap = wraps[Math.min(call++, wraps.length - 1)] as Pick<ConfinedArgv, 'enforcement' | 'denialSignatures'>
       return { argv: [...argv], ...wrap, runnerFailureRules: RUNNER_FAILURE }
     })
-    /** 中文说明：变量 slow 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const slow = bash.start(bash.resolve({ command: 'sleep 0.4; echo "x: Permission denied" >&2; exit 1' }))
-    /** 中文说明：变量 quick 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const quick = bash.start(bash.resolve({ command: 'true' }))
     await quick.done
     await slow.done
@@ -736,7 +642,6 @@ describe('background sandbox facts', () => {
 
   it('a signal-killed task is never a denial (null exit code)', async () => {
     const { bash } = await setup()
-    /** 中文说明：变量 task 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const task = bash.start(bash.resolve({ command: 'echo "Permission denied" >&2; sleep 30' }))
     // Let the stderr land before the kill so the classifier sees the
     // signature and must still refuse it on the null exit code alone.
@@ -748,7 +653,6 @@ describe('background sandbox facts', () => {
 
   it('disposal kills wrapped background jobs (inherited HMR safety)', async () => {
     const { ctx, bash } = await setup()
-    /** 中文说明：变量 task 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const task = bash.start(bash.resolve({ command: 'sleep 30' }))
     await ctx.fiber.dispose()
     expect(task.status).toBe('killed')

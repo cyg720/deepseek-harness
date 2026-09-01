@@ -1,15 +1,6 @@
 /** Generic unary RPC contracts shared by the Host and Client Connection halves. */
-/*
- * 文件职责：声明宿主端和客户端连接层共用的单次 RPC 类型与注册接口。
- * 技术维度：使用 TypeScript 类型别名、只读接口、AbortSignal 和泛型 RPC 结果约束调用双方。
- * 产品维度：为独立功能模块提供统一的远程调用入口，并明确不同通道的访问范围。
- * 逻辑维度：先定义信任策略和处理函数，再分别声明宿主注册表与客户端调用器。
- * 关键边界：本文件只定义类型，不负责传输或校验；通道必须由宿主注册后才能调用。
- * 新手阅读建议：按 Authority、Options、Handler、HostConnectionRpc、ClientConnectionRpc 的顺序理解一次调用的两端。
- */
 
 import type { Branded } from '@deepseek-ai/dsh-brand'
-import type { SessionId } from '@deepseek-ai/dsh-session/types'
 
 /** Correlation id minted by a caller and echoed by the Connection response. */
 export type RpcId = Branded<'rpc-id'>
@@ -35,32 +26,6 @@ export type ConnectionRpcResult<T> =
   | { readonly ok: true; readonly value: T }
   | { readonly ok: false; readonly error: ConnectionRpcFailure }
 
-/** Typed failure details used by Client Session adapters. */
-export interface RpcErrorDetailsMap {
-  'bad-request': { issues: object[] }
-  'cancelled': {}
-  'session-not-found': { sessionId: SessionId }
-  'invalid-time-zone': { value: string }
-  'agent-preset-read-only': { agentPreset: string; reason: string }
-  'agent-preset-locked': { sessionId: SessionId; agentPreset: string }
-  'agent-preset-not-found': { agentPreset: string; available: readonly string[] }
-  'agent-preset-invalid': { agentPreset: string; reason: string }
-  'agent-busy': { reason: string }
-  'internal': {}
-}
-
-/** Error codes used by Client Session adapters. */
-export type RpcErrorCode = keyof RpcErrorDetailsMap
-
-/** Typed failure used by Client Session adapters. */
-export type RpcError = {
-  [Code in RpcErrorCode]: {
-    readonly code: Code
-    readonly message: string
-    readonly details: RpcErrorDetailsMap[Code]
-  }
-}[RpcErrorCode]
-
 /** Historical short name for a generic Connection result. */
 export type RpcResult<T> = ConnectionRpcResult<T>
 
@@ -73,7 +38,7 @@ export function transportError<T>(error: unknown): RpcResult<T> {
   return {
     ok: false,
     error: {
-      code: 'internal',
+      code: 'gateway/internal',
       message: error instanceof Error ? error.message : String(error),
       details: {},
     },
@@ -132,7 +97,6 @@ export interface ConnectionIndexResponse {
 }
 
 /** Handler invoked after Connection has decoded the transport envelope. */
-/* 中文说明：连接层解码信封后调用的业务函数；参数依次是端点、待校验载荷和取消信号；返回 RPC 结果，例如异步返回 `{ ok: true, value }`。 */
 export type ConnectionRpcHandler = (
   endpoint: string,
   payload: unknown,
@@ -140,7 +104,6 @@ export type ConnectionRpcHandler = (
 ) => Promise<ConnectionRpcResult<unknown>>
 
 /** Synchronous ownership test for one endpoint on a shared RPC channel. */
-/* 中文说明：同步判断共享通道中的端点是否属于某个拦截器；返回布尔值，例如 `endpoint => endpoint.startsWith('goals/')`。 */
 export type ConnectionRpcEndpointMatcher = (endpoint: string) => boolean
 
 /** HTTP methods supported by exact Fetch routes on the shared API channel. */
@@ -167,7 +130,6 @@ export interface HostConnectionFetch {
 }
 
 /** Host registry for logical RPC channels carried by the current transport. */
-/* 中文说明：宿主端逻辑 RPC 注册表；注册的生命周期由返回的异步清理函数管理。 */
 export interface HostConnectionRpc {
   /**
    * Register one authenticated absolute channel prefix.
@@ -175,7 +137,6 @@ export interface HostConnectionRpc {
    * @param handler - decoded endpoint handler returning the existing RPC result shape.
    * @returns asynchronous disposer removing the channel and its physical route.
    */
-  /* 中文说明：注册绝对通道；参数为通道、处理器和访问策略；返回清理函数，例如 `rpc.handle('/rpc', handler, { authority: 'loopback' })`。 */
   handle(
     channel: string,
     handler: ConnectionRpcHandler,
@@ -188,7 +149,6 @@ export interface HostConnectionRpc {
    * @param handler - decoded endpoint handler returning the existing RPC result shape.
    * @returns asynchronous disposer removing the interceptor.
    */
-  /* 中文说明：拦截共享 `/api` 中匹配的端点；参数为通道、匹配器、处理器和策略；返回移除拦截器的函数。 */
   intercept(
     channel: '/api',
     matches: ConnectionRpcEndpointMatcher,
@@ -197,10 +157,8 @@ export interface HostConnectionRpc {
 }
 
 /** Host `ctx.connection` shape consumed by transport-independent adapters. */
-/* 中文说明：暴露在宿主 Context 上的连接服务接口，供不依赖具体传输的适配器使用。 */
 export interface HostConnectionHandle {
   /** Generic RPC channel registry. */
-  /* 中文说明：用于注册普通通道或共享通道拦截器的 RPC 注册表。 */
   readonly rpc: HostConnectionRpc
   /** Exact Fetch routes for streaming or browser-native responses. */
   readonly fetch: HostConnectionFetch
@@ -247,7 +205,6 @@ export interface ConnectionFetchHandler {
 }
 
 /** Client caller for logical RPC channels carried by the current transport. */
-/* 中文说明：客户端逻辑 RPC 调用器；负责把通道、端点和载荷交给当前传输实现。 */
 export interface ClientConnectionRpc {
   /**
    * Call one endpoint through an already registered logical channel.
@@ -257,7 +214,6 @@ export interface ClientConnectionRpc {
    * @param signal - optional caller cancellation.
    * @returns the endpoint-owned success/error result; correlation stays inside Connection.
    */
-  /* 中文说明：调用已注册端点；参数是通道、端点、载荷和可选取消信号；返回成功或错误结果，例如 `rpc.call('/api', 'goals/create', payload)`。 */
   call(
     channel: string,
     endpoint: string,

@@ -1,18 +1,3 @@
-/*
- * ================================ 文件注释 ================================
- * 【文件职责】web-search 设置卡片的控制器：把 web-search-deepseek 命名空间作用域
- *             与凭据域桥接到卡片表单上。
- * 【技术维度】CardForm 复用 + 凭据域（credentials Remote）：密钥是唯一不在设置段
- *             里的控件——其字面值从不随响应往返，卡片只知是否已配置，经段名引用的
- *             凭据参考写入。
- * 【产品维度】设置页"插件"中的 web-search 卡片：密钥、端点与每次请求搜索上限。
- * 【逻辑维度】构造建表单（含 secret 规格）→ readCredential 询问凭据域（带引用
- *             守卫）→ projection 装配 → refreshCredential 响应失效信号重读。
- * 【关键边界】凭据应答与其描述的引用一起存储：apiKeyEnv 可能在请求与应答间变化，
- *             两次读取可乱序结算，故只在仍对应当前引用时发布。
- * 【新手阅读建议】先看 card-form.ts 的 secret 规格，再读 readCredential 的引用守卫。
- * ==========================================================================
- */
 /**
  * The web-search card's staged form over the `web-search-deepseek` settings
  * namespace.
@@ -24,7 +9,9 @@
  * covers everything the card shows.
  */
 
-import type { ClientRemote } from '@deepseek-ai/dsh-api-remotes/client'
+import type { Context as ClientContext } from '@deepseek-ai/cordis'
+// Type-only: pulls the ctx.remote merge into this program.
+import type {} from '@deepseek-ai/dsh-api-remotes/client'
 import type { SnapshotStore } from '@deepseek-ai/dsh-client-store'
 import type { SettingsScope, SettingsScopeSnapshot } from '@deepseek-ai/dsh-client-ui-settings/client'
 import {
@@ -53,9 +40,6 @@ export interface WebSearchSettings {
   /** Maximum searches served within one request. */
   maxUses?: number
 }
-
-/** The credentials Remote methods this card reads and writes through. */
-export type WebSearchCredentials = Pick<ClientRemote['credentials'], 'describe' | 'set'>
 
 /** What the credentials domain last reported, and for which reference. */
 interface CredentialState {
@@ -97,11 +81,12 @@ export class WebSearchCardController {
 
   /**
    * @param scope - the bound settings scope for the `web-search-deepseek` namespace.
-   * @param credentials - Remote face used for the credential the section references.
+   * @param ctx - the card plugin's context, whose `remote.credentials` namespace
+   * answers for the credential the section references.
    */
   constructor(
     private readonly scope: SettingsScope<WebSearchSettings>,
-    private readonly credentials: WebSearchCredentials,
+    private readonly ctx: ClientContext,
   ) {
     this.form = new CardForm(
       scope,
@@ -140,14 +125,7 @@ export class WebSearchCardController {
       this.credential = { ref, configured: false, writable: true }
       this.store.set(this.projection())
     }
-    let response: Awaited<ReturnType<WebSearchCredentials['describe']>>
-    try {
-      response = await this.credentials.describe([ref])
-    } catch (_credentialReadFailure) {
-      // The card stays usable without this: the key control simply reports the
-      // last state it knew, and a write still reaches the Host.
-      return
-    }
+    const response = await this.ctx.remote.credentials.describe([ref])
     if (!response.ok || ref !== refOf(this.scope.getSnapshot())) return
     const view = response.value[ref]
     const next: CredentialState = {
@@ -189,12 +167,9 @@ export class WebSearchCardController {
    * @returns whether the Host reports a configured credential afterwards.
    */
   private async writeKey(value: string): Promise<boolean> {
-    try {
-      await this.credentials.set(refOf(this.scope.getSnapshot()), value)
-    } catch (_credentialWriteFailure) {
-      // Refusals surface through the re-read below: the Host is the only
-      // authority on whether the key now exists.
-    }
+    // Refusals surface through the re-read below: the Host is the only
+    // authority on whether the key now exists.
+    await this.ctx.remote.credentials.set(refOf(this.scope.getSnapshot()), value)
     await this.readCredential()
     return this.credential.configured
   }

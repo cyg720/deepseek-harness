@@ -1,34 +1,9 @@
 /**
- * ================================ 文件注释 ================================
- * 【文件职责】SQLite 存储后端的"schema 与打开期助手"：物理布局版本、数据库的
- * 打开/配置序列（权限、pragma、版本盖章/拒绝）、单元元数据表（units、unit_globals）。
- * 单元的记录表（u_<单元>_<表>）在 unit.ts 中按描述符创建。
- * 【技术维度】用 node:sqlite 的 DatabaseSync（同步 API）；物理布局版本存于
- * PRAGMA user_version，与每个单元自己的 version（units 行里的戳）正交；
- * 版本不符一律拒绝（本未发布格式不做迁移）。外键开启；journal_mode 按配置设置。
- * 【产品维度】SQLite 后端以"单文件数据库托管所有路由单元"：元数据表记录单元身份
- * 与版本戳，保证重开后能校验格式兼容性；STRICT 表保证列类型严格。
- * 【逻辑维度】按出现顺序：STORAGE_SQLITE_SCHEMA_VERSION（布局版本）→ JournalMode
- * （日志模式）→ createDatabaseFile（独占建库文件，权限 0600）→ openDatabase（打开 +
- * 配置 + 建元数据表）→ configureDatabase（pragma/版本检查/盖章）→ recordTableName
- * （物理表名派生）。
- * 【关键边界】新库最后才盖章：盖章即"布局已完整"的断言，之前任何失败都让介质保持
- * 未盖章状态（障碍清除后重开会从头重试物化）；journal_mode 排除 memory/off（静默
- * 丢弃日志持久性，与 KV 后端契约的持久性条款矛盾）。
- * 【新手阅读建议】先看 openDatabase/configureDatabase 的打开序列（权限 → pragma →
- * 版本检查 → 建表 → 盖章），再看 recordTableName 理解物理表命名。
- * ==========================================================================
- */
-/**
  * Schema + open-time helpers for the SQLite storage backend: the physical
  * layout version, the database open/configure sequence (permissions, pragmas,
  * version stamp/reject), and the unit metadata tables. Unit record tables are
  * created per descriptor in `unit.ts`.
  * @module @deepseek-ai/dsh-storage-sqlite/schema
- */
-/*
- * 模块总览：本文件负责"数据库文件怎么打开、怎么确认格式兼容、元数据表长什么样"；
- * 真正读写单元的类在 unit.ts，插件组装在 index.ts。
  */
 
 import { DatabaseSync } from 'node:sqlite'
@@ -42,11 +17,6 @@ import { StorageError } from '@deepseek-ai/dsh-storage'
  * row). Bumped only on a breaking change to the table layout; any other
  * stamped version rejects — this unreleased format has no migrations.
  */
-/*
- * 磁盘物理布局版本，存于 PRAGMA user_version。与每个单元自己的 version
- * （units 行里的戳）是两回事。只有表布局发生破坏性变更才递增；
- * 其它任何已盖章版本一律拒绝——本格式尚未发布，不做迁移。
- */
 export const STORAGE_SQLITE_SCHEMA_VERSION = 1
 
 /**
@@ -56,23 +26,12 @@ export const STORAGE_SQLITE_SCHEMA_VERSION = 1
  * `memory`/`off` are excluded: dropping journal durability silently
  * contradicts the durability clause of the KV backend contract.
  */
-/*
- * 后端可用的 SQLite 日志模式（journal_mode pragma 的取值）。
- * wal 是默认值；回滚日志模式（delete/truncate/persist）用于 WAL 共享内存文件
- * 不可用的文件系统（网络挂载）。memory/off 被排除：静默放弃日志持久性
- * 会与 KV 后端契约的持久性条款相矛盾。
- */
 export type JournalMode = 'wal' | 'delete' | 'truncate' | 'persist'
 
-// 中文说明：下面这段（createDatabaseFile、openDatabase、configureDatabase）与
-// session-persistence-sqlite / session-query-sqlite 的打开序列刻意镜像，
-// 是第三个使用者；共享介质助手推迟到日志形态迁移时提取（见领域 KV 存储
-// Agent Note 的复用审计），本阶段保持会话相关包不动。故此处被 jscpd 豁免。
-/* jscpd:ignore-start -- deliberately mirrors the session-persistence-sqlite /
-   session-query-sqlite open sequence; this group is the third user, and the
-   shared medium helper is deferred to the log-facet migration so the session
-   packages stay untouched this phase (see the domain KV storage Agent Note's
-   reuse audit). */
+/* jscpd:ignore-start -- deliberately mirrors the session-query-sqlite open
+   sequence. Each package owns a distinct database identity and schema, so a
+   shared helper would couple otherwise independent storage providers (see the
+   domain KV storage Agent Note's reuse audit). */
 /**
  * Exclusively create a missing database file with owner-only permissions.
  * Existing files retain their modes, and errors other than `EEXIST` propagate.
@@ -127,14 +86,12 @@ function configureDatabase(db: DatabaseSync, path: string, journalMode: JournalM
     )
   }
   /* jscpd:ignore-end */
-  // 单元元数据表 units：单元名（主键）+ 该单元自己的格式版本戳。
   db.exec(`
     CREATE TABLE IF NOT EXISTS units (
       name    TEXT PRIMARY KEY,
       version INTEGER NOT NULL
     ) STRICT
   `)
-  // 全局单例表 unit_globals：单元名（外键引用 units）+ 序列化后的全局值。
   db.exec(`
     CREATE TABLE IF NOT EXISTS unit_globals (
       unit  TEXT PRIMARY KEY REFERENCES units(name),
@@ -145,8 +102,6 @@ function configureDatabase(db: DatabaseSync, path: string, journalMode: JournalM
     // Stamp fresh databases LAST: the stamp asserts the layout is complete,
     // so a failure above must leave the medium unstamped (a re-open after
     // the obstruction is cleared retries materialization from scratch).
-    // 中文说明：新库最后才盖章——盖章即"布局已完整"的断言，因此上面任何失败
-    // 都会让介质保持未盖章状态（障碍清除后重开会从头重试物化）。
     db.exec(`PRAGMA user_version = ${STORAGE_SQLITE_SCHEMA_VERSION}`)
   }
 }
@@ -158,13 +113,6 @@ function configureDatabase(db: DatabaseSync, path: string, journalMode: JournalM
  * @param unit - Validated unit name.
  * @param table - Validated table name.
  * @returns the `u_<unit>_<table>` identifier.
- */
-/*
- * 派生一张单元表的物理表名：u_<单元名>_<表名>。两个片段在到达这里之前都经过了
- * UNIT_NAME_RE 校验，所以结果可以安全地插进 DDL 与预编译语句文本（无注入风险）。
- * @param unit 已校验的单元名。
- * @param table 已校验的表名。
- * @returns u_<unit>_<table> 形式的标识符。
  */
 export function recordTableName(unit: string, table: string): string {
   return `u_${unit}_${table}`

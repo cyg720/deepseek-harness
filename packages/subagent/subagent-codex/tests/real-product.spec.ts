@@ -1,11 +1,3 @@
-/**
- * 文件职责：验证 real-product.spec.ts 覆盖的子代理启动、协议、继承与生命周期行为。
- * 技术维度：使用 TypeScript、Vitest、Cordis 插件、进程协议或同进程代理驱动。
- * 产品维度：保障 Agent 能可靠委派任务、继承上下文并收集子代理结果。
- * 逻辑维度：准备代理配置，启动或连接子代理，转发事件，再处理结果、取消与清理。
- * 关键边界：异步状态不等于单次任务结果；外部输出不可信；清理必须等待子代理完全停止。
- * 新手阅读建议：先看公开配置和测试夹具，再读启动/事件流程，最后关注继承、取消与失败路径。
- */
 import { execFile } from 'node:child_process'
 import {
   cpSync,
@@ -25,6 +17,7 @@ import { Context } from '@deepseek-ai/cordis'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { Agent } from '@deepseek-ai/dsh-agent'
 import SubagentRuntime from '@deepseek-ai/dsh-subagent'
+import SessionProjectionRegistry from '@deepseek-ai/dsh-session-projection'
 import type {
   SubprocessHandle,
   SubprocessOutcome,
@@ -35,47 +28,33 @@ import * as codex from '../src/index.ts'
 import type { CodexPermissionMode } from '../src/run.ts'
 import {
   startResponsesFixture,
-  /** 中文说明：type ResponsesBehavior 定义本测试所需的数据或行为，用于表达子代理场景。 */
   type ResponsesBehavior,
-  /** 中文说明：type ResponsesFixture 定义本测试所需的数据或行为，用于表达子代理场景。 */
   type ResponsesFixture,
 } from './responses-fixture.ts'
 
-/** 中文说明：变量 execFileAsync 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const execFileAsync = promisify(execFile)
-/** 中文说明：变量 packageRoot 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const packageRoot = resolve(fileURLToPath(new URL('..', import.meta.url)))
-/** 中文说明：变量 codexBinDir 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const codexBinDir = join(packageRoot, 'node_modules', '.bin')
-/** 中文说明：变量 codexPackageJson 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const codexPackageJson = createRequire(import.meta.url).resolve('@openai/codex/package.json')
-/** 中文说明：变量 codexPackage 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const codexPackage = JSON.parse(readFileSync(
   codexPackageJson,
   'utf8',
 )) as { version: string; bin: { codex: string } }
-/** 中文说明：变量 codexEntry 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const codexEntry = resolve(dirname(codexPackageJson), codexPackage.bin.codex)
-/** 中文说明：变量 codexPackageRoot 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const codexPackageRoot = dirname(dirname(codexEntry))
 
-/** 中文说明：变量 roots 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const roots: string[] = []
-/** 中文说明：变量 fixtures 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const fixtures: ResponsesFixture[] = []
-/** 中文说明：变量 contexts 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const contexts: Context[] = []
 
 afterEach(async () => {
   await Promise.all(contexts.splice(0).map(ctx => ctx.fiber.dispose()))
   await Promise.all(fixtures.splice(0).map(fixture => fixture.close()))
-  /** 中文说明：该循环依次处理代理事件；循环变量仅在当前循环中有效。 */
   for (const root of roots.splice(0)) {
     await rm(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 })
   }
 })
 
-/** 中文说明：interface RealHarness 定义本测试所需的数据或行为，用于表达子代理场景。 */
 interface RealHarness {
   readonly ctx: Context
   readonly handles: SubprocessHandle[]
@@ -85,30 +64,23 @@ interface RealHarness {
   readonly workspace: string
 }
 
-/** 中文说明：interface RealInstanceFixture 定义本测试所需的数据或行为，用于表达子代理场景。 */
 interface RealInstanceFixture {
   readonly fixture: ResponsesFixture
   readonly env: Record<string, string>
   readonly workspace: string
 }
 
-/** 中文说明：type ResponsesScript 定义本测试所需的数据或行为，用于表达子代理场景。 */
 type ResponsesScript = readonly ResponsesBehavior[] | ((workspace: string) => readonly ResponsesBehavior[])
 
-/** 中文说明：函数 realInstanceFixture 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 async function realInstanceFixture(
   script: ResponsesScript,
 ): Promise<RealInstanceFixture> {
-  /** 中文说明：变量 root 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const root = mkdtempSync(join(tmpdir(), 'dsh-codex-real-'))
   roots.push(root)
-  /** 中文说明：变量 workspace 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const workspace = join(root, 'workspace')
-  /** 中文说明：变量 codexHome 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const codexHome = join(root, 'codex-home')
   mkdirSync(workspace)
   mkdirSync(codexHome)
-  /** 中文说明：变量 fixture 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const fixture = await startResponsesFixture(typeof script === 'function' ? script(workspace) : script)
   fixtures.push(fixture)
   writeFileSync(join(codexHome, 'config.toml'), [
@@ -130,7 +102,6 @@ async function realInstanceFixture(
     'enabled = false',
     '',
   ].join('\n'))
-  /** 中文说明：变量 env 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const env = {
     OPENAI_API_KEY: 'dsh-fake-openai-key',
     CODEX_HOME: codexHome,
@@ -145,29 +116,23 @@ async function realInstanceFixture(
   return { fixture, env, workspace }
 }
 
-/** 中文说明：interface RealRuntime 定义本测试所需的数据或行为，用于表达子代理场景。 */
 interface RealRuntime {
   readonly ctx: Context
   readonly handles: SubprocessHandle[]
   readonly spawnSpecs: SubprocessSpawnSpec[]
 }
 
-/** 中文说明：函数 realRuntime 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 async function realRuntime(): Promise<RealRuntime> {
-  /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const ctx = new Context()
   contexts.push(ctx)
+  await ctx.plugin(SessionProjectionRegistry)
   await ctx.plugin(SubagentRuntime)
   await ctx.plugin(LocalSubprocessRuntime)
-  /** 中文说明：变量 handles 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const handles: SubprocessHandle[] = []
-  /** 中文说明：变量 spawnSpecs 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const spawnSpecs: SubprocessSpawnSpec[] = []
-  /** 中文说明：变量 spawn 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const spawn = ctx.subprocess.spawn.bind(ctx.subprocess)
   vi.spyOn(ctx.subprocess, 'spawn').mockImplementation((spec) => {
     spawnSpecs.push(spec)
-    /** 中文说明：变量 handle 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const handle = spawn(spec)
     handles.push(handle)
     return handle
@@ -175,7 +140,6 @@ async function realRuntime(): Promise<RealRuntime> {
   return { ctx, handles, spawnSpecs }
 }
 
-/** 中文说明：函数 realHarness 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 async function realHarness(
   script: ResponsesScript,
   permissionMode?: CodexPermissionMode,
@@ -183,7 +147,6 @@ async function realHarness(
   readonly harness: RealHarness
   readonly fixture: ResponsesFixture
 }> {
-  /** 中文说明：变量 instance 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const instance = await realInstanceFixture(script)
   const { ctx, handles, spawnSpecs } = await realRuntime()
   await ctx.plugin(codex, {
@@ -191,7 +154,6 @@ async function realHarness(
     ...permissionMode === undefined ? {} : { permissionMode },
     disposeGraceMs: 2_000,
   })
-  /** 中文说明：变量 parent 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const parent = {
     id: 'real-parent',
     session: { header: { cwd: instance.workspace } },
@@ -209,22 +171,17 @@ async function realHarness(
   }
 }
 
-/** 中文说明：函数 expectQuiescent 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 async function expectQuiescent(handles: readonly SubprocessHandle[]): Promise<void> {
   expect(handles.length).toBeGreaterThan(0)
-  /** 中文说明：该循环依次处理代理事件；循环变量仅在当前循环中有效。 */
   for (const handle of handles) {
     await expect(handle.waitForExit()).resolves.toBe(true)
-    /** 中文说明：变量 outcome 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const outcome = await handle.done
     expect(outcome).toHaveProperty('exitCode')
     expect(outcome).toHaveProperty('signal')
   }
 }
 
-/** 中文说明：函数 expectedProcessExitDiagnostic 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function expectedProcessExitDiagnostic(outcome: SubprocessOutcome): string {
-  /** 中文说明：变量 fields 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const fields = [
     'product: Codex',
     'stage: process',
@@ -235,19 +192,16 @@ function expectedProcessExitDiagnostic(outcome: SubprocessOutcome): string {
   return `Product subagent failure (${fields.join('; ')})`
 }
 
-/** 中文说明：interface JsonSchemaNode 定义本测试所需的数据或行为，用于表达子代理场景。 */
 interface JsonSchemaNode {
   readonly properties?: Record<string, JsonSchemaNode>
   readonly required?: string[]
   readonly type?: string | string[]
 }
 
-/** 中文说明：函数 responseInputTexts 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function responseInputTexts(body: Record<string, unknown>): string[] {
   if (!Array.isArray(body.input)) return []
   return body.input.flatMap((item): string[] => {
     if (item === null || typeof item !== 'object') return []
-    /** 中文说明：变量 content 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const content = (item as Record<string, unknown>).content
     if (!Array.isArray(content)) return []
     return content.flatMap((part): string[] => (
@@ -281,7 +235,6 @@ describe('real @openai/codex 0.149.1 product', () => {
       '--out',
       schemaRoot,
     ], { env: { ...process.env, ...harness.env } })
-    /** 中文说明：变量 schema 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const schema = JSON.parse(readFileSync(
       join(schemaRoot, 'ClientRequest.json'),
       'utf8',
@@ -295,7 +248,6 @@ describe('real @openai/codex 0.149.1 product', () => {
     })
     expect(schema.definitions.ThreadStartParams.required).toBeUndefined()
 
-    /** 中文说明：变量 run 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const run = await harness.ctx.subagents.start('codex', {
       prompt: [{ type: 'text', text: task }],
       parent: harness.parent,
@@ -315,7 +267,6 @@ describe('real @openai/codex 0.149.1 product', () => {
     ])
 
     expect(fixture.requests).toHaveLength(1)
-    /** 中文说明：变量 recorded 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const recorded = fixture.requests[0]!
     expect(recorded.method).toBe('POST')
     expect(recorded.path).toBe('/v1/responses')
@@ -326,14 +277,11 @@ describe('real @openai/codex 0.149.1 product', () => {
   }, 60_000)
 
   it('fails a missing platform payload without falling back to a host codex', async () => {
-    /** 中文说明：变量 root 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const root = mkdtempSync(join(tmpdir(), 'dsh-codex-missing-payload-'))
     roots.push(root)
-    /** 中文说明：变量 isolatedPackage 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const isolatedPackage = join(root, 'node_modules', '@openai', 'codex')
     mkdirSync(dirname(isolatedPackage), { recursive: true })
     cpSync(codexPackageRoot, isolatedPackage, { recursive: true, dereference: true })
-    /** 中文说明：变量 isolatedEntry 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const isolatedEntry = join(isolatedPackage, 'bin', 'codex.js')
 
     await expect(execFileAsync(process.execPath, [isolatedEntry, '--version'], {
@@ -347,15 +295,12 @@ describe('real @openai/codex 0.149.1 product', () => {
   }, 30_000)
 
   it('runs two named instances concurrently and unloads one without revoking its run', async () => {
-    /** 中文说明：变量 safeInstance 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const safeInstance = await realInstanceFixture([{ kind: 'hold' }])
-    /** 中文说明：变量 bypassInstance 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const bypassInstance = await realInstanceFixture([{
       kind: 'complete',
       text: 'NAMED_CODEX_BYPASS_RESULT',
     }])
     const { ctx, handles, spawnSpecs } = await realRuntime()
-    /** 中文说明：变量 safeFiber 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const safeFiber = await ctx.plugin(codex, {
       providerName: 'codex-safe',
       model: 'codex-safe-model',
@@ -363,7 +308,6 @@ describe('real @openai/codex 0.149.1 product', () => {
       permissionMode: 'never',
       disposeGraceMs: 2_000,
     })
-    /** 中文说明：变量 bypassFiber 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const bypassFiber = await ctx.plugin(codex, {
       providerName: 'codex-bypass',
       model: 'codex-bypass-model',
@@ -371,17 +315,14 @@ describe('real @openai/codex 0.149.1 product', () => {
       permissionMode: 'dangerously-bypass-approvals-and-sandbox',
       disposeGraceMs: 2_000,
     })
-    /** 中文说明：变量 safeParent 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const safeParent = {
       id: 'safe-parent',
       session: { header: { cwd: safeInstance.workspace } },
     } as unknown as Agent
-    /** 中文说明：变量 bypassParent 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const bypassParent = {
       id: 'bypass-parent',
       session: { header: { cwd: bypassInstance.workspace } },
     } as unknown as Agent
-    /** 中文说明：变量 safeController 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const safeController = new AbortController()
 
     const [safeRun, bypassRun] = await Promise.all([
@@ -431,11 +372,9 @@ describe('real @openai/codex 0.149.1 product', () => {
   }, 60_000)
 
   it('overrides on-request with never and reports a denied command safely', async () => {
-    /** 中文说明：变量 command 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const command = process.platform === 'win32'
       ? 'cmd /c type nul > approval-side-effect'
       : 'touch approval-side-effect'
-    /** 中文说明：变量 commandCalls 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const commandCalls = [
       {
         name: 'exec_command',
@@ -465,19 +404,15 @@ describe('real @openai/codex 0.149.1 product', () => {
         message: 'fixture terminal failure after permission denial',
       },
     ])
-    /** 中文说明：变量 sideEffect 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const sideEffect = join(harness.workspace, 'approval-side-effect')
-    /** 中文说明：变量 run 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const run = await harness.ctx.subagents.start('codex', {
       prompt: [{ type: 'text', text: 'Attempt the fixture command.' }],
       parent: harness.parent,
       signal: new AbortController().signal,
     })
-    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await run.result
     expect(result.output).toEqual([])
     expect(result.stopReason).toBe('error')
-    /** 中文说明：变量 diagnosticLines 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const diagnosticLines = result.diagnostic?.split('\n') ?? []
     expect(diagnosticLines[0]).toBe(
       'Product subagent failure (product: Codex; stage: turn; category: product-error)',
@@ -489,7 +424,6 @@ describe('real @openai/codex 0.149.1 product', () => {
 
     expect(existsSync(sideEffect)).toBe(false)
     expect(fixture.requests).toHaveLength(2)
-    /** 中文说明：变量 tools 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const tools = fixture.requests[0]!.body.tools as Array<Record<string, unknown>>
     expect(commandCalls.some(call => tools.some(tool => (
       tool.type === 'function' && tool.name === call.name
@@ -507,13 +441,11 @@ describe('real @openai/codex 0.149.1 product', () => {
         status: 503,
         message: 'SECRET_TOKEN in /private/secret.txt',
       }])
-      /** 中文说明：变量 run 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const run = await harness.ctx.subagents.start('codex', {
         prompt: [{ type: 'text', text: 'Exercise the service failure path.' }],
         parent: harness.parent,
         signal: new AbortController().signal,
       })
-      /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const result = await run.result
       expect(result).toMatchObject({ output: [], stopReason: 'error' })
       expect(result.diagnostic).toBe(
@@ -526,7 +458,6 @@ describe('real @openai/codex 0.149.1 product', () => {
     }
     {
       const { harness, fixture } = await realHarness([{ kind: 'hold' }])
-      /** 中文说明：变量 run 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const run = await harness.ctx.subagents.start('codex', {
         prompt: [{ type: 'text', text: 'Exercise the process failure path.' }],
         parent: harness.parent,
@@ -535,7 +466,6 @@ describe('real @openai/codex 0.149.1 product', () => {
       await fixture.requestStarted
       expect(harness.handles).toHaveLength(1)
       harness.handles[0]!.terminate()
-      /** 中文说明：变量 outcome 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const outcome = await harness.handles[0]!.done
       await expect(run.result).resolves.toEqual({
         output: [],
@@ -548,16 +478,12 @@ describe('real @openai/codex 0.149.1 product', () => {
   }, 60_000)
 
   it('executes an explicitly selected dangerous bypass write in the isolated workspace', async () => {
-    /** 中文说明：变量 sideEffect 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const sideEffect = 'bypass-side-effect'
     const { harness, fixture } = await realHarness((workspace): readonly ResponsesBehavior[] => {
-      /** 中文说明：变量 target 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const target = join(workspace, sideEffect)
-      /** 中文说明：变量 command 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const command = process.platform === 'win32'
         ? `powershell.exe -NoLogo -NoProfile -NonInteractive -Command "Set-Content -LiteralPath '${target.replaceAll("'", "''")}' -Value 'bypass' -NoNewline"`
         : `printf bypass > ${JSON.stringify(target)}`
-      /** 中文说明：变量 commandCalls 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const commandCalls = [
         {
           name: 'exec_command',
@@ -577,9 +503,7 @@ describe('real @openai/codex 0.149.1 product', () => {
         { kind: 'complete', text: 'bypass complete' },
       ]
     }, 'dangerously-bypass-approvals-and-sandbox')
-    /** 中文说明：变量 target 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const target = join(harness.workspace, sideEffect)
-    /** 中文说明：变量 run 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const run = await harness.ctx.subagents.start('codex', {
       prompt: [{ type: 'text', text: 'Create the fixture side effect.' }],
       parent: harness.parent,
@@ -597,9 +521,7 @@ describe('real @openai/codex 0.149.1 product', () => {
 
   it('settles cancellation locally and leaves the real app-server tree quiescent', async () => {
     const { harness, fixture } = await realHarness([{ kind: 'hold' }])
-    /** 中文说明：变量 controller 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const controller = new AbortController()
-    /** 中文说明：变量 run 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const run = await harness.ctx.subagents.start('codex', {
       prompt: [{ type: 'text', text: 'Wait for cancellation.' }],
       parent: harness.parent,

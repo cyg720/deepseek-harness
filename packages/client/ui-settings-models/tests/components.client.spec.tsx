@@ -1,18 +1,13 @@
 // @vitest-environment jsdom
-/*
- * 文件职责：验证模型设置的 components.client.spec.tsx 行为。
- * 技术维度：Vitest、React 渲染、表单事件和 API 替身。
- * 产品维度：防止模型设置保存、发现和错误提示回归。
- * 逻辑维度：构造配置状态，触发操作并断言请求与界面。
- * 关键边界：敏感值不得意外回显；异步发现和保存必须清理。
- * 新手阅读建议：先读状态夹具，再按加载、编辑、保存场景阅读。
- */
 /** Section, setup-card, and hand-written editor behavior over a scripted wire face. */
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import Schema from '@deepseek-ai/schemastery'
-import { bindSnapshotSelector } from '@deepseek-ai/dsh-client-test-runtime'
-import type { JsonValue, SettingsNamespaceView } from '@deepseek-ai/dsh-api-remotes/client'
+import { bindSnapshotSelector, RemoteError } from '@deepseek-ai/dsh-client-test-runtime'
+import type {
+  CredentialInfo, RemoteResult, SettingsNamespaceView,
+} from '@deepseek-ai/dsh-api-remotes/client'
+import type { JsonValue } from '@deepseek-ai/dsh-util-values'
 import {
   ModelsSection, needsSetup, providerCopy, providerTargetLabel, removeProviderProfile,
 } from '../src/client/ModelsSection.tsx'
@@ -24,36 +19,30 @@ import {
 import { apiKeyFailure } from '../src/client/apiKey.ts'
 import { SettingsDescribeMirror } from '@deepseek-ai/dsh-client-ui-settings/src/client/settings-mirror.ts'
 import { deriveKeyRef, ModelsSettingsStore } from '../src/client/store.ts'
+import { createModelsOperations } from '../src/client/operations.ts'
+import type { ModelsOperations } from '../src/client/operations.ts'
 import type { ProviderRow } from '../src/client/store.ts'
 import { en } from '../src/client/locales.ts'
 import { settingsSchema } from './settings-schema.client.ts'
 
 afterEach(cleanup)
 
-/** 中文说明：测试局部值 t，由紧邻初始化决定。 */
 const t: ModelsSectionInjected['t'] = key => en[key]
-/** 中文说明：测试局部值 OPENAI_TARGET，由紧邻初始化决定。 */
 const OPENAI_TARGET = { provider: 'openai', displayName: 'openai' }
-/** 中文说明：测试局部值 openaiCopy，由紧邻初始化决定。 */
 const openaiCopy = (template: string): string => providerCopy(template, OPENAI_TARGET)
-/** 中文说明：测试局部值 DEEPSEEK_TARGET，由紧邻初始化决定。 */
 const DEEPSEEK_TARGET = { provider: 'deepseek-official', displayName: 'DeepSeek' }
-/** 中文说明：测试局部值 deepSeekCopy，由紧邻初始化决定。 */
 const deepSeekCopy = (template: string): string => providerCopy(template, DEEPSEEK_TARGET)
 
 /** Open one row's capacity disclosure (1-based, as the labels read). */
-/* 中文说明：函数 expandRow 的参数见签名，返回结果供设置流程使用；示例见本文件。 */
 function expandRow(position: number): void {
   fireEvent.click(screen.getByLabelText(`${en.modelAdvanced} ${String(position)}`))
 }
 
 /** The capacity inputs of every open row, in row order. */
-/* 中文说明：函数 capacityInputs 的参数见签名，返回结果供设置流程使用；示例见本文件。 */
 function capacityInputs(label: string): HTMLInputElement[] {
   return screen.getAllByLabelText<HTMLInputElement>(new RegExp(label))
 }
 
-/** 中文说明：测试局部值 PiAiConfig，由紧邻初始化决定。 */
 const PiAiConfig = Schema.object({
   providers: Schema.dict(Schema.object({
     apiKeyEnv: Schema.string().role('credential-ref'),
@@ -63,7 +52,6 @@ const PiAiConfig = Schema.object({
   })),
 })
 
-/** 中文说明：测试局部值 DeepSeekConfig，由紧邻初始化决定。 */
 const DeepSeekConfig = Schema.object({
   apiKeyEnv: Schema.string().role('credential-ref'),
   baseURL: Schema.string().pattern(/^https:\/\//),
@@ -92,7 +80,6 @@ const DeepSeekConfig = Schema.object({
   ]),
 })
 
-/** 中文说明：测试局部值 DEFAULT_DEEPSEEK_MODELS，由紧邻初始化决定。 */
 const DEFAULT_DEEPSEEK_MODELS = [
   {
     id: 'deepseek-v4-flash',
@@ -103,7 +90,6 @@ const DEFAULT_DEEPSEEK_MODELS = [
   { id: 'deepseek-v4-pro', name: 'DeepSeek-V4-Pro', contextWindow: 1_000_000 },
 ]
 
-/** 中文说明：函数 wireNamespaces 的参数见签名，返回结果供设置流程使用；示例见本文件。 */
 function wireNamespaces(): SettingsNamespaceView[] {
   return [
     {
@@ -156,11 +142,21 @@ function wireNamespaces(): SettingsNamespaceView[] {
 function remoteOk<T>(value: T) {
   return { ok: true as const, value }
 }
-function remoteFail(message: string, code = 'credential-rejected') {
-  return { ok: false as const, error: { code, message, details: {} } }
+/** The codes this page's scripted Host answers refuse with. */
+type RefusalCode = 'credential/rejected' | 'gateway/internal' | 'settings/conflict' | 'settings/rejected'
+
+/** One refusal per code, each carrying the details its own code declares. */
+const REFUSALS: { [Code in RefusalCode]: (message: string) => RemoteError<Code> } = {
+  'credential/rejected': message => new RemoteError('credential/rejected', message, { ref: 'DEEPSEEK_API_KEY' }),
+  'gateway/internal': message => new RemoteError('gateway/internal', message, {}),
+  'settings/conflict': message =>
+    new RemoteError('settings/conflict', message, { ns: 'llm-pi-ai', expected: 4, actual: 5 }),
+  'settings/rejected': message => new RemoteError('settings/rejected', message, { ns: 'llm-pi-ai' }),
+}
+function remoteFail(message: string, code: RefusalCode = 'credential/rejected') {
+  return { ok: false as const, error: REFUSALS[code](message) }
 }
 
-/** 中文说明：函数 scriptedFace 的参数见签名，返回结果供设置流程使用；示例见本文件。 */
 function scriptedFace(overrides: {
   update?: ReturnType<typeof vi.fn>
   mutate?: ReturnType<typeof vi.fn>
@@ -194,13 +190,16 @@ function scriptedFace(overrides: {
       mutate,
     },
     credentials: {
-      describe: vi.fn((refs: string[]) => Promise.resolve(remoteOk(
-        Object.fromEntries(refs.map(ref => [ref, {
-          configured: ref === 'OPENAI_API_KEY',
-          ...ref === 'OPENAI_API_KEY' ? { source: 'file' } : {},
-          writable: true,
-        }])),
-      ))),
+      // Typed as the Remote answer rather than the success branch alone: a
+      // case that scripts a refusal replaces this mock.
+      describe: vi.fn((refs: string[]): Promise<RemoteResult<Record<string, CredentialInfo>>> =>
+        Promise.resolve(remoteOk(
+          Object.fromEntries(refs.map(ref => [ref, {
+            configured: ref === 'OPENAI_API_KEY',
+            ...ref === 'OPENAI_API_KEY' ? { source: 'file' } : {},
+            writable: true,
+          }])),
+        ))),
       set,
       unset,
     },
@@ -208,8 +207,35 @@ function scriptedFace(overrides: {
   return { face, update, mutate, set, unset }
 }
 
-/** 中文说明：类型或类 WireFace 约束设置数据或组件职责。 */
-type WireFace = ConstructorParameters<typeof ModelsSettingsStore>[0]
+type PageContext = ConstructorParameters<typeof ModelsSettingsStore>[0]
+
+/**
+ * The page plugin's context, scripted down to the namespaces the page reaches.
+ * One context per face, as in production: an editor effect keyed by the context
+ * would otherwise re-probe on every render.
+ */
+const contexts = new WeakMap<object, PageContext>()
+function ctxWith(face: object): PageContext {
+  const existing = contexts.get(face)
+  if (existing !== undefined) return existing
+  const ctx = { remote: face } as unknown as PageContext
+  contexts.set(face, ctx)
+  return ctx
+}
+
+/**
+ * The cards' injected Host operations over the same script, bound once per face
+ * as the plugin body binds them: an editor effect keyed by this face would
+ * otherwise re-probe on every render.
+ */
+const operations = new WeakMap<object, ModelsOperations>()
+function operationsWith(face: object): ModelsOperations {
+  const existing = operations.get(face)
+  if (existing !== undefined) return existing
+  const bound = createModelsOperations(ctxWith(face))
+  operations.set(face, bound)
+  return bound
+}
 
 /** One recorded child-slot dispatch: seat name, owner share, kind options. */
 type RenderSlotCall = [name: string, owner: Record<string, unknown>, opts?: { entryKey?: string }]
@@ -235,25 +261,23 @@ function cardSeatCalls(
 
 async function mountFace(scripted: ReturnType<typeof scriptedFace>) {
   const { face, update, mutate, set, unset } = scripted
-  const mirror = new SettingsDescribeMirror(face as never)
-  /** 中文说明：测试局部值 controller，由紧邻初始化决定。 */
-  const controller = new ModelsSettingsStore(face as unknown as WireFace, settingsSchema, mirror)
+  const ctx = ctxWith(face)
+  const mirror = new SettingsDescribeMirror(ctx)
+  const controller = new ModelsSettingsStore(ctx, settingsSchema, mirror)
   await controller.load()
   const renderSlot = stubRenderSlot()
   const injected: ModelsSectionProps = {
     controller,
     useSnapshot: bindSnapshotSelector(controller.store),
-    api: face as never,
+    operations: operationsWith(face),
     schema: settingsSchema,
     t,
     renderSlot: renderSlot as unknown as ModelsSectionProps['renderSlot'],
   }
-  /** 中文说明：测试局部值 view，由紧邻初始化决定。 */
   const view = render(<ModelsSection {...injected} />)
-  return { view, face, update, mutate, set, unset, controller, mirror, renderSlot }
+  return { view, ctx, face, update, mutate, set, unset, controller, mirror, renderSlot }
 }
 
-/** 中文说明：函数 mountSection 的参数见签名，返回结果供设置流程使用；示例见本文件。 */
 async function mountSection(overrides: Parameters<typeof scriptedFace>[0] = {}) {
   return mountFace(scriptedFace(overrides))
 }
@@ -262,9 +286,7 @@ async function mountSection(overrides: Parameters<typeof scriptedFace>[0] = {}) 
  * Mount for a user who cannot reach any provider yet: no credential is stored
  * anywhere, so the whole-section DeepSeek route owns the first-run setup card.
  */
-/* 中文说明：函数 mountFirstRun 的参数见签名，返回结果供设置流程使用；示例见本文件。 */
 async function mountFirstRun(overrides: Parameters<typeof scriptedFace>[0] = {}) {
-  /** 中文说明：测试局部值 scripted，由紧邻初始化决定。 */
   const scripted = scriptedFace(overrides)
   scripted.face.credentials.describe.mockImplementation((refs: string[]) =>
     Promise.resolve(remoteOk(
@@ -278,9 +300,7 @@ async function mountFirstRun(overrides: Parameters<typeof scriptedFace>[0] = {})
  * openai route, so DeepSeek is an ordinary row whose card opens through Edit
  * rather than by itself.
  */
-/* 中文说明：函数 mountDeepSeekCard 的参数见签名，返回结果供设置流程使用；示例见本文件。 */
 async function mountDeepSeekCard(overrides: Parameters<typeof scriptedFace>[0] = {}) {
-  /** 中文说明：测试局部值 mounted，由紧邻初始化决定。 */
   const mounted = await mountSection(overrides)
   fireEvent.click(screen.getByRole('button', { name: deepSeekCopy(en.editProvider) }))
   return mounted
@@ -288,7 +308,6 @@ async function mountDeepSeekCard(overrides: Parameters<typeof scriptedFace>[0] =
 
 describe('ModelsSection', () => {
   it('renders nothing before the slot injects its dependencies', () => {
-    /** 中文说明：测试局部值 uninjected，由紧邻初始化决定。 */
     const uninjected = {} as ModelsSectionProps
     render(<ModelsSection {...uninjected} />)
     expect(document.body.textContent).toBe('')
@@ -364,12 +383,10 @@ describe('ModelsSection', () => {
     // openai's key is stored, so the user is not blocked and nothing on the
     // page opens itself over them.
     expect(screen.queryByLabelText(en.keyInput)).toBeNull()
-    /** 中文说明：测试局部值 configured，由紧邻初始化决定。 */
     const configured = screen.getByRole('img', { name: en.credentialConfigured })
     expect(configured.getAttribute('title')).toBe(en.credentialConfigured)
     expect(configured.className).toContain('credentialDotConfigured')
     expect(configured.closest('li')?.textContent).toContain('openai')
-    /** 中文说明：测试局部值 missing，由紧邻初始化决定。 */
     const missing = screen.getByRole('img', { name: en.credentialMissing })
     expect(missing.closest('li')?.textContent).toContain('DeepSeek')
     // The card is still one click away.
@@ -378,23 +395,21 @@ describe('ModelsSection', () => {
   })
 
   it('marks only a confirmed missing reference and leaves native or unavailable state unmarked', async () => {
-    /** 中文说明：测试局部值 { face }，由紧邻初始化决定。 */
     const { face } = scriptedFace()
     face.credentials.describe.mockImplementation((refs: string[]) => Promise.resolve(remoteOk(
       Object.fromEntries(refs.map(ref => [ref, { configured: false, writable: true }])),
     )))
-    const controller = new ModelsSettingsStore(face as unknown as WireFace, settingsSchema, new SettingsDescribeMirror(face as never))
+    const controller = new ModelsSettingsStore(ctxWith(face), settingsSchema, new SettingsDescribeMirror(ctxWith(face)))
     await controller.load()
     render(<ModelsSection
       controller={controller}
       useSnapshot={bindSnapshotSelector(controller.store)}
-      api={face as never}
+      operations={operationsWith(face)}
       schema={settingsSchema}
       t={t}
       renderSlot={() => null}
     />)
 
-    /** 中文说明：测试局部值 missing，由紧邻初始化决定。 */
     const missing = screen.getByRole('img', { name: en.credentialMissing })
     expect(missing.getAttribute('title')).toBe(en.credentialMissing)
     expect(missing.className).toContain('credentialDotMissing')
@@ -404,18 +419,17 @@ describe('ModelsSection', () => {
   })
 
   it('turns the setup card into a row once the credential reports configured', async () => {
-    /** 中文说明：测试局部值 { face }，由紧邻初始化决定。 */
     const { face } = await mountFirstRun()
     face.credentials.describe.mockImplementation((refs: string[]) => Promise.resolve(remoteOk(
       Object.fromEntries(refs.map(ref => [ref, { configured: true, writable: true }])),
     )))
-    const controller = new ModelsSettingsStore(face as unknown as WireFace, settingsSchema, new SettingsDescribeMirror(face as never))
+    const controller = new ModelsSettingsStore(ctxWith(face), settingsSchema, new SettingsDescribeMirror(ctxWith(face)))
     await controller.load()
     cleanup()
     render(<ModelsSection
       controller={controller}
       useSnapshot={bindSnapshotSelector(controller.store)}
-      api={face as never}
+      operations={operationsWith(face)}
       schema={settingsSchema}
       t={t}
       renderSlot={() => null}
@@ -426,9 +440,7 @@ describe('ModelsSection', () => {
   })
 
   it('decides setup need from the joined credential state and the first-run posture', () => {
-    /** 中文说明：测试局部值 entry，由紧邻初始化决定。 */
     const entry = { provider: 'p', displayName: 'p', settingsNs: 'llm-deepseek', settingsPath: [], active: true }
-    /** 中文说明：测试局部值 row，由紧邻初始化决定。 */
     const row = (credential: ProviderRow['credential']): ProviderRow => ({
       entry,
       configured: true,
@@ -438,7 +450,6 @@ describe('ModelsSection', () => {
     })
     expect(needsSetup(row(undefined), false)).toBe(true)
     expect(needsSetup(row({ configured: true, writable: true }), false)).toBe(false)
-    /** 中文说明：测试局部值 nested，由紧邻初始化决定。 */
     const nested = { ...row(undefined), entry: { ...entry, settingsPath: ['providers', 'x'] } }
     expect(needsSetup(nested, false)).toBe(false)
     // A user who can already reach some provider is not in the first-run
@@ -452,7 +463,6 @@ describe('ModelsSection', () => {
   })
 
   it('uses one stable provider identity in action copy', () => {
-    /** 中文说明：测试局部值 target，由紧邻初始化决定。 */
     const target = { provider: 'deepseek-official', displayName: 'DeepSeek' }
     expect(providerTargetLabel(target)).toBe('DeepSeek (deepseek-official)')
     expect(providerCopy(en.deleteTitle, target)).toBe('Delete DeepSeek (deepseek-official)?')
@@ -490,11 +500,8 @@ describe('ModelsSection', () => {
     const set = vi.fn(() => new Promise<{ ok: true; value: undefined }>((resolve) => {
       finishSet = resolve
     }))
-    /** 中文说明：测试局部值 { face, mutate }，由紧邻初始化决定。 */
     const { face, mutate } = scriptedFace({ set })
-    /** 中文说明：测试局部值 onClose，由紧邻初始化决定。 */
     const onClose = vi.fn()
-    /** 中文说明：测试局部值 { ProviderEditor }，由紧邻初始化决定。 */
     const { ProviderEditor } = await import('../src/client/ProviderEditor.tsx')
 
     render(<ProviderEditor
@@ -504,7 +511,7 @@ describe('ModelsSection', () => {
       namespace={wireNamespaces()[0]!}
       schema={settingsSchema}
       settingsPath={[]}
-      api={face as never}
+      operations={operationsWith(face)}
       t={t}
       readOnly={false}
       credentialOnly
@@ -516,9 +523,7 @@ describe('ModelsSection', () => {
       onClose={onClose}
     />)
 
-    /** 中文说明：测试局部值 key，由紧邻初始化决定。 */
     const key = screen.getByLabelText<HTMLInputElement>(en.keyInput)
-    /** 中文说明：测试局部值 save，由紧邻初始化决定。 */
     const save = screen.getByText<HTMLButtonElement>(en.onboardingSave)
     expect(document.activeElement).toBe(key)
     expect(key.required).toBe(true)
@@ -551,12 +556,10 @@ describe('ModelsSection', () => {
   })
 
   it('applies customized deepseek fields as path ops', async () => {
-    /** 中文说明：测试局部值 { mutate }，由紧邻初始化决定。 */
     const { mutate } = await mountDeepSeekCard({
       mutate: vi.fn(() => Promise.resolve(remoteOk(wireNamespaces()[0]))),
     })
     fireEvent.click(screen.getByText(en.customized))
-    /** 中文说明：测试局部值 baseURL，由紧邻初始化决定。 */
     const baseURL = screen.getByLabelText<HTMLInputElement>(en.baseUrl)
     // The deepseek placeholder is pinned to the public endpoint, not the
     // effective value (which may reflect a launch-environment override).
@@ -574,7 +577,6 @@ describe('ModelsSection', () => {
   })
 
   it('materializes inherited models and adds an arbitrary DeepSeek id', async () => {
-    /** 中文说明：测试局部值 { mutate }，由紧邻初始化决定。 */
     const { mutate } = await mountDeepSeekCard({
       mutate: vi.fn(() => Promise.resolve(remoteOk(wireNamespaces()[0]))),
     })
@@ -584,9 +586,7 @@ describe('ModelsSection', () => {
       .toEqual(['deepseek-v4-flash', 'deepseek-v4-pro'])
 
     fireEvent.click(screen.getByText(en.addModel))
-    /** 中文说明：测试局部值 ids，由紧邻初始化决定。 */
     const ids = screen.getAllByLabelText(new RegExp(en.modelId))
-    /** 中文说明：测试局部值 names，由紧邻初始化决定。 */
     const names = screen.getAllByLabelText(new RegExp(en.modelName))
     expandRow(3)
     fireEvent.change(ids[2] as HTMLInputElement, { target: { value: 'private-preview' } })
@@ -611,11 +611,9 @@ describe('ModelsSection', () => {
   })
 
   it('rejects duplicate DeepSeek model ids before writing', async () => {
-    /** 中文说明：测试局部值 { mutate }，由紧邻初始化决定。 */
     const { mutate } = await mountDeepSeekCard()
     fireEvent.click(screen.getByText(en.customized))
     fireEvent.click(screen.getByText(en.addModel))
-    /** 中文说明：测试局部值 ids，由紧邻初始化决定。 */
     const ids = screen.getAllByLabelText(new RegExp(en.modelId))
     fireEvent.change(ids[2] as HTMLInputElement, { target: { value: 'deepseek-v4-flash' } })
     fireEvent.click(screen.getByText(en.apply))
@@ -677,21 +675,18 @@ describe('ModelsSection', () => {
     // Values the validator will reject are shown as-is rather than dressed up.
     expect(formatCapacity(Number.NaN)).toBe('NaN')
     expect(formatCapacity(0)).toBe('0')
-    /** 中文说明：测试局部值 text，由紧邻初始化决定。 */
     for (const text of ['1M', '256K', '131072', '1500K']) {
       expect(formatCapacity(parseCapacity(text) as number)).toBe(text)
     }
   })
 
   it('accepts a suffixed context window and stores the plain count', async () => {
-    /** 中文说明：测试局部值 { mutate }，由紧邻初始化决定。 */
     const { mutate } = await mountDeepSeekCard({
       mutate: vi.fn(() => Promise.resolve(remoteOk(wireNamespaces()[0]))),
     })
     fireEvent.click(screen.getByText(en.customized))
     expandRow(1)
     expandRow(2)
-    /** 中文说明：测试局部值 windows，由紧邻初始化决定。 */
     const windows = capacityInputs(en.contextWindow)
     // The inherited 1000000 reads back short.
     expect((windows[0] as HTMLInputElement).value).toBe('1M')
@@ -726,12 +721,10 @@ describe('ModelsSection', () => {
   })
 
   it('keeps unreadable context-window text on screen and refuses the write', async () => {
-    /** 中文说明：测试局部值 { mutate }，由紧邻初始化决定。 */
     const { mutate } = await mountDeepSeekCard()
     fireEvent.click(screen.getByText(en.customized))
     expandRow(1)
     expandRow(2)
-    /** 中文说明：测试局部值 windows，由紧邻初始化决定。 */
     const windows = capacityInputs(en.contextWindow)
     fireEvent.change(windows[0] as HTMLInputElement, { target: { value: '1 gazillion' } })
     // Blurring a row that is not the edited one leaves the buffer alone.
@@ -752,11 +745,8 @@ describe('ModelsSection', () => {
     // The regression: reset read the EFFECTIVE value, which still carries the
     // stored override until the unset is applied — so the rows did not change
     // and the catalog only looked restored after reopening the card.
-    /** 中文说明：测试局部值 { face }，由紧邻初始化决定。 */
     const { face } = scriptedFace()
-    /** 中文说明：测试局部值 stored，由紧邻初始化决定。 */
     const stored = { models: [{ id: 'user-only-model', name: 'User Only' }] }
-    /** 中文说明：测试局部值 overridden，由紧邻初始化决定。 */
     const overridden: SettingsNamespaceView = {
       ns: 'llm-deepseek',
       schema: JSON.parse(JSON.stringify(DeepSeekConfig.toJSON())) as JsonValue,
@@ -767,7 +757,6 @@ describe('ModelsSection', () => {
       secrets: [],
       revision: 0,
     }
-    /** 中文说明：测试局部值 { ProviderEditor }，由紧邻初始化决定。 */
     const { ProviderEditor } = await import('../src/client/ProviderEditor.tsx')
     render(<ProviderEditor
       provider="deepseek-official"
@@ -775,7 +764,7 @@ describe('ModelsSection', () => {
       namespace={overridden}
       schema={settingsSchema}
       settingsPath={[]}
-      api={face as never}
+      operations={operationsWith(face)}
       t={t}
       readOnly={false}
       onClose={() => {}}
@@ -800,7 +789,6 @@ describe('ModelsSection', () => {
     fireEvent.click(screen.getByText(en.customized))
     expandRow(1)
     expandRow(2)
-    /** 中文说明：测试局部值 windows，由紧邻初始化决定。 */
     const windows = capacityInputs(en.contextWindow)
     fireEvent.change(windows[0] as HTMLInputElement, { target: { value: 'not a number' } })
     fireEvent.blur(windows[0] as HTMLInputElement)
@@ -813,9 +801,7 @@ describe('ModelsSection', () => {
   it('re-keys the typed text around a removed row', async () => {
     await mountDeepSeekCard()
     fireEvent.click(screen.getByText(en.customized))
-    /** 中文说明：测试局部值 windows，由紧邻初始化决定。 */
     const windows = (): HTMLInputElement[] => capacityInputs(en.contextWindow)
-    /** 中文说明：测试局部值 removeRow，由紧邻初始化决定。 */
     const removeRow = (at: number): void => {
       fireEvent.click(screen.getAllByLabelText(new RegExp(en.removeModel))[at] as HTMLElement)
     }
@@ -847,13 +833,11 @@ describe('ModelsSection', () => {
     // The regression: reset removed the override but left the buffer, so an
     // inherited row displayed text no settings layer stores — and because an
     // unreadable buffer never settles, it stayed there indefinitely.
-    /** 中文说明：测试局部值 { mutate }，由紧邻初始化决定。 */
     const { mutate } = await mountDeepSeekCard({
       mutate: vi.fn(() => Promise.resolve(remoteOk(wireNamespaces()[0]))),
     })
     fireEvent.click(screen.getByText(en.customized))
     expandRow(1)
-    /** 中文说明：测试局部值 windows，由紧邻初始化决定。 */
     const windows = capacityInputs(en.contextWindow)
     fireEvent.change(windows[0] as HTMLInputElement, { target: { value: 'garbage' } })
     fireEvent.blur(windows[0] as HTMLInputElement)
@@ -861,7 +845,6 @@ describe('ModelsSection', () => {
 
     // Reset collapses every row, so the restored capacity needs opening again.
     expandRow(1)
-    /** 中文说明：测试局部值 restored，由紧邻初始化决定。 */
     const restored = capacityInputs(en.contextWindow)
     expect((restored[0] as HTMLInputElement).value).toBe('1M')
 
@@ -873,7 +856,6 @@ describe('ModelsSection', () => {
   })
 
   it('edits an output cap per model and carries its text across a removal', async () => {
-    /** 中文说明：测试局部值 { mutate }，由紧邻初始化决定。 */
     const { mutate } = await mountDeepSeekCard({
       mutate: vi.fn(() => Promise.resolve(remoteOk(wireNamespaces()[0]))),
     })
@@ -910,7 +892,6 @@ describe('ModelsSection', () => {
   it('settles a pasted id and refuses whitespace that would never match', async () => {
     await mountDeepSeekCard()
     fireEvent.click(screen.getByText(en.customized))
-    /** 中文说明：测试局部值 ids，由紧邻初始化决定。 */
     const ids = screen.getAllByLabelText<HTMLInputElement>(new RegExp(en.modelId))
     fireEvent.change(ids[0] as HTMLInputElement, { target: { value: '  deepseek-v4-flash  ' } })
     fireEvent.blur(ids[0] as HTMLInputElement)
@@ -946,7 +927,6 @@ describe('ModelsSection', () => {
   })
 
   it('can empty and reset the model override, then clear optional fields without dropping hidden data', async () => {
-    /** 中文说明：测试局部值 { mutate }，由紧邻初始化决定。 */
     const { mutate } = await mountDeepSeekCard({
       mutate: vi.fn(() => Promise.resolve(remoteOk(wireNamespaces()[0]))),
     })
@@ -957,10 +937,8 @@ describe('ModelsSection', () => {
     fireEvent.click(screen.getByText(en.resetModels))
     expect(screen.getByText(en.modelsInherited)).toBeTruthy()
 
-    /** 中文说明：测试局部值 names，由紧邻初始化决定。 */
     const names = screen.getAllByLabelText(new RegExp(en.modelName))
     expandRow(1)
-    /** 中文说明：测试局部值 windows，由紧邻初始化决定。 */
     const windows = capacityInputs(en.contextWindow)
     fireEvent.change(names[0] as HTMLInputElement, { target: { value: '' } })
     fireEvent.change(windows[0] as HTMLInputElement, { target: { value: '' } })
@@ -985,7 +963,6 @@ describe('ModelsSection', () => {
     // A whole-section replace would clobber sibling overrides to clear one field.
     const { mutate } = await mountDeepSeekCard()
     fireEvent.click(screen.getByText(en.customized))
-    /** 中文说明：测试局部值 url，由紧邻初始化决定。 */
     const url = screen.getByLabelText<HTMLInputElement>(en.baseUrl)
     expect(url.value).toBe('https://base')
     fireEvent.change(url, { target: { value: '' } })
@@ -1001,9 +978,7 @@ describe('ModelsSection', () => {
   })
 
   it('pins the deepseek placeholder and clears typed input back to inherited', async () => {
-    /** 中文说明：测试局部值 { face }，由紧邻初始化决定。 */
     const { face } = scriptedFace()
-    /** 中文说明：测试局部值 bare，由紧邻初始化决定。 */
     const bare: SettingsNamespaceView = {
       ns: 'llm-deepseek',
       schema: JSON.parse(JSON.stringify(DeepSeekConfig.toJSON())) as JsonValue,
@@ -1012,7 +987,6 @@ describe('ModelsSection', () => {
       secrets: [],
       revision: 0,
     }
-    /** 中文说明：测试局部值 { ProviderEditor }，由紧邻初始化决定。 */
     const { ProviderEditor } = await import('../src/client/ProviderEditor.tsx')
     render(<ProviderEditor
       provider="deepseek-official"
@@ -1020,13 +994,12 @@ describe('ModelsSection', () => {
       namespace={bare}
       schema={settingsSchema}
       settingsPath={[]}
-      api={face as never}
+      operations={operationsWith(face)}
       t={t}
       readOnly={false}
       onClose={() => {}}
     />)
     fireEvent.click(screen.getByText(en.customized))
-    /** 中文说明：测试局部值 baseURL，由紧邻初始化决定。 */
     const baseURL = screen.getByLabelText<HTMLInputElement>(en.baseUrl)
     expect(baseURL.placeholder).toBe('https://api.deepseek.com')
     fireEvent.change(baseURL, { target: { value: 'https://x' } })
@@ -1045,17 +1018,14 @@ describe('ModelsSection', () => {
   })
 
   it('edits a pi-ai profile with the curated fields only', async () => {
-    /** 中文说明：测试局部值 { mutate }，由紧邻初始化决定。 */
     const { mutate } = await mountSection()
     fireEvent.click(screen.getByRole('button', { name: openaiCopy(en.editProvider) }))
     // The configured credential shows as the stored placeholder.
-    /** 中文说明：测试局部值 editorKey，由紧邻初始化决定。 */
     const editorKey = await screen.findByLabelText<HTMLInputElement>(en.keyInput)
     await waitFor(() => { expect(editorKey.placeholder).toBe(en.keyStored) })
     // pi-ai carries Base URL too: the stored override shows as the value and
     // the effective profile endpoint as its placeholder source.
     fireEvent.click(screen.getByText(en.customized))
-    /** 中文说明：测试局部值 url，由紧邻初始化决定。 */
     const url = screen.getByLabelText<HTMLInputElement>(en.baseUrl)
     expect(url.value).toBe('https://proxy')
     fireEvent.change(url, { target: { value: 'https://proxy/v2' } })
@@ -1071,10 +1041,8 @@ describe('ModelsSection', () => {
   })
 
   it('adds a dormant provider with a derived reference and stores its key', async () => {
-    /** 中文说明：测试局部值 { mutate, set }，由紧邻初始化决定。 */
     const { mutate, set } = await mountSection()
     fireEvent.click(screen.getByText(en.add))
-    /** 中文说明：测试局部值 pick，由紧邻初始化决定。 */
     const pick = await screen.findByLabelText<HTMLSelectElement>(en.provider)
     expect([...pick.options].map(option => option.value)).toEqual(['anthropic', 'broken', 'plain'])
     expect(pick.value).toBe('anthropic')
@@ -1082,7 +1050,6 @@ describe('ModelsSection', () => {
     // falls back to the provider-default wording.
     fireEvent.click(screen.getByText(en.customized))
     expect(screen.getByLabelText<HTMLInputElement>(en.baseUrl).placeholder).toBe(en.baseUrlDefault)
-    /** 中文说明：测试局部值 addKey，由紧邻初始化决定。 */
     const addKey = screen.getByLabelText<HTMLInputElement>(en.keyInput)
     expect(addKey.placeholder).toBe(en.keyPlaceholderNative)
     fireEvent.change(addKey, { target: { value: 'sk-ant' } })
@@ -1097,7 +1064,6 @@ describe('ModelsSection', () => {
   })
 
   it('keeps pi-ai provider-native authentication when no key is entered', async () => {
-    /** 中文说明：测试局部值 { mutate, set }，由紧邻初始化决定。 */
     const { mutate, set } = await mountSection()
     fireEvent.click(screen.getByText(en.add))
     await screen.findByLabelText(en.provider)
@@ -1112,9 +1078,7 @@ describe('ModelsSection', () => {
   })
 
   it('retries only the credential after refreshed settings already committed', async () => {
-    /** 中文说明：测试局部值 committed，由紧邻初始化决定。 */
     const committed = wireNamespaces()[2]!
-    /** 中文说明：测试局部值 afterSettings，由紧邻初始化决定。 */
     const afterSettings: SettingsNamespaceView = {
       ...committed,
       value: { providers: {
@@ -1159,7 +1123,6 @@ describe('ModelsSection', () => {
   it('switches the add card target and degrades unknown or broken targets loudly', async () => {
     await mountSection()
     fireEvent.click(screen.getByText(en.add))
-    /** 中文说明：测试局部值 pick，由紧邻初始化决定。 */
     const pick = await screen.findByLabelText<HTMLSelectElement>(en.provider)
     fireEvent.change(pick, { target: { value: 'broken' } })
     await screen.findByText(/unresolvable settings path/)
@@ -1173,9 +1136,8 @@ describe('ModelsSection', () => {
   })
 
   it('surfaces a rejected settings write and never stores the key after it', async () => {
-    /** 中文说明：测试局部值 { set }，由紧邻初始化决定。 */
     const { set } = await mountSection({
-      mutate: vi.fn(() => Promise.resolve(remoteFail('llm-pi-ai: unknown pi-ai provider "bogus"', 'settings-rejected'))),
+      mutate: vi.fn(() => Promise.resolve(remoteFail('llm-pi-ai: unknown pi-ai provider "bogus"', 'settings/rejected'))),
     })
     fireEvent.click(screen.getByText(en.add))
     await screen.findByLabelText(en.provider)
@@ -1185,43 +1147,28 @@ describe('ModelsSection', () => {
     expect(set).not.toHaveBeenCalled()
   })
 
-  it('renders the card without the stored-key hint when the credential probe rejects', async () => {
-    // The probe is a placeholder hint, not a precondition: an escaping
-    // rejection would surface in the browser as an unhandled rejection.
-    /** 中文说明：测试局部值 { face }，由紧邻初始化决定。 */
+  it('renders the card without the stored-key hint when the credential probe is refused', async () => {
     const { face } = scriptedFace()
-    face.credentials.describe = vi.fn(() => Promise.reject(new Error('connection lost')))
-    /** 中文说明：测试局部值 unhandled，由紧邻初始化决定。 */
-    const unhandled = vi.fn()
-    process.on('unhandledRejection', unhandled)
-    try {
-      /** 中文说明：测试局部值 controller，由紧邻初始化决定。 */
-      const controller = new ModelsSettingsStore(face as unknown as WireFace, settingsSchema, new SettingsDescribeMirror(face as never))
-      await controller.load()
-      render(<ModelsSection
-        controller={controller}
-        useSnapshot={bindSnapshotSelector(controller.store)}
-        api={face as never}
-        schema={settingsSchema}
-        t={t}
-        renderSlot={() => null}
-      />)
-      /** 中文说明：测试局部值 key，由紧邻初始化决定。 */
-      const key = await screen.findByLabelText<HTMLInputElement>(en.keyInput)
-      expect(key.placeholder).toBe(en.keyPlaceholder)
-      await new Promise(resolve => setTimeout(resolve, 10))
-      expect(unhandled).not.toHaveBeenCalled()
-    } finally {
-      process.off('unhandledRejection', unhandled)
-    }
+    face.credentials.describe = vi.fn(() => Promise.resolve(remoteFail('no credential provider')))
+    const controller = new ModelsSettingsStore(ctxWith(face), settingsSchema, new SettingsDescribeMirror(ctxWith(face)))
+    await controller.load()
+    render(<ModelsSection
+      controller={controller}
+      useSnapshot={bindSnapshotSelector(controller.store)}
+      operations={operationsWith(face)}
+      schema={settingsSchema}
+      t={t}
+      renderSlot={() => null}
+    />)
+    const key = await screen.findByLabelText<HTMLInputElement>(en.keyInput)
+    expect(key.placeholder).toBe(en.keyPlaceholder)
   })
 
   it('tells the user to reopen when another writer moved the namespace first', async () => {
     // The stale-draft overwrite: two tabs open the same card, the other saves,
     // and this one must be refused rather than replay its opening snapshot.
-    /** 中文说明：测试局部值 { set }，由紧邻初始化决定。 */
     const { set } = await mountDeepSeekCard({
-      mutate: vi.fn(() => Promise.resolve(remoteFail('changed since it was read', 'settings-conflict'))),
+      mutate: vi.fn(() => Promise.resolve(remoteFail('changed since it was read', 'settings/conflict'))),
     })
     fireEvent.click(screen.getByText(en.customized))
     fireEvent.change(screen.getByLabelText<HTMLInputElement>(en.baseUrl), { target: { value: 'https://mine' } })
@@ -1230,15 +1177,14 @@ describe('ModelsSection', () => {
     expect(set).not.toHaveBeenCalled()
   })
 
-  it('keeps the card usable when the write rejects instead of answering', async () => {
-    // A transport failure (disconnect, or the 403 a non-loopback browser now
-    // gets on the whole configuration plane) rejects rather than returning a
-    // failed envelope: without a catch the card would stay busy forever.
-    await mountDeepSeekCard({ mutate: vi.fn(() => Promise.reject(new Error('connection lost'))) })
+  it('keeps the card usable after a refused write', async () => {
+    await mountDeepSeekCard({
+      mutate: vi.fn(() => Promise.resolve(remoteFail('the host refused', 'settings/rejected'))),
+    })
     fireEvent.click(screen.getByText(en.customized))
     fireEvent.change(screen.getByLabelText<HTMLInputElement>(en.baseUrl), { target: { value: 'https://next' } })
     fireEvent.click(screen.getByText(en.apply))
-    await screen.findByText('connection lost')
+    await screen.findByText('the host refused')
     // Not stuck in `applying…`: the finally cleared busy, so Apply is live again.
     expect(screen.getByText(en.apply)).toBeTruthy()
   })
@@ -1247,7 +1193,6 @@ describe('ModelsSection', () => {
     await mountFirstRun({
       set: vi.fn(() => Promise.resolve(remoteFail('credentials: DEEPSEEK_API_KEY is shadowed by the read-only environment'))),
     })
-    /** 中文说明：测试局部值 key，由紧邻初始化决定。 */
     const key = screen.getByLabelText<HTMLInputElement>(en.keyInput)
     fireEvent.change(key, { target: { value: 'sk-live' } })
     fireEvent.click(screen.getByText(en.apply))
@@ -1256,7 +1201,6 @@ describe('ModelsSection', () => {
   })
 
   it('locks the key input when the launch environment provides the credential', async () => {
-    /** 中文说明：测试局部值 { face }，由紧邻初始化决定。 */
     const { face } = await mountSection()
     face.credentials.describe.mockImplementation((refs: string[]) => Promise.resolve(remoteOk(
       Object.fromEntries(refs.map(ref => [ref, {
@@ -1264,18 +1208,15 @@ describe('ModelsSection', () => {
       }])),
     )))
     fireEvent.click(screen.getByRole('button', { name: openaiCopy(en.editProvider) }))
-    /** 中文说明：测试局部值 editorKey，由紧邻初始化决定。 */
     const editorKey = await screen.findByLabelText<HTMLInputElement>(en.keyInput)
     await waitFor(() => { expect(editorKey.placeholder).toBe(en.keyEnvLocked) })
     expect(editorKey.disabled).toBe(true)
   })
 
   it('keeps a failed credential describe silent and the input usable', async () => {
-    /** 中文说明：测试局部值 { face, set }，由紧邻初始化决定。 */
     const { face, set } = await mountSection()
-    face.credentials.describe.mockImplementation(() => Promise.resolve(remoteFail('down', 'internal')) as never)
+    face.credentials.describe.mockImplementation(() => Promise.resolve(remoteFail('down', 'gateway/internal')))
     fireEvent.click(screen.getByRole('button', { name: openaiCopy(en.editProvider) }))
-    /** 中文说明：测试局部值 editorKey，由紧邻初始化决定。 */
     const editorKey = await screen.findByLabelText<HTMLInputElement>(en.keyInput)
     expect(editorKey.placeholder).toBe(en.keyPlaceholderNative)
     fireEvent.change(editorKey, { target: { value: 'sk-live' } })
@@ -1286,7 +1227,6 @@ describe('ModelsSection', () => {
   it('requires confirmation before removing a user-added provider', async () => {
     const { mutate, unset } = await mountSection()
     fireEvent.click(screen.getByRole('button', { name: openaiCopy(en.removeProvider) }))
-    /** 中文说明：测试局部值 dialog，由紧邻初始化决定。 */
     const dialog = screen.getByRole('dialog', { name: openaiCopy(en.deleteTitle) })
     expect(dialog.textContent).toContain(openaiCopy(en.deleteDescriptionWithCredential))
     expect(document.activeElement).toBe(within(dialog).getByRole('button', { name: en.cancel }))
@@ -1323,9 +1263,7 @@ describe('ModelsSection', () => {
     }))
     await mountSection({ mutate })
     fireEvent.click(screen.getByRole('button', { name: openaiCopy(en.removeProvider) }))
-    /** 中文说明：测试局部值 dialog，由紧邻初始化决定。 */
     const dialog = screen.getByRole('dialog', { name: openaiCopy(en.deleteTitle) })
-    /** 中文说明：测试局部值 confirm，由紧邻初始化决定。 */
     const confirm = within(dialog).getByRole<HTMLButtonElement>('button', { name: openaiCopy(en.deleteConfirm) })
     fireEvent.click(confirm)
     fireEvent.click(confirm)
@@ -1343,16 +1281,15 @@ describe('ModelsSection', () => {
   })
 
   it('renders the load failure with a retry control', async () => {
-    /** 中文说明：测试局部值 face，由紧邻初始化决定。 */
     const face = scriptedFace()
-    face.face.llm.listProviders = vi.fn(() => Promise.resolve(remoteFail('directory down', 'internal'))) as never
+    face.face.llm.listProviders = vi.fn(() => Promise.resolve(remoteFail('directory down', 'gateway/internal'))) as never
     const controller = new ModelsSettingsStore(
-      face.face as unknown as WireFace, settingsSchema, new SettingsDescribeMirror(face.face as never))
+      ctxWith(face.face), settingsSchema, new SettingsDescribeMirror(ctxWith(face.face)))
     await controller.load()
     render(<ModelsSection
       controller={controller}
       useSnapshot={bindSnapshotSelector(controller.store)}
-      api={face.face as never}
+      operations={operationsWith(face.face)}
       schema={settingsSchema}
       t={t}
       renderSlot={() => null}
@@ -1363,21 +1300,19 @@ describe('ModelsSection', () => {
   })
 
   it('shows the read-only notice and disables mutations for a read-only provider', async () => {
-    /** 中文说明：测试局部值 { face }，由紧邻初始化决定。 */
     const { face } = await mountSection()
     face.settings.describe.mockImplementation(() => Promise.resolve(remoteOk({
       writable: false,
       hasDocument: false,
       namespaces: wireNamespaces(),
     })))
-    /** 中文说明：测试局部值 controller，由紧邻初始化决定。 */
-    const controller = new ModelsSettingsStore(face as unknown as WireFace, settingsSchema, new SettingsDescribeMirror(face as never))
+    const controller = new ModelsSettingsStore(ctxWith(face), settingsSchema, new SettingsDescribeMirror(ctxWith(face)))
     await controller.load()
     cleanup()
     render(<ModelsSection
       controller={controller}
       useSnapshot={bindSnapshotSelector(controller.store)}
-      api={face as never}
+      operations={operationsWith(face)}
       schema={settingsSchema}
       t={t}
       renderSlot={() => null}
@@ -1434,14 +1369,12 @@ describe('ModelsSection', () => {
   })
 
   it('loads on first render of an idle controller', async () => {
-    /** 中文说明：测试局部值 { face }，由紧邻初始化决定。 */
     const { face } = scriptedFace()
-    /** 中文说明：测试局部值 controller，由紧邻初始化决定。 */
-    const controller = new ModelsSettingsStore(face as unknown as WireFace, settingsSchema, new SettingsDescribeMirror(face as never))
+    const controller = new ModelsSettingsStore(ctxWith(face), settingsSchema, new SettingsDescribeMirror(ctxWith(face)))
     render(<ModelsSection
       controller={controller}
       useSnapshot={bindSnapshotSelector(controller.store)}
-      api={face as never}
+      operations={operationsWith(face)}
       schema={settingsSchema}
       t={t}
       renderSlot={() => null}
@@ -1454,7 +1387,7 @@ describe('ModelsSection', () => {
     // would widen the write for no benefit.
     const { face, mutate, controller } = await mountSection()
     await removeProviderProfile(
-      face as unknown as Parameters<typeof removeProviderProfile>[0],
+      operationsWith(face),
       controller,
       { settingsNs: 'llm-plain', settingsPath: ['ghost-profile'] },
     )
@@ -1466,15 +1399,12 @@ describe('ModelsSection', () => {
   })
 
   it('keeps the snapshot untouched and reports the message when a removal write is refused', async () => {
-    /** 中文说明：测试局部值 { face, controller }，由紧邻初始化决定。 */
     const { face, controller } = await mountSection({
-      mutate: vi.fn(() => Promise.resolve(remoteFail('read-only', 'settings-rejected'))),
+      mutate: vi.fn(() => Promise.resolve(remoteFail('read-only', 'settings/rejected'))),
     })
-    /** 中文说明：测试局部值 before，由紧邻初始化决定。 */
     const before = controller.store.getSnapshot().rows
-    /** 中文说明：测试局部值 failure，由紧邻初始化决定。 */
     const failure = await removeProviderProfile(
-      face as unknown as Parameters<typeof removeProviderProfile>[0],
+      operationsWith(face),
       controller,
       { settingsNs: 'llm-pi-ai', settingsPath: ['providers', 'openai'] },
     )
@@ -1483,15 +1413,12 @@ describe('ModelsSection', () => {
   })
 
   it('keeps a failed identified deletion recoverable in its confirmation dialog', async () => {
-    /** 中文说明：测试局部值 mutate，由紧邻初始化决定。 */
     const mutate = vi.fn()
-      .mockResolvedValueOnce(remoteFail('the host refused', 'settings-rejected'))
+      .mockResolvedValueOnce(remoteFail('the host refused', 'settings/rejected'))
       .mockResolvedValueOnce(remoteOk(wireNamespaces()[2]!))
     const { unset } = await mountSection({ mutate })
     fireEvent.click(screen.getByRole('button', { name: openaiCopy(en.removeProvider) }))
-    /** 中文说明：测试局部值 dialog，由紧邻初始化决定。 */
     const dialog = screen.getByRole('dialog', { name: openaiCopy(en.deleteTitle) })
-    /** 中文说明：测试局部值 confirm，由紧邻初始化决定。 */
     const confirm = within(dialog).getByRole('button', { name: openaiCopy(en.deleteConfirm) })
     fireEvent.click(confirm)
     await within(dialog).findByText('the host refused')
@@ -1508,12 +1435,9 @@ describe('ModelsSection', () => {
   })
 
   it('retains credentials that are not identified as page-managed', async () => {
-    /** 中文说明：测试局部值 { unset, mutate }，由紧邻初始化决定。 */
     const { unset, mutate } = await mountSection()
-    /** 中文说明：测试局部值 target，由紧邻初始化决定。 */
     const target = { provider: 'zombie', displayName: 'zombie' }
     fireEvent.click(screen.getByRole('button', { name: providerCopy(en.removeProvider, target) }))
-    /** 中文说明：测试局部值 dialog，由紧邻初始化决定。 */
     const dialog = screen.getByRole('dialog', { name: providerCopy(en.deleteTitle, target) })
     expect(dialog.textContent).toContain(providerCopy(en.deleteDescription, target))
     fireEvent.click(within(dialog).getByRole('button', { name: providerCopy(en.deleteConfirm, target) }))
@@ -1527,13 +1451,11 @@ describe('ModelsSection', () => {
   })
 
   it('does not remove provider settings when its managed credential removal is refused', async () => {
-    /** 中文说明：测试局部值 解构结果，由紧邻初始化决定。 */
     const { face, controller, mutate } = await mountSection({
       unset: vi.fn(() => Promise.resolve(remoteFail('credential is read-only'))),
     })
-    /** 中文说明：测试局部值 failure，由紧邻初始化决定。 */
     const failure = await removeProviderProfile(
-      face as unknown as Parameters<typeof removeProviderProfile>[0],
+      operationsWith(face),
       controller,
       {
         settingsNs: 'llm-pi-ai',
@@ -1545,19 +1467,6 @@ describe('ModelsSection', () => {
     expect(mutate).not.toHaveBeenCalled()
   })
 
-  it('reports a transport rejection instead of failing the removal silently', async () => {
-    /** 中文说明：测试局部值 { face, controller }，由紧邻初始化决定。 */
-    const { face, controller } = await mountSection({
-      mutate: vi.fn(() => Promise.reject(new Error('connection lost'))),
-    })
-    /** 中文说明：测试局部值 failure，由紧邻初始化决定。 */
-    const failure = await removeProviderProfile(
-      face as unknown as Parameters<typeof removeProviderProfile>[0],
-      controller,
-      { settingsNs: 'llm-pi-ai', settingsPath: ['providers', 'openai'] },
-    )
-    expect(failure).toBe('connection lost')
-  })
 })
 
 describe('apiKeyFailure', () => {

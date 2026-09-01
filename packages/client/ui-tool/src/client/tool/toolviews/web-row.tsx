@@ -16,9 +16,7 @@ const WEB_TITLE_KEYS = {
 
 /** Lets users expand a completed web search or fetch result. */
 export function WebRow({ toolName, block, inspect, t }: WebRowProps) {
-  /** 中文说明：视图局部值 model，由紧邻初始化决定。 */
   const model = toolRowModel(toolName, block)
-  /** 中文说明：视图局部值 web，由紧邻初始化决定。 */
   const web = webCardModel(block)
   const icon = toolName === 'web_fetch' ? <IconBrowseOutline16 size={14} /> : <IconGlobeOutline14 size={14} />
   return (
@@ -31,7 +29,6 @@ export function WebRow({ toolName, block, inspect, t }: WebRowProps) {
         ? WEB_TITLE_KEYS.web_search
         : toolName === 'web_fetch' ? WEB_TITLE_KEYS.web_fetch : model.titleKey)}
       summary={model.summary}
-      body={null}
       output={model.output}
       errorSummary={model.errorSummary}
       web={web}

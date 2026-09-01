@@ -3,18 +3,11 @@
  * deterministic ordering and labels, quoted-path suppression, pick projections, codec
  * round-trip, and registration lifecycle.
  */
-/*
- * 文件职责：验证引用插件的 browser-plugin.client.spec.ts 行为。
- * 技术维度：Vitest、React 测试渲染、DOM 事件和服务替身。
- * 产品维度：防止引用插件的展示、作用域或交互回归。
- * 逻辑维度：构造上下文与属性，渲染后断言状态和清理。
- * 关键边界：Provider、订阅、全局 DOM 与异步任务必须释放。
- * 新手阅读建议：先读辅助夹具，再按场景顺序阅读。
- */
 import { Context, Service } from '@deepseek-ai/cordis'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { LocaleRuntime } from '@deepseek-ai/dsh-client-locale/client'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
+import { RemoteError } from '@deepseek-ai/dsh-client-test-runtime'
 import type {
   CandidateRequest, ClientSessionContext, InputTriggerCandidate, InputTriggerSource,
 } from '@deepseek-ai/dsh-client-ui-input-trigger/client'
@@ -23,9 +16,7 @@ import type { SessionReferenceMentionCandidate } from '@deepseek-ai/dsh-session-
 import { apply, inject } from '../src/client/index.ts'
 import { apply as nodeApply } from '../src/index.ts'
 
-/** 中文说明：测试局部值 sid，由紧邻初始化决定。 */
 const sid = (value: string): SessionId => value as SessionId
-/** 中文说明：测试局部值 session，由紧邻初始化决定。 */
 const session: ClientSessionContext = { sessionId: sid('target') }
 /** The target session's own workspace: candidates in it are the `sameWorkspace` rows. */
 const HOME = '/Users/dev'
@@ -41,19 +32,16 @@ beforeEach(() => {
 })
 afterEach(() => { vi.useRealTimers() })
 
-/** 中文说明：类型或类 RemoteEnvelope 约束模块数据或职责。 */
 type RemoteEnvelope<T> =
   | { ok: true; value: T }
   | { ok: false; error: { code: string; message: string; details: object } }
 
-/** 中文说明：类型或类 RemoteLookup 约束模块数据或职责。 */
 type RemoteLookup<T> = (
   agentId: SessionId,
   query: string,
   signal?: AbortSignal,
 ) => Promise<RemoteEnvelope<T[]>>
 
-/** 中文说明：函数 request 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function request(
   query: string,
   options: { quoted?: boolean; signal?: AbortSignal } = {},
@@ -67,7 +55,6 @@ function request(
   }
 }
 
-/** 中文说明：函数 bench 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 async function bench(
   files: RemoteLookup<FileReferenceCandidate> = vi.fn(() => Promise.resolve({
     ok: true as const,
@@ -89,9 +76,7 @@ async function bench(
   })),
   listed: Record<string, { updatedAt: number }> = {},
 ): Promise<{ ctx: Context; fiber: ReturnType<Context['plugin']>; source: InputTriggerSource }> {
-  /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
   const ctx = new Context()
-  /** 中文说明：测试局部值 解构结果，由紧邻初始化决定。 */
   let source: InputTriggerSource | undefined
   ctx.provide('inputTriggers', {
     registerSource(candidate: InputTriggerSource) {
@@ -99,8 +84,9 @@ async function bench(
       return () => { source = undefined }
     },
   })
-  /** 中文说明：类型或类 RemoteService 约束模块数据或职责。 */
   class RemoteService extends Service {
+    readonly $host = { home: HOME, isLoopback: true }
+
     constructor(serviceCtx: Context) {
       super(serviceCtx, 'remote')
     }
@@ -109,7 +95,6 @@ async function bench(
   ctx.provide('remote.fileReferences', { list: files })
   ctx.provide('remote.sessionReferenceResolver', { candidates: sessions })
   ctx.provide('locale', new LocaleRuntime(ctx))
-  ctx.provide('connection', { generation: { getSnapshot: () => ({ id: 1, host: { home: HOME } }) } })
   ctx.provide('sessions', { list: { getSnapshot: () => ({ byId: listed }) } })
   const fiber = ctx.plugin({ inject: [...inject], apply })
   await fiber.await()
@@ -120,14 +105,11 @@ async function bench(
 describe('apply', () => {
   it('declares its services and releases the @ reference registration on disposal', async () => {
     expect(inject).toEqual([
-      'inputTriggers', 'locale', 'connection', 'sessions', 'remote', 'remote.fileReferences',
+      'inputTriggers', 'locale', 'sessions', 'remote', 'remote.fileReferences',
       'remote.sessionReferenceResolver',
     ])
-    /** 中文说明：测试局部值 { fiber }，由紧邻初始化决定。 */
     const { fiber } = await bench()
-    /** 中文说明：测试局部值 解构结果，由紧邻初始化决定。 */
     let registered: InputTriggerSource | undefined
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = new Context()
     ctx.provide('inputTriggers', {
       registerSource(source: InputTriggerSource) {
@@ -135,8 +117,9 @@ describe('apply', () => {
         return () => { registered = undefined }
       },
     })
-    /** 中文说明：类型或类 RemoteService 约束模块数据或职责。 */
     class RemoteService extends Service {
+      readonly $host = { home: undefined, isLoopback: false }
+
       constructor(serviceCtx: Context) {
         super(serviceCtx, 'remote')
       }
@@ -145,7 +128,6 @@ describe('apply', () => {
     ctx.provide('remote.fileReferences', { list: () => Promise.resolve({ ok: true, value: [] }) })
     ctx.provide('remote.sessionReferenceResolver', { candidates: () => Promise.resolve({ ok: true, value: [] }) })
     ctx.provide('locale', new LocaleRuntime(ctx))
-    ctx.provide('connection', { generation: { getSnapshot: () => undefined } })
     ctx.provide('sessions', { list: { getSnapshot: () => ({ byId: {} }) } })
     const ownFiber = ctx.plugin({ inject: [...inject], apply })
     await ownFiber.await()
@@ -162,11 +144,8 @@ describe('apply', () => {
 
 describe('candidates', () => {
   it('starts both Remote lookups together and renders files before sessions with stable labels', async () => {
-    /** 中文说明：测试局部值 releaseFiles，由紧邻初始化决定。 */
     let releaseFiles!: () => void
-    /** 中文说明：测试局部值 releaseSessions，由紧邻初始化决定。 */
     let releaseSessions!: () => void
-    /** 中文说明：测试局部值 files，由紧邻初始化决定。 */
     const files = vi.fn(() => new Promise<{
       ok: true
       value: { path: string; kind: 'file' | 'directory' }[]
@@ -181,7 +160,6 @@ describe('candidates', () => {
         })
       }
     }))
-    /** 中文说明：测试局部值 sessions，由紧邻初始化决定。 */
     const sessions = vi.fn(() => new Promise<{
       ok: true
       value: {
@@ -237,14 +215,15 @@ describe('candidates', () => {
   })
 
   it('suppresses sessions for an open quoted path and degrades each failed domain independently', async () => {
-    /** 中文说明：测试局部值 files，由紧邻初始化决定。 */
     const files = vi.fn()
       .mockResolvedValueOnce({
         ok: true as const,
         value: [{ path: 'README.md', kind: 'file' as const }],
       })
-      .mockRejectedValueOnce(new Error('file scan failed'))
-    /** 中文说明：测试局部值 sessions，由紧邻初始化决定。 */
+      .mockResolvedValueOnce({
+        ok: false as const,
+        error: new RemoteError('gateway/internal', 'file scan failed', {}),
+      })
     const sessions = vi.fn(() => Promise.resolve({
       ok: true as const,
       value: [{
@@ -256,9 +235,7 @@ describe('candidates', () => {
         mention: '@[Research](dsh-session:InNvdXJjZSI)',
       }],
     }))
-    /** 中文说明：测试局部值 { source }，由紧邻初始化决定。 */
     const { source } = await bench(files, sessions)
-    /** 中文说明：测试局部值 quoted，由紧邻初始化决定。 */
     const quoted = await source.candidates(session, request('READ', { quoted: true }))
     expect(quoted).toEqual([expect.objectContaining({ name: 'README.md', icon: 'file' })])
     expect(source.onPick({
@@ -284,43 +261,34 @@ describe('candidates', () => {
   })
 
   it('drops a completed result when the query signal was superseded', async () => {
-    /** 中文说明：测试局部值 controller，由紧邻初始化决定。 */
     const controller = new AbortController()
-    /** 中文说明：测试局部值 { source }，由紧邻初始化决定。 */
     const { source } = await bench()
-    /** 中文说明：测试局部值 pending，由紧邻初始化决定。 */
     const pending = source.candidates(session, request('', { signal: controller.signal }))
     controller.abort()
     await expect(pending).resolves.toEqual([])
   })
 
   it('treats Remote failures as empty domains and filters paths that cannot be mentioned', async () => {
-    /** 中文说明：测试局部值 files，由紧邻初始化决定。 */
     const files = vi.fn(() => Promise.resolve({
       ok: true as const,
       value: [{ path: 'bad\nname', kind: 'file' as const }],
     }))
-    /** 中文说明：测试局部值 sessions，由紧邻初始化决定。 */
-    const sessions = vi.fn()
-      .mockRejectedValueOnce(new Error('session lookup failed'))
-      .mockResolvedValueOnce({
-        ok: false as const,
-        error: { code: 'internal', message: 'session lookup failed', details: {} },
-      })
-    /** 中文说明：测试局部值 { source }，由紧邻初始化决定。 */
+    const sessions = vi.fn(() => Promise.resolve({
+      ok: false as const,
+      error: new RemoteError('gateway/internal', 'session lookup failed', {}),
+    }))
     const { source } = await bench(files, sessions)
     await expect(source.candidates(session, request('bad'))).resolves.toEqual([])
 
     files.mockResolvedValueOnce({
       ok: false as const,
-      error: { code: 'internal', message: 'file lookup failed', details: {} },
+      error: new RemoteError('gateway/internal', 'file lookup failed', {}),
     } as never)
     await expect(source.candidates(session, request('bad'))).resolves.toEqual([])
   })
 
   it('labels a session without a cwd and still dates it', async () => {
     const files = vi.fn(() => Promise.resolve({ ok: true as const, value: [] }))
-    /** 中文说明：测试局部值 sessions，由紧邻初始化决定。 */
     const sessions = vi.fn(() => Promise.resolve({
       ok: true as const,
       value: [{
@@ -331,7 +299,6 @@ describe('candidates', () => {
         mention: '@[same](dsh-session:InNhbWUi)',
       }],
     }))
-    /** 中文说明：测试局部值 { source }，由紧邻初始化决定。 */
     const { source } = await bench(files, sessions)
     await expect(source.candidates(session, request('same'))).resolves.toEqual([
       expect.objectContaining({
@@ -487,7 +454,6 @@ describe('pick and codec', () => {
 
   it('settles files and directories as atomic icon labels; drill keeps directory completion open', async () => {
     const { source } = await bench()
-    /** 中文说明：测试局部值 [directory, file]，由紧邻初始化决定。 */
     const [directory, file] = await source.candidates(session, request(''))
     expect(directory?.drill).toBe(true)
     expect(file?.drill).toBeUndefined()
@@ -510,15 +476,12 @@ describe('pick and codec', () => {
         clipboardText: '@"docs/a b.md"',
       },
     })
-    /** 中文说明：测试局部值 [quotedDirectory]，由紧邻初始化决定。 */
     const [quotedDirectory] = await source.candidates(session, request('', { quoted: true }))
     expect(drill(source, quotedDirectory!)).toEqual({ text: '@"src/', continue: true })
   })
 
   it('inserts sessions as atomic chips whose clipboard and model forms are canonical mentions', async () => {
-    /** 中文说明：测试局部值 { source }，由紧邻初始化决定。 */
     const { source } = await bench()
-    /** 中文说明：测试局部值 candidates，由紧邻初始化决定。 */
     const candidates = await source.candidates(session, request(''))
     const candidate = candidates.find(item => item.name === 'Research')!
     const mention = '@[Research](dsh-session:InNvdXJjZSI)'
@@ -536,7 +499,6 @@ describe('pick and codec', () => {
   })
 
   it('ignores candidates that do not carry a source-owned value', async () => {
-    /** 中文说明：测试局部值 { source }，由紧邻初始化决定。 */
     const { source } = await bench()
     expect(pick(source, { name: 'foreign candidate' })).toBeUndefined()
   })

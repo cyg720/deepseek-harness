@@ -4,22 +4,15 @@
  *
  * @module @deepseek-ai/dsh-sdk-jsonrpc-server/server
  */
-/*
- * 文件职责：实现 server.ts 覆盖的SDK 通信行为与生命周期。
- * 技术维度：使用 TypeScript、Cordis 插件、Vitest、事件日志或异步传输。
- * 产品维度：保障 Agent 的SDK 通信能力稳定、可追踪且可恢复。
- * 逻辑维度：准备或解析输入，执行核心流程，再处理结果、错误与资源清理。
- * 关键边界：跨进程数据不可信；持久化状态必须可重放；异步资源必须完全释放。
- * 新手阅读建议：先看导出类型和辅助函数，再读主流程，最后关注错误、恢复和清理。
- */
 
 import type { Context } from '@deepseek-ai/cordis'
 import { resolve } from 'node:path'
+import { brandString } from '@deepseek-ai/dsh-brand'
 import type { Agent, AgentHandle } from '@deepseek-ai/dsh-agent'
 import { admitEncodedImages, type EncodedImageAttachment, type ImageAttachmentRef } from '@deepseek-ai/dsh-attachment'
 import { createUserMessage, ReasoningEffortId, type ContentBlock, type LlmRuntime } from '@deepseek-ai/dsh-llm'
 import { carrierKeyOf, type Scoped } from '@deepseek-ai/dsh-scope'
-import { SessionId } from '@deepseek-ai/dsh-session'
+import type { SessionId } from '@deepseek-ai/dsh-session'
 import type SubagentRuntime from '@deepseek-ai/dsh-subagent'
 import type { SubagentRunEndInfo } from '@deepseek-ai/dsh-subagent'
 import * as LlmDeepSeek from '@deepseek-ai/dsh-llm-deepseek'
@@ -35,7 +28,6 @@ import type {
   SubagentStartedNotification,
 } from '@deepseek-ai/dsh-sdk-protocol'
 
-/** 中文说明：interface SessionRecord 定义本模块所需的数据或行为，用于表达SDK 通信场景。 */
 interface SessionRecord {
   handle: AgentHandle
 }
@@ -60,19 +52,16 @@ async function durablePromptContent(ctx: Context, blocks: SessionPromptParams['c
 }
 
 /** Recover the delegating parent from the service-owned scoped carrier. */
-/* 中文说明：函数 subagentParentOf 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function subagentParentOf(carrier: Scoped<SubagentRuntime>): Agent {
   return carrierKeyOf(carrier) as Agent
 }
 
 /** Deployment-specific status mapping for SDK turn and subagent outcomes. */
-/* 中文说明：interface HarnessSdkJsonRpcServerOptions 定义本模块所需的数据或行为，用于表达SDK 通信场景。 */
 export interface HarnessSdkJsonRpcServerOptions {
   /** Report max-token termination as an accepted result instead of an infrastructure error. */
   maxTokensAsSuccess?: boolean
 }
 
-/** 中文说明：函数 successStatus 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function successStatus(reason: string, options: HarnessSdkJsonRpcServerOptions): 'ok' | 'error' {
   if (reason === 'completed') return 'ok'
   return reason === 'max-tokens' && options.maxTokensAsSuccess === true ? 'ok' : 'error'
@@ -83,7 +72,6 @@ function successStatus(reason: string, options: HarnessSdkJsonRpcServerOptions):
  * subscribes to session, agent, and subagent lifecycle events until shutdown;
  * reinitialization is unsupported.
  */
-/* 中文说明：class HarnessSdkJsonRpcServer 定义本模块所需的数据或行为，用于表达SDK 通信场景。 */
 export class HarnessSdkJsonRpcServer {
   private cwd = process.cwd()
   private provider = 'deepseek-official'
@@ -103,10 +91,8 @@ export class HarnessSdkJsonRpcServer {
     private readonly transport: JsonRpcTransportPeer,
     private readonly options: HarnessSdkJsonRpcServerOptions = {},
   ) {
-    /** 中文说明：变量 serverOptions 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const serverOptions = this.options
     this.disposers.push(ctx.on('session/event', (session, event) => {
-      /** 中文说明：变量 payload 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const payload: SessionEventNotification = { sessionId: String(session.id), event }
       this.transport.notify('session.event', payload)
     }))
@@ -114,10 +100,8 @@ export class HarnessSdkJsonRpcServer {
       this.transport.notify('session.status', { sessionId: String(agent.session.id), status })
     }))
     this.disposers.push(ctx.on('session/created', (session) => {
-      /** 中文说明：变量 parentSession 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const parentSession = session.header.parentSession
       if (parentSession === undefined) return
-      /** 中文说明：变量 payload 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const payload: SubagentStartedNotification = {
         parentSessionId: String(parentSession),
         childSessionId: String(session.id),
@@ -125,13 +109,11 @@ export class HarnessSdkJsonRpcServer {
       this.transport.notify('subagent.started', payload)
     }))
     this.disposers.push(ctx.on('subagent/end', function (this: Scoped<SubagentRuntime>, info: SubagentRunEndInfo) {
-      /** 中文说明：变量 parent 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const parent = subagentParentOf(this)
       // This protocol reports only in-process child sessions. The service
       // snapshots the provider name and local flag through child disposal;
       // matching ids or parent lineage alone never establishes locality.
       if (!info.local) return
-      /** 中文说明：变量 payload 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const payload: SubagentFinishedNotification = {
         provider: info.provider,
         agentId: String(info.id),
@@ -228,14 +210,11 @@ export class HarnessSdkJsonRpcServer {
 
   private async performShutdown(): Promise<Record<string, never>> {
     this.shuttingDown = true
-    /** 中文说明：变量 pendingCreations 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const pendingCreations = [...this.sessionCreations.values()]
     await Promise.allSettled(pendingCreations)
     this.sessionCreations.clear()
-    /** 中文说明：变量 records 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const records = [...this.sessions.values()]
     this.sessions.clear()
-    /** 中文说明：变量 failures 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const failures: unknown[] = []
     while (this.disposers.length > 0) {
       try {
@@ -244,7 +223,6 @@ export class HarnessSdkJsonRpcServer {
         failures.push(error)
       }
     }
-    /** 中文说明：变量 teardownResults 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const teardownResults = await Promise.allSettled([
       ...records.map(rec => Promise.resolve().then(() => rec.handle.dispose())),
       ...(this.llmFiber === undefined ? [] : [Promise.resolve().then(() => this.llmFiber?.dispose())]),
@@ -280,13 +258,10 @@ export class HarnessSdkJsonRpcServer {
 
   private async getOrCreateSession(sessionId: string): Promise<SessionRecord> {
     if (this.shuttingDown) throw new Error('SDK server is shutting down')
-    /** 中文说明：变量 existing 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const existing = this.sessions.get(sessionId)
     if (existing) return existing
-    /** 中文说明：变量 pending 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const pending = this.sessionCreations.get(sessionId)
     if (pending) return pending
-    /** 中文说明：变量 creation 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const creation = this.createSession(sessionId)
     this.sessionCreations.set(sessionId, creation)
     void creation.then(
@@ -301,9 +276,8 @@ export class HarnessSdkJsonRpcServer {
     // rows in the host plane, so this agent reads them from the global layer. A
     // deployment that configures a roster has to join one here first
     // (@deepseek-ai/dsh-agent-presets README, "Composing a child agent").
-    /** 中文说明：变量 handle 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const handle = await this.ctx.agents.create({
-      sessionId: SessionId(sessionId),
+      sessionId: brandString<SessionId>(sessionId),
       meta: { cwd: this.cwd },
       agentOptions: {
         provider: this.provider,
@@ -312,7 +286,6 @@ export class HarnessSdkJsonRpcServer {
         ...this.maxTokens === undefined ? {} : { maxTokens: this.maxTokens },
       },
     })
-    /** 中文说明：变量 rec 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const rec: SessionRecord = { handle }
     this.sessions.set(sessionId, rec)
     return rec

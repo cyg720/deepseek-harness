@@ -2,14 +2,6 @@
  * Browser wire client. The plugin selects fixture or HTTP transport, provides
  * the shared API client, and lets API Gateway own the connection loop.
  */
-/*
- * 文件职责：选择fixture、页面HTTP/WebSocket或宿主注入传输，并向浏览器Cordis树提供统一connection服务。
- * 技术维度：组合ApiClient、通用RPC调用器、ConnectionController和订阅式Host描述快照，支持全局传输钩子。
- * 产品维度：让Web应用与测试/Worker预览共用业务层，同时发布连接状态、宿主能力和可停止的事件流循环。
- * 逻辑维度：根据URL与全局钩子选择载体，创建RPC与描述订阅源，限制唯一流消费者，再包装连接/重连回调。
- * 关键边界：流控制器只能启动一次；重连时立即撤回Host描述；监听器异常仅记录，不影响其他订阅者。
- * 新手阅读建议：先看ClientTransportHooks与ConnectionHandle，再读apply中的传输选择，最后跟踪start如何包装回调。
- */
 import type { Context } from '@deepseek-ai/cordis'
 import {
   ConnectionController,
@@ -17,6 +9,7 @@ import {
   type ConnectionGeneration,
   type ConnectionGenerationSource,
   type ConnectionSinks,
+  type ConnectionState,
 } from './connection.ts'
 import { createFixtureConnectionRpc } from './fixture.ts'
 import { createWebConnectionRpc, type RpcFetch, type RpcStreamOpen } from './rpc.ts'
@@ -37,7 +30,7 @@ declare module '@deepseek-ai/cordis' {
 // ---- Browser-safe protocol and shared value re-exports ----
 export type {
   MessageId,
-  RpcRequest, RpcResponse, RpcResult, RpcError, RpcErrorCode,
+  RpcRequest, RpcResponse, RpcResult,
   ClientRequest, ServerResponse, RpcMessage,
   SessionId, SessionEvent, ContentBlock, StreamChunk,
 } from './api.ts'
@@ -69,8 +62,15 @@ export interface ConnectionGenerationState {
   subscribe(listener: () => void): () => void
 }
 
+/** Observable recovery lifecycle of the owned Connection loop. */
+export interface ConnectionStateSource {
+  /** Current state, or undefined before the first connection outcome. */
+  getSnapshot(): ConnectionState | undefined
+  /** Subscribe to state changes. */
+  subscribe(listener: () => void): () => void
+}
+
 /** Required services (none — this is the wire root). */
-/* 连接插件是线协议根，不要求其他Cordis服务。 */
 export const inject: string[] = []
 
 /**
@@ -81,7 +81,6 @@ export const inject: string[] = []
  */
 export interface ClientTransportHooks {
   /** Transport for generic unary RPC channels (the Typert gateway). */
-  /* Typert网关等通用一元RPC频道使用的fetch式传输。 */
   fetch: RpcFetch
   /** Worker-local Gateway stream carrier; absent when the page uses the Gateway WebSocket. */
   openStream?: RpcStreamOpen
@@ -90,7 +89,6 @@ export interface ClientTransportHooks {
    * bundle bytes (the worker tunnel). Absent in the served web app, whose
    * bundles load over HTTP.
    */
-  /* 可选Bundle字节加载器；Worker隧道提供，普通页面通过HTTP加载时省略。 */
   loadBundle?(url: string): Promise<void>
   /**
    * The transport owner declares the page owns the Host outright: the Host
@@ -104,9 +102,7 @@ export interface ClientTransportHooks {
 }
 
 /** Page global carrying {@link ClientTransportHooks}; absent in the served web app. */
-/* 页面可选全局传输钩子的结构。 */
 interface ClientTransportGlobal {
-  /** 由拥有物理传输的宿主在插件启动前设置。 */
   __DSH_TRANSPORT__?: ClientTransportHooks
 }
 
@@ -124,9 +120,12 @@ export interface ConnectionHandle {
   readonly isLoopback: boolean
   /** Current Remote event generation and the Host facts carried by its opening frame. */
   readonly generation: ConnectionGenerationState
+  /** Current recovery lifecycle for connection-specific consumers. */
+  readonly state: ConnectionStateSource
   /** Generic logical RPC channels over the same Connection transport. */
-  /* 复用同一Connection载体的通用逻辑RPC频道。 */
   readonly rpc: ClientConnectionRpc
+  /** Reset retry progression and replace the current attempt immediately. */
+  reconnect(): void
   /**
    * Register the sole source defining Host generations. The source reports
    * ready only after its incremental listeners are attached.
@@ -138,16 +137,44 @@ export interface ConnectionHandle {
    * Start the connect/reconnect loop with the consumer's state callbacks.
    * API Gateway owns the loop; a second call throws.
    * @param sinks - connection-state callbacks.
-   * @param config - reconnect/backoff tunables.
-   * @returns stop handle for the loop.
+   * @param config - reconnect timing tunables.
+   * @returns lifecycle controls for the loop.
    */
-  start(sinks: ConnectionSinks, config?: ConnectionConfig): { stop(): void }
+  start(sinks: ConnectionSinks, config?: ConnectionConfig): ConnectionLoop
+}
+
+/** Controls retained by the sole owner of a running connection loop. */
+export interface ConnectionLoop {
+  /** Stop the loop and withdraw its active generation. */
+  stop(): void
 }
 
 interface ConnectionOwner {
   readonly token: object
   readonly source: ConnectionGenerationSource
   readonly controller: ConnectionController
+  readonly stopNetworkWatch: () => void
+}
+
+interface BrowserNetworkTarget {
+  readonly navigator?: { readonly onLine?: boolean }
+  addEventListener(type: 'online' | 'offline', listener: () => void): void
+  removeEventListener(type: 'online' | 'offline', listener: () => void): void
+}
+
+function watchBrowserNetwork(controller: ConnectionController): () => void {
+  const browser = (globalThis as { readonly window?: BrowserNetworkTarget }).window
+  const initiallyAvailable = browser?.navigator?.onLine
+  if (browser === undefined || initiallyAvailable === undefined) return () => {}
+  const online = (): void => { controller.setNetworkAvailable(true) }
+  const offline = (): void => { controller.setNetworkAvailable(false) }
+  controller.setNetworkAvailable(initiallyAvailable)
+  browser.addEventListener('online', online)
+  browser.addEventListener('offline', offline)
+  return () => {
+    browser.removeEventListener('online', online)
+    browser.removeEventListener('offline', offline)
+  }
 }
 
 /**
@@ -155,9 +182,7 @@ interface ConnectionOwner {
  * @param ctx - client cordis context.
  */
 export function apply(ctx: Context): void {
-  // 浏览器页面location；非浏览器执行环境中为空。
   const pageLocation = typeof location === 'undefined' ? undefined : location
-  // URL查询参数是否要求使用确定性fixture客户端。
   const fixture = pageLocation !== undefined && new URLSearchParams(pageLocation.search).has('fixture')
   const fixtureRpc = fixture ? createFixtureConnectionRpc() : undefined
   const transport = (globalThis as ClientTransportGlobal).__DSH_TRANSPORT__
@@ -166,7 +191,9 @@ export function apply(ctx: Context): void {
   let owner: ConnectionOwner | undefined
   let generationId = 0
   let generation: ConnectionGeneration | undefined
+  let state: ConnectionState | undefined
   const generationListeners = new Set<() => void>()
+  const stateListeners = new Set<() => void>()
   const publishGeneration = (next: ConnectionGeneration | undefined): void => {
     if (Object.is(generation, next)) return
     generation = next
@@ -178,11 +205,24 @@ export function apply(ctx: Context): void {
       }
     }
   }
+  const publishState = (next: ConnectionState | undefined): void => {
+    if (state === next) return
+    state = next
+    for (const listener of [...stateListeners]) {
+      try {
+        listener()
+      } catch (error) {
+        console.error('[connection] state listener threw:', error)
+      }
+    }
+  }
   const releaseOwner = (current: ConnectionOwner): void => {
     if (owner !== current) return
     owner = undefined
+    current.stopNetworkWatch()
     current.controller.stop()
     publishGeneration(undefined)
+    publishState(undefined)
   }
   const handle: ConnectionHandle = {
     isLoopback: transport?.ownsHost === true || pageLocation === undefined || isLoopbackHostname(pageLocation.hostname),
@@ -193,7 +233,17 @@ export function apply(ctx: Context): void {
         return () => { generationListeners.delete(listener) }
       },
     },
+    state: {
+      getSnapshot: () => state,
+      subscribe: (listener) => {
+        stateListeners.add(listener)
+        return () => { stateListeners.delete(listener) }
+      },
+    },
     rpc,
+    reconnect() {
+      owner?.controller.reconnect()
+    },
     registerGenerationSource(source) {
       if (generationSource !== undefined) {
         throw new Error('connection: a generation source is already registered')
@@ -221,14 +271,15 @@ export function apply(ctx: Context): void {
           sinks.onConnected?.(host)
         },
         onStateChange: (state) => {
-          if (state === 'reconnecting') {
+          if (state !== 'connected') {
             publishGeneration(undefined)
           }
           if (!ownsGeneration()) return
+          publishState(state)
           sinks.onStateChange?.(state)
         },
       }, config ?? {})
-      const current = { token, source, controller }
+      const current = { token, source, controller, stopNetworkWatch: watchBrowserNetwork(controller) }
       owner = current
       controller.start()
       return {

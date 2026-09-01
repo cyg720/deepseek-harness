@@ -1,11 +1,3 @@
-/**
- * 文件职责：验证 deepseek.spec.ts 覆盖的Web 搜索与抓取行为与边界场景。
- * 技术维度：使用 TypeScript、Vitest、Cordis 插件、HTTP、类型投影或异步资源控制。
- * 产品维度：保障 Agent 的Web 搜索与抓取能力稳定、可复现且可诊断。
- * 逻辑维度：准备或解析输入，执行核心流程，再转换并核对结果、错误与清理。
- * 关键边界：网络和生成数据不可信；超时与取消必须传播；临时资源必须可靠释放。
- * 新手阅读建议：先看公开类型和夹具，再读主流程，最后关注校验、超时与失败路径。
- */
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
@@ -14,7 +6,7 @@ import { Context } from '@deepseek-ai/cordis'
 import Loader from '@deepseek-ai/cordis-plugin-loader'
 import { credentialRef } from '@deepseek-ai/dsh-credentials'
 import LocalCredentialProvider from '@deepseek-ai/dsh-credentials-local'
-import WebRuntime from '@deepseek-ai/dsh-web'
+import WebRuntime, { WebError } from '@deepseek-ai/dsh-web'
 import {
   DeepSeekSearchProvider,
   DEEPSEEK_PROVIDER_ID,
@@ -26,11 +18,20 @@ import type { AnthropicResponse } from '@deepseek-ai/dsh-web-search-deepseek/src
 /** Construct the provider over a fixed options value; production passes a live thunk. */
 import type { DeepSeekSearchProviderOptions } from '@deepseek-ai/dsh-web-search-deepseek'
 
-/** 中文说明：函数值 searchProvider 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
 const searchProvider = (options: DeepSeekSearchProviderOptions): DeepSeekSearchProvider =>
   new DeepSeekSearchProvider(() => options)
 
-/** 中文说明：变量 options 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
+/** Return the provider's rejected WebError, or propagate an unexpected outcome. */
+async function rejectedWebError(operation: Promise<unknown>): Promise<WebError> {
+  try {
+    await operation
+  } catch (error: unknown) {
+    if (error instanceof WebError) return error
+    throw error
+  }
+  throw new Error('expected search operation to reject')
+}
+
 const options = {
   apiKey: 'ds-key',
   baseURL: 'https://api.deepseek.test/anthropic/v1',
@@ -40,13 +41,11 @@ const options = {
   maxUses: 5,
 }
 
-/** 中文说明：函数 jsonResponse 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function jsonResponse(body: unknown, init: ResponseInit = {}): Response {
   return new Response(JSON.stringify(body), { status: 200, headers: { 'content-type': 'application/json' }, ...init })
 }
 
 /** A response with one result block plus a text block carrying the snippet. */
-/* 中文说明：函数 searchResponse 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function searchResponse(): AnthropicResponse {
   return {
     content: [
@@ -68,7 +67,6 @@ afterEach(() => {
 
 describe('citationSnippets', () => {
   it('maps url → cited_text from text blocks, first occurrence wins', () => {
-    /** 中文说明：变量 map 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const map = citationSnippets([
       { type: 'text', citations: [{ url: 'https://a.test', cited_text: 'first' }, { url: 'https://a.test', cited_text: 'second' }] },
       { type: 'text', citations: [{ url: 'https://b.test', cited_text: 'b text' }] },
@@ -78,7 +76,6 @@ describe('citationSnippets', () => {
   })
 
   it('ignores citations missing url or cited_text', () => {
-    /** 中文说明：变量 map 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const map = citationSnippets([
       { type: 'text', citations: [{ url: 'https://a.test' }, { cited_text: 'orphan' }, { url: '', cited_text: 'empty url' }] },
     ])
@@ -88,7 +85,6 @@ describe('citationSnippets', () => {
 
 describe('mapAnthropicResponse', () => {
   it('joins result items to citation snippets and maps page_age to publishedAt', () => {
-    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = mapAnthropicResponse(searchResponse())
     expect(result).toEqual({
       sources: [
@@ -100,7 +96,6 @@ describe('mapAnthropicResponse', () => {
   })
 
   it('dedupes repeated urls across result blocks (first wins)', () => {
-    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = mapAnthropicResponse({
       content: [
         { type: 'web_search_tool_result', content: [{ type: 'web_search_result', url: 'https://a.test', title: 'first' }] },
@@ -111,7 +106,6 @@ describe('mapAnthropicResponse', () => {
   })
 
   it('skips non-result items and items with an empty url', () => {
-    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = mapAnthropicResponse({
       content: [{
         type: 'web_search_tool_result',
@@ -126,7 +120,6 @@ describe('mapAnthropicResponse', () => {
   })
 
   it('omits optional fields when absent or empty', () => {
-    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = mapAnthropicResponse({
       content: [{ type: 'web_search_tool_result', content: [{ type: 'web_search_result', url: 'https://a.test', title: '', page_age: '' }] }],
     })
@@ -134,7 +127,6 @@ describe('mapAnthropicResponse', () => {
   })
 
   it('tolerates a text block with no citations', () => {
-    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = mapAnthropicResponse({
       content: [
         { type: 'text', text: 'no citations here' },
@@ -145,7 +137,6 @@ describe('mapAnthropicResponse', () => {
   })
 
   it('tolerates a result block with no content array', () => {
-    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = mapAnthropicResponse({
       content: [
         { type: 'web_search_tool_result' },
@@ -188,21 +179,17 @@ describe('DeepSeekSearchProvider availability', () => {
 
 describe('DeepSeekSearchProvider request mapping', () => {
   it('records and posts the same Anthropic Messages request with the web_search server tool', async () => {
-    /** 中文说明：函数值 fetchMock 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const fetchMock = vi.fn(async () => jsonResponse(searchResponse()))
-    /** 中文说明：变量 recordRequest 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const recordRequest = vi.fn()
     vi.stubGlobal('fetch', fetchMock)
     await searchProvider({ ...options, recordRequest }).search({ query: 'hello' })
     const [url, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit]
     expect(url).toBe('https://api.deepseek.test/anthropic/v1/messages')
     expect(init).toMatchObject({ method: 'POST', redirect: 'error' })
-    /** 中文说明：变量 headers 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const headers = init.headers as Record<string, string>
     expect(headers['x-api-key']).toBe('ds-key')
     expect(headers['authorization']).toBe('Bearer ds-key')
     expect(headers['anthropic-version']).toBe('2023-06-01')
-    /** 中文说明：变量 body 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const body = {
       model: 'deepseek-chat',
       max_tokens: 4096,
@@ -220,10 +207,8 @@ describe('DeepSeekSearchProvider request mapping', () => {
   })
 
   it('forwards the abort signal', async () => {
-    /** 中文说明：函数值 fetchMock 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const fetchMock = vi.fn(async () => jsonResponse(searchResponse()))
     vi.stubGlobal('fetch', fetchMock)
-    /** 中文说明：变量 controller 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const controller = new AbortController()
     await searchProvider(options).search({ query: 'q' }, controller.signal)
     const [, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit]
@@ -235,25 +220,17 @@ describe('DeepSeekSearchProvider settings changes mid-search', () => {
   it('serves one search from one section even when settings land during credential resolution', async () => {
     // The section the search starts on, and the one a user commits while the
     // credential is still resolving.
-    /** 中文说明：变量 before 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const before = { ...options, apiKey: '', baseURL: 'https://before.test/v1', model: 'model-before', maxUses: 2 }
-    /** 中文说明：变量 after 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const after = { ...options, apiKey: '', baseURL: 'https://after.test/v1', model: 'model-after', maxUses: 9 }
-    /** 中文说明：变量 current 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     let current = before
-    /** 中文说明：函数值 commitSettings 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     let commitSettings = () => {}
-    /** 中文说明：函数值 resolveApiKey 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const resolveApiKey = () => new Promise<string>((resolve) => {
       commitSettings = () => { current = after; resolve('key-from-before') }
     })
-    /** 中文说明：函数值 fetchMock 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const fetchMock = vi.fn(async () => jsonResponse(searchResponse()))
     vi.stubGlobal('fetch', fetchMock)
 
-    /** 中文说明：函数值 provider 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const provider = new DeepSeekSearchProvider(() => ({ ...current, resolveApiKey }))
-    /** 中文说明：变量 search 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const search = provider.search({ query: 'q' })
     await vi.waitFor(() => { expect(typeof commitSettings).toBe('function') })
     commitSettings()
@@ -269,14 +246,10 @@ describe('DeepSeekSearchProvider settings changes mid-search', () => {
 
 describe('DeepSeekSearchProvider error handling', () => {
   it('does not start credential resolution or dispatch for a pre-aborted call', async () => {
-    /** 中文说明：函数值 resolveApiKey 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const resolveApiKey = vi.fn(async () => 'late-key')
-    /** 中文说明：变量 recordRequest 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const recordRequest = vi.fn()
-    /** 中文说明：变量 fetchMock 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const fetchMock = vi.fn()
     vi.stubGlobal('fetch', fetchMock)
-    /** 中文说明：变量 controller 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const controller = new AbortController()
     controller.abort(new Error('caller stopped'))
     await expect(searchProvider({
@@ -292,16 +265,11 @@ describe('DeepSeekSearchProvider error handling', () => {
   })
 
   it('aborts while an uncooperative credential resolver remains pending', async () => {
-    /** 中文说明：函数值 resolveApiKey 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const resolveApiKey = vi.fn(() => new Promise<string>(() => {}))
-    /** 中文说明：变量 recordRequest 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const recordRequest = vi.fn()
-    /** 中文说明：变量 fetchMock 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const fetchMock = vi.fn()
     vi.stubGlobal('fetch', fetchMock)
-    /** 中文说明：变量 controller 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const controller = new AbortController()
-    /** 中文说明：变量 search 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const search = searchProvider({
       ...options,
       apiKey: '',
@@ -316,10 +284,8 @@ describe('DeepSeekSearchProvider error handling', () => {
   })
 
   it('resolves credentials under an active cancellation signal', async () => {
-    /** 中文说明：函数值 fetchMock 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const fetchMock = vi.fn(async () => jsonResponse(searchResponse()))
     vi.stubGlobal('fetch', fetchMock)
-    /** 中文说明：变量 controller 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const controller = new AbortController()
     await expect(searchProvider({
       ...options,
@@ -331,7 +297,6 @@ describe('DeepSeekSearchProvider error handling', () => {
   })
 
   it('maps a credential resolver rejection under an active signal to WEB_PROVIDER_ERROR', async () => {
-    /** 中文说明：变量 controller 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const controller = new AbortController()
     await expect(searchProvider({
       ...options,
@@ -350,9 +315,7 @@ describe('DeepSeekSearchProvider error handling', () => {
   })
 
   it('observes cancellation triggered synchronously by credential resolution', async () => {
-    /** 中文说明：变量 controller 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const controller = new AbortController()
-    /** 中文说明：变量 fetchMock 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const fetchMock = vi.fn()
     vi.stubGlobal('fetch', fetchMock)
     await expect(searchProvider({
@@ -370,25 +333,34 @@ describe('DeepSeekSearchProvider error handling', () => {
   it('maps an HTTP error to WEB_PROVIDER_ERROR with the provider message', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => jsonResponse({ error: { message: 'rate limited' } }, { status: 429 })))
     await expect(searchProvider(options).search({ query: 'q' }))
-      .rejects.toThrow(expect.objectContaining({ code: 'WEB_PROVIDER_ERROR', message: 'rate limited' }))
+      .rejects.toThrow(expect.objectContaining({
+        code: 'WEB_PROVIDER_ERROR',
+        message: 'DeepSeek API error (HTTP 429): rate limited\n\n'
+          + 'The web search request used endpoint "https://api.deepseek.test/anthropic/v1/messages". '
+          + 'Search endpoint configuration is separate from chat. If that endpoint is not intended, '
+          + 'guide the user to Settings > Plugins > Plugin configuration > Web search, where they can '
+          + 'change and save Endpoint. If that settings page is unavailable, the user can set '
+          + 'DEEPSEEK_SEARCH_BASE_URL or configure web-search-deepseek.baseURL to a trusted '
+          + 'Anthropic-compatible Messages API base. Only the user should choose or change the endpoint.',
+      }))
   })
 
   it('handles a string-form error body', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => jsonResponse({ error: 'bad request' }, { status: 400 })))
-    await expect(searchProvider(options).search({ query: 'q' }))
-      .rejects.toThrow(expect.objectContaining({ message: 'bad request' }))
+    const error = await rejectedWebError(searchProvider(options).search({ query: 'q' }))
+    expect(error.message).toContain('DeepSeek API error (HTTP 400): bad request')
   })
 
   it('keeps a status-line message when the error body is not JSON', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => new Response('upstream error', { status: 503 })))
-    await expect(searchProvider(options).search({ query: 'q' }))
-      .rejects.toThrow(expect.objectContaining({ message: 'DeepSeek API error (HTTP 503)' }))
+    const error = await rejectedWebError(searchProvider(options).search({ query: 'q' }))
+    expect(error.message).toContain('DeepSeek API error (HTTP 503)')
   })
 
   it('keeps the status-line message when the JSON error body carries no detail', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => jsonResponse({}, { status: 500 })))
-    await expect(searchProvider(options).search({ query: 'q' }))
-      .rejects.toThrow(expect.objectContaining({ message: 'DeepSeek API error (HTTP 500)' }))
+    const error = await rejectedWebError(searchProvider(options).search({ query: 'q' }))
+    expect(error.message).toContain('DeepSeek API error (HTTP 500)')
   })
 
   it('maps an abort to WEB_ABORTED', async () => {
@@ -398,13 +370,11 @@ describe('DeepSeekSearchProvider error handling', () => {
   })
 
   it('maps a custom abort reason to WEB_ABORTED', async () => {
-    /** 中文说明：变量 controller 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const controller = new AbortController()
     vi.stubGlobal('fetch', vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) =>
       await new Promise<Response>((_resolve, reject) => {
         init?.signal?.addEventListener('abort', () => { reject(new Error('custom abort reason')) }, { once: true })
       })))
-    /** 中文说明：变量 search 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const search = searchProvider(options).search({ query: 'q' }, controller.signal)
     controller.abort(new Error('timeout reason'))
     await expect(search).rejects.toThrow(expect.objectContaining({ code: 'WEB_ABORTED' }))
@@ -423,7 +393,6 @@ describe('DeepSeekSearchProvider error handling', () => {
   })
 
   it('surfaces an abort during success-body parse as WEB_ABORTED', async () => {
-    /** 中文说明：函数值 body 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const body = { json: () => Promise.reject(new DOMException('aborted', 'AbortError')), ok: true, status: 200 }
     vi.stubGlobal('fetch', vi.fn(async () => body as unknown as Response))
     await expect(searchProvider(options).search({ query: 'q' }))
@@ -431,7 +400,6 @@ describe('DeepSeekSearchProvider error handling', () => {
   })
 
   it('surfaces an abort during error-body parse as WEB_ABORTED', async () => {
-    /** 中文说明：函数值 body 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const body = { json: () => Promise.reject(new DOMException('aborted', 'AbortError')), ok: false, status: 500 }
     vi.stubGlobal('fetch', vi.fn(async () => body as unknown as Response))
     await expect(searchProvider(options).search({ query: 'q' }))
@@ -440,24 +408,24 @@ describe('DeepSeekSearchProvider error handling', () => {
 
   it('maps a network failure to WEB_PROVIDER_ERROR', async () => {
     vi.stubGlobal('fetch', vi.fn(() => Promise.reject(new TypeError('connection refused'))))
-    await expect(searchProvider(options).search({ query: 'q' }))
-      .rejects.toThrow(expect.objectContaining({ code: 'WEB_PROVIDER_ERROR' }))
+    const error = await rejectedWebError(searchProvider(options).search({ query: 'q' }))
+    expect(error.code).toBe('WEB_PROVIDER_ERROR')
+    expect(error.message).toContain('The web search request used endpoint "https://api.deepseek.test/anthropic/v1/messages".')
   })
 
   it('strict mode flows through search(): a prose-only response throws WEB_PROVIDER_ERROR', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => jsonResponse({ content: [{ type: 'text', text: 'no search happened' }] })))
-    await expect(searchProvider(options).search({ query: 'q' }))
-      .rejects.toThrow(expect.objectContaining({ code: 'WEB_PROVIDER_ERROR' }))
+    const error = await rejectedWebError(searchProvider(options).search({ query: 'q' }))
+    expect(error.code).toBe('WEB_PROVIDER_ERROR')
+    expect(error.message).toContain('Search endpoint configuration is separate from chat.')
   })
 })
 
 describe('web-search-deepseek plugin registration', () => {
   it('registers the provider into ctx.web (HMR-safe)', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => jsonResponse(searchResponse())))
-    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
     await ctx.plugin(WebRuntime, { searchProvider: DEEPSEEK_PROVIDER_ID })
-    /** 中文说明：变量 fiber 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const fiber = await ctx.plugin(deepseekPlugin, { apiKey: 'ds-key' })
     await expect(ctx.web.search({ query: 'q' })).resolves.toMatchObject({ truncated: false })
     await fiber.dispose()
@@ -466,7 +434,6 @@ describe('web-search-deepseek plugin registration', () => {
   })
 
   it('rejects maxTokens: 0 at plugin construction', async () => {
-    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
     await ctx.plugin(WebRuntime, { searchProvider: DEEPSEEK_PROVIDER_ID })
     await expect(ctx.plugin(deepseekPlugin, { apiKey: 'ds-key', maxTokens: 0 }))
@@ -474,7 +441,6 @@ describe('web-search-deepseek plugin registration', () => {
   })
 
   it('rejects maxUses: 0 at plugin construction', async () => {
-    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
     await ctx.plugin(WebRuntime, { searchProvider: DEEPSEEK_PROVIDER_ID })
     await expect(ctx.plugin(deepseekPlugin, { apiKey: 'ds-key', maxUses: 0 }))
@@ -482,7 +448,6 @@ describe('web-search-deepseek plugin registration', () => {
   })
 
   it('rejects a fractional maxUses at plugin construction', async () => {
-    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
     await ctx.plugin(WebRuntime, { searchProvider: DEEPSEEK_PROVIDER_ID })
     await expect(ctx.plugin(deepseekPlugin, { apiKey: 'ds-key', maxUses: 1.5 }))
@@ -496,9 +461,7 @@ describe('web-search-deepseek plugin registration', () => {
   it('survives the real Loader unwrapExports path keeping name/inject/Config', () => {
     // A default export would make `unwrapExports` collapse the namespace and drop `inject: ['web']`.
     // Drive the real Loader path because hand-built namespace mounting cannot expose that failure.
-    /** 中文说明：变量 loader 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const loader = Object.create(Loader.prototype) as Loader
-    /** 中文说明：变量 unwrapped 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const unwrapped = loader.unwrapExports(deepseekPlugin) as Record<string, unknown>
     expect(unwrapped).toBe(deepseekPlugin)
     expect(unwrapped.name).toBe('web-search-deepseek')
@@ -508,29 +471,22 @@ describe('web-search-deepseek plugin registration', () => {
 
   it('boots over ctx.web through the unwrapped module without an inject error', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => jsonResponse(searchResponse())))
-    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
     await ctx.plugin(WebRuntime, { searchProvider: DEEPSEEK_PROVIDER_ID })
-    /** 中文说明：变量 loader 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const loader = Object.create(Loader.prototype) as Loader
-    /** 中文说明：变量 unwrapped 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const unwrapped = loader.unwrapExports(deepseekPlugin) as Parameters<Context['plugin']>[0]
     // A collapsed export shape (dropped inject) would throw "without inject" here.
-    /** 中文说明：变量 fiber 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const fiber = await ctx.plugin(unwrapped, { apiKey: 'ds-key' })
     await expect(ctx.web.search({ query: 'q' })).resolves.toMatchObject({ truncated: false })
     await fiber.dispose()
   })
 
   it('falls back to the env key and defaults when config omits them', async () => {
-    /** 中文说明：变量 prev 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const prev = process.env.DEEPSEEK_API_KEY
     process.env.DEEPSEEK_API_KEY = 'env-key'
     try {
-      /** 中文说明：函数值 fetchMock 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
       const fetchMock = vi.fn(async () => jsonResponse(searchResponse()))
       vi.stubGlobal('fetch', fetchMock)
-      /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const ctx = new Context()
       await ctx.plugin(WebRuntime, { searchProvider: DEEPSEEK_PROVIDER_ID })
       deepseekPlugin.apply(ctx, {})
@@ -547,15 +503,11 @@ describe('web-search-deepseek plugin registration', () => {
   })
 
   it('resolves the credential for each search so a stored or rotated key needs no restart', async () => {
-    /** 中文说明：变量 previous 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const previous = process.env.DEEPSEEK_API_KEY
     delete process.env.DEEPSEEK_API_KEY
-    /** 中文说明：变量 dir 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const dir = await mkdtemp(join(tmpdir(), 'dsh-web-search-credentials-'))
-    /** 中文说明：函数值 fetchMock 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const fetchMock = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) => jsonResponse(searchResponse()))
     vi.stubGlobal('fetch', fetchMock)
-    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
     try {
       await ctx.plugin(WebRuntime, { searchProvider: DEEPSEEK_PROVIDER_ID })
@@ -565,14 +517,12 @@ describe('web-search-deepseek plugin registration', () => {
       await expect(ctx.web.search({ query: 'missing' }))
         .rejects.toThrow(expect.objectContaining({ code: 'WEB_PROVIDER_CREDENTIAL_MISSING' }))
 
-      /** 中文说明：变量 ref 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const ref = credentialRef('DEEPSEEK_API_KEY')
       await ctx.credentials.set(ref, 'stored-key')
       await ctx.web.search({ query: 'stored' })
       await ctx.credentials.set(ref, 'rotated-key')
       await ctx.web.search({ query: 'rotated' })
 
-      /** 中文说明：函数值 headers 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
       const headers = fetchMock.mock.calls.map(([, init]) => (init as RequestInit).headers as Record<string, string>)
       expect(headers.map(value => value['x-api-key'])).toEqual(['stored-key', 'rotated-key'])
     } finally {
@@ -584,15 +534,12 @@ describe('web-search-deepseek plugin registration', () => {
   })
 
   it('reports an actionable credential error when neither config nor env supplies a key', async () => {
-    /** 中文说明：变量 prev 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const prev = process.env.DEEPSEEK_API_KEY
     delete process.env.DEEPSEEK_API_KEY
     try {
-      /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const ctx = new Context()
       await ctx.plugin(WebRuntime, { searchProvider: DEEPSEEK_PROVIDER_ID })
       await ctx.plugin(deepseekPlugin, {})
-      /** 中文说明：变量 caught 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       let caught: unknown
       try {
         await ctx.web.search({ query: 'q' })

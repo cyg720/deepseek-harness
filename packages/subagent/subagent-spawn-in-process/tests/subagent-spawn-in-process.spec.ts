@@ -1,11 +1,3 @@
-/**
- * 文件职责：验证 subagent-spawn-in-process.spec.ts 覆盖的子代理启动、协议、继承与生命周期行为。
- * 技术维度：使用 TypeScript、Vitest、Cordis 插件、进程协议或同进程代理驱动。
- * 产品维度：保障 Agent 能可靠委派任务、继承上下文并收集子代理结果。
- * 逻辑维度：准备代理配置，启动或连接子代理，转发事件，再处理结果、取消与清理。
- * 关键边界：异步状态不等于单次任务结果；外部输出不可信；清理必须等待子代理完全停止。
- * 新手阅读建议：先看公开配置和测试夹具，再读启动/事件流程，最后关注继承、取消与失败路径。
- */
 import { createUserMessage } from '@deepseek-ai/dsh-llm'
 import { describe, expect, it } from 'vitest'
 import { Context, symbols, type EffectMeta } from '@deepseek-ai/cordis'
@@ -19,15 +11,14 @@ import * as SessionInvariant from '@deepseek-ai/dsh-session/invariant'
 import * as AgentInvariant from '@deepseek-ai/dsh-agent/invariant'
 import * as AgentLoopInvariant from '@deepseek-ai/dsh-agent-loop/invariant'
 import SubagentRuntime, { type SubagentStartRequest } from '@deepseek-ai/dsh-subagent'
+import SessionProjectionRegistry from '@deepseek-ai/dsh-session-projection'
 import { MockAdapter, maxTokensResponse, textResponse, toolCallResponse } from '../../../core/agent-loop/tests/mock-adapter.ts'
 import * as spawn from '../src/index.ts'
 import { STRUCTURED_OUTPUT_TOOL } from '@deepseek-ai/dsh-subagent-in-process-driver'
 import { defineContentToolFixture } from '@deepseek-ai/dsh-tools'
 
-/** 中文说明：type Script 定义本测试所需的数据或行为，用于表达子代理场景。 */
 type Script = ConstructorParameters<typeof MockAdapter>[0]
 
-/** 中文说明：函数 mountInvariants 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 async function mountInvariants(ctx: Context): Promise<void> {
   await ctx.plugin(InvariantRegistry)
   await ctx.plugin(SessionInvariant)
@@ -42,40 +33,32 @@ async function mountInvariants(ctx: Context): Promise<void> {
  * The parent is a real config agent; the spawn provider creates a real child
  * agent on the same context and we assert its output.
  */
-/* 中文说明：函数 setup 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 async function setup(script: Script) {
-  /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const ctx = new Context()
-  /** 中文说明：变量 adapter 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const adapter = new MockAdapter(script)
   await mountAgentLoopTestDependencies(ctx)
   await mountInvariants(ctx)
   await ctx.plugin(AgentLoop, { agents: [] })
+  await ctx.plugin(SessionProjectionRegistry)
   await ctx.plugin(SubagentRuntime)
   await ctx.plugin(spawn, { providerName: 'spawn' })
   ctx.llm.registerAdapter(['mock'], adapter)
-  /** 中文说明：变量 parent 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const parent = ctx.agentLoop.create(SessionId('parent'), { provider: 'mock', model: 'mock' })
   return { ctx, parent, adapter }
 }
 
-/** 中文说明：函数 text 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function text(blocks: { type: string; text?: string }[]): string {
   return blocks.filter(b => b.type === 'text').map(b => b.text).join('')
 }
 
-/** 中文说明：函数 start 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function start(ctx: Context, provider: string, request: Omit<SubagentStartRequest, 'signal'> & { signal?: AbortSignal }) {
   return ctx.subagents.start(provider, { signal: request.signal ?? new AbortController().signal, ...request })
 }
 
 /** Invoke the child lifecycle effect while its parent-owned setup is still unpublished. */
-/* 中文说明：函数 disposeChildLifecycle 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function disposeChildLifecycle(parent: Agent): void {
-  /** 中文说明：变量 lifecycle 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const lifecycle = [...parent.ctx.fiber._disposables]
     .find((dispose) => {
-      /** 中文说明：变量 effect 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const effect = (dispose as typeof dispose & { [symbols.effect]?: EffectMeta })[symbols.effect]
       return effect?.label.startsWith('agentLoop.lifecycle(') === true
     })
@@ -87,9 +70,7 @@ describe('dsh-subagent-spawn-in-process', () => {
   it('runs a fresh child to completion and returns its final assistant output', async () => {
     // One model call for the child: a plain text answer.
     const { ctx, parent } = await setup([textResponse('child answer')])
-    /** 中文说明：变量 run 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const run = await start(ctx, 'spawn', { prompt: [{ type: 'text', text: 'do X' }], parent })
-    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await run.result
     expect(result.stopReason).toBe('completed')
     expect(text(result.output)).toBe('child answer')
@@ -98,18 +79,15 @@ describe('dsh-subagent-spawn-in-process', () => {
 
   it('emits subagent/start only after the fresh child is published', async () => {
     const { ctx, parent } = await setup([textResponse('child answer')])
-    /** 中文说明：变量 childAtStart 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     let childAtStart: ReturnType<typeof ctx.agents.get>
     ctx.on('subagent/start', (info) => {
       if (info.provider === 'spawn') childAtStart = ctx.agents.get(info.id)
     })
 
-    /** 中文说明：变量 starting 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const starting = start(ctx, 'spawn', { prompt: [{ type: 'text', text: 'do X' }], parent })
     // Creation is asynchronous; no lifecycle claim is made while the child is
     // still inside its unpublished setup transaction.
     expect(childAtStart).toBeUndefined()
-    /** 中文说明：变量 run 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const run = await starting
     expect(childAtStart).toBe(ctx.agents.get(run.id))
     expect(childAtStart?.id).toBe(run.id)
@@ -120,10 +98,8 @@ describe('dsh-subagent-spawn-in-process', () => {
 
   it('gives the child its OWN session (not the parent\'s), with parentSession lineage', async () => {
     const { ctx, parent } = await setup([textResponse('hi')])
-    /** 中文说明：变量 run 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const run = await start(ctx, 'spawn', { prompt: [{ type: 'text', text: 'p' }], parent })
     await run.result
-    /** 中文说明：变量 child 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const child = ctx.agents.get(run.id)!
     expect(child.session.header.id).not.toBe(parent.session.header.id)
     expect(child.session.header.parentSession).toBe(parent.session.header.id)
@@ -135,17 +111,13 @@ describe('dsh-subagent-spawn-in-process', () => {
     const { ctx, parent } = await setup([textResponse('parent turn'), textResponse('child sees nothing')])
     parent.followup(createUserMessage({ content: [{ type: 'text', text: 'parent prompt' }], source: { kind: 'user' } }))
     await parent.whenIdle()
-    /** 中文说明：变量 parentEventCount 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const parentEventCount = parent.session.events.length
     expect(parentEventCount).toBeGreaterThan(0)
 
-    /** 中文说明：变量 run 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const run = await start(ctx, 'spawn', { prompt: [{ type: 'text', text: 'child prompt' }], parent })
     await run.result
-    /** 中文说明：变量 child 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const child = ctx.agents.get(run.id)!
     // The child's first user/message is its OWN prompt, not the parent's history.
-    /** 中文说明：函数值 firstUser 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const firstUser = child.session.events.find(e => e.type === 'user/message')
     expect(firstUser).toBeDefined()
     await run.dispose()
@@ -153,7 +125,6 @@ describe('dsh-subagent-spawn-in-process', () => {
 
   it('disposes the child to quiescence (agent removed from the registry)', async () => {
     const { ctx, parent } = await setup([textResponse('x')])
-    /** 中文说明：变量 run 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const run = await start(ctx, 'spawn', { prompt: [{ type: 'text', text: 'p' }], parent })
     await run.result
     expect(ctx.agents.get(run.id)).toBeDefined()
@@ -165,10 +136,8 @@ describe('dsh-subagent-spawn-in-process', () => {
   it('stamps child depth = parent depth + 1 (via the merged AgentOptions field)', async () => {
     const { ctx, parent } = await setup([textResponse('x')])
     expect(parent.options.subagentDepth).toBeUndefined()
-    /** 中文说明：变量 run 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const run = await start(ctx, 'spawn', { prompt: [{ type: 'text', text: 'p' }], parent })
     await run.result
-    /** 中文说明：变量 child 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const child = ctx.agents.get(run.id)!
     expect(child.options.subagentDepth).toBe(1)
     await run.dispose()
@@ -183,9 +152,7 @@ describe('dsh-subagent-spawn-in-process', () => {
 
   it('maps a child that hit its token ceiling to stopReason "max-tokens"', async () => {
     const { ctx, parent } = await setup([maxTokensResponse('cut off')])
-    /** 中文说明：变量 run 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const run = await start(ctx, 'spawn', { prompt: [{ type: 'text', text: 'p' }], parent })
-    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await run.result
     expect(result.stopReason).toBe('max-tokens')
     await run.dispose()
@@ -195,9 +162,7 @@ describe('dsh-subagent-spawn-in-process', () => {
     // Empty script: the child's first model call throws "script exhausted", the
     // turn ends `error`, and there is no assistant/message → empty output.
     const { ctx, parent } = await setup([])
-    /** 中文说明：变量 run 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const run = await start(ctx, 'spawn', { prompt: [{ type: 'text', text: 'p' }], parent })
-    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await run.result
     expect(result.stopReason).toBe('error')
     expect(result.output).toEqual([])
@@ -207,7 +172,6 @@ describe('dsh-subagent-spawn-in-process', () => {
   it('rejects without publishing when the request signal is already aborted', async () => {
     // An already-aborted signal emits no future event, so start must check it before listening and
     // settle aborted without running the child. The empty model script proves no turn occurs.
-    /** 中文说明：变量 controller 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const controller = new AbortController()
     controller.abort()
     const { ctx, parent } = await setup([])
@@ -219,20 +183,15 @@ describe('dsh-subagent-spawn-in-process', () => {
     // Same-tick cancellation must win before async factory publication: no child may become
     // visible, `started` must not fulfill, and the empty script proves no model turn occurs.
     const { ctx, parent } = await setup([])
-    /** 中文说明：变量 beforeAgents 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const beforeAgents = ctx.agents.list().length
-    /** 中文说明：变量 beforeSessions 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const beforeSessions = ctx.sessions.list().length
-    /** 中文说明：变量 published 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const published: string[] = []
     ctx.on('session/created', () => void published.push('session/created'))
     ctx.on('agent/created', () => void published.push('agent/created'))
     ctx.on('agent/session-start', () => void published.push('agent/session-start'))
     ctx.on('subagent/start', () => void published.push('subagent/start'))
     ctx.on('subagent/end', () => void published.push('subagent/end'))
-    /** 中文说明：变量 controller 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const controller = new AbortController()
-    /** 中文说明：变量 starting 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const starting = start(ctx, 'spawn', { prompt: [{ type: 'text', text: 'p' }], parent, signal: controller.signal })
     controller.abort('early')
 
@@ -245,16 +204,13 @@ describe('dsh-subagent-spawn-in-process', () => {
 
   it('cancelling a running child settles the run as aborted (the abort bridge + cancel())', async () => {
     // 'hang' makes the child's model stream one chunk then wait until aborted.
-    /** 中文说明：变量 controller 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const controller = new AbortController()
     const { ctx, parent } = await setup(['hang'])
-    /** 中文说明：变量 run 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const run = await start(ctx, 'spawn', { prompt: [{ type: 'text', text: 'p' }], parent, signal: controller.signal })
     // Let the child's turn start, then abort via the request signal (the
     // backend bridges it to child.cancel()).
     await new Promise(r => setTimeout(r, 30))
     controller.abort()
-    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await run.result
     expect(result.stopReason).toBe('aborted')
     await run.dispose()
@@ -262,18 +218,15 @@ describe('dsh-subagent-spawn-in-process', () => {
 
   it('dispose cancels the child and reaches quiescence', async () => {
     const { ctx, parent } = await setup(['hang'])
-    /** 中文说明：变量 run 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const run = await start(ctx, 'spawn', { prompt: [{ type: 'text', text: 'p' }], parent })
     await new Promise(r => setTimeout(r, 30))
     await run.dispose()
-    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await run.result
     expect(result.stopReason).toBe('aborted')
   })
 
   it('a one-shot run exposes neither steer nor resume; continuable creation is a provider capability', async () => {
     const { ctx, parent } = await setup([textResponse('x')])
-    /** 中文说明：变量 run 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const run = await start(ctx, 'spawn', { prompt: [{ type: 'text', text: 'p' }], parent })
     // A run is one disposable foreground activation: it has no steering and no
     // cold resume. Continuable conversations never become a run — the
@@ -284,10 +237,8 @@ describe('dsh-subagent-spawn-in-process', () => {
     await run.result
     // The spawn provider DOES advertise continuable creation, and — because a
     // spawned child starts fresh — contributes no seed.
-    /** 中文说明：变量 provider 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const provider = ctx.subagents.getProvider('spawn')!
     expect(typeof provider.prepareContinuable).toBe('function')
-    /** 中文说明：变量 spec 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const spec = await provider.prepareContinuable!({
       sessionId: SessionId('continuable-child'),
       parent,
@@ -300,16 +251,13 @@ describe('dsh-subagent-spawn-in-process', () => {
   it('inherits the parent cwd into the child session', async () => {
     const { ctx } = await setup([textResponse('x')])
     // A parent WITH a cwd (config agents have none, so create one explicitly).
-    /** 中文说明：变量 parentHandle 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const parentHandle = await ctx.agents.create({
       sessionId: SessionId('cwd-parent-session'),
       meta: { cwd: '/tmp/parent-workspace' },
       agentOptions: { provider: 'mock', model: 'mock' },
     })
-    /** 中文说明：变量 run 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const run = await start(ctx, 'spawn', { prompt: [{ type: 'text', text: 'p' }], parent: parentHandle.agent })
     await run.result
-    /** 中文说明：变量 child 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const child = ctx.agents.get(run.id)!
     expect(child.session.header.cwd).toBe('/tmp/parent-workspace')
     await run.dispose()
@@ -319,19 +267,16 @@ describe('dsh-subagent-spawn-in-process', () => {
   it('uses request.agentOptions.model when the parent has no model of its own', async () => {
     const { ctx } = await setup([textResponse('explicit model child')])
     // A parent with NO model (its own turns would need one supplied per-request).
-    /** 中文说明：变量 parentHandle 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const parentHandle = await ctx.agents.create({
       sessionId: SessionId('modelless-parent-session'),
       agentOptions: {},
     })
     // The request supplies the child's model explicitly.
-    /** 中文说明：变量 run 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const run = await start(ctx, 'spawn', {
       prompt: [{ type: 'text', text: 'p' }],
       parent: parentHandle.agent,
       agentOptions: { provider: 'mock', model: 'mock' },
     })
-    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await run.result
     expect(result.stopReason).toBe('completed')
     expect(text(result.output)).toBe('explicit model child')
@@ -341,7 +286,6 @@ describe('dsh-subagent-spawn-in-process', () => {
 
   it('advertises every start-time capability', async () => {
     const { ctx } = await setup([])
-    /** 中文说明：变量 provider 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const provider = ctx.subagents.getProvider('spawn')!
     expect(provider.capabilities).toEqual({
       agentOptions: true,
@@ -353,11 +297,10 @@ describe('dsh-subagent-spawn-in-process', () => {
   })
 
   it('unregisters the provider when its fiber is disposed (HMR safety)', async () => {
-    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
+    await ctx.plugin(SessionProjectionRegistry)
     await ctx.plugin(SubagentRuntime)
     await ctx.plugin(AgentRegistry)
-    /** 中文说明：变量 fiber 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const fiber = await ctx.plugin(spawn, { providerName: 'spawn' })
     expect(ctx.subagents.list()).toEqual(['spawn'])
     await fiber.dispose()
@@ -368,13 +311,11 @@ describe('dsh-subagent-spawn-in-process', () => {
     const { ctx, parent } = await setup([
       toolCallResponse('c1', STRUCTURED_OUTPUT_TOOL, { answer: 42 }),
     ])
-    /** 中文说明：变量 run 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const run = await start(ctx, 'spawn', {
       prompt: [{ type: 'text', text: 'produce the answer' }],
       parent,
       outputSchema: { type: 'object', properties: { answer: { type: 'number' } }, required: ['answer'] },
     })
-    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await run.result
     expect(result.stopReason).toBe('completed')
     expect(result.structured).toEqual({ answer: 42 })
@@ -384,22 +325,17 @@ describe('dsh-subagent-spawn-in-process', () => {
 
   it('a backend unload does not revoke an accepted holder-owned run', async () => {
     // Rebuild the stack by hand so we hold the backend's fiber.
-    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
-    /** 中文说明：变量 adapter 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const adapter = new MockAdapter(['hang'])
     await mountAgentLoopTestDependencies(ctx)
     await mountInvariants(ctx)
     await ctx.plugin(AgentLoop, { agents: [] })
+    await ctx.plugin(SessionProjectionRegistry)
     await ctx.plugin(SubagentRuntime)
-    /** 中文说明：变量 fiber 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const fiber = await ctx.plugin(spawn, { providerName: 'spawn' })
     ctx.llm.registerAdapter(['mock'], adapter)
-    /** 中文说明：变量 parent 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const parent = ctx.agentLoop.create(SessionId('parent'), { provider: 'mock', model: 'mock' })
-    /** 中文说明：变量 controller 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const controller = new AbortController()
-    /** 中文说明：变量 run 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const run = await start(ctx, 'spawn', {
       prompt: [{ type: 'text', text: 'q' }],
       parent,
@@ -413,7 +349,6 @@ describe('dsh-subagent-spawn-in-process', () => {
     expect(ctx.subagents.getProvider('spawn')).toBeUndefined()
     expect(ctx.agents.get(run.id)).toBeDefined()
     controller.abort('test complete')
-    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await run.result
     expect(result.stopReason).toBe('aborted')
     expect(ctx.tools.get(STRUCTURED_OUTPUT_TOOL)).toBeUndefined()
@@ -421,23 +356,18 @@ describe('dsh-subagent-spawn-in-process', () => {
   })
 
   it('a start racing an already-unloading backend cannot begin child creation', async () => {
-    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
     await mountAgentLoopTestDependencies(ctx)
     await ctx.plugin(AgentLoop, { agents: [] })
+    await ctx.plugin(SessionProjectionRegistry)
     await ctx.plugin(SubagentRuntime)
-    /** 中文说明：变量 fiber 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const fiber = await ctx.plugin(spawn, { providerName: 'spawn' })
-    /** 中文说明：变量 parent 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const parent = ctx.agentLoop.create(SessionId('parent'), { provider: 'mock', model: 'mock' })
-    /** 中文说明：变量 parentEffects 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const parentEffects = parent.ctx.fiber.getEffects().length
-    /** 中文说明：变量 published 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const published: string[] = []
     ctx.on('session/created', () => void published.push('session/created'))
     ctx.on('agent/created', () => void published.push('agent/created'))
 
-    /** 中文说明：变量 unloading 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const unloading = fiber.dispose()
     await unloading
     await expect(start(ctx, 'spawn', {
@@ -452,9 +382,7 @@ describe('dsh-subagent-spawn-in-process', () => {
     expect('default' in spawn).toBe(false)
     expect(spawn.name).toBe('subagent-spawn-in-process')
     expect(spawn.inject).toEqual(['subagents'])
-    /** 中文说明：变量 loader 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const loader = Object.create(Loader.prototype) as Loader
-    /** 中文说明：变量 unwrapped 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const unwrapped = loader.unwrapExports(spawn) as Record<string, unknown>
     expect(unwrapped).toBe(spawn)
     expect(unwrapped.name).toBe('subagent-spawn-in-process')
@@ -471,14 +399,12 @@ describe('dsh-subagent-spawn-in-process', () => {
       parent.followup(createUserMessage({ content: [{ type: 'text', text: 'hi' }], source: { kind: 'user' } }))
       await parent.whenIdle()
 
-      /** 中文说明：变量 run 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const run = await start(ctx, 'spawn', {
         prompt: [{ type: 'text', text: 'do X' }],
         parent,
         persona: 'You are the tersest test runner.',
       })
       await run.result
-      /** 中文说明：变量 childRequest 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const childRequest = adapter.requests.at(-1)!
       expect(childRequest.system).toContain('You are the tersest test runner.')
       // The parent's earlier request carried no such persona.
@@ -496,23 +422,18 @@ describe('dsh-subagent-spawn-in-process', () => {
         name: 'forbidden_tool', description: 'global', parameters: {},
         execute: () => Promise.resolve([{ type: 'text', text: 'ran' }]),
       }))
-      /** 中文说明：变量 run 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const run = await start(ctx, 'spawn', {
         prompt: [{ type: 'text', text: 'do X' }],
         parent,
         toolFilter: { deny: ['forbidden_tool'] },
       })
-      /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const result = await run.result
       expect(result.stopReason).toBe('completed')
       // Not advertised…
-      /** 中文说明：变量 childRequest 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const childRequest = adapter.requests[0]!
       expect((childRequest.tools ?? []).map(t => t.name)).not.toContain('forbidden_tool')
       // …and the attempted call executed as UNKNOWN_TOOL (visible in the log).
-      /** 中文说明：变量 child 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const child = ctx.agents.get(run.id)!
-      /** 中文说明：函数值 toolResult 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
       const toolResult = child.session.events.find(e => e.type === 'tool/result')!
       expect(JSON.stringify(toolResult.data)).toContain('unknown tool')
       await run.dispose()
@@ -520,7 +441,6 @@ describe('dsh-subagent-spawn-in-process', () => {
 
     it('an unknown toolFilter name fails the spawn loudly with no orphaned child', async () => {
       const { ctx, parent } = await setup([])
-      /** 中文说明：变量 before 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const before = ctx.agents.list().length
       await expect(start(ctx, 'spawn', {
         prompt: [{ type: 'text', text: 'do X' }],
@@ -534,17 +454,13 @@ describe('dsh-subagent-spawn-in-process', () => {
   it('spawning from a DISPOSING parent fails loud with no orphaned child (INACTIVE_EFFECT teaching error)', async () => {
     const { ctx } = await setup([])
     // A handle-owned parent we can dispose (config agents dispose with the loop fiber).
-    /** 中文说明：变量 parentHandle 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const parentHandle = await ctx.agents.create({
       sessionId: SessionId('doomed-s'),
       agentOptions: { provider: 'mock', model: 'mock' },
     })
     await parentHandle.dispose()
-    /** 中文说明：变量 before 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const before = ctx.agents.list().length
-    /** 中文说明：变量 sessionsBefore 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const sessionsBefore = ctx.sessions.list().length
-    /** 中文说明：变量 published 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const published: string[] = []
     ctx.on('session/created', () => void published.push('session/created'))
     ctx.on('agent/created', () => void published.push('agent/created'))
@@ -560,17 +476,14 @@ describe('dsh-subagent-spawn-in-process', () => {
 
   it('parent disposal during the child setup transaction prevents every publication notification', async () => {
     const { ctx } = await setup([])
-    /** 中文说明：变量 parentHandle 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const parentHandle = await ctx.agents.create({
       sessionId: SessionId('setup-race-parent-session'),
       agentOptions: { provider: 'mock', model: 'mock' },
     })
-    /** 中文说明：变量 published 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const published: string[] = []
     ctx.on('session/created', () => void published.push('session/created'))
     ctx.on('agent/created', () => void published.push('agent/created'))
     ctx.on('agent/session-start', () => void published.push('agent/session-start'))
-    /** 中文说明：变量 teardownStarted 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     let teardownStarted = false
     ctx.on('internal/plugin', (fiber) => {
       if (teardownStarted || fiber.name !== 'scope') return
@@ -578,7 +491,6 @@ describe('dsh-subagent-spawn-in-process', () => {
       disposeChildLifecycle(parentHandle.agent)
     })
 
-    /** 中文说明：变量 starting 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const starting = start(ctx, 'spawn', {
       prompt: [{ type: 'text', text: 'must never run' }],
       parent: parentHandle.agent,

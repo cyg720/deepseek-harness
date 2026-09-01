@@ -1,21 +1,3 @@
-/*
- * ================================ 文件注释 ================================
- * 【文件职责】面向作用域（scope）的会话对话编排服务 ConversationController：发送提示词、
- *             更新排队队列、取消在途回合、加载更早历史；并管理草稿图片与历史图片 URL
- *             的生命周期。
- * 【技术维度】Cordis Service 类（注册名 'conversation'）；作用域寻址靠 cordis Service
- *             tracker——通过 ctx.conversation 属性访问时 this.ctx 被重绑定到调用方上下文，
- *             方法用 scopeOf 读取会话标签；可变状态必须经一次属性读取可达（# 私有字段会
- *             绕过重绑定）。
- * 【产品维度】各会话子 UI 通过 ctx.sessions.scope(id).conversation 拿到本会话的服务面，
- *             发送 / 取消 / 翻历史，并展示图片附件。
- * 【逻辑维度】1) IConversation 公共面；2) 图片 URL 缓存与代数（防过期释放）；3) 草稿图片
- *             注册 / 释放；4) send / updateQueue / cancel / loadOlder；5) 私有作用域解析。
- * 【关键边界】MIME 只放行 PNG / JPEG / WebP / GIF；disposed 后拒绝新加载；历史图片 URL
- *             用代数计数保证会话释放后旧加载结果作废。
- * 【新手阅读建议】先读 IConversation 接口了解对外能力，再看 resolveImage 的缓存 / 代数逻辑。
- * ==========================================================================
- */
 /**
  * Scope-addressed conversation send, cancel, and history orchestration.
  *
@@ -51,24 +33,16 @@ import type { InputSubmitMode } from './contract/composer-submission.ts'
  */
 export interface IConversation {
   /** The per-session input machine registry (SessionInputResolver face). */
-  // 每会话输入状态机注册表（SessionInputResolver 面）。
   readonly input: SessionInputResolver
   /**
    * The per-session composer-block registry: how a plugin the composer
    * cannot import makes a session's input inert with its own reason.
    */
-  // 每会话"压缩器块"注册表：无法被输入栏 import 的插件，通过它让某会话的输入
-  // 失效并给出自己的原因。
   readonly blocks: ComposerBlocks
   /**
    * Send a prompt into the caller scope's session (queued turn).
    * @param text - prompt text, sent verbatim as one text block.
    * @returns completion; business failures reject (and land in promptError).
-   */
-  /*
-   * 向调用方作用域的会话发送一条提示词（排队回合）。
-   * @param text - 提示词文本，作为一个文本块原样发送。
-   * @returns 完成；业务失败会 reject（并写入 promptError）。
    */
   send(text: string): Promise<void>
   /**
@@ -77,29 +51,15 @@ export interface IConversation {
    * @param action - requested queue operation.
    * @returns completion; converged strict-steer races resolve, while other failures reject.
    */
-  /*
-   * 对一条待处理的队列消息执行编辑 / 删除 / 严格插话。
-   * @param itemId - 智能体拥有的收件箱条目身份。
-   * @param action - 请求的队列操作。
-   * @returns 完成；收敛的严格插话竞争会 resolve，其它失败会 reject。
-   */
   updateQueue(itemId: QueueItemId, action: QueueAction): Promise<void>
   /**
    * Cancel the scoped session's in-flight turn while preserving its pending Queue.
    * @returns completion; failures reject as in send.
    */
-  /*
-   * 取消作用域会话的在途回合，同时保留其待处理队列。
-   * @returns 完成；失败与 send 一样 reject。
-   */
   cancel(): Promise<void>
   /**
    * Pull one older history page for the scoped session.
    * @returns completion of the page pull.
-   */
-  /*
-   * 为作用域会话拉取一页更早的历史。
-   * @returns 拉取完成的信号。
    */
   loadOlder(): Promise<void>
 }
@@ -184,7 +144,6 @@ export class UnsupportedImageMediaTypeError extends Error {
 }
 
 /** Scope-addressed conversation service (root singleton, provided as `conversation`). */
-/* 作用域寻址的会话服务（根单例，以 'conversation' 提供）。 */
 export class ConversationController extends Service implements IConversation {
   /** The per-session input machine registry (SessionInputResolver face). */
   readonly input: SessionInputResolver
@@ -248,7 +207,8 @@ export class ConversationController extends Service implements IConversation {
     if (attachments.length !== imageIds.length) {
       throw new Error('conversation.sendSession: one or more draft images are no longer available')
     }
-    if (session.getSnapshot().subagent !== null) {
+    const snapshot = session.getSnapshot()
+    if (snapshot.subagent !== null) {
       const uploaded = await this.serializeImages(attachments.map(attachment => attachment.file))
       const content = [...uploaded, ...(text === '' ? [] : [{ type: 'text' as const, text }])]
       const result = await session.prompt(content, mode, signal)
@@ -259,6 +219,7 @@ export class ConversationController extends Service implements IConversation {
       ? undefined
       : new Promise<PendingSubmissionRetirement>((resolve) => { finishRetirement = resolve })
     const submission = session.beginSubmission({
+      mode,
       text,
       images: attachments.map(attachment => ({
         previewUrl: attachment.previewUrl,
@@ -356,7 +317,7 @@ export class ConversationController extends Service implements IConversation {
     if (!result.ok) {
       if (
         action.kind === 'steer'
-        && (result.error.code === 'steer-unavailable' || result.error.code === 'queue-item-not-found')
+        && (result.error.code === 'session/steer-unavailable' || result.error.code === 'session/queue-item-not-found')
       ) return
       throw new Error(`conversation.updateQueue failed: ${result.error.code}: ${result.error.message}`)
     }

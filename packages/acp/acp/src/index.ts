@@ -8,14 +8,6 @@
  *
  * @module @deepseek-ai/dsh-acp
  */
-/*
- * 文件职责：把 Harness 代理会话通过标准输入输出上的 ACP JSON-RPC 暴露给可信自动化客户端。
- * 技术维度：使用 Cordis 插件生命周期、Agent Client Protocol SDK、异步结算门和会话事件流桥接代理运行时。
- * 产品维度：支持自动化工具创建独立会话、发送文本或图片、接收已提交输出、取消任务并回答一次性权限请求。
- * 逻辑维度：挂载连接与事件监听，维护每会话状态，实现 ACP 方法，关联提示与轮次，最后按顺序排空并释放资源。
- * 关键边界：仅支持单一绝对工作区且不接收 MCP 配置；每会话同时只有一个提示；桥接层只发送已提交内容。
- * 新手阅读建议：先看 SessionRecord 状态字段，再看 makeAgent 的协议方法，随后理解事件关联，最后阅读 quiesce 清理顺序。
- */
 
 import type { Context } from '@deepseek-ai/cordis'
 import { Buffer } from 'node:buffer'
@@ -24,6 +16,7 @@ import { realpath } from 'node:fs/promises'
 import { isAbsolute, resolve } from 'node:path'
 import { Readable, Writable } from 'node:stream'
 import Schema from '@deepseek-ai/schemastery'
+import { brandString } from '@deepseek-ai/dsh-brand'
 import { errorChain } from '@deepseek-ai/dsh-llm'
 import {
   agent as createAcpAgentApp,
@@ -53,7 +46,7 @@ import {
   type Stream,
 } from '@agentclientprotocol/sdk'
 import type { ModelSelection } from '@deepseek-ai/dsh-agent'
-import { SessionId } from '@deepseek-ai/dsh-session'
+import type { SessionId } from '@deepseek-ai/dsh-session'
 import type {} from '@deepseek-ai/dsh-session-persistence'
 // Side-effect type import: declaration-merges the approval waterfall answered below.
 import type {} from '@deepseek-ai/dsh-user-approval'
@@ -64,50 +57,32 @@ import { AcpSession } from './session.ts'
 
 const DEFAULT_SESSION_LIST_PAGE_SIZE = 100
 
-// Cordis 插件注册名称。
 export const name = 'acp'
 /** Core services required by the standard automation controls. */
 export const inject = ['agents', 'llm', 'sessionPersistence', 'sessions']
 
 /** Preserve invalid-parameter detail in the SDK wire error message. */
-/*
- * 构造保留安全详情的 ACP 参数错误。
- * @param detail 可返回客户端的参数问题说明。
- * @returns SDK 的 invalid params 错误对象。
- * @example invalidParams('unknown session')
- */
 function invalidParams(detail: string): RequestError {
   return RequestError.invalidParams(undefined, detail)
 }
 
 /** Preserve failed-turn detail; plain handler errors become a generic wire internal error. */
-/*
- * 构造保留安全详情的 ACP 内部错误。
- * @param detail 不含敏感数据的失败说明。
- * @returns SDK 的 internal error 对象。
- * @example internalError('turn failed')
- */
 function internalError(detail: string): RequestError {
   return RequestError.internalError(undefined, detail)
 }
 
 /** Plugin config: the provider/model selection used for each ACP-created agent. */
-/* ACP 插件配置，决定新建代理使用的模型路由和可选测试传输层。 */
 export interface AcpConfig {
   /** Provider route for created agents. */
-  /* 新建代理使用的提供方路由；省略时交给代理默认配置。 */
   provider?: string
   /** Model name for created agents. */
-  /* 新建代理使用的精确模型名称；省略时交给代理默认配置。 */
   model?: string
   /** Maximum summaries returned by one session/list page. */
   sessionListPageSize?: number
   /** Runtime-only transport override; production uses stdio. */
-  /* 仅运行时使用的传输覆盖，生产环境默认使用标准输入输出。 */
   stream?: Stream
 }
 
-// Cordis 对可持久配置字段的运行时校验模式；stream 不属于部署配置。
 export const Config: Schema<AcpConfig> = Schema.object({
   provider: Schema.string(),
   model: Schema.string(),
@@ -118,13 +93,6 @@ export const Config: Schema<AcpConfig> = Schema.object({
  * Mount the automation-only ACP server.
  * @param ctx - Cordis context carrying the agent factory and session events.
  * @param config - Initial provider/model selection and optional test transport.
- */
-/*
- * 挂载自动化专用 ACP 服务及其会话生命周期监听。
- * @param ctx 提供代理工厂、日志、事件和可选能力服务的 Cordis 上下文。
- * @param config 初始模型路由及可选测试传输配置。
- * @returns 无返回值；连接和清理由 Cordis effect 生命周期管理。
- * @example apply(ctx, { provider: 'deepseek', model: 'deepseek-chat' })
  */
 export function apply(ctx: Context, config: AcpConfig): void {
   // ACP handlers execute outside this plugin's injection scope, so capture the
@@ -143,7 +111,6 @@ export function apply(ctx: Context, config: AcpConfig): void {
     return record?.owns(agent) === true ? record : undefined
   }
 
-  /** 确认桥接仍可接收新操作，否则抛出协议内部错误。 */
   const assertOpen = (): void => {
     if (closed) throw internalError('the ACP bridge has been disposed')
   }
@@ -155,7 +122,6 @@ export function apply(ctx: Context, config: AcpConfig): void {
   }
 
   /** Send one ordered protocol update while containing transport-only failure. */
-  /* 发送一个有序协议更新，并把仅传输层失败限制为日志警告。 */
   const notify = async (notification: SessionNotification): Promise<void> => {
     try {
       await conn.notify(methods.client.session.update, notification)
@@ -186,9 +152,7 @@ export function apply(ctx: Context, config: AcpConfig): void {
   // Permission requests are a machine policy channel for ACP clients such as
   // dsh-subagent-acp. The bridge offers one-shot choices only and never infers a
   // durable grant from an unknown client response.
-  // ACP 权限通道只提供本次允许或本次拒绝，不把未知客户端回复推断为持久授权。
   ctx.on('approval/request', (request, next) => {
-    // 只有桥接层拥有的代理才能把权限请求发往此 ACP 连接。
     const record = ownedRecord(request.agent)
     if (record === undefined || request.callId === undefined) return next()
     const callId = request.callId
@@ -232,7 +196,7 @@ export function apply(ctx: Context, config: AcpConfig): void {
     async newSession(params: NewSessionRequest, signal: AbortSignal): Promise<NewSessionResponse> {
       assertOpen()
       validateWorkspaceParams(params)
-      const sessionId = SessionId(randomUUID())
+      const sessionId = brandString<SessionId>(randomUUID())
       // No preset composition: the ACP bundle keeps the model-facing rows in
       // the host plane, so this agent reads them from the global layer. A
       // deployment that configures a roster has to join one here first
@@ -274,7 +238,7 @@ export function apply(ctx: Context, config: AcpConfig): void {
     async resumeSession(params: ResumeSessionRequest, signal: AbortSignal): Promise<ResumeSessionResponse> {
       assertOpen()
       validateWorkspaceParams(params)
-      const sessionId = SessionId(params.sessionId)
+      const sessionId = brandString<SessionId>(params.sessionId)
       if (sessions.has(sessionId) || activating.has(sessionId) || ctx.sessions.get(sessionId) !== undefined) {
         throw invalidParams(`session is already active: ${sessionId}`)
       }
@@ -370,7 +334,7 @@ export function apply(ctx: Context, config: AcpConfig): void {
       signal: AbortSignal,
     ): Promise<SetSessionConfigOptionResponse> {
       assertOpen()
-      const record = requireSession(SessionId(params.sessionId))
+      const record = requireSession(brandString<SessionId>(params.sessionId))
       try {
         return { configOptions: await record.setConfig(params.configId, params.value, signal) }
       } catch (error: unknown) {
@@ -381,7 +345,7 @@ export function apply(ctx: Context, config: AcpConfig): void {
 
     async closeSession(params: CloseSessionRequest): Promise<CloseSessionResponse> {
       assertOpen()
-      const sessionId = SessionId(params.sessionId)
+      const sessionId = brandString<SessionId>(params.sessionId)
       const record = requireSession(sessionId)
       try {
         await record.close('ACP session closed')
@@ -395,18 +359,17 @@ export function apply(ctx: Context, config: AcpConfig): void {
 
     async prompt(params: PromptRequest, requestSignal: AbortSignal): Promise<PromptResponse> {
       assertOpen()
-      const record = requireSession(SessionId(params.sessionId))
+      const record = requireSession(brandString<SessionId>(params.sessionId))
       return record.prompt(params, imagePromptEnabled, requestSignal)
     },
 
     cancel(params: CancelNotification): Promise<void> {
-      sessions.get(SessionId(params.sessionId))?.cancel()
+      sessions.get(brandString<SessionId>(params.sessionId))?.cancel()
       return Promise.resolve()
     },
   }
 
   /* v8 ignore next 4 -- production stdio wiring; tests inject config.stream. */
-  // 运行时使用的协议流；测试可注入内存流，生产默认连接 stdio。
   const stream: Stream = config.stream ?? ndJsonStream(
     Writable.toWeb(process.stdout) as WritableStream<Uint8Array>,
     Readable.toWeb(process.stdin) as ReadableStream<Uint8Array>,
@@ -427,17 +390,10 @@ export function apply(ctx: Context, config: AcpConfig): void {
   const connection = app.connect(stream)
   const conn: AgentContext = connection.client
 
-  // 首次清理创建的共享 Promise，使重复关闭调用保持幂等。
   let quiescing: Promise<void> | undefined
-  /**
-   * 停止准入、取消工作、排空输出并释放桥接层拥有的代理树。
-   * @returns 同一次清理过程共享的 Promise。
-   * @example await quiesce()
-   */
   const quiesce = (): Promise<void> => {
     if (quiescing !== undefined) return quiescing
     closed = true
-    // 关闭瞬间桥接层拥有的全部会话记录快照。
     const records = [...sessions.values()]
     // AcpSession.close cancels synchronously before its first await, so every owned
     // prompt stops before any descendant or persistence drain can block.
@@ -455,7 +411,6 @@ export function apply(ctx: Context, config: AcpConfig): void {
         // The production consumer logs this AggregateError through `String`,
         // which renders only its message. Embed every per-session diagnostic,
         // including nested causes and aggregate members, in that message.
-        // 合并每个失败的完整错误链，保证 String(AggregateError) 仍包含诊断。
         const detail = failures.map(failure => errorChain(failure)).join('; ')
         throw new AggregateError(
           failures,
@@ -484,12 +439,6 @@ export function apply(ctx: Context, config: AcpConfig): void {
  * Build per-agent options from plugin config without assigning absent optional fields.
  * @param config - ACP provider/model configuration.
  * @returns the configured fields only.
- */
-/*
- * 从插件配置构造代理选项，并避免写入值为 undefined 的可选字段。
- * @param config ACP 提供方和模型配置。
- * @returns 只包含实际配置字段的代理选项。
- * @example agentOptions({ provider: 'deepseek' })
  */
 function agentOptions(config: AcpConfig): { provider?: string; model?: string } {
   return {

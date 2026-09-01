@@ -13,26 +13,16 @@ import { Session } from '../src/client/sessions/session.ts'
 import { SessionManager } from '../src/client/sessions/manager.ts'
 import { FakeApiClient, fakeRemote } from './fake-api.client.ts'
 
-/** 中文说明：标识或顺序值 SID，取值由紧邻初始化决定，仅在当前作用域使用。 */
 const SID = 'fk-q1' as SessionId
-/** 中文说明：测试场景的局部值 text，取值由紧邻初始化决定，仅在当前作用域使用。 */
 const text = (value: string): ContentBlock[] => [{ type: 'text', text: value }]
-/** 中文说明：标识或顺序值 rid，取值由紧邻初始化决定，仅在当前作用域使用。 */
 const rid = (id: string): RpcId => id as RpcId
-/** 中文说明：标识或顺序值 iid，取值由紧邻初始化决定，仅在当前作用域使用。 */
 const iid = (id: string): MessageId => id as MessageId
 
-/** 中文说明：类型 QueueFixture 约束本文件数据字段及允许取值。 */
 interface QueueFixture {
-  /** 中文说明：成员 id 保存可编排测试状态，取值由声明类型限定。 */
   id: string
-  /** 中文说明：成员 body 保存可编排测试状态，取值由声明类型限定。 */
   body: string
-  /** 中文说明：成员 content 保存可编排测试状态，取值由声明类型限定。 */
   content?: ContentBlock[]
-  /** 中文说明：成员 placement 保存可编排测试状态，取值由声明类型限定。 */
   placement?: 'queued' | 'steering'
-  /** 中文说明：成员 message 保存可编排测试状态，取值由声明类型限定。 */
   message?: UserMessage
 }
 
@@ -52,7 +42,6 @@ function queueFrame(items: QueueFixture[]): Extract<SessionControlFrame, { type:
   }
 }
 
-/** 中文说明：函数 makeSession 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 function makeSession(): Session {
   return makeBench().session
 }
@@ -69,12 +58,10 @@ function makeManager(): SessionManager {
 
 describe('Session queue snapshot intake', () => {
   it('projects stable ids, flat previews, and complete text', () => {
-    /** 中文说明：测试场景的局部值 session，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const session = makeSession()
     session.handleControlFrame(queueFrame([
       { id: 'q-1', body: '第一条  排队\n消息' },
     ]))
-    /** 中文说明：测试场景的局部值 queue，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const queue = session.getSnapshot().queue
     expect(typeof queue[0]?.messageId).toBe('string')
     expect(queue).toMatchObject([
@@ -86,30 +73,28 @@ describe('Session queue snapshot intake', () => {
     ])
   })
 
-  it('marks mixed-content messages non-editable while retaining their preview', () => {
-    /** 中文说明：测试场景的局部值 session，取值由紧邻初始化决定，仅在当前作用域使用。 */
+  it('marks mixed-content messages non-editable and keeps image blocks out of the text preview', () => {
     const session = makeSession()
     session.handleControlFrame(queueFrame([{
       id: 'q-image',
       body: '',
       content: [{ type: 'text', text: 'hi' }, { type: 'image', data: 'x' } as never],
     }]))
-    /** 中文说明：测试场景的局部值 queue，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const queue = session.getSnapshot().queue
     expect(typeof queue[0]?.messageId).toBe('string')
     expect(queue).toMatchObject([
       {
         id: 'q-image', placement: 'queued',
         content: [{ type: 'text', text: 'hi' }, { type: 'image', data: 'x' }],
-        preview: 'hi [image]', text: null,
+        // Image blocks render as thumbnails from `content`, so the preview
+        // carries only the text; non-image foreign blocks keep their marker.
+        preview: 'hi', text: null,
       },
     ])
   })
 
   it('caps previews at 200 code points and preserves the full editable text', () => {
-    /** 中文说明：测试场景的局部值 session，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const session = makeSession()
-    /** 中文说明：当前传输或投影数据 body，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const body = '长'.repeat(201)
     session.handleControlFrame(queueFrame([{ id: 'q-cap', body }]))
     const row = session.getSnapshot().queue[0]
@@ -119,7 +104,6 @@ describe('Session queue snapshot intake', () => {
   })
 
   it('replaces content, order, and membership from each authoritative frame', () => {
-    /** 中文说明：测试场景的局部值 session，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const session = makeSession()
     session.handleControlFrame(queueFrame([
       { id: 'q-1', body: 'one' },
@@ -128,7 +112,6 @@ describe('Session queue snapshot intake', () => {
     session.handleControlFrame(queueFrame([
       { id: 'q-2', body: 'two edited' },
     ]))
-    /** 中文说明：测试场景的局部值 queue，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const queue = session.getSnapshot().queue
     expect(typeof queue[0]?.messageId).toBe('string')
     expect(queue).toMatchObject([
@@ -143,7 +126,6 @@ describe('Session queue snapshot intake', () => {
   })
 
   it('keeps the queue array reference stable across unrelated snapshot swaps', () => {
-    /** 中文说明：测试场景的局部值 session，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const session = makeSession()
     session.handleControlFrame(queueFrame([{ id: 'q-stable', body: '稳定' }]))
     const before = session.getSnapshot().queue
@@ -152,7 +134,6 @@ describe('Session queue snapshot intake', () => {
   })
 
   it('retains steering placement and complete content in the same authoritative snapshot', () => {
-    /** 中文说明：测试场景的局部值 session，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const session = makeSession()
     session.handleControlFrame(queueFrame([
       { id: 'q-next', body: 'later' },
@@ -170,7 +151,6 @@ describe('Session queue snapshot intake', () => {
   it('hands off exactly one current occurrence when live steering becomes durable', async () => {
     const { api, session } = makeBench()
     await session.open()
-    /** 中文说明：当前传输或投影数据 message，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const message = createUserMessage({
       content: text('same message'),
       source: { kind: 'user' },
@@ -179,7 +159,6 @@ describe('Session queue snapshot intake', () => {
       { id: 's-first', body: '', placement: 'steering', message },
       { id: 's-second', body: '', placement: 'steering', message },
     ]))
-    /** 中文说明：测试场景的局部值 durable，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const durable = {
       seq: 0,
       time: 1_700_000_000_000,
@@ -205,7 +184,6 @@ describe('Session queue snapshot intake', () => {
   it('hands off live steering when the agent claims it as a user message', async () => {
     const { api, session } = makeBench()
     await session.open()
-    /** 中文说明：当前传输或投影数据 message，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const message = createUserMessage({
       content: text('claimed steering'),
       source: { kind: 'user' },
@@ -233,7 +211,6 @@ describe('Session queue snapshot intake', () => {
 
 describe('queue operation transport', () => {
   it('addresses the session.updateQueue RPC without optimistic local mutation', async () => {
-    /** 中文说明：当前服务或测试对象 api，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const api = new FakeApiClient()
     const session = new Session(SID, fakeRemote(api))
     session.handleControlFrame(queueFrame([{ id: 'q-op', body: 'pending' }]))
@@ -270,7 +247,6 @@ describe('queue reconnect semantics', () => {
   })
 
   it('resync does not clear a baseline that raced ahead of the host connection signal', async () => {
-    /** 中文说明：测试场景的局部值 session，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const session = makeSession()
     await session.open()
     session.handleControlFrame(queueFrame([{ id: 'q-fresh', body: '新基线' }]))
@@ -279,7 +255,6 @@ describe('queue reconnect semantics', () => {
   })
 
   it('running-status changes never guess at queue retirement', () => {
-    /** 中文说明：测试场景的局部值 session，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const session = makeSession()
     session.handleControlFrame(queueFrame([{ id: 'q-live', body: '保留' }]))
     session.handleRunning(true)

@@ -1,35 +1,24 @@
-/**
- * 文件职责：验证 tracing.spec.ts 覆盖的会话查询行为、持久化与异常场景。
- * 技术维度：使用 TypeScript、Vitest、Cordis 插件、SQLite 或会话事件日志。
- * 产品维度：保障 Agent 的会话查询结果稳定、可追踪且可恢复。
- * 逻辑维度：准备会话和存储数据，执行查询或恢复流程，再核对结果、错误与清理。
- * 关键边界：持久化数据属于不可信输入；事件必须可重放；临时数据库与异步资源必须释放。
- * 新手阅读建议：先看测试夹具和查询条件，再读正常场景，最后关注重启、损坏与失败路径。
- */
 import { createUserMessage, createMessage } from '@deepseek-ai/dsh-llm'
 import { describe, expect, it } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
 import SessionStore, { SESSION_FORMAT_VERSION, SessionId } from '@deepseek-ai/dsh-session'
+import SessionProjectionRegistry from '@deepseek-ai/dsh-session-projection'
 import type { Session, SessionEvent, SessionHeader, SessionId as SessionIdType } from '@deepseek-ai/dsh-session'
 import SessionPersistence from '@deepseek-ai/dsh-session-persistence'
 import { type SessionQueryErrorCode } from '@deepseek-ai/dsh-session-query'
 import { TestSessionQueryEngine } from './test-service.ts'
 
-/** 中文说明：type MutableSessionHeader 定义本测试所需的数据或行为，用于表达会话查询场景。 */
 type MutableSessionHeader = { -readonly [K in keyof SessionHeader]: SessionHeader[K] }
 
 /** Test-only mutable view used to verify detached returned metadata. */
-/* 中文说明：函数 mutableHeader 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function mutableHeader(value: SessionHeader): MutableSessionHeader {
   return value
 }
 
-/** 中文说明：函数 header 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function header(id: string, createdAt = 1, extra: Partial<SessionHeader> = {}): SessionHeader {
   return { version: SESSION_FORMAT_VERSION, id: SessionId(id), createdAt, ...extra }
 }
 
-/** 中文说明：函数 appendEvent 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function appendEvent(seq: number, sources?: number[]): SessionEvent {
   return {
     type: 'user/message',
@@ -43,7 +32,6 @@ function appendEvent(seq: number, sources?: number[]): SessionEvent {
   }
 }
 
-/** 中文说明：class TracePersistence 定义本测试所需的数据或行为，用于表达会话查询场景。 */
 class TracePersistence extends SessionPersistence {
   override readonly supportsRawArtifacts = false
 
@@ -77,7 +65,6 @@ class TracePersistence extends SessionPersistence {
   }
 
   append(id: SessionIdType, events: readonly SessionEvent[]): Promise<void> {
-    /** 中文说明：变量 entry 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const entry = TracePersistence.entries.get(id)
     if (entry === undefined) return Promise.reject(new Error('missing test session'))
     entry.events.push(...structuredClone(events))
@@ -91,14 +78,12 @@ class TracePersistence extends SessionPersistence {
   inspect(id: SessionIdType): Promise<{ meta: SessionHeader; events: SessionEvent[] }> {
     TracePersistence.inspectCalls += 1
     if (TracePersistence.inspectFailure !== undefined) return Promise.reject(TracePersistence.inspectFailure)
-    /** 中文说明：变量 entry 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const entry = TracePersistence.entries.get(id)
     if (entry === undefined) return Promise.reject(new Error('missing test session'))
     return Promise.resolve(structuredClone(entry))
   }
 
   async readFrom(id: SessionIdType, fromSeq: number): Promise<{ meta: SessionHeader; events: SessionEvent[] }> {
-    /** 中文说明：变量 whole 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const whole = await this.inspect(id)
     return { meta: whole.meta, events: whole.events.filter(event => event.seq >= fromSeq) }
   }
@@ -106,7 +91,6 @@ class TracePersistence extends SessionPersistence {
   list(): Promise<SessionHeader[]> {
     TracePersistence.listCalls += 1
     if (TracePersistence.listFailure !== undefined) return Promise.reject(TracePersistence.listFailure)
-    /** 中文说明：函数值 result 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const result = [...TracePersistence.entries.values()].map(entry => structuredClone(entry.meta))
     TracePersistence.afterList?.()
     return Promise.resolve(result)
@@ -117,21 +101,18 @@ class TracePersistence extends SessionPersistence {
   }
 }
 
-/** 中文说明：函数 queryContext 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 async function queryContext(): Promise<Context> {
-  /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const ctx = new Context()
   await ctx.plugin(SessionStore)
+  await ctx.plugin(SessionProjectionRegistry)
   await ctx.plugin(TestSessionQueryEngine)
   return ctx
 }
 
-/** 中文说明：函数 expectCode 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function expectCode(code: SessionQueryErrorCode): Error {
   return expect.objectContaining({ code }) as Error
 }
 
-/** 中文说明：函数 appendTraceEvents 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function appendTraceEvents(session: Session): void {
   session.append('turn/start', { turn: 1 })
   session.append('step/start', { turn: 1, step: 1 })
@@ -190,20 +171,15 @@ function appendTraceEvents(session: Session): void {
 
 describe('session lineage tracing', () => {
   it('returns complete ancestry, deterministic descendant trees, and detached records', async () => {
-    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await queryContext()
-    /** 中文说明：变量 root 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const root = ctx.sessions.create(SessionId('root'), { meta: { createdAt: 0 } })
-    /** 中文说明：变量 parent 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const parent = ctx.sessions.create(SessionId('parent'), {
       meta: { createdAt: 1, parentSession: root.id },
     })
-    /** 中文说明：变量 target 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const target = ctx.sessions.create(SessionId('target'), {
       meta: { createdAt: 2, parentSession: parent.id },
     })
     ctx.sessions.create(SessionId('b'), { meta: { createdAt: 4, parentSession: target.id } })
-    /** 中文说明：变量 childA 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const childA = ctx.sessions.create(SessionId('a'), {
       meta: { createdAt: 4, parentSession: target.id },
     })
@@ -212,7 +188,6 @@ describe('session lineage tracing', () => {
       meta: { createdAt: 5, parentSession: childA.id },
     })
 
-    /** 中文说明：变量 trace 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const trace = await ctx.sessionQuery.traceSession(target.id)
     expect(trace.complete).toBe(true)
     if (!trace.complete) throw new Error('expected complete lineage')
@@ -227,7 +202,6 @@ describe('session lineage tracing', () => {
     mutableHeader(trace.ancestors[0]!.header).createdAt = 99
     mutableHeader(trace.root.header).createdAt = 99
     mutableHeader(trace.descendants[0]!.session.header).createdAt = 99
-    /** 中文说明：变量 repeated 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const repeated = await ctx.sessionQuery.traceSession(target.id)
     expect(repeated.target.header.createdAt).toBe(2)
     expect(repeated.ancestors[0]?.header.createdAt).toBe(1)
@@ -235,11 +209,8 @@ describe('session lineage tracing', () => {
   })
 
   it('represents root and unresolved-parent traces explicitly', async () => {
-    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await queryContext()
-    /** 中文说明：变量 root 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const root = ctx.sessions.create(SessionId('root'), { meta: { createdAt: 1 } })
-    /** 中文说明：变量 partial 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const partial = ctx.sessions.create(SessionId('partial'), {
       meta: { createdAt: 2, parentSession: SessionId('outside') },
     })
@@ -257,7 +228,6 @@ describe('session lineage tracing', () => {
   })
 
   it('rejects target-connected cycles and missing targets', async () => {
-    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await queryContext()
     ctx.sessions.create(SessionId('a'), {
       meta: { createdAt: 1, parentSession: SessionId('b') },
@@ -273,10 +243,8 @@ describe('session lineage tracing', () => {
   })
 
   it('uses one cross-corpus observation and preserves persistence failure semantics', async () => {
-    /** 中文说明：变量 durable 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const durable = header('durable')
     TracePersistence.reset([{ meta: durable, events: [appendEvent(0)] }])
-    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await queryContext()
     await ctx.plugin(TracePersistence)
 
@@ -293,25 +261,18 @@ describe('session lineage tracing', () => {
   })
 
   it('constructs deeply nested descendants without consuming the JavaScript call stack', async () => {
-    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await queryContext()
-    /** 中文说明：变量 root 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const root = ctx.sessions.create(SessionId('deep-0'), { meta: { createdAt: 0 } })
-    /** 中文说明：变量 parent 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     let parent = root
-    /** 中文说明：该循环依次处理输入数据；循环变量仅在当前循环中有效。 */
     for (let depth = 1; depth < 3_000; depth += 1) {
       parent = ctx.sessions.create(SessionId(`deep-${depth}`), {
         meta: { createdAt: depth, parentSession: parent.id },
       })
     }
 
-    /** 中文说明：变量 trace 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const trace = await ctx.sessionQuery.traceSession(root.id)
     expect(trace.complete).toBe(true)
-    /** 中文说明：变量 node 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     let node = trace.descendants[0]
-    /** 中文说明：该循环依次处理输入数据；循环变量仅在当前循环中有效。 */
     for (let depth = 1; depth < 3_000; depth += 1) {
       if (node === undefined) throw new Error(`lineage ended before depth ${depth}`)
       if (depth === 2_999) expect(node.session.header.id).toBe(SessionId('deep-2999'))
@@ -323,13 +284,10 @@ describe('session lineage tracing', () => {
 
 describe('session event tracing', () => {
   it('returns direct replacement and cited source-event links in their contract order', async () => {
-    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await queryContext()
-    /** 中文说明：变量 session 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const session = ctx.sessions.create(SessionId('trace'))
     appendTraceEvents(session)
 
-    /** 中文说明：变量 original 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const original = await ctx.sessionQuery.traceEvent({ sessionId: session.id, seq: 3 })
     expect(original.target).toMatchObject({
       sessionId: session.id,
@@ -369,20 +327,16 @@ describe('session event tracing', () => {
   })
 
   it('returns fresh trace arrays and target records', async () => {
-    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await queryContext()
-    /** 中文说明：变量 session 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const session = ctx.sessions.create(SessionId('detached'))
     appendTraceEvents(session)
 
-    /** 中文说明：变量 first 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const first = await ctx.sessionQuery.traceEvent({ sessionId: session.id, seq: 4 })
     first.target.time = -1
     first.replacementChain.push(99)
     first.replacedEventSeqs.push(99)
     first.sourceEventSeqs.push(99)
     first.derivedEventSeqs.push(99)
-    /** 中文说明：变量 repeated 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const repeated = await ctx.sessionQuery.traceEvent({ sessionId: session.id, seq: 4 })
     expect(repeated.target.time).not.toBe(-1)
     expect(repeated.replacementChain).toEqual([8])
@@ -392,10 +346,8 @@ describe('session event tracing', () => {
   })
 
   it('inspects persisted logs once, prefers live logs, and preserves failures and conflicts', async () => {
-    /** 中文说明：变量 durable 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const durable = header('shared', 1, { cwd: '/same' })
     TracePersistence.reset([{ meta: durable, events: [appendEvent(0)] }])
-    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await queryContext()
     await ctx.plugin(TracePersistence)
 
@@ -403,7 +355,6 @@ describe('session event tracing', () => {
       .resolves.toMatchObject({ target: { type: 'user/message', surface: 'current' } })
     expect([TracePersistence.listCalls, TracePersistence.inspectCalls]).toEqual([1, 1])
 
-    /** 中文说明：变量 live 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const live = ctx.sessions.create(durable.id, { meta: { createdAt: 1, cwd: '/same' } })
     live.append('turn/start', { turn: 1 })
     live.append(
@@ -420,7 +371,6 @@ describe('session event tracing', () => {
     expect([TracePersistence.listCalls, TracePersistence.inspectCalls]).toEqual([1, 1])
 
     TracePersistence.reset([{ meta: durable, events: [appendEvent(0)] }])
-    /** 中文说明：变量 failedCtx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const failedCtx = await queryContext()
     await failedCtx.plugin(TracePersistence)
     TracePersistence.listFailure = new Error('list unavailable')
@@ -439,9 +389,7 @@ describe('session event tracing', () => {
   })
 
   it('checks target existence before surface or source-event analysis', async () => {
-    /** 中文说明：变量 bad 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const bad = header('bad-target')
-    /** 中文说明：变量 malformed 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const malformed: SessionEvent[] = [appendEvent(0), {
       type: 'assistant/message',
       seq: 1,
@@ -461,7 +409,6 @@ describe('session event tracing', () => {
       sourceEventSeqs: [],
     }]
     TracePersistence.reset([{ meta: bad, events: malformed }])
-    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await queryContext()
     await ctx.plugin(TracePersistence)
 
@@ -506,12 +453,9 @@ describe('session event tracing', () => {
       { ...appendEvent(2, [0]), surfaceOp: { op: 'replace', start: 1, end: 1 } },
     ]],
   ] as const)('rejects an invalid surface log: %s', async (_name, rawEvents) => {
-    /** 中文说明：变量 durable 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const durable = header('invalid-provenance')
-    /** 中文说明：变量 events 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const events = structuredClone(rawEvents) as unknown as SessionEvent[]
     TracePersistence.reset([{ meta: durable, events }])
-    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await queryContext()
     await ctx.plugin(TracePersistence)
 
@@ -520,9 +464,7 @@ describe('session event tracing', () => {
   })
 
   it('rejects surfaceOp on a non-surface event as an invalid surface', async () => {
-    /** 中文说明：变量 durable 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const durable = header('invalid-non-surface-op')
-    /** 中文说明：变量 events 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const events = [{
       type: 'turn/start',
       seq: 0,
@@ -531,7 +473,6 @@ describe('session event tracing', () => {
       surfaceOp: 'append',
     }] as unknown as SessionEvent[]
     TracePersistence.reset([{ meta: durable, events }])
-    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await queryContext()
     await ctx.plugin(TracePersistence)
 
@@ -540,10 +481,8 @@ describe('session event tracing', () => {
   })
 
   it('applies the same surface contract to listEvents', async () => {
-    /** 中文说明：变量 durable 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const durable = header('list-regression')
     TracePersistence.reset([{ meta: durable, events: [appendEvent(0), appendEvent(1, [0, 0])] }])
-    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await queryContext()
     await ctx.plugin(TracePersistence)
 

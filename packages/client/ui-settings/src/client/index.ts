@@ -1,16 +1,3 @@
-/*
- * ================================ 文件注释 ================================
- * 【文件职责】设置域基础包的浏览器侧入口：提供 ctx.settingsScope（设置命名空间
- *             作用域服务）并拥有浏览器中唯一的 settings.describe 读取者（镜像）。
- * 【技术维度】Cordis 浏览器插件：镜像的失效订阅（settings/document-updated、
- *             connection/reset）在此注册，所有派生表面从单次线缆读取刷新。
- * 【产品维度】设置面板各行的读写基础服务；任何拥有偏好的功能都能依赖它。
- * 【逻辑维度】1) 创建模式服务与镜像；2) 注册失效订阅并首读；3) 挂载作用域绑定器。
- * 【关键边界】本包不依赖任何 ui-* 呈现包（设置外壳在 ui-settings-general，
- *             避免经 ui-sidebar 与 ui-layout/ui-theme 形成引用环）。
- * 【新手阅读建议】先读 settings-mirror.ts 与 settings-scope.ts，再看本文件的装配。
- * ==========================================================================
- */
 /**
  * Settings domain base plugin, browser half. Provides `ctx.settingsScope`, the
  * settings-namespace scope service every preference row binds its durable
@@ -25,9 +12,9 @@
  * Export discipline: packages/client/AGENTS.md.
  */
 import type { Context } from '@deepseek-ai/cordis'
-import type { ConnectionHandle } from '@deepseek-ai/dsh-api-remotes/client'
-// Type-only service merge for the connection lifecycle event.
-import type {} from '@deepseek-ai/dsh-client-connection/client'
+// Type-only: the ctx.remote merge, the fixed Host facts, and the carrier's
+// `connection/reset` lifecycle event, all through the assembly package.
+import type {} from '@deepseek-ai/dsh-api-remotes/client'
 // Type-only pair supplying `$on` and its key face without dragging a build
 // artifact into the Host graph (rationale beside the same pair in
 // settings-scope.ts).
@@ -46,14 +33,14 @@ export type { SettingsScope, SettingsScopeSnapshot, SettingsScopeSpec } from './
 export type { SettingsSchemaService } from './schema.ts'
 export type { SchemaNode } from './schema.ts'
 export type {
-  SettingsDescribeFace, SettingsDescribeView, SettingsMirrorSnapshot, SettingsRemote, SettingsWireFace,
+  SettingsDescribeFace, SettingsDescribeView, SettingsMirrorSnapshot,
 } from './settings-mirror.ts'
 
 /**
- * Required services: the wire handle for the mirror's reads and the forwarded
- * settings invalidation the mirror refreshes on.
+ * Required services: the Remote namespace the mirror reads through and the
+ * forwarded settings invalidation it refreshes on.
  */
-export const inject = ['connection', 'remote', 'remote.settings']
+export const inject = ['remote', 'remote.settings']
 
 /**
  * Provide the settings-namespace scope service over one shared describe
@@ -66,11 +53,10 @@ export const inject = ['connection', 'remote', 'remote.settings']
  */
 export function apply(ctx: Context): void {
   const schema = new SettingsSchemaService(ctx)
-  const connection = ctx.get('connection') as ConnectionHandle
-  // Captured once here, where `remote.settings` is declared in this plugin's
-  // own `inject`; the binder hands the same face to every scope it binds.
-  const wire = { settings: ctx.remote.settings }
-  const mirror = new SettingsDescribeMirror(wire, connection.isLoopback ? 'host' : 'memory')
+  // Resolved once here, where `remote` is declared in this plugin's own
+  // `inject`; the binder hands the same answer to every scope it binds.
+  const persistence = ctx.remote.$host.isLoopback ? 'host' : 'memory'
+  const mirror = new SettingsDescribeMirror(ctx, persistence)
   ctx.effect(() => {
     const disposers = [
       ctx.remote.$on('settings/document-updated', () => { void mirror.load() }),
@@ -83,5 +69,5 @@ export function apply(ctx: Context): void {
     void mirror.ensure()
     return () => { for (const dispose of disposers) dispose() }
   }, 'ui-settings: describe mirror invalidations')
-  new SettingsScopeBinder(ctx, { mirror, schema, wire })
+  new SettingsScopeBinder(ctx, { mirror, schema, persistence })
 }

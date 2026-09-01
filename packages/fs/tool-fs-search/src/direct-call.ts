@@ -1,24 +1,8 @@
-/*
- * ================================ 文件注释 ================================
- * 【文件职责】glob/grep 两个搜索工具共享的"顶级调用后策略选择"：判断这次搜索结果
- * 是否仍是"本工具拥有的直接成功顶级调用"，只有满足时才会把完整结果保存为 spill。
- * 【技术维度】acceptedDirectCallValue 检查下游决策的形态：决策必须仍是 accept、没有
- * 替换 content 或 value、调用无父级（顶级）、工具名一致、结果非错误、且注册表中
- * 当前作用域拥有者仍是本工具——任一不满足即返回 undefined（推迟 spill）。
- * 【产品维度】防止"下游策略插件已改写结果"时把旧内容存进 spill 文件，保证恢复
- * 文件与实际展示一致。
- * 【逻辑维度】按出现顺序：模块注释 → acceptedDirectCallValue（条件判定）。
- * 【关键边界】这是一个"要么全条件成立要么放弃"的守卫：任何一条不满足都不保存。
- * 【新手阅读建议】逐个条件读一遍即可理解"什么情况下才保存完整结果"。
- * ==========================================================================
- */
 /** Shared top-level-call post-policy selection for search result spill. @module dsh-tool-fs-search/direct-call */
-/*
- * 模块总览：本文件只回答一个问题——"这次搜索的完整结果该不该存成 spill 文件"。
- */
 
 import type { Context } from '@deepseek-ai/cordis'
-import type { JsonValue, PostToolDecision, ToolDefinition, ToolExecution, ToolExecutionResult } from '@deepseek-ai/dsh-tools'
+import type { PostToolDecision, ToolDefinition, ToolExecution, ToolExecutionResult } from '@deepseek-ai/dsh-tools'
+import type { JsonValue } from '@deepseek-ai/dsh-util-values'
 
 /**
  * Return the accepted canonical value only when this tool still owns a direct
@@ -29,16 +13,6 @@ import type { JsonValue, PostToolDecision, ToolDefinition, ToolExecution, ToolEx
  * @param result - the canonical result before post-policy decisions are applied.
  * @param decision - the composed downstream post-policy decision.
  * @returns the canonical value to project, or `undefined` when spill must defer.
- */
-/*
- * 仅当"本工具仍拥有一次直接成功的顶级调用、且没有下游策略替换两个投影"时，
- * 返回被接受的规范值。条件全部成立才返回，否则返回 undefined（推迟 spill）。
- * @param ctx 用于解析实时作用域拥有者的工具插件上下文。
- * @param tool 其值可能被投影的确切注册定义。
- * @param exec 已完成的执行身份。
- * @param result 后策略决策应用前的规范结果。
- * @param decision 组合后的下游后策略决策。
- * @returns 要投影的规范值；spill 必须推迟时为 undefined。
  */
 export function acceptedDirectCallValue(
   ctx: Context,

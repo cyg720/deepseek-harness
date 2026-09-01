@@ -1,17 +1,3 @@
-/*
- * ================================ 文件注释 ================================
- * 【文件职责】模型参数 schema、规范化与过滤器构建：把模型 JSON 参数转成
- *   session-query 服务可消费的过滤器（含 ISO 8601 时间戳的精确区间解析）。
- * 【技术维度】schemastery 风格参数描述 + 纯函数构建 SessionResultFilter/
- *   SessionEventMetadataFilter；时间戳解析保留亚毫秒余数以做无歧义区间。
- * 【产品维度】决定模型能看到哪些参数以及参数如何被解读。
- * 【逻辑维度】参数 schema 常量 → buildSessionFilters/buildEventFilters/normalizeQuery/
- *   sequenceRange/timestampRange → 时间解析辅助 → toolInput 聚合导出。
- * 【关键边界】查询空白/含 NUL 拒绝；时间区间 from > to 拒绝；空数组参数拒绝。
- * 【新手阅读建议】先看 sessionSearchParameters 与 buildSessionFilters 的对应关系。
- * ==========================================================================
- */
-
 /**
  * Model argument schemas, normalization, and filter construction.
  *
@@ -19,10 +5,10 @@
  */
 
 import {
-  SessionId,
   type SessionEventType,
   type SessionId as SessionIdValue,
 } from '@deepseek-ai/dsh-session'
+import { brandString } from '@deepseek-ai/dsh-brand'
 import {
   SessionQueryError,
   type SessionAvailability,
@@ -103,7 +89,7 @@ function buildSessionFilters(args: SessionSearchArgs): SessionResultFilter[] {
   const filters: SessionResultFilter[] = []
   if (args.session_ids !== undefined) {
     assertNonEmptyArray('session_ids', args.session_ids)
-    filters.push({ kind: 'id', values: args.session_ids.map(SessionId) })
+    filters.push({ kind: 'id', values: args.session_ids.map(value => brandString<SessionIdValue>(value)) })
   }
   const created = timestampRange('created_at', args.created_at_from, args.created_at_to)
   if (created !== undefined) filters.push({ kind: 'created-at', ...created })
@@ -117,7 +103,7 @@ function buildSessionFilters(args: SessionSearchArgs): SessionResultFilter[] {
 function materializeParentSessionIds(values: readonly string[] | undefined): SessionIdValue[] | undefined {
   if (values === undefined) return undefined
   assertNonEmptyArray('parent_session_ids', values)
-  return [...new Set(values.map(SessionId))]
+  return [...new Set(values.map(value => brandString<SessionIdValue>(value)))]
 }
 
 function buildEventFilters(input: EventFilterInput): SessionEventMetadataFilter[] {

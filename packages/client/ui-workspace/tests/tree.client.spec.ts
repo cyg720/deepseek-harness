@@ -1,15 +1,8 @@
-/**
- * 文件职责：验证工作区界面的 tree.client.spec.ts 行为。
- * 技术维度：Vitest、协议夹具、Worker/子进程或组件替身。
- * 产品维度：防止工作区界面协议与生命周期回归。
- * 逻辑维度：构造输入，运行被测入口并断言输出与清理。
- * 关键边界：跨进程数据必须校验；Worker 和异步任务必须结束。
- * 新手阅读建议：先读协议夹具，再按成功、失败和清理场景阅读。
- */
 import { describe, expect, it } from 'vitest'
 import type { SessionListState, SessionSummary } from '@deepseek-ai/dsh-api-session-controller/client'
 import type { WorkspaceId, WorkspaceView } from '@deepseek-ai/dsh-api-workspace-controller/client'
 import type { SessionPendingInteractionBase } from '@deepseek-ai/dsh-client-ui-session/client'
+import type { ScheduleId, ScheduleRecord } from '@deepseek-ai/dsh-schedule/client'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import {
   deriveFlat, deriveGroups, deriveSearchResults, workspaceLabel,
@@ -17,42 +10,39 @@ import {
 } from '../src/client/tree.ts'
 import { createWorkspaceViewStore } from '../src/client/stores.ts'
 
-/** 中文说明：测试局部值 sid，由紧邻初始化决定。 */
 const sid = (id: string) => id as SessionId
-/** 中文说明：测试局部值 wid，由紧邻初始化决定。 */
 const wid = (id: string) => id as WorkspaceId
-/** 中文说明：测试局部值 summary，由紧邻初始化决定。 */
 const summary = (id: string, updatedAt: number, cwd?: string): SessionSummary => ({
   id: sid(id), displayTitle: id, running: false, blank: false,
   updatedAt, ...(cwd === undefined ? {} : { cwd }),
 })
-/** 中文说明：测试局部值 list，由紧邻初始化决定。 */
 const list = (...items: SessionSummary[]): SessionListState => ({
   ids: items.map(item => item.id),
   byId: Object.fromEntries(items.map(item => [item.id, item])),
   current: undefined,
   phase: 'ready', subagentsByParent: {}, jobsBySession: {}, currentAddress: undefined,
 })
-/** 中文说明：测试局部值 workspace，由紧邻初始化决定。 */
 const workspace = (id: string, sessionIds: string[], title = id): WorkspaceView => ({
   workspaceId: wid(id), path: `/projects/${id}`, title,
   sessionIds: sessionIds.map(sid), createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z',
 })
-/** 中文说明：测试局部值 view，由紧邻初始化决定。 */
 const view = (expandedGroups: readonly string[] = [], ungroupedOrder?: readonly string[]) => ({
   expandedGroups,
   ...(ungroupedOrder === undefined ? {} : { ungroupedOrder }),
 })
-/** 中文说明：测试局部值 noArchive，由紧邻初始化决定。 */
 const noArchive: readonly SessionId[] = []
 const noAttention: ReadonlyMap<SessionId, SessionPendingInteractionBase> = new Map()
 const archived = (...ids: string[]): readonly SessionId[] => ids.map(sid)
+const schedule = (id: string, scheduledAt: string): ScheduleRecord => ({
+  id: id as ScheduleId,
+  kind: 'at',
+  prompt: id,
+  scheduledAt,
+})
 
 describe('deriveGroups', () => {
   it('keeps Host Workspace and sessionIds order without Client recency sorting', () => {
-    /** 中文说明：测试局部值 sessions，由紧邻初始化决定。 */
     const sessions = list(summary('newer', 20), summary('older', 10))
-    /** 中文说明：测试局部值 workspaces，由紧邻初始化决定。 */
     const workspaces = [workspace('first', ['older', 'newer']), workspace('empty', [])]
     const groups = deriveGroups(sessions, workspaces, noArchive, noAttention, view(['first']))
     expect(groups.map(group => group.key)).toEqual(['first', 'empty'])
@@ -88,7 +78,6 @@ describe('deriveGroups', () => {
   )
 
   it('puts only real unaccounted Sessions in the trailing Ungrouped group', () => {
-    /** 中文说明：测试局部值 sessions，由紧邻初始化决定。 */
     const sessions = list(summary('owned', 1, '/projects/first'), summary('loose', 9, '/other'))
     const groups = deriveGroups(
       sessions, [workspace('first', ['owned'])], noArchive, noAttention, view([UNGROUPED_KEY]),
@@ -98,9 +87,7 @@ describe('deriveGroups', () => {
   })
 
   it('applies stored Ungrouped order and appends new loose Sessions by recency', () => {
-    /** 中文说明：测试局部值 sessions，由紧邻初始化决定。 */
     const sessions = list(summary('one', 3), summary('two', 2), summary('new', 4))
-    /** 中文说明：测试局部值 groups，由紧邻初始化决定。 */
     const groups = deriveGroups(
       sessions,
       [],
@@ -114,24 +101,18 @@ describe('deriveGroups', () => {
   })
 
   it('shows only the current blank session in its Workspace count and tree', () => {
-    /** 中文说明：测试局部值 currentBlank，由紧邻初始化决定。 */
     const currentBlank = { ...summary('current-blank', 5), blank: true }
-    /** 中文说明：测试局部值 staleBlank，由紧邻初始化决定。 */
     const staleBlank = { ...summary('stale-blank', 4), blank: true }
-    /** 中文说明：测试局部值 real，由紧邻初始化决定。 */
     const real = summary('shown', 3)
-    /** 中文说明：测试局部值 sessions，由紧邻初始化决定。 */
     const sessions = {
       ...list(real, currentBlank, staleBlank),
       current: currentBlank.id,
     }
-    /** 中文说明：测试局部值 groups，由紧邻初始化决定。 */
     const groups = deriveGroups(
       sessions, [workspace('first', ['shown', 'current-blank', 'stale-blank'])],
       noArchive, noAttention, view(['first']),
     )
     expect(groups[0]!.sessions.map(session => session.id)).toEqual([real.id, currentBlank.id])
-    /** 中文说明：测试局部值 blankNode，由紧邻初始化决定。 */
     const blankNode = groups[0]!.sessions.find(session => session.id === currentBlank.id)!
     // The stored placeholder title stays canonical; the renderer swaps in
     // the localized New Session label via the blank flag.
@@ -148,19 +129,13 @@ describe('deriveGroups', () => {
   })
 
   it('projects the completion reminder into session and search rows (absent = false)', () => {
-    /** 中文说明：测试局部值 done，由紧邻初始化决定。 */
     const done = { ...summary('done', 3), completed: true }
-    /** 中文说明：测试局部值 plain，由紧邻初始化决定。 */
     const plain = summary('plain', 2)
-    /** 中文说明：测试局部值 sessions，由紧邻初始化决定。 */
     const sessions = list(done, plain)
-    /** 中文说明：测试局部值 groups，由紧邻初始化决定。 */
     const groups = deriveGroups(
       sessions, [workspace('first', ['done', 'plain'])], noArchive, noAttention, view(['first']),
     )
-    /** 中文说明：测试局部值 doneNode，由紧邻初始化决定。 */
     const doneNode = groups[0]!.sessions.find(session => session.id === done.id)!
-    /** 中文说明：测试局部值 plainNode，由紧邻初始化决定。 */
     const plainNode = groups[0]!.sessions.find(session => session.id === plain.id)!
     expect(doneNode.completed).toBe(true)
     expect(plainNode.completed).toBe(false)
@@ -172,26 +147,49 @@ describe('deriveGroups', () => {
     expect(search.items[0]?.completed).toBe(true)
   })
 
+  it('derives one active-Schedule fact for grouped, flat, and search rows', () => {
+    const absent = summary('absent', 4)
+    const empty = { ...summary('empty', 3), projectionValues: { schedule: [] } }
+    const future = {
+      ...summary('future', 2),
+      projectionValues: { schedule: [schedule('future', '2099-01-01T00:00:00.000Z')] },
+    }
+    const overdue = {
+      ...summary('overdue', 1),
+      projectionValues: { schedule: [schedule('overdue', '2000-01-01T00:00:00.000Z')] },
+    }
+    const sessions = list(absent, empty, future, overdue)
+    const workspaces = [workspace('project', ['absent', 'empty', 'future', 'overdue'], 'Project')]
+    const expected = [
+      [sid('absent'), false],
+      [sid('empty'), false],
+      [sid('future'), true],
+      [sid('overdue'), true],
+    ]
+
+    expect(deriveGroups(
+      sessions, workspaces, noArchive, noAttention, view(['project']),
+    )[0]!.sessions.map(node => [node.id, node.hasActiveSchedule])).toEqual(expected)
+    expect(deriveFlat(sessions, noArchive, noAttention)
+      .map(node => [node.id, node.hasActiveSchedule])).toEqual(expected)
+    expect(deriveSearchResults(
+      sessions, workspaces, 'project', noArchive, noAttention, { items: [], hasMore: false }, 10,
+    ).items.map(node => [node.id, node.hasActiveSchedule])).toEqual(expected)
+  })
+
   it('hides subagent-origin sessions without hiding ordinary forks', () => {
-    /** 中文说明：测试局部值 parent，由紧邻初始化决定。 */
     const parent = summary('parent', 1)
-    /** 中文说明：测试局部值 subagent，由紧邻初始化决定。 */
     const subagent = {
       ...summary('subagent', 3), parentId: parent.id, origin: 'subagent' as const, running: true,
     }
-    /** 中文说明：测试局部值 grandchild，由紧邻初始化决定。 */
     const grandchild = {
       ...summary('grandchild', 4), parentId: subagent.id, origin: 'subagent' as const, running: true,
     }
-    /** 中文说明：测试局部值 fork，由紧邻初始化决定。 */
     const fork = { ...summary('fork', 2), parentId: subagent.id }
-    /** 中文说明：测试局部值 forkChild，由紧邻初始化决定。 */
     const forkChild = {
       ...summary('fork-child', 5), parentId: fork.id, origin: 'subagent' as const, running: true,
     }
-    /** 中文说明：测试局部值 sessions，由紧邻初始化决定。 */
     const sessions = { ...list(parent, fork, subagent, grandchild, forkChild), current: subagent.id }
-    /** 中文说明：测试局部值 groups，由紧邻初始化决定。 */
     const groups = deriveGroups(
       sessions,
       [workspace('first', ['parent', 'fork', 'subagent', 'grandchild', 'fork-child'])],
@@ -214,25 +212,15 @@ describe('deriveGroups', () => {
   })
 
   it('ignores fork lineage and sorts every ungrouped session as a top-level row', () => {
-    /** 中文说明：测试局部值 parent，由紧邻初始化决定。 */
     const parent = summary('parent', 1)
-    /** 中文说明：测试局部值 oldChild，由紧邻初始化决定。 */
     const oldChild = { ...summary('old-child', 10), parentId: parent.id }
-    /** 中文说明：测试局部值 newChild，由紧邻初始化决定。 */
     const newChild = { ...summary('new-child', 20), parentId: parent.id }
-    /** 中文说明：测试局部值 tieB，由紧邻初始化决定。 */
     const tieB = { ...summary('tie-b', 20), parentId: parent.id }
-    /** 中文说明：测试局部值 tieA，由紧邻初始化决定。 */
     const tieA = { ...summary('tie-a', 20), parentId: parent.id }
-    /** 中文说明：测试局部值 self，由紧邻初始化决定。 */
     const self = { ...summary('self', 2), parentId: sid('self') }
-    /** 中文说明：测试局部值 orphan，由紧邻初始化决定。 */
     const orphan = { ...summary('orphan', 3), parentId: sid('missing') }
-    /** 中文说明：测试局部值 cycleA，由紧邻初始化决定。 */
     const cycleA = { ...summary('cycle-a', 4), parentId: sid('cycle-b') }
-    /** 中文说明：测试局部值 cycleB，由紧邻初始化决定。 */
     const cycleB = { ...summary('cycle-b', 5), parentId: sid('cycle-a') }
-    /** 中文说明：测试局部值 groups，由紧邻初始化决定。 */
     const groups = deriveGroups(
       list(parent, oldChild, newChild, tieB, tieA, self, orphan, cycleA, cycleB),
       [],
@@ -255,7 +243,6 @@ describe('deriveGroups', () => {
   })
 
   it('tolerates Workspace membership arriving before its Session summary', () => {
-    /** 中文说明：测试局部值 partial，由紧邻初始化决定。 */
     const partial: SessionListState = {
       ...list(),
       ids: [sid('present')],
@@ -268,15 +255,10 @@ describe('deriveGroups', () => {
   })
 
   it('hides archived sessions from workspace groups and Ungrouped', () => {
-    /** 中文说明：测试局部值 kept，由紧邻初始化决定。 */
     const kept = summary('kept', 1, '/projects/first')
-    /** 中文说明：测试局部值 gone，由紧邻初始化决定。 */
     const gone = summary('gone', 2, '/projects/first')
-    /** 中文说明：测试局部值 looseGone，由紧邻初始化决定。 */
     const looseGone = summary('loose-gone', 3, '/other')
-    /** 中文说明：测试局部值 sessions，由紧邻初始化决定。 */
     const sessions = list(kept, gone, looseGone)
-    /** 中文说明：测试局部值 groups，由紧邻初始化决定。 */
     const groups = deriveGroups(
       sessions, [workspace('first', ['kept', 'gone'])], archived('gone', 'loose-gone'),
       noAttention, view(['first', UNGROUPED_KEY]),
@@ -289,11 +271,8 @@ describe('deriveGroups', () => {
   })
 
   it('marks selected Workspace and Ungrouped sessions without relying on an Intent', () => {
-    /** 中文说明：测试局部值 owned，由紧邻初始化决定。 */
     const owned = summary('owned', 1)
-    /** 中文说明：测试局部值 loose，由紧邻初始化决定。 */
     const loose = summary('loose', 2)
-    /** 中文说明：测试局部值 ws，由紧邻初始化决定。 */
     const ws = workspace('project', ['owned'])
     const ownedGroups = deriveGroups(
       { ...list(owned, loose), current: owned.id }, [ws], noArchive, noAttention, view(),
@@ -308,26 +287,18 @@ describe('deriveGroups', () => {
 
 describe('deriveFlat', () => {
   it('flattens every session — fork children included — newest-first with id tiebreak', () => {
-    /** 中文说明：测试局部值 parent，由紧邻初始化决定。 */
     const parent = summary('parent', 10)
-    /** 中文说明：测试局部值 child，由紧邻初始化决定。 */
     const child = { ...summary('child', 30), parentId: parent.id }
-    /** 中文说明：测试局部值 tieB，由紧邻初始化决定。 */
     const tieB = summary('tie-b', 20)
-    /** 中文说明：测试局部值 tieA，由紧邻初始化决定。 */
     const tieA = summary('tie-a', 20)
     const rows = deriveFlat(list(parent, child, tieB, tieA), noArchive, noAttention)
     expect(rows.map(row => row.id)).toEqual([sid('child'), sid('tie-a'), sid('tie-b'), sid('parent')])
   })
 
   it('hides subagent-origin rows but keeps ordinary forks', () => {
-    /** 中文说明：测试局部值 parent，由紧邻初始化决定。 */
     const parent = summary('parent', 1)
-    /** 中文说明：测试局部值 fork，由紧邻初始化决定。 */
     const fork = { ...summary('fork', 2), parentId: parent.id }
-    /** 中文说明：测试局部值 subagent，由紧邻初始化决定。 */
     const subagent = { ...summary('subagent', 3), parentId: parent.id, origin: 'subagent' as const }
-    /** 中文说明：测试局部值 rows，由紧邻初始化决定。 */
     const rows = deriveFlat(
       { ...list(parent, fork, subagent), current: subagent.id },
       noArchive,
@@ -337,17 +308,13 @@ describe('deriveFlat', () => {
   })
 
   it('tolerates ids whose summary has not landed yet', () => {
-    /** 中文说明：测试局部值 partial，由紧邻初始化决定。 */
     const partial: SessionListState = { ...list(summary('present', 1)), ids: [sid('ghost'), sid('present')] }
     expect(deriveFlat(partial, noArchive, noAttention).map(row => row.id)).toEqual([sid('present')])
   })
 
   it('shows only the current blank session and excludes blanks from search', () => {
-    /** 中文说明：测试局部值 currentBlank，由紧邻初始化决定。 */
     const currentBlank = { ...summary('current-blank', 9), blank: true }
-    /** 中文说明：测试局部值 staleBlank，由紧邻初始化决定。 */
     const staleBlank = { ...summary('stale-blank', 8), blank: true }
-    /** 中文说明：测试局部值 sessions，由紧邻初始化决定。 */
     const sessions = {
       ...list(summary('real', 1), currentBlank, staleBlank),
       current: currentBlank.id,
@@ -359,9 +326,7 @@ describe('deriveFlat', () => {
   })
 
   it('hides archived sessions in flat mode', () => {
-    /** 中文说明：测试局部值 kept，由紧邻初始化决定。 */
     const kept = summary('kept', 1)
-    /** 中文说明：测试局部值 gone，由紧邻初始化决定。 */
     const gone = summary('gone', 2)
     expect(deriveFlat(list(kept, gone), archived('gone'), noAttention).map(row => row.id)).toEqual([kept.id])
   })
@@ -369,13 +334,10 @@ describe('deriveFlat', () => {
 
 describe('deriveSearchResults archive filtering', () => {
   it('archived sessions never match — not by title and not via a backend content hit', () => {
-    /** 中文说明：测试局部值 hit，由紧邻初始化决定。 */
     const hit = summary('hit', 2)
     hit.displayTitle = 'Needle row'
-    /** 中文说明：测试局部值 gone，由紧邻初始化决定。 */
     const gone = summary('gone', 1)
     gone.displayTitle = 'Needle archived'
-    /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
     const result = deriveSearchResults(
       list(hit, gone),
       [],
@@ -391,16 +353,12 @@ describe('deriveSearchResults archive filtering', () => {
 
 describe('deriveSearchResults', () => {
   it('merges local title/Workspace matches before ranked content hits and enriches duplicates', () => {
-    /** 中文说明：测试局部值 titleHit，由紧邻初始化决定。 */
     const titleHit = summary('title-hit', 30, '/projects/a')
     titleHit.displayTitle = 'Needle title'
     const workspaceHit = summary('workspace-hit', 20, '/projects/b')
     workspaceHit.displayTitle = 'Ordinary title'
-    /** 中文说明：测试局部值 contentHit，由紧邻初始化决定。 */
     const contentHit = summary('content-hit', 10, '/projects/c')
-    /** 中文说明：测试局部值 sessions，由紧邻初始化决定。 */
     const sessions = list(titleHit, workspaceHit, contentHit)
-    /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
     const result = deriveSearchResults(
       sessions,
       [
@@ -435,6 +393,7 @@ describe('deriveSearchResults', () => {
           runningSubagentCount: 0,
           pendingInteraction: 'plan-review',
           completed: false,
+          hasActiveSchedule: false,
           snippet: 'title session body excerpt',
         },
         {
@@ -444,6 +403,7 @@ describe('deriveSearchResults', () => {
           running: false,
           runningSubagentCount: 0,
           completed: false,
+          hasActiveSchedule: false,
         },
         {
           id: contentHit.id,
@@ -452,6 +412,7 @@ describe('deriveSearchResults', () => {
           running: false,
           runningSubagentCount: 0,
           completed: false,
+          hasActiveSchedule: false,
           snippet: 'body needle excerpt',
         },
       ],
@@ -460,18 +421,14 @@ describe('deriveSearchResults', () => {
   })
 
   it('excludes blank sessions from search regardless of query or content hits', () => {
-    /** 中文说明：测试局部值 currentBlank，由紧邻初始化决定。 */
     const currentBlank = { ...summary('opaque-current', 5), blank: true }
-    /** 中文说明：测试局部值 staleBlank，由紧邻初始化决定。 */
     const staleBlank = { ...summary('new session stale', 4), blank: true }
-    /** 中文说明：测试局部值 sessions，由紧邻初始化决定。 */
     const sessions = {
       ...list(currentBlank, staleBlank),
       current: currentBlank.id,
     }
     // Blank placeholders never match — not their localized-display title, not
     // their id, and not even a backend content hit naming them.
-    /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
     const result = deriveSearchResults(
       sessions,
       [workspace('first', ['opaque-current', 'new session stale'])],
@@ -491,14 +448,11 @@ describe('deriveSearchResults', () => {
   })
 
   it('uses the supplied cap and preserves either local overflow or backend hasMore', () => {
-    /** 中文说明：测试局部值 rows，由紧邻初始化决定。 */
     const rows = Array.from({ length: 5 }, (_, index) => {
-      /** 中文说明：测试局部值 item，由紧邻初始化决定。 */
       const item = summary(`s-${String(index).padStart(2, '0')}`, index)
       item.displayTitle = `Needle ${String(index)}`
       return item
     })
-    /** 中文说明：测试局部值 overflow，由紧邻初始化决定。 */
     const overflow = deriveSearchResults(
       list(...rows),
       [],
@@ -511,7 +465,6 @@ describe('deriveSearchResults', () => {
     expect(overflow.items).toHaveLength(3)
     expect(overflow.hasMore).toBe(true)
 
-    /** 中文说明：测试局部值 backendMore，由紧邻初始化决定。 */
     const backendMore = deriveSearchResults(
       list(summary('body', 1)),
       [],
@@ -530,7 +483,6 @@ describe('deriveSearchResults', () => {
 
 describe('createWorkspaceViewStore', () => {
   it('stores grouping, ordering, Workspace expansion, and recent-session view order', () => {
-    /** 中文说明：测试局部值 store，由紧邻初始化决定。 */
     const store = createWorkspaceViewStore().create()
     expect(store.getSnapshot().groupBy).toBe('workspace')
     expect(store.getSnapshot().orderBy).toBe('updated')
@@ -549,7 +501,6 @@ describe('createWorkspaceViewStore', () => {
   })
 
   it('removes view state outside the retained Workspace key set', () => {
-    /** 中文说明：测试局部值 store，由紧邻初始化决定。 */
     const store = createWorkspaceViewStore().create()
     store.actions.setGroupExpanded('', true)
     store.actions.setGroupExpanded('alpha', true)
@@ -559,7 +510,6 @@ describe('createWorkspaceViewStore', () => {
 
     store.actions.retainAccountKeys(['', 'alpha'])
 
-    /** 中文说明：测试局部值 snapshot，由紧邻初始化决定。 */
     const snapshot = store.getSnapshot()
     expect(snapshot.groupExpansion).toEqual({ '': true, alpha: true })
     expect(snapshot.sessionOrderByAccount).toEqual({ alpha: ['alpha-session'] })

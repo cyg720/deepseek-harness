@@ -1,35 +1,20 @@
 // Shared IconActions chrome for user and assistant messages: copy
 // live, optional branch wiring, and an optional date-aware clock.
-/**
- * 文件职责：实现会话聊天界面的 MessageIconActions 组件。
- * 技术维度：React、TypeScript、Cordis 插槽和 CSS Modules。
- * 产品维度：向用户展示并操作会话聊天相关状态。
- * 逻辑维度：读取属性与状态，派生展示数据并响应交互。
- * 关键边界：异步状态、可访问性标签和空数据分支必须保持一致。
- * 新手阅读建议：先读 Props，再看局部状态、effect 和 JSX。
- */
 
 import { useCallback, useEffect, useId, useRef, useState, type ReactNode } from 'react'
 import {
   IconBranchOutline16, IconCheckOutline16, IconCopyOutline16, Tooltip, writeClipboard,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { ChatViewSlotProps } from '../contract/slots.ts'
-import { formatLatencySeconds, formatMessageClock, formatRunDuration, formatTokensPerSecond } from './message-chrome.ts'
+import { formatMessageClock } from './message-chrome.ts'
 import { useCalendarDay } from './use-calendar-day.ts'
 import css from './MessageIconActions.module.css'
 
-/** 中文说明：类型或类 MessageIconActionsProps 约束本文件的数据或组件职责。 */
 export interface MessageIconActionsProps {
   /** Plain text the copy action writes. */
   text: string
   /** Unix epoch ms for the clock label; omitted for transient messages. */
   time?: number | undefined
-  /** Turn wall time in ms, appended to the clock as `· Ran for 15s`; omitted when the turn's start is unknown. */
-  runMs?: number | undefined
-  /** Turn first-step TTFT in ms, appended as `· TTFT 1.2s`; omitted when unrecorded. */
-  ttftMs?: number | undefined
-  /** Turn decode throughput, appended as `· 34 tok/s`; omitted when unrecorded. */
-  tokensPerSecond?: number | undefined
   /** Clock before icons (user) or after (assistant). */
   clock: 'start' | 'end'
   /** Fork the session at this message; omission hides the branch action. */
@@ -43,6 +28,11 @@ export interface MessageIconActionsProps {
    * built-in copy and branch controls.
    */
   extraActions?: ReactNode
+  /**
+   * Icon-row Turn-usage trigger (the TurnUsagePanel pill), seated after the
+   * branch control at the end of the icon cluster.
+   */
+  usageAction?: ReactNode
   /** The owning view's locale seat, passed down as a plain prop. */
   t: ChatViewSlotProps['t']
 }
@@ -52,34 +42,25 @@ export interface MessageIconActionsProps {
  * @param props - Copy text, event time, clock side, branch callback, className.
  * @returns The actions row element.
  */
-/* 中文说明：函数 MessageIconActions 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 export function MessageIconActions({
-  text, time, runMs, ttftMs, tokensPerSecond, clock, onBranch, branchUnavailable = false, className,
-  extraActions, t,
+  text, time, clock, onBranch, branchUnavailable = false, className,
+  extraActions, usageAction, t,
 }: MessageIconActionsProps) {
-  /** 中文说明：当前组件的局部值 day，由紧邻初始化决定。 */
   const day = useCalendarDay()
-  /** 中文说明：当前组件的局部值 reasonId，由紧邻初始化决定。 */
   const reasonId = useId()
   // Same success chrome as CodeBlock: a short check swap after the write,
   // gated so re-clicks during the window neither re-copy nor stack timers.
-  /** 中文说明：当前组件的局部值 [copied, setCopied]，由紧邻初始化决定。 */
   const [copied, setCopied] = useState(false)
-  /** 中文说明：当前组件的局部值 copyPending，由紧邻初始化决定。 */
   const copyPending = useRef(false)
-  /** 中文说明：当前组件的局部值 copyTimer，由紧邻初始化决定。 */
   const copyTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
-  /** 中文说明：当前组件的局部值 copyEpoch，由紧邻初始化决定。 */
   const copyEpoch = useRef(0)
   useEffect(() => () => {
     copyEpoch.current += 1
     copyPending.current = false
     if (copyTimer.current !== null) clearTimeout(copyTimer.current)
   }, [])
-  /** 中文说明：当前组件的局部值 onCopy，由紧邻初始化决定。 */
   const onCopy = useCallback(() => {
     if (copied || copyPending.current) return
-    /** 中文说明：当前组件的局部值 epoch，由紧邻初始化决定。 */
     const epoch = copyEpoch.current
     copyPending.current = true
     void writeClipboard(text).then((ok) => {
@@ -93,37 +74,9 @@ export function MessageIconActions({
       }, 1000)
     })
   }, [copied, text])
-  // The dot is decorative and stays hidden, but its margins separate the
-  // readings only on screen: without the flanking spaces a reader hears one
-  // run-on string ("Ran for 13sTTFT 0.2s12 tok/s") instead of three facts.
-  /** 中文说明：当前组件的局部值 clockEl，由紧邻初始化决定。 */
   const clockEl = time === undefined ? null : (
     <span className={clock === 'start' ? css.timeStart : css.timeEnd}>
       {formatMessageClock(time, t, day)}
-      {runMs !== undefined && (
-        <>
-          {' '}
-          <span className={css.runTimeDot} aria-hidden>·</span>
-          {' '}
-          {t('message.ranFor', { duration: formatRunDuration(runMs, t) })}
-        </>
-      )}
-      {ttftMs !== undefined && (
-        <>
-          {' '}
-          <span className={css.runTimeDot} aria-hidden>·</span>
-          {' '}
-          {t('message.ttft', { seconds: formatLatencySeconds(ttftMs) })}
-        </>
-      )}
-      {tokensPerSecond !== undefined && (
-        <>
-          {' '}
-          <span className={css.runTimeDot} aria-hidden>·</span>
-          {' '}
-          {t('message.tokensPerSecond', { tps: formatTokensPerSecond(tokensPerSecond) })}
-        </>
-      )}
     </span>
   )
   return (
@@ -154,6 +107,7 @@ export function MessageIconActions({
       {onBranch !== undefined && branchUnavailable && (
         <span id={reasonId} className={css.visuallyHidden}>{t('message.branchUnavailable')}</span>
       )}
+      {usageAction}
       {clock === 'end' ? clockEl : null}
     </div>
   )

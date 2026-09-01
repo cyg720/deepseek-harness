@@ -9,14 +9,6 @@
  * menu in between; the flow and its error dialog live in WorkspacePicker
  * (same package — direct composition, no slot between them).
  */
-/*
- * 文件职责：实现工作区浏览的 WorkspaceBrowser 组件。
- * 技术维度：React、TypeScript、Cordis 插槽、外部 Store 和 CSS Modules。
- * 产品维度：支持用户查看或操作工作区浏览。
- * 逻辑维度：读取状态，派生展示数据，处理操作并渲染界面。
- * 关键边界：异步状态、空状态、虚拟滚动和可访问性必须一致。
- * 新手阅读建议：先读 Props，再看状态选择、事件和 JSX。
- */
 import { useEffect, useMemo, useRef, useState } from 'react'
 import clsx from 'clsx'
 import {
@@ -40,16 +32,12 @@ import css from './WorkspaceBrowser.module.css'
  * Column slide length (--ds-transition-duration-slow): rail-search focus waits it out —
  * focus() forces a synchronous layout and would jank the slide.
  */
-/* 中文说明：组件局部值 EXPAND_SLIDE_MS，由紧邻初始化决定。 */
 const EXPAND_SLIDE_MS = 300
 /** Pause between the latest keystroke and a Host content-search request. */
-/* 中文说明：组件局部值 SEARCH_DEBOUNCE_MS，由紧邻初始化决定。 */
 const SEARCH_DEBOUNCE_MS = 250
 /** `session.search` wire bound, measured in JavaScript UTF-16 code units. */
-/* 中文说明：组件局部值 解构结果，由紧邻初始化决定。 */
 const SEARCH_QUERY_MAX_CODE_UNITS = 500
 /** Session rows visible per Workspace before the local overflow control. */
-/* 中文说明：组件局部值 COLLAPSED_SESSION_LIMIT，由紧邻初始化决定。 */
 const COLLAPSED_SESSION_LIMIT = 5
 
 /** Fold one Workspace without charging its provisional New Session against the ordinary-row limit. */
@@ -68,23 +56,17 @@ function collapsedSessionRows(sessions: readonly SessionNode[]): {
 }
 
 /** Keep controlled input and RPC payload inside the session.search wire contract. */
-/* 中文说明：函数 sanitizeSearchQuery 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function sanitizeSearchQuery(value: string): string {
-  /** 中文说明：组件局部值 withoutNul，由紧邻初始化决定。 */
   const withoutNul = value.replaceAll('\0', '')
   if (withoutNul.length <= SEARCH_QUERY_MAX_CODE_UNITS) return withoutNul
-  /** 中文说明：组件局部值 end，由紧邻初始化决定。 */
   let end = SEARCH_QUERY_MAX_CODE_UNITS
-  /** 中文说明：组件局部值 last，由紧邻初始化决定。 */
   const last = withoutNul.charCodeAt(end - 1)
-  /** 中文说明：组件局部值 next，由紧邻初始化决定。 */
   const next = withoutNul.charCodeAt(end)
   if (last >= 0xD800 && last <= 0xDBFF && next >= 0xDC00 && next <= 0xDFFF) end--
   return withoutNul.slice(0, end)
 }
 
 /** Immutable membership toggle for the local expand-all array. */
-/* 中文说明：函数 toggled 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function toggled(list: readonly string[], key: string): string[] {
   return list.includes(key) ? list.filter(k => k !== key) : [...list, key]
 }
@@ -94,16 +76,13 @@ function toggled(list: readonly string[], key: string): string[] {
  * hover still owns the insertion marker, and releasing outside the list must
  * not be rendered as a rejected drop before dragend commits that last marker.
  */
-/* 中文说明：函数 useNativeDragAcceptance 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function useNativeDragAcceptance(active: boolean): void {
   useEffect(() => {
     if (!active) return
-    /** 中文说明：组件局部值 acceptDrag，由紧邻初始化决定。 */
     const acceptDrag = (event: DragEvent): void => {
       event.preventDefault()
       if (event.dataTransfer !== null) event.dataTransfer.dropEffect = 'move'
     }
-    /** 中文说明：组件局部值 acceptDrop，由紧邻初始化决定。 */
     const acceptDrop = (event: DragEvent): void => { event.preventDefault() }
     document.addEventListener('dragover', acceptDrag)
     document.addEventListener('drop', acceptDrop)
@@ -115,24 +94,17 @@ function useNativeDragAcceptance(active: boolean): void {
 }
 
 /** Reconcile a stored view order with the Workspace's current session account. */
-/* 中文说明：函数 reconciledSessionOrder 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function reconciledSessionOrder(sessionIds: readonly SessionId[], stored: readonly string[] | undefined): SessionId[] {
   if (stored === undefined) return [...sessionIds]
-  /** 中文说明：组件局部值 byId，由紧邻初始化决定。 */
   const byId = new Map(sessionIds.map(id => [id as string, id]))
-  /** 中文说明：组件局部值 ordered，由紧邻初始化决定。 */
   const ordered: SessionId[] = []
-  /** 中文说明：组件局部值 included，由紧邻初始化决定。 */
   const included = new Set<string>()
-  /** 中文说明：组件局部值 key，由紧邻初始化决定。 */
   for (const key of stored) {
-    /** 中文说明：组件局部值 id，由紧邻初始化决定。 */
     const id = byId.get(key)
     if (id === undefined || included.has(key)) continue
     ordered.push(id)
     included.add(key)
   }
-  /** 中文说明：组件局部值 id，由紧邻初始化决定。 */
   for (const id of sessionIds) {
     if (included.has(id)) continue
     ordered.push(id)
@@ -141,18 +113,14 @@ function reconciledSessionOrder(sessionIds: readonly SessionId[], stored: readon
 }
 
 /** Newest update first with stable Session identity as the tie-break. */
-/* 中文说明：函数 compareSessionRecency 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function compareSessionRecency(a: SessionId, b: SessionId, byId: SessionListState['byId']): number {
-  /** 中文说明：组件局部值 aUpdatedAt，由紧邻初始化决定。 */
   const aUpdatedAt = byId[a]?.updatedAt ?? Number.NEGATIVE_INFINITY
-  /** 中文说明：组件局部值 bUpdatedAt，由紧邻初始化决定。 */
   const bUpdatedAt = byId[b]?.updatedAt ?? Number.NEGATIVE_INFINITY
   if (aUpdatedAt !== bUpdatedAt) return bUpdatedAt - aUpdatedAt
   return a < b ? -1 : 1
 }
 
 /** Reconcile one editable order account and apply its activity-promotion policy. */
-/* 中文说明：函数 nextSessionOrderAccount 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function nextSessionOrderAccount({
   sessionIds, previousOrder, previousUpdatedAt, list, orderBy, sortByRecency,
 }: {
@@ -163,46 +131,36 @@ function nextSessionOrderAccount({
   orderBy: SessionOrderBy
   sortByRecency: boolean
 }): { order: SessionId[]; updatedAt: Record<string, number>; changed: boolean } {
-  /** 中文说明：组件局部值 order，由紧邻初始化决定。 */
   let order = reconciledSessionOrder(sessionIds, previousOrder)
   if (sortByRecency) {
     order.sort((a, b) => compareSessionRecency(a, b, list.byId))
   } else if (orderBy === 'updated') {
-    /** 中文说明：组件局部值 promoted，由紧邻初始化决定。 */
     const promoted = sessionIds
       .filter((id) => {
-        /** 中文说明：组件局部值 session，由紧邻初始化决定。 */
         const session = list.byId[id]
         return session !== undefined
           && (previousUpdatedAt[id] === undefined || session.updatedAt > previousUpdatedAt[id])
       })
       .sort((a, b) => compareSessionRecency(a, b, list.byId))
     if (promoted.length > 0) {
-      /** 中文说明：组件局部值 promotedIds，由紧邻初始化决定。 */
       const promotedIds = new Set(promoted)
       order = [...promoted, ...order.filter(id => !promotedIds.has(id))]
     }
   }
-  /** 中文说明：组件局部值 updatedAt，由紧邻初始化决定。 */
   const updatedAt: Record<string, number> = {}
-  /** 中文说明：组件局部值 id，由紧邻初始化决定。 */
   for (const id of sessionIds) {
-    /** 中文说明：组件局部值 session，由紧邻初始化决定。 */
     const session = list.byId[id]
     if (session !== undefined) updatedAt[id] = session.updatedAt
   }
-  /** 中文说明：组件局部值 orderChanged，由紧邻初始化决定。 */
   const orderChanged = previousOrder === undefined
     || order.length !== previousOrder.length
     || order.some((id, index) => id !== previousOrder[index])
-  /** 中文说明：组件局部值 timestampsChanged，由紧邻初始化决定。 */
   const timestampsChanged = Object.keys(updatedAt).length !== Object.keys(previousUpdatedAt).length
     || Object.entries(updatedAt).some(([id, timestamp]) => previousUpdatedAt[id] !== timestamp)
   return { order, updatedAt, changed: orderChanged || timestampsChanged }
 }
 
 /** Grouping and ordering menu; own open state so it resets with the wide chrome. */
-/* 中文说明：函数 ViewOptionsMenu 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function ViewOptionsMenu({ groupBy, orderBy, onGroupPick, onOrderPick, t }: {
   groupBy: 'workspace' | 'flat'
   orderBy: SessionOrderBy
@@ -210,7 +168,6 @@ function ViewOptionsMenu({ groupBy, orderBy, onGroupPick, onOrderPick, t }: {
   onOrderPick: (mode: SessionOrderBy) => void
   t: WorkspaceBrowserProps['t']
 }) {
-  /** 中文说明：组件局部值 [open, setOpen]，由紧邻初始化决定。 */
   const [open, setOpen] = useState(false)
   return (
     <Menu
@@ -253,7 +210,6 @@ function ViewOptionsMenu({ groupBy, orderBy, onGroupPick, onOrderPick, t }: {
 }
 
 /** In-flight root-row drag: source identity plus the current insert marker. */
-/* 中文说明：类型或类 DragState 约束模块数据或组件职责。 */
 interface DragState {
   /** Workspace id, or {@link UNGROUPED_KEY} for the browser-local loose-session account. */
   accountKey: string
@@ -263,21 +219,17 @@ interface DragState {
 }
 
 /** In-flight Workspace-row drag: source identity plus the current marker. */
-/* 中文说明：类型或类 WorkspaceDragState 约束模块数据或组件职责。 */
 interface WorkspaceDragState {
   workspaceId: WorkspaceId
   over: { id: WorkspaceId; half: 'before' | 'after' } | null
 }
 
 /** Resolve an insertion side from the full rendered workspace group. */
-/* 中文说明：函数 workspaceGroupHalf 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function workspaceGroupHalf(e: { clientY: number; currentTarget: HTMLElement }): 'before' | 'after' {
-  /** 中文说明：组件局部值 rect，由紧邻初始化决定。 */
   const rect = e.currentTarget.getBoundingClientRect()
   return e.clientY < rect.top + rect.height / 2 ? 'before' : 'after'
 }
 
-/** 中文说明：类型或类 SessionTreeProps 约束模块数据或组件职责。 */
 type SessionTreeProps = Pick<
   WorkspaceBrowserProps,
   'useSessions' | 'useSessionPendingInteraction' | 'startSession' | 'open' | 'forkSession'
@@ -313,7 +265,6 @@ type SessionTreeProps = Pick<
 }
 
 /** The scrolling session tree; unmounting drops the sessions subscription and expand-all state. */
-/* 中文说明：函数 SessionTree 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function SessionTree({
   useSessions, useSessionPendingInteraction, startSession, open, forkSession, workspaces, archivedSessionIds,
   onRenameRequest, onDeleteRequest, onSessionRename, onSessionArchive,
@@ -321,27 +272,18 @@ function SessionTree({
   groupExpansion, setGroupExpanded,
   sessionOrderByAccount, sessionUpdatedAtByAccount, syncSessionOrderAccount, setSessionOrder, home, t,
 }: SessionTreeProps) {
-  /** 中文说明：组件局部值 list，由紧邻初始化决定。 */
   const list = useSessions(s => s)
   const pendingInteractions = useSessionPendingInteraction(s => s)
   const current = list.current
-  /** 中文说明：组件局部值 解构结果，由紧邻初始化决定。 */
   const [expandedSessionGroups, setExpandedSessionGroups] = useState<string[]>([])
   // Transient drag marker state; the selected mode owns the resulting order.
-  /** 中文说明：组件局部值 [drag, setDrag]，由紧邻初始化决定。 */
   const [drag, setDrag] = useState<DragState | null>(null)
-  /** 中文说明：组件局部值 sessionDropCommitted，由紧邻初始化决定。 */
   const sessionDropCommitted = useRef(false)
-  /** 中文说明：组件局部值 解构结果，由紧邻初始化决定。 */
   const [workspaceDrag, setWorkspaceDrag] = useState<WorkspaceDragState | null>(null)
-  /** 中文说明：组件局部值 workspaceDropCommitted，由紧邻初始化决定。 */
   const workspaceDropCommitted = useRef(false)
-  /** 中文说明：组件局部值 previousOrderBy，由紧邻初始化决定。 */
   const previousOrderBy = useRef(orderBy)
-  /** 中文说明：组件局部值 nativeDragActive，由紧邻初始化决定。 */
   const nativeDragActive = drag !== null || workspaceDrag !== null
   useNativeDragAcceptance(nativeDragActive)
-  /** 中文说明：组件局部值 currentGroup，由紧邻初始化决定。 */
   const currentGroup = current === undefined
     ? undefined
     : (workspaces.find(w => w.sessionIds.includes(current))?.workspaceId as string | undefined)
@@ -350,23 +292,18 @@ function SessionTree({
     if (current === undefined || currentGroup === undefined || Object.hasOwn(groupExpansion, currentGroup)) return
     setGroupExpanded(currentGroup, true)
   }, [current, currentGroup, setGroupExpanded, groupExpansion])
-  /** 中文说明：组件局部值 expandedGroups，由紧邻初始化决定。 */
   const expandedGroups = useMemo(
     () => Object.entries(groupExpansion).filter(([, expanded]) => expanded).map(([key]) => key),
     [groupExpansion],
   )
-  /** 中文说明：组件局部值 ungroupedSessionIds，由紧邻初始化决定。 */
   const ungroupedSessionIds = useMemo(() => {
-    /** 中文说明：组件局部值 accounted，由紧邻初始化决定。 */
     const accounted = new Set(workspaces.flatMap(workspace => workspace.sessionIds))
     return list.ids.filter((id: SessionId) => list.byId[id] !== undefined && !accounted.has(id))
   }, [list, workspaces])
   useEffect(() => {
     if (list.phase !== 'ready') return
-    /** 中文说明：组件局部值 switchedToUpdated，由紧邻初始化决定。 */
     const switchedToUpdated = previousOrderBy.current !== 'updated' && orderBy === 'updated'
     previousOrderBy.current = orderBy
-    /** 中文说明：组件局部值 accounts，由紧邻初始化决定。 */
     const accounts = [
       ...workspaces.map(workspace => ({
         key: workspace.workspaceId as string,
@@ -374,13 +311,9 @@ function SessionTree({
       })),
       { key: UNGROUPED_KEY, sessionIds: ungroupedSessionIds },
     ]
-    /** 中文说明：组件局部值 {，由紧邻初始化决定。 */
     for (const { key, sessionIds } of accounts) {
-      /** 中文说明：组件局部值 previousOrder，由紧邻初始化决定。 */
       const previousOrder = sessionOrderByAccount[key]
-      /** 中文说明：组件局部值 previousUpdatedAt，由紧邻初始化决定。 */
       const previousUpdatedAt = sessionUpdatedAtByAccount[key] ?? {}
-      /** 中文说明：组件局部值 next，由紧邻初始化决定。 */
       const next = nextSessionOrderAccount({
         sessionIds,
         previousOrder,
@@ -394,22 +327,17 @@ function SessionTree({
       }
     }
   }, [list, orderBy, sessionOrderByAccount, sessionUpdatedAtByAccount, syncSessionOrderAccount, ungroupedSessionIds, workspaces])
-  /** 中文说明：组件局部值 orderedWorkspaces，由紧邻初始化决定。 */
   const orderedWorkspaces = useMemo(() => {
     return workspaces.map((workspace) => {
-      /** 中文说明：组件局部值 stored，由紧邻初始化决定。 */
       const stored = sessionOrderByAccount[workspace.workspaceId as string]
-      /** 中文说明：组件局部值 sessionIds，由紧邻初始化决定。 */
       const sessionIds = reconciledSessionOrder(workspace.sessionIds, stored)
       return { ...workspace, sessionIds }
     })
   }, [sessionOrderByAccount, workspaces])
-  /** 中文说明：组件局部值 解构结果，由紧邻初始化决定。 */
   const orderedUngroupedSessionIds = useMemo(
     () => reconciledSessionOrder(ungroupedSessionIds, sessionOrderByAccount[UNGROUPED_KEY]),
     [sessionOrderByAccount, ungroupedSessionIds],
   )
-  /** 中文说明：组件局部值 groups，由紧邻初始化决定。 */
   const groups = useMemo(
     () => deriveGroups(list, orderedWorkspaces, archivedSessionIds, pendingInteractions, {
       expandedGroups,
@@ -419,14 +347,11 @@ function SessionTree({
     }),
     [list, orderedWorkspaces, archivedSessionIds, pendingInteractions, expandedGroups, sessionOrderByAccount],
   )
-  /** 中文说明：组件局部值 now，由紧邻初始化决定。 */
   const now = Date.now()
-  /** 中文说明：组件局部值 commitSessionDrag，由紧邻初始化决定。 */
   const commitSessionDrag = (activeDrag: DragState, over: NonNullable<DragState['over']>): void => {
     if (sessionDropCommitted.current) return
     sessionDropCommitted.current = true
     setDrag(null)
-    /** 中文说明：组件局部值 group，由紧邻初始化决定。 */
     const group = groups.find(candidate => candidate.key === activeDrag.accountKey)
     if (group === undefined) return
     const sessionsExpanded = expandedSessionGroups.includes(group.key)
@@ -444,7 +369,6 @@ function SessionTree({
       ? orderedUngroupedSessionIds
       : orderedWorkspaces.find(workspace => workspace.workspaceId === activeDrag.accountKey)?.sessionIds
     if (accountSessionIds === undefined) return
-    /** 中文说明：组件局部值 nextOrder，由紧邻初始化决定。 */
     const nextOrder = accountSessionIds.filter(id => id !== activeDrag.sessionId)
     let anchor: SessionId | undefined
     if (sessionsExpanded) {
@@ -477,7 +401,6 @@ function SessionTree({
       console.warn('session reorder rejected:', reason)
     })
   }
-  /** 中文说明：组件局部值 commitWorkspaceDrag，由紧邻初始化决定。 */
   const commitWorkspaceDrag = (
     activeDrag: WorkspaceDragState,
     over: NonNullable<WorkspaceDragState['over']>,
@@ -485,15 +408,11 @@ function SessionTree({
     if (workspaceDropCommitted.current) return
     workspaceDropCommitted.current = true
     setWorkspaceDrag(null)
-    /** 中文说明：组件局部值 rowIndex，由紧邻初始化决定。 */
     const rowIndex = workspaces.findIndex(workspace => workspace.workspaceId === over.id)
     if (rowIndex === -1) return
-    /** 中文说明：组件局部值 anchor，由紧邻初始化决定。 */
     const anchor = over.half === 'before' ? over.id : workspaces[rowIndex + 1]?.workspaceId
     if (anchor === activeDrag.workspaceId) return
-    /** 中文说明：组件局部值 sourceIndex，由紧邻初始化决定。 */
     const sourceIndex = workspaces.findIndex(workspace => workspace.workspaceId === activeDrag.workspaceId)
-    /** 中文说明：组件局部值 anchorIndex，由紧邻初始化决定。 */
     const anchorIndex = anchor === undefined
       ? workspaces.length
       : workspaces.findIndex(workspace => workspace.workspaceId === anchor)
@@ -502,7 +421,6 @@ function SessionTree({
       console.warn('workspace reorder rejected:', reason)
     })
   }
-  /** 中文说明：组件局部值 workspaceDropAtListStart，由紧邻初始化决定。 */
   const workspaceDropAtListStart = groups[0]?.workspaceId !== undefined
     && workspaceDrag?.over?.id === groups[0].workspaceId
     && workspaceDrag.over.half === 'before'
@@ -519,14 +437,12 @@ function SessionTree({
           <div className={css.empty}>{t('empty.none')}</div>
         )}
         {groups.map((group) => {
-          /** 中文说明：组件局部值 workspaceId，由紧邻初始化决定。 */
           const workspaceId = group.workspaceId
           const collapsed = collapsedSessionRows(group.sessions)
           const sessionsExpanded = expandedSessionGroups.includes(group.key)
           const workspaceMarker = workspaceId !== undefined && workspaceDrag?.over?.id === workspaceId
             ? workspaceDrag.over.half
             : null
-          /** 中文说明：组件局部值 workspaceDragProps，由紧邻初始化决定。 */
           const workspaceDragProps = workspaceId === undefined ? undefined : {
             start: () => {
               workspaceDropCommitted.current = false
@@ -541,7 +457,6 @@ function SessionTree({
               workspaceDropCommitted.current = false
             },
           }
-          /** 中文说明：组件局部值 hoverWorkspace，由紧邻初始化决定。 */
           const hoverWorkspace = workspaceId === undefined
             ? undefined
             : (half: 'before' | 'after') => {
@@ -549,7 +464,6 @@ function SessionTree({
                 ? active
                 : { ...active, over: { id: workspaceId, half } })
             }
-          /** 中文说明：组件局部值 dropWorkspace，由紧邻初始化决定。 */
           const dropWorkspace = workspaceId === undefined
             ? undefined
             : (half: 'before' | 'after') => {
@@ -617,9 +531,7 @@ function SessionTree({
               ).map((node) => {
               // Session drag never leaves its group. Ungrouped writes only the
               // browser-local account; real Workspaces may also write Host order.
-                /** 中文说明：组件局部值 sameGroupDrag，由紧邻初始化决定。 */
                 const sameGroupDrag = drag !== null && drag.accountKey === group.key
-                /** 中文说明：组件局部值 dragProps，由紧邻初始化决定。 */
                 const dragProps = {
                   start: () => {
                     sessionDropCommitted.current = false
@@ -679,7 +591,6 @@ function SessionTree({
 }
 
 /** The flat "In one list" body: every session is one draggable top-level row. */
-/* 中文说明：函数 FlatList 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function FlatList({
   useSessions, useSessionPendingInteraction, open, forkSession, onSessionRename, onSessionArchive,
   archivedSessionIds,
@@ -700,27 +611,20 @@ function FlatList({
   | 'setSessionOrder'
   | 't'
 >) {
-  /** 中文说明：组件局部值 list，由紧邻初始化决定。 */
   const list = useSessions(s => s)
   const pendingInteractions = useSessionPendingInteraction(s => s)
   const baseRows = useMemo(
     () => deriveFlat(list, archivedSessionIds, pendingInteractions),
     [list, archivedSessionIds, pendingInteractions],
   )
-  /** 中文说明：组件局部值 sessionIds，由紧邻初始化决定。 */
   const sessionIds = useMemo(() => baseRows.map(row => row.id), [baseRows])
-  /** 中文说明：组件局部值 previousOrderBy，由紧邻初始化决定。 */
   const previousOrderBy = useRef(orderBy)
   useEffect(() => {
     if (list.phase !== 'ready') return
-    /** 中文说明：组件局部值 previousOrder，由紧邻初始化决定。 */
     const previousOrder = sessionOrderByAccount[FLAT_SESSION_ORDER_KEY]
-    /** 中文说明：组件局部值 previousUpdatedAt，由紧邻初始化决定。 */
     const previousUpdatedAt = sessionUpdatedAtByAccount[FLAT_SESSION_ORDER_KEY] ?? {}
-    /** 中文说明：组件局部值 switchedToUpdated，由紧邻初始化决定。 */
     const switchedToUpdated = previousOrderBy.current !== 'updated' && orderBy === 'updated'
     previousOrderBy.current = orderBy
-    /** 中文说明：组件局部值 next，由紧邻初始化决定。 */
     const next = nextSessionOrderAccount({
       sessionIds,
       previousOrder,
@@ -733,46 +637,33 @@ function FlatList({
       syncSessionOrderAccount(FLAT_SESSION_ORDER_KEY, next.order.map(id => id as string), next.updatedAt)
     }
   }, [list, orderBy, sessionOrderByAccount, sessionUpdatedAtByAccount, sessionIds, syncSessionOrderAccount])
-  /** 中文说明：组件局部值 rows，由紧邻初始化决定。 */
   const rows = useMemo(() => {
-    /** 中文说明：组件局部值 byId，由紧邻初始化决定。 */
     const byId = new Map(baseRows.map(row => [row.id, row]))
     return reconciledSessionOrder(sessionIds, sessionOrderByAccount[FLAT_SESSION_ORDER_KEY])
       .flatMap((id) => {
-        /** 中文说明：组件局部值 row，由紧邻初始化决定。 */
         const row = byId.get(id)
         return row === undefined ? [] : [row]
       })
   }, [baseRows, sessionOrderByAccount, sessionIds])
-  /** 中文说明：组件局部值 [drag, setDrag]，由紧邻初始化决定。 */
   const [drag, setDrag] = useState<DragState | null>(null)
-  /** 中文说明：组件局部值 dropCommitted，由紧邻初始化决定。 */
   const dropCommitted = useRef(false)
   useNativeDragAcceptance(drag !== null)
-  /** 中文说明：组件局部值 commitDrag，由紧邻初始化决定。 */
   const commitDrag = (activeDrag: DragState, over: NonNullable<DragState['over']>): void => {
     if (dropCommitted.current) return
     dropCommitted.current = true
     setDrag(null)
-    /** 中文说明：组件局部值 targetIndex，由紧邻初始化决定。 */
     const targetIndex = rows.findIndex(row => row.id === over.id)
     if (targetIndex === -1) return
-    /** 中文说明：组件局部值 anchor，由紧邻初始化决定。 */
     const anchor = over.half === 'before' ? over.id : rows[targetIndex + 1]?.id
     if (anchor === activeDrag.sessionId) return
-    /** 中文说明：组件局部值 sourceIndex，由紧邻初始化决定。 */
     const sourceIndex = rows.findIndex(row => row.id === activeDrag.sessionId)
-    /** 中文说明：组件局部值 anchorIndex，由紧邻初始化决定。 */
     const anchorIndex = anchor === undefined ? rows.length : rows.findIndex(row => row.id === anchor)
     if (sourceIndex !== -1 && (anchorIndex === sourceIndex || anchorIndex === sourceIndex + 1)) return
-    /** 中文说明：组件局部值 nextOrder，由紧邻初始化决定。 */
     const nextOrder = rows.map(row => row.id).filter(id => id !== activeDrag.sessionId)
-    /** 中文说明：组件局部值 insertAt，由紧邻初始化决定。 */
     const insertAt = anchor === undefined ? nextOrder.length : nextOrder.indexOf(anchor)
     nextOrder.splice(insertAt === -1 ? nextOrder.length : insertAt, 0, activeDrag.sessionId)
     setSessionOrder(FLAT_SESSION_ORDER_KEY, nextOrder.map(id => id as string))
   }
-  /** 中文说明：组件局部值 now，由紧邻初始化决定。 */
   const now = Date.now()
   return (
     <div className={clsx(css.treeBody, css.wide)}>
@@ -781,7 +672,6 @@ function FlatList({
           <div className={css.empty}>{t('empty.none')}</div>
         )}
         {rows.map((node) => {
-          /** 中文说明：组件局部值 active，由紧邻初始化决定。 */
           const active = drag !== null
           return (
             <SessionNodeItem
@@ -823,7 +713,6 @@ function FlatList({
   )
 }
 
-/** 中文说明：类型或类 RemoteSearchState 约束模块数据或组件职责。 */
 interface RemoteSearchState {
   query: string
   status: 'idle' | 'loading' | 'ready' | 'error'
@@ -832,7 +721,6 @@ interface RemoteSearchState {
 }
 
 /** Flat search body: local metadata matches plus the current Host result page. */
-/* 中文说明：函数 SearchResults 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function SearchResults({
   useSessions,
   useSessionPendingInteraction,
@@ -850,13 +738,11 @@ function SearchResults({
   remote: RemoteSearchState
   resultLimit: number
 }) {
-  /** 中文说明：组件局部值 list，由紧邻初始化决定。 */
   const list = useSessions(s => s)
   const pendingInteractions = useSessionPendingInteraction(s => s)
   const currentRemote = remote.query === query
     ? remote
     : { query, status: 'loading' as const, items: [], hasMore: false }
-  /** 中文说明：组件局部值 results，由紧邻初始化决定。 */
   const results = useMemo(
     () => deriveSearchResults(
       list,
@@ -869,9 +755,7 @@ function SearchResults({
     ),
     [list, workspaces, query, archivedSessionIds, pendingInteractions, currentRemote, resultLimit],
   )
-  /** 中文说明：组件局部值 pending，由紧邻初始化决定。 */
   const pending = currentRemote.status === 'loading'
-  /** 中文说明：组件局部值 failed，由紧邻初始化决定。 */
   const failed = currentRemote.status === 'error'
 
   return (
@@ -915,7 +799,6 @@ function SearchResults({
  * @param props - composed slot props (shell owner share + store + injected actions).
  * @returns the region element tree.
  */
-/* 中文说明：函数 WorkspaceBrowser 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 export function WorkspaceBrowser({
   wide,
   expandSidebar,
@@ -937,42 +820,30 @@ export function WorkspaceBrowser({
   searchSessions,
   searchResultLimit,
   useDirectoryFlow,
-  useConnectionGeneration,
+  useHostInfo,
   renderSlot,
   t,
 }: WorkspaceBrowserProps) {
-  const home = useConnectionGeneration(generation => generation?.host.home)
+  const home = useHostInfo(info => info.home)
   const workspaces = useWorkspaces(state => state.items)
-  /** 中文说明：组件局部值 workspacePhase，由紧邻初始化决定。 */
   const workspacePhase = useWorkspaces(state => state.phase)
-  /** 中文说明：组件局部值 archivedSessionIds，由紧邻初始化决定。 */
   const archivedSessionIds = useWorkspaces(state => state.archivedSessionIds)
   // Live occupancy of this surface's directory-flow hole (the same source the
   // flow reads): a composition without a picking affordance can add nothing.
-  /** 中文说明：组件局部值 directoryFlowAvailable，由紧邻初始化决定。 */
   const directoryFlowAvailable = useDirectoryFlow(occupied => occupied)
-  /** 中文说明：组件局部值 groupBy，由紧邻初始化决定。 */
   const groupBy = useStore(s => s.groupBy)
-  /** 中文说明：组件局部值 orderBy，由紧邻初始化决定。 */
   const orderBy = useStore(s => s.orderBy)
-  /** 中文说明：组件局部值 groupExpansion，由紧邻初始化决定。 */
   const groupExpansion = useStore(s => s.groupExpansion)
-  /** 中文说明：组件局部值 sessionOrderByAccount，由紧邻初始化决定。 */
   const sessionOrderByAccount = useStore(s => s.sessionOrderByAccount)
-  /** 中文说明：组件局部值 sessionUpdatedAtByAccount，由紧邻初始化决定。 */
   const sessionUpdatedAtByAccount = useStore(s => s.sessionUpdatedAtByAccount)
-  /** 中文说明：组件局部值 currentBlankSessionId，由紧邻初始化决定。 */
   const currentBlankSessionId = useSessions((state) => {
-    /** 中文说明：组件局部值 current，由紧邻初始化决定。 */
     const current = state.current
     return current !== undefined && state.byId[current]?.blank === true ? current : undefined
   })
-  /** 中文说明：组件局部值 currentBlankAccount，由紧邻初始化决定。 */
   const currentBlankAccount = currentBlankSessionId === undefined
     ? undefined
     : (workspaces.find(workspace => workspace.sessionIds.includes(currentBlankSessionId))
       ?.workspaceId as string | undefined) ?? UNGROUPED_KEY
-  /** 中文说明：组件局部值 promotedBlank，由紧邻初始化决定。 */
   const promotedBlank = useRef<{ sessionId: SessionId; accountKey: string } | undefined>(undefined)
   useEffect(() => {
     if (currentBlankSessionId === undefined || currentBlankAccount === undefined) {
@@ -983,9 +854,7 @@ export function WorkspaceBrowser({
     if (promoted !== undefined && promoted.sessionId === currentBlankSessionId
       && promoted.accountKey === currentBlankAccount) return
     promotedBlank.current = { sessionId: currentBlankSessionId, accountKey: currentBlankAccount }
-    /** 中文说明：组件局部值 accountKey，由紧邻初始化决定。 */
     for (const accountKey of new Set([currentBlankAccount, FLAT_SESSION_ORDER_KEY])) {
-      /** 中文说明：组件局部值 previous，由紧邻初始化决定。 */
       const previous = sessionOrderByAccount[accountKey] ?? []
       actions.setSessionOrder(accountKey, [
         currentBlankSessionId,
@@ -1003,39 +872,28 @@ export function WorkspaceBrowser({
   }, [actions.retainAccountKeys, workspacePhase, workspaces])
   // The query outlives the tree and the input (both wide-only) so collapsing
   // does not silently drop an in-progress filter.
-  /** 中文说明：组件局部值 [query, setQuery]，由紧邻初始化决定。 */
   const [query, setQuery] = useState('')
-  /** 中文说明：组件局部值 解构结果，由紧邻初始化决定。 */
   const [searchExpanded, setSearchExpanded] = useState(false)
-  /** 中文说明：组件局部值 normalizedQuery，由紧邻初始化决定。 */
   const normalizedQuery = sanitizeSearchQuery(query).trim()
-  /** 中文说明：组件局部值 解构结果，由紧邻初始化决定。 */
   const [remoteSearch, setRemoteSearch] = useState<RemoteSearchState>({
     query: '',
     status: 'idle',
     items: [],
     hasMore: false,
   })
-  /** 中文说明：组件局部值 searchRoot，由紧邻初始化决定。 */
   const searchRoot = useRef<HTMLDivElement | null>(null)
-  /** 中文说明：组件局部值 searchInput，由紧邻初始化决定。 */
   const searchInput = useRef<HTMLInputElement | null>(null)
   // Section-header ＋ opens the picker menu (same popover in wide and rail
   // states; the menu anchors on this button).
-  /** 中文说明：组件局部值 解构结果，由紧邻初始化决定。 */
   const [wsPickerOpen, setWsPickerOpen] = useState(false)
-  /** 中文说明：组件局部值 wsPlusRef，由紧邻初始化决定。 */
   const wsPlusRef = useRef<HTMLButtonElement>(null)
-  /** 中文说明：组件局部值 composingRef，由紧邻初始化决定。 */
   const composingRef = useRef(false)
 
   // Rail search = expand + land in the search box: the flag arms before the
   // expand request; once the shell flips wide the input mounts and takes focus.
-  /** 中文说明：组件局部值 解构结果，由紧邻初始化决定。 */
   const [searchOnExpand, setSearchOnExpand] = useState(false)
   useEffect(() => {
     if (wide && searchOnExpand) {
-      /** 中文说明：组件局部值 timer，由紧邻初始化决定。 */
       const timer = window.setTimeout(() => {
         searchInput.current?.focus({ preventScroll: true })
         setSearchOnExpand(false)
@@ -1056,7 +914,6 @@ export function WorkspaceBrowser({
   // listener would dismiss the search that click just opened.
   useEffect(() => {
     if (!wide || !searchExpanded || searchOnExpand) return
-    /** 中文说明：组件局部值 onClick，由紧邻初始化决定。 */
     const onClick = (event: MouseEvent): void => {
       if (!(event.target instanceof Node) || searchRoot.current?.contains(event.target) === true) return
       searchInput.current?.blur()
@@ -1072,7 +929,6 @@ export function WorkspaceBrowser({
       setRemoteSearch({ query: '', status: 'idle', items: [], hasMore: false })
       return
     }
-    /** 中文说明：组件局部值 controller，由紧邻初始化决定。 */
     const controller = new AbortController()
     setRemoteSearch({
       query: normalizedQuery,
@@ -1080,7 +936,6 @@ export function WorkspaceBrowser({
       items: [],
       hasMore: false,
     })
-    /** 中文说明：组件局部值 timer，由紧邻初始化决定。 */
     const timer = window.setTimeout(() => {
       searchSessions(normalizedQuery, controller.signal).then((result) => {
         if (controller.signal.aborted) return
@@ -1107,29 +962,20 @@ export function WorkspaceBrowser({
   }, [normalizedQuery, searchSessions])
 
   // Rename dialog (browser-owned so it outlives row unmounts during collapse).
-  /** 中文说明：组件局部值 解构结果，由紧邻初始化决定。 */
   const [renameTarget, setRenameTarget] = useState<{ workspaceId: WorkspaceId; currentTitle: string } | null>(null)
-  /** 中文说明：组件局部值 解构结果，由紧邻初始化决定。 */
   const [renameDraft, setRenameDraft] = useState('')
-  /** 中文说明：组件局部值 [renaming, setRenaming]，由紧邻初始化决定。 */
   const [renaming, setRenaming] = useState(false)
-  /** 中文说明：组件局部值 解构结果，由紧邻初始化决定。 */
   const [renameError, setRenameError] = useState<string | null>(null)
-  /** 中文说明：组件局部值 renameTrimmed，由紧邻初始化决定。 */
   const renameTrimmed = renameDraft.trim()
-  /** 中文说明：组件局部值 renameDuplicate，由紧邻初始化决定。 */
   const renameDuplicate = renameTarget !== null && renameTrimmed !== '' && renameTrimmed !== renameTarget.currentTitle
     && workspaces.some(w => w.title === renameTrimmed)
-  /** 中文说明：组件局部值 renameBlocked，由紧邻初始化决定。 */
   const renameBlocked = renaming || renameTrimmed === ''
     || renameTarget === null || renameTrimmed === renameTarget.currentTitle || renameDuplicate
-  /** 中文说明：组件局部值 closeRename，由紧邻初始化决定。 */
   const closeRename = () => {
     if (renaming) return
     setRenameTarget(null)
     setRenameError(null)
   }
-  /** 中文说明：组件局部值 confirmRename，由紧邻初始化决定。 */
   const confirmRename = () => {
     if (renameBlocked) return
     setRenaming(true)
@@ -1147,25 +993,17 @@ export function WorkspaceBrowser({
   // sessions have no client-side name-conflict rule — the host normalizes).
   // Unlike workspace rename, an unchanged title is NOT blocked: confirming
   // the current automatic title is the gesture that pins it.
-  /** 中文说明：组件局部值 解构结果，由紧邻初始化决定。 */
   const [sessionRenameTarget, setSessionRenameTarget] = useState<{ sessionId: SessionNode['id']; currentTitle: string } | null>(null)
-  /** 中文说明：组件局部值 解构结果，由紧邻初始化决定。 */
   const [sessionRenameDraft, setSessionRenameDraft] = useState('')
-  /** 中文说明：组件局部值 解构结果，由紧邻初始化决定。 */
   const [sessionRenaming, setSessionRenaming] = useState(false)
-  /** 中文说明：组件局部值 解构结果，由紧邻初始化决定。 */
   const [sessionRenameError, setSessionRenameError] = useState<string | null>(null)
-  /** 中文说明：组件局部值 sessionRenameTrimmed，由紧邻初始化决定。 */
   const sessionRenameTrimmed = sessionRenameDraft.trim()
-  /** 中文说明：组件局部值 sessionRenameBlocked，由紧邻初始化决定。 */
   const sessionRenameBlocked = sessionRenaming || sessionRenameTrimmed === '' || sessionRenameTarget === null
-  /** 中文说明：组件局部值 closeSessionRename，由紧邻初始化决定。 */
   const closeSessionRename = () => {
     if (sessionRenaming) return
     setSessionRenameTarget(null)
     setSessionRenameError(null)
   }
-  /** 中文说明：组件局部值 confirmSessionRename，由紧邻初始化决定。 */
   const confirmSessionRename = () => {
     if (sessionRenameBlocked) return
     setSessionRenaming(true)
@@ -1178,7 +1016,6 @@ export function WorkspaceBrowser({
       setSessionRenameError(reason instanceof Error ? reason.message : String(reason))
     })
   }
-  /** 中文说明：组件局部值 onSessionRename，由紧邻初始化决定。 */
   const onSessionRename = (sessionId: SessionNode['id'], currentTitle: string) => {
     setSessionRenameTarget({ sessionId, currentTitle })
     setSessionRenameDraft(currentTitle)
@@ -1189,7 +1026,6 @@ export function WorkspaceBrowser({
   // remain), so the menu action commits directly; the row disappears when the
   // archive-set echo lands. Failures are non-fatal console diagnostics, the
   // same posture as reorder rejections.
-  /** 中文说明：组件局部值 onSessionArchive，由紧邻初始化决定。 */
   const onSessionArchive = (sessionId: SessionNode['id']) => {
     archiveSession(sessionId).catch((reason: unknown) => {
       console.warn('session archive rejected:', reason)
@@ -1198,13 +1034,9 @@ export function WorkspaceBrowser({
 
   // Delete dialog is separate from the row so a successful removal can
   // unmount that row without tearing down the in-flight confirmation state.
-  /** 中文说明：组件局部值 解构结果，由紧邻初始化决定。 */
   const [deleteTarget, setDeleteTarget] = useState<{ workspaceId: WorkspaceId; title: string } | null>(null)
-  /** 中文说明：组件局部值 [deleting, setDeleting]，由紧邻初始化决定。 */
   const [deleting, setDeleting] = useState(false)
-  /** 中文说明：组件局部值 解构结果，由紧邻初始化决定。 */
   const [deleteCommittedId, setDeleteCommittedId] = useState<WorkspaceId | null>(null)
-  /** 中文说明：组件局部值 解构结果，由紧邻初始化决定。 */
   const [deleteError, setDeleteError] = useState<string | null>(null)
   useEffect(() => {
     if (deleteCommittedId === null
@@ -1213,13 +1045,11 @@ export function WorkspaceBrowser({
     setDeleteCommittedId(null)
     setDeleteTarget(null)
   }, [deleteCommittedId, workspaces])
-  /** 中文说明：组件局部值 closeDelete，由紧邻初始化决定。 */
   const closeDelete = () => {
     if (deleting) return
     setDeleteTarget(null)
     setDeleteError(null)
   }
-  /** 中文说明：组件局部值 confirmDelete，由紧邻初始化决定。 */
   const confirmDelete = () => {
     /* v8 ignore next -- the Modal is absent without a target and its button is disabled while deleting. */
     if (deleting || deleteTarget === null) return

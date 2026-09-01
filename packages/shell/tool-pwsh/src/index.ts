@@ -1,23 +1,4 @@
 /**
- * ================================ 文件注释 ================================
- * 【文件职责】实现 pwsh 工具的模型侧消费者（Consumer）：面向 Windows 组合体（ctx.shell 由
- * PowerShell 执行器支撑），注册名为 `pwsh` 的工具，行为逐调用镜像 dsh-tool-bash——
- * 前台/后台执行、受管 DSH_* 环境、按调用沙箱策略、拒绝渲染与同轮升级审批、标记/截断渲染。
- * 【技术维度】defineTool + ctx.tools.register；execute 先审批后执行（approveEscalation）；
- * 后台经 ctx.jobs.start 登记（JobKindMap 声明 pwsh 种类）；输出 schema 与 bash 版按契约对称
- * （一方消费者必须能接受另一方）；多个实现段因刻意镜像而分块包在 jscpd:ignore 内。
- * 【产品维度】Windows 上模型执行 PowerShell 命令的入口：原生 C:\... 路径与 $env:NAME 变量；
- * 前台完成调用展示为带退出状态徽章的 terminal 卡片；沙箱拒绝时引导同轮升级审批。
- * 【逻辑维度】validatePwshArgs 校验 → resolveSandboxPolicy 取策略 → 可选审批升级 →
- * resolveWorkdir 解析工作目录 → 前台/后台分流 → canonicalPwshResult / renderPwshResult 规范化。
- * 【关键边界】Windows 受限令牌沙箱下语言模式/命名管道行为的描述仅适用于 win32 组合体
- * （见函数内注释）；未宣传沙箱能力时 sandbox_permissions 仍可能到达 execute，须守卫。
- * 【新手阅读建议】先对照 dsh-tool-bash/index.ts 找共性，再重点看差异：declare module 的
- * job 种类、pwshDescription 的 Windows 专属段落、canonicalPwshResult 的形状。
- * ==========================================================================
- */
-
-/**
  * Model-facing PowerShell Consumer of the `ctx.shell` capability seam. Intended for
  * Windows compositions where a PowerShell executor (e.g.
  * `@deepseek-ai/dsh-pwsh-local`) backs `ctx.shell`; the tool contract is
@@ -45,7 +26,6 @@ import { defineTool, TOOL_ABORTED } from '@deepseek-ai/dsh-tools'
 import type { GenericCallView, TerminalCallView, ToolExecution, ToolResult, ToolResultView } from '@deepseek-ai/dsh-tools'
 import { HarnessError } from '@deepseek-ai/dsh-llm'
 import type { Agent } from '@deepseek-ai/dsh-agent'
-import { FIRST_PARTY_SECTION_ORDER } from '@deepseek-ai/dsh-system-prompt'
 import type {} from '@deepseek-ai/dsh-jobs'
 import type {} from '@deepseek-ai/dsh-shell-env'
 import type {} from '@deepseek-ai/dsh-user-approval'
@@ -59,7 +39,6 @@ import { renderPwshProcessRead, renderPwshResult } from './render.ts'
 import type { RenderablePwshResult } from './render.ts'
 
 declare module '@deepseek-ai/dsh-jobs' {
-  // 把 'pwsh' 声明为合法的 job 种类（模块增强），后台任务登记时使用 kind: 'pwsh'。
   interface JobKindMap {
     pwsh: 'pwsh'
   }
@@ -69,21 +48,17 @@ export const name = 'tool-pwsh'
 export const inject = ['tools', 'shell', 'systemPrompt', 'shellEnv']
 
 /** Configuration for the pwsh tool. */
-/* pwsh 工具的配置。 */
 export interface Config {
   /** Expose `run_in_background` (default true); disabled calls are also rejected. */
-  /* 是否暴露 run_in_background 参数（默认 true）；禁用时相关调用也会被拒绝。 */
   enableRunInBackground?: boolean
 }
 
 /** Runtime configuration schema for the pwsh tool plugin. */
-/* pwsh 工具插件的运行时配置 schema。 */
 export const Config: z<Config> = z.object({
   enableRunInBackground: z.boolean().default(true),
 })
 
 /** Parsed tool args; execute validates value constraints absent from ParameterSchemaSpec. */
-/* 解析后的工具参数；execute 负责校验 ParameterSchemaSpec 表达不了的取值约束。 */
 interface PwshToolArgs {
   command: string
   description: string
@@ -95,7 +70,6 @@ interface PwshToolArgs {
 }
 
 /** The canonical foreground result of one pwsh call (the `output.schema` value shape). */
-/* 一次 pwsh 调用的规范化前台结果（与 output.schema 的值形状一致）。 */
 interface PwshForegroundResult {
   kind: 'foreground'
   exitCode: number | null
@@ -108,11 +82,6 @@ interface PwshForegroundResult {
   sandbox?: { mode: string; denied: boolean; enforcement?: string; runnerFailed?: boolean }
 }
 
-/**
- * 下面的校验函数与 execute 管道是 dsh-tool-bash 的最小镜像（pragma 豁免重复检测）。
- * 校验工具参数的基本约束：命令/描述非空、超时为正数，并复用共享规则校验
- * sandbox_permissions 与 justification 的配对。
- */
 /* jscpd:ignore-start -- minimal mirror of dsh-tool-bash's validation and execute plumbing (Agent Note). */
 function validatePwshArgs(args: PwshToolArgs): void {
   if (args.command.trim().length === 0) {
@@ -126,16 +95,10 @@ function validatePwshArgs(args: PwshToolArgs): void {
   }
   // The escalation pairing (sandbox_permissions ⇔ justification, non-empty) is
   // the shared rule both enforcing families validate identically.
-  // 升级配对规则（sandbox_permissions 与 justification 成对且非空）是两个强制族共用的共享规则。
   validateEscalationArgs(args.sandbox_permissions, args.justification)
 }
 /* jscpd:ignore-end */
 
-/**
- * 组装工具的模型可见描述：讲解前台/后台用法、原生 Windows 路径与 $env:NAME 读取、
- * Windows 强制终止语义（无信号标记、裸 exit 1 视为中断），以及受限令牌沙箱下的
- * 语言模式/命名管道边界与同轮升级指引。
- */
 function pwshDescription(backgroundEnabled: boolean, escalationModes: readonly SandboxMode[]): string {
   const background = backgroundEnabled
     ? 'Set `run_in_background: true` for long-running commands: the call returns a job id immediately; read its output with `job_output` and stop it with `job_kill`.'
@@ -183,10 +146,6 @@ function pwshDescription(backgroundEnabled: boolean, escalationModes: readonly S
  * Resolve an explicit workdir first, making a relative one session-workspace-relative;
  * otherwise use the session header cwd and leave executor defaulting as the fallback.
  */
-/*
- * 解析显式 workdir：相对路径按会话工作区解析；未指定时使用会话头 cwd，把执行器默认值
- * 作为兜底（pwsh 版没有沙箱策略根目录参与的版本，因为策略根由执行器侧处理）。
- */
 function resolveWorkdir(modelWorkdir: string | undefined, exec: { agent?: Agent }): string | undefined {
   const headerCwd = exec.agent?.session.header.cwd
   if (modelWorkdir === undefined) return headerCwd
@@ -197,7 +156,6 @@ function resolveWorkdir(modelWorkdir: string | undefined, exec: { agent?: Agent 
 }
 
 /** Detach the executor DTO from readonly Service Definition types into plain JSON data. */
-/* 把执行器 DTO 从只读的 Service Definition 类型剥离为普通 JSON 数据（序列化前清理）。 */
 function canonicalPwshResult(result: ShellRunResult): PwshForegroundResult {
   const output = (stream: ShellRunResult['stdout']) => ({
     text: stream.text,
@@ -226,17 +184,12 @@ function canonicalPwshResult(result: ShellRunResult): PwshForegroundResult {
 }
 
 /** Canonical background-handle properties shared by the pwsh output union. */
-/* pwsh 输出联合类型中共享的规范化后台句柄属性（kind 恒为 background，带 jobId）。 */
 const BACKGROUND_OUTPUT_PROPERTIES = {
   kind: { type: 'string', required: true, const: 'background' },
   jobId: { type: 'string', required: true },
 } as const
 /* jscpd:ignore-end */
 
-/**
- * 注册 pwsh 工具。下面的 apply 前奏与 bash 工具的 apply 前奏刻意镜像（pragma 豁免）：
- * 依配置决定是否启用后台，依据所挂执行器是否沙箱化决定是否宣传升级字段。
- */
 /* jscpd:ignore-start -- deliberate mirror of dsh-tool-bash's apply() preamble (pwsh-tool-and-executor Agent Note). */
 export function apply(ctx: Context, config: Config = {}): void {
   const backgroundEnabled = config.enableRunInBackground ?? true
@@ -248,7 +201,6 @@ export function apply(ctx: Context, config: Config = {}): void {
   }
   /* jscpd:ignore-end */
   /** Resolve the complete standing policy for this call when a confining executor is mounted. */
-  /* 当挂载了受限执行器时，为本次调用解析完整的常驻策略（无 agent 时传空会话）。 */
   const resolveSandboxPolicy = (exec: ToolExecution): SandboxExecutionPolicy | undefined =>
     sandboxPolicy?.resolve(exec.agent === undefined ? {} : { session: exec.agent.session })
 
@@ -265,11 +217,6 @@ export function apply(ctx: Context, config: Config = {}): void {
    * executor advertises confinement, so a split composition fails at
    * tool-plugin load.
    */
-  /*
-   * 在任何执行发生之前，经 ctx.approval 处理沙箱升级请求，把共享的"失败即关闭"序列
-   * （严格加宽、渠道解析、结果映射）委托给 approveEscalation（与 bash 版镜像）。
-   * 执行器宣传隔离时必须有共享策略解析器，否则拆分的组合体在工具插件加载时就失败。
-   */
   const approvePwshEscalation = (
     mode: string,
     justification: string,
@@ -279,7 +226,6 @@ export function apply(ctx: Context, config: Config = {}): void {
     if (escalationModes.length === 0) {
       throw new Error('sandbox_permissions is not available in this composition (no sandboxing executor to escalate)')
     }
-    // 以常驻策略的当前模式作为"有效模式"（升级基准）。
     const effectiveMode = (standingPolicy as SandboxExecutionPolicy).mode
     return approveEscalation(
       { requestedMode: mode, justification, effectiveMode, subject: 'command' },
@@ -294,10 +240,9 @@ export function apply(ctx: Context, config: Config = {}): void {
   }
   /* jscpd:ignore-end */
 
-  // 跨调用指引放进系统提示词：强调 Windows 上被杀进程落定为裸 exit 1 的语义。
   ctx.systemPrompt.section({
     name: 'tool:pwsh',
-    order: FIRST_PARTY_SECTION_ORDER.TOOL_PWSH,
+    order: ctx.systemPrompt.getSectionOrder('TOOL_PWSH'),
     text: 'Non-zero exits are reported as `[exit code: N]` markers; investigate failures before moving on. '
       + 'On Windows a killed process settles as `[exit code: 1]` without a signal marker; treat a bare exit 1 after an interruption as a termination, not a command failure.',
   })
@@ -337,7 +282,6 @@ export function apply(ctx: Context, config: Config = {}): void {
       // The foreground result wire shape mirrors dsh-tool-bash's by contract —
       // consumers of one must accept the other (see the pwsh-tool-and-executor
       // Agent Note).
-      // 前台结果的线上形状按契约与 dsh-tool-bash 镜像：一方的消费者必须能接受另一方。
       /* jscpd:ignore-start -- deliberate result-schema symmetry with dsh-tool-bash. */
       schema: {
         oneOf: [
@@ -391,7 +335,6 @@ export function apply(ctx: Context, config: Config = {}): void {
         ],
       },
       /* jscpd:ignore-end */
-      /** 结果渲染：后台确认返回一行提示；前台结果交给 renderPwshResult 生成模型文本。 */
       render: (_args, value) => [{
         type: 'text',
         text: value.kind === 'background'
@@ -399,25 +342,18 @@ export function apply(ctx: Context, config: Config = {}): void {
           : renderPwshResult(value as RenderablePwshResult, escalationModes),
       }],
     },
-    /**
-     * execute 路径与 bash 工具的按设计镜像（pragma 豁免）：先校验与审批，再前台/后台分流。
-     */
     /* jscpd:ignore-start -- the execute path mirrors dsh-tool-bash's by design (see the pwsh-tool-and-executor Agent Note). */
     async execute(args: PwshToolArgs, exec) {
       validatePwshArgs(args)
       // Description is display metadata; workdir defaults to the caller's session.
-      // description 只是展示元数据；workdir 缺省取调用方会话。
       const standingPolicy = resolveSandboxPolicy(exec)
-      // 仅当模型同时给出 sandbox_permissions 与 justification 时才进入审批流程。
       const approvedMode = args.sandbox_permissions !== undefined && args.justification !== undefined
         ? await approvePwshEscalation(args.sandbox_permissions, args.justification, exec, standingPolicy)
         : undefined
-      // 审批通过后把升级模式盖到策略上，构成本次调用的最终沙箱策略。
       const policy = approvedMode === undefined
         ? standingPolicy
         : { ...(standingPolicy as SandboxExecutionPolicy), mode: approvedMode }
       const workdir = resolveWorkdir(args.workdir, exec)
-      // 收集本次调用的受管 DSH_* 环境快照（来自 ctx.shellEnv）。
       const request = {
         command: args.command,
         ...workdir !== undefined ? { workdir } : {},
@@ -427,7 +363,6 @@ export function apply(ctx: Context, config: Config = {}): void {
       }
       if (args.run_in_background === true) {
         // Undeclared keys are allowed, so schema omission also needs enforcement.
-        // schema 允许未声明键通过，因此这里还要显式强制"已禁用则拒绝"。
         if (!backgroundEnabled) {
           throw new Error('run_in_background is disabled for this deployment (enableRunInBackground: false)')
         }
@@ -436,20 +371,17 @@ export function apply(ctx: Context, config: Config = {}): void {
           throw new Error('background jobs unavailable: load @deepseek-ai/dsh-jobs and @deepseek-ai/dsh-tool-jobs')
         }
         // The caller owns cancellation until ctx.jobs commits detached ownership.
-        // 在 ctx.jobs 接管脱离式所有权之前，取消仍归调用方所有。
         if (exec.signal.aborted) {
           const error = new HarnessError('tool call aborted', TOOL_ABORTED)
           error.name = 'AbortError'
           throw error
         }
         // Task preflight finishes before the starter can spawn a process.
-        // 任务预检（上面的守卫）全部通过后，starter 才能去 spawn 进程。
         const id = jobs.start({
           kind: 'pwsh',
           label: args.command,
           ...exec.agent ? { owner: exec.agent } : {},
           run: () => {
-            // 后台执行：由 ctx.shell.start 启动，取消/完成/读取都映射为通用任务接口。
             const proc = ctx.shell.start(ctx.shell.resolve(request))
             return {
               cancel: () => void proc.kill(),
@@ -460,7 +392,6 @@ export function apply(ctx: Context, config: Config = {}): void {
         })
         return { kind: 'background' as const, jobId: id }
       }
-      // 前台执行：携带调用方信号，run 完成后若被 abort 则抛标准工具中止错误。
       const result = await ctx.shell.run(ctx.shell.resolve({
         ...request,
         signal: exec.signal,
@@ -473,14 +404,10 @@ export function apply(ctx: Context, config: Config = {}): void {
       return canonicalPwshResult(result)
     },
     /* jscpd:ignore-end */
-    /**
-     * 调用卡片的呈现与 bash 工具按设计镜像：后台启动显示 generic 卡片，前台显示 terminal 卡片。
-     */
     /* jscpd:ignore-start -- the background call card mirrors presentBashCall's by design (Agent Note). */
     presentCall: (args: PwshToolArgs): TerminalCallView | GenericCallView => {
       // Background acknowledgements carry no terminal exit status; the generic
       // card mirrors the bash tool's background presentation.
-      // 后台确认没有终端退出状态；generic 卡片镜像 bash 工具的后台呈现。
       if (args.run_in_background === true) {
         return {
           card: 'generic',
@@ -498,9 +425,6 @@ export function apply(ctx: Context, config: Config = {}): void {
       }
     },
     /* jscpd:ignore-end */
-    /**
-     * 完成结果的呈现与 bash 工具按设计镜像：前台输出解析出退出徽章，其余用 generic 围栏。
-     */
     /* jscpd:ignore-start -- the completed-result presentation mirrors presentBashResult's by design (Agent Note). */
     presentResult: (args: unknown, result: ToolResult): ToolResultView | undefined => {
       const block = result.content.length === 1 ? result.content[0] : undefined
@@ -508,12 +432,10 @@ export function apply(ctx: Context, config: Config = {}): void {
       const raw = block.text
       const isBackground = typeof args === 'object' && args !== null && (args as { run_in_background?: unknown }).run_in_background === true
       // Background acknowledgements and errors have no terminal exit status.
-      // 后台确认与错误没有终端退出状态。
       if (isBackground || result.isError) {
         return { card: 'generic', content: [{ type: 'text', text: `\`\`\`console\n${raw.replace(/\n+$/, '')}\n\`\`\`` }] }
       }
       // The exit marker becomes the card's exit pill, so it leaves the output body.
-      // 退出标记成为卡片的退出徽章，因此从输出正文中剥离。
       const { body, ...exit } = parseExitStatus(raw)
       return { card: 'terminal', output: body, ...exit }
     },

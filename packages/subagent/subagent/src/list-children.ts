@@ -1,23 +1,3 @@
-/*
- * ================================ 文件注释 ================================
- * 【文件职责】只读枚举持久化的子代理与后代树：直接读会话存储与可选持久化，不依赖查询服务；
- *   每个子代理的模式/标签来自 subagent 投影单元的"三级梯子"解析。
- * 【技术维度】live 优先合并语料（sessions + persistence）；身份解析三梯子：注册表 watermark
- *   快照 → 投影缓存行（seq 门槛证明来自自己日志后缀）→ 持久化 inspect 再经投影折叠；
- *   冷读取有并发上限（COLD_READ_CONCURRENCY = 4）。
- * 【产品维度】模型工具/API 需要列出"有哪些子代理、什么状态、能否续聊"时使用，不加载或
- *   恢复任何 Agent，也不咨询 Activation/提供者状态。
- * 【逻辑维度】按代码顺序：类型（SubagentListEntry 等）→ 内部运行时类型 → listChildren →
- *   listDescendants → prepareListing → resolveCandidateRows → descendantCandidates →
- *   compareCorpusRecords → resolveColdIdentity → childRow → sameLifecycle →
- *   assertListingNotCancelled。
- * 【关键边界】每个候选错误被隔离为单条 diagnostic，不影响整个列表；
- *   取消（signal）在每次持久化读前后检查，取消后变成稳定的 CANCELLED 错误。
- * 【新手阅读建议】先读 SubagentListEntry 的 union（child vs diagnostic），再追
- *   resolveColdIdentity 的三梯子逻辑。
- * ==========================================================================
- */
-
 /**
  * Read-only enumeration of durable subagent children and descendant trees
  * through the Session query service. Candidates come from one live-preferred
@@ -59,7 +39,6 @@ const COLD_READ_CONCURRENCY = 4
  * position in the complete session tree. `parentId` is the durable direct
  * parent from the enumerated header, and `depth` counts edges from the root.
  */
-// 中文：后代列表条目：在子代理条目上叠加持久化直接父 ID 与根相对深度（直子为 1）。
 export type SubagentDescendantListEntry = SubagentListEntry & {
   /** Durable direct parent of this candidate in the enumerated tree. */
   readonly parentId: SessionId
@@ -67,11 +46,8 @@ export type SubagentDescendantListEntry = SubagentListEntry & {
   readonly depth: number
 }
 
-// 中文：语料记录：持久化 header + 可选 live 会话（live 优先合并时以 live 为准）。
 type CorpusRecord = { readonly header: SessionHeader; readonly live: Session | undefined }
 
-// 中文：一次列表运行的共享解析上下文：投影注册表、可选持久化与缓存、
-// live 优先合并后的语料、以及"是某子代理的父"的 ID 集合（用于 hasChildren 标记）。
 interface ListingRuntime {
   readonly projections: SessionProjectionRegistry
   readonly query: SessionQueryEngine
@@ -80,7 +56,6 @@ interface ListingRuntime {
   readonly subagentParents: ReadonlySet<SessionId>
 }
 
-// 中文：带树位置的候选：语料记录 + 持久化直接父 ID + 根相对深度（供后代列表组装）。
 interface PositionedCandidate {
   readonly record: CorpusRecord
   readonly parentId: SessionId
@@ -92,7 +67,7 @@ interface PositionedCandidate {
  * live-preferred merge of `ctx.sessions` and optional session persistence,
  * serving each identity from the `subagent` projection unit: the registry's
  * watermark snapshot for a live child; for a cold one, a durable
- * projection-cache row when it serves an own-suffix identity (the seq gate),
+ * projection-cache read when it serves an own-suffix identity (the seq gate),
  * else one bounded-concurrency shared Session observation.
  * @see SubagentRuntime.listChildren for the public cancellation and failure contract.
  * @param ctx - context carrying the session store, the projection registry,
@@ -103,8 +78,6 @@ interface PositionedCandidate {
  * @throws {@link SubagentError} when the projection registry or the session
  *   store is not mounted, or the caller cancels the listing.
  */
-// 中文：枚举一个父代理的 origin:'subagent' 直接子代理：live 优先语料 → 按 createdAt/id
-// 排序 → 逐候选解析身份（live 走注册表快照，冷候选走三级梯子）→ 过滤无身份候选。
 export async function listChildren(
   ctx: Context,
   parentSessionId: SessionId,
@@ -132,8 +105,6 @@ export async function listChildren(
  * @returns interpreted subagents with durable direct-parent and root-relative depth.
  * @throws {@link SubagentError} under the same conditions as {@link listChildren}.
  */
-// 中文：枚举根以下的全部会话备份子代理：稳定前序、无递归的显式栈遍历；
-// 普通会话与一次性子代理作为遍历节点保留，保证其下续聊后代被发现。
 export async function listDescendants(
   ctx: Context,
   rootSessionId: SessionId,
@@ -157,8 +128,6 @@ export async function listDescendants(
 }
 
 /** Resolve listing services once and build one live-preferred session corpus. */
-// 中文：一次列表的"解析服务 + 语料"准备：校验投影注册表与会话存储必须可用（否则
-// fail loud），读取持久化 header 列表并做 live 优先合并，收集子代理父集合。
 async function prepareListing(
   ctx: Context,
   signal: AbortSignal | undefined,
@@ -223,8 +192,6 @@ async function prepareListing(
 }
 
 /** Resolve projection-backed rows for aligned candidates with bounded cold reads. */
-// 中文：为对齐的候选解析投影行：live 候选走注册表 watermark 快照（任何投影单元抛错都
-// 降级为单条 corrupt 诊断）；冷候选走限并发队列 resolveColdIdentity；最后检查取消。
 async function resolveCandidateRows(
   candidates: readonly CorpusRecord[],
   listing: ListingRuntime,
@@ -277,8 +244,6 @@ async function resolveCandidateRows(
 }
 
 /** Build origin-classified candidates from the complete tree without recursion. */
-// 中文：从完整树中构建 origin 分类候选（显式栈、无递归）：先按父 ID 分组并排序兄弟，
-// 再从根做深度优先前序遍历，记录每个子代理的持久化直接父与根相对深度。
 function descendantCandidates(
   corpus: ReadonlyMap<SessionId, CorpusRecord>,
   rootSessionId: SessionId,
@@ -315,7 +280,6 @@ function descendantCandidates(
 }
 
 /** Compare siblings by durable creation time, then id. */
-// 中文：兄弟排序键：持久化创建时间升序，时间相同再按 id 字典序（保证列表稳定）。
 function compareCorpusRecords(a: CorpusRecord, b: CorpusRecord): number {
   return a.header.createdAt - b.header.createdAt || a.header.id.localeCompare(b.header.id)
 }
@@ -329,8 +293,6 @@ function compareCorpusRecords(a: CorpusRecord, b: CorpusRecord): number {
  * settled log the fold cannot identify — or that makes any registered unit
  * throw — are final, so they report `corrupt`.
  */
-// 中文：沿剩余梯子解析一个冷候选：投影缓存行（seq 门槛证明来自自己日志后缀）→ 否则
-// 一次持久化 inspect 并经注册表重新折叠；失败按"可重试/确定性损坏"分类成诊断行。
 async function resolveColdIdentity(
   query: SessionQueryEngine,
   cache: SessionProjectionCache | undefined,
@@ -397,8 +359,6 @@ async function resolveColdIdentity(
 }
 
 /** Materialize one served identity as its child row. */
-// 中文：把一个已解析的身份物化为 child 行：按模式组装 label 可选/必填、活动状态与
-// 是否有子代理后代的标记。
 function childRow(
   id: SessionId,
   identity: SubagentIdentityProjection,
@@ -425,22 +385,17 @@ function childRow(
 }
 
 /** Immutable header fields that distinguish one session lifecycle from another under the same id. */
-// 中文：用于区分"同一 ID 下的不同会话生命周期"的不可变 header 字段清单：
-// inspect 回来的 meta 与枚举时的 header 在这些字段上必须一致。
 const LIFECYCLE_WITNESS_KEYS = [
   'version', 'id', 'createdAt', 'cwd', 'parentSession', 'seedLength', 'delegationDepth',
   'origin', 'agentPreset',
 ] as const
 
 /** Whether an inspected log still belongs to the enumerated lifecycle. */
-// 中文：判断 inspect 回来的日志是否仍属于枚举时的那个生命周期（ID 只是槽位，
-// 删除后可能被其他所有者复用，必须用不可变字段核对）。
 function sameLifecycle(meta: SessionHeader, expected: SessionHeader): boolean {
   return LIFECYCLE_WITNESS_KEYS.every(key => meta[key] === expected[key])
 }
 
 /** Stop a listing at its next cancellation checkpoint. */
-// 中文：在下一个取消检查点停止列表：signal 已中止时抛稳定的 CANCELLED 错误。
 function assertListingNotCancelled(signal: AbortSignal | undefined): void {
   if (signal?.aborted) {
     throw new SubagentError('subagent listing was cancelled', 'CANCELLED')

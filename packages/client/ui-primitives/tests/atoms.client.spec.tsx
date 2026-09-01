@@ -1,25 +1,15 @@
 // @vitest-environment jsdom
-/**
- * 文件职责：验证 UI 基础组件的 atoms.client.spec.tsx 行为。
- * 技术维度：Vitest、React 测试渲染和 DOM 事件模拟。
- * 产品维度：防止复用组件的显示和交互回归。
- * 逻辑维度：构造属性，渲染组件并断言 DOM 与事件。
- * 关键边界：测试必须清理 DOM；快照不能替代关键交互断言。
- * 新手阅读建议：先读渲染辅助函数，再按组件场景阅读。
- */
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { Button, ConnectionBanner, Input, Menu, Modal, Pill } from '@deepseek-ai/dsh-client-ui-primitives'
+import { Button, ConnectionIndicator, Input, Menu, Modal, Pill } from '@deepseek-ai/dsh-client-ui-primitives'
 import { POINTER_GRACE_MS } from '../src/pointer-grace.ts'
 
 afterEach(cleanup)
 
 describe('Button', () => {
   it('renders children, icon, and forwards clicks', () => {
-    /** 中文说明：测试局部值 onClick，由紧邻初始化决定。 */
     const onClick = vi.fn()
     render(<Button variant="primary" icon={<svg data-testid="ic" />} onClick={onClick}>Go</Button>)
-    /** 中文说明：测试局部值 button，由紧邻初始化决定。 */
     const button = screen.getByRole('button', { name: 'Go' })
     expect(screen.getByTestId('ic')).toBeDefined()
     fireEvent.click(button)
@@ -27,7 +17,6 @@ describe('Button', () => {
   })
 
   it('disabled blocks interaction', () => {
-    /** 中文说明：测试局部值 onClick，由紧邻初始化决定。 */
     const onClick = vi.fn()
     render(<Button disabled onClick={onClick}>No</Button>)
     fireEvent.click(screen.getByRole('button'))
@@ -42,7 +31,6 @@ describe('Button', () => {
 
 describe('Pill', () => {
   it('is a span when static, a button when clickable', () => {
-    /** 中文说明：测试局部值 { rerender }，由紧邻初始化决定。 */
     const { rerender } = render(<Pill active>tab</Pill>)
     expect(screen.queryByRole('button')).toBeNull()
     rerender(<Pill onClick={() => {}}>tab</Pill>)
@@ -50,13 +38,10 @@ describe('Pill', () => {
   })
 
   it('active and className land on both static and interactive forms', () => {
-    /** 中文说明：测试局部值 { container, rerender }，由紧邻初始化决定。 */
     const { container, rerender } = render(<Pill className="x">tab</Pill>)
-    /** 中文说明：测试局部值 asSpan，由紧邻初始化决定。 */
     const asSpan = container.firstElementChild as HTMLElement
     expect(asSpan.classList.contains('x')).toBe(true)
     rerender(<Pill active className="x" onClick={() => {}}>tab</Pill>)
-    /** 中文说明：测试局部值 asButton，由紧邻初始化决定。 */
     const asButton = screen.getByRole('button')
     expect(asButton.classList.contains('x')).toBe(true)
   })
@@ -64,10 +49,8 @@ describe('Pill', () => {
 
 describe('Input', () => {
   it('forwards value/onChange and renders the leading icon', () => {
-    /** 中文说明：测试局部值 onChange，由紧邻初始化决定。 */
     const onChange = vi.fn()
     render(<Input icon={<svg data-testid="ic" />} value="q" onChange={onChange} placeholder="search" />)
-    /** 中文说明：测试局部值 input，由紧邻初始化决定。 */
     const input = screen.getByPlaceholderText<HTMLInputElement>('search')
     expect(input.value).toBe('q')
     fireEvent.change(input, { target: { value: 'qq' } })
@@ -77,16 +60,13 @@ describe('Input', () => {
 })
 
 describe('Menu', () => {
-  /** 中文说明：测试局部值 items，由紧邻初始化决定。 */
   const items = [
     { id: 'a', label: 'Alpha' },
     { id: 'b', label: 'Beta', disabled: true },
   ]
 
   it('shows items only while open; select fires onSelect', () => {
-    /** 中文说明：测试局部值 onSelect，由紧邻初始化决定。 */
     const onSelect = vi.fn()
-    /** 中文说明：测试局部值 { rerender }，由紧邻初始化决定。 */
     const { rerender } = render(
       <Menu open={false} anchor={<span>trigger</span>} items={items} onSelect={onSelect} onClose={() => {}} />)
     expect(screen.queryByRole('menu')).toBeNull()
@@ -97,9 +77,7 @@ describe('Menu', () => {
   })
 
   it('disabled item does not select; Escape and outside pointerdown close', () => {
-    /** 中文说明：测试局部值 onSelect，由紧邻初始化决定。 */
     const onSelect = vi.fn()
-    /** 中文说明：测试局部值 onClose，由紧邻初始化决定。 */
     const onClose = vi.fn()
     render(
       <Menu open anchor={<span>trigger</span>} items={items} onSelect={onSelect} onClose={onClose} />)
@@ -112,7 +90,6 @@ describe('Menu', () => {
   })
 
   it('inside pointerdown does not close', () => {
-    /** 中文说明：测试局部值 onClose，由紧邻初始化决定。 */
     const onClose = vi.fn()
     render(
       <Menu open anchor={<span>trigger</span>} items={items} onSelect={() => {}} onClose={onClose} />)
@@ -121,7 +98,6 @@ describe('Menu', () => {
   })
 
   it('selected item shows the trailing check; align=end, side=top, and className apply', () => {
-    /** 中文说明：测试局部值 { container }，由紧邻初始化决定。 */
     const { container } = render(
       <Menu
         open
@@ -135,13 +111,10 @@ describe('Menu', () => {
         onClose={() => {}}
       />)
     expect((container.firstElementChild as HTMLElement).classList.contains('x')).toBe(true)
-    /** 中文说明：测试局部值 menu，由紧邻初始化决定。 */
     const menu = screen.getByRole('menu')
     expect(menu.className).toMatch(/sideTop|alignEnd/)
-    /** 中文说明：测试局部值 selected，由紧邻初始化决定。 */
     const selected = screen.getByRole('menuitem', { name: 'Alpha' })
     expect(selected.querySelector('svg')).not.toBeNull()
-    /** 中文说明：测试局部值 other，由紧邻初始化决定。 */
     const other = screen.getByRole('menuitem', { name: 'Beta' })
     expect(other.querySelector('svg')).toBeNull()
     fireEvent.keyDown(document, { key: 'a' })
@@ -166,7 +139,6 @@ describe('Menu', () => {
   })
 
   it('renders a non-interactive heading label and a danger row', () => {
-    /** 中文说明：测试局部值 onSelect，由紧邻初始化决定。 */
     const onSelect = vi.fn()
     render(
       <Menu
@@ -179,12 +151,10 @@ describe('Menu', () => {
         onSelect={onSelect}
         onClose={() => {}}
       />)
-    /** 中文说明：测试局部值 heading，由紧邻初始化决定。 */
     const heading = screen.getByText('Group by')
     expect(heading.getAttribute('role')).toBe('presentation')
     // The heading is not a menu item — only the danger row is interactive.
     expect(screen.getAllByRole('menuitem')).toHaveLength(1)
-    /** 中文说明：测试局部值 danger，由紧邻初始化决定。 */
     const danger = screen.getByRole('menuitem', { name: 'Delete' })
     expect(danger.className).toMatch(/danger/)
     fireEvent.click(danger)
@@ -194,12 +164,9 @@ describe('Menu', () => {
   it('closeOnPointerLeave closes a grace after the pointer leaves trigger and list; default never does', () => {
     vi.useFakeTimers()
     try {
-      /** 中文说明：测试局部值 onClose，由紧邻初始化决定。 */
       const onClose = vi.fn()
-      /** 中文说明：测试局部值 { rerender }，由紧邻初始化决定。 */
       const { rerender } = render(
         <Menu open closeOnPointerLeave anchor={<span>trigger</span>} items={items} onSelect={() => {}} onClose={onClose} />)
-      /** 中文说明：测试局部值 wrapper，由紧邻初始化决定。 */
       const wrapper = screen.getByText('trigger').parentElement as HTMLElement
       fireEvent.pointerLeave(wrapper)
       // Still open through the grace: the pointer may be crossing the gap.
@@ -220,11 +187,9 @@ describe('Menu', () => {
   it('coming back inside the grace keeps the list open (trigger and list are one region)', () => {
     vi.useFakeTimers()
     try {
-      /** 中文说明：测试局部值 onClose，由紧邻初始化决定。 */
       const onClose = vi.fn()
       render(
         <Menu open closeOnPointerLeave anchor={<span>trigger</span>} items={items} onSelect={() => {}} onClose={onClose} />)
-      /** 中文说明：测试局部值 wrapper，由紧邻初始化决定。 */
       const wrapper = screen.getByText('trigger').parentElement as HTMLElement
       fireEvent.pointerLeave(wrapper)
       act(() => { vi.advanceTimersByTime(POINTER_GRACE_MS - 50) })
@@ -239,12 +204,9 @@ describe('Menu', () => {
   it('a close from selection disarms the pending grace close', () => {
     vi.useFakeTimers()
     try {
-      /** 中文说明：测试局部值 onClose，由紧邻初始化决定。 */
       const onClose = vi.fn()
-      /** 中文说明：测试局部值 { rerender }，由紧邻初始化决定。 */
       const { rerender } = render(
         <Menu open closeOnPointerLeave anchor={<span>trigger</span>} items={items} onSelect={() => {}} onClose={onClose} />)
-      /** 中文说明：测试局部值 wrapper，由紧邻初始化决定。 */
       const wrapper = screen.getByText('trigger').parentElement as HTMLElement
       fireEvent.pointerLeave(wrapper)
       // The owner closes for its own reason (selection/Escape) mid-grace; the
@@ -261,7 +223,6 @@ describe('Menu', () => {
   it('leaving a closed list arms nothing', () => {
     vi.useFakeTimers()
     try {
-      /** 中文说明：测试局部值 onClose，由紧邻初始化决定。 */
       const onClose = vi.fn()
       render(
         <Menu open={false} closeOnPointerLeave anchor={<span>trigger</span>} items={items} onSelect={() => {}} onClose={onClose} />)
@@ -274,7 +235,6 @@ describe('Menu', () => {
   })
 
   it('a list click does not bubble to the anchor row (portal synthetic-event path)', () => {
-    /** 中文说明：测试局部值 rowClick，由紧邻初始化决定。 */
     const rowClick = vi.fn()
     render(
       <div onClick={rowClick}>
@@ -285,7 +245,6 @@ describe('Menu', () => {
   })
 
   it('opens a submenu on hover and selects a nested item', () => {
-    /** 中文说明：测试局部值 onSelect，由紧邻初始化决定。 */
     const onSelect = vi.fn()
     render(
       <Menu
@@ -305,13 +264,10 @@ describe('Menu', () => {
         onSelect={onSelect}
         onClose={() => {}}
       />)
-    /** 中文说明：测试局部值 plain，由紧邻初始化决定。 */
     const plain = screen.getByRole('menuitem', { name: 'Plain' })
     fireEvent.mouseEnter(plain.parentElement as HTMLElement)
     fireEvent.focus(plain)
-    /** 中文说明：测试局部值 parent，由紧邻初始化决定。 */
     const parent = screen.getByRole('menuitem', { name: 'New Workspace' })
-    /** 中文说明：测试局部值 wrap，由紧邻初始化决定。 */
     const wrap = parent.parentElement as HTMLElement
     fireEvent.click(parent)
     expect(onSelect).not.toHaveBeenCalled()
@@ -325,7 +281,6 @@ describe('Menu', () => {
   })
 
   it('portal mode prefers getAnchorRect over measuring its own wrapper', () => {
-    /** 中文说明：测试局部值 rect，由紧邻初始化决定。 */
     const rect = { left: 40, right: 72, top: 100, bottom: 128, width: 32, height: 28, x: 40, y: 100, toJSON: () => ({}) } as DOMRect
     render(
       <Menu
@@ -337,7 +292,6 @@ describe('Menu', () => {
         onSelect={() => {}}
         onClose={() => {}}
       />)
-    /** 中文说明：测试局部值 menu，由紧邻初始化决定。 */
     const menu = screen.getByRole('menu')
     // side=bottom, align=start: below the host-supplied rect, left-aligned.
     expect(menu.style.left).toBe('40px')
@@ -359,14 +313,10 @@ describe('Menu', () => {
   })
 
   it('portal mode renders the list under body, positions it fixed, and still closes on outside pointerdown', () => {
-    /** 中文说明：测试局部值 onSelect，由紧邻初始化决定。 */
     const onSelect = vi.fn()
-    /** 中文说明：测试局部值 onClose，由紧邻初始化决定。 */
     const onClose = vi.fn()
-    /** 中文说明：测试局部值 { container }，由紧邻初始化决定。 */
     const { container } = render(
       <Menu portal open anchor={<span>trigger</span>} items={items} onSelect={onSelect} onClose={onClose} />)
-    /** 中文说明：测试局部值 menu，由紧邻初始化决定。 */
     const menu = screen.getByRole('menu')
     // Outside the anchor wrapper subtree — overflow-clipping ancestors can't crop it.
     expect(container.contains(menu)).toBe(false)
@@ -377,7 +327,6 @@ describe('Menu', () => {
     fireEvent.pointerDown(menu)
     expect(onClose).not.toHaveBeenCalled()
     // Non-Node targets (e.g. window itself) are ignored, not treated as outside.
-    /** 中文说明：测试局部值 nonNodeTarget，由紧邻初始化决定。 */
     const nonNodeTarget = new Event('pointerdown', { bubbles: true })
     Object.defineProperty(nonNodeTarget, 'target', { value: window })
     document.dispatchEvent(nonNodeTarget)
@@ -389,7 +338,6 @@ describe('Menu', () => {
   it('portal mode resolves align=end / side=top to clamped left/top coordinates', () => {
     render(
       <Menu portal open align="end" side="top" anchor={<span>trigger</span>} items={items} onSelect={() => {}} onClose={() => {}} />)
-    /** 中文说明：测试局部值 menu，由紧邻初始化决定。 */
     const menu = screen.getByRole('menu')
     expect(menu.style.left).not.toBe('')
     expect(menu.style.top).not.toBe('')
@@ -398,7 +346,6 @@ describe('Menu', () => {
   })
 
   it('renders footer rows in a pinned section below the items; they still select', () => {
-    /** 中文说明：测试局部值 onSelect，由紧邻初始化决定。 */
     const onSelect = vi.fn()
     render(
       <Menu
@@ -409,7 +356,6 @@ describe('Menu', () => {
         onSelect={onSelect}
         onClose={() => {}}
       />)
-    /** 中文说明：测试局部值 footerItem，由紧邻初始化决定。 */
     const footerItem = screen.getByRole('menuitem', { name: 'Create new' })
     expect((footerItem.closest('div[class*="footer"]'))).not.toBeNull()
     expect(screen.getByRole('menuitem', { name: 'Alpha' }).closest('div[class*="footer"]')).toBeNull()
@@ -418,7 +364,6 @@ describe('Menu', () => {
   })
 
   it('caps the list height for internal scrolling unless a submenu row is present', () => {
-    /** 中文说明：测试局部值 { rerender }，由紧邻初始化决定。 */
     const { rerender } = render(
       <Menu open anchor={<span>trigger</span>} items={items} onSelect={() => {}} onClose={() => {}} />)
     expect(screen.getByRole('menu').className).toMatch(/scrollable/)
@@ -436,9 +381,7 @@ describe('Menu', () => {
 
 describe('Modal', () => {
   it('is absent while closed; Escape and mask click call onClose', () => {
-    /** 中文说明：测试局部值 onClose，由紧邻初始化决定。 */
     const onClose = vi.fn()
-    /** 中文说明：测试局部值 { rerender }，由紧邻初始化决定。 */
     const { rerender } = render(
       <Modal open={false} onClose={onClose} title="Create new workspace" closeLabel="Close">body</Modal>)
     expect(screen.queryByRole('dialog')).toBeNull()
@@ -446,7 +389,6 @@ describe('Modal', () => {
       <Modal open onClose={onClose} title="Create new workspace" closeLabel="Configure later" description="Name it." contentClassName="scrolling-content" footer={<button type="button">Create</button>}>
         <input aria-label="name" />
       </Modal>)
-    /** 中文说明：测试局部值 dialog，由紧邻初始化决定。 */
     const dialog = screen.getByRole('dialog', { name: 'Create new workspace' })
     expect(dialog).toBeDefined()
     // The full-page layer escapes caller stacking contexts but remains in
@@ -460,7 +402,6 @@ describe('Modal', () => {
     fireEvent.keyDown(document, { key: 'Escape' })
     expect(onClose).toHaveBeenCalledTimes(1)
     // Mask is the presentation sibling behind the dialog.
-    /** 中文说明：测试局部值 mask，由紧邻初始化决定。 */
     const mask = document.querySelector('[aria-hidden="true"]') as HTMLElement
     fireEvent.click(mask)
     expect(onClose).toHaveBeenCalledTimes(2)
@@ -478,11 +419,37 @@ describe('Modal', () => {
   })
 })
 
-describe('ConnectionBanner', () => {
-  it('renders only while reconnecting', () => {
-    const { container, rerender } = render(<ConnectionBanner reconnecting={false} label="Reconnecting" />)
+describe('ConnectionIndicator', () => {
+  it('renders outage, attempt progress, and recovered states without a native tooltip', () => {
+    const reconnect = vi.fn()
+    const labels = {
+      disconnectedLabel: 'Disconnected',
+      reconnectLabel: 'Reconnect',
+      connectingLabel: 'Connecting',
+      recoveredLabel: 'Connected',
+      reconnectActionLabel: 'Disconnected, reconnect now',
+      restartActionLabel: 'Connecting, restart now',
+      onReconnect: reconnect,
+    }
+    const { container, rerender } = render(
+      <ConnectionIndicator state={undefined} {...labels} />,
+    )
     expect(container.firstChild).toBeNull()
-    rerender(<ConnectionBanner reconnecting label="Reconnecting" />)
-    expect(container.textContent).toContain('Reconnecting')
+    rerender(<ConnectionIndicator state="disconnected" {...labels} />)
+    const indicator = screen.getByRole('button', { name: 'Disconnected, reconnect now' })
+    expect(indicator.textContent).toContain('Disconnected')
+    expect(indicator.textContent).toContain('Reconnect')
+    expect(indicator.hasAttribute('title')).toBe(false)
+    expect(indicator.querySelector('svg')).toBeTruthy()
+    fireEvent.click(indicator)
+    expect(reconnect).toHaveBeenCalledOnce()
+
+    rerender(<ConnectionIndicator state="connecting" {...labels} />)
+    expect(screen.getByRole('button', { name: 'Connecting, restart now' }).textContent)
+      .toContain('Connecting...')
+
+    rerender(<ConnectionIndicator state="recovered" {...labels} />)
+    expect(screen.queryByRole('button')).toBeNull()
+    expect(screen.getByRole('status', { name: 'Connected' })).toBeTruthy()
   })
 })

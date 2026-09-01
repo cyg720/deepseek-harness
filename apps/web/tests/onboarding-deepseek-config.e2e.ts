@@ -2,15 +2,6 @@
 // credential is absent, both ordered steps share the shipped modal chrome,
 // and the inline key write lands in an isolated harness home without a reload
 // or model call.
-// 中文说明：官方适配器在缺少凭据时仍保持挂载，用户可在不中断页面的情况下完成首次密钥配置。
-/**
- * 文件职责：验证首次启动欢迎说明、DeepSeek 密钥配置、模型设置和无需重启的状态更新。
- * 技术维度：使用 Playwright、Vitest、真实设置与凭据存储、中文界面和无障碍快照。
- * 产品维度：引导新用户理解产品说明并安全保存 API 密钥，随后立即进入可用状态。
- * 逻辑维度：确认欢迎层需显式确认，进入凭据步骤，写入随机密钥，再检查落盘、设置页和重载行为。
- * 关键边界：密钥只能写入隔离 harness home 且不得回显；测试不调用模型；录制模式跳过场景。
- * 新手阅读建议：先按欢迎层与凭据层顺序阅读首个测试，再看后续设置编辑和并发路由场景。
- */
 import { randomBytes } from 'node:crypto'
 import { readFile } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
@@ -18,7 +9,6 @@ import { join } from 'node:path'
 import type { Browser, Page } from 'playwright'
 import { chromium } from 'playwright'
 import { afterAll, beforeAll, describe, expect, it, onTestFailed } from 'vitest'
-import { settingsNamespace } from '@deepseek-ai/dsh-settings'
 import {
   acknowledgeReloadConnectionLoss, assertFixtureInventory, captureStableAria, compareOrRefreshGolden,
   launchWebScaffold, watchConsole, webSnapshotMode, type WebScaffold,
@@ -29,23 +19,15 @@ import { ZH_BROWSER_LOCALE, connectFreshWorkspaceZh, saveFailureShot } from './s
 
 const SNAPSHOT_DIR = fileURLToPath(new URL('./expected/onboarding-deepseek-config', import.meta.url))
 const WELCOME_EXPECTED = join(SNAPSHOT_DIR, 'welcome.expected.md')
-/** 缺少凭据时的配置步骤快照。 */
 const MISSING_EXPECTED = join(SNAPSHOT_DIR, 'missing.expected.md')
-/** 配置后模型设置界面快照。 */
 const MODELS_EXPECTED = join(SNAPSHOT_DIR, 'models.expected.md')
-/** 当前快照运行模式。 */
 const MODE = webSnapshotMode()
 
 describe.skipIf(MODE === 'record')('web e2e: first-run DeepSeek credential setup', () => {
-  /** 提供缺少凭据状态与隔离存储的 Web 脚手架。 */
   let scaffold: WebScaffold
-  /** 执行首次配置交互的 Chromium 实例。 */
   let browser: Browser
-  /** 使用中文区域设置的当前页面。 */
   let page: Page
-  /** 页面错误与警告监视器。 */
   let tripwire: ReturnType<typeof watchConsole>
-  /** 收集浏览器全部控制台文本，用于检查敏感信息未泄漏。 */
   const browserConsole: string[] = []
 
   beforeAll(async () => {
@@ -66,7 +48,6 @@ describe.skipIf(MODE === 'record')('web e2e: first-run DeepSeek credential setup
 
   it('stores a key write-only and observes configured state without restarting', async () => {
     onTestFailed(() => saveFailureShot(page, 'web-e2e-onboarding-deepseek-config'))
-    /** 首次启动时阻止后台交互的欢迎说明对话框。 */
     const welcome = page.getByRole('dialog', { name: WELCOME_NOTICE_COPY.zh.title })
     await welcome.waitFor({ timeout: 15_000 })
     expect(await page.locator('#root').evaluate(root => (root as HTMLElement).inert)).toBe(true)
@@ -89,16 +70,13 @@ describe.skipIf(MODE === 'record')('web e2e: first-run DeepSeek credential setup
     await welcome.getByRole('button', { name: WELCOME_NOTICE_COPY.zh.continueLabel }).click()
     await welcome.waitFor({ state: 'detached', timeout: 15_000 })
 
-    /** 欢迎确认后出现的 DeepSeek 凭据配置步骤。 */
     const credentialStep = page.getByRole('dialog', { name: '添加一个 API Key 开始使用' })
     await credentialStep.waitFor({ timeout: 15_000 })
-    /** 只写接收 DeepSeek 密钥的输入框。 */
     const keyInput = credentialStep.getByLabel('API 密钥', { exact: true })
     await keyInput.waitFor({ timeout: 10_000 })
     const initial = await captureStableAria(page, '[role="dialog"]', scaffold.workspaceCwd)
     await compareOrRefreshGolden(MISSING_EXPECTED, initial, MODE)
 
-    /** 本次运行独有的随机测试密钥，避免与环境凭据混淆。 */
     const secret = `dsh_onboarding_${randomBytes(12).toString('hex')}`
     await keyInput.fill(secret)
     await credentialStep.getByRole('button', { name: '保存并继续' }).click()
@@ -139,7 +117,7 @@ describe.skipIf(MODE === 'record')('web e2e: first-run DeepSeek credential setup
 
     // An old acknowledgement means materially revised copy: welcome returns,
     // while the already-configured provider step remains complete.
-    await scaffold.ctx.settings.mutate(settingsNamespace(WELCOME_NOTICE_SETTINGS_NAMESPACE), [{
+    await scaffold.ctx.settings.mutate(WELCOME_NOTICE_SETTINGS_NAMESPACE, [{
       op: 'set', path: [WELCOME_NOTICE_ACK_FIELD], value: 'previous-copy-version',
     }])
     const thirdReloadWarnings = tripwire.warnings.length

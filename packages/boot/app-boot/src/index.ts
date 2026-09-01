@@ -5,14 +5,6 @@
  * config expressions, and drive the Cordis Loader against a leaf `cordis.yml` until the tree settles.
  * @module @deepseek-ai/dsh-app-boot
  */
-/*
- * 文件职责：为dsh系列入口统一装配环境变量、配置路径、用户补丁、Loader根树、失败处理和启动完成校验。
- * 技术维度：使用Cordis Loader/Include/HMR、js-yaml、Node.js环境与路径API驱动插件树生命周期。
- * 产品维度：让CLI、ACP等入口以一致规则启动配置，并在配置错误或插件激活失败时快速给出明确诊断。
- * 逻辑维度：分层读取环境，解析补丁与配置转储，挂载根Include，安装未处理拒绝守卫，最后执行boot和激活检查。
- * 关键边界：启动专用环境变量不能由磁盘.env覆盖；用户补丁必须是数组；任何启用条目缺失或失败都终止启动。
- * 新手阅读建议：先看resolveConfigPath和loadLayeredEnv，再看mountRootInclude，最后沿boot中的stage变量理解启动阶段。
- */
 
 import { pathToFileURL } from 'node:url'
 import { readFileSync } from 'node:fs'
@@ -26,7 +18,7 @@ import Group from '@deepseek-ai/cordis-plugin-group'
 import { dshHomePath, resolveDshHome } from '@deepseek-ai/dsh-home-paths'
 import { createLaunchEnvironmentSnapshot, type LaunchEnvironmentSnapshot } from '@deepseek-ai/dsh-launch-environment'
 import type {} from '@deepseek-ai/cordis-plugin-hmr'
-import { FIRST_PARTY_SECTION_ORDER } from '@deepseek-ai/dsh-system-prompt'
+import type {} from '@deepseek-ai/dsh-system-prompt'
 
 declare module '@deepseek-ai/cordis' {
   interface Context {
@@ -72,12 +64,9 @@ export {
 export function resolveConfigPath(
   configPath: string, snapshotMode: string | undefined, cwd: string = process.cwd(),
 ): string {
-  // 相对路径以传入cwd解析后的绝对配置路径。
   const absolute = resolve(cwd, configPath)
   if (snapshotMode !== 'replay') return absolute
-  // 配置文件所在绝对目录。
   const dir = dirname(absolute)
-  // replay模式下替换标准cordis文件名得到的快照文件名。
   const replayName = basename(absolute).replace(/cordis\.ya?ml$/, 'cordis.snapshot.yml')
   return resolve(dir, replayName)
 }
@@ -88,12 +77,6 @@ export function resolveConfigPath(
  * @param binName - the diagnostic prefix on the warn line.
  * @param dir - the directory whose `.env` to load.
  * @param warn - sink for the one-line misconfiguration diagnostic.
- */
-/*
- * 从指定目录加载可选.env，缺失时静默沿用进程环境，其他错误写入单行警告。
- * @param binName 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
- * @param dir 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
- * @param warn 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
  */
 export function loadEnv(
   binName: string, dir: string = process.cwd(),
@@ -110,7 +93,6 @@ export function loadEnv(
 }
 
 /** Exact names no discovered file may set. */
-/* 任何磁盘环境层都不能设置的精确启动变量名。 */
 const BOOTSTRAP_NAMES = new Set([
   // Process launch and module resolution.
   'PATH', 'HOME', 'USERPROFILE', 'SHELL',
@@ -135,7 +117,6 @@ const BOOTSTRAP_NAMES = new Set([
 ])
 
 /** Name prefixes no discovered file may set. */
-// 磁盘环境层不能设置的启动变量名前缀。
 const BOOTSTRAP_PREFIXES = ['DSH_', 'XDG_', 'DYLD_', 'BASH_FUNC_']
 
 /**
@@ -144,9 +125,7 @@ const BOOTSTRAP_PREFIXES = ['DSH_', 'XDG_', 'DYLD_', 'BASH_FUNC_']
  * @param name - the variable name.
  * @returns true when only the inherited environment may supply it.
  */
-/* 判断变量名是否只能由启动进程环境提供。 */
 function isBootstrapOnly(name: string): boolean {
-  // 统一大写以执行不区分大小写的安全匹配。
   const upper = name.toUpperCase()
   return BOOTSTRAP_NAMES.has(upper) || BOOTSTRAP_PREFIXES.some(prefix => upper.startsWith(prefix))
 }
@@ -160,13 +139,10 @@ function isBootstrapOnly(name: string): boolean {
  * @returns the parsed entries, or `undefined` when the file is absent or unreadable.
  * @throws when the file declares a name {@link isBootstrapOnly} rejects.
  */
-/* 读取一个可选.env层并过滤所有启动专用变量。 */
 function readEnvLayer(
   binName: string, dir: string, warn: (line: string) => void,
 ): { path: string; values: Record<string, string> } | undefined {
-  // 当前环境层的.env绝对路径。
   const path = resolve(dir, '.env')
-  // 成功读取后的UTF-8文本。
   let content: string
   try {
     content = readFileSync(path, 'utf8')
@@ -178,7 +154,6 @@ function readEnvLayer(
     return undefined
   }
   // Parse once so validation and materialization use exactly the same entries.
-  // Node.js解析得到的变量名和值映射。
   const values = parseEnv(content) as Record<string, string>
   for (const name of Object.keys(values)) {
     if (!isBootstrapOnly(name)) continue
@@ -206,14 +181,10 @@ export function loadLayeredEnv(
   binName: string, cwd: string = process.cwd(),
   warn: (line: string) => void = line => void process.stderr.write(line),
 ): LaunchEnvironmentSnapshot {
-  // 当前启动解析出的Harness主目录。
   const home = resolveDshHome()
-  // 调用前进程环境快照，拥有最高优先级。
   const inherited = { ...process.env } as Record<string, string>
   // Parse both layers first: a rejection must not leave one file applied.
-  // 项目目录的可选环境层。
   const project = readEnvLayer(binName, cwd, warn)
-  // 用户主目录环境层；与项目目录相同时避免重复读取。
   const user = home === resolve(cwd) ? undefined : readEnvLayer(binName, home, warn)
   // Apply the checked values without replacing a higher-ranked name.
   for (const layer of [project, user]) {
@@ -229,7 +200,6 @@ export function loadLayeredEnv(
   ])
 }
 
-// 每个启动上下文对应的根Include条目，供补丁HMR注册使用。
 const bootstrapIncludes = new WeakMap<Context, Entry>()
 
 // The include's YAML dialect (`!!js` scalars become expression nodes the
@@ -237,11 +207,9 @@ const bootstrapIncludes = new WeakMap<Context, Entry>()
 // from the include itself so patch parsing and config dumping can never drift
 // from what the include mounts. User patch layers share it so they may
 // reference `process.env`.
-// 用户补丁文件必须满足的顶层条目列表模式。
 const userPatchesSchema = entryListSchema
 
 /** Options for live user patch-layer reconciliation. */
-/* 用户补丁热重载注册需要的诊断、文件和组合配置。 */
 export interface UserPatchWatchOptions {
   /** Diagnostic prefix used by {@link loadOptionalPatches}. */
   binName: string
@@ -268,12 +236,9 @@ export async function watchUserPatches(
   ctx: Context,
   options: UserPatchWatchOptions,
 ): Promise<() => Promise<void>> {
-  // 展开的诊断名、补丁路径和可选组合函数。
   const { binName, filename, compose = (patches: PatchOptions[]) => patches } = options
-  // 当前上下文可选的HMR服务。
   const hmr = ctx.get('hmr')
   if (hmr === undefined) throw new Error(`${binName}: user patch-layer watching requires the Cordis HMR service`)
-  // 启动时保存的根Include条目。
   const entry = bootstrapIncludes.get(ctx)
   if (entry === undefined) throw new Error(`${binName}: user patch-layer watching requires the root Include entry`)
   const register = hmr.registerConfig(filename, async () => {
@@ -875,7 +840,7 @@ export function addHarnessSourceSection(ctx: Context, sourceRoot: string): (() =
   if (systemPrompt === undefined) return undefined
   return systemPrompt.section({
     name: HARNESS_SOURCE_SECTION,
-    order: FIRST_PARTY_SECTION_ORDER.HARNESS_SOURCE,
+    order: systemPrompt.getSectionOrder('HARNESS_SOURCE'),
     text: `The DeepSeek Harness implementation checkout is at ${sourceRoot}. The checkout location and current working directory are separate values and may differ; never infer the working directory from this path. Use pwd to determine the current working directory. Use this checkout only to inspect or extend DSH itself.`,
   })
 }

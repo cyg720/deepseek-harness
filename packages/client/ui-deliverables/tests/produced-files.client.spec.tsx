@@ -1,12 +1,4 @@
 // @vitest-environment jsdom
-/*
- * 文件职责：验证产出文件的 produced-files.client.spec.tsx 行为。
- * 技术维度：Vitest、React 渲染、事件模拟和服务替身。
- * 产品维度：防止产出文件用户流程回归。
- * 逻辑维度：构造状态，触发行为并断言结果和清理。
- * 关键边界：异步任务、全局替身和 DOM 必须在用例后恢复。
- * 新手阅读建议：先读辅助函数，再按场景顺序阅读。
- */
 /**
  * ui-deliverables browser half: the derivation contract of
  * `producedForClosing` over engine-published Turn data, the row's rendering
@@ -28,13 +20,12 @@ import type {
 import { SlotRegistry } from '@deepseek-ai/dsh-client-ui-renderer/client'
 import { apply as applyLocale, inject as localeInject } from '@deepseek-ai/dsh-client-locale/client'
 import type { ChatFileMentions, TurnTailOwnerProps } from '@deepseek-ai/dsh-client-ui-chat/client'
-import { makeTranslate, stubSettingsScope } from '@deepseek-ai/dsh-client-test-runtime'
+import { makeTranslate, RemoteError, stubSettingsScope } from '@deepseek-ai/dsh-client-test-runtime'
 import {
   fitProducedFiles, ProducedFiles, type ProducedFilesInjected, type ProducedFilesProps,
 } from '../src/client/ProducedFiles.tsx'
 import {
   basename, deliverablesDefinition, producedFileMentions, producedForClosing, selectProducedFiles,
-  /** 中文说明：类型或类 DeliverablesTurnData 约束本文件数据或组件职责。 */
   type DeliverablesTurnData,
 } from '../src/client/turn-deliverables.ts'
 import { apply, inject } from '../src/client/index.ts'
@@ -42,7 +33,6 @@ import { apply as applyInvariant } from '../src/invariant.ts'
 import { en, zh } from '../src/client/locales.ts'
 import type { SessionEvent } from '@deepseek-ai/dsh-session/types'
 
-/** 中文说明：测试局部值 originalClientWidth，由紧邻初始化决定。 */
 const originalClientWidth = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'clientWidth')
 
 afterEach(() => {
@@ -56,7 +46,6 @@ afterEach(() => {
   }
 })
 
-/** 中文说明：类型或类 TestTurnDataStore 约束本文件数据或组件职责。 */
 class TestTurnDataStore implements ConversationLocationDataStore<ConversationTurnDataMap> {
   private readonly values = new Map<string, unknown>()
 
@@ -74,20 +63,16 @@ class TestTurnDataStore implements ConversationLocationDataStore<ConversationTur
   }
 }
 
-/** 中文说明：测试局部值 turnLocation，由紧邻初始化决定。 */
 const turnLocation = (turn: number, deliverables?: DeliverablesTurnData): TurnLocation => {
-  /** 中文说明：测试局部值 data，由紧邻初始化决定。 */
   const data = new TestTurnDataStore()
   if (deliverables !== undefined) data.set('deliverables', deliverables)
   return { turn, start: undefined, end: undefined, status: 'closed', steps: [], data }
 }
 
-/** 中文说明：测试局部值 produced，由紧邻初始化决定。 */
 const produced = (...values: ReadonlyArray<readonly [seq: number, path: string]>): DeliverablesTurnData => ({
   produced: values.map(([seq, path]) => ({ seq, path })),
 })
 
-/** 中文说明：函数 tailOwner 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function tailOwner(
   data: DeliverablesTurnData | undefined,
   seq: number,
@@ -97,27 +82,22 @@ function tailOwner(
   return { seq, openFile, turn: turnLocation(turn, data) }
 }
 
-/** 中文说明：类型或类 TimelineSnapshot 约束本文件数据或组件职责。 */
 interface TimelineSnapshot {
   readonly timeline: ConversationTimelineSnapshot
 }
 
-/** 中文说明：类型或类 TestEventDefinitions 约束本文件数据或组件职责。 */
 class TestEventDefinitions {
   entries(): readonly ConversationNodeDefinition[] { return [deliverablesDefinition] }
   fallbackEntry(): ConversationNodeDefinition | undefined { return undefined }
 }
 
-/** 中文说明：类型或类 TestViewDefinitions 约束本文件数据或组件职责。 */
 class TestViewDefinitions {
   entries(): readonly ConversationViewDefinition[] { return [timelineViewDefinition] }
 }
 
-/** 中文说明：测试局部值 timelineViewDefinition，由紧邻初始化决定。 */
 const timelineViewDefinition: ConversationViewDefinition<ConversationViewNode, TimelineSnapshot> = {
   target: 'test',
   create: () => {
-    /** 中文说明：测试局部值 current，由紧邻初始化决定。 */
     let current: TimelineSnapshot = { timeline: { turnOrder: [], turns: new Map() } }
     return {
       empty: current,
@@ -127,7 +107,6 @@ const timelineViewDefinition: ConversationViewDefinition<ConversationViewNode, T
   },
 }
 
-/** 中文说明：函数 at 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function at(
   seq: number,
   type: string,
@@ -148,7 +127,6 @@ function matched(input: SessionLiveEventEntry, role: ConversationMatch['role']):
   return { event: input.event, role, location: { kind: 'unresolved' } }
 }
 
-/** 中文说明：函数 call 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function call(
   seq: number,
   callId: string,
@@ -187,20 +165,17 @@ function result(seq: number, callId: string, isError = false, turn = 1): Session
 function assembler(entries: readonly SessionLiveEventEntry[], hasMore = false): ConversationNodeAssembler {
   const value = new ConversationNodeAssembler(new TestEventDefinitions(), new TestViewDefinitions())
   value.replaceWindow(entries, hasMore)
-  value.flush()
+  value.activateTarget('test')
   return value
 }
 
-/** 中文说明：函数 deliverablesOf 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function deliverablesOf(value: ConversationNodeAssembler, turn = 1): Readonly<DeliverablesTurnData> | undefined {
-  /** 中文说明：测试局部值 snapshot，由紧邻初始化决定。 */
   const snapshot = value.snapshot('test') as TimelineSnapshot
   return snapshot.timeline.turns.get(turn)?.data.get('deliverables')
 }
 
 describe('produced-file Turn data', () => {
   it('deduplicates paths in first-seen order and stops at the closing Assistant seq', () => {
-    /** 中文说明：测试局部值 data，由紧邻初始化决定。 */
     const data = produced(
       [3, 'out/index.html'],
       [4, 'out/app.css'],
@@ -369,9 +344,7 @@ describe('produced-file Turn data', () => {
   })
 
   it('rejects an invalid start match and preserves state for an unrelated update', () => {
-    /** 中文说明：测试局部值 startMatch，由紧邻初始化决定。 */
     const startMatch = matched(at(1, 'turn/start', { turn: 1 }), 'start')
-    /** 中文说明：测试局部值 emptyContext，由紧邻初始化决定。 */
     const emptyContext: Parameters<typeof deliverablesDefinition.start>[0] = {
       key: 'deliverables:1',
       kind: 'deliverables',
@@ -381,13 +354,9 @@ describe('produced-file Turn data', () => {
       state: undefined,
       current: new Map(),
     }
-    /** 中文说明：测试局部值 reader，由紧邻初始化决定。 */
     const reader: Parameters<typeof deliverablesDefinition.start>[2] = { previous: () => undefined }
-    /** 中文说明：测试局部值 state，由紧邻初始化决定。 */
     const state = deliverablesDefinition.start(emptyContext, startMatch, reader)
-    /** 中文说明：测试局部值 unrelated，由紧邻初始化决定。 */
     const unrelated = matched(at(2, 'turn/end', { turn: 1, reason: { kind: 'completed' } }), 'update')
-    /** 中文说明：测试局部值 context，由紧邻初始化决定。 */
     const context: Parameters<typeof deliverablesDefinition.update>[0] = { ...emptyContext, state }
 
     expect(() => deliverablesDefinition.start(
@@ -400,7 +369,6 @@ describe('produced-file Turn data', () => {
   })
 
   it('replays a tail page once prepend supplies its missing Turn start', () => {
-    /** 中文说明：测试局部值 value，由紧邻初始化决定。 */
     const value = assembler([
       call(10, 'late', 'write', { file_path: 'history.txt', content: 'history' }),
       result(11, 'late'),
@@ -413,13 +381,11 @@ describe('produced-file Turn data', () => {
   })
 
   it('extends the same Turn data incrementally on live append', () => {
-    /** 中文说明：测试局部值 value，由紧邻初始化决定。 */
     const value = assembler([
       at(1, 'turn/start', { turn: 1 }),
       call(2, 'first', 'write', { file_path: 'first.txt', content: 'first' }),
       result(3, 'first'),
     ])
-    /** 中文说明：测试局部值 first，由紧邻初始化决定。 */
     const first = deliverablesOf(value)
     expect(producedForClosing(first)).toEqual(['first.txt'])
 
@@ -433,9 +399,7 @@ describe('produced-file Turn data', () => {
 })
 
 describe('ProducedFiles row', () => {
-  /** 中文说明：测试局部值 t，由紧邻初始化决定。 */
   const t = makeTranslate(zh)
-  /** 中文说明：测试局部值 capability，由紧邻初始化决定。 */
   const capability = (
     canOpenPath: boolean | undefined,
     isLoopback = true,
@@ -461,17 +425,11 @@ describe('ProducedFiles row', () => {
   })
 
   it('keeps one measured line, updates on resize, and opens a file or the workspace folder', () => {
-    /** 中文说明：测试局部值 paths，由紧邻初始化决定。 */
     const paths = ['deep/a.html', 'b.css', 'c.ts', 'd.ts', 'e.ts', 'f.ts', 'g.ts']
-    /** 中文说明：测试局部值 openFile，由紧邻初始化决定。 */
     const openFile = vi.fn<(path: string) => void>()
-    /** 中文说明：测试局部值 available，由紧邻初始化决定。 */
     let available = 226
-    /** 中文说明：测试局部值 解构结果，由紧邻初始化决定。 */
     let resize: ResizeObserverCallback | undefined
-    /** 中文说明：测试局部值 disconnect，由紧邻初始化决定。 */
     const disconnect = vi.fn()
-    /** 中文说明：测试局部值 observeNode，由紧邻初始化决定。 */
     const observeNode = vi.fn<(target: Element) => void>()
     vi.stubGlobal('ResizeObserver', class {
       constructor(callback: ResizeObserverCallback) { resize = callback }
@@ -485,12 +443,10 @@ describe('ProducedFiles row', () => {
       configurable: true,
       get(this: HTMLElement) { return this.hasAttribute('data-produced-files-row') ? available : 0 },
     })
-    /** 中文说明：测试局部值 rect，由紧邻初始化决定。 */
     const rect = (width: number): DOMRect => ({
       x: 0, y: 0, width, height: 22, top: 0, right: width, bottom: 22, left: 0,
       toJSON: () => ({}),
     })
-    /** 中文说明：测试局部值 bounds，由紧邻初始化决定。 */
     const bounds = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect')
       .mockImplementation(function getProbeRect(this: HTMLElement) {
         if (this.closest('[aria-hidden="true"]') === null) return rect(0)
@@ -498,18 +454,15 @@ describe('ProducedFiles row', () => {
         return rect(this.textContent === 'a.html' || this.textContent === 'b.css' ? 50 : 100)
       })
 
-    /** 中文说明：测试局部值 view，由紧邻初始化决定。 */
     const view = render(
       <ProducedFiles matched={paths} openFile={openFile} {...capability(true)} t={t} />,
     )
     expect(view.getByText('产物')).toBeTruthy()
-    /** 中文说明：测试局部值 row，由紧邻初始化决定。 */
     const row = view.container.querySelector('[data-produced-files-row]')
     if (!(row instanceof HTMLElement)) throw new Error('produced row missing')
     // The third probe is 100px: two chips plus the remainder fit, three do not.
     expect(within(row).getAllByRole('button')).toHaveLength(2)
     expect(within(row).getByText('+ 5 个文件')).toBeTruthy()
-    /** 中文说明：测试局部值 chip，由紧邻初始化决定。 */
     const chip = view.getByRole('button', { name: '打开 deep/a.html' })
     expect(chip.textContent).toBe('a.html')
     expect(chip.getAttribute('title')).toBe('deep/a.html')
@@ -517,7 +470,6 @@ describe('ProducedFiles row', () => {
     fireEvent.click(chip)
     expect(openFile).toHaveBeenCalledWith('deep/a.html')
 
-    /** 中文说明：测试局部值 showFolder，由紧邻初始化决定。 */
     const showFolder = view.getByRole('button', { name: '在文件夹中显示' })
     fireEvent.click(showFolder)
     expect(openFile).toHaveBeenLastCalledWith('.')
@@ -548,16 +500,12 @@ describe('ProducedFiles row', () => {
   })
 
   it('keeps the folder action absent without overflow or a local native opener', () => {
-    /** 中文说明：测试局部值 openFile，由紧邻初始化决定。 */
     const openFile = vi.fn<(path: string) => void>()
-    /** 中文说明：测试局部值 view，由紧邻初始化决定。 */
     const view = render(
       <ProducedFiles matched={['a.md']} openFile={openFile} {...capability(true)} t={t} />,
     )
-    /** 中文说明：测试局部值 overflowing，由紧邻初始化决定。 */
     const overflowing = ['a.md', 'b.md', 'c.md', 'd.md', 'e.md', 'f.md', 'g.md']
     expect(view.queryByRole('button', { name: '在文件夹中显示' })).toBeNull()
-    /** 中文说明：测试局部值 unavailable，由紧邻初始化决定。 */
     for (const unavailable of [capability(false), capability(true, false), capability(undefined)]) {
       view.rerender(<ProducedFiles matched={overflowing} openFile={openFile} {...unavailable} t={t} />)
       expect(view.queryByRole('button', { name: '在文件夹中显示' })).toBeNull()
@@ -565,7 +513,6 @@ describe('ProducedFiles row', () => {
   })
 
   it('uses singular English copy when exactly one file is hidden', () => {
-    /** 中文说明：测试局部值 view，由紧邻初始化决定。 */
     const view = render(
       <ProducedFiles
         matched={['a.md', 'b.md', 'c.md', 'd.md', 'e.md', 'f.md', 'g.md']}
@@ -574,7 +521,6 @@ describe('ProducedFiles row', () => {
         t={makeTranslate(en)}
       />,
     )
-    /** 中文说明：测试局部值 row，由紧邻初始化决定。 */
     const row = view.container.querySelector('[data-produced-files-row]')
     if (!(row instanceof HTMLElement)) throw new Error('produced row missing')
     expect(within(row).getByText('+ 1 file')).toBeTruthy()
@@ -582,27 +528,22 @@ describe('ProducedFiles row', () => {
 })
 
 describe('producedFileMentions resolver', () => {
-  /** 中文说明：测试局部值 label，由紧邻初始化决定。 */
   const label = (path: string) => `打开 ${path}`
 
   it('resolves exact paths and unique basenames; ambiguity and unknowns stay unresolved', () => {
-    /** 中文说明：测试局部值 opened，由紧邻初始化决定。 */
     const opened: string[] = []
-    /** 中文说明：测试局部值 resolver，由紧邻初始化决定。 */
     const resolver = producedFileMentions(
       ['out/index.html', 'a/style.css', 'b/style.css'],
       (path) => { opened.push(path) },
       label,
     )
     // Unique basename resolves to its full path; the full path rides title.
-    /** 中文说明：测试局部值 byBasename，由紧邻初始化决定。 */
     const byBasename = resolver.resolve('index.html')
     expect(byBasename?.label).toBe('打开 out/index.html')
     expect(byBasename?.title).toBe('out/index.html')
     byBasename?.open()
     expect(opened).toEqual(['out/index.html'])
     // An exact path resolves even when its basename is ambiguous.
-    /** 中文说明：测试局部值 exact，由紧邻初始化决定。 */
     const exact = resolver.resolve('a/style.css')
     expect(exact?.title).toBe('a/style.css')
     // A basename two paths share stays unresolved rather than guessing,
@@ -615,15 +556,12 @@ describe('producedFileMentions resolver', () => {
 
 describe('package shells', () => {
   it('the invariant companion registers ownership', async () => {
-    /** 中文说明：测试局部值 registered，由紧邻初始化决定。 */
     const registered: string[] = []
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = new Context()
     ctx.provide('invariants')
     ctx.set('invariants', {
       register: (pkg: string) => { registered.push(pkg); return () => {} },
     } as never)
-    /** 中文说明：测试局部值 dispose，由紧邻初始化决定。 */
     const dispose = await applyInvariant(ctx)
     expect(registered).toEqual(['@deepseek-ai/dsh-client-ui-deliverables'])
     expect(dispose).toBeTypeOf('function')
@@ -632,7 +570,6 @@ describe('package shells', () => {
 
 describe('plugin registration', () => {
   it('registers the tail entry and fiber disposal removes it', async () => {
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = new Context()
     await ctx.plugin(SlotRegistry).await()
     new UiConversation(ctx, { binding: () => undefined } as never)
@@ -641,24 +578,21 @@ describe('plugin registration', () => {
       name: 'root',
       children: { 'conversation.chat.turnTail': { kind: 'chain', scope: 'session' } },
     } as never, () => null)
-    const generation = { getSnapshot: () => undefined, subscribe: () => () => {} }
-    ctx.provide('connection', {
-      isLoopback: false,
-      generation,
-    } as never)
     // ui-theme's Appearance row binds a durable scope through these two.
     const session = {
       canOpenWorkspacePath: () => Promise.resolve({ ok: true as const, value: true }),
     }
-    ctx.provide('remote', { $on: () => () => {}, session } as never)
+    ctx.provide('remote', {
+      $on: () => () => {},
+      $host: { home: undefined, isLoopback: false },
+      session,
+    } as never)
     ctx.provide('remote.session', session as never)
     ctx.provide('settingsScope', { bind: () => stubSettingsScope().scope } as never)
     await ctx.plugin({ inject: localeInject, apply: applyLocale }).await()
 
-    /** 中文说明：测试局部值 fiber，由紧邻初始化决定。 */
     const fiber = ctx.plugin({ inject: [...inject], apply })
     await fiber.await()
-    /** 中文说明：测试局部值 [entry]，由紧邻初始化决定。 */
     const [entry] = ctx.slots.entries('conversation.chat.turnTail')
     expect(entry).toBeDefined()
     const injected = entry?.inject?.() as unknown as ProducedFilesInjected
@@ -674,17 +608,13 @@ describe('plugin registration', () => {
 
     // The prose face is live while the plugin is: a produced turn yields a
     // resolver whose matches open through the owner-supplied opener.
-    /** 中文说明：测试局部值 opened，由紧邻初始化决定。 */
     const opened: string[] = []
-    /** 中文说明：测试局部值 owner，由紧邻初始化决定。 */
     const owner = tailOwner(
       produced([2, 'site/report.html']),
       3,
       (path) => { opened.push(path) },
     )
-    /** 中文说明：测试局部值 service，由紧邻初始化决定。 */
     const service = (ctx as unknown as { get(name: string): ChatFileMentions | undefined }).get('chatFileMentions')
-    /** 中文说明：测试局部值 mentions，由紧邻初始化决定。 */
     const mentions = service?.forClosing(owner)
     mentions?.resolve('report.html')?.open()
     expect(opened).toEqual(['site/report.html'])
@@ -705,20 +635,20 @@ describe('plugin registration', () => {
       name: 'root',
       children: { 'conversation.chat.turnTail': { kind: 'chain', scope: 'session' } },
     } as never, () => null)
-    ctx.provide('connection', {
-      isLoopback: true,
-      generation: { getSnapshot: () => undefined, subscribe: () => () => {} },
-    } as never)
     const first = Promise.withResolvers<{ ok: true; value: boolean }>()
     const second = Promise.withResolvers<{ ok: true; value: boolean }>()
-    const staleFailure = Promise.withResolvers<{ ok: true; value: boolean }>()
+    const staleFailure = Promise.withResolvers<{ ok: false; error: RemoteError }>()
     const capability = vi.fn()
       .mockReturnValueOnce(first.promise)
       .mockReturnValueOnce(second.promise)
       .mockReturnValueOnce(staleFailure.promise)
-      .mockRejectedValueOnce(new Error('offline'))
+      .mockResolvedValueOnce({ ok: false, error: new RemoteError('gateway/internal', 'offline', {}) })
     const session = { canOpenWorkspacePath: capability }
-    ctx.provide('remote', { $on: () => () => {}, session } as never)
+    ctx.provide('remote', {
+      $on: () => () => {},
+      $host: { home: undefined, isLoopback: true },
+      session,
+    } as never)
     ctx.provide('remote.session', session as never)
     ctx.provide('settingsScope', { bind: () => stubSettingsScope().scope } as never)
     await ctx.plugin({ inject: localeInject, apply: applyLocale }).await()
@@ -740,7 +670,7 @@ describe('plugin registration', () => {
 
     ctx.emit('connection/reset')
     ctx.emit('connection/reset')
-    staleFailure.reject(new Error('stale offline'))
+    staleFailure.resolve({ ok: false, error: new RemoteError('gateway/internal', 'stale offline', {}) })
     await vi.waitFor(() => { expect(injected.hooks.workspacePathOpen.getSnapshot()).toBe(false) })
     await fiber.dispose()
   })

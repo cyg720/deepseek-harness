@@ -5,14 +5,6 @@
  * error the product user sees names the direction and the raw log path.
  * @module session-format-guard-snapshot
  */
-/*
- * 文件职责：验证组装应用拒绝恢复更新格式或含未知必需事件的会话日志，并给出可操作错误。
- * 技术维度：使用 Vitest、SessionStore、JSONL 持久化、Loader smoke 和程序化事件日志。
- * 产品维度：避免旧版本 Harness 误读新日志造成数据损坏，并告诉用户升级方向和原始文件位置。
- * 逻辑维度：写入版本超前或事件未知的会话，启动真实恢复组合，再检查错误方向、事件名和日志路径。
- * 关键边界：可忽略未知事件不应触发拒绝；必需未知事件必须失败；错误必须保留原始路径供恢复。
- * 新手阅读建议：先读 seedSession 与 closedTurn，再比较版本超前和未知事件两个拒绝场景。
- */
 
 import { join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -29,16 +21,13 @@ import { describe, expect, it } from 'vitest'
 
 const fixtureDir = join(dirname(fileURLToPath(import.meta.url)), 'expected/workspace-context-resume/offline-edit')
 const replayFixture = join(fixtureDir, 'replay.jsonl')
-const configPath = fileURLToPath(new URL('../workspace-context-resume.cordis.snapshot.yml', import.meta.url))
+const configPath = fileURLToPath(new URL('../workspace-context-resume-snapshot.patch.yml', import.meta.url))
 const binScript = fileURLToPath(new URL('../../../../../../packages/test-support/loader-smoke/tests/fixtures/headless-driver.ts', import.meta.url))
 const tsconfigPath = fileURLToPath(new URL('../../../../../../tsconfig.json', import.meta.url))
 // The resumed-agent fixture in the shared config resumes exactly this id.
-// 中文说明：共享配置中的恢复智能体固定恢复此会话标识。
-/** 被格式门禁尝试恢复的稳定会话标识。 */
 const sessionId = SessionId('workspace-context-resume')
 
 /** Persist one session with the given header version and events, returning its log path. */
-/* 在 root 中写入 version 与 events 指定的会话并返回日志路径。 */
 async function seedSession(root: string, cwd: string, version: number, events: SessionEvent[]): Promise<string> {
   const ctx = new Context()
   await ctx.plugin(SessionStore)
@@ -108,7 +97,7 @@ describe('session format guard through the assembled app', () => {
       },
     })
     expect(result.stderr).toContain(
-      `session "${sessionId}" contains event type "future/event" (seq 2) unknown to this harness; refusing to interpret the log — it was likely written by a newer harness`,
+      `session "${sessionId}" contains event type "future/event" (seq 2) unknown to this harness and not marked ignorable; refusing to interpret the log — it was likely written by a newer harness`,
     )
     // macOS reports the temp dir via the /private symlink parent; assert the
     // stable path suffix instead of the realpath-dependent prefix.

@@ -13,25 +13,17 @@
  * same preset collides with the first.
  * @module @deepseek-ai/dsh-agent-presets/mount
  */
-/*
- * 文件职责：实现 mount.ts 承担的 Agent 预设元数据、校验与装载职责。
- * 技术维度：使用 TypeScript、Cordis 插件、配置解析和运行时不变量检查。
- * 产品维度：让用户能通过预设组合 Agent 能力，并在启动时获得明确配置反馈。
- * 逻辑维度：读取预设定义，校验元数据，解析引用并挂载对应插件。
- * 关键边界：缺失或冲突配置应尽早失败；注册必须可撤销；用户路径不得被隐式改写。
- * 新手阅读建议：先看导出类型和元数据，再读校验与挂载，最后关注失败分支。
- */
 
 import { pathToFileURL } from 'node:url'
 import { Context, type Fiber } from '@deepseek-ai/cordis'
 import { Include } from '@deepseek-ai/cordis-plugin-include'
 import type { EntryTree } from '@deepseek-ai/cordis-plugin-loader'
 import { scopeOf, scopeParentOf, type ScopeKey } from '@deepseek-ai/dsh-scope'
-import { PresetMountError, type AgentPreset } from './preset.ts'
+import { RemoteError } from '@deepseek-ai/dsh-typert-protocol'
+import type { AgentPreset } from './preset.ts'
 import { classifyRowSpecifier } from './specifier.ts'
 
 /** What one mounted subtree publishes about itself for the audit to read. */
-/* 中文说明：interface MountedTree 定义本模块所需的数据或行为，用于表达预设场景。 */
 interface MountedTree {
   /** The rows the composition created. */
   readonly tree: EntryTree
@@ -49,7 +41,6 @@ interface MountedTree {
  * only handle to the rows it created; config objects are minted per mount, so
  * concurrent mounts cannot collide.
  */
-/* 中文说明：变量 mounted 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const mounted = new WeakMap<object, MountedTree>()
 
 /**
@@ -58,17 +49,23 @@ const mounted = new WeakMap<object, MountedTree>()
  * rewrites its own context's `baseUrl` to the composition's directory and the
  * pre-mount value is the only handle on where the harness itself lives.
  */
-/* 中文说明：变量 harnessBase 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const harnessBase = new WeakMap<object, string>()
 
 /**
  * Include subclass that publishes its tree and fiber for the audit, and never
  * writes to the file it read.
  */
-/* 中文说明：class PresetTree 定义本模块所需的数据或行为，用于表达预设场景。 */
 class PresetTree extends Include {
   constructor(ctx: Context, config: Include.Config) {
     super(ctx, config)
+    // EntryTree's constructor files every new tree under the nearest owning
+    // Loader entry's `subtree` slot — here the roster's own row, because the
+    // standing scope descends from the roster's fiber. Left in place, root
+    // `loader.entries()` would walk this composition as host entries (each
+    // preset overwriting the last), against the standing mount's contract of
+    // not being a Loader entry. Reclaim the slot.
+    const owner = this.ctx.fiber.entry
+    if (owner?.subtree === this) delete owner.subtree
     mounted.set(config, { tree: this, fiber: ctx.fiber })
   }
 
@@ -127,7 +124,6 @@ class PresetTree extends Include {
 }
 
 /** One preset composition currently installed under some agent. */
-/* 中文说明：interface PresetMount 定义本模块所需的数据或行为，用于表达预设场景。 */
 export interface PresetMount {
   /** The preset the subtree was composed from. */
   readonly presetId: string
@@ -139,7 +135,6 @@ export interface PresetMount {
   readonly key: ScopeKey | undefined
 }
 
-/** 中文说明：变量 mounts 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const mounts = new Set<PresetMount>()
 
 /**
@@ -158,9 +153,7 @@ const mounts = new Set<PresetMount>()
  * record would otherwise retain its whole disposed subtree: the fiber holds
  * its config, and that config is the key its `EntryTree` is stored under.
  */
-/* 中文说明：函数 pruneDisposedMounts 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function pruneDisposedMounts(): void {
-  /** 中文说明：该循环依次处理预设数据；循环变量仅在当前循环中有效。 */
   for (const mount of mounts) {
     if (mount.fiber.uid === null) mounts.delete(mount)
   }
@@ -169,15 +162,18 @@ function pruneDisposedMounts(): void {
 /**
  * Every preset composition still installed, pruning fibers disposed since the
  * last read.
+ *
+ * The record set is module state and therefore spans every Cordis runtime in
+ * the process; a reader that serves one runtime passes that runtime's root
+ * fiber so another runtime mounting the same preset id (a second embedded
+ * app, a test's second harness) never answers for it.
+ * @param within - when present, only mounts inside this fiber's subtree.
  * @returns the live mounts.
  */
-/*
- * 中文说明：函数 livePresetMounts 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。
- * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
- */
-export function livePresetMounts(): PresetMount[] {
+export function livePresetMounts(within?: Fiber): PresetMount[] {
   pruneDisposedMounts()
-  return [...mounts]
+  const all = [...mounts]
+  return within === undefined ? all : all.filter(mount => withinFiber(mount.fiber, within))
 }
 
 /**
@@ -190,13 +186,10 @@ export function livePresetMounts(): PresetMount[] {
  * @param root - the subtree root to test membership against.
  * @returns true when `fiber` belongs to `root`'s subtree.
  */
-/* 中文说明：函数 withinFiber 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function withinFiber(fiber: Fiber, root: Fiber): boolean {
-  /** 中文说明：变量 current 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   let current = fiber
   while (true) {
     if (current === root) return true
-    /** 中文说明：变量 parent 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const parent = current.parent.fiber
     if (parent === current) return false
     current = parent
@@ -214,22 +207,11 @@ function withinFiber(fiber: Fiber, root: Fiber): boolean {
  * @param mount - the mounted subtree's fiber.
  * @returns the leaked service names in lexical order.
  */
-/*
- * 中文说明：函数 leakedServices 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。
- * @param ctx 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
- * @param mount 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
- * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
- */
 export function leakedServices(ctx: Context, mount: Fiber): string[] {
-  /** 中文说明：变量 store 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const store = ctx.reflect.store
-  /** 中文说明：变量 rootIsolate 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const rootIsolate = ctx.root[Context.isolate]
-  /** 中文说明：变量 leaked 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const leaked: string[] = []
-  /** 中文说明：该循环依次处理预设数据；循环变量仅在当前循环中有效。 */
   for (const key of Object.getOwnPropertySymbols(store)) {
-    /** 中文说明：变量 impl 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const impl = store[key]
     /* v8 ignore next -- cordis deletes a store slot on disposal rather than
        clearing it, so an own symbol always resolves; the guard exists only
@@ -242,7 +224,6 @@ export function leakedServices(ctx: Context, mount: Fiber): string[] {
 }
 
 /** A live standing mount located through one agent already joined to it. */
-/* 中文说明：type JoinedPresetMount 定义本模块所需的数据或行为，用于表达预设场景。 */
 export type JoinedPresetMount = PresetMount & {
   /** The standing key, definite because it is what the lookup matched on. */
   readonly key: ScopeKey
@@ -259,16 +240,9 @@ export type JoinedPresetMount = PresetMount & {
  * @param agentCtx - the agent's scope context.
  * @returns the mount the agent joined, or undefined when it joined none.
  */
-/*
- * 中文说明：函数 standingMountFor 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。
- * @param agentCtx 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
- * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
- */
 export function standingMountFor(agentCtx: Context): JoinedPresetMount | undefined {
-  /** 中文说明：变量 agentKey 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const agentKey = scopeOf(agentCtx)
   if (agentKey === undefined) return undefined
-  /** 中文说明：变量 standingKey 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const standingKey = scopeParentOf(agentKey)
   if (standingKey === undefined) return undefined
   return livePresetMounts().find(
@@ -300,26 +274,15 @@ export function standingMountFor(agentCtx: Context): JoinedPresetMount | undefin
  * @param name - the service name as the preset's rows resolve it.
  * @returns the agent's instance, or undefined when its preset mounts none.
  */
-/*
- * 中文说明：函数 serviceForAgent 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。
- * @param ctx 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
- * @param agent 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
- * @param name 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
- * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
- */
 export function serviceForAgent<K extends string & keyof Context>(
   ctx: Context,
   agent: { ctx: Context },
   name: K,
 ): Context[K] | undefined {
-  /** 中文说明：变量 mount 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const mount = standingMountFor(agent.ctx)
   if (mount === undefined) return undefined
-  /** 中文说明：变量 store 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const store = ctx.reflect.store
-  /** 中文说明：该循环依次处理预设数据；循环变量仅在当前循环中有效。 */
   for (const key of Object.getOwnPropertySymbols(store)) {
-    /** 中文说明：变量 impl 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const impl = store[key]
     /* v8 ignore next -- cordis deletes a store slot on disposal rather than clearing it */
     if (impl === undefined) continue
@@ -338,18 +301,10 @@ export function serviceForAgent<K extends string & keyof Context>(
  * @param tree - the mounted subtree.
  * @returns one line per unusable row, empty when every enabled row is usable.
  */
-/*
- * 中文说明：函数 inactiveRows 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。
- * @param tree 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
- * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
- */
 export function inactiveRows(tree: EntryTree): string[] {
-  /** 中文说明：变量 lines 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const lines: string[] = []
-  /** 中文说明：该循环依次处理预设数据；循环变量仅在当前循环中有效。 */
   for (const entry of tree.entries()) {
     if (entry.disabled) continue
-    /** 中文说明：变量 fiber 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const fiber = entry.fiber
     /* v8 ignore next 4 -- the loader rejects an entry whose module or plugin failed,
        so a settled tree never holds an enabled fiber-less entry; the branch exists
@@ -358,7 +313,6 @@ export function inactiveRows(tree: EntryTree): string[] {
       lines.push(`${entry.options.id} (${entry.options.name}): never started`)
       continue
     }
-    /** 中文说明：函数值 missing 封装本模块的局部步骤；参数和返回值由右侧签名约束；示例见本模块调用。 */
     const missing = Object.keys(fiber.inject).filter(name => fiber.ctx.get(name) === undefined)
     if (missing.length > 0) {
       lines.push(`${entry.options.id} (${entry.options.name}): waiting for ${missing.join(', ')}`)
@@ -398,7 +352,6 @@ function detailBranches(error: Error): readonly unknown[] {
  * @param error - the value the mount rejected with.
  * @returns a single-line-per-cause description.
  */
-/* 中文说明：函数 mountDetail 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function mountDetail(error: unknown): string {
   /* v8 ignore next -- every path into the mount's catch throws an Error: the loader
      wraps a row's thrown value before it propagates, and this module's own
@@ -422,13 +375,7 @@ function mountDetail(error: unknown): string {
  * @throws when `agentCtx` carries no scope, a row is unusable, or a row
  * published a service into the root realm.
  */
-/*
- * 中文说明：函数 mountPreset 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。
- * @param agentCtx 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
- * @param preset 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
- */
 export async function mountPreset(agentCtx: Context, preset: AgentPreset): Promise<void> {
-  /** 中文说明：变量 scope 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const scope = scopeOf(agentCtx)
   if (scope === undefined) {
     throw new Error(
@@ -436,7 +383,6 @@ export async function mountPreset(agentCtx: Context, preset: AgentPreset): Promi
       + 'its registrations would apply to every agent in the process',
     )
   }
-  /** 中文说明：变量 config 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const config: Include.Config = { path: pathToFileURL(preset.path).href }
   // Captured before the subtree exists: the standing scope context still
   // carries the host composition's base, which is inside the installed
@@ -447,21 +393,17 @@ export async function mountPreset(agentCtx: Context, preset: AgentPreset): Promi
   // preset and live until whole-tree teardown, so pruning here only sweeps
   // records of torn-down runtimes (tests; an HMR reload of the roster).
   pruneDisposedMounts()
-  /** 中文说明：变量 handle 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const handle = agentCtx.plugin(PresetTree, config)
   try {
     await handle.await()
-    /** 中文说明：变量 subtree 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const subtree = mounted.get(config)
     /* v8 ignore next -- the subclass constructor runs before `await()` settles for every mounted tree */
     if (subtree === undefined) throw new Error('mounted subtree did not publish its entry tree')
     const { tree, fiber } = subtree
-    /** 中文说明：变量 unusable 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const unusable = inactiveRows(tree)
     if (unusable.length > 0) {
       throw new Error(`${String(unusable.length)} row(s) did not activate:\n${unusable.join('\n')}`)
     }
-    /** 中文说明：变量 leaked 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const leaked = leakedServices(agentCtx, fiber)
     if (leaked.length > 0) {
       throw new Error(
@@ -480,6 +422,12 @@ export async function mountPreset(agentCtx: Context, preset: AgentPreset): Promi
       // Swallows only this subtree's teardown failure. The mount error below is
       // the actionable one, and the discarded fiber is unreachable either way.
     }
-    throw new PresetMountError(preset.id, `${mountDetail(error)} (${preset.path})`, { cause: error })
+    const reason = `${mountDetail(error)} (${preset.path})`
+    throw new RemoteError(
+      'agent-preset/invalid',
+      `agent-presets: preset "${preset.id}" failed to mount: ${reason}`,
+      { agentPreset: preset.id, reason },
+      { cause: error },
+    )
   }
 }

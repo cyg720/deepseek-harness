@@ -1,11 +1,3 @@
-/**
- * 文件职责：验证工作区指令上下文的 agent-instructions.spec.ts 行为。
- * 技术维度：Vitest、会话事件、模型请求夹具和 Cordis 组装。
- * 产品维度：防止工作区指令上下文改变模型可见内容或生命周期语义。
- * 逻辑维度：构造日志与配置，运行插件并断言事件、请求和清理。
- * 关键边界：模型可见内容必须可重建；工具调用和结果必须保持配对。
- * 新手阅读建议：先读事件夹具，再按正常、边界和失败场景阅读。
- */
 import { chmod, mkdtemp, mkdir, rm, stat, symlink, utimes, writeFile } from 'node:fs/promises'
 import { dirname, isAbsolute, join, relative, resolve } from 'node:path'
 import { tmpdir } from 'node:os'
@@ -15,8 +7,9 @@ import Loader from '@deepseek-ai/cordis-plugin-loader'
 import * as workspaceContext from '@deepseek-ai/dsh-agent-instructions'
 import LlmRuntime, { createUserMessage, ToolCallId, type Message, type StreamChunk } from '@deepseek-ai/dsh-llm'
 import SessionStore, { Session, SessionId, SESSION_FORMAT_VERSION, type SessionEvent, type UserMessage } from '@deepseek-ai/dsh-session'
+import SessionProjectionRegistry from '@deepseek-ai/dsh-session-projection'
 import AgentRegistry, { agentEvents, Inbox, type Agent } from '@deepseek-ai/dsh-agent'
-import AgentLoop from '@deepseek-ai/dsh-agent-loop'
+import AgentLoop, { turnBoundaryProjectionDefinition } from '@deepseek-ai/dsh-agent-loop'
 import { FileSystem, FsTargetKey, FsVersion } from '@deepseek-ai/dsh-fs'
 import type {
   FsDirEntry,
@@ -45,7 +38,6 @@ import {
   applyInstructionVersionUpdates,
   baselineInstructionState,
   reconcileInstructionContext,
-  /** 中文说明：类型或类 InstructionVersionCache 约束上下文或压缩数据职责。 */
   type InstructionVersionCache,
 } from '../src/state.ts'
 import { resolveConfig } from '../src/config.ts'
@@ -53,24 +45,20 @@ import { candidateScopeKey, renderInstructionChanges, renderWorkspaceInstruction
 import { MockAdapter, textResponse, toolCallResponse } from '../../../core/agent-loop/tests/mock-adapter.ts'
 
 /** Per-candidate reconciliation scope key: directory paired with the file name. */
-/* 中文说明：测试局部值 sk，由紧邻初始化决定。 */
 const sk = (directory: string, candidateName: string): string => candidateScopeKey(directory, candidateName)
 
-/** 中文说明：测试局部值 testToolSignal，由紧邻初始化决定。 */
 const testToolSignal = new AbortController().signal
+const requestTimeoutMs = process.platform === 'win32' ? 5_000 : 1_000
 
-/** 中文说明：函数 tempRepo 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 async function tempRepo(): Promise<string> {
   return mkdtemp(join(tmpdir(), 'dsh-workspace-context-'))
 }
 
-/** 中文说明：函数 write 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 async function write(path: string, content: string): Promise<void> {
   await mkdir(join(path, '..'), { recursive: true })
   await writeFile(path, content)
 }
 
-/** 中文说明：类型或类 RecordingFileSystem 约束上下文或压缩数据职责。 */
 class RecordingFileSystem extends FileSystem {
   entries = new Map<string, { type: FsInfo['type']; content?: string; version?: FsVersion }>()
   throwOnStat = new Set<string>()
@@ -85,7 +73,6 @@ class RecordingFileSystem extends FileSystem {
     opts?.signal?.throwIfAborted()
     // resolve(), not join(): entries are seeded with host join() keys, and on
     // Windows a joined '/'-rooted prefix would not match a resolved drive path.
-    /** 中文说明：测试局部值 absolute，由紧邻初始化决定。 */
     const absolute = resolve(opts?.cwd ?? '/', path)
     return { targetKey: FsTargetKey(absolute), displayPath: absolute }
   }
@@ -95,7 +82,6 @@ class RecordingFileSystem extends FileSystem {
   override fileUrl(target: FsTarget): string { return `file://${target.targetKey}` }
 
   override contains(parent: FsTarget, child: FsTarget): boolean {
-    /** 中文说明：测试局部值 descendant，由紧邻初始化决定。 */
     const descendant = relative(String(parent.targetKey), String(child.targetKey))
     return descendant === '' || (!descendant.startsWith('..') && !isAbsolute(descendant))
   }
@@ -104,10 +90,8 @@ class RecordingFileSystem extends FileSystem {
     if (signal !== undefined) this.signals.push(signal)
     signal?.throwIfAborted()
     if (this.throwOnStat.has(target.targetKey)) throw new Error(`stat failed: ${target.displayPath}`)
-    /** 中文说明：测试局部值 entry，由紧邻初始化决定。 */
     const entry = this.entries.get(target.targetKey)
     if (entry === undefined) return undefined
-    /** 中文说明：测试局部值 info，由紧邻初始化决定。 */
     const info: FsInfo = {
       version: entry.version ?? FsVersion(`v:${target.targetKey}:${entry.type}:${entry.content ?? ''}`),
       type: entry.type,
@@ -119,9 +103,7 @@ class RecordingFileSystem extends FileSystem {
   override async lstat(path: string, opts?: { cwd?: string }, signal?: AbortSignal): Promise<FsPathInfo | undefined> {
     if (signal !== undefined) this.signals.push(signal)
     signal?.throwIfAborted()
-    /** 中文说明：测试局部值 target，由紧邻初始化决定。 */
     const target = await this.resolve(path, { ...opts, ...signal === undefined ? {} : { signal } })
-    /** 中文说明：测试局部值 info，由紧邻初始化决定。 */
     const info = await this.stat(target, signal)
     if (info === undefined) return undefined
     return {
@@ -147,10 +129,8 @@ class RecordingFileSystem extends FileSystem {
     signal?.throwIfAborted()
     this.readTargets.push(target.targetKey)
     if (this.throwOnRead.has(target.targetKey)) throw new Error(`read failed: ${target.displayPath}`)
-    /** 中文说明：测试局部值 content，由紧邻初始化决定。 */
     const content = this.entries.get(target.targetKey)?.content ?? ''
     return (async function* () {
-      /** 中文说明：测试局部值 midpoint，由紧邻初始化决定。 */
       const midpoint = Math.ceil(content.length / 2)
       yield content.slice(0, midpoint)
       signal?.throwIfAborted()
@@ -171,7 +151,6 @@ class RecordingFileSystem extends FileSystem {
   }
 }
 
-/** 中文说明：类型或类 BlockingReadFileSystem 约束上下文或压缩数据职责。 */
 class BlockingReadFileSystem extends RecordingFileSystem {
   readonly started = Promise.withResolvers<undefined>()
 
@@ -181,7 +160,6 @@ class BlockingReadFileSystem extends RecordingFileSystem {
     this.started.resolve(undefined)
     return (async function* () {
       await new Promise<void>((_resolve, reject) => {
-        /** 中文说明：测试局部值 abortReason，由紧邻初始化决定。 */
         const abortReason = (): Error => signal?.reason instanceof Error ? signal.reason : new Error('aborted')
         if (signal?.aborted) { reject(abortReason()); return }
         signal?.addEventListener('abort', () => { reject(abortReason()) }, { once: true })
@@ -191,26 +169,27 @@ class BlockingReadFileSystem extends RecordingFileSystem {
   }
 }
 
-/** 中文说明：函数 mountWorkspaceContext 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
-async function mountWorkspaceContext(ctx: Context, config: workspaceContext.Config): Promise<Awaited<ReturnType<Context['plugin']>>> {
-  await ctx.plugin(LocalFileSystem, { cwd: '/' })
+async function mountWorkspaceContextPlugin(ctx: Context, config: workspaceContext.Config): Promise<Awaited<ReturnType<Context['plugin']>>> {
+  if (ctx.get('sessionProjections') === undefined) await ctx.plugin(SessionProjectionRegistry)
+  ctx.sessionProjections.register(turnBoundaryProjectionDefinition)
   return ctx.plugin(workspaceContext, config)
 }
 
-/** 中文说明：函数 mountFileToolsAndWorkspaceContext 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+async function mountWorkspaceContext(ctx: Context, config: workspaceContext.Config): Promise<Awaited<ReturnType<Context['plugin']>>> {
+  await ctx.plugin(LocalFileSystem, { cwd: '/' })
+  return mountWorkspaceContextPlugin(ctx, config)
+}
+
 async function mountFileToolsAndWorkspaceContext(ctx: Context, config: workspaceContext.Config): Promise<Awaited<ReturnType<Context['plugin']>>> {
   await ctx.plugin(SystemPrompt)
   await ctx.plugin(ToolRuntime)
   await ctx.plugin(LocalFileSystem, { cwd: '/' })
   await ctx.plugin(ToolFs)
-  return ctx.plugin(workspaceContext, config)
+  return mountWorkspaceContextPlugin(ctx, config)
 }
 
-/** 中文说明：函数 stubAgent 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function stubAgent(cwd?: string, seed: SessionEvent[] = []): Agent {
-  /** 中文说明：测试局部值 id，由紧邻初始化决定。 */
   const id = SessionId('s1')
-  /** 中文说明：测试局部值 session，由紧邻初始化决定。 */
   const session = Session.create(id, seed, cwd === undefined ? undefined : { version: SESSION_FORMAT_VERSION, id, createdAt: 0, cwd })
   return {
     ctx: new Context(),
@@ -229,7 +208,6 @@ function stubAgent(cwd?: string, seed: SessionEvent[] = []): Agent {
   }
 }
 
-/** 中文说明：函数 stubToolExecution 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function stubToolExecution(
   input: Omit<ToolExecution, 'token' | 'rootCallId'> & {
     token?: ToolExecutionToken
@@ -243,15 +221,12 @@ function stubToolExecution(
   }
 }
 
-/** 中文说明：函数 blocksText 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function blocksText(blocks: { type: string; text?: string }[] | undefined): string {
   return blocks?.map(block => block.type === 'text' ? block.text ?? '' : '').join('\n') ?? ''
 }
 
-/** 中文说明：函数 workspaceContextOf 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 async function workspaceContextOf(agent: Agent): Promise<UserMessage> {
   return vi.waitFor(() => {
-    /** 中文说明：测试局部值 context，由紧邻初始化决定。 */
     const context = agent.inbox.nextStep.find(message =>
       message.source.kind === 'agent-instructions')
     expect(context).toBeDefined()
@@ -259,7 +234,6 @@ async function workspaceContextOf(agent: Agent): Promise<UserMessage> {
   }, { timeout: 10_000 })
 }
 
-/** 中文说明：函数 syncWorkspaceContext 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 async function syncWorkspaceContext(ctx: Context, agent: Agent): Promise<void> {
   await agentEvents(ctx, agent).waterfall(
     'agent/pre-step', { messages: [], turn: 1, step: 1, signal: testToolSignal },
@@ -267,13 +241,11 @@ async function syncWorkspaceContext(ctx: Context, agent: Agent): Promise<void> {
   )
 }
 
-/** 中文说明：函数 syncedWorkspaceContext 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 async function syncedWorkspaceContext(ctx: Context, agent: Agent): Promise<UserMessage> {
   await syncWorkspaceContext(ctx, agent)
   return workspaceContextOf(agent)
 }
 
-/** 中文说明：函数 baselineEvents 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function baselineEvents(agent: Agent): SessionEvent[] {
   return agent.session.events.filter(event =>
     event.type === 'user/message'
@@ -281,15 +253,11 @@ function baselineEvents(agent: Agent): SessionEvent[] {
     && event.data.source.baseline === true)
 }
 
-/** 中文说明：函数 appendAdditionalContexts 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 async function appendAdditionalContexts(ctx: Context, agent: Agent): Promise<number | undefined> {
   await syncedWorkspaceContext(ctx, agent)
-  /** 中文说明：测试局部值 解构结果，由紧邻初始化决定。 */
   let lastSeq: number | undefined
-  /** 中文说明：测试局部值 claimed，由紧邻初始化决定。 */
   for (const claimed of agent.inbox.claim('next-step', 1)) {
     if (claimed.source.kind !== 'agent-instructions') continue
-    /** 中文说明：测试局部值 event，由紧邻初始化决定。 */
     const event = agent.session.append('user/message', claimed, { surfaceOp: 'append' })
     ctx.emit('session/event', agent.session, event)
     lastSeq = event.seq
@@ -297,46 +265,35 @@ async function appendAdditionalContexts(ctx: Context, agent: Agent): Promise<num
   return lastSeq
 }
 
-/** 中文说明：测试局部值 composedPrefixes，由紧邻初始化决定。 */
 const composedPrefixes = new WeakMap<object, Message[]>()
 
-/** 中文说明：函数 composeBaselinePrefix 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 async function composeBaselinePrefix(ctx: Context, agent: Agent): Promise<Message[]> {
-  /** 中文说明：测试局部值 signal，由紧邻初始化决定。 */
   const signal = new AbortController().signal
   await agentEvents(ctx, agent).waterfall(
     'agent/pre-step',
     { messages: [], turn: 1, step: 1, signal },
     () => Promise.resolve({ kind: 'enter' as const, messages: [] }),
   )
-  /** 中文说明：测试局部值 claimed，由紧邻初始化决定。 */
   const claimed = agent.inbox.claim('next-step', 1)
-  /** 中文说明：测试局部值 decision，由紧邻初始化决定。 */
   const decision = await agentEvents(ctx, agent).waterfall(
     'agent/pre-step',
     { messages: claimed, turn: 1, step: 2, signal },
     () => Promise.resolve({ kind: 'enter' as const, messages: claimed }),
   )
-  /** 中文说明：测试局部值 entered，由紧邻初始化决定。 */
   const entered = decision.kind === 'enter' ? decision.messages : []
-  /** 中文说明：测试局部值 message，由紧邻初始化决定。 */
   for (const message of entered) {
-    /** 中文说明：测试局部值 event，由紧邻初始化决定。 */
     const event = agent.session.append('user/message', message, { surfaceOp: 'append' })
     ctx.emit('session/event', agent.session, event)
   }
-  /** 中文说明：测试局部值 prefix，由紧邻初始化决定。 */
   const prefix = agent.session.deriveMessages()
   composedPrefixes.set(agent, prefix)
   return prefix
 }
 
-/** 中文说明：函数 derivedText 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function derivedText(agent: Agent): string {
   return blocksText(composedPrefixes.get(agent)?.[0]?.content)
 }
 
-/** 中文说明：函数 expectNoDerivedMessages 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function expectNoDerivedMessages(agent: Agent): void {
   expect(agent.session.deriveMessages()).toEqual([])
   expect(composedPrefixes.get(agent) ?? []).toEqual([])
@@ -344,14 +301,11 @@ function expectNoDerivedMessages(agent: Agent): void {
 
 describe('workspace context instruction discovery', () => {
   it('treats ENOTDIR while probing a host candidate as confirmed absence', async () => {
-    /** 中文说明：测试局部值 root，由紧邻初始化决定。 */
     const root = await tempRepo()
-    /** 中文说明：测试局部值 homeFile，由紧邻初始化决定。 */
     const homeFile = join(root, 'not-a-directory')
     try {
       await writeFile(homeFile, 'file')
 
-      /** 中文说明：测试局部值 files，由紧邻初始化决定。 */
       const files = await discoverBaselineInstructionFiles({ cwd: root, dshHome: homeFile })
 
       expect(files).toEqual([])
@@ -361,12 +315,9 @@ describe('workspace context instruction discovery', () => {
   })
 
   it('loads user-global first, then every root-to-cwd candidate in precedence order', async () => {
-    /** 中文说明：测试局部值 root，由紧邻初始化决定。 */
     const root = await tempRepo()
-    /** 中文说明：测试局部值 home，由紧邻初始化决定。 */
     const home = await tempRepo()
     try {
-      /** 中文说明：测试局部值 cwd，由紧邻初始化决定。 */
       const cwd = join(root, 'packages/app')
       await mkdir(join(root, '.git'), { recursive: true })
       await write(join(home, 'AGENTS.md'), 'global rules')
@@ -375,7 +326,6 @@ describe('workspace context instruction discovery', () => {
       await write(join(root, 'packages/CLAUDE.md'), 'package claude')
       await write(join(cwd, 'AGENTS.md'), 'app agents')
 
-      /** 中文说明：测试局部值 files，由紧邻初始化决定。 */
       const files = await discoverBaselineInstructionFiles({ cwd, dshHome: home })
 
       expect(files.map(file => file.displayPath)).toEqual([
@@ -393,12 +343,9 @@ describe('workspace context instruction discovery', () => {
   })
 
   it('loads a same-directory local overlay in addition to the base file by default', async () => {
-    /** 中文说明：测试局部值 root，由紧邻初始化决定。 */
     const root = await tempRepo()
-    /** 中文说明：测试局部值 home，由紧邻初始化决定。 */
     const home = await tempRepo()
     try {
-      /** 中文说明：测试局部值 cwd，由紧邻初始化决定。 */
       const cwd = join(root, 'pkg')
       await mkdir(join(root, '.git'), { recursive: true })
       await write(join(root, 'AGENTS.md'), 'root base')
@@ -406,7 +353,6 @@ describe('workspace context instruction discovery', () => {
       await write(join(cwd, 'CLAUDE.md'), 'pkg base')
       await write(join(cwd, 'CLAUDE.local.md'), 'pkg local')
 
-      /** 中文说明：测试局部值 files，由紧邻初始化决定。 */
       const files = await discoverBaselineInstructionFiles({ cwd, dshHome: home })
 
       expect(files.map(file => file.displayPath)).toEqual([
@@ -422,16 +368,13 @@ describe('workspace context instruction discovery', () => {
   })
 
   it('loads no local overlay when localInstructionFileCandidates is empty', async () => {
-    /** 中文说明：测试局部值 root，由紧邻初始化决定。 */
     const root = await tempRepo()
-    /** 中文说明：测试局部值 home，由紧邻初始化决定。 */
     const home = await tempRepo()
     try {
       await mkdir(join(root, '.git'), { recursive: true })
       await write(join(root, 'AGENTS.md'), 'base rule')
       await write(join(root, 'AGENTS.local.md'), 'local rule')
 
-      /** 中文说明：测试局部值 files，由紧邻初始化决定。 */
       const files = await discoverBaselineInstructionFiles({
         cwd: root,
         dshHome: home,
@@ -446,21 +389,16 @@ describe('workspace context instruction discovery', () => {
   })
 
   it('treats a .git file as a project root marker and does not search above it', async () => {
-    /** 中文说明：测试局部值 outer，由紧邻初始化决定。 */
     const outer = await tempRepo()
-    /** 中文说明：测试局部值 home，由紧邻初始化决定。 */
     const home = await tempRepo()
     try {
-      /** 中文说明：测试局部值 root，由紧邻初始化决定。 */
       const root = join(outer, 'worktree')
-      /** 中文说明：测试局部值 cwd，由紧邻初始化决定。 */
       const cwd = join(root, 'src')
       await write(join(outer, 'AGENTS.md'), 'outer must not load')
       await write(join(root, '.git'), 'gitdir: ../.git/worktrees/worktree')
       await write(join(root, 'AGENTS.md'), 'root')
       await mkdir(cwd, { recursive: true })
 
-      /** 中文说明：测试局部值 files，由紧邻初始化决定。 */
       const files = await discoverBaselineInstructionFiles({ cwd, dshHome: home })
 
       expect(files.map(file => file.displayPath)).toEqual(['AGENTS.md'])
@@ -471,33 +409,25 @@ describe('workspace context instruction discovery', () => {
   })
 
   it('re-reads content after a same-version, same-size rewrite', async () => {
-    /** 中文说明：测试局部值 root，由紧邻初始化决定。 */
     const root = await tempRepo()
-    /** 中文说明：测试局部值 home，由紧邻初始化决定。 */
     const home = await tempRepo()
     try {
-      /** 中文说明：测试局部值 cwd，由紧邻初始化决定。 */
       const cwd = join(root, 'pkg')
       await mkdir(join(root, '.git'), { recursive: true })
       await mkdir(cwd, { recursive: true })
 
       expect(await loadBaselineInstructions({ cwd, dshHome: home, maxBytes: 65536 })).toBeUndefined()
 
-      /** 中文说明：测试局部值 leaf，由紧邻初始化决定。 */
       const leaf = join(cwd, 'AGENTS.md')
       await write(leaf, 'first')
-      /** 中文说明：测试局部值 first，由紧邻初始化决定。 */
       const first = await loadBaselineInstructions({ cwd, dshHome: home, maxBytes: 65536 })
       expect(first?.text).toContain('first')
-      /** 中文说明：测试局部值 again，由紧邻初始化决定。 */
       const again = await loadBaselineInstructions({ cwd, dshHome: home, maxBytes: 65536 })
       expect(again?.text).toContain('first')
 
-      /** 中文说明：测试局部值 before，由紧邻初始化决定。 */
       const before = await stat(leaf)
       await writeFile(leaf, 'other')
       await utimes(leaf, before.atime, before.mtime)
-      /** 中文说明：测试局部值 second，由紧邻初始化决定。 */
       const second = await loadBaselineInstructions({ cwd, dshHome: home, maxBytes: 65536 })
       expect(second?.text).toContain('other')
       expect(second?.text).not.toContain('first')
@@ -509,21 +439,16 @@ describe('workspace context instruction discovery', () => {
 
   // POSIX-only fixture: chmod 0 cannot make a file unreadable to its owner on Windows.
   it.skipIf(process.platform === 'win32')('skips a file that becomes unreadable after discovery without failing the request', async () => {
-    /** 中文说明：测试局部值 root，由紧邻初始化决定。 */
     const root = await tempRepo()
-    /** 中文说明：测试局部值 home，由紧邻初始化决定。 */
     const home = await tempRepo()
     try {
-      /** 中文说明：测试局部值 cwd，由紧邻初始化决定。 */
       const cwd = join(root, 'pkg')
       await mkdir(join(root, '.git'), { recursive: true })
       await mkdir(cwd, { recursive: true })
-      /** 中文说明：测试局部值 leaf，由紧邻初始化决定。 */
       const leaf = join(cwd, 'AGENTS.md')
       await write(leaf, 'secret-ish rule')
       await chmod(leaf, 0)
 
-      /** 中文说明：测试局部值 loaded，由紧邻初始化决定。 */
       const loaded = await loadBaselineInstructions({ cwd, dshHome: home, maxBytes: 65536 })
 
       expect(loaded).toBeUndefined()
@@ -535,20 +460,15 @@ describe('workspace context instruction discovery', () => {
   })
 
   it('follows a symlinked instruction file to its target content', async () => {
-    /** 中文说明：测试局部值 root，由紧邻初始化决定。 */
     const root = await tempRepo()
-    /** 中文说明：测试局部值 home，由紧邻初始化决定。 */
     const home = await tempRepo()
-    /** 中文说明：测试局部值 outside，由紧邻初始化决定。 */
     const outside = await tempRepo()
     try {
       await mkdir(join(root, '.git'), { recursive: true })
       await write(join(outside, 'shared.md'), 'shared instruction body')
       await symlink(join(outside, 'shared.md'), join(root, 'AGENTS.md'))
 
-      /** 中文说明：测试局部值 files，由紧邻初始化决定。 */
       const files = await discoverBaselineInstructionFiles({ cwd: root, dshHome: home })
-      /** 中文说明：测试局部值 loaded，由紧邻初始化决定。 */
       const loaded = await loadBaselineInstructions({ cwd: root, dshHome: home, maxBytes: 65536 })
 
       expect(files.map(file => file.displayPath)).toContain('AGENTS.md')
@@ -561,20 +481,15 @@ describe('workspace context instruction discovery', () => {
   })
 
   it('follows a symlinked instruction file through ctx.fs to its target content', async () => {
-    /** 中文说明：测试局部值 root，由紧邻初始化决定。 */
     const root = await tempRepo()
-    /** 中文说明：测试局部值 home，由紧邻初始化决定。 */
     const home = await tempRepo()
-    /** 中文说明：测试局部值 outside，由紧邻初始化决定。 */
     const outside = await tempRepo()
     try {
       await mkdir(join(root, '.git'), { recursive: true })
       await write(join(outside, 'shared.md'), 'shared provider instruction body')
       await symlink(join(outside, 'shared.md'), join(root, 'AGENTS.md'))
-      /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
       const ctx = new Context()
       await mountWorkspaceContext(ctx, { dshHome: home, maxBytes: 65536 })
-      /** 中文说明：测试局部值 agent，由紧邻初始化决定。 */
       const agent = stubAgent(root)
 
       await composeBaselinePrefix(ctx, agent)
@@ -588,9 +503,7 @@ describe('workspace context instruction discovery', () => {
   })
 
   it('disables baseline loading when the byte budget is zero', async () => {
-    /** 中文说明：测试局部值 root，由紧邻初始化决定。 */
     const root = await tempRepo()
-    /** 中文说明：测试局部值 home，由紧邻初始化决定。 */
     const home = await tempRepo()
     try {
       await mkdir(join(root, '.git'), { recursive: true })
@@ -608,15 +521,12 @@ describe('workspace context instruction discovery', () => {
   })
 
   it('honors configured instruction candidates that exclude CLAUDE.md', async () => {
-    /** 中文说明：测试局部值 root，由紧邻初始化决定。 */
     const root = await tempRepo()
-    /** 中文说明：测试局部值 home，由紧邻初始化决定。 */
     const home = await tempRepo()
     try {
       await mkdir(join(root, '.git'), { recursive: true })
       await write(join(root, 'CLAUDE.md'), 'claude only')
 
-      /** 中文说明：测试局部值 files，由紧邻初始化决定。 */
       const files = await discoverBaselineInstructionFiles({
         cwd: root,
         dshHome: home,
@@ -631,9 +541,7 @@ describe('workspace context instruction discovery', () => {
   })
 
   it('loads every configured instruction candidate in configured order without hard-coding AGENTS.md priority', async () => {
-    /** 中文说明：测试局部值 root，由紧邻初始化决定。 */
     const root = await tempRepo()
-    /** 中文说明：测试局部值 home，由紧邻初始化决定。 */
     const home = await tempRepo()
     try {
       await mkdir(join(root, '.git'), { recursive: true })
@@ -641,7 +549,6 @@ describe('workspace context instruction discovery', () => {
       await write(join(root, 'CLAUDE.local.md'), 'local claude rule')
       await write(join(root, 'CLAUDE.md'), 'claude rule')
 
-      /** 中文说明：测试局部值 files，由紧邻初始化决定。 */
       const files = await discoverBaselineInstructionFiles({
         cwd: root,
         dshHome: home,
@@ -656,16 +563,13 @@ describe('workspace context instruction discovery', () => {
   })
 
   it('ignores configured instruction candidates that are not same-directory file names', async () => {
-    /** 中文说明：测试局部值 root，由紧邻初始化决定。 */
     const root = await tempRepo()
-    /** 中文说明：测试局部值 home，由紧邻初始化决定。 */
     const home = await tempRepo()
     try {
       await mkdir(join(root, '.git'), { recursive: true })
       await write(join(root, 'AGENTS.md'), 'native rule')
       await write(join(root, '.claude/CLAUDE.md'), 'nested claude rule')
 
-      /** 中文说明：测试局部值 files，由紧邻初始化决定。 */
       const files = await discoverBaselineInstructionFiles({
         cwd: root,
         dshHome: home,
@@ -680,9 +584,7 @@ describe('workspace context instruction discovery', () => {
   })
 
   it('defaults dshHome and uses cwd itself as root when no project marker exists', async () => {
-    /** 中文说明：测试局部值 root，由紧邻初始化决定。 */
     const root = await tempRepo()
-    /** 中文说明：测试局部值 emptyHome，由紧邻初始化决定。 */
     const emptyHome = await tempRepo()
     // Isolate the default-home fallback: blank DSH_HOME is treated as unset, and
     // the home dirs point at an empty dir so the default ~/.dsh holds no global
@@ -692,13 +594,11 @@ describe('workspace context instruction discovery', () => {
     vi.stubEnv('HOME', emptyHome)
     if (process.platform === 'win32') vi.stubEnv('USERPROFILE', emptyHome)
     try {
-      /** 中文说明：测试局部值 cwd，由紧邻初始化决定。 */
       const cwd = join(root, 'child')
       await mkdir(cwd, { recursive: true })
       await write(join(root, 'AGENTS.md'), 'parent without marker')
       await write(join(cwd, 'AGENTS.md'), 'cwd without marker')
 
-      /** 中文说明：测试局部值 files，由紧邻初始化决定。 */
       const files = await discoverBaselineInstructionFiles({ cwd })
 
       expect(files.map(file => file.displayPath)).toEqual(['AGENTS.md'])
@@ -711,15 +611,12 @@ describe('workspace context instruction discovery', () => {
   })
 
   it('honors DSH_HOME when dshHome is not configured explicitly', async () => {
-    /** 中文说明：测试局部值 root，由紧邻初始化决定。 */
     const root = await tempRepo()
-    /** 中文说明：测试局部值 envHome，由紧邻初始化决定。 */
     const envHome = await tempRepo()
     try {
       await write(join(envHome, 'AGENTS.md'), 'env global rule')
       vi.stubEnv('DSH_HOME', envHome)
 
-      /** 中文说明：测试局部值 files，由紧邻初始化决定。 */
       const files = await discoverBaselineInstructionFiles({ cwd: root })
 
       expect(files).toEqual([{ absolutePath: join(envHome, 'AGENTS.md'), displayPath: '$DSH_HOME/AGENTS.md' }])
@@ -731,9 +628,7 @@ describe('workspace context instruction discovery', () => {
   })
 
   it('labels the default DSH home as ~/.dsh when HOME points at the configured default', async () => {
-    /** 中文说明：测试局部值 root，由紧邻初始化决定。 */
     const root = await tempRepo()
-    /** 中文说明：测试局部值 home，由紧邻初始化决定。 */
     const home = await tempRepo()
     try {
       await write(join(home, '.dsh/AGENTS.md'), 'global default rule')
@@ -742,9 +637,7 @@ describe('workspace context instruction discovery', () => {
       vi.stubEnv('DSH_HOME', '')
       vi.resetModules()
       vi.doMock('node:os', () => ({ homedir: () => home }))
-      /** 中文说明：测试局部值 isolated，由紧邻初始化决定。 */
       const isolated = await import('@deepseek-ai/dsh-agent-instructions')
-      /** 中文说明：测试局部值 files，由紧邻初始化决定。 */
       const files = await isolated.discoverBaselineInstructionFiles({ cwd: root })
 
       expect(files.map(file => file.displayPath)).toEqual(['~/.dsh/AGENTS.md'])
@@ -758,18 +651,14 @@ describe('workspace context instruction discovery', () => {
   })
 
   it('expands a configured ~/.dsh home to the operating-system home directory', async () => {
-    /** 中文说明：测试局部值 root，由紧邻初始化决定。 */
     const root = await tempRepo()
-    /** 中文说明：测试局部值 home，由紧邻初始化决定。 */
     const home = await tempRepo()
     try {
       await write(join(home, '.dsh/AGENTS.md'), 'global tilde rule')
 
       vi.resetModules()
       vi.doMock('node:os', () => ({ homedir: () => home }))
-      /** 中文说明：测试局部值 isolated，由紧邻初始化决定。 */
       const isolated = await import('@deepseek-ai/dsh-agent-instructions')
-      /** 中文说明：测试局部值 files，由紧邻初始化决定。 */
       const files = await isolated.discoverBaselineInstructionFiles({ cwd: root, dshHome: '~/.dsh' })
 
       expect(files).toEqual([{ absolutePath: join(home, '.dsh/AGENTS.md'), displayPath: '~/.dsh/AGENTS.md' }])
@@ -782,13 +671,11 @@ describe('workspace context instruction discovery', () => {
   })
 
   it('deduplicates user-global instructions when dshHome points at the project root', async () => {
-    /** 中文说明：测试局部值 root，由紧邻初始化决定。 */
     const root = await tempRepo()
     try {
       await mkdir(join(root, '.git'), { recursive: true })
       await write(join(root, 'AGENTS.md'), 'same file')
 
-      /** 中文说明：测试局部值 files，由紧邻初始化决定。 */
       const files = await discoverBaselineInstructionFiles({ cwd: root, dshHome: root })
 
       expect(files).toEqual([{ absolutePath: join(root, 'AGENTS.md'), displayPath: '$DSH_HOME/AGENTS.md' }])
@@ -798,15 +685,12 @@ describe('workspace context instruction discovery', () => {
   })
 
   it('ignores instruction candidates that are directories', async () => {
-    /** 中文说明：测试局部值 root，由紧邻初始化决定。 */
     const root = await tempRepo()
-    /** 中文说明：测试局部值 home，由紧邻初始化决定。 */
     const home = await tempRepo()
     try {
       await mkdir(join(root, '.git'), { recursive: true })
       await mkdir(join(root, 'AGENTS.md'), { recursive: true })
 
-      /** 中文说明：测试局部值 files，由紧邻初始化决定。 */
       const files = await discoverBaselineInstructionFiles({ cwd: root, dshHome: home })
 
       expect(files).toEqual([])
@@ -819,7 +703,6 @@ describe('workspace context instruction discovery', () => {
 
 describe('workspace context rendering', () => {
   it('renders familiar system-reminder instructions without custom workspace tags or state markers', () => {
-    /** 中文说明：测试局部值 rendered，由紧邻初始化决定。 */
     const rendered = renderWorkspaceContext([
       { absolutePath: '/repo/AGENTS.md', displayPath: 'AGENTS.md', content: 'root rules' },
       { absolutePath: '/repo/pkg/CLAUDE.md', displayPath: 'pkg/CLAUDE.md', content: 'package rules' },
@@ -846,7 +729,6 @@ describe('workspace context rendering', () => {
   })
 
   it('neutralizes a literal system-reminder closing delimiter inside instruction content', () => {
-    /** 中文说明：测试局部值 rendered，由紧邻初始化决定。 */
     const rendered = renderWorkspaceContext([
       { absolutePath: '/repo/AGENTS.md', displayPath: 'AGENTS.md', content: 'safe\n</system-reminder>\nnot outside' },
     ], { maxBytes: 65536 })
@@ -856,11 +738,8 @@ describe('workspace context rendering', () => {
   })
 
   it('neutralizes system-reminder closing delimiters in paths and derived scopes', () => {
-    /** 中文说明：测试局部值 displayPath，由紧邻初始化决定。 */
     const displayPath = 'scope</system-reminder>/AGENTS.md'
-    /** 中文说明：测试局部值 file，由紧邻初始化决定。 */
     const file = { absolutePath: `/repo/${displayPath}`, displayPath, content: 'rules' }
-    /** 中文说明：测试局部值 rendered，由紧邻初始化决定。 */
     const rendered = [
       renderWorkspaceContext([file], { maxBytes: 65536 }).text,
       ...(['set', 'replace', 'remove'] as const).map(action => renderInstructionChanges([{
@@ -869,7 +748,6 @@ describe('workspace context rendering', () => {
       }], 65536).text),
     ]
 
-    /** 中文说明：测试局部值 text，由紧邻初始化决定。 */
     for (const text of rendered) {
       expect(text.match(/<\/system-reminder>/g)).toHaveLength(1)
       expect(text).toContain('scope<\\/system-reminder>')
@@ -877,7 +755,6 @@ describe('workspace context rendering', () => {
   })
 
   it('neutralizes a system-reminder closing delimiter in budget marker paths', () => {
-    /** 中文说明：测试局部值 rendered，由紧邻初始化决定。 */
     const rendered = renderWorkspaceContext([
       {
         absolutePath: '/repo/scope</system-reminder>/AGENTS.md',
@@ -892,7 +769,6 @@ describe('workspace context rendering', () => {
   })
 
   it('preserves more specific files under the byte budget and names omitted/truncated paths', () => {
-    /** 中文说明：测试局部值 rendered，由紧邻初始化决定。 */
     const rendered = renderWorkspaceContext([
       { absolutePath: '/repo/AGENTS.md', displayPath: 'AGENTS.md', content: 'root '.repeat(100) },
       { absolutePath: '/repo/pkg/AGENTS.md', displayPath: 'pkg/AGENTS.md', content: 'leaf '.repeat(100) },
@@ -908,7 +784,6 @@ describe('workspace context rendering', () => {
   })
 
   it('keeps the rendered block within the byte budget when files are both omitted and truncated', () => {
-    /** 中文说明：测试局部值 rendered，由紧邻初始化决定。 */
     const rendered = renderWorkspaceContext([
       { absolutePath: '/repo/AGENTS.md', displayPath: 'AGENTS.md', content: 'root '.repeat(100) },
       { absolutePath: '/repo/pkg/AGENTS.md', displayPath: 'pkg/AGENTS.md', content: 'leaf '.repeat(100) },
@@ -921,7 +796,6 @@ describe('workspace context rendering', () => {
   })
 
   it('drops a parent file while keeping a specific child file intact when the child fits', () => {
-    /** 中文说明：测试局部值 rendered，由紧邻初始化决定。 */
     const rendered = renderWorkspaceContext([
       { absolutePath: '/repo/AGENTS.md', displayPath: 'AGENTS.md', content: 'root '.repeat(200) },
       { absolutePath: '/repo/pkg/AGENTS.md', displayPath: 'pkg/AGENTS.md', content: 'leaf rule' },
@@ -935,7 +809,6 @@ describe('workspace context rendering', () => {
   })
 
   it('keeps the longest most-specific suffix that fits under the byte budget', () => {
-    /** 中文说明：测试局部值 rendered，由紧邻初始化决定。 */
     const rendered = renderWorkspaceContext([
       { absolutePath: '/repo/AGENTS.md', displayPath: 'AGENTS.md', content: 'root '.repeat(200) },
       { absolutePath: '/repo/pkg/AGENTS.md', displayPath: 'pkg/AGENTS.md', content: 'package rule' },
@@ -951,7 +824,6 @@ describe('workspace context rendering', () => {
   })
 
   it('truncates a single oversized file to the largest content slice that fits', () => {
-    /** 中文说明：测试局部值 rendered，由紧邻初始化决定。 */
     const rendered = renderWorkspaceContext([
       { absolutePath: '/repo/AGENTS.md', displayPath: 'AGENTS.md', content: 'x'.repeat(1000) },
     ], { maxBytes: 700 })
@@ -965,7 +837,6 @@ describe('workspace context rendering', () => {
   })
 
   it('omits all text when the render budget is disabled', () => {
-    /** 中文说明：测试局部值 rendered，由紧邻初始化决定。 */
     const rendered = renderWorkspaceContext([
       { absolutePath: '/repo/AGENTS.md', displayPath: 'AGENTS.md', content: 'root rules' },
     ], { maxBytes: 0 })
@@ -978,7 +849,6 @@ describe('workspace context rendering', () => {
   })
 
   it('falls back to a compact truncation notice when even the empty heading cannot fit', () => {
-    /** 中文说明：测试局部值 rendered，由紧邻初始化决定。 */
     const rendered = renderWorkspaceContext([
       { absolutePath: '/repo/pkg/AGENTS.md', displayPath: 'pkg/AGENTS.md', content: 'x'.repeat(1000) },
     ], { maxBytes: 100 })
@@ -989,7 +859,6 @@ describe('workspace context rendering', () => {
   })
 
   it('keeps the empty instruction heading when it fits beside the compact notice', () => {
-    /** 中文说明：测试局部值 rendered，由紧邻初始化决定。 */
     const rendered = renderWorkspaceContext([
       { absolutePath: '/repo/pkg/AGENTS.md', displayPath: 'pkg/AGENTS.md', content: 'x'.repeat(1000) },
     ], { maxBytes: 120 })
@@ -1005,9 +874,7 @@ describe('workspace context rendering', () => {
   })
 
   it('represents a genuinely empty instruction when its compact heading fits', () => {
-    /** 中文说明：测试局部值 file，由紧邻初始化决定。 */
     const file = { absolutePath: '/repo/pkg/AGENTS.md', displayPath: 'pkg/AGENTS.md', content: '' }
-    /** 中文说明：测试局部值 rendered，由紧邻初始化决定。 */
     const rendered = renderWorkspaceInstructionSet([file], { maxBytes: 117 })
 
     expect(rendered.rendered.text).toContain('truncated pkg/AGENTS.md from 0 to 0 bytes')
@@ -1016,14 +883,12 @@ describe('workspace context rendering', () => {
   })
 
   it('represents a genuinely empty instruction through the framed compact-intro path', () => {
-    /** 中文说明：测试局部值 file，由紧邻初始化决定。 */
     const file = {
       absolutePath: '/repo/pkg/AGENTS.md',
       displayPath: 'pkg/AGENTS.md',
       content: '',
     }
 
-    /** 中文说明：测试局部值 rendered，由紧邻初始化决定。 */
     const rendered = renderWorkspaceInstructionSet([file], { maxBytes: 300 })
 
     expect(rendered.rendered.text).toContain('<system-reminder>')
@@ -1036,7 +901,6 @@ describe('workspace context rendering', () => {
   })
 
   it('truncates the compact notice itself when the render budget is smaller than the notice', () => {
-    /** 中文说明：测试局部值 rendered，由紧邻初始化决定。 */
     const rendered = renderWorkspaceContext([
       { absolutePath: '/repo/pkg/AGENTS.md', displayPath: 'pkg/AGENTS.md', content: 'x'.repeat(1000) },
     ], { maxBytes: 20 })
@@ -1047,14 +911,12 @@ describe('workspace context rendering', () => {
   })
 
   it('does not commit a change when only the generic compact notice survives', () => {
-    /** 中文说明：测试局部值 change，由紧邻初始化决定。 */
     const change = {
       action: 'set' as const,
       scope: sk('pkg', 'AGENTS.md'),
       path: 'pkg/AGENTS.md',
       digest: 'digest',
     }
-    /** 中文说明：测试局部值 rendered，由紧邻初始化决定。 */
     const rendered = renderInstructionChanges([{
       change,
       file: { absolutePath: '/repo/pkg/AGENTS.md', displayPath: 'pkg/AGENTS.md', content: 'x'.repeat(1000) },
@@ -1065,14 +927,12 @@ describe('workspace context rendering', () => {
   })
 
   it('commits a change when its file-specific semantic section survives truncation', () => {
-    /** 中文说明：测试局部值 change，由紧邻初始化决定。 */
     const change = {
       action: 'replace' as const,
       scope: sk('pkg', 'AGENTS.md'),
       path: 'pkg/AGENTS.md',
       digest: 'digest',
     }
-    /** 中文说明：测试局部值 rendered，由紧邻初始化决定。 */
     const rendered = renderInstructionChanges([{
       change,
       file: { absolutePath: '/repo/pkg/AGENTS.md', displayPath: 'pkg/AGENTS.md', content: 'x'.repeat(1000) },
@@ -1087,14 +947,12 @@ describe('workspace context rendering', () => {
     { action: 'set' as const, maxBytes: 327, heading: 'Additional instructions from:' },
     { action: 'replace' as const, maxBytes: 256, heading: 'Updated instructions from:' },
   ])('does not commit a $action change when its heading survives with zero content bytes', ({ action, maxBytes, heading }) => {
-    /** 中文说明：测试局部值 change，由紧邻初始化决定。 */
     const change = {
       action,
       scope: sk('pkg', 'AGENTS.md'),
       path: 'pkg/AGENTS.md',
       digest: 'digest',
     }
-    /** 中文说明：测试局部值 rendered，由紧邻初始化决定。 */
     const rendered = renderInstructionChanges([{
       change,
       file: { absolutePath: '/repo/pkg/AGENTS.md', displayPath: 'pkg/AGENTS.md', content: 'x'.repeat(1000) },
@@ -1106,14 +964,12 @@ describe('workspace context rendering', () => {
   })
 
   it('does not commit a multibyte change when the budget cuts its first code point', () => {
-    /** 中文说明：测试局部值 change，由紧邻初始化决定。 */
     const change = {
       action: 'set' as const,
       scope: sk('pkg', 'AGENTS.md'),
       path: 'pkg/AGENTS.md',
       digest: 'digest',
     }
-    /** 中文说明：测试局部值 rendered，由紧邻初始化决定。 */
     const rendered = renderInstructionChanges([{
       change,
       file: { absolutePath: '/repo/pkg/AGENTS.md', displayPath: 'pkg/AGENTS.md', content: '😀'.repeat(100) },
@@ -1125,7 +981,6 @@ describe('workspace context rendering', () => {
   })
 
   it('keeps compact truncation notices within budget when a multibyte display path is cut', () => {
-    /** 中文说明：测试局部值 rendered，由紧邻初始化决定。 */
     const rendered = renderWorkspaceContext([
       { absolutePath: '/repo/路径/AGENTS.md', displayPath: '路径/AGENTS.md', content: 'x'.repeat(1000) },
     ], { maxBytes: 51 })
@@ -1136,32 +991,49 @@ describe('workspace context rendering', () => {
 
 describe('workspace context request injection', () => {
   it('requires an explicit maxBytes configuration', async () => {
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = new Context()
 
-    await expect(ctx.plugin(workspaceContext, {} as workspaceContext.Config)).rejects.toThrow(/maxBytes/)
+    await expect(mountWorkspaceContextPlugin(ctx, {} as workspaceContext.Config)).rejects.toThrow(/maxBytes/)
   })
 
   it('mounts without requiring a filesystem provider', async () => {
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = new Context()
     try {
-      await ctx.plugin(workspaceContext, { maxBytes: 65536 })
+      await mountWorkspaceContextPlugin(ctx, { maxBytes: 65536 })
     } finally {
       await ctx.fiber.dispose()
     }
   })
 
-  it('does not declare fs as a static inject dependency', () => {
-    expect('inject' in workspaceContext).toBe(false)
+  it('requires projections without making the optional filesystem a static dependency', () => {
+    expect(workspaceContext.inject).toEqual(['sessionProjections'])
+  })
+
+  it('rejects a file-touch projection when the turn boundary unit is absent', async () => {
+    const ctx = new Context()
+    await ctx.plugin(SessionProjectionRegistry)
+    await ctx.plugin(workspaceContext, { maxBytes: 65536 })
+    const exec = stubToolExecution({
+      callId: ToolCallId('missing-turn-boundary'),
+      name: 'read',
+      arguments: { file_path: 'file.txt' },
+      agent: stubAgent('/virtual/repo'),
+      signal: testToolSignal,
+    })
+
+    expect(() => {
+      ctx.emit('tools/result', exec, {
+        content: [{ type: 'text', text: 'ok' }],
+        isError: false,
+        value: null,
+      })
+    }).toThrow('agent-instructions requires the turnBoundary session projection')
   })
 
   it('does not inject baseline context when no filesystem provider is present', async () => {
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = new Context()
     try {
-      await ctx.plugin(workspaceContext, { maxBytes: 65536 })
-      /** 中文说明：测试局部值 agent，由紧邻初始化决定。 */
+      await mountWorkspaceContextPlugin(ctx, { maxBytes: 65536 })
       const agent = stubAgent('/virtual/repo')
 
       await composeBaselinePrefix(ctx, agent)
@@ -1173,17 +1045,13 @@ describe('workspace context request injection', () => {
   })
 
   it('contributes baseline instructions through durable injected history', async () => {
-    /** 中文说明：测试局部值 root，由紧邻初始化决定。 */
     const root = await tempRepo()
-    /** 中文说明：测试局部值 home，由紧邻初始化决定。 */
     const home = await tempRepo()
     try {
       await mkdir(join(root, '.git'), { recursive: true })
       await write(join(root, 'AGENTS.md'), 'repo rule')
-      /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
       const ctx = new Context()
       await mountWorkspaceContext(ctx, { dshHome: home, maxBytes: 65536 })
-      /** 中文说明：测试局部值 agent，由紧邻初始化决定。 */
       const agent = stubAgent(root)
 
       await composeBaselinePrefix(ctx, agent)
@@ -1201,7 +1069,6 @@ describe('workspace context request injection', () => {
           },
         },
       })
-      /** 中文说明：测试局部值 baseline，由紧邻初始化决定。 */
       const baseline = baselineEvents(agent)[0]
       expect(baseline?.type === 'user/message' && Array.isArray(baseline.data.content)).toBe(true)
       expect(composedPrefixes.get(agent)).toHaveLength(1)
@@ -1217,22 +1084,16 @@ describe('workspace context request injection', () => {
   })
 
   it('queues and later commits one durable baseline contribution', async () => {
-    /** 中文说明：测试局部值 root，由紧邻初始化决定。 */
     const root = await tempRepo()
-    /** 中文说明：测试局部值 home，由紧邻初始化决定。 */
     const home = await tempRepo()
     try {
       await mkdir(join(root, '.git'), { recursive: true })
       await write(join(root, 'AGENTS.md'), 'repo rule')
-      /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
       const ctx = new Context()
       await mountWorkspaceContext(ctx, { dshHome: home, maxBytes: 65536 })
-      /** 中文说明：测试局部值 agent，由紧邻初始化决定。 */
       const agent = stubAgent(root)
 
-      /** 中文说明：测试局部值 first，由紧邻初始化决定。 */
       const first = await composeBaselinePrefix(ctx, agent)
-      /** 中文说明：测试局部值 second，由紧邻初始化决定。 */
       const second = await composeBaselinePrefix(ctx, agent)
 
       expect(second).toEqual(first)
@@ -1245,24 +1106,18 @@ describe('workspace context request injection', () => {
   })
 
   it('retains one visible baseline across repeated session resumes', async () => {
-    /** 中文说明：测试局部值 root，由紧邻初始化决定。 */
     const root = await tempRepo()
-    /** 中文说明：测试局部值 home，由紧邻初始化决定。 */
     const home = await tempRepo()
     try {
       await mkdir(join(root, '.git'), { recursive: true })
       await write(join(root, 'AGENTS.md'), 'repo rule')
-      /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
       const ctx = new Context()
       await mountWorkspaceContext(ctx, { dshHome: home, maxBytes: 65536 })
-      /** 中文说明：测试局部值 original，由紧邻初始化决定。 */
       const original = stubAgent(root)
       await composeBaselinePrefix(ctx, original)
 
-      /** 中文说明：测试局部值 firstResume，由紧邻初始化决定。 */
       const firstResume = stubAgent(root, [...original.session.events])
       await composeBaselinePrefix(ctx, firstResume)
-      /** 中文说明：测试局部值 secondResume，由紧邻初始化决定。 */
       const secondResume = stubAgent(root, [...firstResume.session.events])
       await composeBaselinePrefix(ctx, secondResume)
 
@@ -1277,25 +1132,19 @@ describe('workspace context request injection', () => {
   })
 
   it('preserves a visible baseline when its source is unavailable during resume', async () => {
-    /** 中文说明：测试局部值 root，由紧邻初始化决定。 */
     const root = join(await tempRepo(), 'virtual-repo')
-    /** 中文说明：测试局部值 home，由紧邻初始化决定。 */
     const home = join(await tempRepo(), 'virtual-home')
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = new Context()
     try {
       await ctx.plugin(RecordingFileSystem)
-      /** 中文说明：测试局部值 fs，由紧邻初始化决定。 */
       const fs = ctx.fs as RecordingFileSystem
       fs.entries.set(join(root, '.git'), { type: 'directory' })
       fs.entries.set(join(root, 'AGENTS.md'), { type: 'file', content: 'repo rule' })
-      await ctx.plugin(workspaceContext, { dshHome: home, maxBytes: 65536 })
-      /** 中文说明：测试局部值 original，由紧邻初始化决定。 */
+      await mountWorkspaceContextPlugin(ctx, { dshHome: home, maxBytes: 65536 })
       const original = stubAgent(root)
       await composeBaselinePrefix(ctx, original)
 
       fs.throwOnStat.add(join(root, 'AGENTS.md'))
-      /** 中文说明：测试局部值 resumed，由紧邻初始化决定。 */
       const resumed = stubAgent(root, [...original.session.events])
       await composeBaselinePrefix(ctx, resumed)
 
@@ -1310,27 +1159,20 @@ describe('workspace context request injection', () => {
   })
 
   it('does not promote an unchanged budget-omitted baseline file during resume', async () => {
-    /** 中文说明：测试局部值 root，由紧邻初始化决定。 */
     const root = await tempRepo()
-    /** 中文说明：测试局部值 home，由紧邻初始化决定。 */
     const home = await tempRepo()
     try {
-      /** 中文说明：测试局部值 cwd，由紧邻初始化决定。 */
       const cwd = join(root, 'pkg')
       await mkdir(join(root, '.git'), { recursive: true })
       await write(join(root, 'AGENTS.md'), 'root '.repeat(200))
       await write(join(cwd, 'AGENTS.md'), 'package rule')
-      /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
       const ctx = new Context()
       await mountWorkspaceContext(ctx, { dshHome: home, maxBytes: 700 })
-      /** 中文说明：测试局部值 original，由紧邻初始化决定。 */
       const original = stubAgent(cwd)
       await composeBaselinePrefix(ctx, original)
 
-      /** 中文说明：测试局部值 firstResume，由紧邻初始化决定。 */
       const firstResume = stubAgent(cwd, [...original.session.events])
       await composeBaselinePrefix(ctx, firstResume)
-      /** 中文说明：测试局部值 secondResume，由紧邻初始化决定。 */
       const secondResume = stubAgent(cwd, [...firstResume.session.events])
       await composeBaselinePrefix(ctx, secondResume)
 
@@ -1346,30 +1188,23 @@ describe('workspace context request injection', () => {
   })
 
   it('removes a previously visible baseline file that leaves the retained budget set', async () => {
-    /** 中文说明：测试局部值 root，由紧邻初始化决定。 */
     const root = await tempRepo()
-    /** 中文说明：测试局部值 home，由紧邻初始化决定。 */
     const home = await tempRepo()
     try {
-      /** 中文说明：测试局部值 cwd，由紧邻初始化决定。 */
       const cwd = join(root, 'pkg')
       await mkdir(join(root, '.git'), { recursive: true })
       await mkdir(cwd, { recursive: true })
       await write(join(root, 'AGENTS.md'), 'root '.repeat(200))
-      /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
       const ctx = new Context()
       await mountWorkspaceContext(ctx, { dshHome: home, maxBytes: 700 })
-      /** 中文说明：测试局部值 original，由紧邻初始化决定。 */
       const original = stubAgent(cwd)
       await composeBaselinePrefix(ctx, original)
 
       await write(join(cwd, 'AGENTS.md'), 'package rule')
-      /** 中文说明：测试局部值 resumed，由紧邻初始化决定。 */
       const resumed = stubAgent(cwd, [...original.session.events])
       await composeBaselinePrefix(ctx, resumed)
 
       expect(baselineEvents(resumed)).toHaveLength(1)
-      /** 中文说明：测试局部值 update，由紧邻初始化决定。 */
       const update = resumed.session.events.findLast(event => event.type === 'user/message'
         && event.data.source.kind === 'agent-instructions'
         && event.data.source.baseline !== true)
@@ -1386,20 +1221,15 @@ describe('workspace context request injection', () => {
   })
 
   it('recomposes the baseline when candidate precedence changes between resumes', async () => {
-    /** 中文说明：测试局部值 root，由紧邻初始化决定。 */
     const root = await tempRepo()
-    /** 中文说明：测试局部值 home，由紧邻初始化决定。 */
     const home = await tempRepo()
-    /** 中文说明：测试局部值 originalCtx，由紧邻初始化决定。 */
     const originalCtx = new Context()
-    /** 中文说明：测试局部值 resumedCtx，由紧邻初始化决定。 */
     const resumedCtx = new Context()
     try {
       await mkdir(join(root, '.git'), { recursive: true })
       await write(join(root, 'AGENTS.md'), 'agents rule')
       await write(join(root, 'CLAUDE.md'), 'claude rule')
       await mountWorkspaceContext(originalCtx, { dshHome: home, maxBytes: 65536 })
-      /** 中文说明：测试局部值 original，由紧邻初始化决定。 */
       const original = stubAgent(root)
       await composeBaselinePrefix(originalCtx, original)
 
@@ -1408,23 +1238,18 @@ describe('workspace context request injection', () => {
         maxBytes: 65536,
         instructionFileCandidates: ['CLAUDE.md', 'AGENTS.md'],
       })
-      /** 中文说明：测试局部值 resumed，由紧邻初始化决定。 */
       const resumed = stubAgent(root, [...original.session.events])
       await composeBaselinePrefix(resumedCtx, resumed)
 
-      /** 中文说明：测试局部值 baselines，由紧邻初始化决定。 */
       const baselines = baselineEvents(resumed)
       expect(baselines).toHaveLength(2)
-      /** 中文说明：测试局部值 replacement，由紧邻初始化决定。 */
       const replacement = baselines.at(-1)
-      /** 中文说明：测试局部值 replacementText，由紧邻初始化决定。 */
       const replacementText = replacement?.type === 'user/message'
         ? blocksText(replacement.data.content)
         : ''
       expect(replacementText).toContain('replaces all earlier workspace instruction baselines')
       expect(replacementText.indexOf('Instructions from: CLAUDE.md'))
         .toBeLessThan(replacementText.indexOf('Instructions from: AGENTS.md'))
-      /** 中文说明：测试局部值 baselineIdentities，由紧邻初始化决定。 */
       const baselineIdentities = baselines.flatMap(event => event.type === 'user/message'
         && event.data.source.kind === 'agent-instructions'
         && typeof event.data.source.baselineIdentity === 'string'
@@ -1432,7 +1257,6 @@ describe('workspace context request injection', () => {
         : [])
       expect(new Set(baselineIdentities).size).toBe(2)
 
-      /** 中文说明：测试局部值 repeated，由紧邻初始化决定。 */
       const repeated = stubAgent(root, [...resumed.session.events])
       await composeBaselinePrefix(resumedCtx, repeated)
       expect(baselineEvents(repeated)).toHaveLength(2)
@@ -1445,15 +1269,10 @@ describe('workspace context request injection', () => {
   })
 
   it('tombstones candidates removed across successive baseline configurations', async () => {
-    /** 中文说明：测试局部值 root，由紧邻初始化决定。 */
     const root = await tempRepo()
-    /** 中文说明：测试局部值 home，由紧邻初始化决定。 */
     const home = await tempRepo()
-    /** 中文说明：测试局部值 agentsCtx，由紧邻初始化决定。 */
     const agentsCtx = new Context()
-    /** 中文说明：测试局部值 claudeCtx，由紧邻初始化决定。 */
     const claudeCtx = new Context()
-    /** 中文说明：测试局部值 restoredCtx，由紧邻初始化决定。 */
     const restoredCtx = new Context()
     try {
       await mkdir(join(root, '.git'), { recursive: true })
@@ -1464,7 +1283,6 @@ describe('workspace context request injection', () => {
         maxBytes: 65536,
         instructionFileCandidates: ['AGENTS.md'],
       })
-      /** 中文说明：测试局部值 original，由紧邻初始化决定。 */
       const original = stubAgent(root)
       await composeBaselinePrefix(agentsCtx, original)
 
@@ -1473,10 +1291,8 @@ describe('workspace context request injection', () => {
         maxBytes: 65536,
         instructionFileCandidates: ['CLAUDE.md'],
       })
-      /** 中文说明：测试局部值 claudeResume，由紧邻初始化决定。 */
       const claudeResume = stubAgent(root, [...original.session.events])
       await composeBaselinePrefix(claudeCtx, claudeResume)
-      /** 中文说明：测试局部值 claudeBaseline，由紧邻初始化决定。 */
       const claudeBaseline = baselineEvents(claudeResume).at(-1)
       expect(claudeBaseline?.type === 'user/message' && claudeBaseline.data.source.kind === 'agent-instructions'
         ? claudeBaseline.data.source.changes
@@ -1490,10 +1306,8 @@ describe('workspace context request injection', () => {
         maxBytes: 65536,
         instructionFileCandidates: ['AGENTS.md'],
       })
-      /** 中文说明：测试局部值 restored，由紧邻初始化决定。 */
       const restored = stubAgent(root, [...claudeResume.session.events])
       await composeBaselinePrefix(restoredCtx, restored)
-      /** 中文说明：测试局部值 restoredBaseline，由紧邻初始化决定。 */
       const restoredBaseline = baselineEvents(restored).at(-1)
       expect(restoredBaseline?.type === 'user/message' && restoredBaseline.data.source.kind === 'agent-instructions'
         ? restoredBaseline.data.source.changes
@@ -1511,19 +1325,14 @@ describe('workspace context request injection', () => {
   })
 
   it('supersedes an incompatible visible baseline when no current candidate exists', async () => {
-    /** 中文说明：测试局部值 root，由紧邻初始化决定。 */
     const root = await tempRepo()
-    /** 中文说明：测试局部值 home，由紧邻初始化决定。 */
     const home = await tempRepo()
-    /** 中文说明：测试局部值 originalCtx，由紧邻初始化决定。 */
     const originalCtx = new Context()
-    /** 中文说明：测试局部值 resumedCtx，由紧邻初始化决定。 */
     const resumedCtx = new Context()
     try {
       await mkdir(join(root, '.git'), { recursive: true })
       await write(join(root, 'AGENTS.md'), 'agents rule')
       await mountWorkspaceContext(originalCtx, { dshHome: home, maxBytes: 65536 })
-      /** 中文说明：测试局部值 original，由紧邻初始化决定。 */
       const original = stubAgent(root)
       await composeBaselinePrefix(originalCtx, original)
 
@@ -1532,14 +1341,11 @@ describe('workspace context request injection', () => {
         maxBytes: 65536,
         instructionFileCandidates: ['POLICY.md'],
       })
-      /** 中文说明：测试局部值 resumed，由紧邻初始化决定。 */
       const resumed = stubAgent(root, [...original.session.events])
       await composeBaselinePrefix(resumedCtx, resumed)
 
-      /** 中文说明：测试局部值 baselines，由紧邻初始化决定。 */
       const baselines = baselineEvents(resumed)
       expect(baselines).toHaveLength(2)
-      /** 中文说明：测试局部值 replacement，由紧邻初始化决定。 */
       const replacement = baselines.at(-1)
       expect(replacement?.type === 'user/message' ? blocksText(replacement.data.content) : '')
         .toContain('No workspace instructions are currently active.')
@@ -1549,7 +1355,6 @@ describe('workspace context request injection', () => {
         { action: 'remove', scope: sk('.', 'AGENTS.md'), path: 'AGENTS.md' },
       ])
 
-      /** 中文说明：测试局部值 repeated，由紧邻初始化决定。 */
       const repeated = stubAgent(root, [...resumed.session.events])
       await composeBaselinePrefix(resumedCtx, repeated)
       expect(baselineEvents(repeated)).toHaveLength(2)
@@ -1562,45 +1367,34 @@ describe('workspace context request injection', () => {
   })
 
   it('reuses an inserted but unadmitted baseline after session recovery and plugin reload', async () => {
-    /** 中文说明：测试局部值 root，由紧邻初始化决定。 */
     const root = await tempRepo()
-    /** 中文说明：测试局部值 home，由紧邻初始化决定。 */
     const home = await tempRepo()
     try {
       await mkdir(join(root, '.git'), { recursive: true })
       await write(join(root, 'AGENTS.md'), 'repo rule')
-      /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
       const ctx = new Context()
-      /** 中文说明：测试局部值 fiber，由紧邻初始化决定。 */
       const fiber = await mountWorkspaceContext(ctx, { dshHome: home, maxBytes: 65536 })
-      /** 中文说明：测试局部值 original，由紧邻初始化决定。 */
       const original = stubAgent(root)
       await agentEvents(ctx, original).waterfall(
         'agent/pre-step',
-        { messages: [], turn: 1, step: 1, signal: AbortSignal.timeout(1000) },
+        { messages: [], turn: 1, step: 1, signal: AbortSignal.timeout(requestTimeoutMs) },
         () => Promise.resolve({ kind: 'enter' as const, messages: [] }),
       )
-      /** 中文说明：测试局部值 inserted，由紧邻初始化决定。 */
       const inserted = original.inbox.nextStep[0]
       expect(inserted?.source).toMatchObject({ kind: 'agent-instructions', baseline: true })
 
       await fiber.dispose()
-      await ctx.plugin(workspaceContext, { dshHome: home, maxBytes: 65536 })
-      /** 中文说明：测试局部值 resumed，由紧邻初始化决定。 */
+      await mountWorkspaceContextPlugin(ctx, { dshHome: home, maxBytes: 65536 })
       const resumed = stubAgent(root, [...original.session.events])
       agentEvents(ctx, resumed).emit('agent/session-start', { source: 'resume' })
-      /** 中文说明：测试局部值 claimed，由紧邻初始化决定。 */
       const claimed = resumed.inbox.claim('next-step', 1)
-      /** 中文说明：测试局部值 decision，由紧邻初始化决定。 */
       const decision = await agentEvents(ctx, resumed).waterfall(
         'agent/pre-step',
-        { messages: claimed, turn: 1, step: 1, signal: AbortSignal.timeout(1000) },
+        { messages: claimed, turn: 1, step: 1, signal: AbortSignal.timeout(requestTimeoutMs) },
         () => Promise.resolve({ kind: 'enter' as const, messages: claimed }),
       )
       if (decision.kind !== 'enter') throw new Error('recovered baseline was rejected')
-      /** 中文说明：测试局部值 message，由紧邻初始化决定。 */
       for (const message of decision.messages) {
-        /** 中文说明：测试局部值 event，由紧邻初始化决定。 */
         const event = resumed.session.append('user/message', message, { surfaceOp: 'append' })
         ctx.emit('session/event', resumed.session, event)
       }
@@ -1618,56 +1412,44 @@ describe('workspace context request injection', () => {
   })
 
   it('replaces a recovered unadmitted baseline when its source changed offline', async () => {
-    /** 中文说明：测试局部值 root，由紧邻初始化决定。 */
     const root = await tempRepo()
-    /** 中文说明：测试局部值 home，由紧邻初始化决定。 */
     const home = await tempRepo()
     try {
       await mkdir(join(root, '.git'), { recursive: true })
       await write(join(root, 'AGENTS.md'), 'old repo rule')
-      /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
       const ctx = new Context()
-      /** 中文说明：测试局部值 fiber，由紧邻初始化决定。 */
       const fiber = await mountWorkspaceContext(ctx, { dshHome: home, maxBytes: 65536 })
-      /** 中文说明：测试局部值 original，由紧邻初始化决定。 */
       const original = stubAgent(root)
       await agentEvents(ctx, original).waterfall(
         'agent/pre-step',
-        { messages: [], turn: 1, step: 1, signal: AbortSignal.timeout(1000) },
+        { messages: [], turn: 1, step: 1, signal: AbortSignal.timeout(requestTimeoutMs) },
         () => Promise.resolve({ kind: 'enter' as const, messages: [] }),
       )
-      /** 中文说明：测试局部值 stale，由紧邻初始化决定。 */
       const stale = original.inbox.nextStep[0]
       expect(blocksText(stale?.content)).toContain('old repo rule')
 
       await write(join(root, 'AGENTS.md'), 'new repo rule')
       await fiber.dispose()
-      await ctx.plugin(workspaceContext, { dshHome: home, maxBytes: 65536 })
-      /** 中文说明：测试局部值 resumed，由紧邻初始化决定。 */
+      await mountWorkspaceContextPlugin(ctx, { dshHome: home, maxBytes: 65536 })
       const resumed = stubAgent(root, [...original.session.events])
       agentEvents(ctx, resumed).emit('agent/session-start', { source: 'resume' })
-      /** 中文说明：测试局部值 staleClaim，由紧邻初始化决定。 */
       const staleClaim = resumed.inbox.claim('next-step', 1)
-      /** 中文说明：测试局部值 staleDecision，由紧邻初始化决定。 */
       const staleDecision = await agentEvents(ctx, resumed).waterfall(
         'agent/pre-step',
-        { messages: staleClaim, turn: 1, step: 1, signal: AbortSignal.timeout(1000) },
+        { messages: staleClaim, turn: 1, step: 1, signal: AbortSignal.timeout(requestTimeoutMs) },
         () => Promise.resolve({ kind: 'enter' as const, messages: staleClaim }),
       )
 
       if (staleDecision.kind !== 'enter') throw new Error('recovered baseline was rejected')
       expect(staleDecision.messages).toHaveLength(2)
       expect(staleDecision.messages[0]).toBe(staleClaim[0])
-      /** 中文说明：测试局部值 replacement，由紧邻初始化决定。 */
       const replacement = staleDecision.messages[1]
       expect(replacement?.id).not.toBe(stale?.id)
       expect(blocksText(replacement?.content)).toContain('new repo rule')
       expect(blocksText(replacement?.content)).not.toContain('old repo rule')
       expect(resumed.inbox.nextStep).toHaveLength(0)
 
-      /** 中文说明：测试局部值 message，由紧邻初始化决定。 */
       for (const message of staleDecision.messages) {
-        /** 中文说明：测试局部值 event，由紧邻初始化决定。 */
         const event = resumed.session.append('user/message', message, { surfaceOp: 'append' })
         ctx.emit('session/event', resumed.session, event)
       }
@@ -1682,41 +1464,32 @@ describe('workspace context request injection', () => {
     { label: 'baseline loading is disabled', maxBytes: 0, provideFs: true },
     { label: 'the filesystem provider is unavailable', maxBytes: 65536, provideFs: false },
   ])('does not requeue recovered workspace contexts when $label', async ({ maxBytes, provideFs }) => {
-    /** 中文说明：测试局部值 root，由紧邻初始化决定。 */
     const root = await tempRepo()
-    /** 中文说明：测试局部值 home，由紧邻初始化决定。 */
     const home = await tempRepo()
-    /** 中文说明：测试局部值 originalCtx，由紧邻初始化决定。 */
     const originalCtx = new Context()
-    /** 中文说明：测试局部值 resumedCtx，由紧邻初始化决定。 */
     const resumedCtx = new Context()
     try {
       await mkdir(join(root, '.git'), { recursive: true })
       await write(join(root, 'AGENTS.md'), 'repo rule')
       await mountWorkspaceContext(originalCtx, { dshHome: home, maxBytes: 65536 })
-      /** 中文说明：测试局部值 original，由紧邻初始化决定。 */
       const original = stubAgent(root)
       await agentEvents(originalCtx, original).waterfall(
         'agent/pre-step',
-        { messages: [], turn: 1, step: 1, signal: AbortSignal.timeout(1000) },
+        { messages: [], turn: 1, step: 1, signal: AbortSignal.timeout(requestTimeoutMs) },
         () => Promise.resolve({ kind: 'enter' as const, messages: [] }),
       )
-      /** 中文说明：测试局部值 stale，由紧邻初始化决定。 */
       const stale = original.inbox.nextStep[0]
       expect(stale?.source).toMatchObject({ kind: 'agent-instructions', baseline: true })
 
       await originalCtx.fiber.dispose()
       if (provideFs) await resumedCtx.plugin(LocalFileSystem, { cwd: '/' })
-      await resumedCtx.plugin(workspaceContext, { dshHome: home, maxBytes })
-      /** 中文说明：测试局部值 resumed，由紧邻初始化决定。 */
+      await mountWorkspaceContextPlugin(resumedCtx, { dshHome: home, maxBytes })
       const resumed = stubAgent(root, [...original.session.events])
       agentEvents(resumedCtx, resumed).emit('agent/session-start', { source: 'resume' })
-      /** 中文说明：测试局部值 claimed，由紧邻初始化决定。 */
       const claimed = resumed.inbox.claim('next-step', 1)
-      /** 中文说明：测试局部值 decision，由紧邻初始化决定。 */
       const decision = await agentEvents(resumedCtx, resumed).waterfall(
         'agent/pre-step',
-        { messages: claimed, turn: 1, step: 1, signal: AbortSignal.timeout(1000) },
+        { messages: claimed, turn: 1, step: 1, signal: AbortSignal.timeout(requestTimeoutMs) },
         () => Promise.resolve({ kind: 'enter' as const, messages: claimed }),
       )
 
@@ -1732,16 +1505,12 @@ describe('workspace context request injection', () => {
   })
 
   it('queues and records a removal for stale visible nested context', async () => {
-    /** 中文说明：测试局部值 root，由紧邻初始化决定。 */
     const root = await tempRepo()
-    /** 中文说明：测试局部值 home，由紧邻初始化决定。 */
     const home = await tempRepo()
     try {
       await mkdir(join(root, '.git'), { recursive: true })
-      /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
       const ctx = new Context()
       await mountWorkspaceContext(ctx, { dshHome: home, maxBytes: 65536 })
-      /** 中文说明：测试局部值 agent，由紧邻初始化决定。 */
       const agent = stubAgent(root)
       agent.session.append('user/message', createUserMessage({
         content: [{ type: 'text', text: 'stale nested instructions' }],
@@ -1756,7 +1525,6 @@ describe('workspace context request injection', () => {
 
       await composeBaselinePrefix(ctx, agent)
 
-      /** 中文说明：测试局部值 removal，由紧邻初始化决定。 */
       const removal = agent.session.events.find(event => event.type === 'user/message'
         && event.data.source.kind === 'agent-instructions'
         && event.data.source.changes.some(change => change.action === 'remove'))
@@ -1770,17 +1538,13 @@ describe('workspace context request injection', () => {
   })
 
   it('combines startup reconciliation and baseline into one durable inbox context', async () => {
-    /** 中文说明：测试局部值 root，由紧邻初始化决定。 */
     const root = await tempRepo()
-    /** 中文说明：测试局部值 home，由紧邻初始化决定。 */
     const home = await tempRepo()
     try {
       await mkdir(join(root, '.git'), { recursive: true })
       await write(join(root, 'AGENTS.md'), 'repo rule')
-      /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
       const ctx = new Context()
       await mountWorkspaceContext(ctx, { dshHome: home, maxBytes: 65536 })
-      /** 中文说明：测试局部值 agent，由紧邻初始化决定。 */
       const agent = stubAgent(root)
       agent.session.append('user/message', createUserMessage({
         content: [{ type: 'text', text: 'stale nested instructions' }],
@@ -1795,7 +1559,6 @@ describe('workspace context request injection', () => {
 
       await composeBaselinePrefix(ctx, agent)
 
-      /** 中文说明：测试局部值 workspaceEvents，由紧邻初始化决定。 */
       const workspaceEvents = agent.session.events.filter(event => event.type === 'user/message'
         && event.data.source.kind === 'agent-instructions')
       expect(workspaceEvents).toHaveLength(2)
@@ -1814,30 +1577,23 @@ describe('workspace context request injection', () => {
   })
 
   it('enters the baseline right after the claimed prompt in the first pre-step without queuing another step', async () => {
-    /** 中文说明：测试局部值 root，由紧邻初始化决定。 */
     const root = await tempRepo()
-    /** 中文说明：测试局部值 home，由紧邻初始化决定。 */
     const home = await tempRepo()
     try {
       await mkdir(join(root, '.git'), { recursive: true })
       await write(join(root, 'AGENTS.md'), 'repo rule')
-      /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
       const ctx = new Context()
       await mountWorkspaceContext(ctx, { dshHome: home, maxBytes: 65536 })
-      /** 中文说明：测试局部值 agent，由紧邻初始化决定。 */
       const agent = stubAgent(root)
-      /** 中文说明：测试局部值 prompt，由紧邻初始化决定。 */
       const prompt = createUserMessage({
         content: [{ type: 'text', text: 'current prompt' }],
         source: { kind: 'user' },
       })
-      /** 中文说明：测试局部值 downstream，由紧邻初始化决定。 */
       const downstream = { kind: 'enter' as const, messages: [prompt] }
 
-      /** 中文说明：测试局部值 decision，由紧邻初始化决定。 */
       const decision = await agentEvents(ctx, agent).waterfall(
         'agent/pre-step',
-        { messages: [prompt], turn: 1, step: 1, signal: AbortSignal.timeout(1000) },
+        { messages: [prompt], turn: 1, step: 1, signal: AbortSignal.timeout(requestTimeoutMs) },
         () => Promise.resolve(downstream),
       )
 
@@ -1855,25 +1611,20 @@ describe('workspace context request injection', () => {
   })
 
   it('reports a changed user-global instruction through the visible-scope reconcile path', async () => {
-    /** 中文说明：测试局部值 root，由紧邻初始化决定。 */
     const root = await tempRepo()
-    /** 中文说明：测试局部值 home，由紧邻初始化决定。 */
     const home = await tempRepo()
     try {
       await mkdir(join(root, '.git'), { recursive: true })
       await write(join(root, 'AGENTS.md'), 'repo rule')
       await write(join(home, 'AGENTS.md'), 'global rule')
-      /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
       const ctx = new Context()
       await mountFileToolsAndWorkspaceContext(ctx, { dshHome: home, maxBytes: 65536 })
-      /** 中文说明：测试局部值 agent，由紧邻初始化决定。 */
       const agent = stubAgent(root)
       await composeBaselinePrefix(ctx, agent)
 
       await write(join(home, 'AGENTS.md'), 'updated global rule')
       await syncWorkspaceContext(ctx, agent)
 
-      /** 中文说明：测试局部值 pending，由紧邻初始化决定。 */
       const pending = await workspaceContextOf(agent)
       expect(pending?.source).toMatchObject({
         kind: 'agent-instructions',
@@ -1887,25 +1638,19 @@ describe('workspace context request injection', () => {
   })
 
   it('queues the desired workspace context when the current step is rejected', async () => {
-    /** 中文说明：测试局部值 root，由紧邻初始化决定。 */
     const root = await tempRepo()
-    /** 中文说明：测试局部值 home，由紧邻初始化决定。 */
     const home = await tempRepo()
     try {
       await mkdir(join(root, '.git'), { recursive: true })
       await write(join(root, 'AGENTS.md'), 'repo rule')
-      /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
       const ctx = new Context()
       await mountWorkspaceContext(ctx, { dshHome: home, maxBytes: 65536 })
-      /** 中文说明：测试局部值 agent，由紧邻初始化决定。 */
       const agent = stubAgent(root)
-      /** 中文说明：测试局部值 downstream，由紧邻初始化决定。 */
       const downstream = { kind: 'reject' as const }
 
-      /** 中文说明：测试局部值 decision，由紧邻初始化决定。 */
       const decision = await agentEvents(ctx, agent).waterfall(
         'agent/pre-step',
-        { messages: [], turn: 1, step: 1, signal: AbortSignal.timeout(1000) },
+        { messages: [], turn: 1, step: 1, signal: AbortSignal.timeout(requestTimeoutMs) },
         () => Promise.resolve(downstream),
       )
 
@@ -1919,26 +1664,21 @@ describe('workspace context request injection', () => {
   })
 
   it('retains a visible baseline after a plugin remount', async () => {
-    /** 中文说明：测试局部值 root，由紧邻初始化决定。 */
     const root = await tempRepo()
-    /** 中文说明：测试局部值 home，由紧邻初始化决定。 */
     const home = await tempRepo()
     try {
       await mkdir(join(root, '.git'), { recursive: true })
       await write(join(root, 'AGENTS.md'), 'repo rule')
       await write(join(root, 'file.txt'), 'hello')
-      /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
       const ctx = new Context()
-      /** 中文说明：测试局部值 fiber，由紧邻初始化决定。 */
       const fiber = await mountFileToolsAndWorkspaceContext(ctx, { dshHome: home, maxBytes: 65536 })
-      /** 中文说明：测试局部值 agent，由紧邻初始化决定。 */
       const agent = stubAgent(root)
       await composeBaselinePrefix(ctx, agent)
 
       // Hot remount over the live session: the durable baseline remains
       // visible, so the fresh mount does not append a duplicate.
       await fiber.dispose()
-      await ctx.plugin(workspaceContext, { dshHome: home, maxBytes: 65536 })
+      await mountWorkspaceContextPlugin(ctx, { dshHome: home, maxBytes: 65536 })
       await composeBaselinePrefix(ctx, agent)
 
       expect(baselineEvents(agent)).toHaveLength(1)
@@ -1961,22 +1701,16 @@ describe('workspace context request injection', () => {
   })
 
   it('restores a compacted baseline on a hot plugin remount', async () => {
-    /** 中文说明：测试局部值 root，由紧邻初始化决定。 */
     const root = await tempRepo()
-    /** 中文说明：测试局部值 home，由紧邻初始化决定。 */
     const home = await tempRepo()
     try {
       await mkdir(join(root, '.git'), { recursive: true })
       await write(join(root, 'AGENTS.md'), 'repo rule')
-      /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
       const ctx = new Context()
       await ctx.plugin(LocalFileSystem, { cwd: '/' })
-      /** 中文说明：测试局部值 fiber，由紧邻初始化决定。 */
-      const fiber = await ctx.plugin(workspaceContext, { dshHome: home, maxBytes: 65536 })
-      /** 中文说明：测试局部值 agent，由紧邻初始化决定。 */
+      const fiber = await mountWorkspaceContextPlugin(ctx, { dshHome: home, maxBytes: 65536 })
       const agent = stubAgent(root)
       await composeBaselinePrefix(ctx, agent)
-      /** 中文说明：测试局部值 baseline，由紧邻初始化决定。 */
       const baseline = baselineEvents(agent)[0]
       expect(baseline).toBeDefined()
 
@@ -1989,7 +1723,7 @@ describe('workspace context request injection', () => {
       })
 
       await fiber.dispose()
-      await ctx.plugin(workspaceContext, { dshHome: home, maxBytes: 65536 })
+      await mountWorkspaceContextPlugin(ctx, { dshHome: home, maxBytes: 65536 })
       await composeBaselinePrefix(ctx, agent)
 
       expect(baselineEvents(agent)).toHaveLength(2)
@@ -2001,20 +1735,15 @@ describe('workspace context request injection', () => {
   })
 
   it('folds a compacted baseline into the next entering pre-step before another filesystem touch', async () => {
-    /** 中文说明：测试局部值 root，由紧邻初始化决定。 */
     const root = await tempRepo()
-    /** 中文说明：测试局部值 home，由紧邻初始化决定。 */
     const home = await tempRepo()
     try {
       await mkdir(join(root, '.git'), { recursive: true })
       await write(join(root, 'AGENTS.md'), 'first post-compaction request rule')
-      /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
       const ctx = new Context()
       await mountWorkspaceContext(ctx, { dshHome: home, maxBytes: 65536 })
-      /** 中文说明：测试局部值 agent，由紧邻初始化决定。 */
       const agent = stubAgent(root)
       await composeBaselinePrefix(ctx, agent)
-      /** 中文说明：测试局部值 baseline，由紧邻初始化决定。 */
       const baseline = baselineEvents(agent)[0]
       expect(baseline).toBeDefined()
 
@@ -2025,16 +1754,14 @@ describe('workspace context request injection', () => {
         surfaceOp: { op: 'replace', start: baseline!.seq, end: baseline!.seq },
         sourceEventSeqs: [baseline!.seq],
       })
-      /** 中文说明：测试局部值 prompt，由紧邻初始化决定。 */
       const prompt = createUserMessage({
         content: [{ type: 'text', text: 'continue after compaction' }],
         source: { kind: 'user' },
       })
 
-      /** 中文说明：测试局部值 decision，由紧邻初始化决定。 */
       const decision = await agentEvents(ctx, agent).waterfall(
         'agent/pre-step',
-        { messages: [prompt], turn: 2, step: 1, signal: AbortSignal.timeout(1000) },
+        { messages: [prompt], turn: 2, step: 1, signal: AbortSignal.timeout(requestTimeoutMs) },
         () => Promise.resolve({ kind: 'enter' as const, messages: [prompt] }),
       )
 
@@ -2051,34 +1778,27 @@ describe('workspace context request injection', () => {
   })
 
   it('appends a replacement transition when a resumed session edited its baseline offline', async () => {
-    /** 中文说明：测试局部值 root，由紧邻初始化决定。 */
     const root = await tempRepo()
-    /** 中文说明：测试局部值 home，由紧邻初始化决定。 */
     const home = await tempRepo()
     try {
       await mkdir(join(root, '.git'), { recursive: true })
       await write(join(root, 'AGENTS.md'), 'old root rule')
-      /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
       const ctx = new Context()
       await mountWorkspaceContext(ctx, { dshHome: home, maxBytes: 65536 })
-      /** 中文说明：测试局部值 original，由紧邻初始化决定。 */
       const original = stubAgent(root)
       await composeBaselinePrefix(ctx, original)
 
       // The first resumed pre-step retains the compatible visible baseline and
       // appends only the offline file transition needed to reach current state.
       await write(join(root, 'AGENTS.md'), 'new root rule after offline edit')
-      /** 中文说明：测试局部值 resumed，由紧邻初始化决定。 */
       const resumed = stubAgent(root, [...original.session.events])
 
       // Resume announces its lifecycle start before the first step.
       agentEvents(ctx, resumed).emit('agent/session-start', { source: 'resume' })
       await composeBaselinePrefix(ctx, resumed)
 
-      /** 中文说明：测试局部值 baselines，由紧邻初始化决定。 */
       const baselines = baselineEvents(resumed)
       expect(baselines).toHaveLength(1)
-      /** 中文说明：测试局部值 latest，由紧邻初始化决定。 */
       const latest = resumed.session.events.findLast(event =>
         event.type === 'user/message' && event.data.source.kind === 'agent-instructions')
       expect(latest?.type === 'user/message' ? latest.data.source : undefined).toMatchObject({
@@ -2086,7 +1806,6 @@ describe('workspace context request injection', () => {
       })
       expect(latest?.type === 'user/message' && blocksText(latest.data.content))
         .toContain('new root rule after offline edit')
-      /** 中文说明：测试局部值 original0，由紧邻初始化决定。 */
       const original0 = baselines[0]
       expect(original0?.type === 'user/message' && blocksText(original0.data.content))
         .toContain('old root rule')
@@ -2097,20 +1816,15 @@ describe('workspace context request injection', () => {
   })
 
   it('tracks only baseline files that were actually included under the byte budget', async () => {
-    /** 中文说明：测试局部值 root，由紧邻初始化决定。 */
     const root = await tempRepo()
-    /** 中文说明：测试局部值 home，由紧邻初始化决定。 */
     const home = await tempRepo()
     try {
-      /** 中文说明：测试局部值 cwd，由紧邻初始化决定。 */
       const cwd = join(root, 'pkg')
       await mkdir(join(root, '.git'), { recursive: true })
       await write(join(root, 'AGENTS.md'), 'root '.repeat(200))
       await write(join(cwd, 'AGENTS.md'), 'package rule')
-      /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
       const ctx = new Context()
       await mountWorkspaceContext(ctx, { dshHome: home, maxBytes: 700 })
-      /** 中文说明：测试局部值 agent，由紧邻初始化决定。 */
       const agent = stubAgent(cwd)
 
       await composeBaselinePrefix(ctx, agent)
@@ -2124,18 +1838,14 @@ describe('workspace context request injection', () => {
   })
 
   it('keeps an independent pre-step contribution after the queued workspace context', async () => {
-    /** 中文说明：测试局部值 root，由紧邻初始化决定。 */
     const root = await tempRepo()
-    /** 中文说明：测试局部值 home，由紧邻初始化决定。 */
     const home = await tempRepo()
     try {
       await mkdir(join(root, '.git'), { recursive: true })
       await write(join(root, 'AGENTS.md'), 'repo rule')
-      /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
       const ctx = new Context()
       await mountWorkspaceContext(ctx, { dshHome: home, maxBytes: 65536 })
       ctx.on('agent/pre-step', async (_payload, next) => {
-        /** 中文说明：测试局部值 decision，由紧邻初始化决定。 */
         const decision = await next()
         if (decision.kind === 'reject') return decision
         return {
@@ -2147,7 +1857,6 @@ describe('workspace context request injection', () => {
         }
       })
 
-      /** 中文说明：测试局部值 prefix，由紧邻初始化决定。 */
       const prefix = await composeBaselinePrefix(ctx, stubAgent(root))
 
       expect(prefix).toHaveLength(2)
@@ -2160,18 +1869,14 @@ describe('workspace context request injection', () => {
   })
 
   it('queues a replacement when a frozen baseline file changes before a later fs tool call', async () => {
-    /** 中文说明：测试局部值 root，由紧邻初始化决定。 */
     const root = await tempRepo()
-    /** 中文说明：测试局部值 home，由紧邻初始化决定。 */
     const home = await tempRepo()
     try {
       await mkdir(join(root, '.git'), { recursive: true })
       await write(join(root, 'AGENTS.md'), 'old root rule')
       await write(join(root, 'file.txt'), 'hello')
-      /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
       const ctx = new Context()
       await mountFileToolsAndWorkspaceContext(ctx, { dshHome: home, maxBytes: 65536 })
-      /** 中文说明：测试局部值 agent，由紧邻初始化决定。 */
       const agent = stubAgent(root)
 
       await composeBaselinePrefix(ctx, agent)
@@ -2193,18 +1898,14 @@ describe('workspace context request injection', () => {
   })
 
   it('queues a removal when a frozen baseline file is deleted before a later fs tool call', async () => {
-    /** 中文说明：测试局部值 root，由紧邻初始化决定。 */
     const root = await tempRepo()
-    /** 中文说明：测试局部值 home，由紧邻初始化决定。 */
     const home = await tempRepo()
     try {
       await mkdir(join(root, '.git'), { recursive: true })
       await write(join(root, 'AGENTS.md'), 'root rule')
       await write(join(root, 'file.txt'), 'hello')
-      /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
       const ctx = new Context()
       await mountFileToolsAndWorkspaceContext(ctx, { dshHome: home, maxBytes: 65536 })
-      /** 中文说明：测试局部值 agent，由紧邻初始化决定。 */
       const agent = stubAgent(root)
 
       await composeBaselinePrefix(ctx, agent)
@@ -2225,15 +1926,12 @@ describe('workspace context request injection', () => {
   })
 
   it('deduplicates one AGENTS.md that is both user-global and the project-root candidate', async () => {
-    /** 中文说明：测试局部值 root，由紧邻初始化决定。 */
     const root = await tempRepo()
     try {
       await mkdir(join(root, '.git'), { recursive: true })
       await write(join(root, 'AGENTS.md'), 'shared root and global rule')
-      /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
       const ctx = new Context()
       await mountWorkspaceContext(ctx, { dshHome: root, maxBytes: 65536 })
-      /** 中文说明：测试局部值 agent，由紧邻初始化决定。 */
       const agent = stubAgent(root)
 
       await composeBaselinePrefix(ctx, agent)
@@ -2245,24 +1943,19 @@ describe('workspace context request injection', () => {
   })
 
   it('deduplicates trimmed-identical sibling candidates in one directory and renders the earliest original bytes', async () => {
-    /** 中文说明：测试局部值 root，由紧邻初始化决定。 */
     const root = await tempRepo()
-    /** 中文说明：测试局部值 home，由紧邻初始化决定。 */
     const home = await tempRepo()
     try {
       await mkdir(join(root, '.git'), { recursive: true })
       await write(join(root, 'AGENTS.md'), 'shared repo rule')
       await write(join(root, 'CLAUDE.md'), '  shared repo rule\n\n')
       await write(join(root, 'file.txt'), 'hello')
-      /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
       const ctx = new Context()
       await mountFileToolsAndWorkspaceContext(ctx, { dshHome: home, maxBytes: 65536 })
-      /** 中文说明：测试局部值 agent，由紧邻初始化决定。 */
       const agent = stubAgent(root)
 
       await composeBaselinePrefix(ctx, agent)
 
-      /** 中文说明：测试局部值 text，由紧邻初始化决定。 */
       const text = derivedText(agent)
       expect(text.match(/shared repo rule/g)).toHaveLength(1)
       expect(text).toContain('Instructions from: AGENTS.md')
@@ -2276,27 +1969,21 @@ describe('workspace context request injection', () => {
   })
 
   it.each([10, 120])('does not expose state markers when baseline content is omitted at %i bytes', async (maxBytes) => {
-    /** 中文说明：测试局部值 root，由紧邻初始化决定。 */
     const root = await tempRepo()
-    /** 中文说明：测试局部值 home，由紧邻初始化决定。 */
     const home = await tempRepo()
     try {
       await mkdir(join(root, '.git'), { recursive: true })
       await write(join(root, 'AGENTS.md'), 'x'.repeat(1000))
-      /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
       const ctx = new Context()
       await mountWorkspaceContext(ctx, { dshHome: home, maxBytes })
-      /** 中文说明：测试局部值 agent，由紧邻初始化决定。 */
       const agent = stubAgent(root)
 
       await composeBaselinePrefix(ctx, agent)
 
-      /** 中文说明：测试局部值 contexts，由紧邻初始化决定。 */
       const contexts = agent.session.events.filter(event =>
         event.type === 'user/message' && event.data.source.kind !== 'user',
       )
       expect(contexts).toHaveLength(1)
-      /** 中文说明：测试局部值 source，由紧邻初始化决定。 */
       const source = contexts[0]?.type === 'user/message' ? contexts[0].data.source : undefined
       expect(source?.kind === 'agent-instructions' ? source.changes : undefined).toEqual([])
       if (maxBytes === 120) {
@@ -2313,22 +2000,17 @@ describe('workspace context request injection', () => {
   })
 
   it('loads instruction file content through ctx.fs instead of direct node reads', async () => {
-    /** 中文说明：测试局部值 root，由紧邻初始化决定。 */
     const root = await tempRepo()
-    /** 中文说明：测试局部值 home，由紧邻初始化决定。 */
     const home = await tempRepo()
     try {
       await mkdir(join(root, '.git'), { recursive: true })
       await write(join(root, 'AGENTS.md'), 'node fs rule')
-      /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
       const ctx = new Context()
       await ctx.plugin(RecordingFileSystem)
-      /** 中文说明：测试局部值 fs，由紧邻初始化决定。 */
       const fs = ctx.fs as RecordingFileSystem
       fs.entries.set(join(root, '.git'), { type: 'directory' })
       fs.entries.set(join(root, 'AGENTS.md'), { type: 'file', content: 'ctx.fs rule' })
-      await ctx.plugin(workspaceContext, { dshHome: home, maxBytes: 65536 })
-      /** 中文说明：测试局部值 agent，由紧邻初始化决定。 */
+      await mountWorkspaceContextPlugin(ctx, { dshHome: home, maxBytes: 65536 })
       const agent = stubAgent(root)
 
       await composeBaselinePrefix(ctx, agent)
@@ -2343,20 +2025,15 @@ describe('workspace context request injection', () => {
   })
 
   it('loads provider-visible instruction files that do not exist on the host filesystem', async () => {
-    /** 中文说明：测试局部值 root，由紧邻初始化决定。 */
     const root = join(await tempRepo(), 'virtual-repo')
-    /** 中文说明：测试局部值 home，由紧邻初始化决定。 */
     const home = join(await tempRepo(), 'virtual-home')
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = new Context()
     try {
       await ctx.plugin(RecordingFileSystem)
-      /** 中文说明：测试局部值 fs，由紧邻初始化决定。 */
       const fs = ctx.fs as RecordingFileSystem
       fs.entries.set(join(root, '.git'), { type: 'directory' })
       fs.entries.set(join(root, 'AGENTS.md'), { type: 'file', content: 'provider-only rule' })
-      await ctx.plugin(workspaceContext, { dshHome: home, maxBytes: 65536 })
-      /** 中文说明：测试局部值 agent，由紧邻初始化决定。 */
+      await mountWorkspaceContextPlugin(ctx, { dshHome: home, maxBytes: 65536 })
       const agent = stubAgent(root)
 
       await composeBaselinePrefix(ctx, agent)
@@ -2371,20 +2048,15 @@ describe('workspace context request injection', () => {
   })
 
   it('keeps the direct provider API usable without an operation signal', async () => {
-    /** 中文说明：测试局部值 root，由紧邻初始化决定。 */
     const root = resolve('/virtual/no-signal-repo')
-    /** 中文说明：测试局部值 home，由紧邻初始化决定。 */
     const home = resolve('/virtual/no-signal-home')
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = new Context()
     try {
       await ctx.plugin(RecordingFileSystem)
-      /** 中文说明：测试局部值 fs，由紧邻初始化决定。 */
       const fs = ctx.fs as RecordingFileSystem
       fs.entries.set(join(root, '.git'), { type: 'directory' })
       fs.entries.set(join(root, 'AGENTS.md'), { type: 'file', content: 'optional capability signal' })
 
-      /** 中文说明：测试局部值 rendered，由紧邻初始化决定。 */
       const rendered = await loadBaselineInstructions({ cwd: root, dshHome: home, maxBytes: 65536 }, fs)
 
       expect(rendered?.text).toContain('optional capability signal')
@@ -2395,21 +2067,16 @@ describe('workspace context request injection', () => {
   })
 
   it('rejects a provider-sized instruction file before reading content', async () => {
-    /** 中文说明：测试局部值 root，由紧邻初始化决定。 */
     const root = join(await tempRepo(), 'virtual-repo')
-    /** 中文说明：测试局部值 home，由紧邻初始化决定。 */
     const home = join(await tempRepo(), 'virtual-home')
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = new Context()
     try {
       await ctx.plugin(RecordingFileSystem)
-      /** 中文说明：测试局部值 fs，由紧邻初始化决定。 */
       const fs = ctx.fs as RecordingFileSystem
       fs.entries.set(join(root, '.git'), { type: 'directory' })
       fs.entries.set(join(root, 'AGENTS.md'), { type: 'file', content: 'far too large' })
-      await ctx.plugin(workspaceContext, { dshHome: home, maxBytes: 65536, maxSourceBytes: 4 })
+      await mountWorkspaceContextPlugin(ctx, { dshHome: home, maxBytes: 65536, maxSourceBytes: 4 })
 
-      /** 中文说明：测试局部值 prefix，由紧邻初始化决定。 */
       const prefix = await composeBaselinePrefix(ctx, stubAgent(root))
 
       expect(prefix).toEqual([])
@@ -2423,24 +2090,18 @@ describe('workspace context request injection', () => {
   })
 
   it('bounds streamed instruction content when provider size is unavailable', async () => {
-    /** 中文说明：测试局部值 root，由紧邻初始化决定。 */
     const root = join(await tempRepo(), 'virtual-repo')
-    /** 中文说明：测试局部值 home，由紧邻初始化决定。 */
     const home = join(await tempRepo(), 'virtual-home')
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = new Context()
     try {
       await ctx.plugin(RecordingFileSystem)
-      /** 中文说明：测试局部值 fs，由紧邻初始化决定。 */
       const fs = ctx.fs as RecordingFileSystem
-      /** 中文说明：测试局部值 instructionPath，由紧邻初始化决定。 */
       const instructionPath = join(root, 'AGENTS.md')
       fs.entries.set(join(root, '.git'), { type: 'directory' })
       fs.entries.set(instructionPath, { type: 'file', content: 'far too large' })
       fs.omitSizes.add(instructionPath)
-      await ctx.plugin(workspaceContext, { dshHome: home, maxBytes: 65536, maxSourceBytes: 4 })
+      await mountWorkspaceContextPlugin(ctx, { dshHome: home, maxBytes: 65536, maxSourceBytes: 4 })
 
-      /** 中文说明：测试局部值 prefix，由紧邻初始化决定。 */
       const prefix = await composeBaselinePrefix(ctx, stubAgent(root))
 
       expect(prefix).toEqual([])
@@ -2454,24 +2115,17 @@ describe('workspace context request injection', () => {
   })
 
   it('aborts an in-flight baseline stream with the prompt signal', async () => {
-    /** 中文说明：测试局部值 root，由紧邻初始化决定。 */
     const root = join(await tempRepo(), 'virtual-repo')
-    /** 中文说明：测试局部值 home，由紧邻初始化决定。 */
     const home = join(await tempRepo(), 'virtual-home')
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = new Context()
     try {
       await ctx.plugin(BlockingReadFileSystem)
-      /** 中文说明：测试局部值 fs，由紧邻初始化决定。 */
       const fs = ctx.fs as BlockingReadFileSystem
       fs.entries.set(join(root, '.git'), { type: 'directory' })
       fs.entries.set(join(root, 'AGENTS.md'), { type: 'file', content: 'blocked' })
-      await ctx.plugin(workspaceContext, { dshHome: home, maxBytes: 65536 })
-      /** 中文说明：测试局部值 controller，由紧邻初始化决定。 */
+      await mountWorkspaceContextPlugin(ctx, { dshHome: home, maxBytes: 65536 })
       const controller = new AbortController()
-      /** 中文说明：测试局部值 reason，由紧邻初始化决定。 */
       const reason = new Error('cancel prefix')
-      /** 中文说明：测试局部值 pending，由紧邻初始化决定。 */
       const pending = agentEvents(ctx, stubAgent(root)).waterfall(
         'agent/pre-step',
         { messages: [], turn: 1, step: 1, signal: controller.signal },
@@ -2491,24 +2145,19 @@ describe('workspace context request injection', () => {
   })
 
   it('loads user-global and CLAUDE fallback content through ctx.fs', async () => {
-    /** 中文说明：测试局部值 root，由紧邻初始化决定。 */
     const root = await tempRepo()
-    /** 中文说明：测试局部值 home，由紧邻初始化决定。 */
     const home = await tempRepo()
     try {
       await mkdir(join(root, '.git'), { recursive: true })
       await write(join(home, 'AGENTS.md'), 'node global rule')
       await write(join(root, 'CLAUDE.md'), 'node claude rule')
-      /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
       const ctx = new Context()
       await ctx.plugin(RecordingFileSystem)
-      /** 中文说明：测试局部值 fs，由紧邻初始化决定。 */
       const fs = ctx.fs as RecordingFileSystem
       fs.entries.set(join(root, '.git'), { type: 'directory' })
       fs.entries.set(join(home, 'AGENTS.md'), { type: 'file', content: 'ctx global rule' })
       fs.entries.set(join(root, 'CLAUDE.md'), { type: 'file', content: 'ctx claude rule' })
-      await ctx.plugin(workspaceContext, { dshHome: home, maxBytes: 65536 })
-      /** 中文说明：测试局部值 agent，由紧邻初始化决定。 */
+      await mountWorkspaceContextPlugin(ctx, { dshHome: home, maxBytes: 65536 })
       const agent = stubAgent(root)
 
       await composeBaselinePrefix(ctx, agent)
@@ -2524,22 +2173,17 @@ describe('workspace context request injection', () => {
   })
 
   it('skips provider-visible instruction candidates when ctx.fs reports a non-file target', async () => {
-    /** 中文说明：测试局部值 root，由紧邻初始化决定。 */
     const root = await tempRepo()
-    /** 中文说明：测试局部值 home，由紧邻初始化决定。 */
     const home = await tempRepo()
     try {
       await mkdir(join(root, '.git'), { recursive: true })
       await write(join(root, 'AGENTS.md'), 'node fs rule')
-      /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
       const ctx = new Context()
       await ctx.plugin(RecordingFileSystem)
-      /** 中文说明：测试局部值 fs，由紧邻初始化决定。 */
       const fs = ctx.fs as RecordingFileSystem
       fs.entries.set(join(root, '.git'), { type: 'directory' })
       fs.entries.set(join(root, 'AGENTS.md'), { type: 'directory' })
-      await ctx.plugin(workspaceContext, { dshHome: home, maxBytes: 65536 })
-      /** 中文说明：测试局部值 agent，由紧邻初始化决定。 */
+      await mountWorkspaceContextPlugin(ctx, { dshHome: home, maxBytes: 65536 })
       const agent = stubAgent(root)
 
       await composeBaselinePrefix(ctx, agent)
@@ -2552,22 +2196,17 @@ describe('workspace context request injection', () => {
   })
 
   it('loads instruction files when ctx.fs omits the metadata size', async () => {
-    /** 中文说明：测试局部值 root，由紧邻初始化决定。 */
     const root = await tempRepo()
-    /** 中文说明：测试局部值 home，由紧邻初始化决定。 */
     const home = await tempRepo()
     try {
       await mkdir(join(root, '.git'), { recursive: true })
       await write(join(root, 'AGENTS.md'), 'node fs rule')
-      /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
       const ctx = new Context()
       await ctx.plugin(RecordingFileSystem)
-      /** 中文说明：测试局部值 fs，由紧邻初始化决定。 */
       const fs = ctx.fs as RecordingFileSystem
       fs.entries.set(join(root, '.git'), { type: 'directory' })
       fs.entries.set(join(root, 'AGENTS.md'), { type: 'file' })
-      await ctx.plugin(workspaceContext, { dshHome: home, maxBytes: 65536 })
-      /** 中文说明：测试局部值 agent，由紧邻初始化决定。 */
+      await mountWorkspaceContextPlugin(ctx, { dshHome: home, maxBytes: 65536 })
       const agent = stubAgent(root)
 
       await composeBaselinePrefix(ctx, agent)
@@ -2580,22 +2219,17 @@ describe('workspace context request injection', () => {
   })
 
   it('skips provider-visible instruction candidates when ctx.fs cannot stat them', async () => {
-    /** 中文说明：测试局部值 root，由紧邻初始化决定。 */
     const root = await tempRepo()
-    /** 中文说明：测试局部值 home，由紧邻初始化决定。 */
     const home = await tempRepo()
     try {
       await mkdir(join(root, '.git'), { recursive: true })
       await write(join(root, 'AGENTS.md'), 'node fs rule')
-      /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
       const ctx = new Context()
       await ctx.plugin(RecordingFileSystem)
-      /** 中文说明：测试局部值 fs，由紧邻初始化决定。 */
       const fs = ctx.fs as RecordingFileSystem
       fs.entries.set(join(root, '.git'), { type: 'directory' })
       fs.throwOnStat.add(join(root, 'AGENTS.md'))
-      await ctx.plugin(workspaceContext, { dshHome: home, maxBytes: 65536 })
-      /** 中文说明：测试局部值 agent，由紧邻初始化决定。 */
+      await mountWorkspaceContextPlugin(ctx, { dshHome: home, maxBytes: 65536 })
       const agent = stubAgent(root)
 
       await composeBaselinePrefix(ctx, agent)
@@ -2608,21 +2242,16 @@ describe('workspace context request injection', () => {
   })
 
   it('skips a candidate whose provider probe fails while still loading its available sibling', async () => {
-    /** 中文说明：测试局部值 root，由紧邻初始化决定。 */
     const root = await tempRepo()
-    /** 中文说明：测试局部值 home，由紧邻初始化决定。 */
     const home = await tempRepo()
     try {
-      /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
       const ctx = new Context()
       await ctx.plugin(RecordingFileSystem)
-      /** 中文说明：测试局部值 fs，由紧邻初始化决定。 */
       const fs = ctx.fs as RecordingFileSystem
       fs.entries.set(join(root, '.git'), { type: 'directory' })
       fs.throwOnStat.add(join(root, 'AGENTS.md'))
       fs.entries.set(join(root, 'CLAUDE.md'), { type: 'file', content: 'claude sibling rule' })
-      await ctx.plugin(workspaceContext, { dshHome: home, maxBytes: 65536 })
-      /** 中文说明：测试局部值 agent，由紧邻初始化决定。 */
+      await mountWorkspaceContextPlugin(ctx, { dshHome: home, maxBytes: 65536 })
       const agent = stubAgent(root)
 
       await composeBaselinePrefix(ctx, agent)
@@ -2637,22 +2266,17 @@ describe('workspace context request injection', () => {
   })
 
   it('treats ctx.fs marker lookup failures as absent root markers', async () => {
-    /** 中文说明：测试局部值 root，由紧邻初始化决定。 */
     const root = await tempRepo()
-    /** 中文说明：测试局部值 home，由紧邻初始化决定。 */
     const home = await tempRepo()
     try {
       await mkdir(join(root, '.git'), { recursive: true })
       await write(join(root, 'AGENTS.md'), 'repo rule')
-      /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
       const ctx = new Context()
       await ctx.plugin(RecordingFileSystem)
-      /** 中文说明：测试局部值 fs，由紧邻初始化决定。 */
       const fs = ctx.fs as RecordingFileSystem
       fs.throwOnStat.add(join(root, '.git'))
       fs.entries.set(join(root, 'AGENTS.md'), { type: 'file', content: 'repo rule' })
-      await ctx.plugin(workspaceContext, { dshHome: home, maxBytes: 65536 })
-      /** 中文说明：测试局部值 agent，由紧邻初始化决定。 */
+      await mountWorkspaceContextPlugin(ctx, { dshHome: home, maxBytes: 65536 })
       const agent = stubAgent(root)
 
       await composeBaselinePrefix(ctx, agent)
@@ -2665,23 +2289,17 @@ describe('workspace context request injection', () => {
   })
 
   it('keeps different session cwd instruction files isolated in one context', async () => {
-    /** 中文说明：测试局部值 repoA，由紧邻初始化决定。 */
     const repoA = await tempRepo()
-    /** 中文说明：测试局部值 repoB，由紧邻初始化决定。 */
     const repoB = await tempRepo()
-    /** 中文说明：测试局部值 home，由紧邻初始化决定。 */
     const home = await tempRepo()
     try {
       await mkdir(join(repoA, '.git'), { recursive: true })
       await mkdir(join(repoB, '.git'), { recursive: true })
       await write(join(repoA, 'AGENTS.md'), 'repo A only')
       await write(join(repoB, 'AGENTS.md'), 'repo B only')
-      /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
       const ctx = new Context()
       await mountWorkspaceContext(ctx, { dshHome: home, maxBytes: 65536 })
-      /** 中文说明：测试局部值 agentA，由紧邻初始化决定。 */
       const agentA = stubAgent(repoA)
-      /** 中文说明：测试局部值 agentB，由紧邻初始化决定。 */
       const agentB = stubAgent(repoB)
 
       await composeBaselinePrefix(ctx, agentA)
@@ -2699,20 +2317,16 @@ describe('workspace context request injection', () => {
   })
 
   it('uses schema defaults on the plugin path so ancestor discovery still finds .git roots', async () => {
-    /** 中文说明：测试局部值 root，由紧邻初始化决定。 */
     const root = await tempRepo()
     try {
-      /** 中文说明：测试局部值 cwd，由紧邻初始化决定。 */
       const cwd = join(root, 'child')
       await mkdir(join(root, '.git'), { recursive: true })
       await mkdir(cwd, { recursive: true })
       await write(join(root, 'AGENTS.md'), 'root schema default rule')
       await write(join(cwd, 'AGENTS.md'), 'child schema default rule')
-      /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
       const ctx = new Context()
       await ctx.plugin(LocalFileSystem, { cwd: '/' })
-      await ctx.plugin(workspaceContext, { maxBytes: 65536 })
-      /** 中文说明：测试局部值 agent，由紧邻初始化决定。 */
+      await mountWorkspaceContextPlugin(ctx, { maxBytes: 65536 })
       const agent = stubAgent(cwd)
 
       await composeBaselinePrefix(ctx, agent)
@@ -2726,17 +2340,14 @@ describe('workspace context request injection', () => {
   })
 
   it('renders a default local overlay alongside the base file in the baseline prefix', async () => {
-    /** 中文说明：测试局部值 root，由紧邻初始化决定。 */
     const root = await tempRepo()
     try {
       await mkdir(join(root, '.git'), { recursive: true })
       await write(join(root, 'AGENTS.md'), 'base rule')
       await write(join(root, 'AGENTS.local.md'), 'local rule')
-      /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
       const ctx = new Context()
       await ctx.plugin(LocalFileSystem, { cwd: '/' })
-      await ctx.plugin(workspaceContext, { maxBytes: 65536 })
-      /** 中文说明：测试局部值 agent，由紧邻初始化决定。 */
+      await mountWorkspaceContextPlugin(ctx, { maxBytes: 65536 })
       const agent = stubAgent(root)
 
       await composeBaselinePrefix(ctx, agent)
@@ -2750,19 +2361,14 @@ describe('workspace context request injection', () => {
   })
 
   it('cleans up its pre-step listener when the plugin fiber is disposed', async () => {
-    /** 中文说明：测试局部值 root，由紧邻初始化决定。 */
     const root = await tempRepo()
-    /** 中文说明：测试局部值 home，由紧邻初始化决定。 */
     const home = await tempRepo()
     try {
       await mkdir(join(root, '.git'), { recursive: true })
       await write(join(root, 'AGENTS.md'), 'repo rule')
-      /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
       const ctx = new Context()
-      /** 中文说明：测试局部值 fiber，由紧邻初始化决定。 */
       const fiber = await mountWorkspaceContext(ctx, { dshHome: home, maxBytes: 65536 })
       await fiber.dispose()
-      /** 中文说明：测试局部值 agent，由紧邻初始化决定。 */
       const agent = stubAgent(root)
 
       await composeBaselinePrefix(ctx, agent)
@@ -2775,17 +2381,13 @@ describe('workspace context request injection', () => {
   })
 
   it('does not inject anything when maxBytes is zero', async () => {
-    /** 中文说明：测试局部值 root，由紧邻初始化决定。 */
     const root = await tempRepo()
-    /** 中文说明：测试局部值 home，由紧邻初始化决定。 */
     const home = await tempRepo()
     try {
       await mkdir(join(root, '.git'), { recursive: true })
       await write(join(root, 'AGENTS.md'), 'repo rule')
-      /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
       const ctx = new Context()
       await mountWorkspaceContext(ctx, { dshHome: home, maxBytes: 0 })
-      /** 中文说明：测试局部值 agent，由紧邻初始化决定。 */
       const agent = stubAgent(root)
 
       await composeBaselinePrefix(ctx, agent)
@@ -2798,17 +2400,13 @@ describe('workspace context request injection', () => {
   })
 
   it('does not inject an empty agent-instructions message when maxBytes is negative', async () => {
-    /** 中文说明：测试局部值 root，由紧邻初始化决定。 */
     const root = await tempRepo()
-    /** 中文说明：测试局部值 home，由紧邻初始化决定。 */
     const home = await tempRepo()
     try {
       await mkdir(join(root, '.git'), { recursive: true })
       await write(join(root, 'AGENTS.md'), 'repo rule')
-      /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
       const ctx = new Context()
       await mountWorkspaceContext(ctx, { dshHome: home, maxBytes: -1 })
-      /** 中文说明：测试局部值 agent，由紧邻初始化决定。 */
       const agent = stubAgent(root)
 
       await composeBaselinePrefix(ctx, agent)
@@ -2821,16 +2419,12 @@ describe('workspace context request injection', () => {
   })
 
   it('leaves the request unchanged when no instruction files are present', async () => {
-    /** 中文说明：测试局部值 root，由紧邻初始化决定。 */
     const root = await tempRepo()
-    /** 中文说明：测试局部值 home，由紧邻初始化决定。 */
     const home = await tempRepo()
     try {
       await mkdir(join(root, '.git'), { recursive: true })
-      /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
       const ctx = new Context()
       await mountWorkspaceContext(ctx, { dshHome: home, maxBytes: 65536 })
-      /** 中文说明：测试局部值 agent，由紧邻初始化决定。 */
       const agent = stubAgent(root)
 
       await composeBaselinePrefix(ctx, agent)
@@ -2843,13 +2437,10 @@ describe('workspace context request injection', () => {
   })
 
   it('labels a custom dshHome as DSH_HOME instead of pretending it is ~/.dsh', async () => {
-    /** 中文说明：测试局部值 root，由紧邻初始化决定。 */
     const root = await tempRepo()
-    /** 中文说明：测试局部值 home，由紧邻初始化决定。 */
     const home = await tempRepo()
     try {
       await write(join(home, 'AGENTS.md'), 'global custom rule')
-      /** 中文说明：测试局部值 files，由紧邻初始化决定。 */
       const files = await discoverBaselineInstructionFiles({ cwd: root, dshHome: home })
 
       expect(files.map(file => file.displayPath)).toEqual(['$DSH_HOME/AGENTS.md'])
@@ -2860,19 +2451,15 @@ describe('workspace context request injection', () => {
   })
 
   it('does not repeat a candidate metadata probe during one discovery and read pass', async () => {
-    /** 中文说明：测试局部值 root，由紧邻初始化决定。 */
     const root = await tempRepo()
-    /** 中文说明：测试局部值 home，由紧邻初始化决定。 */
     const home = await tempRepo()
     try {
       await mkdir(join(root, '.git'), { recursive: true })
       await write(join(root, 'AGENTS.md'), 'repo rule')
 
-      /** 中文说明：测试局部值 observedStats，由紧邻初始化决定。 */
       const observedStats = new Map<string, number>()
       vi.resetModules()
       vi.doMock('node:fs/promises', async (importOriginal) => {
-        /** 中文说明：测试局部值 actual，由紧邻初始化决定。 */
         const actual = await importOriginal<typeof import('node:fs/promises')>()
         return {
           ...actual,
@@ -2882,7 +2469,6 @@ describe('workspace context request injection', () => {
           },
         }
       })
-      /** 中文说明：测试局部值 isolated，由紧邻初始化决定。 */
       const isolated = await import('@deepseek-ai/dsh-agent-instructions')
       await isolated.loadBaselineInstructions({ cwd: root, dshHome: home, maxBytes: 65536 })
       observedStats.clear()
@@ -2898,16 +2484,13 @@ describe('workspace context request injection', () => {
   })
 
   it('skips an unavailable host candidate but still loads its available sibling', async () => {
-    /** 中文说明：测试局部值 root，由紧邻初始化决定。 */
     const root = await tempRepo()
-    /** 中文说明：测试局部值 home，由紧邻初始化决定。 */
     const home = await tempRepo()
     try {
       await mkdir(join(root, '.git'), { recursive: true })
       await write(join(root, 'CLAUDE.md'), 'claude host sibling rule')
       vi.resetModules()
       vi.doMock('node:fs/promises', async (importOriginal) => {
-        /** 中文说明：测试局部值 actual，由紧邻初始化决定。 */
         const actual = await importOriginal<typeof import('node:fs/promises')>()
         return {
           ...actual,
@@ -2919,10 +2502,8 @@ describe('workspace context request injection', () => {
           },
         }
       })
-      /** 中文说明：测试局部值 isolated，由紧邻初始化决定。 */
       const isolated = await import('@deepseek-ai/dsh-agent-instructions')
 
-      /** 中文说明：测试局部值 rendered，由紧邻初始化决定。 */
       const rendered = await isolated.loadBaselineInstructions({ cwd: root, dshHome: home, maxBytes: 65536 })
 
       expect(rendered?.text).toContain('claude host sibling rule')
@@ -2937,17 +2518,13 @@ describe('workspace context request injection', () => {
 
 describe('dynamic nested workspace context injection', () => {
   it('projects a successful file result even when a later sibling aborts the step', async () => {
-    /** 中文说明：测试局部值 root，由紧邻初始化决定。 */
     const root = await tempRepo()
-    /** 中文说明：测试局部值 home，由紧邻初始化决定。 */
     const home = await tempRepo()
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = new Context()
     try {
       await mkdir(join(root, '.git'), { recursive: true })
       await write(join(root, 'pkg/AGENTS.md'), 'nested rule survives an aborted tool batch')
       await write(join(root, 'pkg/deep/file.txt'), 'hello')
-      /** 中文说明：测试局部值 adapter，由紧邻初始化决定。 */
       const adapter = new MockAdapter([
         [
           { type: 'block-start', index: 0, blockType: 'tool-call' },
@@ -2966,10 +2543,9 @@ describe('dynamic nested workspace context injection', () => {
       await ctx.plugin(AgentRegistry)
       await ctx.plugin(LocalFileSystem, { cwd: '/' })
       await ctx.plugin(ToolFs)
-      await ctx.plugin(workspaceContext, { dshHome: home, maxBytes: 65536 })
+      await mountWorkspaceContextPlugin(ctx, { dshHome: home, maxBytes: 65536 })
       await ctx.plugin(AgentLoop, { agents: [] })
       ctx.llm.registerAdapter(['mock'], adapter)
-      /** 中文说明：测试局部值 agent，由紧邻初始化决定。 */
       const agent = ctx.agentLoop.create(SessionId('workspace-context-abort'), { provider: 'mock', model: 'mock' }, { cwd: root })
       ctx.tools.register(defineContentToolFixture({
         name: 'abort_step',
@@ -2990,7 +2566,6 @@ describe('dynamic nested workspace context injection', () => {
       agent.followup(createUserMessage({ content: [{ type: 'text', text: 'retry the read' }], source: { kind: 'user' } }))
       await agent.whenIdle()
 
-      /** 中文说明：测试局部值 contexts，由紧邻初始化决定。 */
       const contexts = agent.session.events.filter(event => event.type === 'user/message' && event.data.source.kind !== 'user')
       expect(contexts).toHaveLength(1)
       expect(adapter.requests).toHaveLength(3)
@@ -3004,14 +2579,12 @@ describe('dynamic nested workspace context injection', () => {
   })
 
   it('builds persisted digest state without inventing a provider version', () => {
-    /** 中文说明：测试局部值 state，由紧邻初始化决定。 */
     const state = baselineInstructionState([{
       absolutePath: '/repo/AGENTS.md',
       displayPath: 'AGENTS.md',
       content: 'root rule',
     }])
 
-    /** 中文说明：测试局部值 change，由紧邻初始化决定。 */
     const change = state.changes.get(sk('.', 'AGENTS.md'))
     expect(change).toMatchObject({
       action: 'set',
@@ -3022,11 +2595,8 @@ describe('dynamic nested workspace context injection', () => {
   })
 
   it('creates and releases version-cache state only for non-empty updates', () => {
-    /** 中文说明：测试局部值 agent，由紧邻初始化决定。 */
     const agent = stubAgent('/repo')
-    /** 中文说明：测试局部值 cache，由紧邻初始化决定。 */
     const cache: InstructionVersionCache = new WeakMap()
-    /** 中文说明：测试局部值 change，由紧邻初始化决定。 */
     const change = { action: 'set' as const, scope: sk('.', 'AGENTS.md'), path: 'AGENTS.md', digest: 'digest' }
     applyInstructionVersionUpdates(agent.session, [], cache)
     expect(cache.get(agent.session)).toBeUndefined()
@@ -3041,25 +2611,18 @@ describe('dynamic nested workspace context injection', () => {
   })
 
   it('does not refresh dynamic instructions after the tool signal is aborted', async () => {
-    /** 中文说明：测试局部值 root，由紧邻初始化决定。 */
     const root = join(await tempRepo(), 'virtual-repo')
-    /** 中文说明：测试局部值 home，由紧邻初始化决定。 */
     const home = join(await tempRepo(), 'virtual-home')
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = new Context()
     try {
       await ctx.plugin(RecordingFileSystem)
-      /** 中文说明：测试局部值 fs，由紧邻初始化决定。 */
       const fs = ctx.fs as RecordingFileSystem
       fs.entries.set(join(root, '.git'), { type: 'directory' })
       fs.entries.set(join(root, 'pkg/AGENTS.md'), { type: 'file', content: 'nested' })
-      await ctx.plugin(workspaceContext, { dshHome: home, maxBytes: 65536 })
-      /** 中文说明：测试局部值 controller，由紧邻初始化决定。 */
+      await mountWorkspaceContextPlugin(ctx, { dshHome: home, maxBytes: 65536 })
       const controller = new AbortController()
-      /** 中文说明：测试局部值 reason，由紧邻初始化决定。 */
       const reason = new Error('cancel dynamic reconciliation')
       controller.abort(reason)
-      /** 中文说明：测试局部值 exec，由紧邻初始化决定。 */
       const exec = stubToolExecution({
         callId: ToolCallId('cancelled-dynamic-read'),
         name: 'read',
@@ -3085,22 +2648,17 @@ describe('dynamic nested workspace context injection', () => {
   })
 
   it('attaches newly discovered nested instructions after a successful file read touches a descendant path', async () => {
-    /** 中文说明：测试局部值 root，由紧邻初始化决定。 */
     const root = await tempRepo()
-    /** 中文说明：测试局部值 home，由紧邻初始化决定。 */
     const home = await tempRepo()
     try {
       await mkdir(join(root, '.git'), { recursive: true })
       await write(join(root, 'AGENTS.md'), 'baseline root rule')
       await write(join(root, 'pkg/AGENTS.md'), 'nested package rule')
       await write(join(root, 'pkg/deep/file.txt'), 'hello')
-      /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
       const ctx = new Context()
       await mountFileToolsAndWorkspaceContext(ctx, { dshHome: home, maxBytes: 65536 })
-      /** 中文说明：测试局部值 agent，由紧邻初始化决定。 */
       const agent = stubAgent(root)
 
-      /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
       const result = await ctx.tools.execute({
         signal: testToolSignal,
         callId: ToolCallId('read-nested'),
@@ -3111,25 +2669,20 @@ describe('dynamic nested workspace context injection', () => {
 
       expect(result.isError).toBe(false)
       expect(((await syncedWorkspaceContext(ctx, agent))).source).toMatchObject({ kind: 'agent-instructions' })
-      /** 中文说明：测试局部值 queuedSource，由紧邻初始化决定。 */
       const queuedSource = ((await syncedWorkspaceContext(ctx, agent))).source
       expect(queuedSource).toMatchObject({ kind: 'agent-instructions', form: 'instructions' })
       expect(queuedSource.kind === 'agent-instructions' && queuedSource.changes.some(change =>
         change.action === 'set'
         && change.scope === sk('pkg', 'AGENTS.md')
         && change.path === join('pkg', 'AGENTS.md'))).toBe(true)
-      /** 中文说明：测试局部值 source，由紧邻初始化决定。 */
       const source = ((await syncedWorkspaceContext(ctx, agent))).source
-      /** 中文说明：测试局部值 firstChange，由紧邻初始化决定。 */
       const firstChange = source?.kind === 'agent-instructions'
         ? source.changes.find(change => change.scope === sk('pkg', 'AGENTS.md'))
         : undefined
-      /** 中文说明：测试局部值 changeDigest，由紧邻初始化决定。 */
       const changeDigest = typeof firstChange === 'object' && firstChange !== null && !Array.isArray(firstChange)
         ? firstChange.digest
         : undefined
       expect(changeDigest).toMatch(/^[a-f0-9]{40}$/)
-      /** 中文说明：测试局部值 text，由紧邻初始化决定。 */
       const text = blocksText(((await syncedWorkspaceContext(ctx, agent))).content)
       expect(text).toContain(`Additional instructions from: ${join('pkg', 'AGENTS.md')}`)
       expect(text).toContain('nested package rule')
@@ -3142,19 +2695,14 @@ describe('dynamic nested workspace context injection', () => {
   })
 
   it('finishes a committed file-result projection after the tool signal ends', async () => {
-    /** 中文说明：测试局部值 root，由紧邻初始化决定。 */
     const root = await tempRepo()
-    /** 中文说明：测试局部值 home，由紧邻初始化决定。 */
     const home = await tempRepo()
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = new Context()
     try {
       await mkdir(join(root, '.git'), { recursive: true })
       await write(join(root, 'pkg/AGENTS.md'), 'nested package rule')
       await mountFileToolsAndWorkspaceContext(ctx, { dshHome: home, maxBytes: 65536 })
-      /** 中文说明：测试局部值 agent，由紧邻初始化决定。 */
       const agent = stubAgent(root)
-      /** 中文说明：测试局部值 controller，由紧邻初始化决定。 */
       const controller = new AbortController()
 
       ctx.emit('tools/result', stubToolExecution({
@@ -3175,23 +2723,19 @@ describe('dynamic nested workspace context injection', () => {
   })
 
   it('loads every configured instruction candidate present in a nested scope', async () => {
-    /** 中文说明：测试局部值 root，由紧邻初始化决定。 */
     const root = await tempRepo()
-    /** 中文说明：测试局部值 home，由紧邻初始化决定。 */
     const home = await tempRepo()
     try {
       await mkdir(join(root, '.git'), { recursive: true })
       await write(join(root, 'pkg/AGENTS.md'), 'native package rule')
       await write(join(root, 'pkg/CLAUDE.local.md'), 'local package rule')
       await write(join(root, 'pkg/deep/file.txt'), 'hello')
-      /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
       const ctx = new Context()
       await mountFileToolsAndWorkspaceContext(ctx, {
         dshHome: home,
         maxBytes: 65536,
         instructionFileCandidates: ['CLAUDE.local.md', 'AGENTS.md', 'CLAUDE.md'],
       })
-      /** 中文说明：测试局部值 agent，由紧邻初始化决定。 */
       const agent = stubAgent(root)
 
       await ctx.tools.execute({
@@ -3202,7 +2746,6 @@ describe('dynamic nested workspace context injection', () => {
         agent,
       })
 
-      /** 中文说明：测试局部值 text，由紧邻初始化决定。 */
       const text = blocksText(((await syncedWorkspaceContext(ctx, agent))).content)
       expect(text).toContain(`Additional instructions from: ${join('pkg', 'CLAUDE.local.md')}`)
       expect(text).toContain('local package rule')
@@ -3216,9 +2759,7 @@ describe('dynamic nested workspace context injection', () => {
   })
 
   it('attaches a nested base file and its local overlay together by default', async () => {
-    /** 中文说明：测试局部值 root，由紧邻初始化决定。 */
     const root = await tempRepo()
-    /** 中文说明：测试局部值 home，由紧邻初始化决定。 */
     const home = await tempRepo()
     try {
       await mkdir(join(root, '.git'), { recursive: true })
@@ -3226,10 +2767,8 @@ describe('dynamic nested workspace context injection', () => {
       await write(join(root, 'pkg/AGENTS.md'), 'nested base rule')
       await write(join(root, 'pkg/AGENTS.local.md'), 'nested local rule')
       await write(join(root, 'pkg/deep/file.txt'), 'hello')
-      /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
       const ctx = new Context()
       await mountFileToolsAndWorkspaceContext(ctx, { dshHome: home, maxBytes: 65536 })
-      /** 中文说明：测试局部值 agent，由紧邻初始化决定。 */
       const agent = stubAgent(root)
 
       await ctx.tools.execute({
@@ -3240,9 +2779,7 @@ describe('dynamic nested workspace context injection', () => {
         agent,
       })
 
-      /** 中文说明：测试局部值 source，由紧邻初始化决定。 */
       const source = ((await syncedWorkspaceContext(ctx, agent))).source
-      /** 中文说明：测试局部值 changes，由紧邻初始化决定。 */
       const changes = source?.kind === 'agent-instructions'
         ? source.changes
         : []
@@ -3250,7 +2787,6 @@ describe('dynamic nested workspace context injection', () => {
         expect.objectContaining({ action: 'set', path: join('pkg', 'AGENTS.md') }),
         expect.objectContaining({ action: 'set', path: join('pkg', 'AGENTS.local.md') }),
       ]))
-      /** 中文说明：测试局部值 text，由紧邻初始化决定。 */
       const text = blocksText(((await syncedWorkspaceContext(ctx, agent))).content)
       expect(text).toContain(`Additional instructions from: ${join('pkg', 'AGENTS.md')}`)
       expect(text).toContain('nested base rule')
@@ -3263,23 +2799,19 @@ describe('dynamic nested workspace context injection', () => {
   })
 
   it('does not attach a nested local overlay when the overlay is disabled', async () => {
-    /** 中文说明：测试局部值 root，由紧邻初始化决定。 */
     const root = await tempRepo()
-    /** 中文说明：测试局部值 home，由紧邻初始化决定。 */
     const home = await tempRepo()
     try {
       await mkdir(join(root, '.git'), { recursive: true })
       await write(join(root, 'pkg/AGENTS.md'), 'nested base rule')
       await write(join(root, 'pkg/AGENTS.local.md'), 'nested local rule')
       await write(join(root, 'pkg/deep/file.txt'), 'hello')
-      /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
       const ctx = new Context()
       await mountFileToolsAndWorkspaceContext(ctx, {
         dshHome: home,
         maxBytes: 65536,
         localInstructionFileCandidates: [],
       })
-      /** 中文说明：测试局部值 agent，由紧邻初始化决定。 */
       const agent = stubAgent(root)
 
       await ctx.tools.execute({
@@ -3290,7 +2822,6 @@ describe('dynamic nested workspace context injection', () => {
         agent,
       })
 
-      /** 中文说明：测试局部值 text，由紧邻初始化决定。 */
       const text = blocksText(((await syncedWorkspaceContext(ctx, agent))).content)
       expect(text).toContain(`Additional instructions from: ${join('pkg', 'AGENTS.md')}`)
       expect(text).not.toContain(join('pkg', 'AGENTS.local.md'))
@@ -3301,21 +2832,16 @@ describe('dynamic nested workspace context injection', () => {
   })
 
   it('does not attach nested instructions again for the same session once a path has been loaded', async () => {
-    /** 中文说明：测试局部值 root，由紧邻初始化决定。 */
     const root = await tempRepo()
-    /** 中文说明：测试局部值 home，由紧邻初始化决定。 */
     const home = await tempRepo()
     try {
       await mkdir(join(root, '.git'), { recursive: true })
       await write(join(root, 'pkg/AGENTS.md'), 'nested package rule')
       await write(join(root, 'pkg/deep/file.txt'), 'hello')
-      /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
       const ctx = new Context()
       await mountFileToolsAndWorkspaceContext(ctx, { dshHome: home, maxBytes: 65536 })
-      /** 中文说明：测试局部值 agent，由紧邻初始化决定。 */
       const agent = stubAgent(root)
 
-      /** 中文说明：测试局部值 first，由紧邻初始化决定。 */
       const first = await ctx.tools.execute({
         signal: testToolSignal,
         callId: ToolCallId('read-nested-1'),
@@ -3324,7 +2850,6 @@ describe('dynamic nested workspace context injection', () => {
         agent,
       })
       await appendAdditionalContexts(ctx, agent)
-      /** 中文说明：测试局部值 second，由紧邻初始化决定。 */
       const second = await ctx.tools.execute({
         signal: testToolSignal,
         callId: ToolCallId('read-nested-2'),
@@ -3343,36 +2868,28 @@ describe('dynamic nested workspace context injection', () => {
   })
 
   it('skips instruction content reads while provider version and effective state are unchanged', async () => {
-    /** 中文说明：测试局部值 root，由紧邻初始化决定。 */
     const root = join(await tempRepo(), 'virtual-repo')
-    /** 中文说明：测试局部值 home，由紧邻初始化决定。 */
     const home = join(await tempRepo(), 'virtual-home')
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = new Context()
     try {
       await ctx.plugin(SystemPrompt)
       await ctx.plugin(ToolRuntime)
       await ctx.plugin(RecordingFileSystem)
-      /** 中文说明：测试局部值 fs，由紧邻初始化决定。 */
       const fs = ctx.fs as RecordingFileSystem
-      /** 中文说明：测试局部值 instructionPath，由紧邻初始化决定。 */
       const instructionPath = join(root, 'pkg/AGENTS.md')
       fs.entries.set(join(root, '.git'), { type: 'directory' })
       fs.entries.set(instructionPath, { type: 'file', content: 'nested package rule' })
       fs.omitSizes.add(instructionPath)
       fs.entries.set(join(root, 'pkg/file.txt'), { type: 'file', content: 'hello' })
       await ctx.plugin(ToolFs)
-      await ctx.plugin(workspaceContext, { dshHome: home, maxBytes: 65536 })
-      /** 中文说明：测试局部值 agent，由紧邻初始化决定。 */
+      await mountWorkspaceContextPlugin(ctx, { dshHome: home, maxBytes: 65536 })
       const agent = stubAgent(root)
 
-      /** 中文说明：测试局部值 first，由紧邻初始化决定。 */
       const first = await ctx.tools.execute({
         signal: testToolSignal,
         callId: ToolCallId('read-before-version-fast-path'), name: 'read', arguments: { file_path: join('pkg', 'file.txt') }, agent,
       })
       await appendAdditionalContexts(ctx, agent)
-      /** 中文说明：测试局部值 second，由紧邻初始化决定。 */
       const second = await ctx.tools.execute({
         signal: testToolSignal,
         callId: ToolCallId('read-with-version-fast-path'), name: 'read', arguments: { file_path: join('pkg', 'file.txt') }, agent,
@@ -3389,26 +2906,20 @@ describe('dynamic nested workspace context injection', () => {
   })
 
   it('re-reads a changed provider version, then refreshes metadata when SHA-1 is unchanged', async () => {
-    /** 中文说明：测试局部值 root，由紧邻初始化决定。 */
     const root = join(await tempRepo(), 'virtual-repo')
-    /** 中文说明：测试局部值 home，由紧邻初始化决定。 */
     const home = join(await tempRepo(), 'virtual-home')
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = new Context()
     try {
       await ctx.plugin(SystemPrompt)
       await ctx.plugin(ToolRuntime)
       await ctx.plugin(RecordingFileSystem)
-      /** 中文说明：测试局部值 fs，由紧邻初始化决定。 */
       const fs = ctx.fs as RecordingFileSystem
-      /** 中文说明：测试局部值 instructionPath，由紧邻初始化决定。 */
       const instructionPath = join(root, 'pkg/AGENTS.md')
       fs.entries.set(join(root, '.git'), { type: 'directory' })
       fs.entries.set(instructionPath, { type: 'file', content: 'same package rule', version: FsVersion('revision-1') })
       fs.entries.set(join(root, 'pkg/file.txt'), { type: 'file', content: 'hello' })
       await ctx.plugin(ToolFs)
-      await ctx.plugin(workspaceContext, { dshHome: home, maxBytes: 65536 })
-      /** 中文说明：测试局部值 agent，由紧邻初始化决定。 */
+      await mountWorkspaceContextPlugin(ctx, { dshHome: home, maxBytes: 65536 })
       const agent = stubAgent(root)
 
       await ctx.tools.execute({
@@ -3417,13 +2928,11 @@ describe('dynamic nested workspace context injection', () => {
       })
       await appendAdditionalContexts(ctx, agent)
       fs.entries.set(instructionPath, { type: 'file', content: 'same package rule', version: FsVersion('revision-2') })
-      /** 中文说明：测试局部值 afterVersionChange，由紧邻初始化决定。 */
       const afterVersionChange = await ctx.tools.execute({
         signal: testToolSignal,
         callId: ToolCallId('read-after-same-digest-version-change'), name: 'read', arguments: { file_path: join('pkg', 'file.txt') }, agent,
       })
       await syncWorkspaceContext(ctx, agent)
-      /** 中文说明：测试局部值 afterRefresh，由紧邻初始化决定。 */
       const afterRefresh = await ctx.tools.execute({
         signal: testToolSignal,
         callId: ToolCallId('read-after-version-cache-refresh'), name: 'read', arguments: { file_path: join('pkg', 'file.txt') }, agent,
@@ -3442,36 +2951,27 @@ describe('dynamic nested workspace context injection', () => {
   })
 
   it('isolates instruction version caches between sessions that touch the same scope', async () => {
-    /** 中文说明：测试局部值 root，由紧邻初始化决定。 */
     const root = join(await tempRepo(), 'virtual-repo')
-    /** 中文说明：测试局部值 home，由紧邻初始化决定。 */
     const home = join(await tempRepo(), 'virtual-home')
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = new Context()
     try {
       await ctx.plugin(SystemPrompt)
       await ctx.plugin(ToolRuntime)
       await ctx.plugin(RecordingFileSystem)
-      /** 中文说明：测试局部值 fs，由紧邻初始化决定。 */
       const fs = ctx.fs as RecordingFileSystem
-      /** 中文说明：测试局部值 instructionPath，由紧邻初始化决定。 */
       const instructionPath = join(root, 'pkg/AGENTS.md')
       fs.entries.set(join(root, '.git'), { type: 'directory' })
       fs.entries.set(instructionPath, { type: 'file', content: 'shared path, separate sessions' })
       fs.entries.set(join(root, 'pkg/file.txt'), { type: 'file', content: 'hello' })
       await ctx.plugin(ToolFs)
-      await ctx.plugin(workspaceContext, { dshHome: home, maxBytes: 65536 })
+      await mountWorkspaceContextPlugin(ctx, { dshHome: home, maxBytes: 65536 })
 
-      /** 中文说明：测试局部值 firstAgent，由紧邻初始化决定。 */
       const firstAgent = stubAgent(root)
-      /** 中文说明：测试局部值 secondAgent，由紧邻初始化决定。 */
       const secondAgent = stubAgent(root)
-      /** 中文说明：测试局部值 first，由紧邻初始化决定。 */
       const first = await ctx.tools.execute({
         signal: testToolSignal,
         callId: ToolCallId('read-from-first-session'), name: 'read', arguments: { file_path: join('pkg', 'file.txt') }, agent: firstAgent,
       })
-      /** 中文说明：测试局部值 second，由紧邻初始化决定。 */
       const second = await ctx.tools.execute({
         signal: testToolSignal,
         callId: ToolCallId('read-from-second-session'), name: 'read', arguments: { file_path: join('pkg', 'file.txt') }, agent: secondAgent,
@@ -3490,18 +2990,14 @@ describe('dynamic nested workspace context injection', () => {
   })
 
   it('replaces previously loaded instructions when the same file content changes', async () => {
-    /** 中文说明：测试局部值 root，由紧邻初始化决定。 */
     const root = await tempRepo()
-    /** 中文说明：测试局部值 home，由紧邻初始化决定。 */
     const home = await tempRepo()
     try {
       await mkdir(join(root, '.git'), { recursive: true })
       await write(join(root, 'pkg/AGENTS.md'), 'old package rule')
       await write(join(root, 'pkg/file.txt'), 'hello')
-      /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
       const ctx = new Context()
       await mountFileToolsAndWorkspaceContext(ctx, { dshHome: home, maxBytes: 65536 })
-      /** 中文说明：测试局部值 agent，由紧邻初始化决定。 */
       const agent = stubAgent(root)
 
       await ctx.tools.execute({
@@ -3536,26 +3032,21 @@ describe('dynamic nested workspace context injection', () => {
   })
 
   it('reconciles distinct sibling candidates as independent scopes', async () => {
-    /** 中文说明：测试局部值 root，由紧邻初始化决定。 */
     const root = await tempRepo()
-    /** 中文说明：测试局部值 home，由紧邻初始化决定。 */
     const home = await tempRepo()
     try {
       await mkdir(join(root, '.git'), { recursive: true })
       await write(join(root, 'pkg/AGENTS.md'), 'native package rule')
       await write(join(root, 'pkg/CLAUDE.md'), 'sibling package rule')
       await write(join(root, 'pkg/file.txt'), 'hello')
-      /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
       const ctx = new Context()
       await mountFileToolsAndWorkspaceContext(ctx, { dshHome: home, maxBytes: 65536 })
-      /** 中文说明：测试局部值 agent，由紧邻初始化决定。 */
       const agent = stubAgent(root)
 
       await ctx.tools.execute({
         signal: testToolSignal,
         callId: ToolCallId('read-both-siblings'), name: 'read', arguments: { file_path: join('pkg', 'file.txt') }, agent,
       })
-      /** 中文说明：测试局部值 firstText，由紧邻初始化决定。 */
       const firstText = blocksText(((await syncedWorkspaceContext(ctx, agent))).content)
       expect(firstText).toContain('native package rule')
       expect(firstText).toContain('sibling package rule')
@@ -3579,19 +3070,15 @@ describe('dynamic nested workspace context injection', () => {
   })
 
   it('drops a newly discovered sibling whose content duplicates an earlier candidate in the scope', async () => {
-    /** 中文说明：测试局部值 root，由紧邻初始化决定。 */
     const root = await tempRepo()
-    /** 中文说明：测试局部值 home，由紧邻初始化决定。 */
     const home = await tempRepo()
     try {
       await mkdir(join(root, '.git'), { recursive: true })
       await write(join(root, 'pkg/AGENTS.md'), 'nested rule')
       await write(join(root, 'pkg/CLAUDE.md'), 'nested rule')
       await write(join(root, 'pkg/deep/file.txt'), 'hello')
-      /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
       const ctx = new Context()
       await mountFileToolsAndWorkspaceContext(ctx, { dshHome: home, maxBytes: 65536 })
-      /** 中文说明：测试局部值 agent，由紧邻初始化决定。 */
       const agent = stubAgent(root)
 
       await ctx.tools.execute({
@@ -3602,7 +3089,6 @@ describe('dynamic nested workspace context injection', () => {
       expect(((await syncedWorkspaceContext(ctx, agent))).source).toMatchObject({
         changes: [{ action: 'set', scope: sk('pkg', 'AGENTS.md'), path: join('pkg', 'AGENTS.md') }],
       })
-      /** 中文说明：测试局部值 text，由紧邻初始化决定。 */
       const text = blocksText(((await syncedWorkspaceContext(ctx, agent))).content)
       expect(text.match(/nested rule/g)).toHaveLength(1)
       expect(text).toContain(`Additional instructions from: ${join('pkg', 'AGENTS.md')}`)
@@ -3616,34 +3102,25 @@ describe('dynamic nested workspace context injection', () => {
   it.each(['visible', 'claimed'] as const)(
     'keeps unavailable active candidate groups unchanged with cold and warm caches when authority is $s',
     async (authority) => {
-      /** 中文说明：测试局部值 root，由紧邻初始化决定。 */
       const root = join(await tempRepo(), 'virtual-repo')
-      /** 中文说明：测试局部值 home，由紧邻初始化决定。 */
       const home = join(await tempRepo(), 'virtual-home')
-      /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
       const ctx = new Context()
       try {
         await ctx.plugin(RecordingFileSystem)
-        /** 中文说明：测试局部值 fs，由紧邻初始化决定。 */
         const fs = ctx.fs as RecordingFileSystem
         fs.entries.set(join(root, '.git'), { type: 'directory' })
         fs.entries.set(join(root, 'pkg/CLAUDE.md'), { type: 'file', content: 'nested rule' })
         fs.throwOnStat.add(join(root, 'pkg/AGENTS.md'))
-        /** 中文说明：测试局部值 agent，由紧邻初始化决定。 */
         const agent = stubAgent(root)
-        /** 中文说明：测试局部值 agentsScope，由紧邻初始化决定。 */
         const agentsScope = sk('pkg', 'AGENTS.md')
-        /** 中文说明：测试局部值 loaded，由紧邻初始化决定。 */
         const loaded = baselineInstructionState([{
           absolutePath: join(root, 'pkg/AGENTS.md'),
           displayPath: join('pkg', 'AGENTS.md'),
           content: 'nested rule',
           version: FsVersion('loaded-agents'),
         }])
-        /** 中文说明：测试局部值 previous，由紧邻初始化决定。 */
         const previous = loaded.changes.get(agentsScope)
         if (previous === undefined) throw new Error('missing AGENTS.md baseline state')
-        /** 中文说明：测试局部值 authoritative，由紧邻初始化决定。 */
         const authoritative = createUserMessage({
           content: [{ type: 'text', text: 'nested rule' }],
           source: { kind: 'agent-instructions', form: 'instructions', changes: [previous] },
@@ -3651,27 +3128,21 @@ describe('dynamic nested workspace context injection', () => {
         if (authority === 'visible') {
           agent.session.append('user/message', authoritative, { surfaceOp: 'append' })
         }
-        /** 中文说明：测试局部值 authorityMessages，由紧邻初始化决定。 */
         const authorityMessages = authority === 'claimed' ? [authoritative] : []
 
-        /** 中文说明：测试局部值 instructionFileCandidates，由紧邻初始化决定。 */
         for (const instructionFileCandidates of [
           ['AGENTS.md', 'CLAUDE.md'],
           ['CLAUDE.md', 'AGENTS.md'],
         ]) {
-          /** 中文说明：测试局部值 resolved，由紧邻初始化决定。 */
           const resolved = resolveConfig({
             dshHome: home,
             maxBytes: 65536,
             instructionFileCandidates,
             localInstructionFileCandidates: [],
           })
-          /** 中文说明：测试局部值 coldCache，由紧邻初始化决定。 */
           const coldCache: InstructionVersionCache = new WeakMap()
-          /** 中文说明：测试局部值 warmCache，由紧邻初始化决定。 */
           const warmCache: InstructionVersionCache = new WeakMap()
           warmCache.set(agent.session, new Map(loaded.versions))
-          /** 中文说明：测试局部值 options，由紧邻初始化决定。 */
           const options = {
             authorityMessages,
             scopeMessages: [createUserMessage({
@@ -3687,9 +3158,7 @@ describe('dynamic nested workspace context injection', () => {
             signal: testToolSignal,
           }
 
-          /** 中文说明：测试局部值 cold，由紧邻初始化决定。 */
           const cold = await reconcileInstructionContext(agent, resolved, coldCache, fs, options)
-          /** 中文说明：测试局部值 warm，由紧邻初始化决定。 */
           const warm = await reconcileInstructionContext(agent, resolved, warmCache, fs, options)
 
           expect(cold).toEqual(warm)
@@ -3704,44 +3173,32 @@ describe('dynamic nested workspace context injection', () => {
   )
 
   it('skips visible baseline scopes when baseline scopes are excluded from reconciliation', async () => {
-    /** 中文说明：测试局部值 root，由紧邻初始化决定。 */
     const root = join(await tempRepo(), 'virtual-repo')
-    /** 中文说明：测试局部值 home，由紧邻初始化决定。 */
     const home = join(await tempRepo(), 'virtual-home')
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = new Context()
     try {
       await ctx.plugin(RecordingFileSystem)
-      /** 中文说明：测试局部值 fs，由紧邻初始化决定。 */
       const fs = ctx.fs as RecordingFileSystem
       fs.entries.set(join(root, '.git'), { type: 'directory' })
       fs.entries.set(join(root, 'AGENTS.md'), { type: 'file', content: 'repo rule' })
-      /** 中文说明：测试局部值 agent，由紧邻初始化决定。 */
       const agent = stubAgent(root)
-      /** 中文说明：测试局部值 rootScope，由紧邻初始化决定。 */
       const rootScope = sk('.', 'AGENTS.md')
-      /** 中文说明：测试局部值 loaded，由紧邻初始化决定。 */
       const loaded = baselineInstructionState([{
         absolutePath: join(root, 'AGENTS.md'),
         displayPath: 'AGENTS.md',
         content: 'repo rule',
         version: FsVersion('loaded-agents'),
       }])
-      /** 中文说明：测试局部值 previous，由紧邻初始化决定。 */
       const previous = loaded.changes.get(rootScope)
       if (previous === undefined) throw new Error('missing AGENTS.md baseline state')
-      /** 中文说明：测试局部值 authoritative，由紧邻初始化决定。 */
       const authoritative = createUserMessage({
         content: [{ type: 'text', text: 'repo rule' }],
         source: { kind: 'agent-instructions', form: 'instructions', changes: [previous] },
       })
       agent.session.append('user/message', authoritative, { surfaceOp: 'append' })
-      /** 中文说明：测试局部值 resolved，由紧邻初始化决定。 */
       const resolved = resolveConfig({ dshHome: home, maxBytes: 65536, localInstructionFileCandidates: [] })
-      /** 中文说明：测试局部值 cache，由紧邻初始化决定。 */
       const cache: InstructionVersionCache = new WeakMap()
       cache.set(agent.session, new Map(loaded.versions))
-      /** 中文说明：测试局部值 options，由紧邻初始化决定。 */
       const options = {
         authorityMessages: [],
         scopeMessages: [],
@@ -3750,7 +3207,6 @@ describe('dynamic nested workspace context injection', () => {
         signal: testToolSignal,
       }
 
-      /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
       const result = await reconcileInstructionContext(agent, resolved, cache, fs, options)
 
       expect(result).toBeUndefined()
@@ -3762,19 +3218,14 @@ describe('dynamic nested workspace context injection', () => {
   })
 
   it('ignores an unavailable scope whose visible state is already removed', async () => {
-    /** 中文说明：测试局部值 root，由紧邻初始化决定。 */
     const root = join(await tempRepo(), 'virtual-repo')
-    /** 中文说明：测试局部值 home，由紧邻初始化决定。 */
     const home = join(await tempRepo(), 'virtual-home')
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = new Context()
     try {
       await ctx.plugin(RecordingFileSystem)
-      /** 中文说明：测试局部值 fs，由紧邻初始化决定。 */
       const fs = ctx.fs as RecordingFileSystem
       fs.entries.set(join(root, '.git'), { type: 'directory' })
       fs.throwOnStat.add(join(root, 'pkg/AGENTS.md'))
-      /** 中文说明：测试局部值 agent，由紧邻初始化决定。 */
       const agent = stubAgent(root)
       agent.session.append('user/message', createUserMessage({
         content: [{ type: 'text', text: 'removed nested instructions' }],
@@ -3784,7 +3235,6 @@ describe('dynamic nested workspace context injection', () => {
           changes: [{ action: 'remove', scope: sk('pkg', 'AGENTS.md'), path: join('pkg', 'AGENTS.md') }],
         },
       }), { surfaceOp: 'append' })
-      /** 中文说明：测试局部值 resolved，由紧邻初始化决定。 */
       const resolved = resolveConfig({
         dshHome: home,
         maxBytes: 65536,
@@ -3792,7 +3242,6 @@ describe('dynamic nested workspace context injection', () => {
         localInstructionFileCandidates: [],
       })
 
-      /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
       const result = await reconcileInstructionContext(agent, resolved, new WeakMap(), fs, {
         authorityMessages: [],
         scopeMessages: [],
@@ -3810,19 +3259,14 @@ describe('dynamic nested workspace context injection', () => {
   })
 
   it('loads one transition when user-global and project scopes resolve to the same file', async () => {
-    /** 中文说明：测试局部值 root，由紧邻初始化决定。 */
     const root = join(await tempRepo(), 'virtual-repo')
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = new Context()
     try {
       await ctx.plugin(RecordingFileSystem)
-      /** 中文说明：测试局部值 fs，由紧邻初始化决定。 */
       const fs = ctx.fs as RecordingFileSystem
       fs.entries.set(join(root, '.git'), { type: 'directory' })
       fs.entries.set(join(root, 'AGENTS.md'), { type: 'file', content: 'shared rule' })
-      /** 中文说明：测试局部值 agent，由紧邻初始化决定。 */
       const agent = stubAgent(root)
-      /** 中文说明：测试局部值 resolved，由紧邻初始化决定。 */
       const resolved = resolveConfig({
         dshHome: root,
         maxBytes: 65536,
@@ -3830,7 +3274,6 @@ describe('dynamic nested workspace context injection', () => {
         localInstructionFileCandidates: [],
       })
 
-      /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
       const result = await reconcileInstructionContext(agent, resolved, new WeakMap(), fs, {
         authorityMessages: [],
         scopeMessages: [],
@@ -3849,26 +3292,21 @@ describe('dynamic nested workspace context injection', () => {
   })
 
   it('removes a previously rendered sibling once its content becomes a duplicate of an earlier candidate', async () => {
-    /** 中文说明：测试局部值 root，由紧邻初始化决定。 */
     const root = await tempRepo()
-    /** 中文说明：测试局部值 home，由紧邻初始化决定。 */
     const home = await tempRepo()
     try {
       await mkdir(join(root, '.git'), { recursive: true })
       await write(join(root, 'pkg/AGENTS.md'), 'canonical nested rule')
       await write(join(root, 'pkg/CLAUDE.md'), 'initial divergent nested rule')
       await write(join(root, 'pkg/file.txt'), 'hello')
-      /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
       const ctx = new Context()
       await mountFileToolsAndWorkspaceContext(ctx, { dshHome: home, maxBytes: 65536 })
-      /** 中文说明：测试局部值 agent，由紧邻初始化决定。 */
       const agent = stubAgent(root)
 
       await ctx.tools.execute({
         signal: testToolSignal,
         callId: ToolCallId('read-before-dup-convergence'), name: 'read', arguments: { file_path: join('pkg', 'file.txt') }, agent,
       })
-      /** 中文说明：测试局部值 firstText，由紧邻初始化决定。 */
       const firstText = blocksText(((await syncedWorkspaceContext(ctx, agent))).content)
       expect(firstText).toContain('canonical nested rule')
       expect(firstText).toContain('initial divergent nested rule')
@@ -3879,7 +3317,6 @@ describe('dynamic nested workspace context injection', () => {
         callId: ToolCallId('read-after-dup-convergence'), name: 'read', arguments: { file_path: join('pkg', 'file.txt') }, agent,
       })
 
-      /** 中文说明：测试局部值 convergence，由紧邻初始化决定。 */
       const convergence = await syncedWorkspaceContext(ctx, agent)
       expect(convergence.source).toMatchObject({
         changes: [{ action: 'remove', scope: sk('pkg', 'CLAUDE.md'), path: join('pkg', 'CLAUDE.md') }],
@@ -3892,19 +3329,15 @@ describe('dynamic nested workspace context injection', () => {
   })
 
   it('removes an unchanged sibling when an earlier candidate changes to match its content', async () => {
-    /** 中文说明：测试局部值 root，由紧邻初始化决定。 */
     const root = await tempRepo()
-    /** 中文说明：测试局部值 home，由紧邻初始化决定。 */
     const home = await tempRepo()
     try {
       await mkdir(join(root, '.git'), { recursive: true })
       await write(join(root, 'pkg/AGENTS.md'), 'primary nested rule')
       await write(join(root, 'pkg/CLAUDE.md'), 'secondary nested rule')
       await write(join(root, 'pkg/file.txt'), 'hello')
-      /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
       const ctx = new Context()
       await mountFileToolsAndWorkspaceContext(ctx, { dshHome: home, maxBytes: 65536 })
-      /** 中文说明：测试局部值 agent，由紧邻初始化决定。 */
       const agent = stubAgent(root)
 
       await ctx.tools.execute({
@@ -3925,7 +3358,6 @@ describe('dynamic nested workspace context injection', () => {
           { action: 'remove', scope: sk('pkg', 'CLAUDE.md'), path: join('pkg', 'CLAUDE.md') },
         ],
       })
-      /** 中文说明：测试局部值 text，由紧邻初始化决定。 */
       const text = blocksText(((await syncedWorkspaceContext(ctx, agent))).content)
       expect(text).toContain(`Instructions removed: ${join('pkg', 'CLAUDE.md')}`)
       expect(text).toContain(`Updated instructions from: ${join('pkg', 'AGENTS.md')}`)
@@ -3936,18 +3368,14 @@ describe('dynamic nested workspace context injection', () => {
   })
 
   it('removes previously loaded instructions when no candidate remains in the scope', async () => {
-    /** 中文说明：测试局部值 root，由紧邻初始化决定。 */
     const root = await tempRepo()
-    /** 中文说明：测试局部值 home，由紧邻初始化决定。 */
     const home = await tempRepo()
     try {
       await mkdir(join(root, '.git'), { recursive: true })
       await write(join(root, 'pkg/AGENTS.md'), 'package rule')
       await write(join(root, 'pkg/file.txt'), 'hello')
-      /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
       const ctx = new Context()
       await mountFileToolsAndWorkspaceContext(ctx, { dshHome: home, maxBytes: 65536 })
-      /** 中文说明：测试局部值 agent，由紧邻初始化决定。 */
       const agent = stubAgent(root)
 
       await ctx.tools.execute({
@@ -3980,25 +3408,20 @@ describe('dynamic nested workspace context injection', () => {
   })
 
   it('removes a previously loaded instruction file once it resolves to a directory through a symlink', async () => {
-    /** 中文说明：测试局部值 root，由紧邻初始化决定。 */
     const root = await tempRepo()
-    /** 中文说明：测试局部值 home，由紧邻初始化决定。 */
     const home = await tempRepo()
     try {
       await mkdir(join(root, '.git'), { recursive: true })
       await write(join(root, 'pkg/AGENTS.md'), 'package rule')
       await write(join(root, 'pkg/file.txt'), 'hello')
-      /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
       const ctx = new Context()
       await mountFileToolsAndWorkspaceContext(ctx, { dshHome: home, maxBytes: 65536 })
-      /** 中文说明：测试局部值 agent，由紧邻初始化决定。 */
       const agent = stubAgent(root)
 
       await ctx.tools.execute({
         signal: testToolSignal,
         callId: ToolCallId('read-before-symlink-dir'), name: 'read', arguments: { file_path: join('pkg', 'file.txt') }, agent,
       })
-      /** 中文说明：测试局部值 firstText，由紧邻初始化决定。 */
       const firstText = blocksText(((await syncedWorkspaceContext(ctx, agent))).content)
       await appendAdditionalContexts(ctx, agent)
       expect(firstText).toContain('package rule')
@@ -4025,18 +3448,14 @@ describe('dynamic nested workspace context injection', () => {
   })
 
   it('loads a candidate again after a logged removal tombstone', async () => {
-    /** 中文说明：测试局部值 root，由紧邻初始化决定。 */
     const root = await tempRepo()
-    /** 中文说明：测试局部值 home，由紧邻初始化决定。 */
     const home = await tempRepo()
     try {
       await mkdir(join(root, '.git'), { recursive: true })
       await write(join(root, 'pkg/AGENTS.md'), 'first package rule')
       await write(join(root, 'pkg/file.txt'), 'hello')
-      /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
       const ctx = new Context()
       await mountFileToolsAndWorkspaceContext(ctx, { dshHome: home, maxBytes: 65536 })
-      /** 中文说明：测试局部值 agent，由紧邻初始化决定。 */
       const agent = stubAgent(root)
 
       await ctx.tools.execute({
@@ -4069,34 +3488,27 @@ describe('dynamic nested workspace context injection', () => {
   })
 
   it('does not report removal when a previously loaded scope is temporarily unavailable', async () => {
-    /** 中文说明：测试局部值 root，由紧邻初始化决定。 */
     const root = await tempRepo()
-    /** 中文说明：测试局部值 home，由紧邻初始化决定。 */
     const home = await tempRepo()
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = new Context()
     try {
       await ctx.plugin(SystemPrompt)
       await ctx.plugin(ToolRuntime)
       await ctx.plugin(RecordingFileSystem)
-      /** 中文说明：测试局部值 fs，由紧邻初始化决定。 */
       const fs = ctx.fs as RecordingFileSystem
       fs.entries.set(join(root, '.git'), { type: 'directory' })
       fs.entries.set(join(root, 'pkg/AGENTS.md'), { type: 'file', content: 'provider package rule' })
       fs.entries.set(join(root, 'pkg/file.txt'), { type: 'file', content: 'hello' })
       await ctx.plugin(ToolFs)
-      await ctx.plugin(workspaceContext, { dshHome: home, maxBytes: 65536 })
-      /** 中文说明：测试局部值 agent，由紧邻初始化决定。 */
+      await mountWorkspaceContextPlugin(ctx, { dshHome: home, maxBytes: 65536 })
       const agent = stubAgent(root)
 
-      /** 中文说明：测试局部值 first，由紧邻初始化决定。 */
       const first = await ctx.tools.execute({
         signal: testToolSignal,
         callId: ToolCallId('read-before-provider-failure'), name: 'read', arguments: { file_path: join('pkg', 'file.txt') }, agent,
       })
       await appendAdditionalContexts(ctx, agent)
       fs.throwOnStat.add(join(root, 'pkg/AGENTS.md'))
-      /** 中文说明：测试局部值 duringFailure，由紧邻初始化决定。 */
       const duringFailure = await ctx.tools.execute({
         signal: testToolSignal,
         callId: ToolCallId('read-during-provider-failure'), name: 'read', arguments: { file_path: join('pkg', 'file.txt') }, agent,
@@ -4112,20 +3524,15 @@ describe('dynamic nested workspace context injection', () => {
   })
 
   it('derives loaded nested instructions from resumed session history instead of duplicating them', async () => {
-    /** 中文说明：测试局部值 root，由紧邻初始化决定。 */
     const root = await tempRepo()
-    /** 中文说明：测试局部值 home，由紧邻初始化决定。 */
     const home = await tempRepo()
     try {
       await mkdir(join(root, '.git'), { recursive: true })
       await write(join(root, 'pkg/AGENTS.md'), 'nested package rule')
       await write(join(root, 'pkg/deep/file.txt'), 'hello')
-      /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
       const ctx = new Context()
       await mountFileToolsAndWorkspaceContext(ctx, { dshHome: home, maxBytes: 65536 })
-      /** 中文说明：测试局部值 agent，由紧邻初始化决定。 */
       const agent = stubAgent(root)
-      /** 中文说明：测试局部值 first，由紧邻初始化决定。 */
       const first = await ctx.tools.execute({
         signal: testToolSignal,
         callId: ToolCallId('read-before-resume'),
@@ -4134,10 +3541,8 @@ describe('dynamic nested workspace context injection', () => {
         agent,
       })
       await appendAdditionalContexts(ctx, agent)
-      /** 中文说明：测试局部值 resumed，由紧邻初始化决定。 */
       const resumed = stubAgent(root, [...agent.session.events])
 
-      /** 中文说明：测试局部值 afterResume，由紧邻初始化决定。 */
       const afterResume = await ctx.tools.execute({
         signal: testToolSignal,
         callId: ToolCallId('read-after-resume'),
@@ -4155,18 +3560,14 @@ describe('dynamic nested workspace context injection', () => {
   })
 
   it('appends an update during resumed prefix composition when visible nested instructions changed offline', async () => {
-    /** 中文说明：测试局部值 root，由紧邻初始化决定。 */
     const root = await tempRepo()
-    /** 中文说明：测试局部值 home，由紧邻初始化决定。 */
     const home = await tempRepo()
     try {
       await mkdir(join(root, '.git'), { recursive: true })
       await write(join(root, 'pkg/AGENTS.md'), 'old nested rule')
       await write(join(root, 'pkg/file.txt'), 'hello')
-      /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
       const ctx = new Context()
       await mountFileToolsAndWorkspaceContext(ctx, { dshHome: home, maxBytes: 65536 })
-      /** 中文说明：测试局部值 original，由紧邻初始化决定。 */
       const original = stubAgent(root)
       await ctx.tools.execute({
         signal: testToolSignal,
@@ -4174,12 +3575,10 @@ describe('dynamic nested workspace context injection', () => {
       })
       await appendAdditionalContexts(ctx, original)
       await write(join(root, 'pkg/AGENTS.md'), 'new nested rule after resume')
-      /** 中文说明：测试局部值 resumed，由紧邻初始化决定。 */
       const resumed = stubAgent(root, [...original.session.events])
 
       await composeBaselinePrefix(ctx, resumed)
 
-      /** 中文说明：测试局部值 update，由紧邻初始化决定。 */
       const update = resumed.session.events.findLast(event => event.type === 'user/message' && event.data.source.kind !== 'user')
       expect(update?.type === 'user/message' && update.data.source).toMatchObject({
         changes: [{ action: 'replace', scope: sk('pkg', 'AGENTS.md'), path: join('pkg', 'AGENTS.md') }],
@@ -4192,20 +3591,15 @@ describe('dynamic nested workspace context injection', () => {
   })
 
   it('re-arms a nested instruction after compaction removes its context message from the surface', async () => {
-    /** 中文说明：测试局部值 root，由紧邻初始化决定。 */
     const root = await tempRepo()
-    /** 中文说明：测试局部值 home，由紧邻初始化决定。 */
     const home = await tempRepo()
     try {
       await mkdir(join(root, '.git'), { recursive: true })
       await write(join(root, 'pkg/AGENTS.md'), 'nested package rule')
       await write(join(root, 'pkg/deep/file.txt'), 'hello')
-      /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
       const ctx = new Context()
       await mountFileToolsAndWorkspaceContext(ctx, { dshHome: home, maxBytes: 65536 })
-      /** 中文说明：测试局部值 agent，由紧邻初始化决定。 */
       const agent = stubAgent(root)
-      /** 中文说明：测试局部值 first，由紧邻初始化决定。 */
       const first = await ctx.tools.execute({
         signal: testToolSignal,
         callId: ToolCallId('read-before-compact'),
@@ -4213,9 +3607,7 @@ describe('dynamic nested workspace context injection', () => {
         arguments: { file_path: join('pkg', 'deep', 'file.txt') },
         agent,
       })
-      /** 中文说明：测试局部值 contextSeq，由紧邻初始化决定。 */
       const contextSeq = (await appendAdditionalContexts(ctx, agent))!
-      /** 中文说明：测试局部值 visibleBeforeCompact，由紧邻初始化决定。 */
       const visibleBeforeCompact = await ctx.tools.execute({
         signal: testToolSignal,
         callId: ToolCallId('read-while-visible'),
@@ -4232,7 +3624,6 @@ describe('dynamic nested workspace context injection', () => {
         sourceEventSeqs: [contextSeq],
       })
 
-      /** 中文说明：测试局部值 afterCompact，由紧邻初始化决定。 */
       const afterCompact = await ctx.tools.execute({
         signal: testToolSignal,
         callId: ToolCallId('read-after-compact'),
@@ -4252,25 +3643,19 @@ describe('dynamic nested workspace context injection', () => {
   })
 
   it('re-arms an unchanged baseline after compaction removes it from the surface', async () => {
-    /** 中文说明：测试局部值 root，由紧邻初始化决定。 */
     const root = await tempRepo()
-    /** 中文说明：测试局部值 home，由紧邻初始化决定。 */
     const home = await tempRepo()
     try {
       await mkdir(join(root, '.git'), { recursive: true })
       await write(join(root, 'AGENTS.md'), 'root rule')
       await write(join(root, 'file.txt'), 'hello')
-      /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
       const ctx = new Context()
       await mountFileToolsAndWorkspaceContext(ctx, { dshHome: home, maxBytes: 65536 })
-      /** 中文说明：测试局部值 agent，由紧邻初始化决定。 */
       const agent = stubAgent(root)
       await composeBaselinePrefix(ctx, agent)
-      /** 中文说明：测试局部值 baseline，由紧邻初始化决定。 */
       const baseline = baselineEvents(agent)[0]
       expect(baseline).toBeDefined()
 
-      /** 中文说明：测试局部值 whileVisible，由紧邻初始化决定。 */
       const whileVisible = await ctx.tools.execute({
         signal: testToolSignal,
         callId: ToolCallId('read-visible-baseline'),
@@ -4293,10 +3678,8 @@ describe('dynamic nested workspace context injection', () => {
         arguments: { file_path: 'file.txt' },
         agent,
       })
-      /** 中文说明：测试局部值 rearmedContext，由紧邻初始化决定。 */
       const rearmedContext = (await syncedWorkspaceContext(ctx, agent))
       await appendAdditionalContexts(ctx, agent)
-      /** 中文说明：测试局部值 afterRearm，由紧邻初始化决定。 */
       const afterRearm = await ctx.tools.execute({
         signal: testToolSignal,
         callId: ToolCallId('read-rearmed-baseline'),
@@ -4318,9 +3701,7 @@ describe('dynamic nested workspace context injection', () => {
   })
 
   it('does not treat markdown headings inside instruction content as loaded instruction metadata', async () => {
-    /** 中文说明：测试局部值 root，由紧邻初始化决定。 */
     const root = await tempRepo()
-    /** 中文说明：测试局部值 home，由紧邻初始化决定。 */
     const home = await tempRepo()
     try {
       await mkdir(join(root, '.git'), { recursive: true })
@@ -4328,10 +3709,8 @@ describe('dynamic nested workspace context injection', () => {
       await write(join(root, 'pkg/file.txt'), 'package file')
       await write(join(root, 'pkg/sub/AGENTS.md'), 'subtree rule')
       await write(join(root, 'pkg/sub/file.txt'), 'subtree file')
-      /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
       const ctx = new Context()
       await mountFileToolsAndWorkspaceContext(ctx, { dshHome: home, maxBytes: 65536 })
-      /** 中文说明：测试局部值 agent，由紧邻初始化决定。 */
       const agent = stubAgent(root)
       await ctx.tools.execute({
         signal: testToolSignal,
@@ -4340,7 +3719,6 @@ describe('dynamic nested workspace context injection', () => {
         arguments: { file_path: join('pkg', 'file.txt') },
         agent,
       })
-      /** 中文说明：测试局部值 firstText，由紧邻初始化决定。 */
       const firstText = blocksText(((await syncedWorkspaceContext(ctx, agent))).content)
       await appendAdditionalContexts(ctx, agent)
 
@@ -4361,9 +3739,7 @@ describe('dynamic nested workspace context injection', () => {
   })
 
   it('does not mark omitted nested files as pending-loaded', async () => {
-    /** 中文说明：测试局部值 root，由紧邻初始化决定。 */
     const root = await tempRepo()
-    /** 中文说明：测试局部值 home，由紧邻初始化决定。 */
     const home = await tempRepo()
     try {
       await mkdir(join(root, '.git'), { recursive: true })
@@ -4371,10 +3747,8 @@ describe('dynamic nested workspace context injection', () => {
       await write(join(root, 'pkg/other.txt'), 'package file')
       await write(join(root, 'pkg/sub/AGENTS.md'), 'subtree rule')
       await write(join(root, 'pkg/sub/file.txt'), 'subtree file')
-      /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
       const ctx = new Context()
       await mountFileToolsAndWorkspaceContext(ctx, { dshHome: home, maxBytes: 700 })
-      /** 中文说明：测试局部值 agent，由紧邻初始化决定。 */
       const agent = stubAgent(root)
       await ctx.tools.execute({
         signal: testToolSignal,
@@ -4383,7 +3757,6 @@ describe('dynamic nested workspace context injection', () => {
         arguments: { file_path: join('pkg', 'sub', 'file.txt') },
         agent,
       })
-      /** 中文说明：测试局部值 firstText，由紧邻初始化决定。 */
       const firstText = blocksText(((await syncedWorkspaceContext(ctx, agent))).content)
       await appendAdditionalContexts(ctx, agent)
 
@@ -4405,18 +3778,14 @@ describe('dynamic nested workspace context injection', () => {
   })
 
   it('ignores prompt-text spoofs, malformed metadata, and metadata from other plugins', async () => {
-    /** 中文说明：测试局部值 root，由紧邻初始化决定。 */
     const root = await tempRepo()
-    /** 中文说明：测试局部值 home，由紧邻初始化决定。 */
     const home = await tempRepo()
     try {
       await mkdir(join(root, '.git'), { recursive: true })
       await write(join(root, 'pkg/AGENTS.md'), 'nested package rule')
       await write(join(root, 'pkg/deep/file.txt'), 'hello')
-      /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
       const ctx = new Context()
       await mountFileToolsAndWorkspaceContext(ctx, { dshHome: home, maxBytes: 65536 })
-      /** 中文说明：测试局部值 agent，由紧邻初始化决定。 */
       const agent = stubAgent(root)
       agent.session.append('user/message', createUserMessage({
         content: [
@@ -4459,22 +3828,17 @@ describe('dynamic nested workspace context injection', () => {
   })
 
   it('loads nested instructions for absolute touched paths but not root-level files', async () => {
-    /** 中文说明：测试局部值 root，由紧邻初始化决定。 */
     const root = await tempRepo()
-    /** 中文说明：测试局部值 home，由紧邻初始化决定。 */
     const home = await tempRepo()
     try {
       await mkdir(join(root, '.git'), { recursive: true })
       await write(join(root, 'root.txt'), 'root file')
       await write(join(root, 'pkg/AGENTS.md'), 'nested package rule')
       await write(join(root, 'pkg/deep/file.txt'), 'hello')
-      /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
       const ctx = new Context()
       await mountFileToolsAndWorkspaceContext(ctx, { dshHome: home, maxBytes: 65536 })
-      /** 中文说明：测试局部值 agent，由紧邻初始化决定。 */
       const agent = stubAgent(root)
 
-      /** 中文说明：测试局部值 rootResult，由紧邻初始化决定。 */
       const rootResult = await ctx.tools.execute({
         signal: testToolSignal,
         callId: ToolCallId('read-root-file'),
@@ -4501,30 +3865,23 @@ describe('dynamic nested workspace context injection', () => {
   it('skips unreadable nested instruction files without attaching empty context', async () => {
     // Cross-platform unreadable fixture: the provider read throws (chmod 0
     // cannot make a file unreadable to its owner on Windows).
-    /** 中文说明：测试局部值 root，由紧邻初始化决定。 */
     const root = await tempRepo()
-    /** 中文说明：测试局部值 home，由紧邻初始化决定。 */
     const home = await tempRepo()
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = new Context()
     try {
-      /** 中文说明：测试局部值 nested，由紧邻初始化决定。 */
       const nested = join(root, 'pkg/AGENTS.md')
       await ctx.plugin(SystemPrompt)
       await ctx.plugin(ToolRuntime)
       await ctx.plugin(RecordingFileSystem)
-      /** 中文说明：测试局部值 fs，由紧邻初始化决定。 */
       const fs = ctx.fs as RecordingFileSystem
       fs.entries.set(join(root, '.git'), { type: 'directory' })
       fs.entries.set(nested, { type: 'file', content: 'nested package rule' })
       fs.entries.set(join(root, 'pkg/deep/file.txt'), { type: 'file', content: 'hello' })
       fs.throwOnRead.add(nested)
       await ctx.plugin(ToolFs)
-      await ctx.plugin(workspaceContext, { dshHome: home, maxBytes: 65536 })
-      /** 中文说明：测试局部值 agent，由紧邻初始化决定。 */
+      await mountWorkspaceContextPlugin(ctx, { dshHome: home, maxBytes: 65536 })
       const agent = stubAgent(root)
 
-      /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
       const result = await ctx.tools.execute({
         signal: testToolSignal,
         callId: ToolCallId('read-with-unreadable-nested-instruction'),
@@ -4547,18 +3904,14 @@ describe('dynamic nested workspace context injection', () => {
   })
 
   it('preserves a downstream canonical value replacement while queuing workspace context separately', async () => {
-    /** 中文说明：测试局部值 root，由紧邻初始化决定。 */
     const root = await tempRepo()
-    /** 中文说明：测试局部值 home，由紧邻初始化决定。 */
     const home = await tempRepo()
     try {
       await mkdir(join(root, '.git'), { recursive: true })
       await write(join(root, 'pkg/AGENTS.md'), 'nested package rule')
       await write(join(root, 'pkg/deep/file.txt'), 'hello')
-      /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
       const ctx = new Context()
       await mountFileToolsAndWorkspaceContext(ctx, { dshHome: home, maxBytes: 65536 })
-      /** 中文说明：测试局部值 agent，由紧邻初始化决定。 */
       const agent = stubAgent(root)
       ctx.on('tools/post-execute', async () => ({
         kind: 'accept' as const,
@@ -4574,7 +3927,6 @@ describe('dynamic nested workspace context injection', () => {
         })],
       }))
 
-      /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
       const result = await ctx.tools.execute({
         signal: testToolSignal,
         callId: ToolCallId('read-with-downstream'),
@@ -4614,25 +3966,20 @@ describe('dynamic nested workspace context injection', () => {
   })
 
   it('does not attach discovered instructions when a downstream listener blocks the tool call', async () => {
-    /** 中文说明：测试局部值 root，由紧邻初始化决定。 */
     const root = await tempRepo()
-    /** 中文说明：测试局部值 home，由紧邻初始化决定。 */
     const home = await tempRepo()
     try {
       await mkdir(join(root, '.git'), { recursive: true })
       await write(join(root, 'pkg/AGENTS.md'), 'nested package rule')
       await write(join(root, 'pkg/deep/file.txt'), 'hello')
-      /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
       const ctx = new Context()
       await mountFileToolsAndWorkspaceContext(ctx, { dshHome: home, maxBytes: 65536 })
-      /** 中文说明：测试局部值 agent，由紧邻初始化决定。 */
       const agent = stubAgent(root)
       ctx.on('tools/post-execute', async () => ({
         kind: 'block' as const,
         feedback: [{ type: 'text' as const, text: 'blocked downstream' }],
       }))
 
-      /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
       const result = await ctx.tools.execute({
         signal: testToolSignal,
         callId: ToolCallId('read-blocked-downstream'),
@@ -4655,11 +4002,8 @@ describe('dynamic nested workspace context injection', () => {
   })
 
   it('does not project a file touch when an outer post-execute listener blocks the final result', async () => {
-    /** 中文说明：测试局部值 root，由紧邻初始化决定。 */
     const root = await tempRepo()
-    /** 中文说明：测试局部值 home，由紧邻初始化决定。 */
     const home = await tempRepo()
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = new Context()
     try {
       await mkdir(join(root, '.git'), { recursive: true })
@@ -4669,20 +4013,16 @@ describe('dynamic nested workspace context injection', () => {
       await ctx.plugin(ToolRuntime)
       await ctx.plugin(LocalFileSystem, { cwd: '/' })
       await ctx.plugin(ToolFs)
-      /** 中文说明：测试局部值 shouldBlock，由紧邻初始化决定。 */
       let shouldBlock = true
       ctx.on('tools/post-execute', async (_exec, _result, next) => {
-        /** 中文说明：测试局部值 downstream，由紧邻初始化决定。 */
         const downstream = await next()
         return shouldBlock
           ? { kind: 'block' as const, feedback: [{ type: 'text' as const, text: 'outer policy block' }] }
           : downstream
       })
-      await ctx.plugin(workspaceContext, { dshHome: home, maxBytes: 65536 })
-      /** 中文说明：测试局部值 agent，由紧邻初始化决定。 */
+      await mountWorkspaceContextPlugin(ctx, { dshHome: home, maxBytes: 65536 })
       const agent = stubAgent(root)
 
-      /** 中文说明：测试局部值 blocked，由紧邻初始化决定。 */
       const blocked = await ctx.tools.execute({
         signal: testToolSignal,
         callId: ToolCallId('outer-block-first'),
@@ -4694,7 +4034,6 @@ describe('dynamic nested workspace context injection', () => {
       expect(agent.inbox.nextStep).toEqual([])
 
       shouldBlock = false
-      /** 中文说明：测试局部值 accepted，由紧邻初始化决定。 */
       const accepted = await ctx.tools.execute({
         signal: testToolSignal,
         callId: ToolCallId('outer-block-retry'),
@@ -4715,11 +4054,8 @@ describe('dynamic nested workspace context injection', () => {
   })
 
   it('projects a successful nested file result independently of a blocked composite result', async () => {
-    /** 中文说明：测试局部值 root，由紧邻初始化决定。 */
     const root = await tempRepo()
-    /** 中文说明：测试局部值 home，由紧邻初始化决定。 */
     const home = await tempRepo()
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = new Context()
     try {
       await mkdir(join(root, '.git'), { recursive: true })
@@ -4734,7 +4070,6 @@ describe('dynamic nested workspace context injection', () => {
         description: 'read through a nested dispatch',
         parameters: {},
         async execute(_args, exec) {
-          /** 中文说明：测试局部值 nested，由紧邻初始化决定。 */
           const nested = await ctx.tools.execute({
             signal: testToolSignal,
             callId: ToolCallId(`${exec.callId}:nested`),
@@ -4744,23 +4079,19 @@ describe('dynamic nested workspace context injection', () => {
             parent: exec.token,
             ...exec.signal === undefined ? {} : { signal: exec.signal },
           })
-          /** 中文说明：测试局部值 context，由紧邻初始化决定。 */
           for (const context of nested.additionalContexts ?? []) exec.deferContext(context)
           return nested.content
         },
       }))
       ctx.on('tools/post-execute', async (exec, _result, next) => {
-        /** 中文说明：测试局部值 downstream，由紧邻初始化决定。 */
         const downstream = await next()
         return exec.name === 'composite-read'
           ? { kind: 'block' as const, feedback: [{ type: 'text' as const, text: 'outer composite block' }] }
           : downstream
       })
-      await ctx.plugin(workspaceContext, { dshHome: home, maxBytes: 65536 })
-      /** 中文说明：测试局部值 agent，由紧邻初始化决定。 */
+      await mountWorkspaceContextPlugin(ctx, { dshHome: home, maxBytes: 65536 })
       const agent = stubAgent(root)
 
-      /** 中文说明：测试局部值 blocked，由紧邻初始化决定。 */
       const blocked = await ctx.tools.execute({
         signal: testToolSignal,
         callId: ToolCallId('composite-first'), name: 'composite-read', arguments: {}, agent,
@@ -4777,28 +4108,20 @@ describe('dynamic nested workspace context injection', () => {
   })
 
   it('defers a nested file projection until the enclosing step commits', async () => {
-    /** 中文说明：测试局部值 root，由紧邻初始化决定。 */
     const root = await tempRepo()
-    /** 中文说明：测试局部值 home，由紧邻初始化决定。 */
     const home = await tempRepo()
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = new Context()
     try {
       await ctx.plugin(RecordingFileSystem)
-      await ctx.plugin(workspaceContext, { dshHome: home, maxBytes: 65536 })
-      /** 中文说明：测试局部值 fs，由紧邻初始化决定。 */
+      await mountWorkspaceContextPlugin(ctx, { dshHome: home, maxBytes: 65536 })
       const fs = ctx.fs as RecordingFileSystem
       fs.entries.set(join(root, '.git'), { type: 'directory' })
       fs.entries.set(join(root, 'pkg/AGENTS.md'), { type: 'file', content: 'nested package rule' })
-      /** 中文说明：测试局部值 agent，由紧邻初始化决定。 */
       const agent = stubAgent(root)
-      /** 中文说明：测试局部值 turnStart，由紧邻初始化决定。 */
       const turnStart = agent.session.append('turn/start', { turn: 1 })
       ctx.emit('session/event', agent.session, turnStart)
-      /** 中文说明：测试局部值 stepStart，由紧邻初始化决定。 */
       const stepStart = agent.session.append('step/start', { turn: 1, step: 1 })
       ctx.emit('session/event', agent.session, stepStart)
-      /** 中文说明：测试局部值 outerToken，由紧邻初始化决定。 */
       const outerToken = Symbol('outer-code-run') as ToolExecutionToken
 
       ctx.emit('tools/result', stubToolExecution({
@@ -4840,7 +4163,6 @@ describe('dynamic nested workspace context injection', () => {
       await syncWorkspaceContext(ctx, agent)
       expect(agent.inbox.nextStep).toEqual([])
 
-      /** 中文说明：测试局部值 stepEnd，由紧邻初始化决定。 */
       const stepEnd = agent.session.append('step/end', { turn: 1, step: 1 })
       ctx.emit('session/event', agent.session, stepEnd)
       expect(blocksText((await syncedWorkspaceContext(ctx, agent)).content))
@@ -4853,25 +4175,20 @@ describe('dynamic nested workspace context injection', () => {
   })
 
   it('seeds closed step state from existing session history', async () => {
-    /** 中文说明：测试局部值 root，由紧邻初始化决定。 */
     const root = await tempRepo()
-    /** 中文说明：测试局部值 home，由紧邻初始化决定。 */
     const home = await tempRepo()
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = new Context()
     try {
       await ctx.plugin(RecordingFileSystem)
-      /** 中文说明：测试局部值 fs，由紧邻初始化决定。 */
       const fs = ctx.fs as RecordingFileSystem
       fs.entries.set(join(root, '.git'), { type: 'directory' })
       fs.entries.set(join(root, 'pkg/AGENTS.md'), { type: 'file', content: 'nested package rule' })
-      /** 中文说明：测试局部值 agent，由紧邻初始化决定。 */
       const agent = stubAgent(root)
       agent.session.append('turn/start', { turn: 1 })
       agent.session.append('step/start', { turn: 1, step: 1 })
       agent.session.append('step/end', { turn: 1, step: 1 })
       agent.session.append('turn/end', { turn: 1, reason: { kind: 'completed' } })
-      await ctx.plugin(workspaceContext, { dshHome: home, maxBytes: 65536 })
+      await mountWorkspaceContextPlugin(ctx, { dshHome: home, maxBytes: 65536 })
 
       ctx.emit('tools/result', stubToolExecution({
         signal: testToolSignal,
@@ -4891,14 +4208,11 @@ describe('dynamic nested workspace context injection', () => {
   })
 
   it('ignores failed, aborted, agentless, and non-file final results', async () => {
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = new Context()
     try {
       await ctx.plugin(RecordingFileSystem)
-      await ctx.plugin(workspaceContext, { maxBytes: 65536 })
-      /** 中文说明：测试局部值 fs，由紧邻初始化决定。 */
+      await mountWorkspaceContextPlugin(ctx, { maxBytes: 65536 })
       const fs = ctx.fs as RecordingFileSystem
-      /** 中文说明：测试局部值 agent，由紧邻初始化决定。 */
       const agent = stubAgent('/')
       const plainResult = { callId: ToolCallId('plain'), content: [], isError: false as const, value: null }
       const aborted = new AbortController()
@@ -4943,20 +4257,14 @@ describe('dynamic nested workspace context injection', () => {
   })
 
   it('warns when an asynchronous file-result projection fails', { timeout: 20_000 }, async () => {
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = new Context()
     try {
       await ctx.plugin(RecordingFileSystem)
-      await ctx.plugin(workspaceContext, { maxBytes: 65536 })
-      /** 中文说明：测试局部值 fs，由紧邻初始化决定。 */
+      await mountWorkspaceContextPlugin(ctx, { maxBytes: 65536 })
       const fs = ctx.fs as RecordingFileSystem
-      /** 中文说明：测试局部值 root，由紧邻初始化决定。 */
       const root = resolve('/')
-      /** 中文说明：测试局部值 agent，由紧邻初始化决定。 */
       const agent = stubAgent(root)
-      /** 中文说明：测试局部值 failure，由紧邻初始化决定。 */
       const failure = new Error('projection failed')
-      /** 中文说明：测试局部值 warn，由紧邻初始化决定。 */
       const warn = vi.spyOn(ctx.logger, 'warn').mockImplementation(() => undefined)
       fs.entries.set(join(root, '.git'), { type: 'directory' })
       fs.entries.set(join(root, 'AGENTS.md'), { type: 'file', content: 'workspace rule' })
@@ -4979,19 +4287,15 @@ describe('dynamic nested workspace context injection', () => {
   })
 
   it('does not attach nested instructions when the byte budget is disabled', async () => {
-    /** 中文说明：测试局部值 root，由紧邻初始化决定。 */
     const root = await tempRepo()
-    /** 中文说明：测试局部值 home，由紧邻初始化决定。 */
     const home = await tempRepo()
     try {
       await mkdir(join(root, '.git'), { recursive: true })
       await write(join(root, 'pkg/AGENTS.md'), 'nested package rule')
       await write(join(root, 'pkg/deep/file.txt'), 'hello')
-      /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
       const ctx = new Context()
       await mountFileToolsAndWorkspaceContext(ctx, { dshHome: home, maxBytes: 0 })
 
-      /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
       const result = await ctx.tools.execute({
         signal: testToolSignal,
         callId: ToolCallId('read-with-disabled-budget'),
@@ -5009,35 +4313,27 @@ describe('dynamic nested workspace context injection', () => {
   })
 
   it('retries a nested instruction touch when only a truncated budget notice was rendered', async () => {
-    /** 中文说明：测试局部值 root，由紧邻初始化决定。 */
     const root = join(await tempRepo(), 'virtual-repo')
-    /** 中文说明：测试局部值 home，由紧邻初始化决定。 */
     const home = join(await tempRepo(), 'virtual-home')
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = new Context()
     try {
       await ctx.plugin(SystemPrompt)
       await ctx.plugin(ToolRuntime)
       await ctx.plugin(RecordingFileSystem)
-      /** 中文说明：测试局部值 fs，由紧邻初始化决定。 */
       const fs = ctx.fs as RecordingFileSystem
-      /** 中文说明：测试局部值 instructionPath，由紧邻初始化决定。 */
       const instructionPath = join(root, 'pkg/AGENTS.md')
       fs.entries.set(join(root, '.git'), { type: 'directory' })
       fs.entries.set(instructionPath, { type: 'file', content: 'x'.repeat(1000) })
       fs.entries.set(join(root, 'pkg/file.txt'), { type: 'file', content: 'hello' })
       await ctx.plugin(ToolFs)
-      await ctx.plugin(workspaceContext, { dshHome: home, maxBytes: 20 })
-      /** 中文说明：测试局部值 agent，由紧邻初始化决定。 */
+      await mountWorkspaceContextPlugin(ctx, { dshHome: home, maxBytes: 20 })
       const agent = stubAgent(root)
 
-      /** 中文说明：测试局部值 first，由紧邻初始化决定。 */
       const first = await ctx.tools.execute({
         signal: testToolSignal,
         callId: ToolCallId('read-tiny-budget-1'), name: 'read', arguments: { file_path: join('pkg', 'file.txt') }, agent,
       })
       await syncWorkspaceContext(ctx, agent)
-      /** 中文说明：测试局部值 second，由紧邻初始化决定。 */
       const second = await ctx.tools.execute({
         signal: testToolSignal,
         callId: ToolCallId('read-tiny-budget-2'), name: 'read', arguments: { file_path: join('pkg', 'file.txt') }, agent,
@@ -5058,18 +4354,14 @@ describe('dynamic nested workspace context injection', () => {
   })
 
   it('does not attach nested instructions after a failed file read', async () => {
-    /** 中文说明：测试局部值 root，由紧邻初始化决定。 */
     const root = await tempRepo()
-    /** 中文说明：测试局部值 home，由紧邻初始化决定。 */
     const home = await tempRepo()
     try {
       await mkdir(join(root, '.git'), { recursive: true })
       await write(join(root, 'pkg/AGENTS.md'), 'nested package rule')
-      /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
       const ctx = new Context()
       await mountFileToolsAndWorkspaceContext(ctx, { dshHome: home, maxBytes: 65536 })
 
-      /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
       const result = await ctx.tools.execute({
         signal: testToolSignal,
         callId: ToolCallId('read-missing'),
@@ -5087,23 +4379,17 @@ describe('dynamic nested workspace context injection', () => {
   })
 
   it('cleans up its tools/result listener when the plugin fiber is disposed', async () => {
-    /** 中文说明：测试局部值 root，由紧邻初始化决定。 */
     const root = await tempRepo()
-    /** 中文说明：测试局部值 home，由紧邻初始化决定。 */
     const home = await tempRepo()
     try {
       await mkdir(join(root, '.git'), { recursive: true })
       await write(join(root, 'pkg/AGENTS.md'), 'nested package rule')
       await write(join(root, 'pkg/deep/file.txt'), 'hello')
-      /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
       const ctx = new Context()
-      /** 中文说明：测试局部值 fiber，由紧邻初始化决定。 */
       const fiber = await mountFileToolsAndWorkspaceContext(ctx, { dshHome: home, maxBytes: 65536 })
       await fiber.dispose()
-      /** 中文说明：测试局部值 agent，由紧邻初始化决定。 */
       const agent = stubAgent(root)
 
-      /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
       const result = await ctx.tools.execute({
         signal: testToolSignal,
         callId: ToolCallId('read-after-dispose'),
@@ -5124,7 +4410,6 @@ describe('dynamic nested workspace context injection', () => {
 })
 
 describe('workspace context inbox synchronization', () => {
-  /** 中文说明：测试局部值 acceptedResult，由紧邻初始化决定。 */
   const acceptedResult = {
     content: [{ type: 'text' as const, text: 'ok' }],
     isError: false as const,
@@ -5132,20 +4417,15 @@ describe('workspace context inbox synchronization', () => {
   }
 
   it('keeps one reusable desired context when recovery contains an exact duplicate', async () => {
-    /** 中文说明：测试局部值 root，由紧邻初始化决定。 */
     const root = await tempRepo()
-    /** 中文说明：测试局部值 home，由紧邻初始化决定。 */
     const home = await tempRepo()
     try {
       await mkdir(join(root, '.git'), { recursive: true })
       await write(join(root, 'AGENTS.md'), 'duplicate baseline')
-      /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
       const ctx = new Context()
       await mountWorkspaceContext(ctx, { dshHome: home, maxBytes: 65536 })
-      /** 中文说明：测试局部值 agent，由紧邻初始化决定。 */
       const agent = stubAgent(root)
       await syncWorkspaceContext(ctx, agent)
-      /** 中文说明：测试局部值 desired，由紧邻初始化决定。 */
       const desired = agent.inbox.nextStep[0]!
       agent.inbox.append('next-step', createUserMessage({ content: desired.content, source: desired.source }))
 
@@ -5160,20 +4440,15 @@ describe('workspace context inbox synchronization', () => {
   })
 
   it('holds back a dynamic change a one-byte positive render budget cannot represent', async () => {
-    /** 中文说明：测试局部值 root，由紧邻初始化决定。 */
     const root = await tempRepo()
-    /** 中文说明：测试局部值 home，由紧邻初始化决定。 */
     const home = await tempRepo()
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = new Context()
     try {
       await ctx.plugin(RecordingFileSystem)
-      /** 中文说明：测试局部值 fs，由紧邻初始化决定。 */
       const fs = ctx.fs as RecordingFileSystem
       fs.entries.set(join(root, '.git'), { type: 'directory' })
       fs.entries.set(join(root, 'pkg/AGENTS.md'), { type: 'file', content: 'tiny-budget rule' })
-      await ctx.plugin(workspaceContext, { dshHome: home, maxBytes: 1 })
-      /** 中文说明：测试局部值 agent，由紧邻初始化决定。 */
+      await mountWorkspaceContextPlugin(ctx, { dshHome: home, maxBytes: 1 })
       const agent = stubAgent(root)
       ctx.emit('tools/result', stubToolExecution({
         signal: testToolSignal,
@@ -5194,18 +4469,14 @@ describe('workspace context inbox synchronization', () => {
   })
 
   it('settles same-scope replacement and deletion against files instead of pending prose', async () => {
-    /** 中文说明：测试局部值 root，由紧邻初始化决定。 */
     const root = await tempRepo()
-    /** 中文说明：测试局部值 home，由紧邻初始化决定。 */
     const home = await tempRepo()
     try {
       await mkdir(join(root, '.git'), { recursive: true })
       await write(join(root, 'pkg/AGENTS.md'), 'pending version one')
       await write(join(root, 'pkg/file.txt'), 'file')
-      /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
       const ctx = new Context()
       await mountFileToolsAndWorkspaceContext(ctx, { dshHome: home, maxBytes: 65536 })
-      /** 中文说明：测试局部值 agent，由紧邻初始化决定。 */
       const agent = stubAgent(root)
       await ctx.tools.execute({
         signal: testToolSignal,
@@ -5213,7 +4484,6 @@ describe('workspace context inbox synchronization', () => {
       })
       await syncWorkspaceContext(ctx, agent)
       expect(blocksText(agent.inbox.nextStep[0]?.content)).toContain('pending version one')
-      /** 中文说明：测试局部值 duplicate，由紧邻初始化决定。 */
       const duplicate = createUserMessage({
         content: agent.inbox.nextStep[0]!.content,
         source: agent.inbox.nextStep[0]!.source,
@@ -5245,29 +4515,22 @@ describe('workspace context inbox synchronization', () => {
   })
 
   it('keeps a completed tool projection when a later pre-step aborts', async () => {
-    /** 中文说明：测试局部值 root，由紧邻初始化决定。 */
     const root = await tempRepo()
-    /** 中文说明：测试局部值 home，由紧邻初始化决定。 */
     const home = await tempRepo()
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = new Context()
     try {
       await ctx.plugin(RecordingFileSystem)
-      /** 中文说明：测试局部值 fs，由紧邻初始化决定。 */
       const fs = ctx.fs as RecordingFileSystem
       fs.entries.set(join(root, '.git'), { type: 'directory' })
       fs.entries.set(join(root, 'a/AGENTS.md'), { type: 'file', content: 'restored A' })
       fs.entries.set(join(root, 'b/AGENTS.md'), { type: 'file', content: 'restored B' })
-      await ctx.plugin(workspaceContext, { dshHome: home, maxBytes: 65536 })
-      /** 中文说明：测试局部值 agent，由紧邻初始化决定。 */
+      await mountWorkspaceContextPlugin(ctx, { dshHome: home, maxBytes: 65536 })
       const agent = stubAgent(root)
-      /** 中文说明：测试局部值 first，由紧邻初始化决定。 */
       const first = stubToolExecution({
         signal: testToolSignal,
         callId: ToolCallId('projected-before-abort'), name: 'read', arguments: { file_path: join('a', 'file.txt') }, agent,
       })
       ctx.emit('tools/result', first, acceptedResult)
-      /** 中文说明：测试局部值 controller，由紧邻初始化决定。 */
       const controller = new AbortController()
       controller.abort(new Error('abort pre-step reconciliation'))
 
@@ -5281,7 +4544,6 @@ describe('workspace context inbox synchronization', () => {
         callId: ToolCallId('projected-after-abort'), name: 'read', arguments: { file_path: join('b', 'file.txt') }, agent,
       }), acceptedResult)
       await syncWorkspaceContext(ctx, agent)
-      /** 中文说明：测试局部值 text，由紧邻初始化决定。 */
       const text = blocksText(agent.inbox.nextStep[0]?.content)
       expect(text).toContain('restored A')
       expect(text).toContain('restored B')
@@ -5293,28 +4555,21 @@ describe('workspace context inbox synchronization', () => {
   })
 
   it('serializes concurrent final results and merges both touched scopes into one pending context', async () => {
-    /** 中文说明：测试局部值 root，由紧邻初始化决定。 */
     const root = await tempRepo()
-    /** 中文说明：测试局部值 home，由紧邻初始化决定。 */
     const home = await tempRepo()
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = new Context()
     try {
       await ctx.plugin(RecordingFileSystem)
-      /** 中文说明：测试局部值 fs，由紧邻初始化决定。 */
       const fs = ctx.fs as RecordingFileSystem
       fs.entries.set(join(root, '.git'), { type: 'directory' })
       fs.entries.set(join(root, 'a/AGENTS.md'), { type: 'file', content: 'scope A' })
       fs.entries.set(join(root, 'b/AGENTS.md'), { type: 'file', content: 'scope B' })
-      await ctx.plugin(workspaceContext, { dshHome: home, maxBytes: 65536 })
-      /** 中文说明：测试局部值 agent，由紧邻初始化决定。 */
+      await mountWorkspaceContextPlugin(ctx, { dshHome: home, maxBytes: 65536 })
       const agent = stubAgent(root)
-      /** 中文说明：测试局部值 first，由紧邻初始化决定。 */
       const first = stubToolExecution({
         signal: testToolSignal,
         callId: ToolCallId('concurrent-a'), name: 'read', arguments: { file_path: join('a', 'file.txt') }, agent,
       })
-      /** 中文说明：测试局部值 second，由紧邻初始化决定。 */
       const second = stubToolExecution({
         signal: testToolSignal,
         callId: ToolCallId('concurrent-b'), name: 'read', arguments: { file_path: join('b', 'file.txt') }, agent,
@@ -5326,7 +4581,6 @@ describe('workspace context inbox synchronization', () => {
 
       await vi.waitFor(() => {
         expect(agent.inbox.nextStep).toHaveLength(1)
-        /** 中文说明：测试局部值 text，由紧邻初始化决定。 */
         const text = blocksText(agent.inbox.nextStep[0]?.content)
         expect(text).toContain('scope A')
         expect(text).toContain('scope B')
@@ -5339,9 +4593,7 @@ describe('workspace context inbox synchronization', () => {
   })
 
   it('merges a recovered pending context with a fresh touched scope', async () => {
-    /** 中文说明：测试局部值 root，由紧邻初始化决定。 */
     const root = await tempRepo()
-    /** 中文说明：测试局部值 home，由紧邻初始化决定。 */
     const home = await tempRepo()
     try {
       await mkdir(join(root, '.git'), { recursive: true })
@@ -5349,17 +4601,14 @@ describe('workspace context inbox synchronization', () => {
       await write(join(root, 'a/file.txt'), 'a')
       await write(join(root, 'b/AGENTS.md'), 'fresh scope B')
       await write(join(root, 'b/file.txt'), 'b')
-      /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
       const ctx = new Context()
       await mountFileToolsAndWorkspaceContext(ctx, { dshHome: home, maxBytes: 65536 })
-      /** 中文说明：测试局部值 original，由紧邻初始化决定。 */
       const original = stubAgent(root)
       await ctx.tools.execute({
         signal: testToolSignal,
         callId: ToolCallId('recover-pending-a'), name: 'read', arguments: { file_path: join('a', 'file.txt') }, agent: original,
       })
       await syncWorkspaceContext(ctx, original)
-      /** 中文说明：测试局部值 resumed，由紧邻初始化决定。 */
       const resumed = stubAgent(root, [...original.session.events])
 
       await ctx.tools.execute({
@@ -5370,7 +4619,6 @@ describe('workspace context inbox synchronization', () => {
 
       await vi.waitFor(() => {
         expect(resumed.inbox.nextStep).toHaveLength(1)
-        /** 中文说明：测试局部值 text，由紧邻初始化决定。 */
         const text = blocksText(resumed.inbox.nextStep[0]?.content)
         expect(text).toContain('recovered scope A')
         expect(text).toContain('fresh scope B')
@@ -5382,27 +4630,20 @@ describe('workspace context inbox synchronization', () => {
   })
 
   it('enters an offline correction immediately after its claimed stale context', async () => {
-    /** 中文说明：测试局部值 root，由紧邻初始化决定。 */
     const root = await tempRepo()
-    /** 中文说明：测试局部值 home，由紧邻初始化决定。 */
     const home = await tempRepo()
     try {
       await mkdir(join(root, '.git'), { recursive: true })
       await write(join(root, 'pkg/AGENTS.md'), 'old claimed rule')
       await write(join(root, 'pkg/file.txt'), 'file')
-      /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
       const ctx = new Context()
       await mountFileToolsAndWorkspaceContext(ctx, { dshHome: home, maxBytes: 65536 })
-      /** 中文说明：测试局部值 agent，由紧邻初始化决定。 */
       const agent = stubAgent(join(root, 'pkg'))
       await syncedWorkspaceContext(ctx, agent)
-      /** 中文说明：测试局部值 claimed，由紧邻初始化决定。 */
       const claimed = agent.inbox.claim('next-step', 1)
       await write(join(root, 'pkg/AGENTS.md'), 'new claimed rule with more detail')
-      /** 中文说明：测试局部值 downstream，由紧邻初始化决定。 */
       const downstream = { kind: 'enter' as const, messages: claimed }
 
-      /** 中文说明：测试局部值 decision，由紧邻初始化决定。 */
       const decision = await agentEvents(ctx, agent).waterfall(
         'agent/pre-step', { messages: claimed, turn: 1, step: 1, signal: testToolSignal },
         async () => downstream,
@@ -5427,9 +4668,7 @@ describe('workspace context plugin export shape', () => {
     expect('default' in workspaceContext).toBe(false)
     expect(typeof workspaceContext.apply).toBe('function')
 
-    /** 中文说明：测试局部值 loader，由紧邻初始化决定。 */
     const loader = Object.create(Loader.prototype) as Loader
-    /** 中文说明：测试局部值 unwrapped，由紧邻初始化决定。 */
     const unwrapped = loader.unwrapExports(workspaceContext) as Record<string, unknown>
     expect(unwrapped).toBe(workspaceContext)
     expect(unwrapped.name).toBe('agent-instructions')

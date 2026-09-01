@@ -1,23 +1,7 @@
-/*
- * 文件职责：定义会话轮次尾部节点及其操作区的局部布局样式。
- * 技术维度：使用纵向 Flex 布局、间距和负外边距对齐操作按钮。
- * 产品维度：让一轮消息后的状态、交付物和操作控件按清晰层级排列。
- * 逻辑维度：`.root` 组织纵向内容，`.actions` 修正操作行的左侧视觉对齐。
- * 关键边界：数值与父级按钮内边距配套，单独修改可能造成对齐偏差。
- * 新手阅读建议：先看 TurnTailNodeView 的 DOM 层级，再对应两个选择器。
- */
-/* 轮次尾部根容器；固定纵向排列，子区块间距为 16 像素。 */
 .root {
   display: flex;
   flex-direction: column;
   gap: 16px;
-}
-
-.footer {
-  display: flex;
-  min-width: 0;
-  flex-direction: column;
-  gap: 4px;
 }
 
 .actions {

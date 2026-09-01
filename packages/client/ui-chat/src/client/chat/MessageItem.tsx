@@ -10,24 +10,17 @@ import { ContextInjectionRow } from './ContextInjectionRow.tsx'
 import { MessageIconActions } from './MessageIconActions.tsx'
 import css from './MessageItem.module.css'
 
-/** 中文说明：类型或类 UserImage 约束本文件的数据或组件职责。 */
 type UserImage = Extract<UserMessageNode['content'][number], { type: 'image' }>
 
-/** 中文说明：函数 contentParts 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 function contentParts(content: readonly unknown[]): {
   text: string
   images: { attachment: UserImage['attachment'] }[]
   rest: unknown[]
 } {
-  /** 中文说明：当前组件的局部值 texts，由紧邻初始化决定。 */
   const texts: string[] = []
-  /** 中文说明：当前组件的局部值 images，由紧邻初始化决定。 */
   const images: { attachment: UserImage['attachment'] }[] = []
-  /** 中文说明：当前组件的局部值 rest，由紧邻初始化决定。 */
   const rest: unknown[] = []
-  /** 中文说明：当前组件的局部值 block，由紧邻初始化决定。 */
   for (const block of content) {
-    /** 中文说明：当前组件的局部值 b，由紧邻初始化决定。 */
     const b = block as { type?: string; text?: string; attachment?: unknown }
     if (b.type === 'text' && typeof b.text === 'string') texts.push(b.text)
     else if (b.type === 'image' && b.attachment !== undefined) {
@@ -38,12 +31,10 @@ function contentParts(content: readonly unknown[]): {
   return { text: texts.join(''), images, rest }
 }
 
-/** 中文说明：函数 retrySeconds 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 function retrySeconds(milliseconds: number): number {
   return Math.max(1, Math.ceil(milliseconds / 1_000))
 }
 
-/** 中文说明：类型或类 RetryCountdown 约束本文件的数据或组件职责。 */
 interface RetryCountdown {
   deadline: number
   seconds: number
@@ -64,27 +55,20 @@ function ModelRetryItem({ node, active, t }: {
 }) {
   // Anchor the host-scheduled delay to this browser's first render of the
   // retry node. Host event time and Date.now() may belong to different clocks.
-  /** 中文说明：当前组件的局部值 deadline，由紧邻初始化决定。 */
   const deadline = useMemo(() => Date.now() + node.delayMs, [node.delayMs, node.seq])
-  /** 中文说明：当前组件的局部值 scheduledSeconds，由紧邻初始化决定。 */
   const scheduledSeconds = retrySeconds(node.delayMs)
-  /** 中文说明：当前组件的局部值 maximum，由紧邻初始化决定。 */
   const maximum = node.mode === 'normal' ? node.maxRetries : '∞'
-  /** 中文说明：当前组件的局部值 [countdown, setCountdown]，由紧邻初始化决定。 */
   const [countdown, setCountdown] = useState<RetryCountdown>(() => ({
     deadline,
     seconds: retrySeconds(deadline - Date.now()),
   }))
-  /** 中文说明：当前组件的局部值 remainingSeconds，由紧邻初始化决定。 */
   const remainingSeconds = countdown.deadline === deadline
     ? countdown.seconds
     : retrySeconds(deadline - Date.now())
 
   useEffect(() => {
     if (!active) return
-    /** 中文说明：当前组件的局部值 updateCountdown，由紧邻初始化决定。 */
     const updateCountdown = (): number => {
-      /** 中文说明：当前组件的局部值 next，由紧邻初始化决定。 */
       const next = retrySeconds(deadline - Date.now())
       setCountdown(current => (
         current.deadline === deadline && current.seconds === next
@@ -94,14 +78,12 @@ function ModelRetryItem({ node, active, t }: {
       return next
     }
     if (updateCountdown() === 1) return
-    /** 中文说明：当前组件的局部值 timer，由紧邻初始化决定。 */
     const timer = window.setInterval(() => {
       if (updateCountdown() === 1) window.clearInterval(timer)
     }, 250)
     return () => { window.clearInterval(timer) }
   }, [active, deadline])
 
-  /** 中文说明：当前组件的局部值 label，由紧邻初始化决定。 */
   const label = active
     ? t('message.retry.active')
     : node.retryState === 'cancelled'
@@ -109,7 +91,6 @@ function ModelRetryItem({ node, active, t }: {
       : node.retryState === 'started'
         ? t('message.retry.started')
         : t('message.retry.scheduled')
-  /** 中文说明：当前组件的局部值 seconds，由紧邻初始化决定。 */
   const seconds = active ? remainingSeconds : scheduledSeconds
 
   return (
@@ -134,7 +115,6 @@ function ModelRetryItem({ node, active, t }: {
 }
 
 /** Persistent, turn-positioned feedback for a terminal failure. */
-/* 中文说明：函数 TurnErrorItem 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 function TurnErrorItem({ node, t }: {
   node: TurnErrorNode
   t: ChatViewSlotProps['t']
@@ -152,7 +132,6 @@ function TurnErrorItem({ node, t }: {
 }
 
 /** Persistent, turn-positioned notice for a turn ended at the output-token cap. */
-/* 中文说明：函数 TurnMaxTokensItem 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 function TurnMaxTokensItem({ t }: {
   t: ChatViewSlotProps['t']
 }) {
@@ -168,9 +147,8 @@ function TurnMaxTokensItem({ t }: {
 }
 
 /** Right-aligned bubble shared by user and steering rows. */
-/* 中文说明：函数 UserStyleBubble 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 function UserStyleBubble({
-  content, renderMessageImages, actions, pending = false, echo = false, referenceLabels = [], previewImages, t,
+  content, renderMessageImages, actions, pending = false, echo = false, referenceLabels = [], previewImages, reveal = 'always', t,
 }: {
   content: readonly unknown[]
   renderMessageImages: ChatNodeOwnerProps['renderMessageImages']
@@ -184,19 +162,20 @@ function UserStyleBubble({
   referenceLabels?: readonly string[]
   /** Local submission-echo previews replacing the content-derived image group. */
   previewImages?: readonly MessageImageSource[]
+  /** Whole actions-row visibility: earlier rows reveal on hover, the latest stays shown (turn tails' gate). */
+  reveal?: 'always' | 'hover'
   t: ChatViewSlotProps['t']
 }): ReactNode {
   const { text, images: contentImages, rest } = contentParts(content)
   const images = previewImages ?? contentImages
   const truncated = (total: number): string => t('json.truncated', { total })
-  /** 中文说明：当前组件的局部值 showBubble，由紧邻初始化决定。 */
   const showBubble = text !== '' || rest.length > 0
   return (
     <div
       className={css.userRow}
       data-pending-steering={pending || undefined}
       data-submission-echo={echo || undefined}
-      data-time-hover-root
+      data-actions-reveal={reveal}
     >
       <div className={css.userStack}>
         {renderMessageImages({ images, align: 'end' })}
@@ -221,7 +200,6 @@ function UserStyleBubble({
  * @param props - Pending message content and conversation translator.
  * @returns the pending steering bubble.
  */
-/* 中文说明：函数 PendingSteeringBubble 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 export function PendingSteeringBubble({ content, renderMessageImages, t }: {
   content: readonly unknown[]
   renderMessageImages: ChatNodeOwnerProps['renderMessageImages']
@@ -246,10 +224,10 @@ export function PendingSteeringBubble({ content, renderMessageImages, t }: {
 }
 
 /**
- * Render one local submission echo with the exact visual language of the
- * durable user node that replaces it: draft text plus object-URL previews,
- * visible from the submit click until the durable `user/message` (or its
- * queue occurrence) renders.
+ * Render one local transcript or steering submission echo with the same
+ * visual language and surface marker as the Host occurrence that replaces
+ * it: draft text plus object-URL previews, visible from the submit click
+ * until the durable `user/message` or steering occurrence renders.
  * @param props - the session snapshot's pending submission and render seats.
  * @returns the echoed user bubble.
  */
@@ -278,6 +256,7 @@ export function PendingSubmissionBubble({ submission, renderMessageImages, t }: 
       content={content}
       previewImages={previewImages}
       renderMessageImages={renderMessageImages}
+      pending={submission.placement === 'steering'}
       echo
       t={t}
       actions={text => (
@@ -294,17 +273,25 @@ export function PendingSubmissionBubble({ submission, renderMessageImages, t }: 
 }
 
 /** User and admitted-steering keyed Chat renderer. */
-/* 中文说明：当前组件的局部值 UserMessageNodeView，由紧邻初始化决定。 */
 export const UserMessageNodeView = memo(function UserMessageNodeView({
-  node, renderMessageImages, t,
+  node, renderMessageImages, useChat, t,
 }: ChatNodeViewProps<'user' | 'steering'>) {
-  /** 中文说明：当前组件的局部值 data，由紧邻初始化决定。 */
   const data = node.data
+  // The transcript's last user-authored row keeps its actions row shown, the
+  // same recency gate turn tails use; earlier rows reveal on hover.
+  const isLatestUserRow = useChat((snapshot) => {
+    for (let index = snapshot.order.length - 1; index >= 0; index -= 1) {
+      const candidate = snapshot.nodes.get(snapshot.order[index] ?? '')
+      if (candidate?.kind === 'user' || candidate?.kind === 'steering') return candidate.key === node.key
+    }
+    return true
+  })
   return (
     <UserStyleBubble
       content={data.content}
       renderMessageImages={renderMessageImages}
       {...data.referenceLabels === undefined ? {} : { referenceLabels: data.referenceLabels }}
+      reveal={isLatestUserRow ? 'always' : 'hover'}
       t={t}
       actions={text => (
         <MessageIconActions
@@ -320,9 +307,7 @@ export const UserMessageNodeView = memo(function UserMessageNodeView({
 })
 
 /** Injected-context keyed Chat renderer. */
-/* 中文说明：当前组件的局部值 ContextMessageNodeView，由紧邻初始化决定。 */
 export const ContextMessageNodeView = memo(function ContextMessageNodeView({ node, t }: ChatNodeViewProps<'context'>) {
-  /** 中文说明：当前组件的局部值 data，由紧邻初始化决定。 */
   const data = node.data
   return (
     <ContextInjectionRow
@@ -336,35 +321,28 @@ export const ContextMessageNodeView = memo(function ContextMessageNodeView({ nod
 })
 
 /** Automatic compaction keyed Chat renderer. */
-/* 中文说明：当前组件的局部值 CompactionNodeView，由紧邻初始化决定。 */
 export const CompactionNodeView = memo(function CompactionNodeView({ node, t }: ChatNodeViewProps<'compaction'>) {
   return <CompactionItem node={node.data} t={t} />
 })
 
 /** Correlated retry-chain keyed Chat renderer. */
-/* 中文说明：当前组件的局部值 RetryNodeView，由紧邻初始化决定。 */
 export const RetryNodeView = memo(function RetryNodeView({ node, t }: ChatNodeViewProps<'model-retry'>) {
-  /** 中文说明：当前组件的局部值 data，由紧邻初始化决定。 */
   const data = node.data
   return <ModelRetryItem node={data.current} active={data.current.retryState === 'scheduled'} t={t} />
 })
 
 /** Terminal turn-error keyed Chat renderer. */
-/* 中文说明：当前组件的局部值 TurnErrorNodeView，由紧邻初始化决定。 */
 export const TurnErrorNodeView = memo(function TurnErrorNodeView({ node, t }: ChatNodeViewProps<'turn-error'>) {
   return <TurnErrorItem node={node.data} t={t} />
 })
 
 /** Max-tokens turn-end notice keyed Chat renderer. */
-/* 中文说明：当前组件的局部值 TurnMaxTokensNodeView，由紧邻初始化决定。 */
 export const TurnMaxTokensNodeView = memo(function TurnMaxTokensNodeView({ t }: ChatNodeViewProps<'turn-max-tokens'>) {
   return <TurnMaxTokensItem t={t} />
 })
 
 /** Explicit unknown-surface keyed Chat renderer. */
-/* 中文说明：当前组件的局部值 UnknownNodeView，由紧邻初始化决定。 */
 export const UnknownNodeView = memo(function UnknownNodeView({ node, t }: ChatNodeViewProps<'unknown'>) {
-  /** 中文说明：当前组件的局部值 data，由紧邻初始化决定。 */
   const data = node.data
   return (
     <div className={css.contextRow}>

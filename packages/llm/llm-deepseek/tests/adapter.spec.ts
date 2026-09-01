@@ -1,11 +1,3 @@
-/**
- * 文件职责：验证DeepSeek LLM的 adapter.spec.ts 行为与网络边界。
- * 技术维度：TypeScript、Fetch、SSE、OAuth/密钥认证、模型目录和运行时模式校验。
- * 产品维度：让 Agent 能稳定调用供应商模型、发现能力并接收流式结果。
- * 逻辑维度：构造请求或模拟服务器，驱动适配器并断言事件与错误。
- * 关键边界：网络响应属于不可信输入；密钥和令牌不得记录；取消必须终止请求与流。
- * 新手阅读建议：先读 config/auth/catalog，再看 adapter/stream，最后阅读错误和重放测试。
- */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
@@ -35,9 +27,7 @@ import { assemble } from './assemble.ts'
 import { closeMockServers, mockServer, textEvents } from './mock-server.ts'
 import type { Behavior } from './mock-server.ts'
 
-/** 中文说明：测试局部值 TEST_USER_ID，由紧邻初始化决定。 */
 const TEST_USER_ID = '00000000-0000-4000-8000-000000000001' as AnonymousUserId
-/** 中文说明：测试局部值 testHome: string，由紧邻初始化决定。 */
 let testHome: string
 
 beforeEach(() => {
@@ -52,12 +42,10 @@ afterEach(async () => {
   rmSync(testHome, { recursive: true, force: true })
 })
 
-/** 中文说明：函数 harness 的参数见签名，返回结果供模型流程使用；示例见本文件。 */
 async function harness(baseURL: string, config: object = {}) {
   // Configuration carries only the reference; the key comes from the
   // environment, which is the whole credential plane without a mounted seam.
   vi.stubEnv('DEEPSEEK_API_KEY', 'test-key')
-  /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
   const ctx = new Context()
   await ctx.plugin(LlmRuntime)
   await ctx.plugin(DeepSeekLlmApiExtensionRegistry)
@@ -76,7 +64,6 @@ function adapterOf(
   attachments?: AttachmentStore,
   files?: LlmDeepSeek.DeepSeekFileStore,
 ): DeepSeekAdapter {
-  /** 中文说明：测试局部值 { apiKey, ...rest }，由紧邻初始化决定。 */
   const { apiKey, ...rest } = config
   return new DeepSeekAdapter({
     options: () => resolveAdapterOptions(rest),
@@ -88,13 +75,10 @@ function adapterOf(
   })
 }
 
-/** 中文说明：函数 drain 的参数见签名，返回结果供模型流程使用；示例见本文件。 */
 async function drain(stream: AsyncIterable<unknown>): Promise<void> {
-  /** 中文说明：测试局部值 _chunk，由紧邻初始化决定。 */
   for await (const _chunk of stream) { /* drain */ }
 }
 
-/** 中文说明：测试局部值 imageRef，由紧邻初始化决定。 */
 const imageRef: ImageAttachmentRef = {
   attachmentId: AttachmentId(`sha256:${'a'.repeat(64)}`),
   mediaType: 'image/png',
@@ -103,7 +87,6 @@ const imageRef: ImageAttachmentRef = {
   height: 1,
 }
 
-/** 中文说明：函数 requestImage 的参数见签名，返回结果供模型流程使用；示例见本文件。 */
 function requestImage(ref = imageRef): RequestImageAttachment {
   return {
     variantId: ImageVariantId(`sha256:${'b'.repeat(64)}`),
@@ -119,14 +102,12 @@ function requestImage(ref = imageRef): RequestImageAttachment {
   }
 }
 
-/** 中文说明：函数 attachmentStoreOf 的参数见签名，返回结果供模型流程使用；示例见本文件。 */
 function attachmentStoreOf(
   project: (ref: ImageAttachmentRef, policy: unknown, signal?: AbortSignal) => Promise<RequestImageAttachment>,
 ): {
   store: AttachmentStore
   readImageRequest: ReturnType<typeof vi.fn<typeof project>>
 } {
-  /** 中文说明：测试局部值 readImageRequest，由紧邻初始化决定。 */
   const readImageRequest = vi.fn(project)
   return {
     store: { readImageRequest, imageHostPath: () => undefined } as unknown as AttachmentStore,
@@ -134,13 +115,10 @@ function attachmentStoreOf(
   }
 }
 
-/** 中文说明：函数 fileStoreOf 的参数见签名，返回结果供模型流程使用；示例见本文件。 */
 function fileStoreOf(
   implementation: (...args: Parameters<LlmDeepSeek.DeepSeekFileStore['ensureUploaded']>) => ReturnType<LlmDeepSeek.DeepSeekFileStore['ensureUploaded']>,
 ) {
-  /** 中文说明：测试局部值 ensureUploaded，由紧邻初始化决定。 */
   const ensureUploaded = vi.fn(implementation)
-  /** 中文说明：测试局部值 invalidate，由紧邻初始化决定。 */
   const invalidate = vi.fn(() => Promise.resolve())
   return {
     store: { ensureUploaded, invalidate } as unknown as LlmDeepSeek.DeepSeekFileStore,
@@ -149,7 +127,6 @@ function fileStoreOf(
   }
 }
 
-/** 中文说明：函数 fileReference 的参数见签名，返回结果供模型流程使用；示例见本文件。 */
 function fileReference(fileId: string): Awaited<ReturnType<LlmDeepSeek.DeepSeekFileStore['ensureUploaded']>> {
   return {
     record: { fileId: LlmDeepSeek.DeepSeekFileId(fileId) },
@@ -157,7 +134,6 @@ function fileReference(fileId: string): Awaited<ReturnType<LlmDeepSeek.DeepSeekF
   } as Awaited<ReturnType<LlmDeepSeek.DeepSeekFileStore['ensureUploaded']>>
 }
 
-/** 中文说明：函数 successfulSseResponse 的参数见签名，返回结果供模型流程使用；示例见本文件。 */
 function successfulSseResponse(): Response {
   return new Response(textEvents.map(event => `data: ${event}\n\n`).join(''), {
     status: 200,
@@ -358,14 +334,11 @@ describe('DeepSeekAdapter against a mock server', () => {
   })
 
   it('streams a text generation end to end through the assembler', async () => {
-    /** 中文说明：测试局部值 server，由紧邻初始化决定。 */
     const server = await mockServer([{ kind: 'sse', events: textEvents }])
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await harness(server.url)
 
-    /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
     const result = await assemble(ctx, {
-      model: 'deepseek-v4-flash',
+      model: 'deepseek-v4-pro',
       messages: [createUserMessage({
         content: [{ type: 'text', text: 'hi' }],
         source: { kind: 'plugin', plugin: 'test' },
@@ -377,7 +350,7 @@ describe('DeepSeekAdapter against a mock server', () => {
 
     // The wire request carried the auth header contents we configured.
     expect(server.requests[0]).toMatchObject({
-      model: 'deepseek-v4-flash',
+      model: 'deepseek-v4-pro',
       max_tokens: 256_000,
       reasoning_effort: 'high',
       stream: true,
@@ -394,19 +367,14 @@ describe('DeepSeekAdapter against a mock server', () => {
   })
 
   it('uploads a durable image once and sends only its Files API id to the vision model', async () => {
-    /** 中文说明：测试局部值 server，由紧邻初始化决定。 */
     const server = await mockServer([{ kind: 'sse', events: textEvents }])
-    /** 中文说明：测试局部值 signalSeen，由紧邻初始化决定。 */
     const signalSeen: (AbortSignal | undefined)[] = []
-    /** 中文说明：测试局部值 policies，由紧邻初始化决定。 */
     const policies: unknown[] = []
-    /** 中文说明：测试局部值 attachmentMocks，由紧邻初始化决定。 */
     const attachmentMocks = attachmentStoreOf((ref, policy, signal) => {
       signalSeen.push(signal)
       policies.push(policy)
       return Promise.resolve(requestImage(ref))
     })
-    /** 中文说明：测试局部值 adapter，由紧邻初始化决定。 */
     const adapter = adapterOf({ baseURL: server.url }, attachmentMocks.store)
 
     await drain(adapter.stream({
@@ -443,18 +411,13 @@ describe('DeepSeekAdapter against a mock server', () => {
   })
 
   it('falls back to one all-base64 request when Files API resolution fails', async () => {
-    /** 中文说明：测试局部值 server，由紧邻初始化决定。 */
     const server = await mockServer([{ kind: 'sse', events: textEvents }])
-    /** 中文说明：测试局部值 secondRef，由紧邻初始化决定。 */
     const secondRef = { ...imageRef, attachmentId: AttachmentId(`sha256:${'c'.repeat(64)}`) }
-    /** 中文说明：测试局部值 attachments，由紧邻初始化决定。 */
     const attachments = attachmentStoreOf(ref => Promise.resolve({
       ...requestImage(ref),
       variantId: ImageVariantId(`sha256:${(ref.attachmentId === imageRef.attachmentId ? 'b' : 'd').repeat(64)}`),
     })).store
-    /** 中文说明：测试局部值 files，由紧邻初始化决定。 */
     const files = fileStoreOf(() => Promise.reject(new LlmError('Files unavailable', 'SERVER')))
-    /** 中文说明：测试局部值 adapter，由紧邻初始化决定。 */
     const adapter = adapterOf({
       baseURL: server.url,
       models: [{ id: 'deepseek-v4-flash-vision-exp', inputModalities: ['text', 'image'] }],
@@ -472,7 +435,6 @@ describe('DeepSeekAdapter against a mock server', () => {
       })],
     }))
 
-    /** 中文说明：测试局部值 body，由紧邻初始化决定。 */
     const body = server.requests[0] as { messages: Array<{ content: unknown }> }
     expect(JSON.stringify(body.messages[0]?.content).match(/"type":"image_url"/g)).toHaveLength(2)
     expect(JSON.stringify(body)).not.toContain('file_id')
@@ -480,13 +442,9 @@ describe('DeepSeekAdapter against a mock server', () => {
   })
 
   it('reduces base64 fallback history from the configured high watermark to its half-size quantum', async () => {
-    /** 中文说明：测试局部值 server，由紧邻初始化决定。 */
     const server = await mockServer([{ kind: 'sse', events: textEvents }])
-    /** 中文说明：测试局部值 attachments，由紧邻初始化决定。 */
     const attachments = attachmentStoreOf(ref => Promise.resolve(requestImage(ref))).store
-    /** 中文说明：测试局部值 files，由紧邻初始化决定。 */
     const files = fileStoreOf(() => Promise.reject(new LlmError('Files unavailable', 'SERVER')))
-    /** 中文说明：测试局部值 adapter，由紧邻初始化决定。 */
     const adapter = adapterOf({
       baseURL: server.url,
       maxInlineRequestImageBytes: 80,
@@ -503,28 +461,22 @@ describe('DeepSeekAdapter against a mock server', () => {
       })],
     }))
 
-    /** 中文说明：测试局部值 body，由紧邻初始化决定。 */
     const body = JSON.stringify(server.requests[0])
     expect(body.match(/image omitted to fit request image limits/g)).toHaveLength(11)
     expect(body.match(/"type":"image_url"/g)).toHaveLength(10)
   })
 
   it('discards partially resolved file ids and falls back with every retained image inline', async () => {
-    /** 中文说明：测试局部值 server，由紧邻初始化决定。 */
     const server = await mockServer([{ kind: 'sse', events: textEvents }])
-    /** 中文说明：测试局部值 secondRef，由紧邻初始化决定。 */
     const secondRef = { ...imageRef, attachmentId: AttachmentId(`sha256:${'c'.repeat(64)}`) }
-    /** 中文说明：测试局部值 attachments，由紧邻初始化决定。 */
     const attachments = attachmentStoreOf(ref => Promise.resolve({
       ...requestImage(ref),
       variantId: ImageVariantId(`sha256:${(ref.attachmentId === imageRef.attachmentId ? 'b' : 'd').repeat(64)}`),
     })).store
-    /** 中文说明：测试局部值 files，由紧邻初始化决定。 */
     const files = fileStoreOf(() => Promise.reject(new Error('unused')))
     files.ensureUploaded
       .mockResolvedValueOnce(fileReference('file-api-partial'))
       .mockRejectedValueOnce(new LlmError('Files unavailable', 'TRANSPORT'))
-    /** 中文说明：测试局部值 adapter，由紧邻初始化决定。 */
     const adapter = adapterOf({
       baseURL: server.url,
       models: [{ id: 'deepseek-v4-flash-vision-exp', inputModalities: ['text', 'image'] }],
@@ -542,7 +494,6 @@ describe('DeepSeekAdapter against a mock server', () => {
       })],
     }))
 
-    /** 中文说明：测试局部值 body，由紧邻初始化决定。 */
     const body = server.requests[0] as { messages: Array<{ content: unknown }> }
     expect(JSON.stringify(body.messages[0]?.content).match(/"type":"image_url"/g)).toHaveLength(2)
     expect(JSON.stringify(body)).not.toContain('file-api-partial')
@@ -550,29 +501,22 @@ describe('DeepSeekAdapter against a mock server', () => {
 
   it('falls back after the configured Files API deadline without aborting chat', async () => {
     vi.useFakeTimers()
-    /** 中文说明：测试局部值 started，由紧邻初始化决定。 */
     const started = Promise.withResolvers<undefined>()
-    /** 中文说明：测试局部值 files，由紧邻初始化决定。 */
     const files = fileStoreOf((_version, _connection, _policy, signal) => new Promise((_resolve, reject) => {
       started.resolve(undefined)
       signal?.addEventListener('abort', () => {
-        /** 中文说明：测试局部值 reason，由紧邻初始化决定。 */
         const reason: unknown = signal.reason
         reject(reason instanceof Error ? reason : new Error('files operation aborted'))
       }, { once: true })
     }))
-    /** 中文说明：测试局部值 attachments，由紧邻初始化决定。 */
     const attachments = attachmentStoreOf(ref => Promise.resolve(requestImage(ref))).store
-    /** 中文说明：测试局部值 fetchSpy，由紧邻初始化决定。 */
     const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(successfulSseResponse())
-    /** 中文说明：测试局部值 adapter，由紧邻初始化决定。 */
     const adapter = adapterOf({
       baseURL: 'https://deepseek.invalid',
       filesApiTimeoutMs: 50,
       models: [{ id: 'deepseek-v4-flash-vision-exp', inputModalities: ['text', 'image'] }],
     }, attachments, files.store)
 
-    /** 中文说明：测试局部值 pending，由紧邻初始化决定。 */
     const pending = drain(adapter.stream({
       provider: 'deepseek-official',
       model: 'deepseek-v4-flash-vision-exp',
@@ -591,26 +535,19 @@ describe('DeepSeekAdapter against a mock server', () => {
   })
 
   it('does not turn caller cancellation during file resolution into base64 fallback', async () => {
-    /** 中文说明：测试局部值 started，由紧邻初始化决定。 */
     const started = Promise.withResolvers<undefined>()
-    /** 中文说明：测试局部值 files，由紧邻初始化决定。 */
     const files = fileStoreOf((_version, _connection, _policy, signal) => new Promise((_resolve, reject) => {
       started.resolve(undefined)
       signal?.addEventListener('abort', () => { reject(new Error('cancelled')) }, { once: true })
     }))
-    /** 中文说明：测试局部值 attachments，由紧邻初始化决定。 */
     const attachments = attachmentStoreOf(ref => Promise.resolve(requestImage(ref))).store
-    /** 中文说明：测试局部值 fetchSpy，由紧邻初始化决定。 */
     const fetchSpy = vi.spyOn(globalThis, 'fetch')
-    /** 中文说明：测试局部值 controller，由紧邻初始化决定。 */
     const controller = new AbortController()
-    /** 中文说明：测试局部值 adapter，由紧邻初始化决定。 */
     const adapter = adapterOf({
       baseURL: 'https://deepseek.invalid',
       models: [{ id: 'deepseek-v4-flash-vision-exp', inputModalities: ['text', 'image'] }],
     }, attachments, files.store)
 
-    /** 中文说明：测试局部值 pending，由紧邻初始化决定。 */
     const pending = drain(adapter.stream({
       provider: 'deepseek-official',
       model: 'deepseek-v4-flash-vision-exp',
@@ -629,17 +566,13 @@ describe('DeepSeekAdapter against a mock server', () => {
   })
 
   it('does not retry a generic chat failure through base64 fallback', async () => {
-    /** 中文说明：测试局部值 server，由紧邻初始化决定。 */
     const server = await mockServer([{
       kind: 'http-error',
       status: 503,
       body: JSON.stringify({ error: { message: 'chat unavailable' } }),
     }])
-    /** 中文说明：测试局部值 attachments，由紧邻初始化决定。 */
     const attachments = attachmentStoreOf(ref => Promise.resolve(requestImage(ref))).store
-    /** 中文说明：测试局部值 files，由紧邻初始化决定。 */
     const files = fileStoreOf(() => Promise.resolve(fileReference('file-api-ready')))
-    /** 中文说明：测试局部值 adapter，由紧邻初始化决定。 */
     const adapter = adapterOf({
       baseURL: server.url,
       models: [{ id: 'deepseek-v4-flash-vision-exp', inputModalities: ['text', 'image'] }],
@@ -660,18 +593,13 @@ describe('DeepSeekAdapter against a mock server', () => {
   })
 
   it('does not prepare an old image removed by request offload', async () => {
-    /** 中文说明：测试局部值 server，由紧邻初始化决定。 */
     const server = await mockServer([{ kind: 'sse', events: textEvents }])
-    /** 中文说明：测试局部值 old，由紧邻初始化决定。 */
     const old = { ...imageRef, attachmentId: AttachmentId(`sha256:${'c'.repeat(64)}`), bytes: 3 }
-    /** 中文说明：测试局部值 recent，由紧邻初始化决定。 */
     const recent = { ...imageRef, attachmentId: AttachmentId(`sha256:${'d'.repeat(64)}`), bytes: 3 }
-    /** 中文说明：测试局部值 attachmentMocks，由紧邻初始化决定。 */
     const attachmentMocks = attachmentStoreOf((ref) => {
       if (ref.attachmentId === old.attachmentId) throw new Error('old image must not be read')
       return Promise.resolve(requestImage(ref))
     })
-    /** 中文说明：测试局部值 adapter，由紧邻初始化决定。 */
     const adapter = adapterOf({
       baseURL: server.url,
       models: [{ id: 'deepseek-v4-flash-vision-exp', inputModalities: ['text', 'image'] }],
@@ -696,7 +624,6 @@ describe('DeepSeekAdapter against a mock server', () => {
       { maxPixels: 640_000, maxBytes: 1024 * 1024 },
       expect.any(AbortSignal),
     )
-    /** 中文说明：测试局部值 body，由紧邻初始化决定。 */
     const body = server.requests[0] as { messages: unknown[] }
     expect(body.messages[0]).toMatchObject({
       role: 'user',
@@ -709,14 +636,11 @@ describe('DeepSeekAdapter against a mock server', () => {
   })
 
   it('projects nested tool-result images with route-owned request budgets', async () => {
-    /** 中文说明：测试局部值 server，由紧邻初始化决定。 */
     const server = await mockServer([
       { kind: 'sse', events: textEvents },
       { kind: 'sse', events: textEvents },
     ])
-    /** 中文说明：测试局部值 attachmentMocks，由紧邻初始化决定。 */
     const attachmentMocks = attachmentStoreOf(ref => Promise.resolve(requestImage(ref)))
-    /** 中文说明：测试局部值 adapter，由紧邻初始化决定。 */
     const adapter = adapterOf({
       baseURL: server.url,
       models: [
@@ -733,7 +657,6 @@ describe('DeepSeekAdapter against a mock server', () => {
         },
       ],
     }, attachmentMocks.store)
-    /** 中文说明：测试局部值 nested，由紧邻初始化决定。 */
     const nested = createUserMessage({
       content: [{
         type: 'tool-result',
@@ -761,19 +684,15 @@ describe('DeepSeekAdapter against a mock server', () => {
   })
 
   it('reuses the exact request version between agent and compaction calls', async () => {
-    /** 中文说明：测试局部值 server，由紧邻初始化决定。 */
     const server = await mockServer([
       { kind: 'sse', events: textEvents },
       { kind: 'sse', events: textEvents },
     ])
-    /** 中文说明：测试局部值 attachments，由紧邻初始化决定。 */
     const attachments = attachmentStoreOf(ref => Promise.resolve(requestImage(ref))).store
-    /** 中文说明：测试局部值 adapter，由紧邻初始化决定。 */
     const adapter = adapterOf({
       baseURL: server.url,
       models: [{ id: 'deepseek-v4-flash-vision-exp', inputModalities: ['text', 'image'] }],
     }, attachments)
-    /** 中文说明：测试局部值 messages，由紧邻初始化决定。 */
     const messages = [createUserMessage({
       content: [{ type: 'image' as const, attachment: imageRef }],
       source: { kind: 'plugin' as const, plugin: 'test' },
@@ -796,19 +715,14 @@ describe('DeepSeekAdapter against a mock server', () => {
   })
 
   it('explains a provider rejection of a normalized image and retains the raw response as cause', async () => {
-    /** 中文说明：测试局部值 raw，由紧邻初始化决定。 */
     const raw = JSON.stringify({ error: { message: 'unsupported image payload for file-api-1' } })
-    /** 中文说明：测试局部值 server，由紧邻初始化决定。 */
     const server = await mockServer([{ kind: 'http-error', status: 400, body: raw }])
-    /** 中文说明：测试局部值 attachments，由紧邻初始化决定。 */
     const attachments = attachmentStoreOf(ref => Promise.resolve(requestImage(ref))).store
-    /** 中文说明：测试局部值 adapter，由紧邻初始化决定。 */
     const adapter = adapterOf({
       baseURL: server.url,
       models: [{ id: 'deepseek-v4-flash-vision-exp', inputModalities: ['text', 'image'] }],
     }, attachments)
 
-    /** 中文说明：测试局部值 failure: unknown，由紧邻初始化决定。 */
     let failure: unknown
     try {
       await drain(adapter.stream({
@@ -835,13 +749,9 @@ describe('DeepSeekAdapter against a mock server', () => {
   })
 
   it('identifies the sole image when a normalized rejection omits its file id', async () => {
-    /** 中文说明：测试局部值 raw，由紧邻初始化决定。 */
     const raw = JSON.stringify({ error: { message: 'unsupported image payload' } })
-    /** 中文说明：测试局部值 server，由紧邻初始化决定。 */
     const server = await mockServer([{ kind: 'http-error', status: 400, body: raw }])
-    /** 中文说明：测试局部值 attachments，由紧邻初始化决定。 */
     const attachments = attachmentStoreOf(ref => Promise.resolve(requestImage(ref))).store
-    /** 中文说明：测试局部值 adapter，由紧邻初始化决定。 */
     const adapter = adapterOf({
       baseURL: server.url,
       models: [{ id: 'deepseek-v4-flash-vision-exp', inputModalities: ['text', 'image'] }],
@@ -860,18 +770,13 @@ describe('DeepSeekAdapter against a mock server', () => {
   })
 
   it('lists every candidate when a normalized multi-image rejection names no file id', async () => {
-    /** 中文说明：测试局部值 secondRef，由紧邻初始化决定。 */
     const secondRef: ImageAttachmentRef = {
       ...imageRef,
       attachmentId: AttachmentId(`sha256:${'c'.repeat(64)}`),
     }
-    /** 中文说明：测试局部值 raw，由紧邻初始化决定。 */
     const raw = JSON.stringify({ error: { message: 'unsupported image payload' } })
-    /** 中文说明：测试局部值 server，由紧邻初始化决定。 */
     const server = await mockServer([{ kind: 'http-error', status: 400, body: raw }])
-    /** 中文说明：测试局部值 attachments，由紧邻初始化决定。 */
     const attachments = attachmentStoreOf((ref) => {
-      /** 中文说明：测试局部值 first，由紧邻初始化决定。 */
       const first = ref.attachmentId === imageRef.attachmentId
       return Promise.resolve({
         ...requestImage(ref),
@@ -880,7 +785,6 @@ describe('DeepSeekAdapter against a mock server', () => {
         hasAlpha: false,
       })
     }).store
-    /** 中文说明：测试局部值 adapter，由紧邻初始化决定。 */
     const adapter = adapterOf({
       baseURL: server.url,
       models: [{ id: 'deepseek-v4-flash-vision-exp', inputModalities: ['text', 'image'] }],
@@ -911,7 +815,6 @@ describe('DeepSeekAdapter against a mock server', () => {
     'file_id file-api-1 deleted',
     'invalid file_id file-api-1',
   ])('reuploads once when chat rejects a Files API reference as %s', async (providerMessage) => {
-    /** 中文说明：测试局部值 server，由紧邻初始化决定。 */
     const server = await mockServer([
       {
         kind: 'http-error',
@@ -920,14 +823,11 @@ describe('DeepSeekAdapter against a mock server', () => {
       },
       { kind: 'sse', events: textEvents },
     ])
-    /** 中文说明：测试局部值 attachmentMocks，由紧邻初始化决定。 */
     const attachmentMocks = attachmentStoreOf(ref => Promise.resolve(requestImage(ref)))
-    /** 中文说明：测试局部值 adapter，由紧邻初始化决定。 */
     const adapter = adapterOf({
       baseURL: server.url,
       models: [{ id: 'deepseek-v4-flash-vision-exp', inputModalities: ['text', 'image'] }],
     }, attachmentMocks.store)
-    /** 中文说明：测试局部值 options，由紧邻初始化决定。 */
     const options = {
       provider: 'deepseek-official',
       model: 'deepseek-v4-flash-vision-exp',
@@ -948,7 +848,6 @@ describe('DeepSeekAdapter against a mock server', () => {
   })
 
   it('uses inline fallback when stale-id recovery cannot resolve a replacement file', async () => {
-    /** 中文说明：测试局部值 server，由紧邻初始化决定。 */
     const server = await mockServer([
       {
         kind: 'http-error',
@@ -957,14 +856,11 @@ describe('DeepSeekAdapter against a mock server', () => {
       },
       { kind: 'sse', events: textEvents },
     ])
-    /** 中文说明：测试局部值 attachments，由紧邻初始化决定。 */
     const attachments = attachmentStoreOf(ref => Promise.resolve(requestImage(ref))).store
-    /** 中文说明：测试局部值 files，由紧邻初始化决定。 */
     const files = fileStoreOf(() => Promise.reject(new Error('unused')))
     files.ensureUploaded
       .mockResolvedValueOnce(fileReference('file-api-stale'))
       .mockRejectedValueOnce(new LlmError('Files unavailable', 'SERVER'))
-    /** 中文说明：测试局部值 adapter，由紧邻初始化决定。 */
     const adapter = adapterOf({
       baseURL: server.url,
       models: [{ id: 'deepseek-v4-flash-vision-exp', inputModalities: ['text', 'image'] }],
@@ -986,12 +882,10 @@ describe('DeepSeekAdapter against a mock server', () => {
   })
 
   it('invalidates only the identified mapping when a multi-image request names one stale file id', async () => {
-    /** 中文说明：测试局部值 secondRef，由紧邻初始化决定。 */
     const secondRef: ImageAttachmentRef = {
       ...imageRef,
       attachmentId: AttachmentId(`sha256:${'c'.repeat(64)}`),
     }
-    /** 中文说明：测试局部值 server，由紧邻初始化决定。 */
     const server = await mockServer([
       {
         kind: 'http-error',
@@ -1000,12 +894,10 @@ describe('DeepSeekAdapter against a mock server', () => {
       },
       { kind: 'sse', events: textEvents },
     ])
-    /** 中文说明：测试局部值 attachments，由紧邻初始化决定。 */
     const attachments = attachmentStoreOf(ref => Promise.resolve({
       ...requestImage(ref),
       variantId: ImageVariantId(`sha256:${(ref.attachmentId === imageRef.attachmentId ? 'b' : 'd').repeat(64)}`),
     })).store
-    /** 中文说明：测试局部值 adapter，由紧邻初始化决定。 */
     const adapter = adapterOf({
       baseURL: server.url,
       models: [{ id: 'deepseek-v4-flash-vision-exp', inputModalities: ['text', 'image'] }],
@@ -1024,7 +916,6 @@ describe('DeepSeekAdapter against a mock server', () => {
     }))
 
     expect(server.fileRequests.filter(request => request.method === 'POST')).toHaveLength(3)
-    /** 中文说明：测试局部值 retries，由紧邻初始化决定。 */
     const retries = server.requests as Array<{ messages: Array<{ content: Array<{ type: string; file_id?: string }> }> }>
     expect(retries[0]?.messages[0]?.content.filter(block => block.type === 'file'))
       .toEqual([{ type: 'file', file_id: 'file-api-1' }, { type: 'file', file_id: 'file-api-2' }])
@@ -1033,17 +924,14 @@ describe('DeepSeekAdapter against a mock server', () => {
   })
 
   it('invalidates every listed missing file id and preserves unlisted mappings', async () => {
-    /** 中文说明：测试局部值 secondRef，由紧邻初始化决定。 */
     const secondRef: ImageAttachmentRef = {
       ...imageRef,
       attachmentId: AttachmentId(`sha256:${'c'.repeat(64)}`),
     }
-    /** 中文说明：测试局部值 thirdRef，由紧邻初始化决定。 */
     const thirdRef: ImageAttachmentRef = {
       ...imageRef,
       attachmentId: AttachmentId(`sha256:${'e'.repeat(64)}`),
     }
-    /** 中文说明：测试局部值 server，由紧邻初始化决定。 */
     const server = await mockServer([
       {
         kind: 'http-error',
@@ -1057,9 +945,7 @@ describe('DeepSeekAdapter against a mock server', () => {
       },
       { kind: 'sse', events: textEvents },
     ])
-    /** 中文说明：测试局部值 attachments，由紧邻初始化决定。 */
     const attachments = attachmentStoreOf((ref) => {
-      /** 中文说明：测试局部值 digest，由紧邻初始化决定。 */
       let digest = 'f'
       if (ref.attachmentId === imageRef.attachmentId) digest = 'b'
       else if (ref.attachmentId === secondRef.attachmentId) digest = 'd'
@@ -1068,7 +954,6 @@ describe('DeepSeekAdapter against a mock server', () => {
         variantId: ImageVariantId(`sha256:${digest.repeat(64)}`),
       })
     }).store
-    /** 中文说明：测试局部值 adapter，由紧邻初始化决定。 */
     const adapter = adapterOf({
       baseURL: server.url,
       models: [{ id: 'deepseek-v4-flash-vision-exp', inputModalities: ['text', 'image'] }],
@@ -1088,7 +973,6 @@ describe('DeepSeekAdapter against a mock server', () => {
     }))
 
     expect(server.fileRequests.filter(request => request.method === 'POST')).toHaveLength(5)
-    /** 中文说明：测试局部值 retries，由紧邻初始化决定。 */
     const retries = server.requests as Array<{ messages: Array<{ content: Array<{ type: string; file_id?: string }> }> }>
     expect(retries[0]?.messages[0]?.content.filter(block => block.type === 'file'))
       .toEqual([
@@ -1105,12 +989,10 @@ describe('DeepSeekAdapter against a mock server', () => {
   })
 
   it('invalidates every used mapping when a stale-file response does not identify one file id', async () => {
-    /** 中文说明：测试局部值 secondRef，由紧邻初始化决定。 */
     const secondRef: ImageAttachmentRef = {
       ...imageRef,
       attachmentId: AttachmentId(`sha256:${'c'.repeat(64)}`),
     }
-    /** 中文说明：测试局部值 server，由紧邻初始化决定。 */
     const server = await mockServer([
       {
         kind: 'http-error',
@@ -1119,12 +1001,10 @@ describe('DeepSeekAdapter against a mock server', () => {
       },
       { kind: 'sse', events: textEvents },
     ])
-    /** 中文说明：测试局部值 attachments，由紧邻初始化决定。 */
     const attachments = attachmentStoreOf(ref => Promise.resolve({
       ...requestImage(ref),
       variantId: ImageVariantId(`sha256:${(ref.attachmentId === imageRef.attachmentId ? 'b' : 'd').repeat(64)}`),
     })).store
-    /** 中文说明：测试局部值 adapter，由紧邻初始化决定。 */
     const adapter = adapterOf({
       baseURL: server.url,
       models: [{ id: 'deepseek-v4-flash-vision-exp', inputModalities: ['text', 'image'] }],
@@ -1143,23 +1023,18 @@ describe('DeepSeekAdapter against a mock server', () => {
     }))
 
     expect(server.fileRequests.filter(request => request.method === 'POST')).toHaveLength(4)
-    /** 中文说明：测试局部值 retries，由紧邻初始化决定。 */
     const retries = server.requests as Array<{ messages: Array<{ content: Array<{ type: string; file_id?: string }> }> }>
     expect(retries[1]?.messages[0]?.content.filter(block => block.type === 'file'))
       .toEqual([{ type: 'file', file_id: 'file-api-3' }, { type: 'file', file_id: 'file-api-4' }])
   })
 
   it('returns the second stale-file rejection without a third chat attempt', async () => {
-    /** 中文说明：测试局部值 stale，由紧邻初始化决定。 */
     const stale = JSON.stringify({ error: { message: 'file_id file-api-1 expired' } })
-    /** 中文说明：测试局部值 server，由紧邻初始化决定。 */
     const server = await mockServer([
       { kind: 'http-error', status: 400, body: stale },
       { kind: 'http-error', status: 400, body: stale },
     ])
-    /** 中文说明：测试局部值 attachments，由紧邻初始化决定。 */
     const attachments = attachmentStoreOf(ref => Promise.resolve(requestImage(ref))).store
-    /** 中文说明：测试局部值 adapter，由紧邻初始化决定。 */
     const adapter = adapterOf({
       baseURL: server.url,
       models: [{ id: 'deepseek-v4-flash-vision-exp', inputModalities: ['text', 'image'] }],
@@ -1180,13 +1055,9 @@ describe('DeepSeekAdapter against a mock server', () => {
   it.each(['deepseek-v4-flash', 'unlisted-pass-through'])(
     'rejects image input for text-only model %s before credentials, attachments, or fetch',
     async (model) => {
-      /** 中文说明：测试局部值 server，由紧邻初始化决定。 */
       const server = await mockServer([])
-      /** 中文说明：测试局部值 resolveApiKey，由紧邻初始化决定。 */
       const resolveApiKey = vi.fn(() => Promise.resolve('k'))
-      /** 中文说明：测试局部值 resolveAttachments，由紧邻初始化决定。 */
       const resolveAttachments = vi.fn(() => ({}) as AttachmentStore)
-      /** 中文说明：测试局部值 adapter，由紧邻初始化决定。 */
       const adapter = new DeepSeekAdapter({
         options: () => resolveAdapterOptions({ baseURL: server.url }),
         resolveApiKey,
@@ -1210,11 +1081,8 @@ describe('DeepSeekAdapter against a mock server', () => {
   )
 
   it('rejects vision input without an attachment provider before credentials or fetch', async () => {
-    /** 中文说明：测试局部值 server，由紧邻初始化决定。 */
     const server = await mockServer([])
-    /** 中文说明：测试局部值 resolveApiKey，由紧邻初始化决定。 */
     const resolveApiKey = vi.fn(() => Promise.resolve('k'))
-    /** 中文说明：测试局部值 adapter，由紧邻初始化决定。 */
     const adapter = new DeepSeekAdapter({
       options: () => resolveAdapterOptions({
         baseURL: server.url,
@@ -1238,14 +1106,10 @@ describe('DeepSeekAdapter against a mock server', () => {
   })
 
   it('streams raw chunks through ctx.llm.stream', async () => {
-    /** 中文说明：测试局部值 server，由紧邻初始化决定。 */
     const server = await mockServer([{ kind: 'sse', events: textEvents, delayMs: 2 }])
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await harness(server.url)
 
-    /** 中文说明：测试局部值 kinds，由紧邻初始化决定。 */
     const kinds: string[] = []
-    /** 中文说明：测试局部值 chunk，由紧邻初始化决定。 */
     for await (const chunk of ctx.llm.stream({
       provider: 'deepseek-official',
       model: 'deepseek-v4-flash',
@@ -1260,9 +1124,7 @@ describe('DeepSeekAdapter against a mock server', () => {
   })
 
   it('forwards the harness user and session ids for host-side trajectory routing', async () => {
-    /** 中文说明：测试局部值 server，由紧邻初始化决定。 */
     const server = await mockServer([{ kind: 'sse', events: textEvents }])
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await harness(server.url)
 
     await assemble(ctx, {
@@ -1279,9 +1141,7 @@ describe('DeepSeekAdapter against a mock server', () => {
   })
 
   it('marks the auxiliary compaction call on the wire', async () => {
-    /** 中文说明：测试局部值 server，由紧邻初始化决定。 */
     const server = await mockServer([{ kind: 'sse', events: textEvents }])
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await harness(server.url)
 
     await assemble(ctx, {
@@ -1297,13 +1157,11 @@ describe('DeepSeekAdapter against a mock server', () => {
   })
 
   it('switches dynamically from the configured low default through off to max', async () => {
-    /** 中文说明：测试局部值 server，由紧邻初始化决定。 */
     const server = await mockServer([
       { kind: 'sse', events: textEvents },
       { kind: 'sse', events: textEvents },
       { kind: 'sse', events: textEvents },
     ])
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await harness(server.url, { thinking: 'enabled', reasoningEffort: 'low' })
 
     await assemble(ctx,{
@@ -1344,12 +1202,10 @@ describe('DeepSeekAdapter against a mock server', () => {
   })
 
   it('uses the configured maxTokens default and preserves an explicit request cap', async () => {
-    /** 中文说明：测试局部值 server，由紧邻初始化决定。 */
     const server = await mockServer([
       { kind: 'sse', events: textEvents },
       { kind: 'sse', events: textEvents },
     ])
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await harness(server.url, { maxTokens: 32_000 })
 
     await assemble(ctx, { model: 'deepseek-v4-flash', messages: [] })
@@ -1360,9 +1216,7 @@ describe('DeepSeekAdapter against a mock server', () => {
   })
 
   it('publishes only off and omits the wire effort when thinking is disabled', async () => {
-    /** 中文说明：测试局部值 server，由紧邻初始化决定。 */
     const server = await mockServer([{ kind: 'sse', events: textEvents }])
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await harness(server.url, { thinking: 'disabled' })
 
     await assemble(ctx,{
@@ -1390,12 +1244,9 @@ describe('DeepSeekAdapter against a mock server', () => {
   })
 
   it('reports a per-request effort failure before I/O when thinking is disabled', async () => {
-    /** 中文说明：测试局部值 server，由紧邻初始化决定。 */
     const server = await mockServer([])
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await harness(server.url, { thinking: 'disabled' })
 
-    /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
     const result = await assemble(ctx, {
       model: 'deepseek-v4-flash',
       reasoningEffort: ReasoningEffortId('high'),
@@ -1414,12 +1265,9 @@ describe('DeepSeekAdapter against a mock server', () => {
   it.each(['high', 'max'])(
     'rejects direct adapter effort %s before I/O when thinking is disabled',
     async (effort) => {
-      /** 中文说明：测试局部值 server，由紧邻初始化决定。 */
       const server = await mockServer([])
-      /** 中文说明：测试局部值 adapter，由紧邻初始化决定。 */
       const adapter = adapterOf({ apiKey: 'test-key', baseURL: server.url, thinking: 'disabled' })
 
-      /** 中文说明：测试局部值 stream，由紧邻初始化决定。 */
       const stream = adapter.stream({
         provider: 'deepseek-official',
         model: 'deepseek-v4-flash',
@@ -1430,7 +1278,6 @@ describe('DeepSeekAdapter against a mock server', () => {
         })],
       })
       await expect(async () => {
-        /** 中文说明：测试局部值 _chunk，由紧邻初始化决定。 */
         for await (const _chunk of stream) { /* drain */ }
       }).rejects.toMatchObject({ code: 'UNSUPPORTED_REASONING_EFFORT' })
       expect(server.requests).toHaveLength(0)
@@ -1445,17 +1292,13 @@ describe('DeepSeekAdapter against a mock server', () => {
     [500, 'SERVER'],
     [503, 'SERVER'],
   ])('maps HTTP %d to failure code %s with the body message', async (status, code) => {
-    /** 中文说明：测试局部值 behavior，由紧邻初始化决定。 */
     const behavior: Behavior = {
       kind: 'http-error',
       status,
       body: JSON.stringify({ error: { message: `failed with ${status}`, type: 't', code: 'c' } }),
     }
-    /** 中文说明：测试局部值 server，由紧邻初始化决定。 */
     const server = await mockServer([behavior])
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await harness(server.url)
-    /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
     const result = await assemble(ctx,{ model: 'deepseek-v4-flash', messages: [] })
     expect(result.finish).toEqual({
       kind: 'error',
@@ -1464,9 +1307,7 @@ describe('DeepSeekAdapter against a mock server', () => {
   })
 
   it('uses the HTTP status as the cause when an error response has no body', async () => {
-    /** 中文说明：测试局部值 server，由紧邻初始化决定。 */
     const server = await mockServer([{ kind: 'http-error', status: 500, body: '' }])
-    /** 中文说明：测试局部值 adapter，由紧邻初始化决定。 */
     const adapter = adapterOf({ baseURL: server.url })
 
     await expect(drain(adapter.stream({
@@ -1480,7 +1321,6 @@ describe('DeepSeekAdapter against a mock server', () => {
   })
 
   it('classifies an HTTP context-window failure with the canonical code', async () => {
-    /** 中文说明：测试局部值 server，由紧邻初始化决定。 */
     const server = await mockServer([{
       kind: 'http-error',
       status: 400,
@@ -1492,9 +1332,7 @@ describe('DeepSeekAdapter against a mock server', () => {
         },
       }),
     }])
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await harness(server.url)
-    /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
     const result = await assemble(ctx, { model: 'deepseek-v4-flash', messages: [] })
     expect(result.finish).toMatchObject({
       kind: 'error',
@@ -1503,16 +1341,13 @@ describe('DeepSeekAdapter against a mock server', () => {
   })
 
   it('retains status, Retry-After seconds, and provider request id as structured facts', async () => {
-    /** 中文说明：测试局部值 server，由紧邻初始化决定。 */
     const server = await mockServer([{
       kind: 'http-error',
       status: 429,
       body: JSON.stringify({ error: { message: 'slow down' } }),
       headers: { 'retry-after': '2', 'x-request-id': 'req-429' },
     }])
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await harness(server.url)
-    /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
     const result = await assemble(ctx, { model: 'deepseek-v4-flash', messages: [] })
     expect(result.finish).toEqual({
       kind: 'error',
@@ -1527,12 +1362,9 @@ describe('DeepSeekAdapter against a mock server', () => {
   })
 
   it('parses a future Retry-After HTTP date and the DeepSeek request-id fallback', async () => {
-    /** 中文说明：测试局部值 now，由紧邻初始化决定。 */
     const now = 1_800_000_000_000
-    /** 中文说明：测试局部值 dateNow，由紧邻初始化决定。 */
     const dateNow = vi.spyOn(Date, 'now').mockReturnValue(now)
     try {
-      /** 中文说明：测试局部值 server，由紧邻初始化决定。 */
       const server = await mockServer([{
         kind: 'http-error',
         status: 503,
@@ -1542,9 +1374,7 @@ describe('DeepSeekAdapter against a mock server', () => {
           'x-deepseek-request-id': 'deepseek-503',
         },
       }])
-      /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
       const ctx = await harness(server.url)
-      /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
       const result = await assemble(ctx, { model: 'deepseek-v4-flash', messages: [] })
       expect(result.finish).toEqual({
         kind: 'error',
@@ -1562,25 +1392,20 @@ describe('DeepSeekAdapter against a mock server', () => {
   })
 
   it('omits zero, non-finite, invalid, and past Retry-After values', async () => {
-    /** 中文说明：测试局部值 values，由紧邻初始化决定。 */
     const values = [
       '0',
       '9'.repeat(400),
       'not-a-date',
       new Date(0).toUTCString(),
     ]
-    /** 中文说明：测试局部值 value，由紧邻初始化决定。 */
     for (const value of values) {
-      /** 中文说明：测试局部值 server，由紧邻初始化决定。 */
       const server = await mockServer([{
         kind: 'http-error',
         status: 429,
         body: JSON.stringify({ error: { message: 'retry later' } }),
         headers: { 'retry-after': value },
       }])
-      /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
       const ctx = await harness(server.url)
-      /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
       const result = await assemble(ctx, { model: 'deepseek-v4-flash', messages: [] })
       expect(result.finish).toEqual({
         kind: 'error',
@@ -1604,11 +1429,8 @@ describe('DeepSeekAdapter against a mock server', () => {
   })
 
   it('keeps the status-line message for JSON error bodies without a message', async () => {
-    /** 中文说明：测试局部值 server，由紧邻初始化决定。 */
     const server = await mockServer([{ kind: 'http-error', status: 500, body: '{"error":{"type":"x"}}' }])
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await harness(server.url)
-    /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
     const result = await assemble(ctx,{ model: 'deepseek-v4-flash', messages: [] })
     expect(result.finish.kind).toBe('error')
     if (result.finish.kind !== 'error') throw new Error('expected an error finish')
@@ -1617,11 +1439,8 @@ describe('DeepSeekAdapter against a mock server', () => {
   })
 
   it('keeps the status-line message for non-JSON error bodies', async () => {
-    /** 中文说明：测试局部值 server，由紧邻初始化决定。 */
     const server = await mockServer([{ kind: 'http-error', status: 502, body: 'Bad Gateway', contentType: 'text/plain' }])
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await harness(server.url)
-    /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
     const result = await assemble(ctx,{ model: 'deepseek-v4-flash', messages: [] })
     expect(result.finish.kind).toBe('error')
     if (result.finish.kind !== 'error') throw new Error('expected an error finish')
@@ -1635,9 +1454,7 @@ describe('DeepSeekAdapter against a mock server', () => {
 
   it('reports a transport failure with the endpoint in the message', async () => {
     // Port 1 is reserved/unbound, so the service normalizes the fetch failure.
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await harness('http://127.0.0.1:1')
-    /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
     const result = await assemble(ctx, { model: 'deepseek-v4-flash', messages: [] })
     expect(result.finish).toMatchObject({
       kind: 'error',
@@ -1649,12 +1466,9 @@ describe('DeepSeekAdapter against a mock server', () => {
   })
 
   it('classifies an aborted request as an aborted finish', async () => {
-    /** 中文说明：测试局部值 controller，由紧邻初始化决定。 */
     const controller = new AbortController()
     controller.abort()
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await harness('http://127.0.0.1:1')
-    /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
     const result = await assemble(ctx, {
       model: 'deepseek-v4-flash',
       messages: [],
@@ -1664,16 +1478,12 @@ describe('DeepSeekAdapter against a mock server', () => {
   })
 
   it('throws EMPTY_RESPONSE when the response has no body', async () => {
-    /** 中文说明：测试局部值 adapter，由紧邻初始化决定。 */
     const adapter = adapterOf({ baseURL: 'http://127.0.0.1:1' })
-    /** 中文说明：测试局部值 fetchSpy，由紧邻初始化决定。 */
     const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
       new Response(null, { status: 200 }),
     )
     try {
-      /** 中文说明：测试局部值 iterate，由紧邻初始化决定。 */
       const iterate = async (): Promise<void> => {
-        /** 中文说明：测试局部值 _chunk，由紧邻初始化决定。 */
         for await (const _chunk of adapter.stream({ provider: 'deepseek-official', model: 'm', messages: [] })) { /* drain */ }
       }
       await expect(iterate()).rejects.toThrow(/no response body/)
@@ -1683,14 +1493,11 @@ describe('DeepSeekAdapter against a mock server', () => {
   })
 
   it('classifies an abrupt body close as TRANSPORT', async () => {
-    /** 中文说明：测试局部值 server，由紧邻初始化决定。 */
     const server = await mockServer([{
       kind: 'close-early',
       events: ['{"choices":[{"delta":{"content":"par"}}]}'],
     }])
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await harness(server.url)
-    /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
     const result = await assemble(ctx,{ model: 'deepseek-v4-flash', messages: [] })
     expect(result.finish.kind).toBe('error')
     if (result.finish.kind !== 'error') throw new Error('expected an error finish')
@@ -1699,18 +1506,12 @@ describe('DeepSeekAdapter against a mock server', () => {
   })
 
   it('aborts mid-stream via the request signal', async () => {
-    /** 中文说明：测试局部值 server，由紧邻初始化决定。 */
     const server = await mockServer([{ kind: 'sse', events: textEvents, delayMs: 50 }])
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await harness(server.url)
-    /** 中文说明：测试局部值 controller，由紧邻初始化决定。 */
     const controller = new AbortController()
 
-    /** 中文说明：测试局部值 pending，由紧邻初始化决定。 */
     const pending = (async () => {
-      /** 中文说明：测试局部值 chunks，由紧邻初始化决定。 */
       const chunks = []
-      /** 中文说明：测试局部值 chunk，由紧邻初始化决定。 */
       for await (const chunk of ctx.llm.stream({
         provider: 'deepseek-official',
         model: 'deepseek-v4-flash',
@@ -1723,7 +1524,6 @@ describe('DeepSeekAdapter against a mock server', () => {
     })()
 
     setTimeout(() => { controller.abort() }, 30)
-    /** 中文说明：测试局部值 chunks，由紧邻初始化决定。 */
     const chunks = await pending
     expect(chunks).toHaveLength(1)
     expect(chunks[0]?.type).toBe('finish')
@@ -1734,16 +1534,11 @@ describe('DeepSeekAdapter against a mock server', () => {
   })
 
   it('maps connection failures to TRANSPORT without losing the cause', async () => {
-    /** 中文说明：测试局部值 cause，由紧邻初始化决定。 */
     const cause = new TypeError('connection refused')
-    /** 中文说明：测试局部值 fetchSpy，由紧邻初始化决定。 */
     const fetchSpy = vi.spyOn(globalThis, 'fetch').mockRejectedValue(cause)
-    /** 中文说明：测试局部值 adapter，由紧邻初始化决定。 */
     const adapter = adapterOf({ baseURL: 'https://example.invalid' })
     try {
-      /** 中文说明：测试局部值 drain，由紧邻初始化决定。 */
       const drain = async (): Promise<void> => {
-        /** 中文说明：测试局部值 _chunk，由紧邻初始化决定。 */
         for await (const _chunk of adapter.stream({ provider: 'deepseek-official', model: 'm', messages: [] })) { /* drain */ }
       }
       await expect(drain()).rejects.toMatchObject({ code: 'TRANSPORT', cause })
@@ -1753,19 +1548,14 @@ describe('DeepSeekAdapter against a mock server', () => {
   })
 
   it('renders a non-Error transport rejection without losing its cause', async () => {
-    /** 中文说明：测试局部值 fetchSpy，由紧邻初始化决定。 */
     const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(() => {
-      /** 中文说明：测试局部值 failed，由紧邻初始化决定。 */
       const failed = Promise.withResolvers<Response>()
       failed.reject('offline')
       return failed.promise
     })
-    /** 中文说明：测试局部值 adapter，由紧邻初始化决定。 */
     const adapter = adapterOf({ baseURL: 'https://example.invalid' })
     try {
-      /** 中文说明：测试局部值 drain，由紧邻初始化决定。 */
       const drain = async (): Promise<void> => {
-        /** 中文说明：测试局部值 _chunk，由紧邻初始化决定。 */
         for await (const _chunk of adapter.stream({ provider: 'deepseek-official', model: 'm', messages: [] })) { /* drain */ }
       }
       await expect(drain()).rejects.toMatchObject({
@@ -1780,13 +1570,9 @@ describe('DeepSeekAdapter against a mock server', () => {
 
   it('aborts the underlying body when the stream stays idle past its watchdog', async () => {
     vi.useFakeTimers()
-    /** 中文说明：测试局部值 stopped，由紧邻初始化决定。 */
     let stopped = false
-    /** 中文说明：测试局部值 fetchSpy，由紧邻初始化决定。 */
     const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation((_input, init) => {
-      /** 中文说明：测试局部值 signal，由紧邻初始化决定。 */
       const signal = init?.signal
-      /** 中文说明：测试局部值 body，由紧邻初始化决定。 */
       const body = new ReadableStream<Uint8Array>({
         start(controller) {
           signal?.addEventListener('abort', () => {
@@ -1797,18 +1583,14 @@ describe('DeepSeekAdapter against a mock server', () => {
       })
       return Promise.resolve(new Response(body, { status: 200 }))
     })
-    /** 中文说明：测试局部值 adapter，由紧邻初始化决定。 */
     const adapter = adapterOf({
       baseURL: 'https://example.invalid',
       streamIdleTimeoutMs: 100,
     })
     try {
-      /** 中文说明：测试局部值 drain，由紧邻初始化决定。 */
       const drain = (async () => {
-        /** 中文说明：测试局部值 _chunk，由紧邻初始化决定。 */
         for await (const _chunk of adapter.stream({ provider: 'deepseek-official', model: 'm', messages: [] })) { /* drain */ }
       })()
-      /** 中文说明：测试局部值 rejected，由紧邻初始化决定。 */
       const rejected = expect(drain).rejects.toMatchObject({ code: 'TIMEOUT' })
       await vi.advanceTimersByTimeAsync(0)
       await vi.advanceTimersByTimeAsync(100)
@@ -1821,11 +1603,8 @@ describe('DeepSeekAdapter against a mock server', () => {
 
   it('keeps an idle provider read alive through SSE comments', async () => {
     vi.useFakeTimers()
-    /** 中文说明：测试局部值 encoder，由紧邻初始化决定。 */
     const encoder = new TextEncoder()
-    /** 中文说明：测试局部值 fetchSpy，由紧邻初始化决定。 */
     const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(() => {
-      /** 中文说明：测试局部值 body，由紧邻初始化决定。 */
       const body = new ReadableStream<Uint8Array>({
         start(controller) {
           setTimeout(() => { controller.enqueue(encoder.encode(': keep-alive\n\n')) }, 75)
@@ -1838,17 +1617,13 @@ describe('DeepSeekAdapter against a mock server', () => {
       })
       return Promise.resolve(new Response(body, { status: 200 }))
     })
-    /** 中文说明：测试局部值 adapter，由紧邻初始化决定。 */
     const adapter = adapterOf({
       baseURL: 'https://example.invalid',
       streamIdleTimeoutMs: 100,
     })
     try {
-      /** 中文说明：测试局部值 chunks，由紧邻初始化决定。 */
       const chunks: string[] = []
-      /** 中文说明：测试局部值 drain，由紧邻初始化决定。 */
       const drain = (async () => {
-        /** 中文说明：测试局部值 chunk，由紧邻初始化决定。 */
         for await (const chunk of adapter.stream({ provider: 'deepseek-official', model: 'm', messages: [] })) {
           chunks.push(chunk.type)
         }
@@ -1866,7 +1641,6 @@ describe('DeepSeekAdapter against a mock server', () => {
 
 describe('plugin registration and config', () => {
   it('keeps wire helpers off the package root', () => {
-    /** 中文说明：测试局部值 helper，由紧邻初始化决定。 */
     for (const helper of [
       'httpErrorCode',
       'serializeMessages',
@@ -1880,12 +1654,9 @@ describe('plugin registration and config', () => {
   })
 
   it('registers the deepseek provider and unregisters on dispose (HMR safety)', async () => {
-    /** 中文说明：测试局部值 server，由紧邻初始化决定。 */
     const server = await mockServer([])
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = new Context()
     await ctx.plugin(LlmRuntime)
-    /** 中文说明：测试局部值 fiber，由紧邻初始化决定。 */
     const fiber = await ctx.plugin(LlmDeepSeek, {
       baseURL: server.url,
     })
@@ -1902,7 +1673,6 @@ describe('plugin registration and config', () => {
   })
 
   it('registers retryPolicy from the provider config', async () => {
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = new Context()
     await ctx.plugin(LlmRuntime)
     await ctx.plugin(LlmDeepSeek, {
@@ -1922,7 +1692,6 @@ describe('plugin registration and config', () => {
   })
 
   it('owns the deepseek provider and advertises the default models', async () => {
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = new Context()
     await ctx.plugin(LlmRuntime)
     await ctx.plugin(LlmDeepSeek, { baseURL: 'http://127.0.0.1:1' })
@@ -1973,7 +1742,6 @@ describe('plugin registration and config', () => {
   })
 
   it.each(['off', 'low', 'max'] as const)('uses the configured %s reasoning default', async (effort) => {
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = new Context()
     await ctx.plugin(LlmRuntime)
     await ctx.plugin(LlmDeepSeek, {
@@ -1995,7 +1763,6 @@ describe('plugin registration and config', () => {
   })
 
   it('accepts off as the default when thinking is deployment-disabled', async () => {
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = new Context()
     await ctx.plugin(LlmRuntime)
     await ctx.plugin(LlmDeepSeek, {
@@ -2019,7 +1786,6 @@ describe('plugin registration and config', () => {
   it.each(['low', 'high', 'max'] as const)(
     'rejects configured reasoning effort %s when thinking is disabled',
     async (reasoningEffort) => {
-      /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
       const ctx = new Context()
       await ctx.plugin(LlmRuntime)
       await expect(ctx.plugin(LlmDeepSeek, {
@@ -2040,7 +1806,6 @@ describe('plugin registration and config', () => {
   )
 
   it('accepts disabled thinking with off at the resolver boundary', async () => {
-    /** 中文说明：测试局部值 adapter，由紧邻初始化决定。 */
     const adapter = adapterOf({ thinking: 'disabled', reasoningEffort: 'off' })
     await expect(adapter.resolveModel('deepseek-official', 'pass-through')).resolves.toMatchObject({
       reasoning: {
@@ -2055,7 +1820,6 @@ describe('plugin registration and config', () => {
   })
 
   it('uses the default model catalog when apply is called directly', async () => {
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = new Context()
     await ctx.plugin(LlmRuntime)
     LlmDeepSeek.apply(ctx, { baseURL: 'http://127.0.0.1:1' })
@@ -2079,9 +1843,7 @@ describe('plugin registration and config', () => {
   })
 
   it('defaults an adapter-supplied catalog entry to text input', async () => {
-    /** 中文说明：测试局部值 connection，由紧邻初始化决定。 */
     const connection = resolveAdapterOptions({ models: [] })
-    /** 中文说明：测试局部值 adapter，由紧邻初始化决定。 */
     const adapter = new DeepSeekAdapter({
       options: () => ({ ...connection, models: [{ id: 'adapter-model' }] }),
       resolveApiKey: () => Promise.resolve('k'),
@@ -2097,7 +1859,6 @@ describe('plugin registration and config', () => {
   })
 
   it('advertises configured models without restricting arbitrary request ids', async () => {
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = new Context()
     await ctx.plugin(LlmRuntime)
     await ctx.plugin(LlmDeepSeek, {
@@ -2133,7 +1894,6 @@ describe('plugin registration and config', () => {
   })
 
   it('uses exact model capacity before the adapter-wide default', async () => {
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = new Context()
     await ctx.plugin(LlmRuntime)
     await ctx.plugin(LlmDeepSeek, {
@@ -2154,7 +1914,6 @@ describe('plugin registration and config', () => {
   })
 
   it('allows an explicit empty model catalog', async () => {
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = new Context()
     await ctx.plugin(LlmRuntime)
     await ctx.plugin(LlmDeepSeek, {
@@ -2164,7 +1923,6 @@ describe('plugin registration and config', () => {
     await expect(ctx.llm.listModels('deepseek-official')).resolves.toEqual([])
   })
 
-  /** 中文说明：测试局部值 invalidModels，由紧邻初始化决定。 */
   const invalidModels: Array<[LlmDeepSeek.DeepSeekCatalogModel[], RegExp]> = [
     [[{ id: '' }], /ids must be non-empty/],
     [[{ id: 'm', name: '' }], /empty name/],
@@ -2180,7 +1938,6 @@ describe('plugin registration and config', () => {
   ]
 
   it.each(invalidModels)('rejects invalid advisory model config', async (models, message) => {
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = new Context()
     await ctx.plugin(LlmRuntime)
     await expect(ctx.plugin(LlmDeepSeek, {
@@ -2190,7 +1947,6 @@ describe('plugin registration and config', () => {
     expect(ctx.llm.listProviders()).toEqual([])
   })
 
-  /** 中文说明：测试局部值 解构结果，由紧邻初始化决定。 */
   const invalidProgrammaticModalities: Array<[LlmDeepSeek.DeepSeekCatalogModel[], RegExp]> = [
     [[{ id: 'm', inputModalities: [] }], /inputModalities must not be empty/],
     [[{
@@ -2243,7 +1999,6 @@ describe('plugin registration and config', () => {
   it('prefers a model\'s own output cap over the profile default', async () => {
     // The profile default stays what an unlisted or uncapped model resolves
     // to, so adding a per-model cap changes one model rather than the route.
-    /** 中文说明：测试局部值 adapter，由紧邻初始化决定。 */
     const adapter = adapterOf({ maxTokens: 4096, models: [
       { id: 'capped', maxTokens: 512 },
       { id: 'uncapped' },
@@ -2257,7 +2012,6 @@ describe('plugin registration and config', () => {
   })
 
   it('rejects invalid context capacity when apply is called directly', async () => {
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = new Context()
     await ctx.plugin(LlmRuntime)
     expect(() => {
@@ -2275,7 +2029,6 @@ describe('plugin registration and config', () => {
       expect(() => resolveAdapterOptions({ defaultContextWindow }))
         .toThrow(/defaultContextWindow must be a positive integer/)
 
-      /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
       const ctx = new Context()
       await ctx.plugin(LlmRuntime)
       await expect(ctx.plugin(LlmDeepSeek, {
@@ -2292,7 +2045,6 @@ describe('plugin registration and config', () => {
       expect(() => resolveAdapterOptions({ maxTokens }))
         .toThrow(/maxTokens must be a positive safe integer/)
 
-      /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
       const ctx = new Context()
       await ctx.plugin(LlmRuntime)
       await expect(ctx.plugin(LlmDeepSeek, {
@@ -2343,7 +2095,6 @@ describe('plugin registration and config', () => {
       expect(() => resolveAdapterOptions({ maxRequestFilesBytes }))
         .toThrow(/maxRequestFilesBytes must be a positive safe integer/)
 
-      /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
       const ctx = new Context()
       await ctx.plugin(LlmRuntime)
       await expect(ctx.plugin(LlmDeepSeek, {
@@ -2360,7 +2111,6 @@ describe('plugin registration and config', () => {
       expect(() => resolveAdapterOptions({ maxInlineRequestImageBytes }))
         .toThrow(/maxInlineRequestImageBytes must be a positive safe integer/)
 
-      /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
       const ctx = new Context()
       await ctx.plugin(LlmRuntime)
       await expect(ctx.plugin(LlmDeepSeek, {
@@ -2374,7 +2124,6 @@ describe('plugin registration and config', () => {
   it('falls back to DEEPSEEK_API_KEY and DEEPSEEK_BASE_URL env vars', async () => {
     vi.stubEnv('DEEPSEEK_API_KEY', 'env-key')
     vi.stubEnv('DEEPSEEK_BASE_URL', 'http://127.0.0.1:1')
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = new Context()
     await ctx.plugin(LlmRuntime)
     await ctx.plugin(LlmDeepSeek, {})
@@ -2383,7 +2132,6 @@ describe('plugin registration and config', () => {
 
   it('loads keyless, keeps the catalog browsable, and fails the request actionably', async () => {
     vi.stubEnv('DEEPSEEK_API_KEY', '')
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = new Context()
     await ctx.plugin(LlmRuntime)
     await ctx.plugin(LlmDeepSeek, { baseURL: 'http://127.0.0.1:1' })
@@ -2391,11 +2139,9 @@ describe('plugin registration and config', () => {
     // only the request itself needs a key.
     expect(ctx.llm.listProviders()).toEqual([{ id: 'deepseek-official', name: 'DeepSeek' }])
     await expect(ctx.llm.listModels('deepseek-official')).resolves.toHaveLength(3)
-    /** 中文说明：测试局部值 first，由紧邻初始化决定。 */
     const first = await assemble(ctx, { model: 'deepseek-v4-flash', messages: [] })
     expect(first.finish).toMatchObject({ kind: 'error', failure: { code: 'MISSING_CREDENTIAL' } })
     // The guidance leads with the managed credential store.
-    /** 中文说明：测试局部值 second，由紧邻初始化决定。 */
     const second = await assemble(ctx, { model: 'deepseek-v4-flash', messages: [] })
     expect(second.finish.kind).toBe('error')
     if (second.finish.kind !== 'error') throw new Error('expected an error finish')
@@ -2409,9 +2155,7 @@ describe('plugin registration and config', () => {
     // The plain cordis.yml composition: no credential provider, the key in
     // the launching environment.
     vi.stubEnv('DEEPSEEK_API_KEY', 'ambient-key')
-    /** 中文说明：测试局部值 server，由紧邻初始化决定。 */
     const server = await mockServer([{ kind: 'sse', events: textEvents }])
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = new Context()
     await ctx.plugin(LlmRuntime)
     await ctx.plugin(LlmDeepSeek, { baseURL: server.url })
@@ -2421,11 +2165,9 @@ describe('plugin registration and config', () => {
 
   it('treats an empty ambient variable as no key when no credentials seam is mounted', async () => {
     vi.stubEnv('DEEPSEEK_API_KEY', '')
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = new Context()
     await ctx.plugin(LlmRuntime)
     await ctx.plugin(LlmDeepSeek, { baseURL: 'http://127.0.0.1:1' })
-    /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
     const result = await assemble(ctx, { model: 'deepseek-v4-flash', messages: [] })
     expect(result.finish).toMatchObject({ kind: 'error', failure: { code: 'MISSING_CREDENTIAL' } })
   })
@@ -2433,20 +2175,16 @@ describe('plugin registration and config', () => {
   it('prefers explicit config over env for key and base URL', async () => {
     vi.stubEnv('DEEPSEEK_API_KEY', 'env-key')
     vi.stubEnv('DEEPSEEK_BASE_URL', 'http://env-host:1')
-    /** 中文说明：测试局部值 server，由紧邻初始化决定。 */
     const server = await mockServer([{ kind: 'sse', events: textEvents }])
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await harness(server.url) // harness passes explicit config
     await assemble(ctx,{ model: 'deepseek-v4-flash', messages: [] })
     expect(server.requests).toHaveLength(1) // hit the explicit URL, not env
   })
 
   it('uses DEEPSEEK_BASE_URL when config omits baseURL', async () => {
-    /** 中文说明：测试局部值 server，由紧邻初始化决定。 */
     const server = await mockServer([{ kind: 'sse', events: textEvents }])
     vi.stubEnv('DEEPSEEK_BASE_URL', server.url)
     vi.stubEnv('DEEPSEEK_API_KEY', 'test-key')
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = new Context()
     await ctx.plugin(LlmRuntime)
     await ctx.plugin(LlmDeepSeek, {})
@@ -2456,21 +2194,18 @@ describe('plugin registration and config', () => {
 
 
   it('takes DEEPSEEK_BASE_URL from any environment layer, with explicit config still on top', () => {
-    /** 中文说明：测试局部值 trusted，由紧邻初始化决定。 */
     const trusted = createLaunchEnvironmentSnapshot([
       { source: 'user-env', path: '/home/.dsh/.env', values: { DEEPSEEK_BASE_URL: 'https://user.example' } },
     ])
     expect(resolveAdapterOptions({}, trusted).baseURL).toBe('https://user.example')
     // The product trusts the project it is launched in, so a checkout can
     // point its own agent at the gateway that checkout is meant to use.
-    /** 中文说明：测试局部值 project，由紧邻初始化决定。 */
     const project = createLaunchEnvironmentSnapshot([
       { source: 'project-env', path: '/work/.env', values: { DEEPSEEK_BASE_URL: 'https://project.example' } },
     ])
     expect(resolveAdapterOptions({}, project).baseURL).toBe('https://project.example')
     // An explicitly configured endpoint outranks every environment layer, so a
     // stale shell value cannot rewrite a deployment's own gateway.
-    /** 中文说明：测试局部值 shell，由紧邻初始化决定。 */
     const shell = createLaunchEnvironmentSnapshot([
       { source: 'process', values: { DEEPSEEK_BASE_URL: 'https://stale.example' } },
     ])
@@ -2479,7 +2214,6 @@ describe('plugin registration and config', () => {
   it('defaults to the public base URL without config or env', async () => {
     vi.stubEnv('DEEPSEEK_API_KEY', 'k')
     vi.stubEnv('DEEPSEEK_BASE_URL', undefined)
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = new Context()
     await ctx.plugin(LlmRuntime)
     // Registration succeeds; no call is made (would hit api.deepseek.com).
@@ -2488,7 +2222,6 @@ describe('plugin registration and config', () => {
   })
 
   it('adapter is constructible directly for embedding over the shared resolver', async () => {
-    /** 中文说明：测试局部值 adapter，由紧邻初始化决定。 */
     const adapter = adapterOf()
     expect(adapter).toBeInstanceOf(DeepSeekAdapter)
     // Direct embedding shares the plugin's one resolve step, so it advertises
@@ -2497,17 +2230,12 @@ describe('plugin registration and config', () => {
   })
 
   it('resolves connection facts and the credential exactly once per stream call', async () => {
-    /** 中文说明：测试局部值 server，由紧邻初始化决定。 */
     const server = await mockServer([{ kind: 'sse', events: textEvents }])
-    /** 中文说明：测试局部值 options，由紧邻初始化决定。 */
     const options = vi.fn(() => resolveAdapterOptions({ baseURL: server.url }))
-    /** 中文说明：测试局部值 resolveApiKey，由紧邻初始化决定。 */
     const resolveApiKey = vi.fn(() => Promise.resolve('per-request-key'))
-    /** 中文说明：测试局部值 resolveUserId，由紧邻初始化决定。 */
     const resolveUserId = vi.fn(() => TEST_USER_ID)
     const adapter = new DeepSeekAdapter({ options, resolveApiKey, resolveUserId, prepareExtensions: noExtensions })
 
-    /** 中文说明：测试局部值 _chunk，由紧邻初始化决定。 */
     for await (const _chunk of adapter.stream({ provider: 'deepseek-official', model: 'm', messages: [] })) { /* drain */ }
 
     expect(options).toHaveBeenCalledTimes(1)
@@ -2522,7 +2250,6 @@ describe('plugin registration and config', () => {
     expect(() => resolveAdapterOptions({ streamIdleTimeoutMs: MAX_TIMER_DELAY_MS + 1 }))
       .toThrow(/streamIdleTimeoutMs.*no greater/)
 
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = new Context()
     await ctx.plugin(LlmRuntime)
     await expect(ctx.plugin(LlmDeepSeek, {
@@ -2541,7 +2268,6 @@ describe('plugin registration and config', () => {
     expect(() => resolveAdapterOptions({ filesApiTimeoutMs: MAX_TIMER_DELAY_MS + 1 }))
       .toThrow(/filesApiTimeoutMs.*no greater/)
 
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = new Context()
     await ctx.plugin(LlmRuntime)
     await expect(ctx.plugin(LlmDeepSeek, {
@@ -2557,7 +2283,6 @@ describe('plugin registration and config', () => {
   })
 
   it('rejects invalid nested retryPolicy before registering the provider', async () => {
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = new Context()
     await ctx.plugin(LlmRuntime)
 

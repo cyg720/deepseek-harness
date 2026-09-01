@@ -1,18 +1,3 @@
-/*
- * ================================ 文件注释 ================================
- * 【文件职责】技能引用包的浏览器侧入口：注册 '/' 技能源——候选来自 skill.list RPC
- *             （按会话投影寻址）；同时拥有 skill 键控工具行（重放稳定强调行）。
- * 【技术维度】Cordis 浏览器插件 + 输入触发源接口：目录拉取按会话缓存（单飞、
- *             共享飞行中的拉取带独立中止）；选择落下字面 '/name ' 文本，
- *             确定性在宿主侧（预步边界识别前导 /name 并注入渲染体）。
- * 【产品维度】'/' 菜单中的技能候选、草稿芯片（词表扫描）与技能工具行。
- * 【逻辑维度】fetchCatalog 缓存拉取 → candidates 过滤前缀 → lexicon/subscribeLexicon
- *             支撑草稿装饰 → onPick 落字面文本；失效钩子（预设切换/重连）清理缓存。
- * 【关键边界】寻址子代理会话返回空目录；共享拉取故意比单次菜单交互活得久
- *             （关菜单不杀预热）；无引用编解码器（纯文本引用决策）。
- * 【新手阅读建议】先看 CatalogFetch 缓存结构，再读 candidates/lexicon 的接线。
- * ==========================================================================
- */
 /**
  * Skill reference plugin, browser half: registers the '/' skill source —
  * candidates from the `skills/list` Remote addressed by the per-call session
@@ -73,7 +58,7 @@ interface CatalogFetch {
 }
 
 /** Required services: reference source faces plus the tool-row and locale registries. */
-export const inject = ['inputTriggers', 'connection', 'sessions', 'slots', 'locale', 'remote', 'remote.skills']
+export const inject = ['inputTriggers', 'sessions', 'slots', 'locale', 'remote', 'remote.skills']
 
 /**
  * Client plugin body: register the '/' source, dictionaries, and keyed tool row.

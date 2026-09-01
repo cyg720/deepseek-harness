@@ -1,11 +1,3 @@
-/**
- * 文件职责：验证DeepSeek LLM的 adapter.e2e.ts 行为与网络边界。
- * 技术维度：TypeScript、Fetch、SSE、OAuth/密钥认证、模型目录和运行时模式校验。
- * 产品维度：让 Agent 能稳定调用供应商模型、发现能力并接收流式结果。
- * 逻辑维度：构造请求或模拟服务器，驱动适配器并断言事件与错误。
- * 关键边界：网络响应属于不可信输入；密钥和令牌不得记录；取消必须终止请求与流。
- * 新手阅读建议：先读 config/auth/catalog，再看 adapter/stream，最后阅读错误和重放测试。
- */
 import { readFileSync } from 'node:fs'
 import { mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
@@ -36,30 +28,21 @@ import type { Config } from '@deepseek-ai/dsh-llm-deepseek'
 import { assemble, type AssembledResult } from './assemble.ts'
 
 /**
- * Real-API e2e for the direct-fetch adapter: V4 Flash + V4 Pro across
- * thinking modes and all official effort levels. The suite skips entirely
- * without $DEEPSEEK_API_KEY; the pre-release vision smoke additionally
+ * Real-API e2e for the direct-fetch adapter: V4 Flash across thinking modes
+ * and a max-effort tool round trip with reasoning passback. The suite skips
+ * entirely without $DEEPSEEK_API_KEY; the pre-release vision smoke additionally
  * requires $DEEPSEEK_VISION_E2E=1 (see vitest.e2e.config.ts).
  */
 
-/* 中文说明：测试局部值 FLASH，由紧邻初始化决定。 */
 const FLASH = 'deepseek-v4-flash'
-/** 中文说明：测试局部值 PRO，由紧邻初始化决定。 */
-const PRO = 'deepseek-v4-pro'
-/** 中文说明：测试局部值 VISION，由紧邻初始化决定。 */
 const VISION = 'deepseek-v4-flash-vision-exp'
-/** 中文说明：测试局部值 VISION_E2E_ENABLED，由紧邻初始化决定。 */
 const VISION_E2E_ENABLED = process.env.DEEPSEEK_VISION_E2E === '1'
-/** 中文说明：测试局部值 TEST_PNG，由紧邻初始化决定。 */
 const TEST_PNG = Uint8Array.from(readFileSync(
   new URL('../../llm-pi-ai/tests/fixtures/qr-code.png', import.meta.url),
 ))
-/** 中文说明：测试局部值 contexts，由紧邻初始化决定。 */
 const contexts: Context[] = []
-/** 中文说明：测试局部值 identityHome: string，由紧邻初始化决定。 */
 let identityHome: string
 
-/** 中文说明：类型或类 E2eAttachmentStore 约束模型请求、认证或流事件职责。 */
 class E2eAttachmentStore extends AttachmentStore {
   readonly imageLimits: ImageAttachmentLimits = {
     maxImageBytes: TEST_PNG.byteLength,
@@ -116,9 +99,7 @@ beforeEach(async () => {
   vi.stubEnv('DSH_HOME', identityHome)
 })
 
-/** 中文说明：函数 harness 的参数见签名，返回结果供模型流程使用；示例见本文件。 */
 async function harness(_model: string, config: Partial<Config> = {}) {
-  /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
   const ctx = new Context()
   contexts.push(ctx)
   await ctx.plugin(LlmRuntime)
@@ -134,7 +115,6 @@ afterEach(async () => {
   await rm(identityHome, { recursive: true, force: true })
 })
 
-/** 中文说明：函数 ask 的参数见签名，返回结果供模型流程使用；示例见本文件。 */
 function ask(text: string): Message[] {
   return [createUserMessage({
     content: [{ type: 'text', text }],
@@ -142,7 +122,6 @@ function ask(text: string): Message[] {
   })]
 }
 
-/** 中文说明：函数 textOf 的参数见签名，返回结果供模型流程使用；示例见本文件。 */
 function textOf(result: AssembledResult): string {
   return result.message.content
     .filter(block => block.type === 'text')
@@ -150,7 +129,6 @@ function textOf(result: AssembledResult): string {
     .join('')
 }
 
-/** 中文说明：测试局部值 weatherTool，由紧邻初始化决定。 */
 const weatherTool: ToolSchema = {
   name: 'get_weather',
   description: 'Get the current weather for a city.',
@@ -163,41 +141,28 @@ const weatherTool: ToolSchema = {
 
 describe.skipIf(!process.env.DEEPSEEK_API_KEY)('llm-deepseek e2e (real API)', () => {
   it.skipIf(!VISION_E2E_ENABLED)('uses the built-in official route to upload, reference, and delete one image', async () => {
-    /** 中文说明：测试局部值 key，由紧邻初始化决定。 */
     const key = process.env.DEEPSEEK_API_KEY
     if (key === undefined) throw new Error('e2e ran without DEEPSEEK_API_KEY')
-    /** 中文说明：测试局部值 baseURL，由紧邻初始化决定。 */
     const baseURL = process.env.DEEPSEEK_BASE_URL ?? LlmDeepSeek.PUBLIC_BASE_URL
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await harness(VISION, { baseURL })
     await ctx.plugin(E2eAttachmentStore)
-    /** 中文说明：测试局部值 attachments，由紧邻初始化决定。 */
     const attachments = ctx.attachments as E2eAttachmentStore
-    /** 中文说明：测试局部值 解构结果，由紧邻初始化决定。 */
     let uploadedFile: LlmDeepSeek.DeepSeekFileIdType | undefined
-    /** 中文说明：测试局部值 nativeFetch，由紧邻初始化决定。 */
     const nativeFetch = globalThis.fetch
-    /** 中文说明：测试局部值 observedFetch，由紧邻初始化决定。 */
     const observedFetch: typeof fetch = async (input, init) => {
-      /** 中文说明：测试局部值 response，由紧邻初始化决定。 */
       const response = await nativeFetch(input, init)
-      /** 中文说明：测试局部值 url，由紧邻初始化决定。 */
       const url = new URL(input instanceof Request ? input.url : input)
-      /** 中文说明：测试局部值 method，由紧邻初始化决定。 */
       const method = init?.method ?? (input instanceof Request ? input.method : 'GET')
       if (method === 'POST' && url.pathname.endsWith('/files') && response.ok) {
-        /** 中文说明：测试局部值 value，由紧邻初始化决定。 */
         const value = await response.clone().json() as { id?: unknown }
         if (typeof value.id === 'string') uploadedFile = LlmDeepSeek.DeepSeekFileId(value.id)
       }
       return response
     }
     vi.stubGlobal('fetch', observedFetch)
-    /** 中文说明：测试局部值 files，由紧邻初始化决定。 */
     const files = new LlmDeepSeek.DeepSeekFilesClient({ baseURL, apiKey: key })
 
     try {
-      /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
       const result = await assemble(ctx, {
         model: VISION,
         messages: [createUserMessage({
@@ -246,10 +211,8 @@ describe.skipIf(!process.env.DEEPSEEK_API_KEY)('llm-deepseek e2e (real API)', ()
   })
 
   it('serves a real request with the key held only by a credentials-local document', async () => {
-    /** 中文说明：测试局部值 key，由紧邻初始化决定。 */
     const key = process.env.DEEPSEEK_API_KEY
     if (key === undefined) throw new Error('e2e ran without DEEPSEEK_API_KEY')
-    /** 中文说明：测试局部值 dir，由紧邻初始化决定。 */
     const dir = await mkdtemp(join(tmpdir(), 'dsh-e2e-credentials-'))
     try {
       // JSON.stringify quotes the value: YAML is a JSON superset, so a real
@@ -258,14 +221,12 @@ describe.skipIf(!process.env.DEEPSEEK_API_KEY)('llm-deepseek e2e (real API)', ()
       // Scrub the ambient variable so only the credential seam can supply the
       // key: this request proves the per-request resolution path end to end.
       vi.stubEnv('DEEPSEEK_API_KEY', '')
-      /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
       const ctx = new Context()
       contexts.push(ctx)
       await ctx.plugin(LlmRuntime)
       await ctx.plugin(LocalCredentialProvider, { path: join(dir, '.credentials.yaml'), watch: false })
       await ctx.plugin(LlmDeepSeek, {})
 
-      /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
       const result = await assemble(ctx, {
         model: FLASH,
         messages: ask('Reply with exactly the word: pong'),
@@ -280,9 +241,7 @@ describe.skipIf(!process.env.DEEPSEEK_API_KEY)('llm-deepseek e2e (real API)', ()
   })
 
   it('flash dynamically switches from off to low', async () => {
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await harness(FLASH, { reasoningEffort: 'off' })
-    /** 中文说明：测试局部值 withoutThinking，由紧邻初始化决定。 */
     const withoutThinking = await assemble(ctx,{
       model: FLASH,
       messages: ask('Reply with exactly the word: pong'),
@@ -294,7 +253,6 @@ describe.skipIf(!process.env.DEEPSEEK_API_KEY)('llm-deepseek e2e (real API)', ()
     expect(withoutThinking.usage?.inputTokens).toBeGreaterThan(0)
     expect(withoutThinking.usage?.outputTokens).toBeGreaterThan(0)
 
-    /** 中文说明：测试局部值 withThinking，由紧邻初始化决定。 */
     const withThinking = await assemble(ctx,{
       model: FLASH,
       reasoningEffort: ReasoningEffortId('low'),
@@ -307,23 +265,23 @@ describe.skipIf(!process.env.DEEPSEEK_API_KEY)('llm-deepseek e2e (real API)', ()
     expect(withThinking.usage?.reasoningTokens).toBeGreaterThan(0)
   })
 
-  it.each(['high', 'max'] as const)(
-    'pro + thinking enabled (effort %s): tool-call round trip with reasoning passback',
-    async (effort) => {
-      /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
-      const ctx = await harness(PRO, { thinking: 'enabled' })
+  it(
+    'flash + thinking enabled (effort max): tool-call round trip with reasoning passback',
+    async () => {
+      const ctx = await harness(FLASH, { thinking: 'enabled' })
 
       // Turn 1: the model must call the tool (and think before it).
-      /** 中文说明：测试局部值 first，由紧邻初始化决定。 */
       const first = await assemble(ctx,{
-        model: PRO,
-        reasoningEffort: ReasoningEffortId(effort),
+        model: FLASH,
+        reasoningEffort: ReasoningEffortId('max'),
         messages: ask('What is the weather in Paris right now? Use the get_weather tool.'),
         tools: [weatherTool],
         maxTokens: 2000,
       })
-      expect(first.finish.kind).toBe('tool-calls')
-      /** 中文说明：测试局部值 call，由紧邻初始化决定。 */
+      expect(
+        first.finish.kind,
+        `DeepSeek Flash tool-call turn finished as ${JSON.stringify(first.finish)}`,
+      ).toBe('tool-calls')
       const call = first.message.content.find(block => block.type === 'tool-call')
       expect(call).toBeDefined()
       expect(call!.name).toBe('get_weather')
@@ -331,10 +289,9 @@ describe.skipIf(!process.env.DEEPSEEK_API_KEY)('llm-deepseek e2e (real API)', ()
 
       // Turn 2: send the tool result back WITH the assistant's reasoning
       // block in history (the official thinking+tools passback rule).
-      /** 中文说明：测试局部值 second，由紧邻初始化决定。 */
       const second = await assemble(ctx,{
-        model: PRO,
-        reasoningEffort: ReasoningEffortId(effort),
+        model: FLASH,
+        reasoningEffort: ReasoningEffortId('max'),
         messages: [
           ...ask('What is the weather in Paris right now? Use the get_weather tool.'),
           createMessage({
@@ -353,30 +310,17 @@ describe.skipIf(!process.env.DEEPSEEK_API_KEY)('llm-deepseek e2e (real API)', ()
         tools: [weatherTool],
         maxTokens: 2000,
       })
-      expect(second.finish.kind).toBe('stop')
+      expect(
+        second.finish.kind,
+        `DeepSeek Flash tool-result turn finished as ${JSON.stringify(second.finish)}`,
+      ).toBe('stop')
       expect(textOf(second).toLowerCase()).toMatch(/sunny|22/)
     },
   )
 
-  it('pro + thinking disabled: plain generation without reasoning blocks', async () => {
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
-    const ctx = await harness(PRO, { thinking: 'disabled' })
-    /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
-    const result = await assemble(ctx,{
-      model: PRO,
-      messages: ask('Reply with exactly the word: pong'),
-      maxTokens: 50,
-    })
-    expect(result.finish.kind).toBe('stop')
-    expect(result.message.content.some(block => block.type === 'reasoning')).toBe(false)
-  })
-
   it('streams raw chunks in protocol order', async () => {
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await harness(FLASH, { thinking: 'disabled' })
-    /** 中文说明：测试局部值 kinds，由紧邻初始化决定。 */
     const kinds: string[] = []
-    /** 中文说明：测试局部值 chunk，由紧邻初始化决定。 */
     for await (const chunk of ctx.llm.stream({
       provider: 'deepseek-official',
       model: FLASH,

@@ -4,28 +4,18 @@
  * it fills has been declared. A pushed settings change refreshes the surfaces
  * that are already showing, so a default set from one converges the other.
  */
-/*
- * 文件职责：验证代理预设界面的 apply 行为与边界。
- * 技术维度：Vitest、TypeScript、可控测试替身和真实模块组装。
- * 产品维度：防止用户可见行为在重构或扩展后发生回归。
- * 逻辑维度：构造场景输入，调用被测入口，记录状态并断言结果。
- * 关键边界：测试替身需在用例后清理；异步任务不能泄漏到后续场景。
- * 新手阅读建议：先读辅助函数和固定数据，再按 describe 场景顺序阅读。
- */
 
 import { Context } from '@deepseek-ai/cordis'
 import { describe, expect, it, vi } from 'vitest'
 import { resolveSlotLabel } from '@deepseek-ai/dsh-client-ui-slots'
 import { SlotRegistry } from '@deepseek-ai/dsh-client-ui-renderer/client'
 import { LocaleRuntime } from '@deepseek-ai/dsh-client-locale/client'
-import { TestRemote } from '@deepseek-ai/dsh-client-test-runtime'
+import { RemoteError, TestRemote } from '@deepseek-ai/dsh-client-test-runtime'
 import { SessionId } from '@deepseek-ai/dsh-session'
 import { apply as settingsApply, inject as settingsInject } from '@deepseek-ai/dsh-client-ui-settings/client'
 import { apply, inject } from '@deepseek-ai/dsh-client-ui-agent-preset/client'
 import { AgentPresetLabel } from '../src/client/AgentPresetLabel.tsx'
 import type { AgentPresetLabelInjected } from '../src/client/AgentPresetLabel.tsx'
-import { AgentPresetRow } from '../src/client/AgentPresetRow.tsx'
-import type { AgentPresetRowInjected } from '../src/client/AgentPresetRow.tsx'
 import { AgentPresetSection } from '../src/client/AgentPresetSection.tsx'
 import type { AgentPresetSectionInjected } from '../src/client/AgentPresetSection.tsx'
 import { AgentPresetSeat } from '../src/client/AgentPresetSeat.tsx'
@@ -36,7 +26,6 @@ import { AgentPresetSeatController } from '../src/client/seat-store.ts'
 // so browser-language detection never runs and a fresh LocaleRuntime opens on
 // FALLBACK_LOCALE (en); each bench stages zh explicitly on the locale instead.
 
-/** 中文说明：测试场景的局部值 ROSTER_ONE，取值由紧邻初始化决定，仅在当前作用域使用。 */
 const ROSTER_ONE = {
   ok: true as const,
   value: {
@@ -46,7 +35,6 @@ const ROSTER_ONE = {
 }
 
 /** The roster after this browser copied one preset of its own. */
-/* 中文说明：测试场景的局部值 ROSTER_AUTHORED，取值由紧邻初始化决定，仅在当前作用域使用。 */
 const ROSTER_AUTHORED = {
   ok: true as const,
   value: {
@@ -59,7 +47,6 @@ const ROSTER_AUTHORED = {
 }
 
 /** The same roster with a second preset carrying the default. */
-/* 中文说明：测试场景的局部值 ROSTER_MOVED，取值由紧邻初始化决定，仅在当前作用域使用。 */
 const ROSTER_MOVED = {
   ok: true as const,
   value: {
@@ -71,18 +58,13 @@ const ROSTER_MOVED = {
   },
 }
 
-/** 中文说明：函数 bench 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 async function bench() {
-  /** 中文说明：当前 Cordis 上下文 ctx，取值由紧邻初始化决定，仅在当前作用域使用。 */
   const ctx = new Context()
   // The host's answer, mutable so a spec can move the default the way the
   // settings surface does and watch who re-reads it.
-  /** 中文说明：测试场景的局部值 ROSTER，取值由紧邻初始化决定，仅在当前作用域使用。 */
   let ROSTER: typeof ROSTER_ONE | typeof ROSTER_MOVED | typeof ROSTER_AUTHORED = ROSTER_ONE
-  /** 中文说明：测试场景的局部值 moveDefault，取值由紧邻初始化决定，仅在当前作用域使用。 */
   const moveDefault = (): void => { ROSTER = ROSTER_MOVED }
   await ctx.plugin(SlotRegistry).await()
-  /** 中文说明：测试场景的局部值 locale，取值由紧邻初始化决定，仅在当前作用域使用。 */
   const locale = new LocaleRuntime(ctx)
   locale.setLocale('zh')
   ctx.provide('locale', locale)
@@ -131,12 +113,10 @@ async function bench() {
   }
   ctx.provide('remote.agentPresets', agentPresets as never)
   Object.assign(remote, { agentPresets })
-  ctx.provide('connection', { isLoopback: true } as never)
   await ctx.plugin({ inject: [...settingsInject], apply: settingsApply }).await()
   return { ctx, slots: ctx.get('slots') as SlotRegistry, calls, moveDefault, remote }
 }
 
-/** 中文说明：函数 declareRoot 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 function declareRoot(slots: SlotRegistry): () => void {
   return slots.register({
     name: 'root',
@@ -149,7 +129,6 @@ function declareRoot(slots: SlotRegistry): () => void {
 }
 
 /** The conversation's own declarations, which the chip and label wait for. */
-/* 中文说明：函数 declareConversation 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 function declareConversation(slots: SlotRegistry): () => void {
   return slots.register({
     name: 'conversation',
@@ -170,7 +149,6 @@ function uiWorkspaceDouble() {
 }
 
 /** A sessions double whose list can be moved and whose changes are pushed. */
-/* 中文说明：函数 sessionsDouble 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 function sessionsDouble(state: {
   current?: string
   byId: Record<string, {
@@ -179,7 +157,6 @@ function sessionsDouble(state: {
     projectionValues?: { agentPreset?: string | null }
   }>
 }) {
-  /** 中文说明：按序保存的数据集合 listeners，取值由紧邻初始化决定，仅在当前作用域使用。 */
   const listeners = new Set<() => void>()
   return {
     list: {
@@ -197,22 +174,19 @@ function sessionsDouble(state: {
 describe('ui-agent-preset apply', () => {
   it('declares the services it uses', () => {
     expect(inject).toEqual([
-      'slots', 'locale', 'remote', 'remote.agentPresets', 'remote.settings', 'settingsScope',
+      'slots', 'locale', 'remote', 'remote.agentPresets', 'remote.settings',
     ])
   })
 
-  it('registers the General row and the settings section', async () => {
-    /** 中文说明：当前 Cordis 上下文 { ctx, slots }，取值由紧邻初始化决定，仅在当前作用域使用。 */
+  it('registers the settings section and no General row', async () => {
     const { ctx, slots } = await bench()
     declareRoot(slots)
 
     await ctx.plugin({ inject: [...inject], apply }).await()
 
-    /** 中文说明：测试场景的局部值 row，取值由紧邻初始化决定，仅在当前作用域使用。 */
-    const row = slots.entries('settings.general.item')[0]!
-    expect(row.component).toBe(AgentPresetRow)
-    expect(row.options).toMatchObject({ id: 'agent-preset', order: -25 })
-    /** 中文说明：测试场景的局部值 section，取值由紧邻初始化决定，仅在当前作用域使用。 */
+    // The default preset is edited in the section, where the roster is
+    // visible; a General row would duplicate the same settings field.
+    expect(slots.entries('settings.general.item')).toHaveLength(0)
     const section = slots.entries('settings.section')[0]!
     expect(section.component).toBe(AgentPresetSection)
     expect(section.options).toMatchObject({ id: 'agent-presets', order: 20 })
@@ -221,7 +195,6 @@ describe('ui-agent-preset apply', () => {
   })
 
   it('registers into a declaration that arrives after apply', async () => {
-    /** 中文说明：当前 Cordis 上下文 { ctx, slots }，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const { ctx, slots } = await bench()
     await ctx.plugin({ inject: [...inject], apply }).await()
 
@@ -230,34 +203,22 @@ describe('ui-agent-preset apply', () => {
     await vi.waitFor(() => { expect(slots.entries('settings.section')).toHaveLength(1) })
   })
 
-  it('hands each surface its own store and actions', async () => {
-    /** 中文说明：当前 Cordis 上下文 { ctx, slots }，取值由紧邻初始化决定，仅在当前作用域使用。 */
+  it('hands the section its own store and default write', async () => {
     const { ctx, slots } = await bench()
     declareRoot(slots)
     await ctx.plugin({ inject: [...inject], apply }).await()
 
-    /** 中文说明：测试场景的局部值 row，取值由紧邻初始化决定，仅在当前作用域使用。 */
-    const row = (slots.entries('settings.general.item')[0]!.inject as unknown as () => AgentPresetRowInjected)()
-    /** 中文说明：测试场景的局部值 section，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const section = (slots.entries('settings.section')[0]!.inject as unknown as () => AgentPresetSectionInjected)()
 
-    expect(row.hooks.agentPreset).not.toBe(section.hooks.agentPresetSection)
-    // Each thunk reaches its own controller: the row's load fills the row's
-    // store, and the section's default write does not go through the row.
-    await row.load()
-    await row.select('standard')
     await section.makeDefault('standard')
-    expect(row.hooks.agentPreset.getSnapshot().options).toEqual([{ id: 'standard', trust: 'system' }])
     expect(section.hooks.agentPresetSection.getSnapshot().rows)
       .toEqual([{ id: 'standard', trust: 'system', isDefault: true }])
   })
 
   it('routes the section actions to one controller', async () => {
-    /** 中文说明：当前 Cordis 上下文 { ctx, slots, calls }，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const { ctx, slots, calls } = await bench()
     declareRoot(slots)
     await ctx.plugin({ inject: [...inject], apply }).await()
-    /** 中文说明：测试场景的局部值 section，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const section = (slots.entries('settings.section')[0]!.inject as unknown as () => AgentPresetSectionInjected)()
 
     await section.load()
@@ -284,15 +245,12 @@ describe('ui-agent-preset apply', () => {
     const { ctx, slots, calls, remote } = await bench()
     declareRoot(slots)
     await ctx.plugin({ inject: [...inject], apply }).await()
-    /** 中文说明：测试场景的局部值 section，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const section = (slots.entries('settings.section')[0]!.inject as unknown as () => AgentPresetSectionInjected)()
     await section.load()
-    /** 中文说明：测试场景的局部值 before，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const before = calls.length
 
     remote.emit('settings/document-updated', ['agent-presets', 1])
     await vi.waitFor(() => { expect(calls.length).toBe(before + 2) })
-    /** 中文说明：测试场景的局部值 afterRelevant，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const afterRelevant = calls.length
 
     remote.emit('settings/document-updated', ['llm-deepseek', 1])
@@ -304,14 +262,11 @@ describe('ui-agent-preset apply', () => {
   })
 
   it('re-reads both surfaces when the connection comes back', async () => {
-    /** 中文说明：当前 Cordis 上下文 { ctx, slots, calls }，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const { ctx, slots, calls } = await bench()
     declareRoot(slots)
     await ctx.plugin({ inject: [...inject], apply }).await()
-    /** 中文说明：测试场景的局部值 section，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const section = (slots.entries('settings.section')[0]!.inject as unknown as () => AgentPresetSectionInjected)()
     await section.load()
-    /** 中文说明：测试场景的局部值 before，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const before = calls.length
 
     ctx.emit('connection/reset')
@@ -324,22 +279,19 @@ describe('ui-agent-preset apply', () => {
     const { ctx, slots, calls, remote } = await bench()
     declareRoot(slots)
     await ctx.plugin({ inject: [...inject], apply }).await()
-    /** 中文说明：测试场景的局部值 before，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const before = calls.length
 
     remote.emit('settings/document-updated', ['agent-presets', 1])
     await vi.waitFor(() => { expect(calls.length).toBeGreaterThan(before) })
 
-    // Only the General row reloads: a section nobody opened has nothing to
-    // converge, and reading the roster for it would be a wasted round trip.
+    // Only the header label's roster reloads: a section nobody opened has
+    // nothing to converge, and reading the roster for it would be wasted.
     expect(calls.length - before).toBe(1)
   })
 
   it('registers the new-session chip and the header label, and drops both on disposal', async () => {
-    /** 中文说明：当前 Cordis 上下文 { ctx, slots }，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const { ctx, slots } = await bench()
     declareRoot(slots)
-    /** 中文说明：测试场景的局部值 conversation，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const conversation = declareConversation(slots)
     ctx.provide('conversation', {} as never)
     ctx.provide('sessions', sessionsDouble({ byId: {} }) as never)
@@ -347,10 +299,8 @@ describe('ui-agent-preset apply', () => {
     const fiber = ctx.plugin({ inject: [...inject, 'conversation', 'sessions', 'uiWorkspace'], apply })
     await fiber.await()
 
-    /** 中文说明：测试场景的局部值 chip，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const chip = slots.entries('conversation.hero.agentPreset')[0]!
     expect(chip.component).toBe(AgentPresetSeat)
-    /** 中文说明：测试场景的局部值 label，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const label = slots.entries('conversation.session.header.actions')[0]!
     expect(label.component).toBe(AgentPresetLabel)
     expect(label.options).toMatchObject({ id: 'agent-preset', order: -10 })
@@ -364,16 +314,13 @@ describe('ui-agent-preset apply', () => {
   it('moves the chip when the default changes on the settings surface', async () => {
     const { ctx, slots, moveDefault, remote } = await bench()
     declareRoot(slots)
-    /** 中文说明：测试场景的局部值 conversation，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const conversation = declareConversation(slots)
     ctx.provide('conversation', {} as never)
     ctx.provide('sessions', sessionsDouble({ byId: {} }) as never)
     ctx.provide('uiWorkspace', uiWorkspaceDouble() as never)
     await ctx.plugin({ inject: [...inject, 'conversation', 'sessions', 'uiWorkspace'], apply }).await()
 
-    /** 中文说明：测试场景的局部值 chip，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const chip = slots.entries('conversation.hero.agentPreset')[0]!
-    /** 中文说明：测试场景的局部值 seat，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const seat = (chip.inject as unknown as () => AgentPresetSeatInjected)()
     await seat.load()
     expect(seat.hooks.agentPresetSeat.getSnapshot().current).toBe('standard')
@@ -397,24 +344,19 @@ describe('ui-agent-preset apply', () => {
   })
 
   it('offers a just-authored preset on the new-session chip', async () => {
-    /** 中文说明：当前 Cordis 上下文 { ctx, slots }，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const { ctx, slots } = await bench()
     declareRoot(slots)
-    /** 中文说明：测试场景的局部值 conversation，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const conversation = declareConversation(slots)
     ctx.provide('conversation', {} as never)
     ctx.provide('sessions', sessionsDouble({ byId: {} }) as never)
     ctx.provide('uiWorkspace', uiWorkspaceDouble() as never)
     await ctx.plugin({ inject: [...inject, 'conversation', 'sessions', 'uiWorkspace'], apply }).await()
 
-    /** 中文说明：测试场景的局部值 chip，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const chip = slots.entries('conversation.hero.agentPreset')[0]!
-    /** 中文说明：测试场景的局部值 seat，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const seat = (chip.inject as unknown as () => AgentPresetSeatInjected)()
     await seat.load()
     expect(seat.hooks.agentPresetSeat.getSnapshot().options.map(option => option.id)).toEqual(['standard'])
 
-    /** 中文说明：测试场景的局部值 section，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const section = (slots.entries('settings.section')[0]!.inject as unknown as () => AgentPresetSectionInjected)()
     await section.load()
     section.beginCopy('standard')
@@ -432,12 +374,10 @@ describe('ui-agent-preset apply', () => {
   })
 
   it('applies the staged choice to the blank session the flow lands on', async () => {
-    /** 中文说明：当前 Cordis 上下文 { ctx, slots, calls }，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const { ctx, slots, calls } = await bench()
     declareRoot(slots)
     declareConversation(slots)
     ctx.provide('conversation', {} as never)
-    /** 中文说明：当前状态或快照 state: {，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const state: {
       current?: string
       byId: Record<string, {
@@ -446,7 +386,6 @@ describe('ui-agent-preset apply', () => {
         projectionValues?: { agentPreset?: string | null }
       }>
     } = { byId: {} }
-    /** 中文说明：测试场景的局部值 sessions，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const sessions = sessionsDouble(state)
     ctx.provide('sessions', sessions as never)
     ctx.provide('uiWorkspace', uiWorkspaceDouble() as never)
@@ -470,12 +409,10 @@ describe('ui-agent-preset apply', () => {
   })
 
   it('applies the stage to a session that records no preset of its own', async () => {
-    /** 中文说明：当前 Cordis 上下文 { ctx, slots, calls }，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const { ctx, slots, calls } = await bench()
     declareRoot(slots)
     declareConversation(slots)
     ctx.provide('conversation', {} as never)
-    /** 中文说明：测试场景的局部值 sessions，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const sessions = sessionsDouble({
       current: 's1',
       byId: { s1: { id: 's1', blank: true } },
@@ -495,19 +432,16 @@ describe('ui-agent-preset apply', () => {
   })
 
   it('forgets the stage once it has been spent', async () => {
-    /** 中文说明：当前 Cordis 上下文 { ctx, slots, calls }，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const { ctx, slots, calls } = await bench()
     declareRoot(slots)
     declareConversation(slots)
     ctx.provide('conversation', {} as never)
-    /** 中文说明：当前状态或快照 state，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const state = {
       current: 's1',
       byId: {
         s1: { id: 's1', blank: true, projectionValues: { agentPreset: 'standard' } },
       },
     }
-    /** 中文说明：测试场景的局部值 sessions，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const sessions = sessionsDouble(state)
     ctx.provide('sessions', sessions as never)
     ctx.provide('uiWorkspace', uiWorkspaceDouble() as never)
@@ -517,7 +451,6 @@ describe('ui-agent-preset apply', () => {
 
     await chip.load()
     await chip.select('minimal')
-    /** 中文说明：测试场景的局部值 spent，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const spent = calls.filter(call => call === 'select:minimal').length
     sessions.notify()
     sessions.notify()
@@ -528,8 +461,7 @@ describe('ui-agent-preset apply', () => {
     expect(calls.filter(call => call === 'select:minimal')).toHaveLength(spent)
   })
 
-  it('gives the header label the same roster the General row reads', async () => {
-    /** 中文说明：当前 Cordis 上下文 { ctx, slots }，取值由紧邻初始化决定，仅在当前作用域使用。 */
+  it('loads the header label from the shared roster store', async () => {
     const { ctx, slots } = await bench()
     declareRoot(slots)
     declareConversation(slots)
@@ -539,23 +471,15 @@ describe('ui-agent-preset apply', () => {
     await ctx.plugin({ inject: [...inject, 'conversation', 'sessions', 'uiWorkspace'], apply }).await()
     const label = (slots.entries('conversation.session.header.actions')[0]!
       .inject as unknown as () => AgentPresetLabelInjected)()
-    /** 中文说明：测试场景的局部值 row，取值由紧邻初始化决定，仅在当前作用域使用。 */
-    const row = (slots.entries('settings.general.item')[0]!
-      .inject as unknown as () => AgentPresetRowInjected)()
 
     await label.load()
 
-    // One roster behind both: the label resolves a name the settings row's own
-    // load already fetched, rather than issuing a second read per session.
-    expect(label.hooks.agentPresets).toBe(row.hooks.agentPreset)
     expect(label.hooks.agentPresets.getSnapshot().options).toEqual([{ id: 'standard', trust: 'system' }])
   })
 
   it('stages the creator preset and starts a session from the section', async () => {
-    /** 中文说明：当前 Cordis 上下文 { ctx, slots }，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const { ctx, slots } = await bench()
     declareRoot(slots)
-    /** 中文说明：测试场景的局部值 conversation，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const conversation = declareConversation(slots)
     ctx.provide('conversation', {} as never)
     ctx.provide('sessions', sessionsDouble({ byId: {} }) as never)
@@ -563,7 +487,6 @@ describe('ui-agent-preset apply', () => {
     ctx.provide('uiWorkspace', uiWorkspace as never)
     await ctx.plugin({ inject: [...inject, 'conversation', 'sessions', 'uiWorkspace'], apply }).await()
     const section = (slots.entries('settings.section')[0]!.inject as unknown as () => AgentPresetSectionInjected)()
-    /** 中文说明：测试场景的局部值 seat，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const seat = (slots.entries('conversation.hero.agentPreset')[0]!
       .inject as unknown as () => AgentPresetSeatInjected)()
 
@@ -580,7 +503,6 @@ describe('ui-agent-preset apply', () => {
     // it once, and a repeat acknowledgement leaves the snapshot untouched.
     expect(seat.hooks.agentPresetSeat.getSnapshot().introduce).toBe(true)
     seat.introduced()
-    /** 中文说明：测试场景的局部值 acknowledged，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const acknowledged = seat.hooks.agentPresetSeat.getSnapshot()
     expect(acknowledged.introduce).toBe(false)
     seat.introduced()
@@ -589,13 +511,10 @@ describe('ui-agent-preset apply', () => {
   })
 
   it('keeps the applied composition when the roster load lands late', async () => {
-    /** 中文说明：当前 Cordis 上下文 { ctx, slots, calls }，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const { ctx, slots, calls } = await bench()
     declareRoot(slots)
-    /** 中文说明：测试场景的局部值 conversation，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const conversation = declareConversation(slots)
     ctx.provide('conversation', {} as never)
-    /** 中文说明：当前状态或快照 state: {，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const state: {
       current?: string
       byId: Record<string, {
@@ -604,13 +523,11 @@ describe('ui-agent-preset apply', () => {
         projectionValues?: { agentPreset?: string | null }
       }>
     } = { byId: {} }
-    /** 中文说明：测试场景的局部值 sessions，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const sessions = sessionsDouble(state)
     ctx.provide('sessions', sessions as never)
     ctx.provide('uiWorkspace', uiWorkspaceDouble() as never)
     await ctx.plugin({ inject: [...inject, 'conversation', 'sessions', 'uiWorkspace'], apply }).await()
     const section = (slots.entries('settings.section')[0]!.inject as unknown as () => AgentPresetSectionInjected)()
-    /** 中文说明：测试场景的局部值 seat，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const seat = (slots.entries('conversation.hero.agentPreset')[0]!
       .inject as unknown as () => AgentPresetSeatInjected)()
 
@@ -633,7 +550,6 @@ describe('ui-agent-preset apply', () => {
   })
 
   it('offers no creator draft while the conversation flow is absent', async () => {
-    /** 中文说明：当前 Cordis 上下文 { ctx, slots }，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const { ctx, slots } = await bench()
     declareRoot(slots)
 
@@ -641,7 +557,6 @@ describe('ui-agent-preset apply', () => {
 
     // No conversation scope mounted: the face omits the affordance and the
     // section hides its button rather than staging into nowhere.
-    /** 中文说明：测试场景的局部值 section，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const section = (slots.entries('settings.section')[0]!.inject as unknown as () => AgentPresetSectionInjected)()
     expect(section.startCreatorDraft).toBeUndefined()
   })
@@ -651,8 +566,10 @@ describe('AgentPresetSeatController reconciliation', () => {
   it('uses the deployment default without a Session and clears it for an uncomposed Session', async () => {
     const state: { current?: { id: SessionId; blank: boolean } } = {}
     const controller = new AgentPresetSeatController({
-      agentPresets: {
-        list: () => Promise.resolve(ROSTER_ONE),
+      remote: {
+        agentPresets: {
+          list: () => Promise.resolve(ROSTER_ONE),
+        },
       },
     } as never, () => state.current)
 
@@ -665,43 +582,35 @@ describe('AgentPresetSeatController reconciliation', () => {
     expect(controller.store.getSnapshot().current).toBe('')
   })
 
-  it.each([
-    {
-      name: 'RPC rejection',
-      select: () => Promise.resolve({
-        ok: false as const, error: { code: 'failed', message: 'selection rejected', details: {} },
-      }),
-      message: 'selection rejected',
-    },
-    {
-      name: 'transport failure',
-      select: () => Promise.reject(new Error('transport failed')),
-      message: 'transport failed',
-    },
-  ])('restores an empty current value after $name for an uncomposed Session', async ({ select, message }) => {
+  it('restores an empty current value after a refused switch for an uncomposed Session', async () => {
+    const select = () => Promise.resolve({
+      ok: false as const, error: new RemoteError('gateway/internal', 'selection rejected', {}),
+    })
     const controller = new AgentPresetSeatController({
-      agentPresets: { select },
+      remote: { agentPresets: { select } },
     } as never, () => ({ id: SessionId('uncomposed'), blank: true }))
 
     await controller.select('minimal')
 
     expect(controller.store.getSnapshot()).toMatchObject({
-      busy: false, current: '', error: message,
+      busy: false, current: '', error: 'selection rejected',
     })
   })
 
   it('keeps the bare cause of a mount failure, not the frame that names the preset again', async () => {
     const reason = 'failed to import loader entry ctx (@deepseek-ai/dsh-gone): Cannot find package'
     const controller = new AgentPresetSeatController({
-      agentPresets: {
-        select: () => Promise.resolve({
-          ok: false as const,
-          error: {
-            code: 'agent-preset-invalid',
-            message: `agent-presets: preset "broken" failed to mount: ${reason}`,
-            details: { agentPreset: 'broken', reason },
-          },
-        }),
+      remote: {
+        agentPresets: {
+          select: () => Promise.resolve({
+            ok: false as const,
+            error: new RemoteError(
+              'agent-preset/invalid',
+              `agent-presets: preset "broken" failed to mount: ${reason}`,
+              { agentPreset: 'broken', reason },
+            ),
+          }),
+        },
       },
     } as never, () => ({ id: SessionId('uncomposed'), blank: true }))
 

@@ -1,11 +1,3 @@
-/**
- * 文件职责：验证E2B 远程沙箱的 composition.e2e.ts 行为与边界。
- * 技术维度：TypeScript、Cordis、异步资源生命周期、远程文件/进程接口和 Vitest。
- * 产品维度：保证E2B 远程沙箱在真实组装、失败和清理场景中可靠。
- * 逻辑维度：构造服务或远程替身，驱动操作并断言结果。
- * 关键边界：凭据不得泄漏；远程句柄、终端和后台进程必须在取消或卸载时释放。
- * 新手阅读建议：先读接口和夹具，再按创建、操作、错误和清理流程阅读。
- */
 import { access } from 'node:fs/promises'
 import { join, posix } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -22,22 +14,19 @@ import {
 import TerminalSessionService, { TerminalSessionId } from '@deepseek-ai/dsh-terminal'
 import { BashTerminalBackend } from '@deepseek-ai/dsh-terminal-bash'
 import SandboxPolicyService from '@deepseek-ai/dsh-sandbox-policy'
+import SessionProjectionRegistry from '@deepseek-ai/dsh-session-projection'
 import { Session, SessionId } from '@deepseek-ai/dsh-session'
 import E2BSubprocessRuntime from '@deepseek-ai/dsh-subprocess-e2b'
 
 const fixtureRoot = fileURLToPath(new URL('./fixtures/composition/', import.meta.url))
 const binScript = join(fixtureRoot, 'bin.ts')
-/** 中文说明：测试局部值 configPath，由紧邻初始化决定。 */
 const configPath = join(fixtureRoot, 'cordis.yml')
-/** 中文说明：测试局部值 tsconfigPath，由紧邻初始化决定。 */
 const tsconfigPath = fileURLToPath(new URL('../../../../tsconfig.json', import.meta.url))
 
 describe.skipIf(!process.env.E2B_API_KEY)('E2B live Loader composition', () => {
   it('scrubs credentials before actual E2B command and PTY login shells', async () => {
-    /** 中文说明：测试局部值 apiKey，由紧邻初始化决定。 */
     const apiKey = process.env.E2B_API_KEY
     if (apiKey === undefined) throw new Error('E2B_API_KEY disappeared before the PTY environment test')
-    /** 中文说明：测试局部值 sandbox，由紧邻初始化决定。 */
     const sandbox = await Sandbox.create({
       apiKey,
       envs: { NPM_TOKEN: 'sentinel-secret', DSH_STALE: 'sentinel-stale', KEEP: 'visible' },
@@ -46,9 +35,7 @@ describe.skipIf(!process.env.E2B_API_KEY)('E2B live Loader composition', () => {
       lifecycle: { onTimeout: 'kill' },
     })
     try {
-      /** 中文说明：测试局部值 profileLeakPath，由紧邻初始化决定。 */
       const profileLeakPath = '/home/user/dsh-e2b-bootstrap-profile-leak'
-      /** 中文说明：测试局部值 hostileProfile，由紧邻初始化决定。 */
       const hostileProfile = [
         'if [[ "${NPM_TOKEN-}" == "sentinel-secret" ]]; then',
         `  printf leaked > ${profileLeakPath}`,
@@ -60,29 +47,23 @@ describe.skipIf(!process.env.E2B_API_KEY)('E2B live Loader composition', () => {
         { path: '/home/user/.profile', data: hostileProfile },
         { path: '/home/user/.bashrc', data: hostileProfile },
       ])
-      /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
       const ctx = new Context()
       ctx.provide('e2b', {
         cwd: '/home/user',
         runtimeRoot: '/home/user/.dsh-e2b',
         getSandbox: async () => sandbox,
       } as never)
-      /** 中文说明：测试局部值 sandboxPolicyFiber，由紧邻初始化决定。 */
+      await ctx.plugin(SessionProjectionRegistry)
       const sandboxPolicyFiber = await ctx.plugin(SandboxPolicyService, {
         mode: 'danger-full-access',
         workspaceRoot: '/home/user',
       })
-      /** 中文说明：测试局部值 ptyFiber，由紧邻初始化决定。 */
       const ptyFiber = await ctx.plugin(TerminalSessionService)
-      /** 中文说明：测试局部值 subprocessFiber，由紧邻初始化决定。 */
       const subprocessFiber = await ctx.plugin(E2BSubprocessRuntime)
-      /** 中文说明：测试局部值 node，由紧邻初始化决定。 */
       const node = await ctx.subprocess.resolveExecutable('node')
-      /** 中文说明：测试局部值 relativeNodePath，由紧邻初始化决定。 */
       const relativeNodePath = posix.relative(ctx.e2b.cwd, posix.dirname(node)) || '.'
       await expect(ctx.subprocess.resolveExecutable('node', { PATH: relativeNodePath })).resolves.toBe(node)
       await expect(sandbox.files.read(profileLeakPath)).rejects.toBeInstanceOf(FileNotFoundError)
-      /** 中文说明：测试局部值 environmentProbe，由紧邻初始化决定。 */
       const environmentProbe = ctx.subprocess.spawn({
         argv: ['/bin/bash', '-c', [
           'dsh_leak=0',
@@ -100,11 +81,8 @@ describe.skipIf(!process.env.E2B_API_KEY)('E2B live Loader composition', () => {
       await expect(environmentProbe.done).resolves.toEqual({ exitCode: 0, signal: null })
       expect(environmentProbe.collected.stdout?.readFrom(0).text).toBe('DIRECT=<> LEAK=<0>\n')
       await expect(sandbox.files.read(profileLeakPath)).rejects.toBeInstanceOf(FileNotFoundError)
-      /** 中文说明：测试局部值 ownerId，由紧邻初始化决定。 */
       const ownerId = SessionId('e2b-pty-env-owner')
-      /** 中文说明：测试局部值 ownerSession，由紧邻初始化决定。 */
       const ownerSession = Session.create(ownerId)
-      /** 中文说明：测试局部值 owner，由紧邻初始化决定。 */
       const owner: Agent = {
         id: ownerId,
         options: {},
@@ -120,7 +98,6 @@ describe.skipIf(!process.env.E2B_API_KEY)('E2B live Loader composition', () => {
         runMaintenance: task => task(new AbortController().signal),
         whenIdle: () => Promise.resolve(),
       }
-      /** 中文说明：测试局部值 backend，由紧邻初始化决定。 */
       const backend = new BashTerminalBackend(ctx, {
         backendType: 'shell', shellDialect: 'bash', shellPath: '/bin/bash', shellArgs: ['--noprofile', '--norc', '-i'],
         rows: 24, cols: 80,
@@ -128,9 +105,7 @@ describe.skipIf(!process.env.E2B_API_KEY)('E2B live Loader composition', () => {
         pollIntervalMs: 25, exactProbeAfterMs: 150, idleSilenceMs: 1_000,
         handoffGraceMs: 500, timeoutMs: 5_000, disposeGraceMs: 1_000,
       })
-      /** 中文说明：测试局部值 session，由紧邻初始化决定。 */
       const session = await backend.spawn({ sessionId: TerminalSessionId('env'), owner, type: 'shell' })
-      /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
       const result = await session.startSend({
         text: "printf 'NPM=<%s> DSH=<%s> KEEP=<%s>\\n' \"$NPM_TOKEN\" \"$DSH_STALE\" \"$KEEP\"",
         submit: true,
@@ -150,7 +125,6 @@ describe.skipIf(!process.env.E2B_API_KEY)('E2B live Loader composition', () => {
   }, 70_000)
 
   it('runs FS, Bash, PTY, and LSP in one sandbox and deletes it', async () => {
-    /** 中文说明：测试局部值 { stdout, stderr }，由紧邻初始化决定。 */
     const { stdout, stderr } = await runLoaderSmoke({
       label: 'E2B composition',
       tempDirPrefix: 'dsh-e2b-composition-',
@@ -163,7 +137,6 @@ describe.skipIf(!process.env.E2B_API_KEY)('E2B live Loader composition', () => {
       },
       processTimeoutMs: 180_000,
       inspect: async (cwd) => {
-        /** 中文说明：测试局部值 name，由紧邻初始化决定。 */
         for (const name of ['from-fs.txt', 'from-bash.txt', 'multibyte # file.ts', 'fixture-lsp.mjs']) {
           await expect(access(join(cwd, name))).rejects.toMatchObject({ code: 'ENOENT' })
         }
@@ -171,7 +144,6 @@ describe.skipIf(!process.env.E2B_API_KEY)('E2B live Loader composition', () => {
     })
 
     expect(stderr).toBe('')
-    /** 中文说明：测试局部值 output，由紧邻初始化决定。 */
     const output = JSON.parse(stdout) as Record<string, unknown>
     expect(output).toMatchObject({
       bashRead: 'versioned-by-fs\n',
@@ -193,7 +165,6 @@ describe.skipIf(!process.env.E2B_API_KEY)('E2B live Loader composition', () => {
         treeCleanup: true,
       },
     })
-    /** 中文说明：测试局部值 terminalMotd，由紧邻初始化决定。 */
     const terminalMotd = (output.terminal as { motd: string }).motd
     expect(terminalMotd.length).toBeGreaterThan(0)
     expect(terminalMotd).not.toContain('exec /bin/bash')
@@ -204,12 +175,10 @@ describe.skipIf(!process.env.E2B_API_KEY)('E2B live Loader composition', () => {
     expect(['stdin_read', 'inferred_idle']).toContain(
       (output.terminal as { interrupted: { waitReason: string } }).interrupted.waitReason,
     )
-    /** 中文说明：测试局部值 apiKey，由紧邻初始化决定。 */
     const apiKey = process.env.E2B_API_KEY
     if (apiKey === undefined) throw new Error('E2B_API_KEY disappeared during the live composition test')
     await expect(Sandbox.getInfo(String(output.sandboxId), { apiKey })).rejects.toBeInstanceOf(SandboxNotFoundError)
     await expect.poll(async () => {
-      /** 中文说明：测试局部值 sandboxes，由紧邻初始化决定。 */
       const sandboxes = await Sandbox.list({ apiKey }).nextItems()
       return sandboxes.some(sandbox => sandbox.sandboxId === output.sandboxId)
     }, { interval: 250, timeout: 5_000 }).toBe(false)

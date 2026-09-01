@@ -1,20 +1,3 @@
-/*
- * ================================ 文件注释 ================================
- * 【文件职责】CommandUiRuntime（ctx.commandUi）：'/' 命令源的总控服务——按会话的命令
- *             目录缓存、客户端贡献注册表、命令装饰注册表、每个会话的弹出选择控制器，
- *             以及候选合成（模糊匹配）与执行事务。
- * 【技术维度】Cordis Service：static inject 声明依赖；在构造函数里注册 '/' 输入源、
- *             监听 commands/change 与 agent-preset/selected 事件失效目录；register/decorate
- *             用 ctx.effect 提供生命周期；dispatch/matchSpace/matchEnter 构成"决策表"。
- * 【产品维度】敲 / 弹命令菜单、空格补全参数、回车执行；宿主命令/客户端贡献/装饰命令
- *             三类入口统一裁决；执行结果以持久流程节点渲染。
- * 【逻辑维度】candidates 合成菜单候选 → dispatch 裁决菜单选择 → matchEnter 裁决回车
- *             → execute 提交宿主执行事务 → 结果经 notifyExecuted 发本地事件。
- * 【关键边界】候选合成中贡献与宿主命令重名会报错；装饰只作用于可解析的宿主命令；
- *             带图片的提交只允许声明接受图片的命令，其余路径一律拒绝且保留草稿。
- * 【新手阅读建议】先看目录/契约/弹窗三个伴生文件，再沿 candidates → matchEnter → execute 读主流程。
- * ==========================================================================
- */
 /**
  * CommandUiRuntime (`ctx.commandUi`): the '/' command source over the
  * session-keyed directory, the client-contribution registry, and the
@@ -60,7 +43,6 @@ declare module '@deepseek-ai/cordis' {
 }
 
 /** Recover the command name from a line the Host confirmed as executed. */
-// 从宿主确认执行的整行文本中取出命令名（去掉前导斜杠与参数部分）。
 function submittedCommandName(line: string): string {
   const trimmed = line.trim()
   const separator = trimmed.search(/\s/u)
@@ -68,7 +50,6 @@ function submittedCommandName(line: string): string {
 }
 
 /** Live mutable state in one holder (service methods run behind the caller-ctx tracker). */
-// 服务运行期的全部可变状态：贡献表、装饰表与按会话的弹窗控制器表。
 interface LiveState {
   readonly contributions: Map<string, CommandContribution>
   readonly decorations: Map<string, CommandDecoration>
@@ -76,7 +57,6 @@ interface LiveState {
 }
 
 /** One fuzzy match with its stable source position. */
-// 一次模糊匹配的结果：候选本身、其在原始列表中的位置、是否为前缀匹配与得分。
 interface RankedCandidate {
   readonly candidate: InputTriggerCandidate
   readonly index: number
@@ -85,7 +65,6 @@ interface RankedCandidate {
 }
 
 /** Extra weight for command-name starts and separator boundaries. */
-// 模糊匹配的边界加分：命中名字开头或 '-'/'_' 分隔处时额外加权，让命名边界更易命中。
 function boundaryBonus(name: string, index: number): number {
   return index === 0 || name.charAt(index - 1) === '-' || name.charAt(index - 1) === '_' ? 8 : 0
 }
@@ -95,8 +74,6 @@ function boundaryBonus(name: string, index: number): number {
  * Boundary and adjacent matches earn weight; skipped and leading characters
  * cost weight.
  */
-// 计算名字对查询的模糊匹配得分（最长有序子序列动态规划）：
-// 边界/相邻命中加分，跳字与开头未命中扣分；无匹配时返回 undefined。
 function fuzzyScore(name: string, query: string): number | undefined {
   if (query === '') return 0
   if (query.length > name.length) return undefined
@@ -128,7 +105,6 @@ function fuzzyScore(name: string, query: string): number | undefined {
 }
 
 /** Case-insensitive fuzzy filtering with stable ordering for equal matches. */
-// 不区分大小写的模糊过滤：空查询返回全部；否则按得分排序，前缀命中优先，同分按原顺序。
 function fuzzyCandidates(candidates: readonly InputTriggerCandidate[], rawQuery: string): readonly InputTriggerCandidate[] {
   const query = rawQuery.toLowerCase()
   if (query === '') return candidates
@@ -144,7 +120,6 @@ function fuzzyCandidates(candidates: readonly InputTriggerCandidate[], rawQuery:
 }
 
 /** Command surface: session-keyed directory + '/' source + contribution registry + per-session popups. */
-// 命令表面服务：会话键控目录 + '/' 输入源 + 贡献/装饰注册表 + 每会话弹窗。
 export class CommandUiRuntime extends Service implements CommandUiContract {
   static inject = ['inputTriggers', 'sessions', 'remote', 'remote.commands']
 
@@ -193,7 +168,6 @@ export class CommandUiRuntime extends Service implements CommandUiContract {
    * @param contribution - the contribution (descriptor + availability + popup spec).
    * @returns the disposer removing the registration.
    */
-  // 注册一个客户端命令贡献：随调用方 fiber 生效；重名直接抛错。
   register(contribution: CommandContribution): () => void {
     const dispose = this.ctx.effect(() => {
       const { contributions } = this.live
@@ -212,7 +186,6 @@ export class CommandUiRuntime extends Service implements CommandUiContract {
    * @param decoration - host command name + availability + popup spec.
    * @returns the disposer removing the registration.
    */
-  // 给宿主命令挂一个裸调用装饰：随调用方 fiber 生效；重名直接抛错。
   decorate(decoration: CommandDecoration): () => void {
     const dispose = this.ctx.effect(() => {
       const { decorations } = this.live
@@ -274,7 +247,6 @@ export class CommandUiRuntime extends Service implements CommandUiContract {
   }
 
   /** Menu candidates: host catalog + contribution availability, then position filtering and fuzzy name ranking. */
-  // 菜单候选合成：合并宿主目录与可用贡献（重名报错），再做位置过滤与模糊排序。
   private async candidates(session: ClientSessionContext, req: CandidateRequest): Promise<readonly InputTriggerCandidate[]> {
     const list = await this.directory.ensureReady(session.sessionId, req.signal)
     const rows: InputTriggerCandidate[] = []
@@ -297,8 +269,6 @@ export class CommandUiRuntime extends Service implements CommandUiContract {
   }
 
   /** Decision table, menu column: contribution/decorated-host → popup; host input → claim; host bare → detached execute. */
-  // 菜单列的裁决表：贡献/被装饰宿主命令 → 打开弹窗；宿主带参命令 → 返回参数声明；
-  // 宿主裸命令 → 消费 token 并分离执行。
   private dispatch(pick: InputTriggerPick): PickOutcome {
     const name = pick.candidate.name
     const contribution = this.live.contributions.get(name)
@@ -325,7 +295,6 @@ export class CommandUiRuntime extends Service implements CommandUiContract {
   }
 
   /** Decision table, space column: hot-key sync check; only host leadingInput claims. */
-  // 空格列的裁决表：同步检查；只有宿主的带参命令会声明参数（弹窗类永不声明）。
   private matchSpace(session: ClientSessionContext, token: string): PickOutcome {
     if (!token.startsWith('/')) return undefined
     const name = token.slice(1)
@@ -347,8 +316,6 @@ export class CommandUiRuntime extends Service implements CommandUiContract {
    * so the machine surfaces one composer notice and the draft and images
    * stay in place; nothing executes and nothing is dropped.
    */
-  // 回车列的裁决表：强等待目录后判定贡献/装饰/带参声明/裸执行四类路径；
-  // 携带图片时只有声明接受图片的命令才放行，其余一律拒绝且保留草稿与图片。
   private async matchEnter(
     session: ClientSessionContext,
     line: string,
@@ -428,10 +395,8 @@ export class CommandUiRuntime extends Service implements CommandUiContract {
    * the outcome renders as a persistent flow node — the composer never
    * echoes it. A handler error result reports an error outcome so the
    * composer keeps the submission (draft and images) for correction.
-   * Transport failures throw.
+   * A refused call throws.
    */
-  // command.execute 事务：未匹配命令报错误结果（输入框即时反馈）；已受理命令无论
-  // 处理器成败都报成功（生命周期已持久化，以流程节点呈现）；处理器错误结果保留草稿。
   private async execute(
     session: ClientSessionContext,
     line: string,
@@ -476,9 +441,9 @@ export class CommandUiRuntime extends Service implements CommandUiContract {
    * Fire-and-forget execute for the internal ('handled') paths. Outcomes are
    * NOT surfaced here: the host executor durably logs the command lifecycle
    * (`command/run`/`command/done`), and the mux-broadcast events render as a
-   * persistent flow node on every tab. Only a transport/admission failure —
-   * which never entered a handler and therefore never logged — falls back to
-   * the composer notice as immediate feedback.
+   * persistent flow node on every tab. Only an admission failure — which never
+   * entered a handler and therefore never logged — falls back to the composer
+   * notice as immediate feedback.
    */
   private runDetached(desc: CommandDescriptor, session: ClientSessionContext, line: string): void {
     void this.execute(session, line).then(
@@ -503,7 +468,7 @@ export class CommandUiRuntime extends Service implements CommandUiContract {
     })
   }
 
-  /** Route an admission/transport failure to the session's composer notice channel (scope gone = attempt died with it). */
+  /** Route an admission failure to the session's composer notice channel (scope gone = attempt died with it). */
   private noticeFor(id: SessionId, level: 'info' | 'error', text: string): void {
     const actx = this.scopeFor(id)
     if (actx === undefined) return

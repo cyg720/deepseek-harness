@@ -1,14 +1,6 @@
 // SessionManager: the instance cluster Map<SessionId, Session> (lazy-built, resident) + the frame
 // dispatch entry + list state, constructed and held by ClientSessions (one per browser client).
 // List data never enters zustand; React connects via subscribe/getListSnapshot.
-/**
- * 文件职责：管理客户端会话清单、当前会话、历史分页、实时事件订阅和命令操作。
- * 技术维度：Cordis 服务、响应式 Store、异步并发控制、AbortController、会话投影与 API 客户端。
- * 产品维度：驱动会话侧栏和对话页，支持创建、切换、重命名、归档、提示与模型选择。
- * 逻辑维度：初始化列表，按需加载历史，接收实时事件并更新投影；公开命令负责远程调用与本地状态同步。
- * 关键边界：会话切换和销毁必须取消旧请求；历史与实时事件要按序去重；失败不能覆盖较新的状态。
- * 新手阅读建议：先看 Manager 的公开状态与构造过程，再读会话选择/历史加载，最后阅读各产品命令和事件处理。
- */
 
 import type { SubagentAddress, SubagentCatalog } from '@deepseek-ai/dsh-subagent/client'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
@@ -17,13 +9,12 @@ import type {
   SessionControlBaseline,
   SessionControlFrame,
   SessionQueuedItem,
-  SessionError,
   SessionSummary,
   SessionJob as JobView,
 } from '../../types.ts'
 import { mergeOrderedBaseline } from '../ordered-baseline.ts'
-import type { ClientFailure, ClientResult } from '../contract/result.ts'
-import { transportResult } from '../contract/result.ts'
+import { isRemoteFailure } from '@deepseek-ai/dsh-api-gateway/client'
+import type { RemoteFailure, RemoteResult } from '@deepseek-ai/dsh-typert-protocol'
 import type { SessionListEntry, TitledSessionSummary } from './lineage.ts'
 import { flattenLineage } from './lineage.ts'
 // Type-only merge edge: the title domain's client-namespace outlet declares
@@ -43,18 +34,15 @@ import type { SessionRemotes } from './remotes.ts'
  * re-pulls ride the `state`/`error` axis, which is where failure is modeled
  * (no `error` phase here; that would duplicate `state`).
  */
-/* 中文说明：类型 `SessionListPhase` 约束本文件使用的数据字段和取值范围，避免调用方传入不完整状态。 */
 export type SessionListPhase = 'pending' | 'ready'
 
 /** Request-local content hit returned to sidebar search consumers. */
-/* 中文说明：类型 `SessionSearchResultItem` 约束本文件使用的数据字段和取值范围，避免调用方传入不完整状态。 */
 export interface SessionSearchResultItem {
   sessionId: SessionId
   snippet: string
 }
 
 /** Immutable session-list snapshot for useSessionList. */
-/* 中文说明：类型 `SessionListSnapshot` 约束本文件使用的数据字段和取值范围，避免调用方传入不完整状态。 */
 export interface SessionListSnapshot {
   items: readonly SessionListEntry[]
   /** Selected Session id (validated against items; masked to undefined while its session is off the list). */
@@ -62,7 +50,7 @@ export interface SessionListSnapshot {
   state: 'idle' | 'loading' | 'error'
   /** Arrival lifecycle (see {@link SessionListPhase}); `state` stays the pull-activity axis. */
   phase: SessionListPhase
-  error: ClientFailure | null
+  error: RemoteFailure | null
   subagentsByParent: Readonly<Record<SessionId, SubagentCatalogSnapshot>>
   /** Background jobs per session; an absent key is an empty set. */
   jobsBySession: Readonly<Record<SessionId, readonly JobView[]>>
@@ -74,7 +62,7 @@ export type SubagentCatalogSnapshot = Omit<SubagentCatalog, 'parentAvailable'> &
   /** Absent until the first successful catalog read. */
   readonly parentAvailable?: boolean
   state: 'loading' | 'ready' | 'error'
-  error: ClientFailure | null
+  error: RemoteFailure | null
 }
 
 function catalogAvailability(parentAvailable: boolean | undefined): {
@@ -83,7 +71,6 @@ function catalogAvailability(parentAvailable: boolean | undefined): {
   return parentAvailable === undefined ? {} : { parentAvailable }
 }
 
-/** 中文说明：类型 `CatalogInflight` 约束本文件使用的数据字段和取值范围，避免调用方传入不完整状态。 */
 interface CatalogInflight {
   readonly promise: Promise<void>
   readonly expandableRows: Set<SessionId>
@@ -92,7 +79,6 @@ interface CatalogInflight {
   parentAvailableOverride: false | undefined
 }
 
-/** 中文说明：类型 `SessionListMutation` 约束本文件使用的数据字段和取值范围，避免调用方传入不完整状态。 */
 type SessionListMutation =
   | { kind: 'upsert'; summary: SessionSummary }
   | { kind: 'remove'; sessionId: SessionId }
@@ -102,9 +88,7 @@ type SessionListMutation =
   | { kind: 'engaged'; sessionId: SessionId }
 
 /** Instance cluster + frame entry + the session list. */
-/* 中文说明：类 `SessionManager` 负责封装本文件的核心状态与操作，实例由调用方创建并按生命周期释放。 */
 export class SessionManager {
-  /** 中文说明：类方法 `sessions`；参数含义见签名，返回值用于更新或读取会话状态；例如由本类公开流程或下方用例调用。 */
   private readonly sessions = new Map<SessionId, Session>()
   /** In-flight Session disposals remain here after instances leave `sessions`, so manager disposal can await quiescence. */
   private readonly sessionDisposals = new Set<Promise<void>>()
@@ -115,63 +99,44 @@ export class SessionManager {
    * "done" reminder (manager-owned, survives connection generations; cleared
    * on select and session-removed, re-armed by the next completion).
    */
-  /* 中文说明：类方法 `completedNotifications`；参数含义见签名，返回值用于更新或读取会话状态；例如由本类公开流程或下方用例调用。 */
   private readonly completedNotifications = new Set<SessionId>()
   /** Last-observed running bits per session; the true→false edge here arms {@link completedNotifications}. */
-  /* 中文说明：类方法 `prevRunning`；参数含义见签名，返回值用于更新或读取会话状态；例如由本类公开流程或下方用例调用。 */
   private readonly prevRunning = new Map<SessionId, boolean>()
   /** Per-session projection value stores, retained independently of instance arrival (the
    *  title-snapshot precedent, generalized): push frames land here whether or not the Session
    *  is instantiated (list rows read the 'title' key), and an instantiated Session adopts the
    *  same store so history-baseline seeding and frames converge on one row set. */
-  /* 中文说明：类方法 `projectionStores`；参数含义见签名，返回值用于更新或读取会话状态；例如由本类公开流程或下方用例调用。 */
   private readonly projectionStores = new Map<SessionId, ProjectionValueStore>()
-  /** 中文说明：类成员 `summaries` 保存该实例拥有的运行状态；取值范围由声明类型限定，并随实例生命周期使用。 */
   private summaries: SessionSummary[] = []
-  /** 中文说明：类成员 `listState` 保存该实例拥有的运行状态；取值范围由声明类型限定，并随实例生命周期使用。 */
   private listState: 'idle' | 'loading' | 'error' = 'idle'
   /** Arrival phase; the pending → ready edge fires on the first successful pull (see SessionListPhase). */
-  /* 中文说明：类成员 `listPhase` 保存该实例拥有的运行状态；取值范围由声明类型限定，并随实例生命周期使用。 */
   private listPhase: SessionListPhase = 'pending'
-  private listError: ClientFailure | null = null
+  private listError: RemoteFailure | null = null
   private listInflight: Promise<void> | null = null
   /** Mutations arriving after a list request starts are replayed over its response. */
-  /* 中文说明：类成员 `listMutations` 保存该实例拥有的运行状态；取值范围由声明类型限定，并随实例生命周期使用。 */
   private listMutations: SessionListMutation[] | null = null
-  /** 中文说明：类方法 `addresses`；参数含义见签名，返回值用于更新或读取会话状态；例如由本类公开流程或下方用例调用。 */
   private readonly addresses = new Map<SessionId, SubagentAddress>()
-  /** 中文说明：类方法 `catalogs`；参数含义见签名，返回值用于更新或读取会话状态；例如由本类公开流程或下方用例调用。 */
   private readonly catalogs = new Map<SessionId, SubagentCatalogSnapshot>()
-  /** 中文说明：类方法 `catalogInflight`；参数含义见签名，返回值用于更新或读取会话状态；例如由本类公开流程或下方用例调用。 */
   private readonly catalogInflight = new Map<SessionId, CatalogInflight>()
   /** Catalog owners whose membership changed while a pull was in flight: one trailing refresh after it settles. */
-  /* 中文说明：类方法 `catalogStale`；参数含义见签名，返回值用于更新或读取会话状态；例如由本类公开流程或下方用例调用。 */
   private readonly catalogStale = new Set<SessionId>()
-  /** 中文说明：类方法 `openCatalogs`；参数含义见签名，返回值用于更新或读取会话状态；例如由本类公开流程或下方用例调用。 */
   private readonly openCatalogs = new Set<SessionId>()
-  /** 中文说明：类方法 `catalogDebounce`；参数含义见签名，返回值用于更新或读取会话状态；例如由本类公开流程或下方用例调用。 */
   private readonly catalogDebounce = new Map<SessionId, ReturnType<typeof setTimeout>>()
   /**
    * Background jobs per session, last-wins from Session Controller's control
    * stream. An empty set is stored as an absent key, so absence and `[]` are
    * one representation.
    */
-  /* 中文说明：类方法 `jobsBySession`；参数含义见签名，返回值用于更新或读取会话状态；例如由本类公开流程或下方用例调用。 */
   private readonly jobsBySession = new Map<SessionId, readonly JobView[]>()
 
-  /** 中文说明：类成员 `selected` 保存该实例拥有的运行状态；取值范围由声明类型限定，并随实例生命周期使用。 */
   private selected: SessionId | undefined
 
-  /** 中文说明：类成员 `listSnapshotCache` 保存该实例拥有的运行状态；取值范围由声明类型限定，并随实例生命周期使用。 */
   private listSnapshotCache: SessionListSnapshot
   /** Entry-identity cache (reference stability): list rebuilds reuse the previous entry
    *  object when every field matches — wire refreshes mint all-new summary objects, so identity
    *  must be recovered by value or every SessionListItem memo misses on every refresh. */
-  /* 中文说明：类方法 `entryCache`；参数含义见签名，返回值用于更新或读取会话状态；例如由本类公开流程或下方用例调用。 */
   private entryCache = new Map<SessionId, SessionListEntry>()
-  /** 中文说明：类成员 `itemsCache` 保存该实例拥有的运行状态；取值范围由声明类型限定，并随实例生命周期使用。 */
   private itemsCache: readonly SessionListEntry[] = []
-  /** 中文说明：类成员 `notifier` 保存该实例拥有的运行状态；取值范围由声明类型限定，并随实例生命周期使用。 */
   private readonly notifier = new Notifier(() => {
     this.listSnapshotCache = this.buildListSnapshot()
   })
@@ -180,7 +145,6 @@ export class SessionManager {
    * @param remote - generated Remote namespaces the Session cluster calls.
    * @param restoredSelection - persisted real-Session selection candidate.
    */
-  /* 中文说明：类方法 `constructor`；参数含义见签名，返回值用于更新或读取会话状态；例如由本类公开流程或下方用例调用。 */
   constructor(
     private readonly remote: SessionRemotes,
     restoredSelection?: SessionId,
@@ -197,12 +161,7 @@ export class SessionManager {
    * Select a listed Session or a retained catalog-addressed child.
    * @param sessionId - listed or catalog-addressed Session id.
    */
-  /*
-   * 中文说明：类方法 `select`；参数含义见签名，返回值用于更新或读取会话状态；例如由本类公开流程或下方用例调用。
-   * @param sessionId 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
-   */
   select(sessionId: SessionId): void {
-    /** 中文说明：当前处理步骤使用的局部状态或中间值；变量 `address` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const address = this.navigationAddress(sessionId)
     if (!this.summaries.some(summary => summary.sessionId === sessionId) && address === undefined) {
       throw new Error(`sessions.select: unknown session ${sessionId}`)
@@ -225,14 +184,8 @@ export class SessionManager {
    * Select a healthy child through its durable direct-parent address.
    * @param address - catalog-derived parent and child ids.
    */
-  /*
-   * 中文说明：类方法 `selectSubagent`；参数含义见签名，返回值用于更新或读取会话状态；例如由本类公开流程或下方用例调用。
-   * @param address 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
-   */
   selectSubagent(address: SubagentAddress): void {
-    /** 中文说明：当前处理步骤使用的局部状态或中间值；变量 `catalog` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const catalog = this.catalogs.get(address.parentSessionId)
-    /** 中文说明：当前处理步骤使用的局部状态或中间值；变量 `entry` 是可调用函数，其参数与返回值见类型签名；例如由相邻流程调用。 */
     const entry = catalog?.entries.find(candidate => candidate.id === address.childSessionId)
     if (entry === undefined || entry.kind !== 'child' || entry.mode !== address.mode) {
       throw new Error(`sessions.selectSubagent: ${address.childSessionId} is not a healthy catalog child`)
@@ -246,7 +199,6 @@ export class SessionManager {
   }
 
   /** Clear the selection (the layout falls to the no-session view state). */
-  /* 中文说明：类方法 `clearSelection`；参数含义见签名，返回值用于更新或读取会话状态；例如由本类公开流程或下方用例调用。 */
   clearSelection(): void {
     this.selected = undefined
     this.notifier.notifyNow()
@@ -257,11 +209,6 @@ export class SessionManager {
    * @param sessionId - possible addressed child id.
    * @returns The direct-parent address, when navigation discovered one.
    */
-  /*
-   * 中文说明：类方法 `subagentAddress`；参数含义见签名，返回值用于更新或读取会话状态；例如由本类公开流程或下方用例调用。
-   * @param sessionId 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
-   * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
-   */
   subagentAddress(sessionId: SessionId): SubagentAddress | undefined {
     return this.addresses.get(sessionId)
   }
@@ -271,18 +218,10 @@ export class SessionManager {
    * @param sessionId - possible child id in an already-loaded catalog.
    * @returns A retained or catalog-derived direct-parent address.
    */
-  /*
-   * 中文说明：类方法 `navigationAddress`；参数含义见签名，返回值用于更新或读取会话状态；例如由本类公开流程或下方用例调用。
-   * @param sessionId 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
-   * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
-   */
   navigationAddress(sessionId: SessionId): SubagentAddress | undefined {
-    /** 中文说明：当前处理步骤使用的局部状态或中间值；变量 `retained` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const retained = this.addresses.get(sessionId)
     if (retained !== undefined) return retained
-    /** 中文说明：当前会话或对话投影对象；变量 `[parentSessionId` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     for (const [parentSessionId, catalog] of this.catalogs) {
-      /** 中文说明：当前处理步骤使用的局部状态或中间值；变量 `child` 是可调用函数，其参数与返回值见类型签名；例如由相邻流程调用。 */
       const child = catalog.entries.find(entry => entry.kind === 'child' && entry.id === sessionId)
       if (child?.kind === 'child') {
         return { parentSessionId, childSessionId: sessionId, mode: child.mode }
@@ -342,13 +281,7 @@ export class SessionManager {
    * @param sessionId - the session to get.
    * @returns the resident instance.
    */
-  /*
-   * 中文说明：类方法 `get`；参数含义见签名，返回值用于更新或读取会话状态；例如由本类公开流程或下方用例调用。
-   * @param sessionId 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
-   * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
-   */
   get(sessionId: SessionId): Session {
-    /** 中文说明：当前会话或对话投影对象；变量 `session` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     let session = this.sessions.get(sessionId)
     if (session === undefined) {
       session = this.createSession(sessionId)
@@ -360,15 +293,12 @@ export class SessionManager {
       session.replaceControl(this.queues.get(sessionId) ?? [])
       // Sync the running and blank bits from the list snapshot into the new
       // instance (consistency when the list precedes open).
-      /** 中文说明：当前处理步骤使用的局部状态或中间值；变量 `summary` 是可调用函数，其参数与返回值见类型签名；例如由相邻流程调用。 */
       const summary = this.summaries.find(s => s.sessionId === sessionId)
       if (summary !== undefined) {
         session.handleBlank(summary.blank)
         session.handleRunning(summary.running)
       } else {
-        /** 中文说明：当前处理步骤使用的局部状态或中间值；变量 `address` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
         const address = this.addresses.get(sessionId)
-        /** 中文说明：当前处理步骤使用的局部状态或中间值；变量 `child` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
         const child = address === undefined ? undefined : this.catalogs.get(address.parentSessionId)?.entries
           .find(entry => entry.kind === 'child' && entry.id === sessionId)
         if (child?.kind === 'child') {
@@ -382,9 +312,7 @@ export class SessionManager {
     return session
   }
 
-  /** 中文说明：类方法 `createSession`；参数含义见签名，返回值用于更新或读取会话状态；例如由本类公开流程或下方用例调用。 */
   private createSession(sessionId: SessionId): Session {
-    /** 中文说明：当前处理步骤使用的局部状态或中间值；变量 `address` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const address = this.addresses.get(sessionId)
     const parentAvailable = address === undefined
       ? undefined
@@ -404,9 +332,7 @@ export class SessionManager {
   }
 
   /** Resident per-session projection store (create-on-demand; outlives instantiation). */
-  /* 中文说明：类方法 `projectionStore`；参数含义见签名，返回值用于更新或读取会话状态；例如由本类公开流程或下方用例调用。 */
   private projectionStore(sessionId: SessionId): ProjectionValueStore {
-    /** 中文说明：当前处理步骤使用的局部状态或中间值；变量 `store` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     let store = this.projectionStores.get(sessionId)
     if (store === undefined) {
       store = new ProjectionValueStore()
@@ -422,19 +348,11 @@ export class SessionManager {
    * Refresh one direct-child catalog, reusing its in-flight request.
    * @param parentSessionId - catalog owner.
    */
-  /*
-   * 中文说明：类方法 `refreshSubagents`；参数含义见签名，返回值用于更新或读取会话状态；例如由本类公开流程或下方用例调用。
-   * @param parentSessionId 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
-   */
   refreshSubagents(parentSessionId: SessionId): Promise<void> {
-    /** 中文说明：当前处理步骤使用的局部状态或中间值；变量 `existing` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const existing = this.catalogInflight.get(parentSessionId)
     if (existing !== undefined) return existing.promise
-    /** 中文说明：当前处理步骤使用的局部状态或中间值；变量 `previous` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const previous = this.catalogs.get(parentSessionId)
-    /** 中文说明：当前处理步骤使用的局部状态或中间值；变量 `expandableRows` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const expandableRows = new Set<SessionId>()
-    /** 中文说明：当前处理步骤使用的局部状态或中间值；变量 `activityRows` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const activityRows = new Map<SessionId, 'running' | 'inactive'>()
     this.catalogs.set(parentSessionId, {
       entries: previous?.entries ?? [],
@@ -445,12 +363,10 @@ export class SessionManager {
       error: null,
     })
     this.notifier.markDirty()
-    /** 中文说明：当前处理步骤使用的局部状态或中间值；变量 `operation` 是可调用函数，其参数与返回值见类型签名；例如由相邻流程调用。 */
     const operation = (async () => {
       try {
-        const result = toSessionResult(await this.remote.subagents.list(parentSessionId))
+        const result = await this.remote.subagents.list(parentSessionId)
         if (result.ok) {
-          /** 中文说明：当前处理步骤使用的局部状态或中间值；变量 `parentAvailable` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
           const parentAvailable = this.catalogInflight.get(parentSessionId)?.parentAvailableOverride
             ?? result.value.parentAvailable
           this.catalogs.set(parentSessionId, {
@@ -460,7 +376,6 @@ export class SessionManager {
             state: 'ready',
             error: null,
           })
-          /** 中文说明：标识对象、顺序或版本的标量值；变量 `[childId` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
           for (const [childId, address] of this.addresses) {
             if (address.parentSessionId !== parentSessionId) continue
             this.sessions.get(childId)?.handleSubagentParentAvailable(parentAvailable)
@@ -479,7 +394,7 @@ export class SessionManager {
           })
         }
       } catch (error: unknown) {
-        const folded = transportResult<never>(error)
+        if (!isRemoteFailure(error)) throw error
         this.catalogs.set(parentSessionId, {
           entries: this.withCatalogMutations(
             previous?.entries ?? [], expandableRows, activityRows,
@@ -489,7 +404,7 @@ export class SessionManager {
               ?? previous?.parentAvailable,
           ),
           state: 'error',
-          error: folded.ok ? null : folded.error,
+          error,
         })
       } finally {
         this.catalogInflight.delete(parentSessionId)
@@ -514,18 +429,12 @@ export class SessionManager {
    * @param parentSessionId - catalog owner.
    * @param open - current menu state.
    */
-  /*
-   * 中文说明：类方法 `setSubagentCatalogOpen`；参数含义见签名，返回值用于更新或读取会话状态；例如由本类公开流程或下方用例调用。
-   * @param parentSessionId 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
-   * @param open 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
-   */
   setSubagentCatalogOpen(parentSessionId: SessionId, open: boolean): void {
     if (open) {
       this.openCatalogs.add(parentSessionId)
       void this.refreshSubagents(parentSessionId)
     } else {
       this.openCatalogs.delete(parentSessionId)
-      /** 中文说明：当前处理步骤使用的局部状态或中间值；变量 `timer` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
       const timer = this.catalogDebounce.get(parentSessionId)
       if (timer !== undefined) {
         clearTimeout(timer)
@@ -537,20 +446,17 @@ export class SessionManager {
   // ---- List API ----
 
   /** Full refresh via session.list (single-flight: an in-flight call is reused). */
-  /* 中文说明：类方法 `refreshList`；参数含义见签名，返回值用于更新或读取会话状态；例如由本类公开流程或下方用例调用。 */
   refreshList(): Promise<void> {
     if (this.listInflight !== null) return this.listInflight
     this.listState = 'loading'
     this.listError = null
-    /** 中文说明：当前处理步骤使用的局部状态或中间值；变量 `established` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const established = this.summaries
-    /** 中文说明：当前处理步骤使用的局部状态或中间值；变量 `mutations` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const mutations: SessionListMutation[] = []
     this.listMutations = mutations
     this.notifier.markDirty()
     this.listInflight = (async () => {
       try {
-        const result = toSessionResult(await this.remote.session.list({}))
+        const result = await this.remote.session.list({})
         if (result.ok) {
           const baseline: SessionSummary[] = this.listPhase === 'pending'
             ? [...result.value.items]
@@ -560,13 +466,10 @@ export class SessionManager {
           // replayed mutation: an edge that happens entirely between mutations
           // (baseline idle → running → idle) must still arm, which a single
           // sync on the folded result would collapse away.
-          /** 中文说明：当前处理步骤使用的局部状态或中间值；变量 `s` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
           for (const s of baseline) {
             if (!this.prevRunning.has(s.sessionId)) this.prevRunning.set(s.sessionId, s.running)
           }
-          /** 中文说明：当前处理步骤使用的局部状态或中间值；变量 `summaries` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
           let summaries = baseline
-          /** 中文说明：当前处理步骤使用的局部状态或中间值；变量 `mutation` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
           for (const mutation of mutations) {
             summaries = applyMutation(summaries, mutation)
             this.summaries = summaries
@@ -578,9 +481,7 @@ export class SessionManager {
           // Covers the empty-mutations pull (a plain baseline carries no edge).
           this.syncCompletedNotifications()
           // Push running/blank bits down to instantiated Sessions (the list is the authoritative summary source).
-          /** 中文说明：当前处理步骤使用的局部状态或中间值；变量 `s` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
           for (const s of this.summaries) {
-            /** 中文说明：当前会话或对话投影对象；变量 `session` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
             const session = this.sessions.get(s.sessionId)
             if (session === undefined) continue
             session.handleBlank(s.blank)
@@ -592,16 +493,11 @@ export class SessionManager {
           // cold cache serves only version-matching keys — so an absent key
           // must not clear; higher-seq-wins still keeps a stale list block
           // from overwriting a newer push frame or tail baseline.
-          /** 中文说明：当前处理步骤使用的局部状态或中间值；变量 `s` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
           for (const s of result.value.items) {
-            /** 中文说明：当前处理步骤使用的局部状态或中间值；变量 `block` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
             const block = s.projections
             if (block === undefined) continue
-            /** 中文说明：当前处理步骤使用的局部状态或中间值；变量 `store` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
             const store = this.projectionStore(s.sessionId)
-            /** 中文说明：当前处理步骤使用的局部状态或中间值；变量 `values` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
             const values = block.values as Record<string, unknown>
-            /** 中文说明：当前处理步骤使用的局部状态或中间值；变量 `key` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
             for (const key of Object.keys(values)) store.apply(key, values[key], block.asOfSeq)
           }
         } else {
@@ -609,10 +505,9 @@ export class SessionManager {
           this.listError = result.error
         }
       } catch (error) {
+        if (!isRemoteFailure(error)) throw error
         this.listState = 'error'
-        const folded = transportResult<never>(error)
-        /* v8 ignore next -- the `? null` arm is unreachable: transportResult always returns ok:false. */
-        this.listError = folded.ok ? null : folded.error
+        this.listError = error
       } finally {
         this.listMutations = null
         this.listInflight = null
@@ -632,19 +527,15 @@ export class SessionManager {
   async search(
     query: string,
     signal: AbortSignal,
-  ): Promise<ClientResult<{ items: SessionSearchResultItem[]; hasMore: boolean }>> {
-    try {
-      const result = toSessionResult(await this.remote.session.search({ query }, signal))
-      if (!result.ok) return result
-      return {
-        ok: true,
-        value: {
-          items: [...result.value.items],
-          hasMore: result.value.hasMore,
-        },
-      }
-    } catch (error: unknown) {
-      return transportResult(error)
+  ): Promise<RemoteResult<{ items: SessionSearchResultItem[]; hasMore: boolean }>> {
+    const result = await this.remote.session.search({ query }, signal)
+    if (!result.ok) return result
+    return {
+      ok: true,
+      value: {
+        items: [...result.value.items],
+        hasMore: result.value.hasMore,
+      },
     }
   }
 
@@ -661,39 +552,32 @@ export class SessionManager {
       cwd?: string
       sessionId?: SessionId
     } = {},
-  ): Promise<ClientResult<{ sessionId: SessionId }>> {
-    try {
-      /** 中文说明：当前处理步骤使用的局部状态或中间值；变量 `shared` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
-      const shared = opts.sessionId === undefined ? {} : { sessionId: opts.sessionId }
-      /** 中文说明：当前处理、发送或断言的事件及其数据；变量 `payload` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
-      const payload = opts.workspaceId !== undefined
-        ? { workspaceId: opts.workspaceId, ...shared }
-        : { ...(opts.cwd === undefined ? {} : { cwd: opts.cwd }), ...shared }
-      const result = toSessionResult(await this.remote.session.create(payload))
-      if (result.ok) {
+  ): Promise<RemoteResult<{ sessionId: SessionId }>> {
+    const shared = opts.sessionId === undefined ? {} : { sessionId: opts.sessionId }
+    const payload = opts.workspaceId !== undefined
+      ? { workspaceId: opts.workspaceId, ...shared }
+      : { ...(opts.cwd === undefined ? {} : { cwd: opts.cwd }), ...shared }
+    const result = await this.remote.session.create(payload)
+    if (result.ok) {
+      this.recordMutation({ kind: 'upsert', summary: {
+        sessionId: result.value.sessionId, updatedAt: Date.now(), running: false, blank: true,
+        ...(opts.cwd !== undefined ? { cwd: opts.cwd } : {}),
+      } })
+    } else {
+      const publishedSessionId = workspaceAttachSessionId(result.error)
+      // Publication precedes attachment. The error's id is a real Session,
+      // so expose it immediately as Ungrouped while the caller keeps the
+      // prompt buffer and decides whether to retry attachment.
+      if (publishedSessionId !== undefined) {
         this.recordMutation({ kind: 'upsert', summary: {
-          sessionId: result.value.sessionId, updatedAt: Date.now(), running: false, blank: true,
-          ...(opts.cwd !== undefined ? { cwd: opts.cwd } : {}),
+          sessionId: publishedSessionId,
+          updatedAt: Date.now(),
+          running: false,
+          blank: true,
         } })
-      } else {
-        /** 中文说明：当前会话或对话投影对象；变量 `publishedSessionId` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
-        const publishedSessionId = workspaceAttachSessionId(result.error)
-        // Publication precedes attachment. The error's id is a real Session,
-        // so expose it immediately as Ungrouped while the caller keeps the
-        // prompt buffer and decides whether to retry attachment.
-        if (publishedSessionId !== undefined) {
-          this.recordMutation({ kind: 'upsert', summary: {
-            sessionId: publishedSessionId,
-            updatedAt: Date.now(),
-            running: false,
-            blank: true,
-          } })
-        }
       }
-      return result
-    } catch (error) {
-      return transportResult(error)
     }
+    return result
   }
 
   /**
@@ -707,28 +591,23 @@ export class SessionManager {
    */
   async fork(
     opts: { sessionId: SessionId; atSeq?: number },
-  ): Promise<ClientResult<{ sessionId: SessionId }>> {
-    try {
-      /** 中文说明：当前处理步骤使用的局部状态或中间值；变量 `source` 是可调用函数，其参数与返回值见类型签名；例如由相邻流程调用。 */
-      const source = this.summaries.find(s => s.sessionId === opts.sessionId)
-      const result = toSessionResult(await this.remote.session.fork({
-        sessionId: opts.sessionId,
-        ...opts.atSeq === undefined ? {} : { atSeq: opts.atSeq },
-      }))
-      const childId = result.ok
-        ? result.value.sessionId
-        : workspaceAttachSessionId(result.error)
-      if (childId !== undefined) {
-        this.recordMutation({ kind: 'upsert', summary: {
-          sessionId: childId, updatedAt: Date.now(), running: false, blank: false,
-          parentSessionId: opts.sessionId,
-          ...(source?.cwd !== undefined ? { cwd: source.cwd } : {}),
-        } })
-      }
-      return result
-    } catch (error) {
-      return transportResult(error)
+  ): Promise<RemoteResult<{ sessionId: SessionId }>> {
+    const source = this.summaries.find(s => s.sessionId === opts.sessionId)
+    const result = await this.remote.session.fork({
+      sessionId: opts.sessionId,
+      ...opts.atSeq === undefined ? {} : { atSeq: opts.atSeq },
+    })
+    const childId = result.ok
+      ? result.value.sessionId
+      : workspaceAttachSessionId(result.error)
+    if (childId !== undefined) {
+      this.recordMutation({ kind: 'upsert', summary: {
+        sessionId: childId, updatedAt: Date.now(), running: false, blank: false,
+        parentSessionId: opts.sessionId,
+        ...(source?.cwd !== undefined ? { cwd: source.cwd } : {}),
+      } })
     }
+    return result
   }
 
   /**
@@ -737,13 +616,11 @@ export class SessionManager {
    * create() echo race — whichever lands second must fill the placeholder's
    * missing cwd/parentSessionId, never overwrite list-refresh data).
    */
-  /* 中文说明：类方法 `mergeSummary`；参数含义见签名，返回值用于更新或读取会话状态；例如由本类公开流程或下方用例调用。 */
   private mergeSummary(summary: SessionSummary): void {
     this.recordMutation({ kind: 'upsert', summary })
   }
 
   /** Apply immediately and retain for replay when a list response is in flight. */
-  /* 中文说明：类方法 `recordMutation`；参数含义见签名，返回值用于更新或读取会话状态；例如由本类公开流程或下方用例调用。 */
   private recordMutation(mutation: SessionListMutation): void {
     this.listMutations?.push(mutation)
     this.summaries = applyMutation(this.summaries, mutation)
@@ -759,11 +636,6 @@ export class SessionManager {
    * @param listener - change callback.
    * @returns the unsubscribe function.
    */
-  /*
-   * 中文说明：类成员 `subscribe` 保存该实例拥有的运行状态；取值范围由声明类型限定，并随实例生命周期使用。
-   * @param listener 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
-   * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
-   */
   subscribe(listener: () => void): () => void {
     return this.notifier.subscribe(listener)
   }
@@ -771,10 +643,6 @@ export class SessionManager {
   /**
    * Cached list snapshot (rebuilt lazily when dirty with no listeners).
    * @returns the cached reference (stable until the next flush).
-   */
-  /*
-   * 中文说明：类方法 `getListSnapshot`；参数含义见签名，返回值用于更新或读取会话状态；例如由本类公开流程或下方用例调用。
-   * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
    */
   getListSnapshot(): SessionListSnapshot {
     this.notifier.ensureFresh()
@@ -919,19 +787,15 @@ export class SessionManager {
    */
   handleConnected(): void {
     void this.refreshList()
-    /** 中文说明：当前处理步骤使用的局部状态或中间值；变量 `selectedAddress` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const selectedAddress = this.selected === undefined ? undefined : this.addresses.get(this.selected)
     if (selectedAddress !== undefined) void this.refreshSubagents(selectedAddress.parentSessionId)
     if (this.selected !== undefined) void this.refreshSubagents(this.selected)
-    /** 中文说明：当前会话或对话投影对象；变量 `parentSessionId` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     for (const parentSessionId of this.openCatalogs) void this.refreshSubagents(parentSessionId)
   }
 
   /** Debounce membership refetches while one parent catalog is selected or open. */
-  /* 中文说明：类方法 `scheduleCatalogRefresh`；参数含义见签名，返回值用于更新或读取会话状态；例如由本类公开流程或下方用例调用。 */
   private scheduleCatalogRefresh(parentSessionId: SessionId): void {
     if (this.catalogDebounce.has(parentSessionId)) return
-    /** 中文说明：当前处理步骤使用的局部状态或中间值；变量 `timer` 是可调用函数，其参数与返回值见类型签名；例如由相邻流程调用。 */
     const timer = setTimeout(() => {
       this.catalogDebounce.delete(parentSessionId)
       // The in-flight response predates the membership frame that scheduled
@@ -947,21 +811,15 @@ export class SessionManager {
   }
 
   /** Apply one Agent-driver transition to loaded and in-flight catalogs. */
-  /* 中文说明：类方法 `updateCatalogActivity`；参数含义见签名，返回值用于更新或读取会话状态；例如由本类公开流程或下方用例调用。 */
   private updateCatalogActivity(childSessionId: SessionId, running: boolean): void {
-    /** 中文说明：当前处理步骤使用的局部状态或中间值；变量 `activity` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const activity = running ? 'running' as const : 'inactive' as const
-    /** 中文说明：当前处理步骤使用的局部状态或中间值；变量 `inflight` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     for (const inflight of this.catalogInflight.values()) {
       inflight.activityRows.set(childSessionId, activity)
     }
-    /** 中文说明：当前处理步骤使用的局部状态或中间值；变量 `changed` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     let changed = false
-    /** 中文说明：当前会话或对话投影对象；变量 `[parentSessionId` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     for (const [parentSessionId, catalog] of this.catalogs) {
       if (!catalog.entries.some(entry =>
         entry.kind === 'child' && entry.id === childSessionId && entry.activity !== activity)) continue
-      /** 中文说明：保存索引、集合或按顺序观测值的数据结构；变量 `entries` 是可调用函数，其参数与返回值见类型签名；例如由相邻流程调用。 */
       const entries = catalog.entries.map((entry) => {
         if (entry.kind !== 'child' || entry.id !== childSessionId) return entry
         return { ...entry, activity }
@@ -973,23 +831,17 @@ export class SessionManager {
   }
 
   /** Preserve and project a positive expandability hint after one direct subagent publishes. */
-  /* 中文说明：类方法 `markCatalogParentExpandable`；参数含义见签名，返回值用于更新或读取会话状态；例如由本类公开流程或下方用例调用。 */
   private markCatalogParentExpandable(parentSessionId: SessionId): void {
     this.applyCatalogParentExpandable(parentSessionId)
-    /** 中文说明：当前处理步骤使用的局部状态或中间值；变量 `inflight` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     for (const inflight of this.catalogInflight.values()) inflight.expandableRows.add(parentSessionId)
   }
 
   /** Apply one positive expandability hint to every loaded catalog containing that unique row id. */
-  /* 中文说明：类方法 `applyCatalogParentExpandable`；参数含义见签名，返回值用于更新或读取会话状态；例如由本类公开流程或下方用例调用。 */
   private applyCatalogParentExpandable(parentSessionId: SessionId): void {
-    /** 中文说明：当前处理步骤使用的局部状态或中间值；变量 `changed` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     let changed = false
-    /** 中文说明：标识对象、顺序或版本的标量值；变量 `[catalogParentId` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     for (const [catalogParentId, catalog] of this.catalogs) {
       if (!catalog.entries.some(entry =>
         entry.kind === 'child' && entry.id === parentSessionId && !entry.hasChildren)) continue
-      /** 中文说明：保存索引、集合或按顺序观测值的数据结构；变量 `entries` 是可调用函数，其参数与返回值见类型签名；例如由相邻流程调用。 */
       const entries = catalog.entries.map((entry) => {
         if (entry.kind !== 'child' || entry.id !== parentSessionId || entry.hasChildren) return entry
         return { ...entry, hasChildren: true }
@@ -1001,7 +853,6 @@ export class SessionManager {
   }
 
   /** Fold request-local row mutations into one catalog result before publication. */
-  /* 中文说明：类方法 `withCatalogMutations`；参数含义见签名，返回值用于更新或读取会话状态；例如由本类公开流程或下方用例调用。 */
   private withCatalogMutations(
     entries: SubagentCatalog['entries'],
     expandableRows: ReadonlySet<SessionId>,
@@ -1009,7 +860,6 @@ export class SessionManager {
   ): SubagentCatalog['entries'] {
     return entries.map((entry) => {
       if (entry.kind !== 'child') return entry
-      /** 中文说明：当前处理步骤使用的局部状态或中间值；变量 `activity` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
       const activity = activityRows.get(entry.id)
       if (!expandableRows.has(entry.id) && activity === undefined) return entry
       return {
@@ -1028,14 +878,10 @@ export class SessionManager {
    * it. First observation only records the running bit — sessions already
    * idle at load get no reminder.
    */
-  /* 中文说明：类方法 `syncCompletedNotifications`；参数含义见签名，返回值用于更新或读取会话状态；例如由本类公开流程或下方用例调用。 */
   private syncCompletedNotifications(): void {
-    /** 中文说明：保存索引、集合或按顺序观测值的数据结构；变量 `seen` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const seen = new Set<SessionId>()
-    /** 中文说明：当前处理步骤使用的局部状态或中间值；变量 `s` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     for (const s of this.summaries) {
       seen.add(s.sessionId)
-      /** 中文说明：当前处理步骤使用的局部状态或中间值；变量 `prev` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
       const prev = this.prevRunning.get(s.sessionId)
       if (prev === undefined) {
         this.prevRunning.set(s.sessionId, s.running)
@@ -1048,27 +894,20 @@ export class SessionManager {
       }
       this.prevRunning.set(s.sessionId, s.running)
     }
-    /** 中文说明：标识对象、顺序或版本的标量值；变量 `id` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     for (const id of this.prevRunning.keys()) {
       if (!seen.has(id)) this.prevRunning.delete(id)
     }
-    /** 中文说明：标识对象、顺序或版本的标量值；变量 `id` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     for (const id of this.completedNotifications) {
       if (!seen.has(id)) this.completedNotifications.delete(id)
     }
   }
 
-  /** 中文说明：类方法 `buildListSnapshot`；参数含义见签名，返回值用于更新或读取会话状态；例如由本类公开流程或下方用例调用。 */
   private buildListSnapshot(): SessionListSnapshot {
-    /** 中文说明：当前处理步骤使用的局部状态或中间值；变量 `merged` 是可调用函数，其参数与返回值见类型签名；例如由相邻流程调用。 */
     const merged: TitledSessionSummary[] = this.summaries.map((summary) => {
       // List rows read the generic 'title' projection key (host-computed unit
       // value; there is no dedicated title frame).
-      /** 中文说明：当前处理步骤使用的局部状态或中间值；变量 `projectionStore` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
       const projectionStore = this.projectionStores.get(summary.sessionId)
-      /** 中文说明：当前处理步骤使用的局部状态或中间值；变量 `title` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
       const title = projectionStore?.get('title')
-      /** 中文说明：当前处理步骤使用的局部状态或中间值；变量 `projectionValues` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
       const projectionValues = projectionStore?.values()
       return {
         ...summary,
@@ -1078,7 +917,6 @@ export class SessionManager {
     })
     const fresh = flattenLineage(merged, this.completedNotifications)
     const items = fresh.map((entry) => {
-      /** 中文说明：当前处理步骤使用的局部状态或中间值；变量 `prev` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
       const prev = this.entryCache.get(entry.sessionId)
       if (
         prev !== undefined && prev.updatedAt === entry.updatedAt && prev.running === entry.running
@@ -1091,16 +929,12 @@ export class SessionManager {
       this.entryCache.set(entry.sessionId, entry)
       return entry
     })
-    /** 中文说明：标识对象、顺序或版本的标量值；变量 `id` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     for (const id of this.entryCache.keys()) {
       if (!items.some(e => e.sessionId === id)) this.entryCache.delete(id)
     }
-    /** 中文说明：当前处理步骤使用的局部状态或中间值；变量 `sameOrder` 是可调用函数，其参数与返回值见类型签名；例如由相邻流程调用。 */
     const sameOrder = items.length === this.itemsCache.length && items.every((e, i) => e === this.itemsCache[i])
     if (!sameOrder) this.itemsCache = items
-    /** 中文说明：当前处理步骤使用的局部状态或中间值；变量 `selected` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const selected = this.selected
-    /** 中文说明：当前处理步骤使用的局部状态或中间值；变量 `current` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const current = selected !== undefined
       && (items.some(item => item.sessionId === selected) || this.addresses.has(selected))
       ? selected
@@ -1119,14 +953,11 @@ export class SessionManager {
 }
 
 /** Apply one list mutation without deriving display order. */
-/* 中文说明：内部函数 `applyMutation`；参数含义见签名，返回值用于后续处理；例如按本文件中的调用位置使用。 */
 function applyMutation(summaries: readonly SessionSummary[], mutation: SessionListMutation): SessionSummary[] {
   switch (mutation.kind) {
     case 'upsert': {
-      /** 中文说明：当前处理步骤使用的局部状态或中间值；变量 `existing` 是可调用函数，其参数与返回值见类型签名；例如由相邻流程调用。 */
       const existing = summaries.find(summary => summary.sessionId === mutation.summary.sessionId)
       if (existing === undefined) return [mutation.summary, ...summaries]
-      /** 中文说明：当前处理步骤使用的局部状态或中间值；变量 `filled` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
       const filled: SessionSummary = {
         ...existing,
         // Blank only lowers: a stale true (session-added racing the local
@@ -1165,13 +996,6 @@ function applyMutation(summaries: readonly SessionSummary[], mutation: SessionLi
 }
 
 /** Temporary source-plane bridge while the Host contract and client project build independently. */
-function workspaceAttachSessionId(error: ClientFailure): SessionId | undefined {
-  return error.code === 'workspace-attach-failed' ? error.details.sessionId : undefined
-}
-
-/** Narrow a generated Session Remote failure to its service-owned error vocabulary. */
-function toSessionResult<T>(
-  result: import('@deepseek-ai/dsh-typert-protocol').RemoteResult<T>,
-): ClientResult<T> {
-  return result.ok ? result : { ok: false, error: result.error as SessionError }
+function workspaceAttachSessionId(error: RemoteFailure): SessionId | undefined {
+  return error.code === 'session/workspace-attach-failed' ? error.details.sessionId : undefined
 }

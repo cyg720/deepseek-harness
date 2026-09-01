@@ -11,7 +11,6 @@ export const DEFAULT_DIFF_MAX_LINES = 16
  * One file change in the form {@link DiffBlock} renders. It is declared here
  * so this primitive stays independent of the tool contract.
  */
-/* 中文说明：类型或类 DiffHunk 约束基础组件的数据或职责。 */
 export interface DiffHunk {
   /** The changed file's path, drawn verbatim as the hunk's header (the tool's model-facing path). */
   path: string
@@ -21,7 +20,6 @@ export interface DiffHunk {
   newText: string
 }
 
-/** 中文说明：类型或类 DiffBlockProps 约束基础组件的数据或职责。 */
 export interface DiffBlockProps {
   /** One entry per applied hunk, in file order; empty renders nothing. */
   diffs: DiffHunk[]
@@ -45,21 +43,18 @@ export interface DiffBlockLabels {
 }
 
 /** A single rendered body line and its role, so the height cap slices a flat list. */
-/* 中文说明：类型或类 DiffRow 约束基础组件的数据或职责。 */
 interface DiffRow {
   kind: 'path' | 'del' | 'add' | 'gap'
   text: string
 }
 
 /** Local exhaustiveness helper — this package does not depend on `dsh-llm`. */
-/* 中文说明：函数 assertNever 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 /* v8 ignore next 3 -- closed-union backstop; only reached if a row kind is forged */
 function assertNever(value: never): never {
   throw new Error(`unreachable diff row kind: ${String(value)}`)
 }
 
 /** The dim class per row kind (path/gap chrome vs the diff's own +/- colors). */
-/* 中文说明：组件局部值 ROW_CLASS，由紧邻初始化决定。 */
 const ROW_CLASS: Record<DiffRow['kind'], string | undefined> = {
   path: css.path,
   del: css.del,
@@ -68,47 +63,52 @@ const ROW_CLASS: Record<DiffRow['kind'], string | undefined> = {
 }
 
 /**
+ * Total added/removed line counts across hunks — the same numbers the footer
+ * prints, exported so a summary row can show them without rebuilding the body.
+ * Every old-side line counts toward `removed` and every new-side line toward
+ * `added`, under {@link contentLines}'s terminator rule.
+ * @param diffs - the hunks to count.
+ * @returns the +/- totals.
+ */
+export function diffTotals(diffs: DiffHunk[]): { added: number; removed: number } {
+  let added = 0
+  let removed = 0
+  for (const diff of diffs) {
+    if (diff.oldText !== null) removed += contentLines(diff.oldText).length
+    added += contentLines(diff.newText).length
+  }
+  return { added, removed }
+}
+
+/**
  * Flatten the hunks into the body's rows plus the footer counts. A path header
  * opens each new file; a same-file second hunk (a scattered edit) opens with a
- * `⋯` gap instead of repeating the path. Every old-side line counts toward
- * `removed` and every new-side line toward `added`. The file count is of
- * DISTINCT paths, matching the TUI diff card's footer, so two hunks in one file
- * read as `1 file` on both front ends.
+ * `⋯` gap instead of repeating the path. The +/- totals are
+ * {@link diffTotals}'s. The file count is of DISTINCT paths, matching the TUI
+ * diff card's footer, so two hunks in one file read as `1 file` on both front
+ * ends.
  * @param diffs - the hunks to render.
  * @returns the body rows, the +/- totals, and the distinct-file count.
  */
-/* 中文说明：函数 buildRows 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function buildRows(diffs: DiffHunk[]): { rows: DiffRow[]; added: number; removed: number; files: number } {
-  /** 中文说明：组件局部值 rows，由紧邻初始化决定。 */
   const rows: DiffRow[] = []
-  /** 中文说明：组件局部值 paths，由紧邻初始化决定。 */
   const paths = new Set<string>()
-  /** 中文说明：组件局部值 added，由紧邻初始化决定。 */
-  let added = 0
-  /** 中文说明：组件局部值 removed，由紧邻初始化决定。 */
-  let removed = 0
-  /** 中文说明：组件局部值 解构结果，由紧邻初始化决定。 */
   let prevPath: string | undefined
-  /** 中文说明：组件局部值 diff，由紧邻初始化决定。 */
   for (const diff of diffs) {
     paths.add(diff.path)
     if (diff.path !== prevPath) rows.push({ kind: 'path', text: diff.path })
     else rows.push({ kind: 'gap', text: '⋯' })
     prevPath = diff.path
     if (diff.oldText !== null) {
-      /** 中文说明：组件局部值 line，由紧邻初始化决定。 */
       for (const line of contentLines(diff.oldText)) {
         rows.push({ kind: 'del', text: line })
-        removed++
       }
     }
-    /** 中文说明：组件局部值 line，由紧邻初始化决定。 */
     for (const line of contentLines(diff.newText)) {
       rows.push({ kind: 'add', text: line })
-      added++
     }
   }
-  return { rows, added, removed, files: paths.size }
+  return { rows, ...diffTotals(diffs), files: paths.size }
 }
 
 /**
@@ -120,10 +120,8 @@ function buildRows(diffs: DiffHunk[]): { rows: DiffRow[]; added: number; removed
  * @param text - the removed or added side's text.
  * @returns the content lines, without the terminating newline.
  */
-/* 中文说明：函数 contentLines 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function contentLines(text: string): string[] {
   if (text === '') return []
-  /** 中文说明：组件局部值 body，由紧邻初始化决定。 */
   const body = text.endsWith('\n') ? text.slice(0, -1) : text
   return body.split('\n')
 }
@@ -135,7 +133,6 @@ function contentLines(text: string): string[] {
  * @param rows - the flattened body rows.
  * @returns the diff as plain text.
  */
-/* 中文说明：函数 copyText 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function copyText(rows: DiffRow[]): string {
   return rows.map((row) => {
     switch (row.kind) {
@@ -156,12 +153,9 @@ function copyText(rows: DiffRow[]): string {
  */
 export function DiffBlock({ diffs, labels, maxLines = DEFAULT_DIFF_MAX_LINES, className }: DiffBlockProps) {
   const { rows, added, removed, files } = useMemo(() => buildRows(diffs), [diffs])
-  /** 中文说明：组件局部值 [expanded, setExpanded]，由紧邻初始化决定。 */
   const [expanded, setExpanded] = useState(false)
-  /** 中文说明：组件局部值 [copied, setCopied]，由紧邻初始化决定。 */
   const [copied, setCopied] = useState(false)
 
-  /** 中文说明：组件局部值 onCopy，由紧邻初始化决定。 */
   const onCopy = useCallback(() => {
     if (copied) return
     void writeClipboard(copyText(rows)).then((ok) => {
@@ -171,24 +165,17 @@ export function DiffBlock({ diffs, labels, maxLines = DEFAULT_DIFF_MAX_LINES, cl
     })
   }, [copied, rows])
 
-  /** 中文说明：组件局部值 onToggle，由紧邻初始化决定。 */
   const onToggle = useCallback(() => { setExpanded(value => !value) }, [])
 
   if (rows.length === 0) return null
 
-  /** 中文说明：组件局部值 hidden，由紧邻初始化决定。 */
   const hidden = rows.length - maxLines
-  /** 中文说明：组件局部值 capped，由紧邻初始化决定。 */
   const capped = hidden > 0 && !expanded
   // Same split arithmetic as TerminalBlock and the TUI transcript's collapsed
   // card, so a body's head and tail slices agree across the front ends.
-  /** 中文说明：组件局部值 headLines，由紧邻初始化决定。 */
   const headLines = Math.ceil(maxLines / 2)
-  /** 中文说明：组件局部值 tailLines，由紧邻初始化决定。 */
   const tailLines = maxLines - headLines
-  /** 中文说明：组件局部值 head，由紧邻初始化决定。 */
   const head = capped ? rows.slice(0, headLines) : rows
-  /** 中文说明：组件局部值 tail，由紧邻初始化决定。 */
   const tail = capped ? rows.slice(rows.length - tailLines) : []
 
   return (

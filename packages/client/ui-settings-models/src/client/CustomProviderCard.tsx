@@ -20,30 +20,21 @@
  * some of them reject. The composer's model picker offers each model its own
  * levels instead.
  */
-/*
- * 文件职责：实现模型设置的 CustomProviderCard 组件。
- * 技术维度：React、TypeScript、受控表单、Cordis 插槽和 CSS Modules。
- * 产品维度：帮助用户查看和调整模型设置。
- * 逻辑维度：读取状态，编辑草稿，调用保存或发现操作并展示结果。
- * 关键边界：界面可见信息不代表授权；密钥只显示配置状态，不显示原值。
- * 新手阅读建议：先读 Props 和状态类型，再看事件处理与 JSX。
- */
 
 import { useState } from 'react'
 import type { ReactNode } from 'react'
-import type { JsonValue } from '@deepseek-ai/dsh-api-remotes/client'
+import type { JsonValue } from '@deepseek-ai/dsh-util-values'
 import { apiKeyFailure } from './apiKey.ts'
 import { EditorFooter } from './EditorFooter.tsx'
 import { validateDeepSeekModels } from './DeepSeekModelsEditor.tsx'
 import { ModelListEditor } from './ModelListEditor.tsx'
 import type { ModelDraft } from './ModelListEditor.tsx'
-import { deriveKeyRef, messageOf } from './store.ts'
-import type { ModelsWire } from './store.ts'
+import { deriveKeyRef } from './store.ts'
+import type { ModelsOperations } from './operations.ts'
 import type { en } from './locales.ts'
 import styles from './ModelsSection.module.css'
 
 /** The settings namespace a hand-declared provider is written into. */
-/* 中文说明：设置局部值 NS，由紧邻初始化决定。 */
 const NS = 'llm-pi-ai'
 
 /**
@@ -54,11 +45,9 @@ const NS = 'llm-pi-ai'
  * digit-leading id passes every check this card makes and then fails at the
  * credential seam with a raw regular expression the user cannot act on.
  */
-/* 中文说明：设置局部值 ROUTE_PATTERN，由紧邻初始化决定。 */
 const ROUTE_PATTERN = /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/
 
 /** Props of {@link CustomProviderCard}. */
-/* 中文说明：类型或类 CustomProviderCardProps 约束设置数据或组件职责。 */
 export interface CustomProviderCardProps {
   /** Route ids already declared, so the card refuses to shadow one. */
   taken: readonly string[]
@@ -70,8 +59,8 @@ export interface CustomProviderCardProps {
    * than a silent overwrite of its whole profile.
    */
   revision: number
-  /** Wire faces for the write and for interrogating the endpoint. */
-  api: ModelsWire
+  /** The Host operations this card writes and interrogates through. */
+  operations: ModelsOperations
   /** Section copy. */
   t: (key: keyof typeof en) => string
   /** Disable writes (read-only settings provider). */
@@ -85,64 +74,44 @@ export interface CustomProviderCardProps {
  * @param props - existing routes, protocol choices, wire faces, and copy.
  * @returns the creation card.
  */
-/* 中文说明：函数 CustomProviderCard 的参数见签名，返回结果供设置流程使用；示例见本文件。 */
 export function CustomProviderCard(props: CustomProviderCardProps): ReactNode {
-  /** 中文说明：设置局部值 解构结果，由紧邻初始化决定。 */
-  const { taken, protocols, api, t } = props
+  const { taken, protocols, operations, t } = props
   // The write is checked against the revision on which this draft was opened.
   const [openedAt] = useState(() => props.revision)
-  /** 中文说明：设置局部值 [route, setRoute]，由紧邻初始化决定。 */
   const [route, setRoute] = useState('')
-  /** 中文说明：设置局部值 解构结果，由紧邻初始化决定。 */
   const [displayName, setDisplayName] = useState('')
-  /** 中文说明：设置局部值 [baseURL, setBaseURL]，由紧邻初始化决定。 */
   const [baseURL, setBaseURL] = useState('')
-  /** 中文说明：设置局部值 [protocol, setProtocol]，由紧邻初始化决定。 */
   const [protocol, setProtocol] = useState(protocols[0] ?? '')
-  /** 中文说明：设置局部值 [keyDraft, setKeyDraft]，由紧邻初始化决定。 */
   const [keyDraft, setKeyDraft] = useState('')
-  /** 中文说明：设置局部值 [models, setModels]，由紧邻初始化决定。 */
   const [models, setModels] = useState<readonly ModelDraft[]>([])
-  /** 中文说明：设置局部值 [busy, setBusy]，由紧邻初始化决定。 */
   const [busy, setBusy] = useState(false)
-  /** 中文说明：设置局部值 [failure, setFailure]，由紧邻初始化决定。 */
   const [failure, setFailure] = useState<string | undefined>(undefined)
   /**
    * The profile write landed. Only the key write can still be outstanding, so
    * the fields that describe the provider are settled and the retry path is
    * the credential alone.
    */
-  /* 中文说明：设置局部值 [committed, setCommitted]，由紧邻初始化决定。 */
   const [committed, setCommitted] = useState(false)
-  /** 中文说明：设置局部值 disabled，由紧邻初始化决定。 */
   const disabled = props.readOnly || busy
   /** Everything but the key stops being editable once the provider exists. */
-  /* 中文说明：设置局部值 profileDisabled，由紧邻初始化决定。 */
   const profileDisabled = disabled || committed
 
-  /** 中文说明：设置局部值 routeInvalid，由紧邻初始化决定。 */
   const routeInvalid = route.length > 0 && !ROUTE_PATTERN.test(route)
-  /** 中文说明：设置局部值 routeTaken，由紧邻初始化决定。 */
   const routeTaken = taken.includes(route)
   // Rows are checked by the same per-row validator the editor cards use, so a
   // bad row is named by its position here too. Capacities have route-level
   // fallbacks; what a route cannot default is at least one model.
-  /** 中文说明：设置局部值 modelFailure，由紧邻初始化决定。 */
   const modelFailure = validateDeepSeekModels(models)
-  /** 中文说明：设置局部值 keyFailure，由紧邻初始化决定。 */
   const keyFailure = apiKeyFailure(keyDraft)
   // The typed key with paste whitespace removed. A blank field yields an empty
   // string, which the create path reads as "no key supplied" — a route may
   // legitimately authenticate through the provider's own ambient discovery.
-  /** 中文说明：设置局部值 keyValue，由紧邻初始化决定。 */
   const keyValue = keyDraft.trim()
-  /** 中文说明：设置局部值 ready，由紧邻初始化决定。 */
   const ready = route.length > 0 && !routeInvalid && !routeTaken
     && baseURL.length > 0 && models.length > 0 && modelFailure === undefined
     && keyFailure === undefined
   // The one blocked gate worth a line under the form. A satisfied card says
   // nothing at all rather than printing an empty paragraph.
-  /** 中文说明：设置局部值 hint，由紧邻初始化决定。 */
   const hint = failure !== undefined || ready
     // The key field prints its own failure directly beneath itself, so a card
     // blocked only by the key stays silent here rather than answering with the
@@ -160,14 +129,10 @@ export function CustomProviderCard(props: CustomProviderCardProps): ReactNode {
         : t('customNeedsModels')
 
   /** Perform the create, returning a failure message or undefined. */
-  /* 中文说明：设置局部值 createOnce，由紧邻初始化决定。 */
   const createOnce = async (): Promise<string | undefined> => {
-    /** 中文说明：设置局部值 keyRef，由紧邻初始化决定。 */
     const keyRef = deriveKeyRef(route)
-    /** 中文说明：设置局部值 storesKey，由紧邻初始化决定。 */
     const storesKey = keyValue.length > 0
     if (!committed) {
-      /** 中文说明：设置局部值 profile，由紧邻初始化决定。 */
       const profile = {
         ...displayName.length === 0 ? {} : { displayName },
         // The profile names the conventional reference only when this card is
@@ -182,12 +147,14 @@ export function CustomProviderCard(props: CustomProviderCardProps): ReactNode {
       // `taken` is a snapshot too, so the id check alone cannot see a route
       // declared after this card opened; the revision makes that race a
       // `settings-conflict` instead of a write over the other profile.
-      const response = await api.settings.mutate(
+      const written = await operations.writeSettings(
         NS,
         [{ op: 'set', path: ['providers', route], value: profile as JsonValue }],
         openedAt,
       )
-      if (!response.ok) return response.error.message
+      if (written.kind !== 'written') {
+        return written.kind === 'conflict' ? t('conflict') : written.message
+      }
       // The provider now exists. A retry after the key write below fails must
       // not re-run this mutate: the revision it holds is the one this write
       // just superseded, so the Host would answer `settings-conflict` and the
@@ -195,30 +162,24 @@ export function CustomProviderCard(props: CustomProviderCardProps): ReactNode {
       setCommitted(true)
     }
     if (storesKey) {
-      const stored = await api.credentials.set(keyRef, keyValue)
+      const stored = await operations.storeCredential(keyRef, keyValue)
       // The profile landed; saying the key did not is the only honest report,
       // and the retry above now goes straight back to this write.
-      if (!stored.ok) return stored.error.message
+      if (stored !== undefined) return stored
     }
     return undefined
   }
 
-  /** 中文说明：设置局部值 create，由紧邻初始化决定。 */
   const create = async (): Promise<void> => {
     setBusy(true)
     setFailure(undefined)
     try {
-      /** 中文说明：设置局部值 outcome，由紧邻初始化决定。 */
       const outcome = await createOnce()
       if (outcome !== undefined) {
         setFailure(outcome)
         return
       }
       props.onClose(true)
-    } catch (error) {
-      // A transport failure rejects rather than answering; without this the
-      // card would stay busy with nothing shown.
-      setFailure(messageOf(error))
     } finally {
       setBusy(false)
     }
@@ -311,7 +272,7 @@ export function CustomProviderCard(props: CustomProviderCardProps): ReactNode {
           ...keyValue.length === 0 ? {} : { apiKey: keyValue },
         }}
         probeBlocked={keyFailure === 'keyBlank' ? 'keyBlankNew' : keyFailure}
-        api={api}
+        operations={operations}
         t={t}
         disabled={profileDisabled}
       />

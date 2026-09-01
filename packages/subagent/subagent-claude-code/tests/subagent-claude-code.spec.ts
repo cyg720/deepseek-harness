@@ -1,11 +1,3 @@
-/**
- * 文件职责：验证 subagent-claude-code.spec.ts 覆盖的子代理启动、协议、继承与生命周期行为。
- * 技术维度：使用 TypeScript、Vitest、Cordis 插件、进程协议或同进程代理驱动。
- * 产品维度：保障 Agent 能可靠委派任务、继承上下文并收集子代理结果。
- * 逻辑维度：准备代理配置，启动或连接子代理，转发事件，再处理结果、取消与清理。
- * 关键边界：异步状态不等于单次任务结果；外部输出不可信；清理必须等待子代理完全停止。
- * 新手阅读建议：先看公开配置和测试夹具，再读启动/事件流程，最后关注继承、取消与失败路径。
- */
 import { readFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { PassThrough } from 'node:stream'
@@ -27,7 +19,6 @@ import {
   describe,
   expect,
   it,
-  /** 中文说明：type Mock 定义本测试所需的数据或行为，用于表达子代理场景。 */
   type Mock,
   vi,
 } from 'vitest'
@@ -35,6 +26,7 @@ import type { Agent } from '@deepseek-ai/dsh-agent'
 import type { InvariantInstaller } from '@deepseek-ai/dsh-invariants'
 import type { ContentBlock } from '@deepseek-ai/dsh-llm'
 import SubagentRuntime from '@deepseek-ai/dsh-subagent'
+import SessionProjectionRegistry from '@deepseek-ai/dsh-session-projection'
 import type {
   SubprocessHandle,
   SubprocessOutcome,
@@ -58,17 +50,14 @@ import {
   startClaudeCodeRun,
   successfulResult,
   textTask,
-  /** 中文说明：type ClaudeCodeRunSpec 定义本测试所需的数据或行为，用于表达子代理场景。 */
   type ClaudeCodeRunSpec,
 } from '../src/run.ts'
 
-/** 中文说明：type QueryFactory 定义本测试所需的数据或行为，用于表达子代理场景。 */
 type QueryFactory = (params: {
   prompt: string
   options: Options
 }) => Query
 
-/** 中文说明：函数值 queryMock 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
 const queryMock = vi.hoisted(() => vi.fn<QueryFactory>())
 
 const CLAUDE_AGENT_SDK_VERSION = '0.3.241'
@@ -89,13 +78,11 @@ vi.mock('@anthropic-ai/claude-agent-sdk', async importOriginal => ({
   query: queryMock,
 }))
 
-/** 中文说明：变量 fakeParent 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const fakeParent = {
   id: 'parent',
   session: { header: { cwd: process.cwd() } },
 } as unknown as Agent
 
-/** 中文说明：函数 request 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function request(
   prompt: ContentBlock[] = [{ type: 'text', text: 'do the task' }],
   signal = new AbortController().signal,
@@ -103,19 +90,16 @@ function request(
   return { prompt, parent: fakeParent, signal }
 }
 
-/** 中文说明：函数 nextTask 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 async function nextTask(): Promise<void> {
   await new Promise<void>((resolve) => { setImmediate(resolve) })
 }
 
-/** 中文说明：函数 errorCause 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function errorCause(value: unknown): Error | undefined {
   return value instanceof Error && value.cause instanceof Error
     ? value.cause
     : undefined
 }
 
-/** 中文说明：interface FakeChildOptions 定义本测试所需的数据或行为，用于表达子代理场景。 */
 interface FakeChildOptions {
   readonly pid?: number
   readonly exitOnTerminate?: boolean
@@ -123,7 +107,6 @@ interface FakeChildOptions {
   readonly doneError?: Error
 }
 
-/** 中文说明：interface FakeChild 定义本测试所需的数据或行为，用于表达子代理场景。 */
 interface FakeChild {
   readonly handle: SubprocessHandle
   readonly stdin: PassThrough
@@ -134,26 +117,18 @@ interface FakeChild {
   readonly waitForExit: Mock<SubprocessHandle['waitForExit']>
 }
 
-/** 中文说明：函数 fakeChild 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function fakeChild(options: FakeChildOptions = {}): FakeChild {
-  /** 中文说明：变量 stdin 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const stdin = new PassThrough()
-  /** 中文说明：变量 stdout 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const stdout = new PassThrough()
-  /** 中文说明：变量 exited 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   let exited = false
-  /** 中文说明：函数值 resolveDone 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
   let resolveDone!: (outcome: SubprocessOutcome) => void
-  /** 中文说明：函数值 rejectDone 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
   let rejectDone!: (error: Error) => void
-  /** 中文说明：函数值 done 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
   const done = new Promise<SubprocessOutcome>((resolve, reject) => {
     resolveDone = resolve
     rejectDone = reject
   })
   // Individual tests deliberately exercise rejected and still-pending handles.
   void done.catch(() => {})
-  /** 中文说明：变量 settle 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const settle = (
     outcome: SubprocessOutcome = { exitCode: 0, signal: null },
   ): void => {
@@ -161,18 +136,15 @@ function fakeChild(options: FakeChildOptions = {}): FakeChild {
     exited = true
     resolveDone(outcome)
   }
-  /** 中文说明：函数值 fail 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
   const fail = (error: Error): void => {
     if (exited) return
     exited = true
     rejectDone(error)
   }
   if (options.doneError !== undefined) fail(options.doneError)
-  /** 中文说明：函数值 terminate 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
   const terminate = vi.fn<SubprocessHandle['terminate']>(() => {
     if (options.exitOnTerminate !== false) settle()
   })
-  /** 中文说明：函数值 waitForExit 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
   const waitForExit = vi.fn<SubprocessHandle['waitForExit']>(async (signal?: AbortSignal): Promise<boolean> => {
     if (options.waitForExitError !== undefined) {
       throw options.waitForExitError
@@ -183,7 +155,6 @@ function fakeChild(options: FakeChildOptions = {}): FakeChild {
       return true
     }
     return await new Promise<boolean>((resolve) => {
-      /** 中文说明：函数值 onAbort 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
       const onAbort = (): void => { resolve(false) }
       signal.addEventListener('abort', onAbort, { once: true })
       void done.then(
@@ -198,7 +169,6 @@ function fakeChild(options: FakeChildOptions = {}): FakeChild {
       )
     })
   })
-  /** 中文说明：变量 handle 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const handle: SubprocessHandle = {
     pid: options.pid ?? 1234,
     stdin,
@@ -220,7 +190,6 @@ function fakeChild(options: FakeChildOptions = {}): FakeChild {
   }
 }
 
-/** 中文说明：函数 success 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function success(
   result = 'answer',
   isError = false,
@@ -233,10 +202,8 @@ function success(
   } as SDKResultMessage
 }
 
-/** 中文说明：type ErrorSubtype 定义本测试所需的数据或行为，用于表达子代理场景。 */
 type ErrorSubtype = Exclude<SDKResultMessage['subtype'], 'success'>
 
-/** 中文说明：函数 failure 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function failure(
   subtype: ErrorSubtype,
   errors: string[] = ['fixture failure'],
@@ -249,13 +216,11 @@ function failure(
   } as SDKResultMessage
 }
 
-/** 中文说明：函数 expectedFailureDiagnostic 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function expectedFailureDiagnostic(
   stage: 'query-start' | 'query-run' | 'process' | 'teardown',
   category: string,
   outcome?: Partial<SubprocessOutcome>,
 ): string {
-  /** 中文说明：变量 fields 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const fields = [
     'product: Claude Code',
     `stage: ${stage}`,
@@ -270,7 +235,6 @@ function expectedFailureDiagnostic(
   return `Product subagent failure (${fields.join('; ')})`
 }
 
-/** 中文说明：函数 permissionDenied 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function permissionDenied(): SDKPermissionDeniedMessage {
   return {
     type: 'system',
@@ -285,25 +249,21 @@ function permissionDenied(): SDKPermissionDeniedMessage {
   }
 }
 
-/** 中文说明：函数 queryFrom 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function queryFrom(
   messages: readonly SDKMessage[],
   after?: Error,
   close = vi.fn(),
 ): Query {
   async function* stream(): AsyncGenerator<SDKMessage, void> {
-    /** 中文说明：该循环依次处理代理事件；循环变量仅在当前循环中有效。 */
     for (const message of messages) yield message
     if (after !== undefined) throw after
   }
   return Object.assign(stream(), { close }) as unknown as Query
 }
 
-/** 中文说明：函数 waitingQuery 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function waitingQuery(signal: AbortSignal, close = vi.fn()): Query {
   async function* stream(): AsyncGenerator<SDKMessage, void> {
     await new Promise<never>((_resolve, reject) => {
-      /** 中文说明：函数值 fail 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
       const fail = (): void => {
         reject(signal.reason instanceof Error
           ? signal.reason
@@ -316,7 +276,6 @@ function waitingQuery(signal: AbortSignal, close = vi.fn()): Query {
   return Object.assign(stream(), { close }) as unknown as Query
 }
 
-/** 中文说明：函数 sdkSpawnOptions 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function sdkSpawnOptions(
   overrides: Partial<SpawnOptions> = {},
 ): SpawnOptions {
@@ -330,7 +289,6 @@ function sdkSpawnOptions(
   }
 }
 
-/** 中文说明：interface FakeRun 定义本测试所需的数据或行为，用于表达子代理场景。 */
 interface FakeRun {
   readonly child: FakeChild
   readonly close: ReturnType<typeof vi.fn>
@@ -339,21 +297,15 @@ interface FakeRun {
   readonly spec: ClaudeCodeRunSpec
 }
 
-/** 中文说明：函数 fakeRun 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function fakeRun(
   messages: readonly SDKMessage[] = [success()],
   after?: Error,
   child = fakeChild(),
 ): FakeRun {
-  /** 中文说明：变量 close 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const close = vi.fn()
-  /** 中文说明：变量 query 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const query = queryFrom(messages, after, close)
-  /** 中文说明：变量 spawnSpecs 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const spawnSpecs: SubprocessSpawnSpec[] = []
-  /** 中文说明：变量 options 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const options: FakeRun['options'] = []
-  /** 中文说明：变量 spec 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const spec: ClaudeCodeRunSpec = {
     cwd: '/workspace',
     permissionMode: DEFAULT_CLAUDE_CODE_PERMISSION_MODE,
@@ -391,9 +343,7 @@ afterEach(() => {
 
 describe('task admission and package contracts', () => {
   it('ships one independently installable provider-only Bundle patch', () => {
-    /** 中文说明：变量 root 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const root = fileURLToPath(new URL('..', import.meta.url))
-    /** 中文说明：变量 manifest 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const manifest = JSON.parse(readFileSync(resolve(root, 'package.json'), 'utf8')) as {
       dependencies?: Record<string, string>
       files?: string[]
@@ -412,11 +362,9 @@ describe('task admission and package contracts', () => {
     expect(manifest.dependencies).toHaveProperty('zod', '^4.4.3')
     expect(manifest.dependencies).not.toHaveProperty('@deepseek-ai/dsh-subagent-codex')
 
-    /** 中文说明：变量 sdkRoot 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const sdkRoot = dirname(fileURLToPath(
       import.meta.resolve('@anthropic-ai/claude-agent-sdk'),
     ))
-    /** 中文说明：变量 sdkManifest 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const sdkManifest = JSON.parse(readFileSync(
       resolve(sdkRoot, 'package.json'),
       'utf8',
@@ -433,9 +381,7 @@ describe('task admission and package contracts', () => {
         CLAUDE_AGENT_SDK_VERSION,
       ]),
     ))
-    /** 中文说明：变量 lockfile 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const lockfile = readFileSync(resolve(root, '../../../pnpm-lock.yaml'), 'utf8')
-    /** 中文说明：该循环依次处理代理事件；循环变量仅在当前循环中有效。 */
     for (const packageName of CLAUDE_PLATFORM_PACKAGES) {
       expect(lockfile).toContain(
         `  '${packageName}@${CLAUDE_AGENT_SDK_VERSION}':`,
@@ -445,9 +391,7 @@ describe('task admission and package contracts', () => {
       )
     }
 
-    /** 中文说明：变量 parsed 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const parsed = yaml.load(readFileSync(resolve(root, manifest.dsh!.bundle!.patch!), 'utf8'))
-    /** 中文说明：变量 rows 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const rows = Array.isArray(parsed)
       ? (parsed as Array<{ insert?: Array<{ id?: string; name?: string }> }>).flatMap(entry => entry.insert ?? [])
       : []
@@ -471,11 +415,10 @@ describe('task admission and package contracts', () => {
   })
 
   it('registers the default descriptor, validates config, and unregisters on HMR', async () => {
-    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
+    await ctx.plugin(SessionProjectionRegistry)
     await ctx.plugin(SubagentRuntime)
     await ctx.plugin(LocalSubprocessRuntime)
-    /** 中文说明：变量 fiber 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const fiber = await ctx.plugin(claudeCode, {})
     expect(ctx.subagents.getProvider('claude-code')).toMatchObject({
       name: 'claude-code',
@@ -491,7 +434,6 @@ describe('task admission and package contracts', () => {
     await fiber.dispose()
     expect(ctx.subagents.list()).toEqual([])
 
-    /** 中文说明：该循环依次处理代理事件；循环变量仅在当前循环中有效。 */
     for (const disposeGraceMs of [0, -1, Number.NaN, Number.POSITIVE_INFINITY]) {
       await expect(ctx.plugin(claudeCode, { disposeGraceMs }))
         .rejects.toThrow('disposeGraceMs must be a positive finite number')
@@ -505,15 +447,12 @@ describe('task admission and package contracts', () => {
   })
 
   it('keeps named instances, runs, and HMR ownership isolated', async () => {
-    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
+    await ctx.plugin(SessionProjectionRegistry)
     await ctx.plugin(SubagentRuntime)
     await ctx.plugin(LocalSubprocessRuntime)
-    /** 中文说明：变量 safeChild 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const safeChild = fakeChild()
-    /** 中文说明：变量 bypassChild 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const bypassChild = fakeChild()
-    /** 中文说明：变量 spawnSpecs 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const spawnSpecs: SubprocessSpawnSpec[] = []
     vi.spyOn(ctx.subprocess, 'spawn').mockImplementation((spec) => {
       spawnSpecs.push(spec)
@@ -521,7 +460,6 @@ describe('task admission and package contracts', () => {
         ? safeChild.handle
         : bypassChild.handle
     })
-    /** 中文说明：变量 queryOptions 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const queryOptions: Options[] = []
     queryMock.mockImplementation(({ options }) => {
       queryOptions.push(options)
@@ -535,19 +473,14 @@ describe('task admission and package contracts', () => {
         : queryFrom([success('bypass answer')])
     })
 
-    /** 中文说明：变量 added 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const added: string[] = []
-    /** 中文说明：变量 started 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const started: string[] = []
-    /** 中文说明：变量 ended 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ended: string[] = []
-    /** 中文说明：变量 removed 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const removed: string[] = []
     ctx.on('subagent/provider-added', provider => void added.push(provider.name))
     ctx.on('subagent/start', info => void started.push(info.provider))
     ctx.on('subagent/end', info => void ended.push(info.provider))
     ctx.on('subagent/provider-removed', providerName => void removed.push(providerName))
-    /** 中文说明：变量 safeFiber 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const safeFiber = await ctx.plugin(claudeCode, {
       providerName: 'claude-safe',
       model: 'claude-safe-model',
@@ -555,7 +488,6 @@ describe('task admission and package contracts', () => {
       permissionMode: 'dontAsk',
       disposeGraceMs: 11,
     })
-    /** 中文说明：变量 bypassFiber 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const bypassFiber = await ctx.plugin(claudeCode, {
       providerName: 'claude-bypass',
       model: 'claude-bypass-model',
@@ -566,7 +498,6 @@ describe('task admission and package contracts', () => {
     expect(ctx.subagents.list()).toEqual(['claude-safe', 'claude-bypass'])
     expect(added).toEqual(['claude-safe', 'claude-bypass'])
 
-    /** 中文说明：变量 safeController 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const safeController = new AbortController()
     const [safeRun, bypassRun] = await Promise.all([
       ctx.subagents.start('claude-safe', request(undefined, safeController.signal)),
@@ -614,15 +545,13 @@ describe('task admission and package contracts', () => {
   })
 
   it('rejects duplicate provider names without replacing the first instance', async () => {
-    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
+    await ctx.plugin(SessionProjectionRegistry)
     await ctx.plugin(SubagentRuntime)
     await ctx.plugin(LocalSubprocessRuntime)
-    /** 中文说明：变量 firstFiber 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const firstFiber = await ctx.plugin(claudeCode, {
       providerName: 'claude-duplicate',
     })
-    /** 中文说明：变量 first 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const first = ctx.subagents.getProvider('claude-duplicate')
     await expect(ctx.plugin(claudeCode, {
       providerName: 'claude-duplicate',
@@ -644,20 +573,18 @@ describe('task admission and package contracts', () => {
     expect(() => claudeCode.Config({ model: '' })).toThrow()
     expect(claudeCode.Config({}).permissionMode)
       .toBe(DEFAULT_CLAUDE_CODE_PERMISSION_MODE)
-    /** 中文说明：该循环依次处理代理事件；循环变量仅在当前循环中有效。 */
     for (const permissionMode of CLAUDE_CODE_PERMISSION_MODES) {
       expect(claudeCode.Config({ permissionMode }).permissionMode)
         .toBe(permissionMode)
     }
-    /** 中文说明：该循环依次处理代理事件；循环变量仅在当前循环中有效。 */
     for (const permissionMode of ['default', 'interactive', 'future-mode']) {
       expect(() => claudeCode.Config({ permissionMode } as never)).toThrow()
     }
   })
 
   it('resolves the safe permission default when apply is called directly', async () => {
-    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
+    await ctx.plugin(SessionProjectionRegistry)
     await ctx.plugin(SubagentRuntime)
     await ctx.plugin(LocalSubprocessRuntime)
     const child = fakeChild()
@@ -680,19 +607,15 @@ describe('task admission and package contracts', () => {
   })
 
   it('starts through the registered provider with its resolved config and diagnostics', async () => {
-    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
+    await ctx.plugin(SessionProjectionRegistry)
     await ctx.plugin(SubagentRuntime)
     await ctx.plugin(LocalSubprocessRuntime)
-    /** 中文说明：变量 child 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const child = fakeChild()
-    /** 中文说明：变量 spawn 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const spawn = vi.spyOn(ctx.subprocess, 'spawn')
       .mockImplementation(() => child.handle)
-    /** 中文说明：变量 resolveExecutable 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const resolveExecutable = vi.spyOn(ctx.subprocess, 'resolveExecutable')
       .mockResolvedValue('/host/bin/claude')
-    /** 中文说明：函数值 warn 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const warn = vi.spyOn(ctx.logger, 'warn').mockImplementation(() => {})
     await ctx.plugin(claudeCode, {
       providerName: 'claude-diagnostic',
@@ -717,12 +640,10 @@ describe('task admission and package contracts', () => {
     )
     expect(queryMock).not.toHaveBeenCalled()
 
-    /** 中文说明：变量 invalidCwdParent 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const invalidCwdParent = {
       id: 'parent-with-invalid-cwd',
       session: { header: { cwd: 'relative/SECRET_TOKEN' } },
     } as unknown as Agent
-    /** 中文说明：变量 invalidCwd 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const invalidCwd = ctx.subagents.start('claude-diagnostic', {
       ...request(),
       parent: invalidCwdParent,
@@ -737,7 +658,6 @@ describe('task admission and package contracts', () => {
     expect(errorCause(warn.mock.calls[0]?.[1] as unknown)?.message)
       .toContain('relative/SECRET_TOKEN')
 
-    /** 中文说明：变量 invalidCwdAbort 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const invalidCwdAbort = new AbortController()
     invalidCwdAbort.abort(new Error('cancel invalid cwd startup'))
     await expect(ctx.subagents.start('claude-diagnostic', {
@@ -753,7 +673,6 @@ describe('task admission and package contracts', () => {
         'Native CLI binary for fixture-platform not found. Reinstall @anthropic-ai/claude-agent-sdk without --omit=optional, or set options.pathToClaudeCodeExecutable.',
       )
     })
-    /** 中文说明：变量 missingPayload 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const missingPayload = ctx.subagents.start('claude-diagnostic', request())
     await expect(missingPayload)
       .rejects.toThrow(expectedFailureDiagnostic('query-start', 'unknown'))
@@ -768,7 +687,6 @@ describe('task admission and package contracts', () => {
       .toContain('Native CLI binary for fixture-platform not found')
     expect(resolveExecutable).not.toHaveBeenCalled()
 
-    /** 中文说明：变量 run 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const run = await ctx.subagents.start('claude-diagnostic', request())
     child.settle({ exitCode: 9, signal: null })
     child.stdout.end()
@@ -804,25 +722,20 @@ describe('task admission and package contracts', () => {
     expect('default' in claudeCode).toBe(false)
     expect(claudeCode.name).toBe('subagent-claude-code')
     expect(claudeCode.inject).toEqual(['subagents', 'subprocess'])
-    /** 中文说明：变量 loader 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const loader = Object.create(Loader.prototype) as Loader
     expect(loader.unwrapExports(claudeCode)).toBe(claudeCode)
 
-    /** 中文说明：变量 dispose 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const dispose = vi.fn()
-    /** 中文说明：变量 register 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const register = vi.fn((
       _packageName: string,
       _installer: InvariantInstaller,
     ) => dispose)
-    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = { invariants: { register } } as unknown as Context
     await expect(invariant.apply(ctx)).resolves.toBe(dispose)
     expect(register).toHaveBeenCalledWith(
       '@deepseek-ai/dsh-subagent-claude-code',
       expect.any(Function),
     )
-    /** 中文说明：变量 install 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const install = register.mock.calls[0]![1]
     await install(new Context(), (message) => { throw new Error(message) })
     expect(invariant.name).toBe('subagent-claude-code-invariant')
@@ -833,9 +746,7 @@ describe('task admission and package contracts', () => {
 describe('official spawn projection', () => {
   it('forwards command, arguments, cwd, environment, and signal exactly', () => {
     vi.stubEnv('SDK_REMOVED_AMBIENT', 'ambient-value')
-    /** 中文说明：变量 signal 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const signal = new AbortController().signal
-    /** 中文说明：变量 options 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const options = sdkSpawnOptions({
       command: '/official/claude',
       args: ['--one', 'two'],
@@ -849,7 +760,6 @@ describe('official spawn projection', () => {
       C: 'three',
       SDK_REMOVED_AMBIENT: undefined,
     }))
-    /** 中文说明：变量 spawnSpec 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const spawnSpec = claudeSpawnSpec(options, 321)
     expect(spawnSpec).toMatchObject({
       argv: ['/official/claude', '--one', 'two'],
@@ -864,7 +774,6 @@ describe('official spawn projection', () => {
       C: 'three',
       SDK_REMOVED_AMBIENT: undefined,
     }))
-    /** 中文说明：变量 missingCwd 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const missingCwd = sdkSpawnOptions()
     delete missingCwd.cwd
     expect(() => claudeSpawnSpec(
@@ -878,9 +787,7 @@ describe('official spawn projection', () => {
   })
 
   it('forwards the SDK-selected Windows native executable without a batch shim', () => {
-    /** 中文说明：变量 command 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const command = String.raw`C:\Program Files\Claude\claude.exe`
-    /** 中文说明：变量 spec 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const spec = claudeSpawnSpec(sdkSpawnOptions({
       command,
       args: ['--output-format', 'stream-json'],
@@ -892,9 +799,7 @@ describe('official spawn projection', () => {
   })
 
   it('projects streams, exit facts, listeners, and idempotent tree termination', async () => {
-    /** 中文说明：变量 child 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const child = fakeChild({ exitOnTerminate: false })
-    /** 中文说明：变量 process 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const process = new ManagedClaudeCodeProcess(child.handle)
     expect(process.stdin).toBe(child.stdin)
     expect(process.stdout).toBe(child.stdout)
@@ -903,11 +808,8 @@ describe('official spawn projection', () => {
     expect(process.signalCode).toBeNull()
     expect(process.outcome).toBeUndefined()
 
-    /** 中文说明：变量 exit 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const exit = vi.fn()
-    /** 中文说明：变量 once 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const once = vi.fn()
-    /** 中文说明：变量 removed 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const removed = vi.fn()
     process.on('exit', exit)
     process.once('exit', once)
@@ -929,13 +831,9 @@ describe('official spawn projection', () => {
   })
 
   it('emits spawn errors', async () => {
-    /** 中文说明：变量 child 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const child = fakeChild({ pid: -1 })
-    /** 中文说明：变量 process 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const process = new ManagedClaudeCodeProcess(child.handle)
-    /** 中文说明：变量 errorListener 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const errorListener = vi.fn()
-    /** 中文说明：变量 removed 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const removed = vi.fn()
     process.once('error', errorListener)
     process.on('error', removed)
@@ -949,9 +847,7 @@ describe('official spawn projection', () => {
   })
 
   it('exposes a settled direct-child exit code', async () => {
-    /** 中文说明：变量 child 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const child = fakeChild()
-    /** 中文说明：变量 process 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const process = new ManagedClaudeCodeProcess(child.handle)
     child.settle({ exitCode: 7, signal: null })
     await nextTask()
@@ -967,15 +863,10 @@ describe('query options and result mapping', () => {
     vi.stubEnv('HOST_VISIBLE', 'visible')
     vi.stubEnv('HOST_SECRET_TOKEN', 'must-not-leak')
     vi.stubEnv('DSH_INTERNAL', 'must-not-leak')
-    /** 中文说明：变量 child 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const child = fakeChild()
-    /** 中文说明：函数值 spawn 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const spawn = vi.fn(() => child.handle)
-    /** 中文说明：变量 captured 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const captured: SubprocessHandle[] = []
-    /** 中文说明：变量 diagnostics 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const diagnostics: string[] = []
-    /** 中文说明：变量 spec 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const spec: ClaudeCodeRunSpec = {
       cwd: '/workspace',
       model: 'claude-explicit-model',
@@ -987,9 +878,7 @@ describe('query options and result mapping', () => {
       disposeGraceMs: 17,
       spawn,
     }
-    /** 中文说明：变量 controller 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const controller = new AbortController()
-    /** 中文说明：变量 options 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const options = claudeQueryOptions(
       spec,
       controller,
@@ -1018,7 +907,6 @@ describe('query options and result mapping', () => {
     expect(options.env).not.toHaveProperty('DSH_INTERNAL')
     expect(options).not.toHaveProperty('settingSources')
 
-    /** 中文说明：变量 callbackSignal 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const callbackSignal = new AbortController().signal
     await expect(options.canUseTool!(
       'Bash',
@@ -1057,7 +945,6 @@ describe('query options and result mapping', () => {
     expect(diagnostics.join('\n')).not.toContain('SECRET_TOKEN')
     expect(diagnostics.join('\n')).not.toContain('/private/secret.txt')
 
-    /** 中文说明：变量 spawned 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const spawned = options.spawnClaudeCodeProcess!(sdkSpawnOptions())
     expect(spawned).toBeInstanceOf(ManagedClaudeCodeProcess)
     expect(captured).toEqual([child.handle])
@@ -1071,9 +958,7 @@ describe('query options and result mapping', () => {
   it.each(CLAUDE_CODE_PERMISSION_MODES)(
     'maps the %s mode and only confirms the dangerous bypass',
     (permissionMode) => {
-      /** 中文说明：变量 child 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const child = fakeChild()
-      /** 中文说明：变量 options 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const options = claudeQueryOptions({
         cwd: '/workspace',
         permissionMode,
@@ -1097,9 +982,7 @@ describe('query options and result mapping', () => {
   )
 
   it('disallows ExitPlanMode before native plan-mode allow rules', () => {
-    /** 中文说明：变量 child 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const child = fakeChild()
-    /** 中文说明：变量 options 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const options = claudeQueryOptions({
       cwd: '/workspace',
       permissionMode: 'plan',
@@ -1134,7 +1017,6 @@ describe('query options and result mapping', () => {
       [],
     ))).toThrow(expectedFailureDiagnostic('query-run', 'limit'))
 
-    /** 中文说明：变量 unknown 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const unknown = {
       type: 'result',
       subtype: 'future_failure',
@@ -1148,7 +1030,6 @@ describe('query options and result mapping', () => {
   })
 
   it('consumes the complete stream and keeps the latest strict success', async () => {
-    /** 中文说明：变量 query 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const query = queryFrom([
       { type: 'system', subtype: 'init' } as SDKMessage,
       success('first'),
@@ -1162,7 +1043,6 @@ describe('query options and result mapping', () => {
       queryFrom([{ type: 'system', subtype: 'init' } as SDKMessage]),
     )).rejects.toThrow(expectedFailureDiagnostic('query-run', 'invalid-result'))
 
-    /** 中文说明：变量 onPermissionDenied 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const onPermissionDenied = vi.fn()
     await expect(consumeClaudeQuery(queryFrom([
       permissionDenied(),
@@ -1177,9 +1057,7 @@ describe('query options and result mapping', () => {
 
 describe('run publication, cancellation, and settlement', () => {
   it('publishes only after Query and managed child exist, then disposes once', async () => {
-    /** 中文说明：变量 fixture 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const fixture = fakeRun([success('exact answer')])
-    /** 中文说明：变量 run 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const run = await startClaudeCodeRun(
       request([
         { type: 'text', text: 'first' },
@@ -1193,9 +1071,7 @@ describe('run publication, cancellation, and settlement', () => {
       output: [{ type: 'text', text: 'exact answer' }],
       stopReason: 'completed',
     })
-    /** 中文说明：变量 first 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const first = run.dispose()
-    /** 中文说明：变量 second 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const second = run.dispose()
     expect(second).toBe(first)
     await first
@@ -1212,9 +1088,7 @@ describe('run publication, cancellation, and settlement', () => {
     ]
     for (const [subtype, category] of cases) {
       const fixture = fakeRun([failure(subtype)])
-      /** 中文说明：变量 onError 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const onError = vi.fn()
-      /** 中文说明：变量 run 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const run = await startClaudeCodeRun(
         request(),
         { ...fixture.spec, onError },
@@ -1233,14 +1107,11 @@ describe('run publication, cancellation, and settlement', () => {
   })
 
   it('attaches a safe diagnostic when a permission denial precedes failure', async () => {
-    /** 中文说明：变量 fixture 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const fixture = fakeRun([
       permissionDenied(),
       failure('error_during_execution'),
     ])
-    /** 中文说明：变量 run 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const run = await startClaudeCodeRun(request(), fixture.spec)
-    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await run.result
     expect(result).toEqual({
       output: [],
@@ -1253,11 +1124,8 @@ describe('run publication, cancellation, and settlement', () => {
   })
 
   it('omits captured diagnostics on success and isolates concurrent runs', async () => {
-    /** 中文说明：变量 children 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const children = [fakeChild(), fakeChild()]
-    /** 中文说明：变量 childIndex 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     let childIndex = 0
-    /** 中文说明：变量 spec 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const spec: ClaudeCodeRunSpec = {
       cwd: '/workspace',
       permissionMode: 'dontAsk',
@@ -1298,9 +1166,7 @@ describe('run publication, cancellation, and settlement', () => {
   })
 
   it('fails closed when iteration rejects after a result', async () => {
-    /** 中文说明：变量 child 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const child = fakeChild()
-    /** 中文说明：变量 outcome 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const outcome = { exitCode: 31, signal: null } as const
     async function* stream(): AsyncGenerator<SDKMessage, void> {
       yield success('partial final')
@@ -1312,7 +1178,6 @@ describe('run publication, cancellation, and settlement', () => {
       options.spawnClaudeCodeProcess!(sdkSpawnOptions())
       return Object.assign(stream(), { close: vi.fn() }) as unknown as Query
     })
-    /** 中文说明：变量 run 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const run = await startClaudeCodeRun(request(), {
       cwd: '/workspace',
       permissionMode: DEFAULT_CLAUDE_CODE_PERMISSION_MODE,
@@ -1329,15 +1194,12 @@ describe('run publication, cancellation, and settlement', () => {
   })
 
   it('maps invalid success and missing result to fixed query-run facts', async () => {
-    /** 中文说明：该循环依次处理代理事件；循环变量仅在当前循环中有效。 */
     for (const [messages, category] of [
       [[success('answer', true)], 'invalid-result'],
       [[success('')], 'invalid-result'],
       [[{ type: 'system', subtype: 'init' } as SDKMessage], 'invalid-result'],
     ] as const) {
-      /** 中文说明：变量 fixture 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const fixture = fakeRun(messages)
-      /** 中文说明：变量 run 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const run = await startClaudeCodeRun(request(), fixture.spec)
       await expect(run.result).resolves.toEqual({
         output: [],
@@ -1349,15 +1211,12 @@ describe('run publication, cancellation, and settlement', () => {
   })
 
   it('reports an early process exit with independent code and signal facts', async () => {
-    /** 中文说明：变量 outcomes 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const outcomes: SubprocessOutcome[] = [
       { exitCode: 23, signal: null },
       { exitCode: null, signal: 'SIGABRT' },
       { exitCode: null, signal: null },
     ]
-    /** 中文说明：该循环依次处理代理事件；循环变量仅在当前循环中有效。 */
     for (const outcome of outcomes) {
-      /** 中文说明：变量 child 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const child = fakeChild()
       async function* stream(): AsyncGenerator<SDKMessage, void> {
         child.settle(outcome)
@@ -1368,7 +1227,6 @@ describe('run publication, cancellation, and settlement', () => {
         options.spawnClaudeCodeProcess!(sdkSpawnOptions())
         return Object.assign(stream(), { close: vi.fn() }) as unknown as Query
       })
-      /** 中文说明：变量 run 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const run = await startClaudeCodeRun(request(), {
         cwd: '/workspace',
         permissionMode: DEFAULT_CLAUDE_CODE_PERMISSION_MODE,
@@ -1376,7 +1234,6 @@ describe('run publication, cancellation, and settlement', () => {
         disposeGraceMs: 5,
         spawn: () => child.handle,
       })
-      /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const result = await run.result
       expect(result).toEqual({
         output: [],
@@ -1393,17 +1250,11 @@ describe('run publication, cancellation, and settlement', () => {
   })
 
   it('gives local cancellation precedence and isolates overlapping controllers', async () => {
-    /** 中文说明：变量 firstChild 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const firstChild = fakeChild()
-    /** 中文说明：变量 secondChild 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const secondChild = fakeChild()
-    /** 中文说明：变量 children 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const children = [firstChild, secondChild]
-    /** 中文说明：变量 controllers 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const controllers: AbortController[] = []
-    /** 中文说明：变量 index 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     let index = 0
-    /** 中文说明：变量 spec 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const spec: ClaudeCodeRunSpec = {
       cwd: '/workspace',
       permissionMode: 'dontAsk',
@@ -1418,14 +1269,11 @@ describe('run publication, cancellation, and settlement', () => {
         ? waitingQuery(options.abortController!.signal)
         : queryFrom([success('second answer')])
     })
-    /** 中文说明：变量 firstAbort 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const firstAbort = new AbortController()
-    /** 中文说明：变量 first 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const first = await startClaudeCodeRun(
       request([{ type: 'text', text: 'wait' }], firstAbort.signal),
       spec,
     )
-    /** 中文说明：变量 second 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const second = await startClaudeCodeRun(
       request([{ type: 'text', text: 'finish' }]),
       spec,
@@ -1446,9 +1294,7 @@ describe('run publication, cancellation, and settlement', () => {
   })
 
   it('keeps local cancellation authoritative when the SDK iterator ends normally', async () => {
-    /** 中文说明：变量 parentAbort 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const parentAbort = new AbortController()
-    /** 中文说明：变量 child 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const child = fakeChild()
     async function* stream(): AsyncGenerator<SDKMessage, void> {
       yield success('candidate answer')
@@ -1458,7 +1304,6 @@ describe('run publication, cancellation, and settlement', () => {
       options.spawnClaudeCodeProcess!(sdkSpawnOptions())
       return Object.assign(stream(), { close: vi.fn() }) as unknown as Query
     })
-    /** 中文说明：变量 run 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const run = await startClaudeCodeRun(
       request(undefined, parentAbort.signal),
       {
@@ -1477,10 +1322,8 @@ describe('run publication, cancellation, and settlement', () => {
   })
 
   it('rejects pre-abort and every incomplete startup transaction', async () => {
-    /** 中文说明：变量 preAborted 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const preAborted = new AbortController()
     preAborted.abort()
-    /** 中文说明：变量 unused 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const unused = fakeRun()
     await expect(startClaudeCodeRun(
       request(undefined, preAborted.signal),
@@ -1488,7 +1331,6 @@ describe('run publication, cancellation, and settlement', () => {
     )).rejects.toThrow('aborted before SDK startup')
     expect(unused.options).toEqual([])
 
-    /** 中文说明：变量 noChildClose 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const noChildClose = vi.fn()
     queryMock.mockImplementationOnce(
       () => queryFrom([], undefined, noChildClose),
@@ -1498,12 +1340,10 @@ describe('run publication, cancellation, and settlement', () => {
     })).rejects.toThrow(expectedFailureDiagnostic('query-start', 'unknown'))
     expect(noChildClose).toHaveBeenCalledOnce()
 
-    /** 中文说明：函数值 closeFailure 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const closeFailure = vi.fn(() => { throw new Error('close boom') })
     queryMock.mockImplementationOnce(
       () => queryFrom([], undefined, closeFailure),
     )
-    /** 中文说明：变量 noChild 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const noChild = startClaudeCodeRun(request(), {
       ...unused.spec,
     })
@@ -1514,18 +1354,14 @@ describe('run publication, cancellation, and settlement', () => {
     )
     await expect(noChild).rejects.toBeInstanceOf(AggregateError)
 
-    /** 中文说明：变量 startupAbort 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const startupAbort = new AbortController()
-    /** 中文说明：变量 abortedChild 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const abortedChild = fakeChild()
-    /** 中文说明：变量 abortedClose 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const abortedClose = vi.fn()
     queryMock.mockImplementationOnce(({ options }) => {
       options.spawnClaudeCodeProcess!(sdkSpawnOptions())
       startupAbort.abort(new Error('startup cancelled'))
       return queryFrom([], undefined, abortedClose)
     })
-    /** 中文说明：变量 abortedDuringStartup 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const abortedDuringStartup = startClaudeCodeRun(
       request(undefined, startupAbort.signal),
       {
@@ -1538,9 +1374,7 @@ describe('run publication, cancellation, and settlement', () => {
     expect(abortedClose).toHaveBeenCalledOnce()
     expect(abortedChild.terminate).toHaveBeenCalledOnce()
 
-    /** 中文说明：变量 cleanupAbort 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const cleanupAbort = new AbortController()
-    /** 中文说明：变量 cleanupFailedChild 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const cleanupFailedChild = fakeChild({
       waitForExitError: new Error('SECRET_TOKEN cleanup wait failure'),
     })
@@ -1549,7 +1383,6 @@ describe('run publication, cancellation, and settlement', () => {
       cleanupAbort.abort(new Error('startup cancelled'))
       return queryFrom([])
     })
-    /** 中文说明：变量 cancelledCleanupFailure 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const cancelledCleanupFailure = startClaudeCodeRun(
       request(undefined, cleanupAbort.signal),
       {
@@ -1570,11 +1403,9 @@ describe('run publication, cancellation, and settlement', () => {
     queryMock.mockImplementationOnce(() => {
       throw new Error('query failed before resource creation')
     })
-    /** 中文说明：变量 queryFailureOnError 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const queryFailureOnError = vi.fn<
       NonNullable<ClaudeCodeRunSpec['onError']>
     >()
-    /** 中文说明：变量 queryFailure 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const queryFailure = startClaudeCodeRun(request(), {
       ...unused.spec,
       onError: queryFailureOnError,
@@ -1591,11 +1422,8 @@ describe('run publication, cancellation, and settlement', () => {
     expect(errorCause(queryFailureOnError.mock.calls[0]?.[0])?.message)
       .toBe('query failed before resource creation')
 
-    /** 中文说明：变量 spawned 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const spawned = fakeChild()
-    /** 中文说明：变量 spawnSpecs 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const spawnSpecs: SubprocessSpawnSpec[] = []
-    /** 中文说明：变量 factoryController 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     let factoryController: AbortController | undefined
     queryMock.mockImplementationOnce(({ options }) => {
       factoryController = options.abortController
@@ -1603,7 +1431,6 @@ describe('run publication, cancellation, and settlement', () => {
       spawned.settle({ exitCode: 17, signal: null })
       throw new Error('query construction failed')
     })
-    /** 中文说明：变量 factoryFailure 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const factoryFailure = startClaudeCodeRun(request(), {
       ...unused.spec,
       spawn: (spawnSpec) => {
@@ -1621,15 +1448,12 @@ describe('run publication, cancellation, and settlement', () => {
     expect(factoryController?.signal.aborted).toBe(true)
     expect(spawned.terminate).toHaveBeenCalledOnce()
 
-    /** 中文说明：变量 cleanupRaceAbort 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const cleanupRaceAbort = new AbortController()
-    /** 中文说明：变量 cleanupRaceChild 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const cleanupRaceChild = fakeChild({ exitOnTerminate: false })
     queryMock.mockImplementationOnce(({ options }) => {
       options.spawnClaudeCodeProcess!(sdkSpawnOptions())
       throw new Error('query failed before cleanup wait')
     })
-    /** 中文说明：变量 cleanupRace 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const cleanupRace = startClaudeCodeRun(
       request(undefined, cleanupRaceAbort.signal),
       {
@@ -1642,19 +1466,15 @@ describe('run publication, cancellation, and settlement', () => {
     cleanupRaceChild.settle()
     await expect(cleanupRace).rejects.toThrow('aborted before SDK startup')
 
-    /** 中文说明：变量 spawnError 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const spawnError = Object.assign(
       new Error('spawn /sdk/claude EACCES'),
       { code: 'EACCES', path: '/sdk/claude' },
     )
-    /** 中文说明：变量 failedSpawn 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const failedSpawn = fakeChild({
       pid: -1,
       doneError: spawnError,
     })
-    /** 中文说明：变量 failed 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const failed = fakeRun([], undefined, failedSpawn)
-    /** 中文说明：变量 failedStartup 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const failedStartup = startClaudeCodeRun(request(), failed.spec)
     await expect(failedStartup)
       .rejects.toThrow(expectedFailureDiagnostic('query-start', 'unknown'))
@@ -1664,14 +1484,11 @@ describe('run publication, cancellation, and settlement', () => {
     expect(failedSpawn.terminate).not.toHaveBeenCalled()
     expect(failedSpawn.waitForExit).not.toHaveBeenCalled()
 
-    /** 中文说明：变量 failedSpawnAbort 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const failedSpawnAbort = new AbortController()
-    /** 中文说明：变量 cancelledFailedSpawn 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const cancelledFailedSpawn = fakeChild({
       pid: -1,
       doneError: spawnError,
     })
-    /** 中文说明：变量 cancelledFailedClose 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const cancelledFailedClose = vi.fn()
     queryMock.mockImplementationOnce(({ options }) => {
       options.spawnClaudeCodeProcess!(sdkSpawnOptions())
@@ -1684,25 +1501,20 @@ describe('run publication, cancellation, and settlement', () => {
     )).rejects.toThrow('aborted before SDK startup')
     expect(cancelledFailedClose).toHaveBeenCalledOnce()
 
-    /** 中文说明：变量 cancelledFailedSpawnCloseError 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const cancelledFailedSpawnCloseError = new Error('cancelled query close failed')
-    /** 中文说明：函数值 cancelledFailedSpawnClose 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const cancelledFailedSpawnClose = vi.fn(() => {
       throw cancelledFailedSpawnCloseError
     })
-    /** 中文说明：变量 cancelledFailedSpawnWithCloseFailure 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const cancelledFailedSpawnWithCloseFailure = fakeChild({
       pid: -1,
       doneError: spawnError,
     })
-    /** 中文说明：变量 failedSpawnAbortWithCloseFailure 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const failedSpawnAbortWithCloseFailure = new AbortController()
     queryMock.mockImplementationOnce(({ options }) => {
       options.spawnClaudeCodeProcess!(sdkSpawnOptions())
       failedSpawnAbortWithCloseFailure.abort(new Error('startup cancelled'))
       return queryFrom([], undefined, cancelledFailedSpawnClose)
     })
-    /** 中文说明：变量 cancelledWithCloseFailure 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const cancelledWithCloseFailure = startClaudeCodeRun(
       request(undefined, failedSpawnAbortWithCloseFailure.signal),
       { ...unused.spec, spawn: () => cancelledFailedSpawnWithCloseFailure.handle },
@@ -1724,11 +1536,8 @@ describe('run publication, cancellation, and settlement', () => {
       .rejects.not.toThrow('spawn /sdk/claude EACCES')
     expect(cancelledFailedSpawnClose).toHaveBeenCalledOnce()
 
-    /** 中文说明：变量 failedSpawnCloseError 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const failedSpawnCloseError = new Error('query close failed')
-    /** 中文说明：函数值 failedSpawnClose 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const failedSpawnClose = vi.fn(() => { throw failedSpawnCloseError })
-    /** 中文说明：变量 failedSpawnWithCloseFailure 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const failedSpawnWithCloseFailure = fakeChild({
       pid: -1,
       doneError: spawnError,
@@ -1737,7 +1546,6 @@ describe('run publication, cancellation, and settlement', () => {
       options.spawnClaudeCodeProcess!(sdkSpawnOptions())
       return queryFrom([], undefined, failedSpawnClose)
     })
-    /** 中文说明：变量 failedWithCloseFailure 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const failedWithCloseFailure = startClaudeCodeRun(request(), {
       ...unused.spec,
       spawn: () => failedSpawnWithCloseFailure.handle,
@@ -1754,19 +1562,15 @@ describe('run publication, cancellation, and settlement', () => {
       ],
     })
 
-    /** 中文说明：变量 cleanupError 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const cleanupError = new Error('live child cleanup failed')
-    /** 中文说明：变量 constructionError 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const constructionError = new Error(
       'query construction failed with a live child',
     )
-    /** 中文说明：变量 liveChildCleanupFailure 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const liveChildCleanupFailure = fakeChild({ waitForExitError: cleanupError })
     queryMock.mockImplementationOnce(({ options }) => {
       options.spawnClaudeCodeProcess!(sdkSpawnOptions())
       throw constructionError
     })
-    /** 中文说明：变量 liveCleanupFailure 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const liveCleanupFailure = startClaudeCodeRun(request(), {
       ...unused.spec,
       spawn: () => liveChildCleanupFailure.handle,
@@ -1787,9 +1591,7 @@ describe('run publication, cancellation, and settlement', () => {
 
 describe('query and process disposal', () => {
   it('closes the query, terminates the tree, and waits for direct-child outcome', async () => {
-    /** 中文说明：变量 child 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const child = fakeChild()
-    /** 中文说明：变量 close 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const close = vi.fn()
     await disposeClaudeCodeChild({ close }, child.handle)
     expect(close).toHaveBeenCalledOnce()
@@ -1803,11 +1605,8 @@ describe('query and process disposal', () => {
   })
 
   it('reports a published teardown failure to the Host diagnostic sink', async () => {
-    /** 中文说明：变量 fixture 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const fixture = fakeRun([success('exact answer')])
-    /** 中文说明：变量 onError 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const onError = vi.fn<NonNullable<ClaudeCodeRunSpec['onError']>>()
-    /** 中文说明：变量 run 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const run = await startClaudeCodeRun(request(), {
       ...fixture.spec,
       onError,
@@ -1828,11 +1627,8 @@ describe('query and process disposal', () => {
   })
 
   it('does not finish disposal before the managed tree exits', async () => {
-    /** 中文说明：变量 child 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const child = fakeChild({ exitOnTerminate: false })
-    /** 中文说明：变量 disposed 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     let disposed = false
-    /** 中文说明：变量 disposal 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const disposal = disposeClaudeCodeChild(
       { close: vi.fn() },
       child.handle,
@@ -1847,13 +1643,10 @@ describe('query and process disposal', () => {
   })
 
   it('reports close and tree-wait failures without skipping cleanup', async () => {
-    /** 中文说明：变量 waitFailure 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const waitFailure = fakeChild({
       waitForExitError: new Error('wait boom'),
     })
-    /** 中文说明：函数值 closeFailure 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const closeFailure = vi.fn(() => { throw new Error('close boom') })
-    /** 中文说明：变量 waitAndClose 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const waitAndClose = disposeClaudeCodeChild(
       { close: closeFailure },
       waitFailure.handle,
@@ -1863,12 +1656,10 @@ describe('query and process disposal', () => {
       'unknown',
       { exitCode: 0, signal: null },
     ))
-    /** 中文说明：变量 waitAndCloseError 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const waitAndCloseError = await waitAndClose.then(
       () => undefined,
       (error: unknown) => error,
     )
-    /** 中文说明：变量 waitAndCloseCause 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const waitAndCloseCause = errorCause(waitAndCloseError)
     expect(waitAndCloseCause).toBeInstanceOf(AggregateError)
     expect((waitAndCloseCause as AggregateError).errors).toEqual([

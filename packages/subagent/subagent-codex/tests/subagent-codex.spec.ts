@@ -1,11 +1,3 @@
-/**
- * 文件职责：验证 subagent-codex.spec.ts 覆盖的子代理启动、协议、继承与生命周期行为。
- * 技术维度：使用 TypeScript、Vitest、Cordis 插件、进程协议或同进程代理驱动。
- * 产品维度：保障 Agent 能可靠委派任务、继承上下文并收集子代理结果。
- * 逻辑维度：准备代理配置，启动或连接子代理，转发事件，再处理结果、取消与清理。
- * 关键边界：异步状态不等于单次任务结果；外部输出不可信；清理必须等待子代理完全停止。
- * 新手阅读建议：先看公开配置和测试夹具，再读启动/事件流程，最后关注继承、取消与失败路径。
- */
 import { readFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { PassThrough } from 'node:stream'
@@ -18,6 +10,7 @@ import type { Agent } from '@deepseek-ai/dsh-agent'
 import type { InvariantInstaller } from '@deepseek-ai/dsh-invariants'
 import type { ContentBlock } from '@deepseek-ai/dsh-llm'
 import SubagentRuntime from '@deepseek-ai/dsh-subagent'
+import SessionProjectionRegistry from '@deepseek-ai/dsh-session-projection'
 import { MAX_TIMER_DELAY_MS } from '@deepseek-ai/dsh-timeout'
 import type {
   SubprocessHandle,
@@ -35,7 +28,6 @@ import {
   disposeCodexChild,
   startCodexRun,
   textTask,
-  /** 中文说明：type CodexRunSpec 定义本测试所需的数据或行为，用于表达子代理场景。 */
   type CodexRunSpec,
 } from '../src/run.ts'
 import { CodexAppServerWire } from '../src/wire.ts'
@@ -49,7 +41,6 @@ const { hostStderrWrite } = vi.hoisted(() => ({
 }))
 
 vi.mock('node:fs', async (importOriginal) => {
-  /** 中文说明：变量 actual 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const actual = await importOriginal<typeof import('node:fs')>()
   return {
     ...actual,
@@ -62,7 +53,6 @@ vi.mock('node:fs', async (importOriginal) => {
           hostStderrWrite.failNext = false
           throw Object.assign(new Error('host stderr broke'), { code: 'EIO' })
         }
-        /** 中文说明：变量 bytes 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
         const bytes = typeof value === 'string'
           ? Buffer.from(value)
           : Buffer.from(value.buffer, value.byteOffset, value.byteLength)
@@ -74,7 +64,6 @@ vi.mock('node:fs', async (importOriginal) => {
   }
 })
 
-/** 中文说明：type JsonObject 定义本测试所需的数据或行为，用于表达子代理场景。 */
 type JsonObject = Record<string, unknown>
 
 const CODEX_VERSION = '0.149.1'
@@ -87,13 +76,11 @@ const CODEX_PLATFORM_PACKAGES = [
   '@openai/codex-win32-x64',
 ] as const
 
-/** 中文说明：变量 fakeParent 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const fakeParent = {
   id: 'parent',
   session: { header: { cwd: process.cwd() } },
 } as unknown as Agent
 
-/** 中文说明：函数 request 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function request(
   prompt: ContentBlock[] = [{ type: 'text', text: 'do the task' }],
   signal = new AbortController().signal,
@@ -101,12 +88,10 @@ function request(
   return { prompt, parent: fakeParent, signal }
 }
 
-/** 中文说明：函数 nextTask 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 async function nextTask(): Promise<void> {
   await new Promise<void>((resolve) => { setImmediate(resolve) })
 }
 
-/** 中文说明：class ProtocolPeer 定义本测试所需的数据或行为，用于表达子代理场景。 */
 class ProtocolPeer {
   private buffer = ''
   private readonly frames: JsonObject[] = []
@@ -118,26 +103,20 @@ class ProtocolPeer {
   ) {
     input.on('data', (chunk: Buffer | string) => {
       this.buffer += chunk.toString()
-      /** 中文说明：该循环依次处理代理事件；循环变量仅在当前循环中有效。 */
       for (;;) {
-        /** 中文说明：变量 newline 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
         const newline = this.buffer.indexOf('\n')
         if (newline < 0) break
-        /** 中文说明：变量 line 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
         const line = this.buffer.slice(0, newline)
         this.buffer = this.buffer.slice(newline + 1)
         if (line.trim().length > 0) this.frames.push(JSON.parse(line) as JsonObject)
       }
-      /** 中文说明：该循环依次处理代理事件；循环变量仅在当前循环中有效。 */
       for (const wake of this.wakeups) wake()
       this.wakeups.clear()
     })
   }
 
   async next(predicate: (frame: JsonObject) => boolean): Promise<JsonObject> {
-    /** 中文说明：该循环依次处理代理事件；循环变量仅在当前循环中有效。 */
     for (;;) {
-      /** 中文说明：变量 index 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const index = this.frames.findIndex(predicate)
       if (index >= 0) return this.frames.splice(index, 1)[0]!
       await new Promise<void>((resolve) => { this.wakeups.add(resolve) })
@@ -161,7 +140,6 @@ class ProtocolPeer {
   }
 }
 
-/** 中文说明：interface FakeChildOptions 定义本测试所需的数据或行为，用于表达子代理场景。 */
 interface FakeChildOptions {
   readonly pid?: number
   readonly exitOnTerminate?: boolean
@@ -169,7 +147,6 @@ interface FakeChildOptions {
   readonly waitForExitError?: Error
 }
 
-/** 中文说明：interface FakeChild 定义本测试所需的数据或行为，用于表达子代理场景。 */
 interface FakeChild {
   readonly handle: SubprocessHandle
   readonly peer: ProtocolPeer
@@ -183,28 +160,18 @@ interface FakeChild {
   readonly waitForExit: (signal?: AbortSignal) => Promise<boolean>
 }
 
-/** 中文说明：函数 fakeChild 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function fakeChild(options: FakeChildOptions = {}): FakeChild {
-  /** 中文说明：变量 fromChild 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const fromChild = new PassThrough()
-  /** 中文说明：变量 toChild 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const toChild = new PassThrough()
-  /** 中文说明：变量 stderr 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const stderr = new PassThrough()
-  /** 中文说明：变量 peer 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const peer = new ProtocolPeer(toChild, fromChild)
-  /** 中文说明：变量 exited 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   let exited = false
-  /** 中文说明：函数值 resolveDone 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
   let resolveDone!: (outcome: SubprocessOutcome) => void
-  /** 中文说明：函数值 rejectDone 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
   let rejectDone!: (error: Error) => void
-  /** 中文说明：函数值 done 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
   const done = new Promise<SubprocessOutcome>((resolve, reject) => {
     resolveDone = resolve
     rejectDone = reject
   })
-  /** 中文说明：变量 settle 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const settle = (
     outcome: SubprocessOutcome = { exitCode: 0, signal: null },
   ): void => {
@@ -212,18 +179,15 @@ function fakeChild(options: FakeChildOptions = {}): FakeChild {
     exited = true
     resolveDone(outcome)
   }
-  /** 中文说明：函数值 fail 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
   const fail = (error: Error): void => {
     if (exited) return
     exited = true
     rejectDone(error)
   }
   if (options.doneError !== undefined) fail(options.doneError)
-  /** 中文说明：函数值 terminate 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
   const terminate = vi.fn(() => {
     if (options.exitOnTerminate !== false) settle()
   })
-  /** 中文说明：函数值 waitForExit 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
   const waitForExit = vi.fn(async (signal?: AbortSignal) => {
     if (options.waitForExitError !== undefined) {
       throw options.waitForExitError
@@ -234,7 +198,6 @@ function fakeChild(options: FakeChildOptions = {}): FakeChild {
       return true
     }
     return await new Promise<boolean>((resolve) => {
-      /** 中文说明：函数值 onAbort 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
       const onAbort = (): void => { resolve(false) }
       signal.addEventListener('abort', onAbort, { once: true })
       void done.then(
@@ -249,7 +212,6 @@ function fakeChild(options: FakeChildOptions = {}): FakeChild {
       )
     })
   })
-  /** 中文说明：变量 handle 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const handle: SubprocessHandle = {
     pid: options.pid ?? 1234,
     stdin: toChild,
@@ -274,7 +236,6 @@ function fakeChild(options: FakeChildOptions = {}): FakeChild {
   }
 }
 
-/** 中文说明：函数 defaultWire 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function defaultWire(child: FakeChild): CodexAppServerWire {
   return new CodexAppServerWire(
     child.handle.stdout!,
@@ -283,7 +244,6 @@ function defaultWire(child: FakeChild): CodexAppServerWire {
   )
 }
 
-/** 中文说明：函数 runSpec 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function runSpec(
   child: FakeChild,
   overrides: Partial<CodexRunSpec> = {},
@@ -298,19 +258,14 @@ function runSpec(
   }
 }
 
-/** 中文说明：函数 initializeWire 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 async function initializeWire(): Promise<{
   readonly child: FakeChild
   readonly wire: CodexAppServerWire
 }> {
-  /** 中文说明：变量 child 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const child = fakeChild()
-  /** 中文说明：变量 wire 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const wire = defaultWire(child)
   wire.start()
-  /** 中文说明：变量 initializing 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const initializing = wire.initialize(new AbortController().signal)
-  /** 中文说明：变量 initialize 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const initialize = await child.peer.nextMethod('initialize')
   child.peer.respond(initialize, { userAgent: 'codex-cli 0.149.1' })
   await initializing
@@ -318,38 +273,29 @@ async function initializeWire(): Promise<{
     jsonrpc: '2.0',
     method: 'initialized',
   })
-  /** 中文说明：变量 starting 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const starting = wire.startThread(process.cwd(), new AbortController().signal)
-  /** 中文说明：变量 threadStart 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const threadStart = await child.peer.nextMethod('thread/start')
   child.peer.respond(threadStart, { thread: { id: 'thread-1', ephemeral: true } })
   await starting
   return { child, wire }
 }
 
-/** 中文说明：函数 publishRun 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 async function publishRun(
   child = fakeChild(),
   signal = new AbortController().signal,
   specOverrides: Partial<CodexRunSpec> = {},
 ) {
-  /** 中文说明：变量 starting 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const starting = startCodexRun(request(undefined, signal), runSpec(child, specOverrides))
-  /** 中文说明：变量 initialize 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const initialize = await child.peer.nextMethod('initialize')
   child.peer.respond(initialize, { userAgent: 'codex-cli 0.149.1' })
   await child.peer.nextMethod('initialized')
-  /** 中文说明：变量 threadStart 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const threadStart = await child.peer.nextMethod('thread/start')
   child.peer.respond(threadStart, { thread: { id: 'thread-1', ephemeral: true } })
-  /** 中文说明：变量 run 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const run = await starting
-  /** 中文说明：变量 turnStart 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const turnStart = await child.peer.nextMethod('turn/start')
   return { child, run, turnStart }
 }
 
-/** 中文说明：函数 agentMessage 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function agentMessage(
   text: unknown,
   phase: unknown,
@@ -366,7 +312,6 @@ function agentMessage(
   }
 }
 
-/** 中文说明：函数 turnCompleted 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function turnCompleted(
   status: unknown,
   turnId = 'turn-1',
@@ -382,7 +327,6 @@ function turnCompleted(
   }
 }
 
-/** 中文说明：函数 expectedFailureDiagnostic 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function expectedFailureDiagnostic(
   stage: 'initialize' | 'thread-start' | 'turn-start' | 'turn' | 'process' | 'teardown',
   category: string,
@@ -391,7 +335,6 @@ function expectedFailureDiagnostic(
     readonly outcome?: Partial<SubprocessOutcome>
   } = {},
 ): string {
-  /** 中文说明：变量 fields 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const fields = [
     'product: Codex',
     `stage: ${stage}`,
@@ -417,9 +360,7 @@ function expectedFailureDiagnostic(
 
 describe('task admission and package contracts', () => {
   it('ships one independently installable provider-only Bundle patch', () => {
-    /** 中文说明：变量 root 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const root = fileURLToPath(new URL('..', import.meta.url))
-    /** 中文说明：变量 manifest 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const manifest = JSON.parse(readFileSync(resolve(root, 'package.json'), 'utf8')) as {
       dependencies?: Record<string, string>
       files?: string[]
@@ -434,9 +375,7 @@ describe('task admission and package contracts', () => {
     expect(manifest.dependencies).toHaveProperty('@openai/codex', CODEX_VERSION)
     expect(manifest.dependencies).not.toHaveProperty('@deepseek-ai/dsh-subagent-claude-code')
 
-    /** 中文说明：变量 codexPackageJson 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const codexPackageJson = fileURLToPath(import.meta.resolve('@openai/codex/package.json'))
-    /** 中文说明：变量 codexManifest 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const codexManifest = JSON.parse(readFileSync(codexPackageJson, 'utf8')) as {
       version: string
       bin: { codex: string }
@@ -457,11 +396,8 @@ describe('task admission and package contracts', () => {
       '--stdio',
     ])
 
-    /** 中文说明：变量 lockfile 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const lockfile = readFileSync(resolve(root, '../../../pnpm-lock.yaml'), 'utf8')
-    /** 中文说明：该循环依次处理代理事件；循环变量仅在当前循环中有效。 */
     for (const packageName of CODEX_PLATFORM_PACKAGES) {
-      /** 中文说明：变量 suffix 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const suffix = packageName.slice('@openai/codex-'.length)
       expect(lockfile).toContain(`  '@openai/codex@${CODEX_VERSION}-${suffix}':`)
       expect(lockfile).toContain(
@@ -469,9 +405,7 @@ describe('task admission and package contracts', () => {
       )
     }
 
-    /** 中文说明：变量 parsed 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const parsed = yaml.load(readFileSync(resolve(root, manifest.dsh!.bundle!.patch!), 'utf8'))
-    /** 中文说明：变量 rows 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const rows = Array.isArray(parsed)
       ? (parsed as Array<{ insert?: Array<{ id?: string; name?: string }> }>).flatMap(entry => entry.insert ?? [])
       : []
@@ -495,13 +429,11 @@ describe('task admission and package contracts', () => {
   })
 
   it('registers the default descriptor, validates config, and unregisters on HMR', async () => {
-    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
+    await ctx.plugin(SessionProjectionRegistry)
     await ctx.plugin(SubagentRuntime)
     await ctx.plugin(LocalSubprocessRuntime)
-    /** 中文说明：变量 fiber 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const fiber = await ctx.plugin(codex, {})
-    /** 中文说明：变量 provider 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const provider = ctx.subagents.getProvider('codex')!
     expect(provider).toMatchObject({
       name: 'codex',
@@ -517,7 +449,6 @@ describe('task admission and package contracts', () => {
     await fiber.dispose()
     expect(ctx.subagents.list()).toEqual([])
 
-    /** 中文说明：该循环依次处理代理事件；循环变量仅在当前循环中有效。 */
     for (const disposeGraceMs of [0, -1, Number.NaN, Number.POSITIVE_INFINITY]) {
       await expect(ctx.plugin(codex, { disposeGraceMs }))
         .rejects.toThrow('disposeGraceMs must be a positive finite number')
@@ -528,15 +459,12 @@ describe('task admission and package contracts', () => {
   })
 
   it('keeps named instances, runs, and HMR ownership isolated', async () => {
-    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
+    await ctx.plugin(SessionProjectionRegistry)
     await ctx.plugin(SubagentRuntime)
     await ctx.plugin(LocalSubprocessRuntime)
-    /** 中文说明：变量 safeChild 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const safeChild = fakeChild()
-    /** 中文说明：变量 bypassChild 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const bypassChild = fakeChild()
-    /** 中文说明：变量 spawnSpecs 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const spawnSpecs: SubprocessSpawnSpec[] = []
     vi.spyOn(ctx.subprocess, 'spawn').mockImplementation((spec) => {
       spawnSpecs.push(spec)
@@ -544,19 +472,14 @@ describe('task admission and package contracts', () => {
         ? safeChild.handle
         : bypassChild.handle
     })
-    /** 中文说明：变量 added 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const added: string[] = []
-    /** 中文说明：变量 started 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const started: string[] = []
-    /** 中文说明：变量 ended 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ended: string[] = []
-    /** 中文说明：变量 removed 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const removed: string[] = []
     ctx.on('subagent/provider-added', provider => void added.push(provider.name))
     ctx.on('subagent/start', info => void started.push(info.provider))
     ctx.on('subagent/end', info => void ended.push(info.provider))
     ctx.on('subagent/provider-removed', providerName => void removed.push(providerName))
-    /** 中文说明：变量 safeFiber 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const safeFiber = await ctx.plugin(codex, {
       providerName: 'codex-safe',
       model: 'codex-safe-model',
@@ -564,7 +487,6 @@ describe('task admission and package contracts', () => {
       permissionMode: 'never',
       disposeGraceMs: 11,
     })
-    /** 中文说明：变量 bypassFiber 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const bypassFiber = await ctx.plugin(codex, {
       providerName: 'codex-bypass',
       model: 'codex-bypass-model',
@@ -575,14 +497,11 @@ describe('task admission and package contracts', () => {
     expect(ctx.subagents.list()).toEqual(['codex-safe', 'codex-bypass'])
     expect(added).toEqual(['codex-safe', 'codex-bypass'])
 
-    /** 中文说明：变量 safeController 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const safeController = new AbortController()
-    /** 中文说明：变量 safeStarting 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const safeStarting = ctx.subagents.start(
       'codex-safe',
       request(undefined, safeController.signal),
     )
-    /** 中文说明：变量 bypassStarting 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const bypassStarting = ctx.subagents.start('codex-bypass', request())
     for (const [child, model] of [
       [safeChild, 'codex-safe-model'],
@@ -591,7 +510,6 @@ describe('task admission and package contracts', () => {
       const initialize = await child.peer.nextMethod('initialize')
       child.peer.respond(initialize, { userAgent: 'codex-cli 0.149.1' })
       await child.peer.nextMethod('initialized')
-      /** 中文说明：变量 threadStart 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const threadStart = await child.peer.nextMethod('thread/start')
       expect(threadStart.params).toMatchObject({ model })
       child.peer.respond(threadStart, {
@@ -608,9 +526,7 @@ describe('task admission and package contracts', () => {
     await expect(ctx.subagents.start('codex-safe', request()))
       .rejects.toMatchObject({ code: 'NO_PROVIDER' })
 
-    /** 中文说明：变量 safeTurn 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const safeTurn = await safeChild.peer.nextMethod('turn/start')
-    /** 中文说明：变量 bypassTurn 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const bypassTurn = await bypassChild.peer.nextMethod('turn/start')
     safeChild.peer.respond(safeTurn, { turn: { id: 'turn-safe' } })
     bypassChild.peer.send(
@@ -646,15 +562,13 @@ describe('task admission and package contracts', () => {
   })
 
   it('rejects duplicate provider names without replacing the first instance', async () => {
-    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
+    await ctx.plugin(SessionProjectionRegistry)
     await ctx.plugin(SubagentRuntime)
     await ctx.plugin(LocalSubprocessRuntime)
-    /** 中文说明：变量 firstFiber 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const firstFiber = await ctx.plugin(codex, {
       providerName: 'codex-duplicate',
     })
-    /** 中文说明：变量 first 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const first = ctx.subagents.getProvider('codex-duplicate')
     await expect(ctx.plugin(codex, {
       providerName: 'codex-duplicate',
@@ -675,19 +589,17 @@ describe('task admission and package contracts', () => {
     expect(codex.Config({ model: 'gpt-codex' }).model).toBe('gpt-codex')
     expect(() => codex.Config({ model: '' })).toThrow()
     expect(codex.Config({}).permissionMode).toBe(DEFAULT_CODEX_PERMISSION_MODE)
-    /** 中文说明：该循环依次处理代理事件；循环变量仅在当前循环中有效。 */
     for (const permissionMode of CODEX_PERMISSION_MODES) {
       expect(codex.Config({ permissionMode }).permissionMode).toBe(permissionMode)
     }
-    /** 中文说明：该循环依次处理代理事件；循环变量仅在当前循环中有效。 */
     for (const permissionMode of ['on-request', 'untrusted', 'future-mode']) {
       expect(() => codex.Config({ permissionMode } as never)).toThrow()
     }
   })
 
   it('resolves the safe permission default when apply is called directly', async () => {
-    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
+    await ctx.plugin(SessionProjectionRegistry)
     await ctx.plugin(SubagentRuntime)
     await ctx.plugin(LocalSubprocessRuntime)
     const child = fakeChild()
@@ -728,25 +640,19 @@ describe('task admission and package contracts', () => {
       sandbox: 'danger-full-access',
     }],
   ] as const)('maps %s to the official thread/start fields', async (permissionMode, expected) => {
-    /** 中文说明：变量 child 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const child = fakeChild()
-    /** 中文说明：变量 wire 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const wire = new CodexAppServerWire(
       child.handle.stdout!,
       child.handle.stdin!,
       permissionMode,
     )
     wire.start()
-    /** 中文说明：变量 initializing 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const initializing = wire.initialize(new AbortController().signal)
-    /** 中文说明：变量 initialize 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const initialize = await child.peer.nextMethod('initialize')
     child.peer.respond(initialize, { userAgent: 'codex-cli 0.149.1' })
     await initializing
     await child.peer.nextMethod('initialized')
-    /** 中文说明：变量 starting 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const starting = wire.startThread('/workspace', new AbortController().signal)
-    /** 中文说明：变量 threadStart 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const threadStart = await child.peer.nextMethod('thread/start')
     expect(threadStart.params).toEqual({
       cwd: '/workspace',
@@ -787,11 +693,10 @@ describe('task admission and package contracts', () => {
   })
 
   it('requires a parent session cwd without suggesting unsupported config', async () => {
-    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
+    await ctx.plugin(SessionProjectionRegistry)
     await ctx.plugin(SubagentRuntime)
     await ctx.plugin(LocalSubprocessRuntime)
-    /** 中文说明：变量 spawn 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const spawn = vi.spyOn(ctx.subprocess, 'spawn')
     await ctx.plugin(codex, {})
 
@@ -813,25 +718,20 @@ describe('task admission and package contracts', () => {
     expect('default' in codex).toBe(false)
     expect(codex.name).toBe('subagent-codex')
     expect(codex.inject).toEqual(['subagents', 'subprocess'])
-    /** 中文说明：变量 loader 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const loader = Object.create(Loader.prototype) as Loader
     expect(loader.unwrapExports(codex)).toBe(codex)
 
-    /** 中文说明：变量 dispose 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const dispose = vi.fn()
-    /** 中文说明：变量 register 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const register = vi.fn((
       _packageName: string,
       _installer: InvariantInstaller,
     ) => dispose)
-    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = { invariants: { register } } as unknown as Context
     await expect(invariant.apply(ctx)).resolves.toBe(dispose)
     expect(register).toHaveBeenCalledWith(
       '@deepseek-ai/dsh-subagent-codex',
       expect.any(Function),
     )
-    /** 中文说明：变量 install 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const install = register.mock.calls[0]![1]
     await install(new Context(), (message) => { throw new Error(message) })
     expect(invariant.name).toBe('subagent-codex-invariant')
@@ -841,16 +741,12 @@ describe('task admission and package contracts', () => {
 
 describe('CodexAppServerWire', () => {
   it('sends the fixed handshake, thread, and turn payloads and keeps final_answer', async () => {
-    /** 中文说明：变量 child 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const child = fakeChild()
-    /** 中文说明：变量 wire 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const wire = defaultWire(child)
     expect(wire.collectOutput()).toEqual([])
     wire.start()
 
-    /** 中文说明：变量 initializing 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const initializing = wire.initialize(new AbortController().signal)
-    /** 中文说明：变量 initialize 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const initialize = await child.peer.nextMethod('initialize')
     expect(initialize.params).toEqual({
       clientInfo: {
@@ -867,9 +763,7 @@ describe('CodexAppServerWire', () => {
     await initializing
     await child.peer.nextMethod('initialized')
 
-    /** 中文说明：变量 starting 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const starting = wire.startThread('/workspace', new AbortController().signal)
-    /** 中文说明：变量 threadStart 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const threadStart = await child.peer.nextMethod('thread/start')
     expect(threadStart.params).toEqual({
       cwd: '/workspace',
@@ -879,12 +773,10 @@ describe('CodexAppServerWire', () => {
     child.peer.respond(threadStart, { thread: { id: 'thread-1', ephemeral: true } })
     await starting
 
-    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = wire.runTurn(
       ['first', 'second'],
       new AbortController().signal,
     )
-    /** 中文说明：变量 turnStart 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const turnStart = await child.peer.nextMethod('turn/start')
     expect(turnStart.params).toEqual({
       threadId: 'thread-1',
@@ -927,9 +819,7 @@ describe('CodexAppServerWire', () => {
 
   it('uses the last nullable-phase answer when no explicit final exists', async () => {
     const { child, wire } = await initializeWire()
-    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = wire.runTurn(['task'], new AbortController().signal)
-    /** 中文说明：变量 turnStart 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const turnStart = await child.peer.nextMethod('turn/start')
     child.peer.respond(turnStart, { turn: { id: 'turn-1' } })
     child.peer.send(
@@ -956,9 +846,7 @@ describe('CodexAppServerWire', () => {
     ] as const
     for (const [codexErrorInfo, category, stopReason] of scenarios) {
       const { child, wire } = await initializeWire()
-      /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const result = wire.runTurn(['task'], new AbortController().signal)
-      /** 中文说明：变量 turnStart 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const turnStart = await child.peer.nextMethod('turn/start')
       child.peer.respond(turnStart, { turn: { id: 'turn-1' } })
       child.peer.send(
@@ -995,9 +883,7 @@ describe('CodexAppServerWire', () => {
     ] as const
     for (const [codexErrorInfo, detail, category, httpStatus] of scenarios) {
       const { child, wire } = await initializeWire()
-      /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const result = wire.runTurn(['task'], new AbortController().signal)
-      /** 中文说明：变量 turnStart 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const turnStart = await child.peer.nextMethod('turn/start')
       child.peer.respond(turnStart, { turn: { id: 'turn-1' } })
       child.peer.send(turnCompleted('failed', 'turn-1', 'thread-1', {
@@ -1016,7 +902,6 @@ describe('CodexAppServerWire', () => {
   })
 
   it('uses unknown for version-external or malformed error info', async () => {
-    /** 中文说明：该循环依次处理代理事件；循环变量仅在当前循环中有效。 */
     for (const codexErrorInfo of [
       'futureError',
       { futureVariant: { message: 'SECRET_TOKEN' } },
@@ -1027,9 +912,7 @@ describe('CodexAppServerWire', () => {
       { httpConnectionFailed: null },
     ]) {
       const { child, wire } = await initializeWire()
-      /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const result = wire.runTurn(['task'], new AbortController().signal)
-      /** 中文说明：变量 turnStart 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const turnStart = await child.peer.nextMethod('turn/start')
       child.peer.respond(turnStart, { turn: { id: 'turn-1' } })
       child.peer.send(turnCompleted('failed', 'turn-1', 'thread-1', {
@@ -1047,28 +930,20 @@ describe('CodexAppServerWire', () => {
 
   it('rejects invalid handshake, thread, and turn response shapes', async () => {
     {
-      /** 中文说明：变量 child 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const child = fakeChild()
-      /** 中文说明：变量 wire 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const wire = defaultWire(child)
       wire.start()
-      /** 中文说明：变量 pending 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const pending = wire.initialize(new AbortController().signal)
-      /** 中文说明：变量 frame 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const frame = await child.peer.nextMethod('initialize')
       child.peer.respond(frame, null)
       await expect(pending).rejects.toThrow('invalid initialize response')
       wire.close()
     }
     {
-      /** 中文说明：变量 child 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const child = fakeChild()
-      /** 中文说明：变量 wire 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const wire = defaultWire(child)
       wire.start()
-      /** 中文说明：变量 pending 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const pending = wire.startThread('/workspace', new AbortController().signal)
-      /** 中文说明：变量 frame 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const frame = await child.peer.nextMethod('thread/start')
       child.peer.respond(frame, { thread: { id: 'thread-1', ephemeral: false } })
       await expect(pending).rejects.toThrow('did not create an ephemeral thread')
@@ -1076,9 +951,7 @@ describe('CodexAppServerWire', () => {
     }
     {
       const { child, wire } = await initializeWire()
-      /** 中文说明：变量 pending 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const pending = wire.runTurn(['task'], new AbortController().signal)
-      /** 中文说明：变量 frame 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const frame = await child.peer.nextMethod('turn/start')
       child.peer.respond(frame, { turn: { id: '' } })
       await expect(pending).rejects.toThrow('turn/start turn id')
@@ -1091,7 +964,6 @@ describe('CodexAppServerWire', () => {
   })
 
   it('fails closed for empty output, malformed messages, phases, and terminal status', async () => {
-    /** 中文说明：变量 scenarios 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const scenarios: Array<{
       readonly frames: JsonObject[]
       readonly message: string
@@ -1142,12 +1014,9 @@ describe('CodexAppServerWire', () => {
         category: 'unknown',
       },
     ]
-    /** 中文说明：该循环依次处理代理事件；循环变量仅在当前循环中有效。 */
     for (const scenario of scenarios) {
       const { child, wire } = await initializeWire()
-      /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const result = wire.runTurn(['task'], new AbortController().signal)
-      /** 中文说明：变量 turnStart 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const turnStart = await child.peer.nextMethod('turn/start')
       child.peer.respond(turnStart, { turn: { id: 'turn-1' } })
       await nextTask()
@@ -1163,9 +1032,7 @@ describe('CodexAppServerWire', () => {
 
   it('fails closed when terminal notification params are not an object', async () => {
     const { child, wire } = await initializeWire()
-    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = wire.runTurn(['task'], new AbortController().signal)
-    /** 中文说明：变量 turnStart 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const turnStart = await child.peer.nextMethod('turn/start')
     child.peer.respond(turnStart, { turn: { id: 'turn-1' } })
     child.peer.send({ method: 'turn/completed', params: null })
@@ -1175,9 +1042,7 @@ describe('CodexAppServerWire', () => {
 
   it('keeps an unsupported request authoritative over an early terminal in the same chunk', async () => {
     const { child, wire } = await initializeWire()
-    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = wire.runTurn(['task'], new AbortController().signal)
-    /** 中文说明：变量 turnStart 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const turnStart = await child.peer.nextMethod('turn/start')
     child.peer.send(
       { id: turnStart.id, result: { turn: { id: 'turn-1' } } },
@@ -1191,9 +1056,7 @@ describe('CodexAppServerWire', () => {
 
   it('answers all five unattended request classes without granting authority', async () => {
     const { child, wire } = await initializeWire()
-    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = wire.runTurn(['task'], new AbortController().signal)
-    /** 中文说明：变量 turnStart 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const turnStart = await child.peer.nextMethod('turn/start')
 
     child.peer.send({
@@ -1216,7 +1079,6 @@ describe('CodexAppServerWire', () => {
     expect(wire.collectDiagnostic()).toBe(
       'Codex unattended decision (mode: never; request: command approval; decision: cancelled): the provider does not grant interactive approval',
     )
-    /** 中文说明：变量 requests 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const requests = [
       {
         id: 'command-decline',
@@ -1280,7 +1142,6 @@ describe('CodexAppServerWire', () => {
         diagnostic: 'Codex unattended decision (mode: never; request: MCP elicitation; decision: declined): the provider does not collect interactive MCP input',
       },
     ] as const
-    /** 中文说明：该循环依次处理代理事件；循环变量仅在当前循环中有效。 */
     for (const serverRequest of requests) {
       child.peer.send(serverRequest)
       expect(await child.peer.nextResponse(serverRequest.id)).toMatchObject({
@@ -1300,9 +1161,7 @@ describe('CodexAppServerWire', () => {
 
   it('records only a safe diagnostic for an explicit sandbox failure', async () => {
     const { child, wire } = await initializeWire()
-    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = wire.runTurn(['task'], new AbortController().signal)
-    /** 中文说明：变量 turnStart 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const turnStart = await child.peer.nextMethod('turn/start')
     child.peer.respond(turnStart, { turn: { id: 'turn-1' } })
     child.peer.send(turnCompleted('failed', 'turn-1', 'thread-1', {
@@ -1321,9 +1180,7 @@ describe('CodexAppServerWire', () => {
 
   it('records declined command and file items without retaining their payloads', async () => {
     const { child, wire } = await initializeWire()
-    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = wire.runTurn(['task'], new AbortController().signal)
-    /** 中文说明：变量 turnStart 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const turnStart = await child.peer.nextMethod('turn/start')
     child.peer.respond(turnStart, { turn: { id: 'turn-1' } })
     child.peer.send({
@@ -1373,9 +1230,7 @@ describe('CodexAppServerWire', () => {
 
   it('keeps a newer request diagnostic after replaying an older early item', async () => {
     const { child, wire } = await initializeWire()
-    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = wire.runTurn(['task'], new AbortController().signal)
-    /** 中文说明：变量 turnStart 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const turnStart = await child.peer.nextMethod('turn/start')
     child.peer.send({
       method: 'item/completed',
@@ -1404,7 +1259,6 @@ describe('CodexAppServerWire', () => {
   })
 
   it('fails the run on unknown requests or wrong request association', async () => {
-    /** 中文说明：该循环依次处理代理事件；循环变量仅在当前循环中有效。 */
     for (const serverRequest of [
       {
         id: 'unknown',
@@ -1441,14 +1295,11 @@ describe('CodexAppServerWire', () => {
       },
     ]) {
       const { child, wire } = await initializeWire()
-      /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const result = wire.runTurn(['task'], new AbortController().signal)
-      /** 中文说明：变量 turnStart 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const turnStart = await child.peer.nextMethod('turn/start')
       child.peer.respond(turnStart, { turn: { id: 'turn-1' } })
       await nextTask()
       child.peer.send(serverRequest)
-      /** 中文说明：变量 response 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const response = await child.peer.nextResponse(serverRequest.id)
       expect(response.error).toMatchObject({ code: -32603 })
       await expect(result).rejects.toThrow()
@@ -1458,9 +1309,7 @@ describe('CodexAppServerWire', () => {
 
   it('rejects conflicting early turn identities before accepting output', async () => {
     const { child, wire } = await initializeWire()
-    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = wire.runTurn(['task'], new AbortController().signal)
-    /** 中文说明：变量 turnStart 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const turnStart = await child.peer.nextMethod('turn/start')
     child.peer.send({
       method: 'turn/started',
@@ -1473,9 +1322,7 @@ describe('CodexAppServerWire', () => {
 
   it('does not retain a diagnostic from a mismatched early item', async () => {
     const { child, wire } = await initializeWire()
-    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = wire.runTurn(['task'], new AbortController().signal)
-    /** 中文说明：变量 turnStart 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const turnStart = await child.peer.nextMethod('turn/start')
     child.peer.send({
       method: 'item/completed',
@@ -1493,9 +1340,7 @@ describe('CodexAppServerWire', () => {
 
   it('does not retain a diagnostic from a mismatched provisional request', async () => {
     const { child, wire } = await initializeWire()
-    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = wire.runTurn(['task'], new AbortController().signal)
-    /** 中文说明：变量 turnStart 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const turnStart = await child.peer.nextMethod('turn/start')
     child.peer.send({
       id: 'provisional-approval',
@@ -1521,14 +1366,12 @@ describe('CodexAppServerWire', () => {
         method: 'item/fileChange/requestApproval',
         params: { threadId: 'thread-1', turnId: 'turn-1' },
       })
-      /** 中文说明：变量 response 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const response = await child.peer.nextResponse('too-early')
       expect(response.error).toMatchObject({ code: -32603 })
       wire.close()
     }
     {
       const { child, wire } = await initializeWire()
-      /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const result = wire.runTurn(['task'], new AbortController().signal)
       await child.peer.nextMethod('turn/start')
       child.peer.send(
@@ -1546,14 +1389,11 @@ describe('CodexAppServerWire', () => {
   it('interrupts only an active open turn and contains remote interrupt failure', async () => {
     const { child, wire } = await initializeWire()
     wire.interrupt()
-    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = wire.runTurn(['task'], new AbortController().signal)
-    /** 中文说明：变量 turnStart 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const turnStart = await child.peer.nextMethod('turn/start')
     child.peer.respond(turnStart, { turn: { id: 'turn-1' } })
     await nextTask()
     wire.interrupt()
-    /** 中文说明：变量 interrupt 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const interrupt = await child.peer.nextMethod('turn/interrupt')
     expect(interrupt.params).toEqual({ threadId: 'thread-1', turnId: 'turn-1' })
     child.peer.send({
@@ -1584,9 +1424,7 @@ describe('CodexAppServerWire', () => {
     )
     await nextTask()
 
-    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = wire.runTurn(['task'], new AbortController().signal)
-    /** 中文说明：变量 turnStart 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const turnStart = await child.peer.nextMethod('turn/start')
     child.peer.respond(turnStart, { turn: { id: 'turn-1' } })
     await nextTask()
@@ -1605,12 +1443,9 @@ describe('CodexAppServerWire', () => {
 
   it('rejects pending work on abort, EOF, and stream error', async () => {
     {
-      /** 中文说明：变量 child 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const child = fakeChild()
-      /** 中文说明：变量 wire 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const wire = defaultWire(child)
       wire.start()
-      /** 中文说明：变量 controller 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const controller = new AbortController()
       controller.abort('pre-aborted')
       await expect(wire.initialize(controller.signal))
@@ -1618,14 +1453,10 @@ describe('CodexAppServerWire', () => {
       wire.close()
     }
     {
-      /** 中文说明：变量 child 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const child = fakeChild()
-      /** 中文说明：变量 wire 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const wire = defaultWire(child)
       wire.start()
-      /** 中文说明：变量 controller 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const controller = new AbortController()
-      /** 中文说明：变量 pending 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const pending = wire.initialize(controller.signal)
       await child.peer.nextMethod('initialize')
       controller.abort(new Error('cancel initialize'))
@@ -1633,12 +1464,9 @@ describe('CodexAppServerWire', () => {
       wire.close()
     }
     {
-      /** 中文说明：变量 child 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const child = fakeChild()
-      /** 中文说明：变量 wire 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const wire = defaultWire(child)
       wire.start()
-      /** 中文说明：变量 pending 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const pending = wire.initialize(new AbortController().signal)
       await child.peer.nextMethod('initialize')
       child.fromChild.end()
@@ -1646,12 +1474,9 @@ describe('CodexAppServerWire', () => {
       wire.close()
     }
     {
-      /** 中文说明：变量 child 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const child = fakeChild()
-      /** 中文说明：变量 wire 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const wire = defaultWire(child)
       wire.start()
-      /** 中文说明：变量 pending 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const pending = wire.initialize(new AbortController().signal)
       await child.peer.nextMethod('initialize')
       child.fromChild.emit('error', new Error('stdout broke'))
@@ -1659,12 +1484,9 @@ describe('CodexAppServerWire', () => {
       wire.close()
     }
     {
-      /** 中文说明：变量 child 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const child = fakeChild()
-      /** 中文说明：变量 wire 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const wire = defaultWire(child)
       wire.start()
-      /** 中文说明：变量 pending 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const pending = wire.initialize(new AbortController().signal)
       await child.peer.nextMethod('initialize')
       child.toChild.emit('error', new Error('stdin broke'))
@@ -1677,28 +1499,21 @@ describe('CodexAppServerWire', () => {
 
 describe('run lifecycle and quiescence', () => {
   it('spawns the fixed app-server, publishes after thread creation, and disposes once', async () => {
-    /** 中文说明：变量 child 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const child = fakeChild()
-    /** 中文说明：函数值 spawn 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const spawn = vi.fn(() => child.handle)
-    /** 中文说明：变量 starting 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const starting = startCodexRun(
       request([{ type: 'text', text: 'task' }]),
       runSpec(child, { env: { OPENAI_API_KEY: 'fake' }, spawn }),
     )
-    /** 中文说明：变量 published 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     let published = false
     void starting.then(() => { published = true })
-    /** 中文说明：变量 initialize 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const initialize = await child.peer.nextMethod('initialize')
     expect(published).toBe(false)
     child.peer.respond(initialize, { userAgent: 'codex-cli 0.149.1' })
     await child.peer.nextMethod('initialized')
-    /** 中文说明：变量 threadStart 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const threadStart = await child.peer.nextMethod('thread/start')
     expect(published).toBe(false)
     child.peer.respond(threadStart, { thread: { id: 'thread-1', ephemeral: true } })
-    /** 中文说明：变量 run 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const run = await starting
     expect(spawn).toHaveBeenCalledWith({
       argv: codexAppServerArgv(),
@@ -1709,7 +1524,6 @@ describe('run lifecycle and quiescence', () => {
     })
     expect(run.localAgent).toBeUndefined()
 
-    /** 中文说明：变量 turnStart 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const turnStart = await child.peer.nextMethod('turn/start')
     child.peer.send(
       { id: turnStart.id, result: { turn: { id: 'turn-1' } } },
@@ -1720,7 +1534,6 @@ describe('run lifecycle and quiescence', () => {
       output: [{ type: 'text', text: 'answer' }],
       stopReason: 'completed',
     })
-    /** 中文说明：变量 disposal 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const disposal = run.dispose()
     expect(run.dispose()).toBe(disposal)
     await disposal
@@ -1730,7 +1543,6 @@ describe('run lifecycle and quiescence', () => {
   })
 
   it('settles local cancellation immediately and sends best-effort interrupt', async () => {
-    /** 中文说明：变量 controller 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const controller = new AbortController()
     const { child, run, turnStart } = await publishRun(
       fakeChild(),
@@ -1786,7 +1598,6 @@ describe('run lifecycle and quiescence', () => {
   })
 
   it('preserves representative terminal categories, HTTP status, and mapping', async () => {
-    /** 中文说明：变量 scenarios 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const scenarios = [
       ['contextWindowExceeded', 'limit', 'max-tokens', undefined],
       ['sessionBudgetExceeded', 'limit', 'error', undefined],
@@ -1850,17 +1661,13 @@ describe('run lifecycle and quiescence', () => {
   })
 
   it('flattens child exit and protocol failures after publication', async () => {
-    /** 中文说明：变量 errors 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const errors: string[] = []
-    /** 中文说明：变量 outcomes 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const outcomes: SubprocessOutcome[] = [
       { exitCode: 9, signal: null },
       { exitCode: null, signal: 'SIGABRT' },
       { exitCode: null, signal: null },
     ]
-    /** 中文说明：该循环依次处理代理事件；循环变量仅在当前循环中有效。 */
     for (const outcome of outcomes) {
-      /** 中文说明：变量 child 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const child = fakeChild({ exitOnTerminate: false })
       const { run } = await publishRun(child, undefined, {
         onError: (error) => { errors.push(error.message) },
@@ -1879,9 +1686,7 @@ describe('run lifecycle and quiescence', () => {
       await run.dispose().catch(() => {})
     }
     {
-      /** 中文说明：变量 outcome 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const outcome = { exitCode: 17, signal: null } as const
-      /** 中文说明：变量 child 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const child = fakeChild({ exitOnTerminate: false })
       const { run, turnStart } = await publishRun(child, undefined, {
         disposeGraceMs: 0.5,
@@ -1903,7 +1708,6 @@ describe('run lifecycle and quiescence', () => {
       await run.dispose().catch(() => {})
     }
     {
-      /** 中文说明：变量 child 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const child = fakeChild({ exitOnTerminate: false })
       const { run, turnStart } = await publishRun(child)
       child.peer.respond(turnStart, { turn: { id: 'turn-1' } })
@@ -1923,7 +1727,6 @@ describe('run lifecycle and quiescence', () => {
       await run.dispose().catch(() => {})
     }
     {
-      /** 中文说明：变量 child 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const child = fakeChild({ exitOnTerminate: false })
       const { run, turnStart } = await publishRun(child)
       child.peer.respond(turnStart, { turn: { id: 'turn-1' } })
@@ -1940,7 +1743,6 @@ describe('run lifecycle and quiescence', () => {
       await run.dispose().catch(() => {})
     }
     {
-      /** 中文说明：变量 child 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const child = fakeChild()
       const { run, turnStart } = await publishRun(child, undefined, {
         disposeGraceMs: 10,
@@ -1956,7 +1758,6 @@ describe('run lifecycle and quiescence', () => {
       await run.dispose()
     }
     {
-      /** 中文说明：变量 child 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const child = fakeChild()
       const { run, turnStart } = await publishRun(child)
       child.peer.respond(turnStart, { turn: { id: 'turn-1' } })
@@ -2049,7 +1850,6 @@ describe('run lifecycle and quiescence', () => {
   })
 
   it('contains host stderr write failures without changing run settlement', async () => {
-    /** 中文说明：变量 child 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const child = fakeChild()
     hostStderrWrite.capture = true
     hostStderrWrite.failNext = true
@@ -2070,10 +1870,8 @@ describe('run lifecycle and quiescence', () => {
   })
 
   it('rejects before spawn when pre-aborted and rolls back startup failures', async () => {
-    /** 中文说明：变量 controller 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const controller = new AbortController()
     controller.abort()
-    /** 中文说明：变量 spawn 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const spawn = vi.fn()
     await expect(startCodexRun(
       request(undefined, controller.signal),
@@ -2087,7 +1885,6 @@ describe('run lifecycle and quiescence', () => {
     )).rejects.toThrow('aborted before app-server startup')
     expect(spawn).not.toHaveBeenCalled()
 
-    /** 中文说明：变量 spawnFailure 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const spawnFailure = startCodexRun(request(), {
       cwd: process.cwd(),
       permissionMode: DEFAULT_CODEX_PERMISSION_MODE,
@@ -2099,12 +1896,10 @@ describe('run lifecycle and quiescence', () => {
       .rejects.toThrow(expectedFailureDiagnostic('initialize', 'unknown'))
     await expect(spawnFailure).rejects.not.toThrow('SECRET_TOKEN')
 
-    /** 中文说明：变量 asyncSpawnFailureChild 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const asyncSpawnFailureChild = fakeChild({
       pid: -1,
       doneError: new Error('SECRET_TOKEN async spawn failure'),
     })
-    /** 中文说明：变量 asyncSpawnFailure 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const asyncSpawnFailure = startCodexRun(
       request(),
       runSpec(asyncSpawnFailureChild),
@@ -2114,11 +1909,8 @@ describe('run lifecycle and quiescence', () => {
     await expect(asyncSpawnFailure).rejects.not.toThrow('SECRET_TOKEN')
     expect(asyncSpawnFailureChild.terminate).not.toHaveBeenCalled()
 
-    /** 中文说明：变量 child 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const child = fakeChild()
-    /** 中文说明：变量 starting 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const starting = startCodexRun(request(), runSpec(child))
-    /** 中文说明：变量 initialize 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const initialize = await child.peer.nextMethod('initialize')
     child.peer.respond(initialize, null)
     await expect(starting)
@@ -2126,20 +1918,16 @@ describe('run lifecycle and quiescence', () => {
     await expect(starting).rejects.not.toThrow('invalid initialize response')
     expect(child.terminate).toHaveBeenCalledTimes(1)
 
-    /** 中文说明：变量 cleanupFailureChild 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const cleanupFailureChild = fakeChild({
       waitForExitError: new Error('SECRET_TOKEN wait failure'),
     })
-    /** 中文说明：变量 cleanupFailure 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const cleanupFailure = startCodexRun(
       request(),
       runSpec(cleanupFailureChild),
     )
-    /** 中文说明：变量 cleanupFailureInitialize 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const cleanupFailureInitialize = await cleanupFailureChild.peer
       .nextMethod('initialize')
     cleanupFailureChild.peer.respond(cleanupFailureInitialize, null)
-    /** 中文说明：变量 cleanupError 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const cleanupError: unknown = await cleanupFailure.then(
       () => undefined,
       (error: unknown) => error,
@@ -2155,16 +1943,12 @@ describe('run lifecycle and quiescence', () => {
     ))
     expect(String(cleanupError)).not.toContain('SECRET_TOKEN')
 
-    /** 中文说明：变量 cleanupRaceAbort 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const cleanupRaceAbort = new AbortController()
-    /** 中文说明：变量 cleanupRaceChild 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const cleanupRaceChild = fakeChild({ exitOnTerminate: false })
-    /** 中文说明：变量 cleanupRace 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const cleanupRace = startCodexRun(
       request(undefined, cleanupRaceAbort.signal),
       runSpec(cleanupRaceChild),
     )
-    /** 中文说明：变量 cleanupRaceInitialize 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const cleanupRaceInitialize = await cleanupRaceChild.peer.nextMethod('initialize')
     cleanupRaceChild.peer.respond(cleanupRaceInitialize, null)
     await nextTask()
@@ -2173,29 +1957,22 @@ describe('run lifecycle and quiescence', () => {
     await expect(cleanupRace)
       .rejects.toThrow('aborted before run publication')
 
-    /** 中文说明：变量 threadChild 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const threadChild = fakeChild()
-    /** 中文说明：变量 threadStarting 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const threadStarting = startCodexRun(request(), runSpec(threadChild))
-    /** 中文说明：变量 threadInitialize 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const threadInitialize = await threadChild.peer.nextMethod('initialize')
     threadChild.peer.respond(threadInitialize, { userAgent: 'codex-cli 0.149.1' })
     await threadChild.peer.nextMethod('initialized')
-    /** 中文说明：变量 invalidThread 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const invalidThread = await threadChild.peer.nextMethod('thread/start')
     threadChild.peer.respond(invalidThread, { thread: { id: '', ephemeral: true } })
     await expect(threadStarting)
       .rejects.toThrow(expectedFailureDiagnostic('thread-start', 'unknown'))
     await expect(threadStarting).rejects.not.toThrow('thread/start thread id')
 
-    /** 中文说明：变量 exitedThreadChild 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const exitedThreadChild = fakeChild({ exitOnTerminate: false })
-    /** 中文说明：变量 exitedThreadStarting 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const exitedThreadStarting = startCodexRun(
       request(),
       runSpec(exitedThreadChild),
     )
-    /** 中文说明：变量 exitedThreadInitialize 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const exitedThreadInitialize = await exitedThreadChild.peer.nextMethod('initialize')
     exitedThreadChild.peer.respond(exitedThreadInitialize, {
       userAgent: 'codex-cli 0.149.1',
@@ -2209,14 +1986,11 @@ describe('run lifecycle and quiescence', () => {
       { outcome: { exitCode: null, signal: 'SIGABRT' } },
     ))
 
-    /** 中文说明：变量 eofBeforeCloseChild 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const eofBeforeCloseChild = fakeChild({ exitOnTerminate: false })
-    /** 中文说明：变量 eofBeforeCloseStarting 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const eofBeforeCloseStarting = startCodexRun(
       request(),
       runSpec(eofBeforeCloseChild),
     )
-    /** 中文说明：变量 eofBeforeCloseInitialize 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const eofBeforeCloseInitialize = await eofBeforeCloseChild.peer
       .nextMethod('initialize')
     eofBeforeCloseChild.peer.respond(eofBeforeCloseInitialize, {
@@ -2234,23 +2008,17 @@ describe('run lifecycle and quiescence', () => {
       }),
     )
 
-    /** 中文说明：变量 stderrChild 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const stderrChild = fakeChild()
-    /** 中文说明：变量 stderrStarting 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const stderrStarting = startCodexRun(request(), runSpec(stderrChild))
-    /** 中文说明：变量 stderrInitialize 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const stderrInitialize = await stderrChild.peer.nextMethod('initialize')
     stderrChild.stderr.emit('error', new Error('startup stderr broke'))
     stderrChild.peer.respond(stderrInitialize, { userAgent: 'codex-cli 0.149.1' })
     await stderrChild.peer.nextMethod('initialized')
-    /** 中文说明：变量 stderrThreadStart 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const stderrThreadStart = await stderrChild.peer.nextMethod('thread/start')
     stderrChild.peer.respond(stderrThreadStart, {
       thread: { id: 'thread-1', ephemeral: true },
     })
-    /** 中文说明：变量 stderrRun 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const stderrRun = await stderrStarting
-    /** 中文说明：变量 stderrTurnStart 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const stderrTurnStart = await stderrChild.peer.nextMethod('turn/start')
     stderrChild.peer.send(
       { id: stderrTurnStart.id, result: { turn: { id: 'turn-1' } } },
@@ -2263,20 +2031,15 @@ describe('run lifecycle and quiescence', () => {
   })
 
   it('rolls back an abort that wins immediately after thread creation', async () => {
-    /** 中文说明：变量 controller 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const controller = new AbortController()
-    /** 中文说明：变量 child 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const child = fakeChild()
-    /** 中文说明：变量 starting 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const starting = startCodexRun(
       request(undefined, controller.signal),
       runSpec(child),
     )
-    /** 中文说明：变量 initialize 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const initialize = await child.peer.nextMethod('initialize')
     child.peer.respond(initialize, { userAgent: 'codex-cli 0.149.1' })
     await child.peer.nextMethod('initialized')
-    /** 中文说明：变量 threadStart 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const threadStart = await child.peer.nextMethod('thread/start')
     expect(threadStart.params).toEqual({
       cwd: process.cwd(),
@@ -2290,14 +2053,12 @@ describe('run lifecycle and quiescence', () => {
   })
 
   it('keeps overlapping runs isolated', async () => {
-    /** 中文说明：变量 initialStderrListeners 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const initialStderrListeners = {
       error: process.stderr.listenerCount('error'),
       unpipe: process.stderr.listenerCount('unpipe'),
       close: process.stderr.listenerCount('close'),
       finish: process.stderr.listenerCount('finish'),
     }
-    /** 中文说明：变量 runs 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const runs = await Promise.all(
       Array.from({ length: 6 }, () => publishRun(fakeChild())),
     )
@@ -2307,9 +2068,7 @@ describe('run lifecycle and quiescence', () => {
       close: process.stderr.listenerCount('close'),
       finish: process.stderr.listenerCount('finish'),
     }).toEqual(initialStderrListeners)
-    /** 中文说明：该循环依次处理代理事件；循环变量仅在当前循环中有效。 */
     for (const [index, entry] of runs.entries()) {
-      /** 中文说明：变量 id 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const id = `turn-${index + 1}`
       entry.child.peer.send(
         { id: entry.turnStart.id, result: { turn: { id } } },
@@ -2317,7 +2076,6 @@ describe('run lifecycle and quiescence', () => {
         turnCompleted('completed', id),
       )
     }
-    /** 中文说明：函数值 results 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const results = await Promise.all(runs.map(entry => entry.run.result))
     expect(results.map(result => result.output)).toEqual(
       Array.from({ length: 6 }, (_, index) => [
@@ -2329,11 +2087,9 @@ describe('run lifecycle and quiescence', () => {
   })
 
   it('isolates permission modes and diagnostics across overlapping runs', async () => {
-    /** 中文说明：变量 first 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const first = await publishRun(fakeChild(), undefined, {
       permissionMode: 'never',
     })
-    /** 中文说明：变量 second 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const second = await publishRun(fakeChild(), undefined, {
       permissionMode: 'dangerously-bypass-approvals-and-sandbox',
     })
@@ -2380,15 +2136,12 @@ describe('run lifecycle and quiescence', () => {
   })
 
   it('uses the registered provider config and logs flattened errors', async () => {
-    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
+    await ctx.plugin(SessionProjectionRegistry)
     await ctx.plugin(SubagentRuntime)
     await ctx.plugin(LocalSubprocessRuntime)
-    /** 中文说明：变量 child 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const child = fakeChild()
-    /** 中文说明：变量 spawn 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const spawn = vi.spyOn(ctx.subprocess, 'spawn').mockReturnValue(child.handle)
-    /** 中文说明：变量 warnings 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const warnings: string[] = []
     ctx.logger.warn = ((message: unknown) => {
       warnings.push(String(message))
@@ -2401,12 +2154,10 @@ describe('run lifecycle and quiescence', () => {
       disposeGraceMs: 25,
     })
 
-    /** 中文说明：变量 invalidCwdParent 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const invalidCwdParent = {
       id: 'parent-with-invalid-cwd',
       session: { header: { cwd: 'relative/SECRET_TOKEN' } },
     } as unknown as Agent
-    /** 中文说明：变量 invalidCwdError 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const invalidCwdError: unknown = await ctx.subagents.start('codex-diagnostic', {
       prompt: [{ type: 'text', text: 'task' }],
       parent: invalidCwdParent,
@@ -2428,7 +2179,6 @@ describe('run lifecycle and quiescence', () => {
       .toContain('relative/SECRET_TOKEN')
     expect(spawn).not.toHaveBeenCalled()
 
-    /** 中文说明：变量 invalidCwdAbort 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const invalidCwdAbort = new AbortController()
     invalidCwdAbort.abort(new Error('cancel invalid cwd startup'))
     await expect(ctx.subagents.start('codex-diagnostic', {
@@ -2438,17 +2188,14 @@ describe('run lifecycle and quiescence', () => {
     })).rejects.toThrow('aborted before app-server startup')
     expect(spawn).not.toHaveBeenCalled()
 
-    /** 中文说明：变量 starting 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const starting = ctx.subagents.start('codex-diagnostic', {
       prompt: [{ type: 'text', text: 'task' }],
       parent: fakeParent,
       signal: new AbortController().signal,
     })
-    /** 中文说明：变量 initialize 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const initialize = await child.peer.nextMethod('initialize')
     child.peer.respond(initialize, { userAgent: 'codex-cli 0.149.1' })
     await child.peer.nextMethod('initialized')
-    /** 中文说明：变量 threadStart 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const threadStart = await child.peer.nextMethod('thread/start')
     expect(threadStart.params).toEqual({
       cwd: process.cwd(),
@@ -2459,9 +2206,7 @@ describe('run lifecycle and quiescence', () => {
       sandbox: 'workspace-write',
     })
     child.peer.respond(threadStart, { thread: { id: 'thread-1', ephemeral: true } })
-    /** 中文说明：变量 run 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const run = await starting
-    /** 中文说明：变量 turnStart 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const turnStart = await child.peer.nextMethod('turn/start')
     child.peer.respond(turnStart, { turn: { id: 'turn-1' } })
     await nextTask()
@@ -2504,11 +2249,8 @@ describe('run lifecycle and quiescence', () => {
 
 describe('disposeCodexChild', () => {
   it('closes stdin, terminates, and waits for the managed tree', async () => {
-    /** 中文说明：变量 child 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const child = fakeChild()
-    /** 中文说明：变量 wire 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const wire = defaultWire(child)
-    /** 中文说明：变量 end 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const end = vi.spyOn(child.toChild, 'end')
     await disposeCodexChild(wire, child.handle)
     expect(end).toHaveBeenCalled()
@@ -2518,13 +2260,9 @@ describe('disposeCodexChild', () => {
   })
 
   it('does not finish disposal before the managed tree exits', async () => {
-    /** 中文说明：变量 child 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const child = fakeChild({ exitOnTerminate: false })
-    /** 中文说明：变量 wire 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const wire = defaultWire(child)
-    /** 中文说明：变量 disposed 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     let disposed = false
-    /** 中文说明：函数值 disposal 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const disposal = disposeCodexChild(wire, child.handle).then(() => {
       disposed = true
     })
@@ -2536,9 +2274,7 @@ describe('disposeCodexChild', () => {
   })
 
   it('contains a concurrently closed stdin error', async () => {
-    /** 中文说明：变量 child 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const child = fakeChild()
-    /** 中文说明：变量 wire 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const wire = defaultWire(child)
     vi.spyOn(child.toChild, 'end').mockImplementation(() => {
       throw new Error('already closed')
@@ -2548,12 +2284,10 @@ describe('disposeCodexChild', () => {
   })
 
   it('handles a spawn-level failure with no process tree', async () => {
-    /** 中文说明：变量 child 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const child = fakeChild({
       pid: -1,
       doneError: new Error('spawn failed'),
     })
-    /** 中文说明：变量 wire 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const wire = defaultWire(child)
     await expect(disposeCodexChild(wire, child.handle))
       .resolves.toBeUndefined()
@@ -2562,13 +2296,10 @@ describe('disposeCodexChild', () => {
   })
 
   it('reports tree-wait failure with safe teardown facts', async () => {
-    /** 中文说明：变量 child 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const child = fakeChild({
       waitForExitError: new Error('SECRET_TOKEN wait failure'),
     })
-    /** 中文说明：变量 wire 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const wire = defaultWire(child)
-    /** 中文说明：变量 disposal 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const disposal = disposeCodexChild(wire, child.handle)
     await expect(disposal).rejects.toThrow(expectedFailureDiagnostic(
       'teardown',
@@ -2579,16 +2310,12 @@ describe('disposeCodexChild', () => {
   })
 
   it('does not wait for a pending process outcome after tree observation fails', async () => {
-    /** 中文说明：变量 child 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const child = fakeChild({
       exitOnTerminate: false,
       waitForExitError: new Error('SECRET_TOKEN wait failure'),
     })
-    /** 中文说明：变量 wire 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const wire = defaultWire(child)
-    /** 中文说明：变量 disposalError 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     let disposalError: unknown
-    /** 中文说明：变量 disposal 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const disposal = disposeCodexChild(wire, child.handle).catch(
       (error: unknown) => { disposalError = error },
     )

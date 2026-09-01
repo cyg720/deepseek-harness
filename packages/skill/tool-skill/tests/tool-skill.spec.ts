@@ -1,11 +1,3 @@
-/**
- * 文件职责：验证 tool-skill.spec.ts 覆盖的技能发现与装载行为与生命周期。
- * 技术维度：使用 TypeScript、Vitest、Cordis 插件、文件存储或受控子进程协议。
- * 产品维度：保障 Agent 的技能发现与装载能力稳定、安全且可诊断。
- * 逻辑维度：准备或解析输入，执行核心流程，再处理结果、错误与资源清理。
- * 关键边界：外部进程和持久化数据不可信；敏感环境需净化；清理必须等待资源完全停止。
- * 新手阅读建议：先看导出类型和夹具，再读主流程，最后关注协议错误、恢复和清理。
- */
 import { describe, expect, it } from 'vitest'
 import { mkdir, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
@@ -21,25 +13,19 @@ import SkillRegistry from '@deepseek-ai/dsh-skill'
 import * as SkillFileSystem from '@deepseek-ai/dsh-skill-filesystem'
 import * as toolSkill from '@deepseek-ai/dsh-tool-skill'
 
-/** 中文说明：变量 testToolSignal 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const testToolSignal = new AbortController().signal
 
-/** 中文说明：函数 tempDir 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 async function tempDir(name: string): Promise<string> {
   return await import('node:fs/promises').then(fs => fs.mkdtemp(join(tmpdir(), `dsh-${name}-`)))
 }
 
-/** 中文说明：函数 writeSkill 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 async function writeSkill(root: string, name: string, description: string, body: string): Promise<void> {
-  /** 中文说明：变量 dir 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const dir = join(root, name)
   await mkdir(dir, { recursive: true })
   await writeFile(join(dir, 'SKILL.md'), `---\nname: ${name}\ndescription: ${description}\n---\n\n${body}\n`)
 }
 
-/** 中文说明：函数 setup 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 async function setup(home: string, config: toolSkill.Config = {}): Promise<Context> {
-  /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const ctx = new Context()
   await ctx.plugin(SystemPrompt)
   await ctx.plugin(ToolRuntime)
@@ -50,11 +36,8 @@ async function setup(home: string, config: toolSkill.Config = {}): Promise<Conte
   return ctx
 }
 
-/** 中文说明：函数 agentForCwd 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function agentForCwd(cwd: string): Agent {
-  /** 中文说明：变量 id 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const id = SessionId(`tool-skill-${cwd}`)
-  /** 中文说明：变量 session 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const session = Session.create(id, [], { version: 0, id, createdAt: 0, cwd })
   return {
     ctx: new Context(),
@@ -73,7 +56,6 @@ function agentForCwd(cwd: string): Agent {
   }
 }
 
-/** 中文说明：函数 sessionAgent 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function sessionAgent(session: Session, id = 'tool-skill-agent'): Agent {
   return {
     id: SessionId(id),
@@ -92,7 +74,6 @@ function sessionAgent(session: Session, id = 'tool-skill-agent'): Agent {
   }
 }
 
-/** 中文说明：函数 openMessageTurn 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function openMessageTurn(session: Session, turn = 1): void {
   session.append('turn/start', { turn })
   session.append('user/message', createUserMessage({
@@ -101,31 +82,25 @@ function openMessageTurn(session: Session, turn = 1): void {
   }), { surfaceOp: 'append' })
 }
 
-/** 中文说明：函数 fireStep 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 async function fireStep(ctx: Context, agent: Agent, turn: number, step: number): Promise<void> {
-  /** 中文说明：变量 signal 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const signal = new AbortController().signal
-  /** 中文说明：变量 decision 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const decision = await agentEvents(ctx, agent).waterfall(
     'agent/pre-step',
     { messages: [], turn, step, signal },
     () => Promise.resolve({ kind: 'enter' as const, messages: [] }),
   )
   if (decision.kind === 'enter') {
-    /** 中文说明：该循环依次处理输入数据；循环变量仅在当前循环中有效。 */
     for (const message of decision.messages) {
       agent.session.append('user/message', message, { surfaceOp: 'append' })
     }
   }
 }
 
-/** 中文说明：函数 proposeStep 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 async function proposeStep(
   ctx: Context,
   agent: Agent,
   messages: UserMessage[],
 ): Promise<PreStepDecision> {
-  /** 中文说明：变量 signal 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const signal = new AbortController().signal
   return await agentEvents(ctx, agent).waterfall(
     'agent/pre-step',
@@ -134,15 +109,12 @@ async function proposeStep(
   )
 }
 
-/** 中文说明：函数 catalogMessages 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function catalogMessages(session: Session): Extract<SessionEvent, { type: 'user/message' }>[] {
   return session.events.filter((event): event is Extract<SessionEvent, { type: 'user/message' }> => event.type === 'user/message'
     && event.data.source.kind === 'skill-catalog')
 }
 
-/** 中文说明：函数 readableCatalog 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function readableCatalog(event: Extract<SessionEvent, { type: 'user/message' }>): boolean {
-  /** 中文说明：变量 entries 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const entries = (event.data.source as { entries?: unknown }).entries
   return Array.isArray(entries)
     && entries.every(entry => typeof entry === 'object' && entry !== null
@@ -150,7 +122,6 @@ function readableCatalog(event: Extract<SessionEvent, { type: 'user/message' }>)
       && typeof (entry as { description?: unknown }).description === 'string')
 }
 
-/** 中文说明：函数 catalogContent 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function catalogContent(entries: string[]): Message['content'] {
   return [{
     type: 'text',
@@ -158,21 +129,17 @@ function catalogContent(entries: string[]): Message['content'] {
   }]
 }
 
-/** 中文说明：函数 composePrefix 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 async function composePrefix(ctx: Context, cwd: string, signal = new AbortController().signal): Promise<Message[]> {
   return await composePrefixForAgent(ctx, agentForCwd(cwd), signal)
 }
 
-/** 中文说明：函数 composePrefixForAgent 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 async function composePrefixForAgent(ctx: Context, agent: Agent, signal = new AbortController().signal): Promise<Message[]> {
-  /** 中文说明：变量 decision 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const decision = await agentEvents(ctx, agent).waterfall(
     'agent/pre-step',
     { messages: [], turn: 1, step: 1, signal },
     () => Promise.resolve({ kind: 'enter' as const, messages: [] }),
   )
   if (decision.kind === 'enter') {
-    /** 中文说明：该循环依次处理输入数据；循环变量仅在当前循环中有效。 */
     for (const message of decision.messages) {
       agent.session.append('user/message', message, { surfaceOp: 'append' })
     }
@@ -180,11 +147,8 @@ async function composePrefixForAgent(ctx: Context, agent: Agent, signal = new Ab
   return agent.session.deriveMessages()
 }
 
-/** 中文说明：函数 mintAgentScope 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 async function mintAgentScope(ctx: Context, subject: string | Agent): Promise<{ agent: Agent; scope: Scope }> {
-  /** 中文说明：变量 agent 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const agent = typeof subject === 'string' ? agentForCwd(subject) : subject
-  /** 中文说明：变量 scope 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   let scope!: Scope
   await ctx.plugin(Object.assign((inner: Context) => { scope = createScope(inner, agent) }, {
     inject: ['tools'],
@@ -194,18 +158,15 @@ async function mintAgentScope(ctx: Context, subject: string | Agent): Promise<{ 
 
 describe('dsh-tool-skill', () => {
   it('registers the skill tool schema and removes it on dispose', async () => {
-    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
     await ctx.plugin(SystemPrompt)
     await ctx.plugin(ToolRuntime)
     await ctx.plugin(AgentRegistry)
-    /** 中文说明：变量 home 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const home = await tempDir('tool-schema')
     await ctx.plugin(SkillRegistry)
     await ctx.plugin(SkillFileSystem, { dshHome: join(home, '.dsh'), agentsHome: join(home, '.agents'), watch: false })
     ctx.skills.register({ name: 'lifecycle-skill', description: 'Lifecycle', source: 'runtime', content: 'body' })
 
-    /** 中文说明：变量 fiber 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const fiber = await ctx.plugin(toolSkill)
     expect(ctx.tools.schemas().map(tool => tool.name)).toEqual(['skill'])
     expect(await composePrefix(ctx, '/workspace')).toHaveLength(1)
@@ -224,11 +185,8 @@ describe('dsh-tool-skill', () => {
   })
 
   it('forwards the step abort signal to skill discovery', async () => {
-    /** 中文说明：变量 home 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const home = await tempDir('tool-prefix-signal')
-    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await setup(home)
-    /** 中文说明：变量 seenSignal 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     let seenSignal: AbortSignal | undefined
     ctx.skills.registerProvider(() => ({
       name: 'signal-probe',
@@ -240,7 +198,6 @@ describe('dsh-tool-skill', () => {
         return undefined
       },
     }))
-    /** 中文说明：变量 controller 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const controller = new AbortController()
 
     await composePrefix(ctx, '/workspace', controller.signal)
@@ -249,9 +206,7 @@ describe('dsh-tool-skill', () => {
   })
 
   it('injects a stable durable name-and-description catalog at the first step', async () => {
-    /** 中文说明：变量 home 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const home = await tempDir('tool-catalog')
-    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await setup(home, { catalogDescriptionMaxLength: 50 })
     ctx.skills.register({
       name: 'z-skill',
@@ -284,7 +239,6 @@ describe('dsh-tool-skill', () => {
       content: 'User-only body.',
     })
     ctx.on('agent/pre-step', async (_payload, next) => {
-      /** 中文说明：变量 decision 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const decision = await next()
       if (decision.kind === 'reject') return decision
       return {
@@ -299,7 +253,6 @@ describe('dsh-tool-skill', () => {
       }
     })
 
-    /** 中文说明：变量 prefix 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const prefix = await composePrefix(ctx, '/workspace')
 
     expect(prefix).toEqual([
@@ -340,7 +293,6 @@ describe('dsh-tool-skill', () => {
         }],
       },
     ])
-    /** 中文说明：变量 rendered 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const rendered = JSON.stringify(prefix[1])
     expect(rendered).not.toContain('whenToUse')
     expect(rendered).not.toContain('secret-source')
@@ -351,9 +303,7 @@ describe('dsh-tool-skill', () => {
   })
 
   it('does not inject a catalog when no model-invocable skills are available', async () => {
-    /** 中文说明：变量 home 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const home = await tempDir('tool-empty-catalog')
-    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await setup(home)
     ctx.skills.register({
       name: 'user-only-skill',
@@ -363,20 +313,15 @@ describe('dsh-tool-skill', () => {
       content: 'User-only body.',
     })
 
-    /** 中文说明：变量 agent 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const agent = agentForCwd('/workspace')
     expect(await composePrefixForAgent(ctx, agent)).toEqual([])
     expect(await composePrefixForAgent(ctx, agent)).toEqual([])
   })
 
   it('omits an incomplete initial catalog and retries on a later request boundary', async () => {
-    /** 中文说明：变量 home 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const home = await tempDir('tool-incomplete-prefix')
-    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await setup(home)
-    /** 中文说明：变量 failing 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     let failing = true
-    /** 中文说明：变量 provider 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const provider = {
       name: 'recovering',
       async list() {
@@ -387,15 +332,12 @@ describe('dsh-tool-skill', () => {
         return undefined
       },
     }
-    /** 中文说明：函数值 invalidate 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     let invalidate = (): void => {}
     ctx.skills.registerProvider((control) => {
       invalidate = control.invalidate
       return provider
     })
-    /** 中文说明：变量 session 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const session = Session.create(SessionId('incomplete-prefix'))
-    /** 中文说明：变量 agent 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const agent = sessionAgent(session)
     openMessageTurn(session)
 
@@ -409,13 +351,9 @@ describe('dsh-tool-skill', () => {
   })
 
   it('records an empty baseline across repeated step observations', async () => {
-    /** 中文说明：变量 home 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const home = await tempDir('tool-empty-step')
-    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await setup(home)
-    /** 中文说明：变量 session 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const session = Session.create(SessionId('empty-step'))
-    /** 中文说明：变量 agent 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const agent = sessionAgent(session)
     openMessageTurn(session)
 
@@ -426,28 +364,21 @@ describe('dsh-tool-skill', () => {
   })
 
   it('deduplicates or replaces a catalog already proposed for the same step', async () => {
-    /** 中文说明：变量 home 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const home = await tempDir('tool-proposed-catalog')
-    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await setup(home)
-    /** 中文说明：变量 disposeFirst 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const disposeFirst = ctx.skills.register({
       name: 'first-skill',
       description: 'First skill',
       source: 'runtime',
       content: 'First body.',
     })
-    /** 中文说明：变量 session 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const session = Session.create(SessionId('proposed-catalog'))
-    /** 中文说明：变量 agent 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const agent = sessionAgent(session)
     openMessageTurn(session)
     await fireStep(ctx, agent, 1, 1)
-    /** 中文说明：变量 initial 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const initial = catalogMessages(session)[0]?.data
     if (initial === undefined) throw new Error('expected initial catalog')
 
-    /** 中文说明：变量 duplicate 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const duplicate = await proposeStep(ctx, agent, [initial])
     expect(duplicate).toEqual({ kind: 'enter', messages: [] })
 
@@ -457,12 +388,10 @@ describe('dsh-tool-skill', () => {
       source: 'runtime',
       content: 'Second body.',
     })
-    /** 中文说明：变量 companion 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const companion = createUserMessage({
       content: [{ type: 'text', text: 'keep this message' }],
       source: { kind: 'user' },
     })
-    /** 中文说明：变量 replaced 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const replaced = await proposeStep(ctx, agent, [companion, initial])
     expect(replaced.kind).toBe('enter')
     if (replaced.kind === 'reject') throw new Error('expected catalog replacement')
@@ -475,18 +404,13 @@ describe('dsh-tool-skill', () => {
   })
 
   it('removes a stale proposed catalog before the first empty baseline', async () => {
-    /** 中文说明：变量 home 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const home = await tempDir('tool-proposed-empty-catalog')
-    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await setup(home)
-    /** 中文说明：变量 session 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const session = Session.create(SessionId('proposed-empty-catalog'))
-    /** 中文说明：变量 malformed 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const malformed = createUserMessage({
       content: [{ type: 'text', text: 'preserve unreadable claimed context' }],
       source: { kind: 'skill-catalog', form: 'catalog' } as never,
     })
-    /** 中文说明：变量 stale 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const stale = createUserMessage({
       content: catalogContent(['- `stale-skill`: Stale skill']),
       source: {
@@ -496,16 +420,13 @@ describe('dsh-tool-skill', () => {
       },
     })
 
-    /** 中文说明：变量 decision 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const decision = await proposeStep(ctx, sessionAgent(session), [malformed, stale])
 
     expect(decision).toEqual({ kind: 'enter', messages: [malformed] })
   })
 
   it('keeps a proposed catalog that already matches the current snapshot', async () => {
-    /** 中文说明：变量 home 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const home = await tempDir('tool-matching-proposal')
-    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await setup(home)
     ctx.skills.register({
       name: 'first-skill',
@@ -513,9 +434,7 @@ describe('dsh-tool-skill', () => {
       source: 'runtime',
       content: 'First body.',
     })
-    /** 中文说明：变量 session 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const session = Session.create(SessionId('matching-proposal'))
-    /** 中文说明：变量 proposed 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const proposed = createUserMessage({
       content: catalogContent(['- `first-skill`: First skill']),
       source: {
@@ -525,27 +444,21 @@ describe('dsh-tool-skill', () => {
       },
     })
 
-    /** 中文说明：变量 decision 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const decision = await proposeStep(ctx, sessionAgent(session), [proposed])
 
     expect(decision).toEqual({ kind: 'enter', messages: [proposed] })
   })
 
   it('injects complete replacement catalogs for additions and an empty tombstone for removals', async () => {
-    /** 中文说明：变量 home 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const home = await tempDir('tool-dynamic-catalog')
-    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await setup(home)
-    /** 中文说明：变量 disposeFirst 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const disposeFirst = ctx.skills.register({
       name: 'first-skill',
       description: 'First skill',
       source: 'runtime',
       content: 'First body.',
     })
-    /** 中文说明：变量 session 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const session = Session.create(SessionId('dynamic-catalog'))
-    /** 中文说明：变量 agent 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const agent = sessionAgent(session)
     openMessageTurn(session)
 
@@ -553,7 +466,6 @@ describe('dsh-tool-skill', () => {
     await fireStep(ctx, agent, 1, 1)
     expect(catalogMessages(session)).toHaveLength(1)
 
-    /** 中文说明：变量 disposeSecond 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const disposeSecond = ctx.skills.register({
       name: 'second-skill',
       description: 'Second skill',
@@ -562,7 +474,6 @@ describe('dsh-tool-skill', () => {
     })
     await fireStep(ctx, agent, 1, 2)
 
-    /** 中文说明：变量 addition 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const addition = catalogMessages(session)[1]
     if (addition?.type !== 'user/message') throw new Error('expected catalog addition')
     expect(JSON.stringify(addition.data.content)).toContain('first-skill')
@@ -572,7 +483,6 @@ describe('dsh-tool-skill', () => {
     disposeFirst()
     await fireStep(ctx, agent, 1, 3)
 
-    /** 中文说明：变量 removal 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const removal = catalogMessages(session)[2]
     if (removal?.type !== 'user/message') throw new Error('expected catalog removal')
     expect(JSON.stringify(removal.data.content)).toContain('No skills are currently available')
@@ -589,9 +499,7 @@ describe('dsh-tool-skill', () => {
     // recognized by its source alone and malformed prose cannot hide (or fake)
     // a published catalog. A foreign-sourced message is not this plugin's
     // catalog at all.
-    /** 中文说明：变量 home 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const home = await tempDir('tool-catalog-resume')
-    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await setup(home)
     ctx.skills.register({
       name: 'resumed-skill',
@@ -599,9 +507,7 @@ describe('dsh-tool-skill', () => {
       source: 'runtime',
       content: 'Resumed body.',
     })
-    /** 中文说明：变量 session 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const session = Session.create(SessionId('catalog-resume'))
-    /** 中文说明：变量 agent 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const agent = sessionAgent(session)
     openMessageTurn(session)
     session.append('user/message', createUserMessage({
@@ -623,7 +529,6 @@ describe('dsh-tool-skill', () => {
     // lands; the foreign-sourced lookalike neither counts as published nor
     // suppresses it.
     expect(catalogMessages(session)).toHaveLength(2)
-    /** 中文说明：变量 latest 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const latest = catalogMessages(session).at(-1)
     expect(latest?.data.source).toMatchObject({
       kind: 'skill-catalog',
@@ -639,14 +544,12 @@ describe('dsh-tool-skill', () => {
   })
 
   it('treats a malformed durable catalog as unrecognizable instead of failing the step', async () => {
-    // Seeds reach `agent.session.events` from JSONL/SQLite on resume or fork,
+    // Seeds reach `agent.session.events` from persistence on resume or fork,
     // and seed validation only guarantees a source object with a non-empty
     // `kind`. A catalog whose entries are missing or wrongly shaped must be
     // skipped like any foreign record; throwing here would fail every later
     // step of that session at the latest possible point.
-    /** 中文说明：变量 home 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const home = await tempDir('tool-catalog-malformed')
-    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await setup(home)
     ctx.skills.register({
       name: 'live-skill',
@@ -654,12 +557,9 @@ describe('dsh-tool-skill', () => {
       source: 'runtime',
       content: 'Live body.',
     })
-    /** 中文说明：变量 session 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const session = Session.create(SessionId('catalog-malformed'))
-    /** 中文说明：变量 agent 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const agent = sessionAgent(session)
     openMessageTurn(session)
-    /** 中文说明：该循环依次处理输入数据；循环变量仅在当前循环中有效。 */
     for (const source of [
       { kind: 'skill-catalog', form: 'catalog' },
       { kind: 'skill-catalog', form: 'catalog', entries: null },
@@ -678,7 +578,6 @@ describe('dsh-tool-skill', () => {
 
     // None of the six counted as published, so the live catalog lands as a
     // first publication rather than a replacement.
-    /** 中文说明：函数值 published 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const published = catalogMessages(session).filter(event => readableCatalog(event))
     expect(published).toHaveLength(1)
     expect(published[0]?.data.source).toMatchObject({ kind: 'skill-catalog', form: 'catalog' })
@@ -687,9 +586,7 @@ describe('dsh-tool-skill', () => {
   })
 
   it('re-establishes the current catalog after compaction hides its durable message', async () => {
-    /** 中文说明：变量 home 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const home = await tempDir('tool-catalog-compaction')
-    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await setup(home)
     ctx.skills.register({
       name: 'first-skill',
@@ -697,13 +594,10 @@ describe('dsh-tool-skill', () => {
       source: 'runtime',
       content: 'First body.',
     })
-    /** 中文说明：变量 session 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const session = Session.create(SessionId('catalog-compaction'))
-    /** 中文说明：变量 agent 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const agent = sessionAgent(session)
     openMessageTurn(session)
     expect(JSON.stringify(await composePrefixForAgent(ctx, agent))).toContain('first-skill')
-    /** 中文说明：变量 initial 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const initial = catalogMessages(session)[0]
     if (initial === undefined) throw new Error('expected initial catalog')
     session.append('user/message', createUserMessage({
@@ -721,16 +615,11 @@ describe('dsh-tool-skill', () => {
   })
 
   it('keeps body-only edits out of the catalog and loads the latest body on demand', async () => {
-    /** 中文说明：变量 home 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const home = await tempDir('tool-body-refresh')
-    /** 中文说明：变量 root 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const root = join(home, '.dsh/skills')
     await writeSkill(root, 'body-skill', 'Stable description', 'First body.')
-    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await setup(home)
-    /** 中文说明：变量 session 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const session = Session.create(SessionId('body-refresh'))
-    /** 中文说明：变量 agent 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const agent = sessionAgent(session)
     openMessageTurn(session)
 
@@ -739,7 +628,6 @@ describe('dsh-tool-skill', () => {
     await fireStep(ctx, agent, 1, 1)
     expect(catalogMessages(session)).toHaveLength(1)
 
-    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await ctx.tools.execute({
       signal: testToolSignal,
       callId: ToolCallId('body-refresh'),
@@ -753,12 +641,9 @@ describe('dsh-tool-skill', () => {
   })
 
   it('resolves the layered registry as the calling agent sees it', async () => {
-    /** 中文说明：变量 home 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const home = await tempDir('tool-scoped-layer')
-    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await setup(home)
     const { agent, scope } = await mintAgentScope(ctx, '/workspace/scoped')
-    /** 中文说明：变量 scopedSkills 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const scopedSkills = scope.ctx.get('skills')
     if (scopedSkills === undefined) throw new Error('skills service missing')
     scopedSkills.register({
@@ -771,7 +656,6 @@ describe('dsh-tool-skill', () => {
     expect(JSON.stringify(await composePrefixForAgent(ctx, agent))).toContain('preset-only-skill')
     expect(JSON.stringify(await composePrefix(ctx, '/workspace/other'))).not.toContain('preset-only-skill')
 
-    /** 中文说明：变量 scoped 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const scoped = await ctx.tools.execute({
       signal: testToolSignal,
       callId: ToolCallId('scoped-load'),
@@ -782,7 +666,6 @@ describe('dsh-tool-skill', () => {
     expect(scoped.isError).toBe(false)
     expect(JSON.stringify(scoped.content)).toContain('Preset-only body.')
 
-    /** 中文说明：变量 foreign 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const foreign = await ctx.tools.execute({
       signal: testToolSignal,
       callId: ToolCallId('foreign-load'),
@@ -795,20 +678,15 @@ describe('dsh-tool-skill', () => {
   })
 
   it('retains the last-good catalog while any provider discovery is incomplete', async () => {
-    /** 中文说明：变量 home 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const home = await tempDir('tool-incomplete-catalog')
-    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await setup(home)
-    /** 中文说明：变量 disposeStable 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const disposeStable = ctx.skills.register({
       name: 'stable-skill',
       description: 'Stable skill',
       source: 'runtime',
       content: 'Stable body.',
     })
-    /** 中文说明：变量 session 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const session = Session.create(SessionId('incomplete-catalog'))
-    /** 中文说明：变量 agent 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const agent = sessionAgent(session)
     openMessageTurn(session)
     expect(JSON.stringify(await composePrefixForAgent(ctx, agent))).toContain('stable-skill')
@@ -829,14 +707,10 @@ describe('dsh-tool-skill', () => {
   })
 
   it('omits catalog guidance when the calling agent restricts away the shipped skill tool', async () => {
-    /** 中文说明：变量 home 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const home = await tempDir('tool-restricted-catalog')
-    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await setup(home)
     ctx.skills.register({ name: 'listed-skill', description: 'Listed', source: 'runtime', content: 'body' })
-    /** 中文说明：变量 session 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const session = Session.create(SessionId('restricted-catalog'))
-    /** 中文说明：变量 agent 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const agent = sessionAgent(session)
     openMessageTurn(session)
     const { scope } = await mintAgentScope(ctx, agent)
@@ -852,9 +726,7 @@ describe('dsh-tool-skill', () => {
   })
 
   it('does not attach shipped catalog guidance to a scoped same-name tool shadow', async () => {
-    /** 中文说明：变量 home 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const home = await tempDir('tool-shadowed-catalog')
-    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await setup(home)
     ctx.skills.register({ name: 'listed-skill', description: 'Listed', source: 'runtime', content: 'body' })
     const { agent, scope } = await mintAgentScope(ctx, '/workspace')
@@ -874,9 +746,7 @@ describe('dsh-tool-skill', () => {
   })
 
   it('validates the catalog description cap', async () => {
-    /** 中文说明：变量 home 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const home = await tempDir('tool-invalid-catalog-cap')
-    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
     await ctx.plugin(SystemPrompt)
     await ctx.plugin(ToolRuntime)
@@ -888,16 +758,12 @@ describe('dsh-tool-skill', () => {
   })
 
   it('loads a skill for the calling agent cwd', async () => {
-    /** 中文说明：变量 home 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const home = await tempDir('tool-load')
-    /** 中文说明：变量 project 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const project = await tempDir('tool-project')
     await mkdir(join(project, '.git'), { recursive: true })
     await writeSkill(join(project, '.dsh/skills'), 'project-skill', 'Project skill', 'Project instructions.')
-    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await setup(home)
 
-    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await ctx.tools.execute({
       signal: testToolSignal,
       callId: ToolCallId('c1'),
@@ -914,7 +780,6 @@ describe('dsh-tool-skill', () => {
       resourceBase: { kind: 'directory', path: join(project, '.dsh/skills/project-skill') },
       content: 'Project instructions.',
     })
-    /** 中文说明：变量 block 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const block = result.content[0]
     expect(block?.type).toBe('text')
     if (block?.type !== 'text') throw new Error('expected text skill result')
@@ -934,9 +799,7 @@ describe('dsh-tool-skill', () => {
   })
 
   it('renders provider-managed resource hints for non-local skills', async () => {
-    /** 中文说明：变量 home 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const home = await tempDir('tool-resource-hints')
-    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await setup(home)
     ctx.skills.register({
       name: 'opaque-skill',
@@ -975,9 +838,7 @@ describe('dsh-tool-skill', () => {
   })
 
   it('rejects an unknown resource-base kind at the canonical output boundary', async () => {
-    /** 中文说明：变量 home 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const home = await tempDir('tool-resource-assert-never')
-    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await setup(home)
     ctx.skills.register({
       name: 'rogue-resource-skill',
@@ -992,18 +853,15 @@ describe('dsh-tool-skill', () => {
 
     expect(result.isError).toBe(true)
     expect(result.error?.info?.code).toBe('INVALID_TOOL_OUTPUT')
-    /** 中文说明：变量 block 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const block = result.content[0]
     if (block?.type !== 'text') throw new Error('expected text tool result')
     expect(block.text).toContain('value.resourceBase')
   })
 
   it('returns isError for unknown, invalid, and model-disabled skills', async () => {
-    /** 中文说明：变量 home 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const home = await tempDir('tool-errors')
     await writeSkill(join(home, '.dsh/skills'), 'hidden-skill', 'Hidden skill', 'Hidden instructions.')
     await writeFile(join(home, '.dsh/skills/hidden-skill/SKILL.md'), '---\nname: hidden-skill\ndescription: Hidden skill\ndisable-model-invocation: true\n---\n\nHidden instructions.\n')
-    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await setup(home)
     ctx.skills.register({
       name: 'model-only-skill',
@@ -1022,18 +880,14 @@ describe('dsh-tool-skill', () => {
     expect(invalid.isError).toBe(true)
     expect(disabled.isError).toBe(true)
     expect(modelOnly.isError).toBe(false)
-    /** 中文说明：变量 unknownBlock 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const unknownBlock = unknown.content[0]
     if (unknownBlock?.type !== 'text') throw new Error('expected text tool result')
     expect(unknownBlock.text).toContain('skill "missing" is unknown or no longer available')
   })
 
   it('checks model policy before provider loading and rechecks the loaded definition', async () => {
-    /** 中文说明：变量 home 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const home = await tempDir('tool-policy-before-load')
-    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await setup(home)
-    /** 中文说明：变量 getCalls 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const getCalls: string[] = []
     ctx.skills.registerProvider(() => ({
       name: 'policy-probe',
@@ -1087,15 +941,12 @@ describe('dsh-tool-skill', () => {
     expect(raced.isError).toBe(true)
     expect(vanished.isError).toBe(true)
     expect(getCalls).toEqual(['policy-race-skill', 'vanishing-skill'])
-    /** 中文说明：该循环依次处理输入数据；循环变量仅在当前循环中有效。 */
     for (const result of [denied, raced]) {
-      /** 中文说明：变量 block 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const block = result.content[0]
       if (block?.type !== 'text') throw new Error('expected text tool result')
       expect(block.text).toContain('is not available for model invocation')
       expect(block.text).not.toContain('Instructions must not be disclosed.')
     }
-    /** 中文说明：变量 vanishedBlock 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const vanishedBlock = vanished.content[0]
     if (vanishedBlock?.type !== 'text') throw new Error('expected text tool result')
     expect(vanishedBlock.text).toContain('skill "vanishing-skill" is unknown or no longer available')
@@ -1103,55 +954,41 @@ describe('dsh-tool-skill', () => {
 })
 
 describe('user-explicit invocation injection', () => {
-  /** 中文说明：函数 writePolicySkill 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
   async function writePolicySkill(root: string, name: string, description: string, policy: string, body: string): Promise<void> {
-    /** 中文说明：变量 dir 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const dir = join(root, name)
     await mkdir(dir, { recursive: true })
-    /** 中文说明：变量 policyLines 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const policyLines = policy === '' ? '' : `${policy}\n`
     await writeFile(join(dir, 'SKILL.md'), `---\nname: ${name}\ndescription: ${description}\n${policyLines}---\n\n${body}\n`)
   }
 
-  /** 中文说明：函数 gesture 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
   function gesture(text: string): UserMessage {
     return createUserMessage({ content: [{ type: 'text', text }], source: { kind: 'user' } })
   }
 
-  /** 中文说明：函数 invokeHarness 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
   async function invokeHarness(): Promise<{ ctx: Context; agent: Agent }> {
-    /** 中文说明：变量 home 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const home = await tempDir('invoke')
-    /** 中文说明：变量 skillsRoot 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const skillsRoot = join(home, '.agents', 'skills')
     await writePolicySkill(skillsRoot, 'hidden-demo', 'User-only demo', 'disable-model-invocation: true', 'Say the magic word: PINEAPPLE.')
     await writePolicySkill(skillsRoot, 'shared-skill', 'Ordinary skill', '', 'Shared instructions.')
     await writePolicySkill(skillsRoot, 'model-only-skill', 'Model only', 'user-invocable: false', 'Model-only instructions.')
-    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await setup(home)
     return { ctx, agent: agentForCwd(home) }
   }
 
   it('injects a user-invocable skill named by a leading /token, after every other injection', async () => {
     const { ctx, agent } = await invokeHarness()
-    /** 中文说明：变量 first 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const first = gesture('/hidden-demo what does this do')
-    /** 中文说明：变量 second 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const second = gesture('plain follow-up prose')
-    /** 中文说明：变量 decision 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const decision = await proposeStep(ctx, agent, [first, second])
     if (decision.kind !== 'enter') throw new Error('expected enter')
-    /** 中文说明：函数值 kinds 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const kinds = decision.messages.map(message => (message.source as { kind: string }).kind)
     // Background injections (the catalog here) sit between the claimed batch
     // and the invoked body: the material the model must act on comes last.
     expect(kinds.slice(0, 2)).toEqual(['user', 'user'])
     expect(kinds.at(-1)).toBe('skill-invocation')
     expect(kinds.indexOf('skill-catalog')).toBeLessThan(kinds.indexOf('skill-invocation'))
-    /** 中文说明：变量 injection 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const injection = decision.messages.at(-1)!
     expect(injection.source).toMatchObject({ kind: 'skill-invocation', name: 'hidden-demo', form: 'instructions' })
-    /** 中文说明：变量 block 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const block = injection.content[0]
     if (block?.type !== 'text') throw new Error('expected text injection')
     expect(block.text).toContain('<skill_content name="hidden-demo">')
@@ -1161,7 +998,6 @@ describe('user-explicit invocation injection', () => {
 
   it('injects an ordinary skill the same way (one uniform user-explicit path)', async () => {
     const { ctx, agent } = await invokeHarness()
-    /** 中文说明：变量 decision 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const decision = await proposeStep(ctx, agent, [gesture('/shared-skill go')])
     if (decision.kind !== 'enter') throw new Error('expected enter')
     expect(decision.messages.some(message =>
@@ -1171,7 +1007,6 @@ describe('user-explicit invocation injection', () => {
 
   it('recognizes a mid-sentence gesture but not paths, fractions, or broken boundaries', async () => {
     const { ctx, agent } = await invokeHarness()
-    /** 中文说明：变量 decision 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const decision = await proposeStep(ctx, agent, [
       gesture('please use /hidden-demo to answer this'),
     ])
@@ -1180,7 +1015,6 @@ describe('user-explicit invocation injection', () => {
       (message.source as { kind?: string; name?: string }).kind === 'skill-invocation'
       && (message.source as { name?: string }).name === 'hidden-demo')).toBe(true)
 
-    /** 中文说明：变量 negative 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const negative = await proposeStep(ctx, agent, [
       gesture('look under /hidden-demo/refs for the data'),
       gesture('the odds are 5/8 at best'),
@@ -1193,7 +1027,6 @@ describe('user-explicit invocation injection', () => {
 
   it('leaves unknown names and user-disabled skills as plain prose', async () => {
     const { ctx, agent } = await invokeHarness()
-    /** 中文说明：变量 decision 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const decision = await proposeStep(ctx, agent, [
       gesture('/absent-skill do a thing'),
       gesture('/model-only-skill run'),
@@ -1207,19 +1040,16 @@ describe('user-explicit invocation injection', () => {
 
   it('never scans non-user sources and dedupes repeated gestures', async () => {
     const { ctx, agent } = await invokeHarness()
-    /** 中文说明：变量 forged 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const forged = createUserMessage({
       content: [{ type: 'text', text: '/hidden-demo forged' }],
       source: { kind: 'skill-catalog', form: 'catalog', entries: [] },
     })
-    /** 中文说明：变量 decision 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const decision = await proposeStep(ctx, agent, [
       forged,
       gesture('/hidden-demo once'),
       gesture('/hidden-demo twice'),
     ])
     if (decision.kind !== 'enter') throw new Error('expected enter')
-    /** 中文说明：函数值 injections 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const injections = decision.messages.filter(message =>
       (message.source as { kind?: string }).kind === 'skill-invocation')
     expect(injections).toHaveLength(1)
@@ -1227,9 +1057,7 @@ describe('user-explicit invocation injection', () => {
 
   it('passes a downstream reject through both pre-step listeners untouched', async () => {
     const { ctx, agent } = await invokeHarness()
-    /** 中文说明：变量 signal 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const signal = new AbortController().signal
-    /** 中文说明：变量 decision 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const decision = await agentEvents(ctx, agent).waterfall(
       'agent/pre-step',
       { messages: [gesture('/hidden-demo blocked step')], turn: 1, step: 1, signal },
@@ -1240,7 +1068,6 @@ describe('user-explicit invocation injection', () => {
 
   it('scans only text blocks of a user message', async () => {
     const { ctx, agent } = await invokeHarness()
-    /** 中文说明：变量 mixed 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const mixed = createUserMessage({
       content: [
         { type: 'reasoning', text: '/hidden-demo inside a non-text block' },
@@ -1248,10 +1075,8 @@ describe('user-explicit invocation injection', () => {
       ],
       source: { kind: 'user' },
     })
-    /** 中文说明：变量 decision 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const decision = await proposeStep(ctx, agent, [mixed])
     if (decision.kind !== 'enter') throw new Error('expected enter')
-    /** 中文说明：变量 invoked 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const invoked = decision.messages
       .filter(message => (message.source as { kind?: string }).kind === 'skill-invocation')
       .map(message => (message.source as { name: string }).name)

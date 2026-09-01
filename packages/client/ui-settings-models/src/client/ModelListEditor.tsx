@@ -13,22 +13,14 @@
  * with no readable listing) is not a dead end: the failure is shown next to the
  * rows the user can still fill in by hand.
  */
-/*
- * 文件职责：实现模型设置的 ModelListEditor 组件。
- * 技术维度：React、TypeScript、受控表单、Cordis 插槽和 CSS Modules。
- * 产品维度：帮助用户查看和调整模型设置。
- * 逻辑维度：读取状态，编辑草稿，调用保存或发现操作并展示结果。
- * 关键边界：界面可见信息不代表授权；密钥只显示配置状态，不显示原值。
- * 新手阅读建议：先读 Props 和状态类型，再看事件处理与 JSX。
- */
 
 import { useState } from 'react'
 import type { ReactNode } from 'react'
 import type { LlmDiscoveredModel } from '@deepseek-ai/dsh-api-remotes/client'
 import { Button, Modal } from '@deepseek-ai/dsh-client-ui-primitives'
 import { formatCapacity, parseCapacity } from './DeepSeekModelsEditor.tsx'
+import type { ModelsOperations } from './operations.ts'
 import type { DeepSeekModelDraft } from './DeepSeekModelsEditor.tsx'
-import { messageOf, type ModelsWire } from './store.ts'
 import type { en } from './locales.ts'
 import styles from './ModelsSection.module.css'
 
@@ -36,27 +28,21 @@ import styles from './ModelsSection.module.css'
  * One configured model row. Fields this card does not edit must survive an
  * edit rather than being dropped by a rebuild.
  */
-/* 中文说明：类型或类 ModelDraft 约束设置数据或组件职责。 */
 export type ModelDraft = DeepSeekModelDraft
 
 /** A row's text field, or the empty string when unset or not a string. */
-/* 中文说明：函数 textOf 的参数见签名，返回结果供设置流程使用；示例见本文件。 */
 function textOf(model: ModelDraft, key: string): string {
-  /** 中文说明：设置局部值 value，由紧邻初始化决定。 */
   const value = model[key]
   return typeof value === 'string' ? value : ''
 }
 
 /** A row's numeric field, or `undefined` when unset or not a number. */
-/* 中文说明：函数 numberOf 的参数见签名，返回结果供设置流程使用；示例见本文件。 */
 function numberOf(model: ModelDraft, key: string): number | undefined {
-  /** 中文说明：设置局部值 value，由紧邻初始化决定。 */
   const value = model[key]
   return typeof value === 'number' ? value : undefined
 }
 
 /** What an interrogation needs, taken from the live form. */
-/* 中文说明：类型或类 ProbeTarget 约束设置数据或组件职责。 */
 export interface ProbeTarget {
   /** Settings namespace whose adapter family answers. */
   settingsNs: string
@@ -75,7 +61,6 @@ export interface ProbeTarget {
 }
 
 /** Props of {@link ModelListEditor}. */
-/* 中文说明：类型或类 ModelListEditorProps 约束设置数据或组件职责。 */
 export interface ModelListEditorProps {
   /** The rows as currently drafted. */
   models: readonly ModelDraft[]
@@ -94,8 +79,8 @@ export interface ModelListEditorProps {
    * told what the field already says.
    */
   probeBlocked?: keyof typeof en | undefined
-  /** Wire face the fetch action calls. */
-  api: Pick<ModelsWire, 'llm'>
+  /** The Host operations whose interrogation answers the fetch action. */
+  operations: ModelsOperations
   /** Section copy. */
   t: (key: keyof typeof en) => string
   /** Disable every control (read-only deployment or a pending write). */
@@ -103,7 +88,6 @@ export interface ModelListEditorProps {
 }
 
 /** Disclosure chevron; rotates to point down while its row is open. */
-/* 中文说明：函数 IconChevron 的参数见签名，返回结果供设置流程使用；示例见本文件。 */
 function IconChevron({ open }: { open: boolean }): ReactNode {
   return (
     <svg
@@ -116,7 +100,6 @@ function IconChevron({ open }: { open: boolean }): ReactNode {
 }
 
 /** Removal glyph for one model row. */
-/* 中文说明：函数 IconTrash 的参数见签名，返回结果供设置流程使用；示例见本文件。 */
 function IconTrash(): ReactNode {
   return (
     <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden>
@@ -129,7 +112,6 @@ function IconTrash(): ReactNode {
 }
 
 /** The two token counts edited as K/M-suffixed text behind a row's disclosure. */
-/* 中文说明：类型或类 CapacityField 约束设置数据或组件职责。 */
 type CapacityField = 'contextWindow' | 'maxTokens'
 
 /**
@@ -143,7 +125,6 @@ type CapacityField = 'contextWindow' | 'maxTokens'
  * adapter's 262144. A deployment that overrides those defaults is not
  * reflected here — nothing on this page can read them.
  */
-/* 中文说明：设置局部值 CAPACITY_HINT，由紧邻初始化决定。 */
 const CAPACITY_HINT: Readonly<Record<CapacityField, string>> = {
   contextWindow: '256K',
   maxTokens: '32K',
@@ -156,7 +137,6 @@ const CAPACITY_HINT: Readonly<Record<CapacityField, string>> = {
  * @param value - stored capacity, or `undefined` for an unset field.
  * @returns the field text, empty when unset.
  */
-/* 中文说明：函数 capacitySpelling 的参数见签名，返回结果供设置流程使用；示例见本文件。 */
 function capacitySpelling(value: number | undefined): string {
   return value === undefined ? '' : formatCapacity(value)
 }
@@ -176,19 +156,14 @@ function adopt(candidate: LlmDiscoveredModel): ModelDraft {
  * @param props - the drafted rows, probe target, wire face, and copy.
  * @returns the model-list editor.
  */
-/* 中文说明：函数 ModelListEditor 的参数见签名，返回结果供设置流程使用；示例见本文件。 */
 export function ModelListEditor(props: ModelListEditorProps): ReactNode {
-  /** 中文说明：设置局部值 解构结果，由紧邻初始化决定。 */
-  const { models, onChange, probe, api, t, disabled } = props
-  /** 中文说明：设置局部值 [busy, setBusy]，由紧邻初始化决定。 */
+  const { models, onChange, probe, operations, t, disabled } = props
   const [busy, setBusy] = useState(false)
-  /** 中文说明：设置局部值 [failure, setFailure]，由紧邻初始化决定。 */
   const [failure, setFailure] = useState<string | undefined>(undefined)
   const [candidates, setCandidates] = useState<readonly LlmDiscoveredModel[] | undefined>(undefined)
   const [picked, setPicked] = useState<ReadonlySet<string>>(new Set())
   // Rows carry an id and a name; capacities are the exception, so they stay
   // folded until asked for rather than crowding every row with four inputs.
-  /** 中文说明：设置局部值 [expanded, setExpanded]，由紧邻初始化决定。 */
   const [expanded, setExpanded] = useState<ReadonlySet<number>>(new Set())
   // Capacities are edited as text, so a field's keystrokes are held here rather
   // than re-derived from the parsed count on every change — that would rewrite
@@ -196,35 +171,27 @@ export function ModelListEditor(props: ModelListEditorProps): ReactNode {
   // names a row the user can still see, which is why this is one entry PER
   // FIELD: a single buffer would be displaced by editing any other field, and
   // the abandoned one would render its stored NaN as the literal `NaN`.
-  /** 中文说明：设置局部值 [editing, setEditing]，由紧邻初始化决定。 */
   const [editing, setEditing] = useState<ReadonlyMap<string, string>>(new Map())
 
   /** Buffer key for one capacity field; the row half moves when rows do. */
-  /* 中文说明：设置局部值 bufferKey，由紧邻初始化决定。 */
   const bufferKey = (index: number, field: CapacityField): string => `${String(index)}:${field}`
 
-  /** 中文说明：设置局部值 editCapacity，由紧邻初始化决定。 */
   const editCapacity = (index: number, field: CapacityField, text: string): void => {
     setEditing(current => new Map(current).set(bufferKey(index, field), text))
     patch(index, { [field]: parseCapacity(text) })
   }
 
   /** What a capacity field shows: the buffer while typing, else the stored count. */
-  /* 中文说明：设置局部值 capacityText，由紧邻初始化决定。 */
   const capacityText = (model: ModelDraft, index: number, field: CapacityField): string =>
     editing.get(bufferKey(index, field)) ?? capacitySpelling(numberOf(model, field))
 
   /** Drop one row's entries and shift the rows after it down, in one pass. */
-  /* 中文说明：设置局部值 reindexOnRemove，由紧邻初始化决定。 */
   const reindexOnRemove = (
     current: ReadonlyMap<string, string>,
     index: number,
   ): Map<string, string> => {
-    /** 中文说明：设置局部值 next，由紧邻初始化决定。 */
     const next = new Map<string, string>()
-    /** 中文说明：设置局部值 [key，由紧邻初始化决定。 */
     for (const [key, value] of current) {
-      /** 中文说明：设置局部值 at，由紧邻初始化决定。 */
       const at = Number(key.slice(0, key.indexOf(':')))
       if (at === index) continue
       // Only the row number moves; the field half of the key is untouched.
@@ -233,17 +200,14 @@ export function ModelListEditor(props: ModelListEditorProps): ReactNode {
     return next
   }
 
-  /** 中文说明：设置局部值 toggleExpanded，由紧邻初始化决定。 */
   const toggleExpanded = (index: number): void => {
     setExpanded((current) => {
-      /** 中文说明：设置局部值 next，由紧邻初始化决定。 */
       const next = new Set(current)
       if (!next.delete(index)) next.add(index)
       return next
     })
   }
 
-  /** 中文说明：设置局部值 patch，由紧邻初始化决定。 */
   const patch = (index: number, next: Record<string, string | number | undefined>): void => {
     onChange(models.map((model, at) => {
       if (at !== index) return model
@@ -252,7 +216,6 @@ export function ModelListEditor(props: ModelListEditorProps): ReactNode {
       // Spread first so a field this card does not edit survives; an emptied
       // optional field is then dropped rather than stored as a value its
       // schema would reject.
-      /** 中文说明：设置局部值 cleared，由紧邻初始化决定。 */
       const cleared = new Set(
         Object.entries(next).filter(([, value]) => value === undefined || value === '').map(([key]) => key),
       )
@@ -262,54 +225,44 @@ export function ModelListEditor(props: ModelListEditorProps): ReactNode {
     }))
   }
 
-  /** 中文说明：设置局部值 fetchModels，由紧邻初始化决定。 */
   const fetchModels = async (): Promise<void> => {
     setBusy(true)
     setFailure(undefined)
     try {
-      const response = await api.llm.discoverModels(probe.settingsNs, {
+      const answer = await operations.discoverModels(probe.settingsNs, {
         ...probe.provider === undefined ? {} : { provider: probe.provider },
         ...probe.baseURL === undefined || probe.baseURL.length === 0 ? {} : { baseURL: probe.baseURL },
         ...probe.api === undefined ? {} : { api: probe.api },
         ...probe.apiKey === undefined ? {} : { apiKey: probe.apiKey },
       })
-      if (!response.ok) {
-        setFailure(response.error.message)
+      if (answer.kind === 'refused') {
+        setFailure(answer.message)
         return
       }
-      const found = response.value
+      const found = answer.models
       if (found.length === 0) {
         setFailure(t('fetchEmpty'))
         return
       }
       // Everything already configured starts unchecked, so adopting a
       // selection never silently rewrites a capacity the user corrected.
-      /** 中文说明：设置局部值 known，由紧邻初始化决定。 */
       const known = new Set(models.map(model => textOf(model, 'id')))
       setCandidates(found)
       setPicked(new Set(found.filter(model => !known.has(model.id)).map(model => model.id)))
-    } catch (error) {
-      // The transport rejected rather than answering; without this the button
-      // would stay busy with nothing shown.
-      setFailure(messageOf(error))
     } finally {
       setBusy(false)
     }
   }
 
-  /** 中文说明：设置局部值 closePicker，由紧邻初始化决定。 */
   const closePicker = (): void => {
     setCandidates(undefined)
     setPicked(new Set())
   }
 
-  /** 中文说明：设置局部值 adoptPicked，由紧邻初始化决定。 */
   const adoptPicked = (): void => {
     /* v8 ignore next -- the dialog only renders with candidates loaded */
     if (candidates === undefined) return
-    /** 中文说明：设置局部值 byId，由紧邻初始化决定。 */
     const byId = new Map(models.map(model => [textOf(model, 'id'), model]))
-    /** 中文说明：设置局部值 candidate，由紧邻初始化决定。 */
     for (const candidate of candidates) {
       if (!picked.has(candidate.id)) continue
       // A row the user already tuned wins over the provider's own numbers.
@@ -322,23 +275,18 @@ export function ModelListEditor(props: ModelListEditorProps): ReactNode {
     closePicker()
   }
 
-  /** 中文说明：设置局部值 toggle，由紧邻初始化决定。 */
   const toggle = (id: string): void => {
     setPicked((current) => {
-      /** 中文说明：设置局部值 next，由紧邻初始化决定。 */
       const next = new Set(current)
       if (!next.delete(id)) next.add(id)
       return next
     })
   }
 
-  /** 中文说明：设置局部值 activeCandidates，由紧邻初始化决定。 */
   const activeCandidates = candidates ?? []
-  /** 中文说明：设置局部值 allCandidatesPicked，由紧邻初始化决定。 */
   const allCandidatesPicked = activeCandidates.length > 0
     && activeCandidates.every(candidate => picked.has(candidate.id))
 
-  /** 中文说明：设置局部值 toggleAllCandidates，由紧邻初始化决定。 */
   const toggleAllCandidates = (): void => {
     setPicked((current) => {
       return activeCandidates.every(candidate => current.has(candidate.id))
@@ -349,7 +297,6 @@ export function ModelListEditor(props: ModelListEditorProps): ReactNode {
 
   // A route the adapter already describes answers without an endpoint; only a
   // draft with neither has nothing to ask about.
-  /** 中文说明：设置局部值 askable，由紧邻初始化决定。 */
   const askable = probe.provider !== undefined || (probe.baseURL !== undefined && probe.baseURL.length > 0)
   return (
     <section className={styles['modelCatalog']} aria-label={t('models')}>
@@ -433,9 +380,7 @@ export function ModelListEditor(props: ModelListEditorProps): ReactNode {
                 // state — a different row's capacities popping open, or its
                 // half-typed text appearing in another row's field.
                 setExpanded((current) => {
-                  /** 中文说明：设置局部值 next，由紧邻初始化决定。 */
                   const next = new Set<number>()
-                  /** 中文说明：设置局部值 at，由紧邻初始化决定。 */
                   for (const at of current) {
                     if (at < index) next.add(at)
                     else if (at > index) next.add(at - 1)

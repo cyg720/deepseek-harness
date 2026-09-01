@@ -9,15 +9,15 @@ import {
 import type { SessionBehaviorOverrides } from '@deepseek-ai/dsh-client-test-runtime'
 import {
   apply, inject, type ComposerBarInjected, type ConversationInjected,
-  type ConversationSessionInjected, type ViewTab,
+  type ConversationSessionHeaderInjected, type ConversationSessionInjected, type ViewTab,
 } from '@deepseek-ai/dsh-client-ui-conversation/client'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import type { WorkspaceId } from '@deepseek-ai/dsh-workspace/types'
 import { createConversationStore } from '../src/client/stores.ts'
+import { RemoteError } from '@deepseek-ai/dsh-client-test-runtime'
 
 usePinnedBrowserLanguages('zh-CN')
 
-/** 中文说明：测试局部值 ROOT，取值由紧邻初始化决定。 */
 const ROOT = 'root-1' as SessionId
 
 type ConversationInstance = ReturnType<ReturnType<typeof createConversationStore>['create']>
@@ -31,9 +31,7 @@ function sessionFakeFor() {
   } satisfies SessionBehaviorOverrides
 }
 
-/** 中文说明：函数 bench 的参数见签名，返回结果供相邻流程使用；示例见本文件调用处。 */
 async function bench() {
-  /** 中文说明：测试局部值 runtime，取值由紧邻初始化决定。 */
   const runtime = await SlotTestRuntime.create()
   runtime.ctx.provide('settingsScope', { bind: () => stubSettingsScope().scope } as never)
   const connectWorkspace = vi.fn(async () => ROOT)
@@ -51,13 +49,11 @@ async function bench() {
     'conversation': { kind: 'single', scope: 'session-maybe' },
   }, (_props: { renderSlot?: unknown }) => null)
 
-  /** 中文说明：测试局部值 feature，取值由紧邻初始化决定。 */
   const feature = await runtime.mount({ inject: [...inject], apply })
   runtime.renderRoot()
-  const entryOf = (key: 'conversation' | 'conversation.session' | 'conversation.composer.bar') =>
+  const entryOf = (key: 'conversation' | 'conversation.session' | 'conversation.session.header' | 'conversation.composer.bar') =>
     runtime.slots.entries(key)[0]!
   const conversationApi = (id: SessionId) => {
-    /** 中文说明：测试局部值 entry，取值由紧邻初始化决定。 */
     const entry = entryOf('conversation.session')
     const instance = runtime.storeOf('conversation.session', id) as ConversationInstance
     const injected = (entry.inject as unknown as (
@@ -66,15 +62,20 @@ async function bench() {
     ) => ConversationSessionInjected)(id, instance.actions)
     return { instance, injected }
   }
-  /** 中文说明：服务对象 residentApi，取值由紧邻初始化决定。 */
   const residentApi = (id: SessionId | undefined) => {
-    /** 中文说明：测试局部值 entry，取值由紧邻初始化决定。 */
     const entry = entryOf('conversation')
     return (entry.inject as unknown as (sessionId: SessionId | undefined) => ConversationInjected)(id)
   }
-  /** 中文说明：服务对象 composerApi，取值由紧邻初始化决定。 */
+  const headerApi = (id: SessionId) => {
+    const entry = entryOf('conversation.session.header')
+    const instance = runtime.storeOf('conversation.session.header', id) as ConversationInstance
+    const injected = (entry.inject as unknown as (
+      sessionId: SessionId,
+      actions: ConversationActions,
+    ) => ConversationSessionHeaderInjected)(id, instance.actions)
+    return { instance, injected }
+  }
   const composerApi = (id: SessionId | undefined) => {
-    /** 中文说明：测试局部值 entry，取值由紧邻初始化决定。 */
     const entry = entryOf('conversation.composer.bar')
     return (entry.inject as unknown as (sessionId: SessionId | undefined) => ComposerBarInjected)(id)
   }
@@ -85,7 +86,7 @@ async function bench() {
   const viewSource = (id: SessionId): ObservableSnapshot<readonly ViewTab[]> =>
     conversationApi(id).injected.hooks.conversationViews
   return {
-    runtime, feature, slots: runtime.slots, entryOf, conversationApi, residentApi, composerApi,
+    runtime, feature, slots: runtime.slots, entryOf, conversationApi, headerApi, residentApi, composerApi,
     inputApi, viewSource, sessionFake, connectWorkspace,
   }
 }
@@ -93,19 +94,84 @@ async function bench() {
 describe('Conversation inject API', () => {
   it('assembles the target-neutral read face without Session side effects', async () => {
     const b = await bench()
-    /** 中文说明：测试局部值 { injected }，取值由紧邻初始化决定。 */
     const { injected } = b.conversationApi(ROOT)
     expect(b.sessionFake.loadOlder).not.toHaveBeenCalled()
-    expect(Object.keys(injected)).toEqual(['hooks', 'bindDraftMirror'])
+    expect(Object.keys(injected)).toEqual(['hooks', 'bindDraftMirror', 'openView'])
     expect(b.viewSource(ROOT).getSnapshot()).toEqual([])
     await b.runtime.dispose()
   })
 
+  it('activates a target before committing an explicit View selection', async () => {
+    const b = await bench()
+    const binding = b.runtime.ctx.uiConversation.binding(ROOT)
+    const activate = vi.spyOn(binding, 'activate')
+    const removeChat = b.slots.register(
+      { name: 'conversation.view', id: 'chat', order: 0 },
+      (() => null) as never,
+    )
+    const removeTrajectory = b.slots.register(
+      { name: 'conversation.view', id: 'trajectory', order: 10 },
+      (() => null) as never,
+    )
+    await Promise.resolve()
+    activate.mockClear()
+
+    const body = b.conversationApi(ROOT)
+    body.injected.openView('trajectory', 'call-1')
+    expect(activate).toHaveBeenLastCalledWith('trajectory')
+    expect(body.instance.store.getSnapshot()).toMatchObject({
+      view: 'trajectory',
+      viewRequest: { view: 'trajectory', focus: 'call-1' },
+    })
+
+    const header = b.headerApi(ROOT)
+    header.injected.selectView('chat')
+    expect(activate).toHaveBeenLastCalledWith('chat')
+    expect(header.instance.store.getSnapshot().view).toBe('chat')
+
+    removeTrajectory()
+    removeChat()
+    await b.runtime.dispose()
+  })
+
+  it('restores the selected View when a cached Session becomes current', async () => {
+    const b = await bench()
+    const binding = b.runtime.ctx.uiConversation.binding(ROOT)
+    const activate = vi.spyOn(binding, 'activate')
+    const removeChat = b.slots.register(
+      { name: 'conversation.view', id: 'chat', order: 0 },
+      (() => null) as never,
+    )
+    let removeCustom: (() => void) | undefined
+    try {
+      await b.runtime.flush()
+      localStorage.setItem(`dsh.conversation.${ROOT}`, JSON.stringify({
+        draft: '', view: 'custom', viewRequest: null,
+      }))
+
+      b.runtime.ctx.uiSession.adapter.resolve(ROOT)
+      expect(activate).toHaveBeenLastCalledWith('chat')
+      activate.mockClear()
+
+      removeCustom = b.slots.register(
+        { name: 'conversation.view', id: 'custom', order: 10 },
+        (() => null) as never,
+      )
+      await b.runtime.flush()
+      expect(activate).not.toHaveBeenCalled()
+
+      await b.runtime.sessions.setCurrent(ROOT)
+      expect(activate).toHaveBeenLastCalledWith('custom')
+    } finally {
+      removeCustom?.()
+      removeChat()
+      await b.runtime.dispose()
+    }
+  })
+
   it('submits through the provided input machine and mirrors accepted draft edits', async () => {
     const b = await bench()
-    /** 中文说明：测试局部值 { injected }，取值由紧邻初始化决定。 */
     const { injected } = b.conversationApi(ROOT)
-    /** 中文说明：状态快照 { state, actions }，取值由紧邻初始化决定。 */
     const { state, actions } = b.inputApi(ROOT)
     actions.setDraft('   ')
     actions.submit()
@@ -124,7 +190,7 @@ describe('Conversation inject API', () => {
     })
 
     b.sessionFake.prompt.mockResolvedValueOnce({
-      ok: false, error: { code: 'agent-busy', message: 'busy', details: { reason: 'busy' } },
+      ok: false, error: new RemoteError('session/agent-busy', 'busy', { reason: 'busy' }),
     })
     actions.setDraft('retry me')
     actions.submit()
@@ -133,7 +199,6 @@ describe('Conversation inject API', () => {
     expect(state.getSnapshot().draft).toBe('retry me')
 
     const mirrored: string[] = []
-    /** 中文说明：测试局部值 unbind，取值由紧邻初始化决定。 */
     const unbind = injected.bindDraftMirror(text => mirrored.push(text))
     actions.setDraft('mirrored text')
     expect(mirrored).toEqual(['mirrored text'])
@@ -141,7 +206,7 @@ describe('Conversation inject API', () => {
     expect(b.inputApi(ROOT).state).toBe(state)
 
     b.sessionFake.cancel.mockResolvedValueOnce({
-      ok: false, error: { code: 'internal', message: 'stop failed', details: {} },
+      ok: false, error: new RemoteError('gateway/internal', 'stop failed', {}),
     })
     b.composerApi(ROOT).stop!()
     await vi.waitFor(() => { expect(b.sessionFake.cancel).toHaveBeenCalledOnce() })
@@ -150,7 +215,6 @@ describe('Conversation inject API', () => {
 
   it('fails loud for an unknown binding or an unloaded scoped service', async () => {
     const b = await bench()
-    /** 中文说明：测试局部值 entry，取值由紧邻初始化决定。 */
     const entry = b.entryOf('conversation.composer.bar')
     const injectBar = entry.inject as unknown as (
       sessionId: SessionId | undefined,
@@ -173,7 +237,6 @@ describe('Conversation inject API', () => {
 
   it('moves a draft only when Workspace navigation changes Session', async () => {
     const b = await bench()
-    /** 中文说明：测试局部值 resident，取值由紧邻初始化决定。 */
     const resident = b.residentApi(ROOT)
     const { state, actions } = b.inputApi(ROOT)
     actions.setDraft('carry me')

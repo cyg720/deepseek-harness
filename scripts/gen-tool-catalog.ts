@@ -5,14 +5,6 @@
  * verifies the committed artifact. Rationale and ownership live in
  * `.agents/notes/implemented/process/2026-07-02-tool-schema-catalog.md`.
  */
-/*
- * 文件职责：实现 gen-tool-catalog.ts 覆盖的仓库生成、校验或维护职责。
- * 技术维度：使用 TypeScript、JavaScript、Vitest、Node.js 文件系统、AST 或项目图分析。
- * 产品维度：保障源码、生成目录、文档和发布元数据在开发与 CI 中保持一致。
- * 逻辑维度：读取仓库输入，构建中间模型，执行生成或校验，再报告差异和失败。
- * 关键边界：生成结果必须确定；路径与源码文本不可信；校验失败必须以非零状态显式报告。
- * 新手阅读建议：先看命令入口和输入目录，再读模型转换，最后关注输出文件与失败条件。
- */
 
 import { globSync, readFileSync, writeFileSync } from 'node:fs'
 import { basename, resolve } from 'node:path'
@@ -79,7 +71,6 @@ import * as ToolWorkflow from '@deepseek-ai/dsh-tool-workflow'
 import { githubSlug } from './verify-md-links.ts'
 
 /** Attachment seam marker that makes the attachments-conditional `read_image` schema harvestable. */
-/* 中文说明：class CatalogAttachmentStore 定义本脚本所需的数据或行为，用于表达仓库脚本场景。 */
 class CatalogAttachmentStore extends AttachmentStore {
   readonly imageLimits: ImageAttachmentLimits = Object.freeze({
     maxImageBytes: 1,
@@ -103,9 +94,7 @@ class CatalogAttachmentStore extends AttachmentStore {
   }
 }
 
-/** 中文说明：变量 root 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const root = resolve(import.meta.dirname, '..')
-/** 中文说明：常量 OUT 保存本脚本共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const OUT = 'docs/tool-catalog.md'
 
 /**
@@ -114,9 +103,7 @@ const OUT = 'docs/tool-catalog.md'
  * mount under their shipped defaults (tool-subagent's default numeric maxDepth
  * requires `depthLimit`).
  */
-/* 中文说明：函数 registerCatalogSubagentProvider 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function registerCatalogSubagentProvider(ctx: Context, name: string): void {
-  /** 中文说明：变量 provider 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const provider: SubagentProvider = {
     name,
     capabilities: { agentOptions: true, outputSchema: true, depthLimit: true, toolFilter: true, persona: true },
@@ -129,7 +116,6 @@ function registerCatalogSubagentProvider(ctx: Context, name: string): void {
 }
 
 /** Minted child-scope keys for packages whose tools are never global. */
-/* 中文说明：变量 catalogChildScopes 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const catalogChildScopes = new WeakMap<Context, Agent>()
 
 /**
@@ -140,7 +126,6 @@ const catalogChildScopes = new WeakMap<Context, Agent>()
  * @param key - agent-like scope key exposed to the package's scope selector.
  * @param inject - services the package installer must await before mounting.
  */
-/* 中文说明：函数 mountCatalogChildScope 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 async function mountCatalogChildScope(
   ctx: Context,
   mountScoped: (childCtx: Context) => void,
@@ -158,7 +143,6 @@ async function mountCatalogChildScope(
  * prompt and registry; each recipe supplies only package-specific seams and
  * config, while `dir` participates in the completeness check.
  */
-/* 中文说明：interface ToolPackage 定义本脚本所需的数据或行为，用于表达仓库脚本场景。 */
 export interface ToolPackage {
   /** The npm package name, used as the catalog section heading. */
   pkg: string
@@ -203,7 +187,6 @@ export interface ToolPackage {
  * `packages/`). Ordered by package name (the render order); the completeness
  * guard proves it is exhaustive against the on-disk glob.
  */
-/* 中文说明：常量 TOOL_PACKAGES 保存本脚本共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const TOOL_PACKAGES: ToolPackage[] = [
   {
     pkg: '@deepseek-ai/dsh-tool-ask-user',
@@ -399,9 +382,7 @@ const TOOL_PACKAGES: ToolPackage[] = [
     writes: ['tool/call', 'schedule/change create or delete', 'tool/result'],
     async mount(ctx) {
       await ctx.plugin(SessionStore)
-      /** 中文说明：变量 session 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const session = ctx.sessions.create(SessionId('tool-catalog-schedule'))
-      /** 中文说明：变量 agent 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const agent = { id: session.id, session } as Agent
       await mountCatalogChildScope(ctx, (childCtx) => {
         ToolSchedule.registerScheduleTools(ctx, childCtx, agent, () => {})
@@ -508,7 +489,6 @@ const TOOL_PACKAGES: ToolPackage[] = [
       await ctx.plugin(LocalJobRegistry)
       await ctx.plugin(AgentRegistry)
       await ctx.plugin(SessionStore)
-      await ctx.plugin(SessionProjectionRegistry)
       await ctx.plugin(ToolSubagentControl)
       await ctx.plugin(ToolSubagentListAgents)
     },
@@ -558,11 +538,8 @@ const TOOL_PACKAGES: ToolPackage[] = [
     async mount(ctx) {
       await ctx.plugin(AgentRegistry)
       await ctx.plugin(SessionStore)
-      /** 中文说明：变量 session 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const session = ctx.sessions.create(SessionId('tool-catalog-team-lead'))
-      /** 中文说明：变量 agent 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       let agent!: Agent
-      /** 中文说明：变量 membership 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const membership = {
         get root() { return agent },
         id: session.id,
@@ -638,7 +615,6 @@ const TOOL_PACKAGES: ToolPackage[] = [
 ]
 
 /** One package's contribution to the catalog: its schemas plus attribution. */
-/* 中文说明：interface CatalogPackage 定义本脚本所需的数据或行为，用于表达仓库脚本场景。 */
 interface CatalogPackage {
   pkg: string
   sources: Readonly<Record<string, string>>
@@ -651,7 +627,6 @@ interface CatalogPackage {
 }
 
 /** The whole catalog: one entry per booted tool package, in manifest order. */
-/* 中文说明：type ToolCatalog 定义本脚本所需的数据或行为，用于表达仓库脚本场景。 */
 export type ToolCatalog = CatalogPackage[]
 
 /**
@@ -664,13 +639,9 @@ export type ToolCatalog = CatalogPackage[]
  *
  * `scanRoot` defaults to the repo root; a test may point it at a fixture tree.
  */
-/* 中文说明：函数 assertManifestComplete 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 export function assertManifestComplete(packages: ToolPackage[] = TOOL_PACKAGES, scanRoot: string = root): void {
-  /** 中文说明：函数值 onDisk 封装本脚本的局部步骤；参数和返回值由右侧签名约束；示例见本脚本调用。 */
   const onDisk = globSync('packages/*/tool-*', { cwd: scanRoot }).map(p => basename(p)).sort()
-  /** 中文说明：函数值 listed 封装本脚本的局部步骤；参数和返回值由右侧签名约束；示例见本脚本调用。 */
   const listed = new Set(packages.map(p => p.dir))
-  /** 中文说明：函数值 missing 封装本脚本的局部步骤；参数和返回值由右侧签名约束；示例见本脚本调用。 */
   const missing = onDisk.filter(dir => !listed.has(dir))
   if (missing.length > 0) {
     throw new Error(
@@ -694,7 +665,6 @@ export function assertManifestComplete(packages: ToolPackage[] = TOOL_PACKAGES, 
  * @param harvested - how many schemas its boot registered.
  * @throws when the boot registered no tool at all.
  */
-/* 中文说明：函数 assertToolsHarvested 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 export function assertToolsHarvested(entry: ToolPackage, harvested: number): void {
   if (harvested > 0) return
   throw new Error(
@@ -710,23 +680,19 @@ export function assertToolsHarvested(entry: ToolPackage, harvested: number): voi
  * schemas come from exactly that package) and isolates a boot failure to its
  * own entry. Disposed after harvest so no executor/provider outlives the run.
  */
-/* 中文说明：函数 collectToolCatalog 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 export async function collectToolCatalog(packages: ToolPackage[] = TOOL_PACKAGES): Promise<ToolCatalog> {
   assertManifestComplete(packages)
-  /** 中文说明：变量 catalog 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const catalog: ToolCatalog = []
-  /** 中文说明：该循环依次处理仓库文件或模型；循环变量仅在当前循环中有效。 */
   for (const entry of packages) {
-    /** 中文说明：变量 ctx 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
     // Dispose in `finally` so a throw from `mount`/`schemas()` after earlier
     // plugins mounted still tears the context down (no leaked executor/provider
     // fiber) — the repo's "dispose must reach quiescence" rule.
     try {
+      await ctx.plugin(SessionProjectionRegistry)
       await ctx.plugin(SystemPrompt)
       await ctx.plugin(ToolRuntime, entry.toolsConfig ?? {})
       await entry.mount(ctx)
-      /** 中文说明：函数值 schemas 封装本脚本的局部步骤；参数和返回值由右侧签名约束；示例见本脚本调用。 */
       const schemas = ctx.tools.schemas(entry.scope?.(ctx)).sort((a, b) => a.name.localeCompare(b.name))
       assertToolsHarvested(entry, schemas.length)
       catalog.push({
@@ -749,10 +715,8 @@ export async function collectToolCatalog(packages: ToolPackage[] = TOOL_PACKAGES
 }
 
 /** Resolve one harvested tool to the plugin source that registered it. */
-/* 中文说明：函数 toolSource 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function toolSource(entry: ToolPackage, toolName: string): string {
   if (typeof entry.source === 'string') return entry.source
-  /** 中文说明：变量 source 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const source = entry.source[toolName]
   if (source === undefined) {
     throw new Error(
@@ -763,9 +727,7 @@ function toolSource(entry: ToolPackage, toolName: string): string {
 }
 
 /** Render one tool's entry: name, description, JSON-Schema parameters, source. */
-/* 中文说明：函数 renderTool 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function renderTool(schema: ToolSchema, source: string): string[] {
-  /** 中文说明：变量 out 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const out = [`### \`${schema.name}\``, '']
   if (schema.description) out.push(schema.description, '')
   out.push('```json', JSON.stringify(schema.parameters, null, 2), '```', '')
@@ -773,20 +735,16 @@ function renderTool(schema: ToolSchema, source: string): string[] {
   return out
 }
 
-/** 中文说明：函数 codeList 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function codeList(values: string[] | undefined): string {
   return values?.length ? values.map(value => `\`${value}\``).join(', ') : '-'
 }
 
-/** 中文说明：函数 tableCell 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function tableCell(value: string | undefined): string {
   return value ? value.replace(/\|/g, '\\|').replace(/\n/g, '<br>') : '-'
 }
 
 /** Render the full catalog (pure, deterministic given the manifest-ordered input). */
-/* 中文说明：函数 render 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 export function render(catalog: ToolCatalog): string {
-  /** 中文说明：变量 lines 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const lines: string[] = [
     '<!-- Generated by scripts/gen-tool-catalog.ts — do not edit by hand.',
     '     Run `pnpm run gen-tool-catalog` to regenerate. -->',
@@ -808,13 +766,10 @@ export function render(catalog: ToolCatalog): string {
     ...catalog.map(entry => `| \`${entry.pkg}\` | ${codeList(entry.schemas.map(schema => schema.name))} | ${codeList(entry.requires)} | ${codeList(entry.writes)} | ${codeList(entry.shippedNames)} | ${tableCell(entry.note)} |`),
     '',
   ]
-  /** 中文说明：该循环依次处理仓库文件或模型；循环变量仅在当前循环中有效。 */
   for (const entry of catalog) {
     lines.push(`<a id="${githubSlug(entry.pkg)}"></a>`, '', `## \`${entry.pkg}\``, '')
-    /** 中文说明：该循环依次处理仓库文件或模型；循环变量仅在当前循环中有效。 */
     for (const schema of entry.schemas) {
       // Collection validated that every harvested schema has a source.
-      /** 中文说明：变量 source 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const source = entry.sources[schema.name] as string
       lines.push(...renderTool(schema, source))
     }
@@ -826,12 +781,9 @@ export function render(catalog: ToolCatalog): string {
 /** CLI entry: default writes the catalog, `--check` fails if the committed copy
  * is stale. Guarded behind an entry-point check so importing this module for
  * tests neither regenerates the committed file nor calls process.exit. */
-/* 中文说明：函数 main 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 async function main(): Promise<void> {
-  /** 中文说明：变量 content 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const content = render(await collectToolCatalog())
   if (process.argv.includes('--check')) {
-    /** 中文说明：变量 committed 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     let committed: string | null = null
     try {
       committed = readFileSync(resolve(root, OUT), 'utf8')
@@ -846,13 +798,9 @@ async function main(): Promise<void> {
       process.exit(0)
     }
     console.error(`gen-tool-catalog: ${OUT} is stale. Run \`pnpm run gen-tool-catalog\` and commit ${OUT}.`)
-    /** 中文说明：变量 committedLines 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const committedLines = committed?.split('\n') ?? []
-    /** 中文说明：变量 generatedLines 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const generatedLines = content.split('\n')
-    /** 中文说明：变量 lineCount 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const lineCount = Math.max(committedLines.length, generatedLines.length)
-    /** 中文说明：该循环依次处理仓库文件或模型；循环变量仅在当前循环中有效。 */
     for (let index = 0; index < lineCount; index += 1) {
       if (committedLines[index] === generatedLines[index]) continue
       console.error(`gen-tool-catalog: first difference at line ${index + 1}`)

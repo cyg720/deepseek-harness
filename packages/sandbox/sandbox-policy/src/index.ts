@@ -2,7 +2,9 @@
  * The sandbox POLICY home (`ctx.sandboxPolicy`): the single owner of the
  * deployment's sandbox fallbacks plus per-session resolution: the file-effect
  * {@link SandboxMode}, the `workspace-write` root, and the override kit (the
- * `sandbox/mode` event, its fold, and its write path, from `./session-mode.ts`).
+ * `sandbox/mode` event, its fold, and its write path; the fold is the
+ * `sandboxMode` session-projection unit registered here, while the event and
+ * write path come from `./session-mode.ts`).
  * Before each agent request, the owner also contributes the resolved policy to
  * the cache-safe runtime-context snapshot. The agent loop logs that snapshot as
  * model history, so replay reconstructs the same mode and root the enforcing
@@ -17,34 +19,25 @@
  *
  * @module @deepseek-ai/dsh-sandbox-policy
  */
-/*
- * 文件职责：实现 index.ts 承担的沙箱策略或 Windows ACL 隔离职责。
- * 技术维度：使用 TypeScript、Windows 原生接口、访问控制列表和进程生命周期管理。
- * 产品维度：限制 Agent 子进程可访问的系统资源，降低误操作和凭据泄露风险。
- * 逻辑维度：解析策略，构造权限或原生调用，启动受限进程，并等待退出后清理。
- * 关键边界：原生句柄和权限失败必须显式处理；环境变量需净化；清理必须达到静止状态。
- * 新手阅读建议：先看公开配置和 Win32 类型，再读权限授予与启动，最后关注错误和清理。
- */
 
 import { resolve as resolvePath } from 'node:path'
 import { Context, Service } from '@deepseek-ai/cordis'
+import { z as zod } from 'zod'
 import z from '@deepseek-ai/schemastery'
 import type {} from '@deepseek-ai/dsh-agent'
 import { canonicalPath, type SandboxExecutionPolicy, type SandboxMode } from '@deepseek-ai/dsh-sandbox'
 import type { Session } from '@deepseek-ai/dsh-session'
+import type {} from '@deepseek-ai/dsh-session-projection'
 import type {} from '@deepseek-ai/dsh-system-prompt'
-import { effectiveSandboxMode } from './session-mode.ts'
 
-export { SANDBOX_MODES, effectiveSandboxMode, setSandboxMode } from './session-mode.ts'
+export { SANDBOX_MODES, setSandboxMode } from './session-mode.ts'
 
 /** Resolve filesystem identity before lexical normalization can erase symlink-sensitive components. */
-/* 中文说明：函数 resolveWorkspaceRoot 承担本模块的安全处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function resolveWorkspaceRoot(path: string): string {
   return resolvePath(canonicalPath(path))
 }
 
 /** Render the policy without claiming which capabilities are mounted. */
-/* 中文说明：函数 renderPolicyContext 承担本模块的安全处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function renderPolicyContext(policy: SandboxExecutionPolicy): string {
   switch (policy.mode) {
     case 'read-only':
@@ -55,7 +48,6 @@ function renderPolicyContext(policy: SandboxExecutionPolicy): string {
       return 'Current DSH file policy: danger-full-access. The DSH file sandbox does not restrict file modifications by available operations.'
     /* v8 ignore next 4 -- SandboxMode is a typed same-process closed union; this branch is only the static exhaustiveness guard. */
     default: {
-      /** 中文说明：变量 mode 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const mode: never = policy.mode
       throw new Error(`unreachable sandbox mode: ${String(mode)}`)
     }
@@ -63,7 +55,6 @@ function renderPolicyContext(policy: SandboxExecutionPolicy): string {
 }
 
 declare module '@deepseek-ai/cordis' {
-  /** 中文说明：interface Context 定义本模块所需的数据或行为，用于表达沙箱安全场景。 */
   interface Context {
     sandboxPolicy: SandboxPolicyService
   }
@@ -76,7 +67,6 @@ declare module '@deepseek-ai/cordis' {
  * runner choice is NOT here (it is the `ctx.sandbox` provider's config), nor
  * is any per-family knob: this is the one shared policy home.
  */
-/* 中文说明：interface Config 定义本模块所需的数据或行为，用于表达沙箱安全场景。 */
 export interface Config {
   /** File-sandbox mode a session starts from (default: `read-only`). */
   mode?: SandboxMode
@@ -88,12 +78,26 @@ export interface Config {
 }
 
 /** Inputs that select the sandbox policy for one capability call. */
-/* 中文说明：interface SandboxPolicyRequest 定义本模块所需的数据或行为，用于表达沙箱安全场景。 */
 export interface SandboxPolicyRequest {
   /** Calling session; its immutable cwd becomes the workspace boundary. */
   session?: Session
   /** Explicit approved mode override, which outranks session policy. */
   mode?: SandboxMode
+}
+
+/** The sandbox-mode projection's state schema (state equals the public shape). */
+const sandboxModeStateSchema = zod.union([
+  zod.literal('read-only'),
+  zod.literal('workspace-write'),
+  zod.literal('danger-full-access'),
+]).nullable()
+
+type SandboxModeState = zod.infer<typeof sandboxModeStateSchema>
+declare module '@deepseek-ai/dsh-session-projection/types' {
+  interface SessionProjectionStateMap {
+    /** Last logged sandbox-mode override, or null before one (deployment default applies at resolve time). */
+    sandboxMode: SandboxModeState
+  }
 }
 
 /**
@@ -102,7 +106,6 @@ export interface SandboxPolicyRequest {
  * section. Tool layers call {@link resolve} for each execution so a session's
  * mode log and immutable cwd travel together to every enforcing capability.
  */
-/* 中文说明：class SandboxPolicyService 定义本模块所需的数据或行为，用于表达沙箱安全场景。 */
 export class SandboxPolicyService extends Service {
   // Inline schema call: the config catalog walks `static Config` statically.
   static Config: z<Config> = z.object({
@@ -111,6 +114,8 @@ export class SandboxPolicyService extends Service {
     // stored root is always absolute regardless of how it was supplied.
     workspaceRoot: z.string(),
   })
+
+  static inject = ['sessionProjections']
 
   /** The deployment default mode — the fallback beneath a session override. */
   readonly defaultMode: SandboxMode
@@ -124,12 +129,19 @@ export class SandboxPolicyService extends Service {
     this.defaultMode = config.mode as SandboxMode
     this.workspaceRoot = resolveWorkspaceRoot(config.workspaceRoot ?? process.cwd())
 
+    ctx.sessionProjections.register({
+      key: 'sandboxMode',
+      stateVersion: 1,
+      stateSchema: sandboxModeStateSchema,
+      init: () => null,
+      apply: (state, event) => (event.type === 'sandbox/mode' ? event.data.mode : state),
+    })
+
     ctx.inject(['systemPrompt'], (scope: Context) => {
       scope.systemPrompt.context({
         name: 'sandbox:policy',
-        order: 110,
+        order: scope.systemPrompt.getContextOrder('SANDBOX_POLICY'),
         text: (context) => {
-          /** 中文说明：变量 session 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
           const session = context.agent?.session
           return session === undefined
             ? ''
@@ -163,7 +175,7 @@ export class SandboxPolicyService extends Service {
    * @returns the last logged mode, or `undefined` without one.
    */
   overrideOf(session: Session): SandboxMode | undefined {
-    return effectiveSandboxMode(session.events)
+    return this.ctx.sessionProjections.stateOf(session, 'sandboxMode') ?? undefined
   }
 }
 

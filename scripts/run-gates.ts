@@ -5,15 +5,8 @@
  * dependency graphs, scheduler environment, and process diagnostics.
  * @see ../.agents/notes/implemented/process/2026-07-06-parallel-pre-push-gates.md
  */
-/*
- * 文件职责：实现 run-gates.ts 覆盖的发布、门禁、翻译配对或仓库维护职责。
- * 技术维度：使用 TypeScript、Vitest、Node.js 文件系统、Git、包管理器或构建产物校验。
- * 产品维度：保障项目发布物、文档配对和 CI 门禁保持一致且可追踪。
- * 逻辑维度：解析参数与仓库状态，执行检查或发布步骤，再输出诊断和退出状态。
- * 关键边界：发布与 Git 操作会改变外部状态；失败必须显式停止；路径和命令输出不可信。
- * 新手阅读建议：先看入口参数和只读检查，再读状态变更步骤，最后关注回滚、错误码和平台差异。
- */
-import { spawn } from 'node:child_process'
+import { spawn, spawnSync } from 'node:child_process'
+import { readdirSync, readFileSync } from 'node:fs'
 import { availableParallelism } from 'node:os'
 import { resolve } from 'node:path'
 import { performance } from 'node:perf_hooks'
@@ -28,7 +21,6 @@ import {
 import { pnpmInvocation } from './pnpm-invocation.ts'
 
 /** A named aggregate exposed by the gate runner. */
-/* 中文说明：type Mode 定义本脚本所需的数据或行为，用于表达仓库脚本场景。 */
 export type Mode =
   | 'ci-primary'
   | 'ci-linux-primary'
@@ -47,13 +39,10 @@ export type Mode =
   | 'doc-sync'
   | 'doc-quick'
 
-/** 中文说明：type GateResultStatus 定义本脚本所需的数据或行为，用于表达仓库脚本场景。 */
 type GateResultStatus = 'passed' | 'failed' | 'skipped'
-/** 中文说明：type GateState 定义本脚本所需的数据或行为，用于表达仓库脚本场景。 */
 type GateState = 'pending' | 'running' | GateResultStatus
 
 /** A command and its dependency metadata inside one aggregate. */
-/* 中文说明：interface Gate 定义本脚本所需的数据或行为，用于表达仓库脚本场景。 */
 export interface Gate {
   id: string
   label: string
@@ -73,7 +62,6 @@ export interface Gate {
 }
 
 /** The observed outcome of one gate process. */
-/* 中文说明：interface GateResult 定义本脚本所需的数据或行为，用于表达仓库脚本场景。 */
 export interface GateResult {
   gate: Gate
   status: GateResultStatus
@@ -82,66 +70,66 @@ export interface GateResult {
   exitCode: number | null
   signalCode: NodeJS.Signals | null
   error?: string
+  /** True when the shared abort signal terminated this gate before its outcome
+   * was observed; such a result must not be reported as passed, even if the
+   * child trapped the signal and exited zero. */
+  aborted?: boolean
 }
 
-/** 中文说明：interface GateOutputChunk 定义本脚本所需的数据或行为，用于表达仓库脚本场景。 */
 interface GateOutputChunk {
   stream: 'stdout' | 'stderr'
   text: string
 }
 
-/** 中文说明：interface RunningGate 定义本脚本所需的数据或行为，用于表达仓库脚本场景。 */
 interface RunningGate {
   gate: Gate
   promise: Promise<GateResult>
 }
 
-/** 中文说明：interface ConcurrencyDefault 定义本脚本所需的数据或行为，用于表达仓库脚本场景。 */
 interface ConcurrencyDefault {
   workers: number
   source: string
 }
 
-/** 中文说明：type GateExecutor 定义本脚本所需的数据或行为，用于表达仓库脚本场景。 */
-type GateExecutor = (gate: Gate) => Promise<GateResult>
-/** 中文说明：type ResultObserver 定义本脚本所需的数据或行为，用于表达仓库脚本场景。 */
+type GateExecutor = (gate: Gate, signal?: AbortSignal) => Promise<GateResult>
 type ResultObserver = (result: GateResult) => void
 
-/** 中文说明：变量 root 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const root = resolve(import.meta.dirname, '..')
 if (import.meta.main) {
   process.exitCode = await main(process.argv.slice(2))
 }
 
-/** 中文说明：函数 main 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 async function main(args: string[]): Promise<number> {
-  /** 中文说明：变量 mode 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const mode = parseMode(args[0])
-  /** 中文说明：变量 gates 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const gates = gatesForMode(mode)
-  /** 中文说明：变量 concurrencyDefault 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const concurrencyDefault = defaultConcurrency(mode, gates.length)
-  /** 中文说明：变量 concurrencyOverride 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const concurrencyOverride = process.env.DSH_GATE_CONCURRENCY
-  /** 中文说明：变量 maxConcurrency 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const maxConcurrency = concurrencyFromEnv('DSH_GATE_CONCURRENCY', concurrencyDefault.workers)
-  /** 中文说明：变量 concurrencySource 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const concurrencySource = concurrencyOverride === undefined || concurrencyOverride === ''
     ? concurrencyDefault.source
     : '$DSH_GATE_CONCURRENCY'
-  /** 中文说明：变量 startedAt 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
+  const failFast = flagEnabled('DSH_GATE_FAIL_FAST')
   const startedAt = performance.now()
-  console.log(`run-gates: ${mode} running ${gates.length} gate(s) with ${maxConcurrency} worker(s) from ${concurrencySource}.`)
+  console.log(`run-gates: ${mode} running ${gates.length} gate(s) with ${maxConcurrency} worker(s) from ${concurrencySource}${failFast ? ', fail-fast after first blocking failure' : ''}.`)
 
-  /** 中文说明：变量 results 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-  const results = await runGates(gates, maxConcurrency, runGate, printResult)
+  const results = await runGates(gates, maxConcurrency, runGate, printResult, cliGateOptions(failFast))
   printSummary(results, performance.now() - startedAt)
   return results.some(result => result.gate.allowFailure !== true && (result.status === 'failed' || result.status === 'skipped'))
     ? 1
     : 0
 }
 
-/** 中文说明：函数 parseMode 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/**
+ * The options the CLI entrypoint hands to the scheduler. Host signal
+ * forwarding always follows fail-fast: children are detached only then, so
+ * without it the forwarding would have no tree to drain.
+ * @param failFast - whether `DSH_GATE_FAIL_FAST` is enabled.
+ * @returns the scheduler options for the entrypoint.
+ */
+export function cliGateOptions(failFast: boolean): RunGatesOptions {
+  return { failFast, forwardProcessSignals: failFast }
+}
+
 function parseMode(raw: string | undefined): Mode {
   switch (raw) {
     case 'ci-primary':
@@ -175,7 +163,6 @@ function parseMode(raw: string | undefined): Mode {
  * @param available - host CPU availability for ordinary modes.
  * @returns the default worker count and its diagnostic source.
  */
-/* 中文说明：函数 defaultConcurrency 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 export function defaultConcurrency(
   selectedMode: Mode,
   total: number,
@@ -197,12 +184,9 @@ export function defaultConcurrency(
   }
 }
 
-/** 中文说明：函数 concurrencyFromEnv 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function concurrencyFromEnv(name: string, fallback: number): number {
-  /** 中文说明：变量 raw 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const raw = process.env[name]
   if (raw === undefined || raw === '') return fallback
-  /** 中文说明：变量 parsed 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const parsed = Number.parseInt(raw, 10)
   if (!Number.isSafeInteger(parsed) || parsed < 1) {
     throw new Error(`run-gates: ${name} must be a positive integer, got ${JSON.stringify(raw)}.`)
@@ -210,7 +194,6 @@ function concurrencyFromEnv(name: string, fallback: number): number {
   return parsed
 }
 
-/** 中文说明：函数 pnpmScript 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function pnpmScript(id: string, script: string, options: Partial<Gate> = {}): Gate {
   return {
     id,
@@ -222,7 +205,6 @@ function pnpmScript(id: string, script: string, options: Partial<Gate> = {}): Ga
 }
 
 /** Build official client artifacts inside a CI aggregate without changing sibling gate environments. */
-/* 中文说明：函数 ciBuildGate 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function ciBuildGate(id = 'build', options: Partial<Gate> = {}): Gate {
   return pnpmScript(id, 'build', {
     ...options,
@@ -230,7 +212,6 @@ function ciBuildGate(id = 'build', options: Partial<Gate> = {}): Gate {
   })
 }
 
-/** 中文说明：函数 pnpmExec 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function pnpmExec(id: string, args: string[], options: Partial<Gate> = {}): Gate {
   return {
     id,
@@ -246,7 +227,6 @@ function pnpmExec(id: string, args: string[], options: Partial<Gate> = {}): Gate
  * @param selected - aggregate mode to construct.
  * @returns the aggregate's gate graph.
  */
-/* 中文说明：函数 gatesForMode 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 export function gatesForMode(selected: Mode): Gate[] {
   switch (selected) {
     case 'ci-primary':
@@ -310,12 +290,12 @@ export function gatesForMode(selected: Mode): Gate[] {
   }
 }
 
-/** 中文说明：函数 ciSharedStaticGates 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function ciSharedStaticGates(): Gate[] {
   return [
     pnpmScript('runtime-closure', 'verify-runtime-closure', { label: 'runtime closure' }),
     pnpmScript('application-entrypoints', 'verify-application-entrypoints', { label: 'application entrypoints' }),
     pnpmScript('constraints', 'constraints'),
+    pnpmScript('package-dependencies', 'verify-package-dependencies', { label: 'package dependencies' }),
     pnpmScript('dsh-package-licenses', 'verify-dsh-package-licenses', { label: 'DSH package licenses' }),
     pnpmScript('package-invariants', 'verify-package-invariants', { label: 'package invariants' }),
     pnpmScript('cordis-config', 'verify-cordis-config', { label: 'Cordis config' }),
@@ -328,7 +308,6 @@ function ciSharedStaticGates(): Gate[] {
   ]
 }
 
-/** 中文说明：函数 ciPrimaryGates 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function ciPrimaryGates(): Gate[] {
   return [
     ...ciSharedStaticGates(),
@@ -344,7 +323,6 @@ function ciPrimaryGates(): Gate[] {
       docTypecheckScript: 'doc-typecheck:contracts-ready',
     }),
     pnpmScript('module-graph', 'verify-module-graph', { label: 'module graph' }),
-    pnpmScript('knip', 'knip'),
     // The prepared typecheck and build both drive Client tsc, while build also
     // repeats the Host contract pass. Wait for all three consumers so build
     // neither races tsbuildinfo nor replaces declarations while they are read.
@@ -359,9 +337,7 @@ function ciPrimaryGates(): Gate[] {
   ]
 }
 
-/** 中文说明：函数 nodeCompatGates 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function nodeCompatGates(): Gate[] {
-  /** 中文说明：变量 typecheck 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const typecheck = flagEnabled('DSH_NODE_COMPAT_SKIP_TYPECHECK')
     ? []
     : [pnpmScript('typecheck', 'typecheck')]
@@ -381,9 +357,7 @@ function nodeCompatGates(): Gate[] {
   ]
 }
 
-/** 中文说明：函数 nodeCompatSmokeGates 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function nodeCompatSmokeGates(options: { cliSmoke?: boolean } = {}): Gate[] {
-  /** 中文说明：变量 gates 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const gates: Gate[] = [
     pnpmExec('source-worker-smoke', [
       'vitest',
@@ -423,9 +397,7 @@ function nodeCompatSmokeGates(options: { cliSmoke?: boolean } = {}): Gate[] {
 }
 
 /** Active Node major used to select version-specific compatibility checks. */
-/* 中文说明：函数 runningNodeMajor 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function runningNodeMajor(): number {
-  /** 中文说明：变量 major 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const major = Number.parseInt(process.versions.node.split('.')[0] ?? '', 10)
   if (!Number.isSafeInteger(major)) {
     throw new Error(`run-gates: cannot parse Node version ${JSON.stringify(process.versions.node)}.`)
@@ -433,7 +405,6 @@ function runningNodeMajor(): number {
   return major
 }
 
-/** 中文说明：函数 ciStaticGates 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function ciStaticGates(options: { ownsBuild: boolean }): Gate[] {
   return [
     ...ciSharedStaticGates(),
@@ -450,11 +421,9 @@ function ciStaticGates(options: { ownsBuild: boolean }): Gate[] {
       docsBuildScript: 'docs:build:mpa',
     }),
     pnpmScript('module-graph', 'verify-module-graph', { label: 'module graph' }),
-    pnpmScript('knip', 'knip'),
   ]
 }
 
-/** 中文说明：函数 ciArtifactGates 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function ciArtifactGates(): Gate[] {
   return [
     ciBuildGate(),
@@ -468,11 +437,8 @@ function ciArtifactGates(): Gate[] {
   ]
 }
 
-/** 中文说明：函数 ciConsumerGates 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function ciConsumerGates(): Gate[] {
-  /** 中文说明：变量 builtTree 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const builtTree = ['build']
-  /** 中文说明：变量 validatedBuild 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const validatedBuild = ['built-package-invariants']
   // The HMR web test starts `dev:web`, which rewrites the shared `lib/` and
   // `apps/web/dist/` trees. Let every build-artifact reader settle before that
@@ -517,7 +483,6 @@ function webSnapshotGate(needs: string[], after?: string[]): Gate {
   const order = after === undefined ? { needs } : { needs, after }
   const workerRaw = process.env.DSH_WEB_SNAPSHOT_WORKERS
   if (workerRaw !== undefined && workerRaw !== '') {
-    /** 中文说明：变量 workers 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const workers = Number.parseInt(workerRaw, 10)
     if (!Number.isSafeInteger(workers) || workers < 2 || String(workers) !== workerRaw) {
       throw new Error(`run-gates: DSH_WEB_SNAPSHOT_WORKERS must be an integer greater than 1, got ${JSON.stringify(workerRaw)}.`)
@@ -538,7 +503,6 @@ function webSnapshotGate(needs: string[], after?: string[]): Gate {
   })
 }
 
-/** 中文说明：函数 ciWindowsBlockingGates 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function ciWindowsBlockingGates(): Gate[] {
   return [
     ciBuildGate('windows-build', { label: 'build' }),
@@ -546,14 +510,12 @@ function ciWindowsBlockingGates(): Gate[] {
   ]
 }
 
-/** 中文说明：函数 ciWindowsCompleteGates 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function ciWindowsCompleteGates(): Gate[] {
   const coverage = coverageGates().map(gate => ({
     ...gate,
     needs: [...new Set(['build', ...(gate.needs ?? [])])],
   }))
   const coverageAfter = coverage.map(gate => gate.id)
-  /** 中文说明：变量 observational 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const observational = ciWindowsObservationalGates()
     // The required production site replaces the observational MPA build; both
     // VitePress modes write the same output directory and cannot overlap.
@@ -574,7 +536,6 @@ function ciWindowsCompleteGates(): Gate[] {
   ]
 }
 
-/** 中文说明：函数 ciWindowsObservationalGates 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function ciWindowsObservationalGates(): Gate[] {
   const predecessors = [
     ...ciStaticGates({ ownsBuild: true }),
@@ -598,16 +559,12 @@ function ciWindowsObservationalGates(): Gate[] {
   ]
 }
 
-/** 中文说明：函数 typertContractsGate 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function typertContractsGate(): Gate {
   return pnpmScript('typert-contracts', 'build:lib:host', { label: 'Typert contracts' })
 }
 
-/** 中文说明：函数 lintGate 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function lintGate(options: { needs?: string[] } = {}): Gate {
-  /** 中文说明：变量 raw 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const raw = process.env.DSH_OXLINT_THREADS
-  /** 中文说明：变量 script 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const script = 'lint:contracts-ready'
   return pnpmScript('lint', script, {
     ...raw === undefined || raw === ''
@@ -630,18 +587,14 @@ function lintGate(options: { needs?: string[] } = {}): Gate {
 // small share. A budget of 1 gives each gate 1 worker; lanes that need a strict
 // total of one (the serial reference jobs) also set DSH_GATE_CONCURRENCY=1,
 // which keeps the gates from overlapping at all.
-// DSH_COVERAGE_TEST_TIMEOUT_MS raises Vitest's per-test and expect.poll
+// DSH_COVERAGE_TEST_TIMEOUT_MS raises Vitest's per-test, expect.poll, and hook
 // defaults together for instrumented lanes whose scheduling overhead exceeds
 // those defaults. Explicit fixture timeouts remain authoritative.
-/** 中文说明：函数 coverageWorkerArgs 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function coverageWorkerArgs(): { instrumented: string[]; exempt: string[] } {
   const [flag] = positiveIntArg('DSH_COVERAGE_MAX_WORKERS', '--maxWorkers')
   if (flag === undefined) return { instrumented: [], exempt: [] }
-  /** 中文说明：变量 total 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const total = Number.parseInt(flag.split('=')[1] ?? '', 10)
-  /** 中文说明：变量 exempt 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const exempt = Math.max(1, Math.floor(total / 3))
-  /** 中文说明：变量 instrumented 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const instrumented = Math.max(1, total - exempt)
   return {
     instrumented: [`--maxWorkers=${String(instrumented)}`],
@@ -649,15 +602,10 @@ function coverageWorkerArgs(): { instrumented: string[]; exempt: string[] } {
   }
 }
 
-/** 中文说明：函数 coverageGates 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function coverageGates(): Gate[] {
-  /** 中文说明：变量 workers 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const workers = coverageWorkerArgs()
-  /** 中文说明：变量 timeouts 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const timeouts = coverageTestTimeoutArgs(process.env[COVERAGE_TEST_TIMEOUT_ENV])
-  /** 中文说明：变量 partitions 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const partitions = parseCoveragePartitionCount(process.env[COVERAGE_PARTITIONS_ENV])
-  /** 中文说明：变量 instrumented 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const instrumented = partitions === undefined
     ? pnpmExec('coverage', [
       'vitest',
@@ -714,12 +662,9 @@ function builtPackageInvariantsGate(needs?: string[]): Gate {
   })
 }
 
-/** 中文说明：函数 positiveIntArg 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function positiveIntArg(envName: string, flag: string): string[] {
-  /** 中文说明：变量 raw 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const raw = process.env[envName]
   if (raw === undefined || raw === '') return []
-  /** 中文说明：变量 parsed 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const parsed = Number.parseInt(raw, 10)
   if (!Number.isSafeInteger(parsed) || parsed < 1 || String(parsed) !== raw) {
     throw new Error(`run-gates: ${envName} must be a positive integer, got ${JSON.stringify(raw)}.`)
@@ -727,24 +672,20 @@ function positiveIntArg(envName: string, flag: string): string[] {
   return [`${flag}=${raw}`]
 }
 
-/** 中文说明：函数 flagEnabled 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function flagEnabled(envName: string): boolean {
-  /** 中文说明：变量 raw 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const raw = process.env[envName]
   if (raw === undefined || raw === '') return false
   if (raw !== '1') throw new Error(`run-gates: ${envName} must be 1 when set, got ${JSON.stringify(raw)}.`)
   return true
 }
 
-/** 中文说明：函数 hygieneLeafGates 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function hygieneLeafGates(options: { artifactNeeds?: string[] } = {}): Gate[] {
-  /** 中文说明：变量 artifactOptions 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const artifactOptions = options.artifactNeeds === undefined ? {} : { needs: options.artifactNeeds }
   return [
     pnpmScript('rescope-vendor', 'rescope-vendor:check', { label: 'vendor rescope' }),
-    pnpmScript('knip', 'knip'),
     pnpmScript('publint', 'publint', artifactOptions),
     pnpmScript('constraints', 'constraints'),
+    pnpmScript('package-dependencies', 'verify-package-dependencies', { label: 'package dependencies' }),
     pnpmScript('application-entrypoints', 'verify-application-entrypoints', { label: 'application entrypoints' }),
     pnpmScript('dsh-package-licenses', 'verify-dsh-package-licenses', { label: 'DSH package licenses' }),
     pnpmScript('package-invariants', 'verify-package-invariants', { label: 'package invariants' }),
@@ -761,7 +702,6 @@ function hygieneLeafGates(options: { artifactNeeds?: string[] } = {}): Gate[] {
   ]
 }
 
-/** 中文说明：函数 docSyncLeafGates 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function docSyncLeafGates(options: {
   includeDocTypecheck?: boolean
   docTypecheckNeeds?: string[]
@@ -769,7 +709,6 @@ function docSyncLeafGates(options: {
   docTypecheckScript?: 'doc-typecheck' | 'doc-typecheck:contracts-ready'
   docsBuildScript?: 'docs:build' | 'docs:build:mpa'
 } = {}): Gate[] {
-  /** 中文说明：变量 docTypecheckOptions 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const docTypecheckOptions: Partial<Gate> = {}
   if (options.docTypecheckNeeds !== undefined) docTypecheckOptions.needs = options.docTypecheckNeeds
   if (options.docTypecheckEnv !== undefined) docTypecheckOptions.env = options.docTypecheckEnv
@@ -857,26 +796,20 @@ function builtBinSmokeGate(needs: string[] = ['build']): Gate {
  * Reject a gate list whose graph cannot be executed unambiguously.
  * @param gates - complete aggregate to validate.
  */
-/* 中文说明：函数 validateGateGraph 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function validateGateGraph(gates: readonly Gate[]): void {
   if (gates.length === 0) throw new Error('run-gates: gate graph has no gates.')
 
-  /** 中文说明：变量 ids 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const ids = new Set<string>()
-  /** 中文说明：该循环依次处理仓库文件或状态；循环变量仅在当前循环中有效。 */
   for (const gate of gates) {
     if (ids.has(gate.id)) throw new Error(`run-gates: duplicate gate id ${JSON.stringify(gate.id)}.`)
     ids.add(gate.id)
   }
-  /** 中文说明：该循环依次处理仓库文件或状态；循环变量仅在当前循环中有效。 */
   for (const gate of gates) {
-    /** 中文说明：该循环依次处理仓库文件或状态；循环变量仅在当前循环中有效。 */
     for (const dependency of gate.needs ?? []) {
       if (!ids.has(dependency)) {
         throw new Error(`run-gates: gate ${JSON.stringify(gate.id)} depends on unknown gate ${JSON.stringify(dependency)}.`)
       }
     }
-    /** 中文说明：该循环依次处理仓库文件或状态；循环变量仅在当前循环中有效。 */
     for (const predecessor of gate.after ?? []) {
       if (!ids.has(predecessor)) {
         throw new Error(`run-gates: gate ${JSON.stringify(gate.id)} waits for unknown gate ${JSON.stringify(predecessor)}.`)
@@ -884,37 +817,26 @@ function validateGateGraph(gates: readonly Gate[]): void {
     }
   }
 
-  /** 中文说明：变量 cycle 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const cycle = findDependencyCycle(gates)
   if (cycle !== undefined) throw new Error(`run-gates: dependency cycle: ${cycle.join(' -> ')}.`)
 }
 
-/** 中文说明：函数 findDependencyCycle 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function findDependencyCycle(gates: readonly Gate[]): string[] | undefined {
-  /** 中文说明：函数值 byId 封装本脚本的局部步骤；参数和返回值由右侧签名约束；示例见本脚本调用。 */
   const byId = new Map(gates.map(gate => [gate.id, gate]))
-  /** 中文说明：变量 complete 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const complete = new Set<string>()
-  /** 中文说明：变量 active 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const active = new Map<string, number>()
-  /** 中文说明：变量 path 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const path: string[] = []
 
-  /** 中文说明：函数值 visit 封装本脚本的局部步骤；参数和返回值由右侧签名约束；示例见本脚本调用。 */
   const visit = (id: string): string[] | undefined => {
     if (complete.has(id)) return undefined
-    /** 中文说明：变量 cycleStart 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const cycleStart = active.get(id)
     if (cycleStart !== undefined) return [...path.slice(cycleStart), id]
-    /** 中文说明：变量 gate 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const gate = byId.get(id)
     if (gate === undefined) return undefined
 
     active.set(id, path.length)
     path.push(id)
-    /** 中文说明：该循环依次处理仓库文件或状态；循环变量仅在当前循环中有效。 */
     for (const predecessor of [...(gate.needs ?? []), ...(gate.after ?? [])]) {
-      /** 中文说明：变量 cycle 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const cycle = visit(predecessor)
       if (cycle !== undefined) return cycle
     }
@@ -924,9 +846,7 @@ function findDependencyCycle(gates: readonly Gate[]): string[] | undefined {
     return undefined
   }
 
-  /** 中文说明：该循环依次处理仓库文件或状态；循环变量仅在当前循环中有效。 */
   for (const gate of gates) {
-    /** 中文说明：变量 cycle 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const cycle = visit(gate.id)
     if (cycle !== undefined) return cycle
   }
@@ -934,100 +854,178 @@ function findDependencyCycle(gates: readonly Gate[]): string[] | undefined {
 }
 
 /**
+ * Scheduling options for one aggregate.
+ */
+export interface RunGatesOptions {
+  /** Stop the aggregate at the first blocking gate failure. */
+  failFast?: boolean
+  /** Forward host SIGINT/SIGTERM to the abort path so detached gate trees are
+   * terminated when the run itself is interrupted or the runner cancels it.
+   * Tree termination additionally requires failFast, because only then is the
+   * abort signal passed to the executor and children detached. */
+  forwardProcessSignals?: boolean
+}
+
+/**
  * Validate and run one aggregate before the injected executor can start a child.
  * @param gates - complete aggregate to execute.
  * @param maxActive - maximum concurrent child count.
- * @param execute - child-process executor.
+ * @param execute - child-process executor; receives the abort signal only when
+ * fail-fast is enabled, so ordinary runs keep their children in the host
+ * process group.
  * @param observe - result observer invoked when each gate settles.
+ * @param options - scheduling options; fail-fast aborts the aggregate at the
+ * first blocking gate failure by killing running children and skipping every
+ * not-yet-run gate.
  * @returns results in aggregate order.
  */
-/* 中文说明：函数 runGates 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 export async function runGates(
   gates: Gate[],
   maxActive: number,
   execute: GateExecutor,
   observe: ResultObserver = () => {},
+  options: RunGatesOptions = {},
 ): Promise<GateResult[]> {
   validateGateGraph(gates)
   if (!Number.isSafeInteger(maxActive) || maxActive < 1) {
     throw new Error(`run-gates: max concurrency must be a positive integer, got ${JSON.stringify(maxActive)}.`)
   }
-  /** 中文说明：函数值 states 封装本脚本的局部步骤；参数和返回值由右侧签名约束；示例见本脚本调用。 */
+  if (options.forwardProcessSignals === true && options.failFast !== true) {
+    throw new Error('run-gates: forwardProcessSignals requires failFast, otherwise no child is detached or killed.')
+  }
   const states = new Map<string, GateState>(gates.map(gate => [gate.id, 'pending']))
-  /** 中文说明：变量 results 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const results = new Map<string, GateResult>()
-  /** 中文说明：变量 running 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const running: RunningGate[] = []
-
-  /** 中文说明：该循环依次处理仓库文件或状态；循环变量仅在当前循环中有效。 */
-  for (;;) {
-    /** 中文说明：变量 madeProgress 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-    let madeProgress = false
-    while (running.length < maxActive) {
-      /** 中文说明：函数值 ready 封装本脚本的局部步骤；参数和返回值由右侧签名约束；示例见本脚本调用。 */
-      const ready = gates.find(gate => states.get(gate.id) === 'pending' && predecessorsReady(gate, states))
-      if (ready === undefined) break
-      states.set(ready.id, 'running')
-      running.push({ gate: ready, promise: execute(ready) })
-      console.log(`run-gates: start ${ready.label}`)
-      madeProgress = true
+  const abort = new AbortController()
+  let abortCause: string | undefined
+  // Host interruption (terminal Ctrl+C, runner cancellation) drains through
+  // the same abort path as a gate failure, so detached trees are killed and
+  // never orphaned. Handlers are removed before returning.
+  const hostSignals = options.forwardProcessSignals === true ? ['SIGINT', 'SIGTERM'] as const : []
+  const hostHandlers = hostSignals.map((name) => {
+    const handler = () => {
+      abortCause = abortCause ?? 'host interruption'
+      abort.abort()
     }
+    process.on(name, handler)
+    return { name, handler }
+  })
+  const failFastSignal = options.failFast === true ? abort.signal : undefined
 
-    if (running.length === 0) {
-      /** 中文说明：函数值 pending 封装本脚本的局部步骤；参数和返回值由右侧签名约束；示例见本脚本调用。 */
-      const pending = gates.filter(gate => states.get(gate.id) === 'pending')
-      if (pending.length === 0) break
-      /** 中文说明：函数值 gate 封装本脚本的局部步骤；参数和返回值由右侧签名约束；示例见本脚本调用。 */
-      const gate = pending.find(item => (item.needs ?? []).some(id => gateFailed(states.get(id))))
-      if (gate === undefined) throw new Error('run-gates: validated graph stalled without a failed dependency.')
-      /** 中文说明：函数值 failedDeps 封装本脚本的局部步骤；参数和返回值由右侧签名约束；示例见本脚本调用。 */
-      const failedDeps = (gate.needs ?? []).filter(id => gateFailed(states.get(id)))
-      /** 中文说明：变量 result 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-      const result: GateResult = {
-        gate,
-        status: 'skipped',
-        durationMs: 0,
-        output: [],
-        exitCode: null,
-        signalCode: null,
-        error: `dependency failed or skipped: ${failedDeps.join(', ')}`,
+  try {
+    for (;;) {
+      let madeProgress = false
+      if (abortCause === undefined) {
+        while (running.length < maxActive) {
+          const ready = gates.find(gate => states.get(gate.id) === 'pending' && predecessorsReady(gate, states))
+          if (ready === undefined) break
+          states.set(ready.id, 'running')
+          running.push({ gate: ready, promise: execute(ready, failFastSignal) })
+          console.log(`run-gates: start ${ready.label}`)
+          madeProgress = true
+        }
       }
-      states.set(gate.id, 'skipped')
-      results.set(gate.id, result)
-      observe(result)
-      continue
-    }
 
-    if (!madeProgress) {
-      /** 中文说明：函数值 settled 封装本脚本的局部步骤；参数和返回值由右侧签名约束；示例见本脚本调用。 */
-      const settled = await Promise.race(running.map(async item => ({ item, result: await item.promise })))
-      running.splice(running.indexOf(settled.item), 1)
-      states.set(settled.item.gate.id, settled.result.status)
-      results.set(settled.item.gate.id, settled.result)
-      observe(settled.result)
+      if (running.length === 0) {
+        if (abortCause !== undefined) {
+          for (const gate of gates) {
+            if (states.get(gate.id) !== 'pending') continue
+            const skipped = skippedByFailFast(gate, abortCause)
+            states.set(gate.id, 'skipped')
+            results.set(gate.id, skipped)
+            observe(skipped)
+          }
+          break
+        }
+        const pending = gates.filter(gate => states.get(gate.id) === 'pending')
+        if (pending.length === 0) break
+        const gate = pending.find(item => (item.needs ?? []).some(id => gateFailed(states.get(id))))
+        if (gate === undefined) throw new Error('run-gates: validated graph stalled without a failed dependency.')
+        const failedDeps = (gate.needs ?? []).filter(id => gateFailed(states.get(id)))
+        const result: GateResult = {
+          gate,
+          status: 'skipped',
+          durationMs: 0,
+          output: [],
+          exitCode: null,
+          signalCode: null,
+          error: `dependency failed or skipped: ${failedDeps.join(', ')}`,
+        }
+        states.set(gate.id, 'skipped')
+        results.set(gate.id, result)
+        observe(result)
+        continue
+      }
+
+      if (!madeProgress) {
+        const settled = await Promise.race(running.map(async item => ({ item, result: await item.promise })))
+        running.splice(running.indexOf(settled.item), 1)
+        const observed = abortCause === undefined || settled.result.aborted !== true
+          ? settled.result
+          : skippedByFailFast(settled.item.gate, abortCause)
+        states.set(settled.item.gate.id, observed.status)
+        results.set(settled.item.gate.id, observed)
+        observe(observed)
+        if (abortCause === undefined && options.failFast === true
+          && observed.status === 'failed' && settled.item.gate.allowFailure !== true) {
+          abortCause = `${observed.gate.label} failed`
+          abort.abort()
+          console.error(`run-gates: fail-fast aborting: ${abortCause}.`)
+          for (const gate of gates) {
+            if (states.get(gate.id) !== 'pending') continue
+            const skipped = skippedByFailFast(gate, abortCause)
+            states.set(gate.id, 'skipped')
+            results.set(gate.id, skipped)
+            observe(skipped)
+          }
+        }
+      }
     }
+  } finally {
+    for (const { name, handler } of hostHandlers) process.removeListener(name, handler)
   }
 
   return gates.map((gate) => {
-    /** 中文说明：变量 result 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = results.get(gate.id)
     if (result === undefined) throw new Error(`run-gates: missing result for ${gate.id}.`)
     return result
   })
 }
 
-/** 中文说明：函数 predecessorsReady 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
+/**
+ * The result of a gate that produced no evidence because fail-fast aborted.
+ * A gate whose process settled before the abort took effect keeps its real
+ * result instead: it did produce evidence, and the summary must say so. Any
+ * result settling after the abort — including a genuine independent failure
+ * in the race window, and a child that trapped the signal and exited zero —
+ * is recorded skipped with its partial output discarded, because on Windows a
+ * killed process is indistinguishable from a failed one by exit code alone.
+ * @param gate - the gate that produced no evidence.
+ * @param cause - the full clause naming what aborted the aggregate, e.g.
+ * `typecheck failed` or `host interruption`.
+ * @returns the skipped record with the fail-fast error.
+ */
+function skippedByFailFast(gate: Gate, cause: string): GateResult {
+  return {
+    gate,
+    status: 'skipped',
+    durationMs: 0,
+    output: [],
+    exitCode: null,
+    signalCode: null,
+    error: `aborted by fail-fast: ${cause}`,
+  }
+}
+
 function predecessorsReady(gate: Gate, states: Map<string, GateState>): boolean {
   return (gate.needs ?? []).every(id => states.get(id) === 'passed')
     && (gate.after ?? []).every(id => gateSettled(states.get(id)))
 }
 
-/** 中文说明：函数 gateSettled 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function gateSettled(state: GateState | undefined): boolean {
   return state === 'passed' || state === 'failed' || state === 'skipped'
 }
 
-/** 中文说明：函数 gateFailed 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function gateFailed(state: GateState | undefined): boolean {
   return state === 'failed' || state === 'skipped'
 }
@@ -1035,27 +1033,27 @@ function gateFailed(state: GateState | undefined): boolean {
 /**
  * Execute one gate through the real shell-free child-process boundary.
  * @param gate - command and scheduler environment to execute.
+ * @param signal - abort signal that terminates the whole gate process tree when
+ * the aggregate fails fast; an already-aborted signal terminates it
+ * immediately. A provided signal spawns the child detached so POSIX can signal
+ * its process group and Windows can reach its tree through taskkill.
  * @returns the complete process outcome.
  */
-/* 中文说明：函数 runGate 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
-export async function runGate(gate: Gate): Promise<GateResult> {
-  /** 中文说明：变量 started 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
+export async function runGate(gate: Gate, signal?: AbortSignal): Promise<GateResult> {
   const started = performance.now()
-  /** 中文说明：变量 output 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const output: GateOutputChunk[] = []
-  /** 中文说明：变量 spawnError 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   let spawnError: string | undefined
+  let aborted = false
 
-  /** 中文说明：变量 outcome 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const outcome = await new Promise<{
     exitCode: number | null
     signalCode: NodeJS.Signals | null
   }>((resolveExit) => {
-    /** 中文说明：变量 child 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const child = spawn(gate.command, gate.args, {
       cwd: root,
       env: { ...process.env, ...gate.env },
       stdio: ['pipe', 'pipe', 'pipe'],
+      detached: signal !== undefined && process.platform !== 'win32',
     })
     child.stdout.setEncoding('utf8')
     child.stderr.setEncoding('utf8')
@@ -1067,20 +1065,194 @@ export async function runGate(gate: Gate): Promise<GateResult> {
       if (gate.streamOutput === true) process.stderr.write(chunk)
       else output.push({ stream: 'stderr', text: chunk })
     })
+    // Deliver one signal to the entire gate tree: the negative pid targets the
+    // POSIX process group the detached child leads; Windows has no groups, so
+    // taskkill walks the tree rooted at the child and force-terminates (a
+    // taskkill without `/F` does not terminate console processes, which is
+    // what gate commands are). Outcomes are deliberately unchecked because
+    // delivery races tree exit, and a missing taskkill binary is as tolerable
+    // as ESRCH. Mirrors the subprocess package's teardown contract
+    // (packages/subprocess/subprocess-local/src/spawn.ts).
+    const treeKill = (signalToSend: 'SIGTERM' | 'SIGKILL') => {
+      const pid = child.pid
+      if (pid === undefined) return
+      if (process.platform === 'win32') {
+        for (const args of taskkillArgs(pid, descendants)) {
+          spawnSync('taskkill', args, { stdio: 'ignore' })
+        }
+        return
+      }
+      try {
+        process.kill(-pid, signalToSend)
+      } catch {
+        // The group is gone; the direct child may still be alive alone.
+        child.kill(signalToSend)
+      }
+      // The captured list stays valid after the group kill reparents the
+      // detached descendants of a nested run-gates (the `check:node-compat`
+      // and `check:ci:lint:contracts-ready` gates in ci-consumers): pids do
+      // not change on reparenting, so the escalation reaches leaves that
+      // ignored SIGTERM without re-enumerating.
+      for (const descendantPid of descendants) {
+        try {
+          process.kill(descendantPid, signalToSend)
+        } catch {
+          // The descendant exited between the enumeration and the signal.
+        }
+      }
+    }
+    let escalation: ReturnType<typeof setTimeout> | undefined
+    let terminatedAt = 0
+    // Captured once at terminate and re-signalled on escalation: the group
+    // kill reaps the direct child, after which its detached descendants are
+    // reparented and unreachable by parent id, so the escalation cannot
+    // re-enumerate them.
+    let descendants: number[] = []
+    let pipeDrain: ReturnType<typeof setTimeout> | undefined
+    const terminate = () => {
+      aborted = true
+      const pid = child.pid
+      // Merge while the child is still alive: re-enumerating alone would drop
+      // a descendant that an exited intermediate reparented out of the parent
+      // chain, and replacing the list entirely would lose the sampler's
+      // last-known entries when the child already exited. Union preserves both.
+      // The sampler runs on every platform (including Windows, where an
+      // exited intermediate's table record vanishes and a fresh enumeration
+      // cannot cross the gap), so the cache is the source of truth once the
+      // child is gone.
+      if (pid !== undefined && child.exitCode === null && child.signalCode === null) {
+        descendants = [...new Set([...descendants, ...descendantPids(pid)])]
+      }
+      treeKill('SIGTERM')
+      if (escalation === undefined) {
+        terminatedAt = Date.now()
+        // Force-kill at the deadline regardless of the direct child's exit
+        // state: when the wrapper dies but a grandchild ignores SIGTERM and
+        // still holds the stdio pipes, `close` has not fired and the tree must
+        // still be killed. treeKill swallows an already-absent group.
+        escalation = setTimeout(() => { treeKill('SIGKILL') }, 5000)
+      }
+      if (pipeDrain === undefined) {
+        // `close` can stay pending past the direct child's exit when a
+        // descendant holds the stdio write ends (escaped process group, or
+        // uninterruptible I/O that keeps the SIGKILL pending). Bound the wait
+        // past the 5-second SIGKILL grace and force the streams closed so
+        // fail-fast settles instead of hanging to the job timeout. Only the
+        // abort path arms it: on an ordinary run a gate that outlives its
+        // descendants must keep waiting rather than report passed over a live
+        // leak. Armed in terminate (not only at `exit`) so the window where
+        // the child already exited before the abort is covered too.
+        pipeDrain = setTimeout(() => {
+          child.stdout.destroy()
+          child.stderr.destroy()
+          child.stdin.destroy()
+        }, 10000)
+      }
+    }
+    if (signal !== undefined) {
+      if (signal.aborted) terminate()
+      else signal.addEventListener('abort', terminate, { once: true })
+    }
+    // Refresh the descendant cache while the child runs, so an abort that
+    // arrives after the child already exited can still reach a detached
+    // descendant the child left behind: once the child is gone, its
+    // descendants are reparented (POSIX) or their intermediate's table record
+    // is gone (Windows), so a fresh enumeration cannot cross the gap. The
+    // cache is primed at spawn and refreshed every 5 seconds, so a descendant
+    // is captured once it appears in any enumeration whose parent chain is
+    // still fully present in the table; the residual window is a descendant
+    // that never appears in such a snapshot — created after one enumeration
+    // and orphaned before the next. Enumeration is asynchronous (a slow
+    // WMI/CIM call is bounded by its own 10-second timeout), so a gate's
+    // output draining and exit handling are never blocked while the sampler
+    // reads the process table. Fail-fast runs only; ordinary runs never
+    // abort.
+    let descendantSampler: ReturnType<typeof setInterval> | undefined
+    if (signal !== undefined) {
+      let enumerationInFlight: { cancel: () => void } | undefined
+      const refreshDescendants = () => {
+        const pid = child.pid
+        if (pid === undefined || child.exitCode !== null || child.signalCode !== null) return
+        if (enumerationInFlight !== undefined) return
+        const handle = descendantPidsAsync(pid, process.platform)
+        enumerationInFlight = handle
+        void handle.promise.then((fresh) => {
+          if (enumerationInFlight === handle) enumerationInFlight = undefined
+          // Merge regardless of the child's exit state: the enumeration
+          // started while the child was alive, so its snapshot is the last
+          // reliable view of the tree. The child may exit (its intermediate
+          // gone, its table record vanished) before the promise settles while
+          // a grandchild still holds the stdio write ends and keeps `close`
+          // pending — exactly when terminate needs this list.
+          // Merge instead of replacing, like terminate: an intermediate that
+          // exited since the last tick reparented its detached descendants
+          // out of the parent chain, so a fresh enumeration alone would drop
+          // them. Filter the cache to the still-executing so a long gate
+          // does not accumulate stale pids; while sampler ticks still run the
+          // live filter also keeps the escalation from signalling a reused
+          // pid, but once ticks stop (child exited) the cache can go stale,
+          // and a pid reused after that is the accepted sampling window.
+          descendants = [...new Set([...descendants.filter(processAlive), ...fresh])]
+        })
+      }
+      const cancelInFlightEnumeration = () => {
+        if (enumerationInFlight !== undefined) enumerationInFlight.cancel()
+        enumerationInFlight = undefined
+      }
+      refreshDescendants()
+      descendantSampler = setInterval(refreshDescendants, 5000)
+      // A gate that settles while an enumeration is still running must not
+      // leave the PowerShell subprocess holding stdio handles until its own
+      // timeout: stop it as soon as the child's outcome is known.
+      child.once('close', cancelInFlightEnumeration)
+      child.once('error', cancelInFlightEnumeration)
+    }
     child.on('error', (error) => {
+      if (escalation !== undefined) clearTimeout(escalation)
+      if (pipeDrain !== undefined) clearTimeout(pipeDrain)
+      if (descendantSampler !== undefined) clearInterval(descendantSampler)
+      if (signal !== undefined) signal.removeEventListener('abort', terminate)
       spawnError = `failed to start command: ${error.message}`
       resolveExit({ exitCode: null, signalCode: null })
     })
     child.on('close', (exitCode, signalCode) => {
+      if (pipeDrain !== undefined) clearTimeout(pipeDrain)
+      if (descendantSampler !== undefined) clearInterval(descendantSampler)
+      if (signal !== undefined) signal.removeEventListener('abort', terminate)
+      if (escalation !== undefined && process.platform !== 'win32') {
+        // `close` only means the direct child's stdio closed; a grandchild
+        // that ignored SIGTERM and redirected its stdio can outlive it. Do
+        // not settle until the process group and the captured descendants are
+        // confirmed gone — the deadline SIGKILL covers members still alive at
+        // the grace end — so runGate returns only once the tree is quiescent.
+        const confirmGroupGone = () => {
+          if (!groupAlive(child.pid) && descendants.every(descendantPid => !processAlive(descendantPid))) {
+            clearTimeout(escalation)
+            resolveExit({ exitCode, signalCode })
+            return
+          }
+          if (Date.now() - terminatedAt < 8000) {
+            setTimeout(confirmGroupGone, 50)
+            return
+          }
+          // The grace ended with members still alive (e.g. uninterruptible
+          // I/O that even SIGKILL cannot cut). Fail loud instead of reporting
+          // a quiescent tree: the gate is recorded failed either way.
+          console.error(`run-gates: gate tree not quiescent after 8s (${gate.label}).`)
+          clearTimeout(escalation)
+          resolveExit({ exitCode, signalCode })
+        }
+        confirmGroupGone()
+        return
+      }
+      if (escalation !== undefined) clearTimeout(escalation)
       resolveExit({ exitCode, signalCode })
     })
     child.stdin.end()
   })
   const { exitCode, signalCode } = outcome
 
-  /** 中文说明：变量 status 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const status: GateResultStatus = exitCode === 0 && signalCode === null && spawnError === undefined ? 'passed' : 'failed'
-  /** 中文说明：变量 result 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const result: GateResult = {
     gate,
     status,
@@ -1089,7 +1261,252 @@ export async function runGate(gate: Gate): Promise<GateResult> {
     exitCode,
     signalCode,
   }
+  result.aborted = aborted
   if (spawnError !== undefined) result.error = spawnError
+  return result
+}
+
+/**
+ * Parse the state, parent, and process-group fields from a `/proc/<pid>/stat`
+ * line. The comm field may contain spaces and parentheses, so the state starts
+ * after the last closing parenthesis.
+ * @param stat - one `/proc/<pid>/stat` line.
+ * @returns state, parent pid, and process-group pid; undefined when truncated.
+ */
+function procStatFields(stat: string): { state: string; ppid: number; pgrp: number } | undefined {
+  const fields = stat.slice(stat.lastIndexOf(')') + 2).split(' ')
+  const state = fields[0]
+  const ppid = fields[1]
+  const pgrp = fields[2]
+  if (state === undefined || ppid === undefined || pgrp === undefined) return undefined
+  return { state, ppid: Number(ppid), pgrp: Number(pgrp) }
+}
+
+/**
+ * Whether one process is still executing. Zombies (state `Z`) do not count:
+ * they are dead records awaiting reaping, and kill(pid, 0) would report them
+ * as alive. Linux reads /proc/<pid>/stat to distinguish; other platforms fall
+ * back to the signal probe.
+ * @param pid - the process to probe.
+ */
+function processAlive(pid: number): boolean {
+  if (process.platform === 'linux') {
+    try {
+      const parsed = procStatFields(readFileSync(`/proc/${pid}/stat`, 'utf8'))
+      return parsed !== undefined && parsed.state !== 'Z'
+    } catch {
+      return false
+    }
+  }
+  try {
+    process.kill(pid, 0)
+    return true
+  } catch {
+    return false
+  }
+}
+
+/**
+ * Whether any member of the child's POSIX process group is still executing.
+ * Zombie entries (state `Z`) do not count: they are dead records awaiting
+ * reaping, and the kill(-pid, 0) group probe would report them as alive.
+ * Linux enumerates /proc to distinguish after a fast-path group probe; other
+ * POSIX platforms fall back to the probe alone.
+ * @param pid - the group leader's pid; undefined or non-positive means the
+ * spawn failed and nothing is alive.
+ */
+function groupAlive(pid: number | undefined): boolean {
+  if (pid === undefined || pid <= 0) return false
+  if (process.platform === 'linux') {
+    try {
+      process.kill(-pid, 0)
+    } catch {
+      // ESRCH: the group has no entries at all.
+      return false
+    }
+    try {
+      for (const entry of readdirSync('/proc')) {
+        if (!/^\d+$/.test(entry)) continue
+        try {
+          const parsed = procStatFields(readFileSync(`/proc/${entry}/stat`, 'utf8'))
+          if (parsed !== undefined && parsed.pgrp === pid && parsed.state !== 'Z') return true
+        } catch {
+          // The process exited mid-scan; it is not a live member.
+        }
+      }
+      return false
+    } catch {
+      return false
+    }
+  }
+  try {
+    process.kill(-pid, 0)
+    return true
+  } catch {
+    return false
+  }
+}
+
+/**
+ * The pids of every transitive descendant of `root`, read from the live
+ * process table. Linux walks /proc/<pid>/stat parent fields; other platforms
+ * parse `ps` (POSIX) or the CIM process table (Windows) output. This is one
+ * snapshot, not the full tree-ownership mechanism: terminate and the sampler
+ * rely on the 5-second cache to cross an intermediate that exited between
+ * ticks (reparented on POSIX, table record gone on Windows), so a single
+ * enumeration reaches only the descendants whose parent chain is still fully
+ * present in the table.
+ * @param root - the pid whose descendants are wanted.
+ * @returns descendant pids in breadth-first order; empty on enumeration failure.
+ */
+function descendantPids(root: number): number[] {
+  if (root <= 0) return []
+  if (process.platform === 'linux') {
+    const rows: Array<[number, number]> = []
+    try {
+      for (const entry of readdirSync('/proc')) {
+        if (!/^\d+$/.test(entry)) continue
+        try {
+          const parsed = procStatFields(readFileSync(`/proc/${entry}/stat`, 'utf8'))
+          if (parsed !== undefined) rows.push([Number(entry), parsed.ppid])
+        } catch {
+          // The process exited mid-scan; skip it.
+        }
+      }
+    } catch {
+      return []
+    }
+    return collectDescendants(root, rows)
+  }
+  let ps: { error?: Error; stdout: string }
+  if (process.platform === 'win32') {
+    // taskkill /T covers the tree only while the root is alive; once the
+    // direct child exits (a descendant still holding the stdio write ends
+    // keeps `close` pending), abort must reach the survivors from a fresh
+    // enumeration. Windows keeps the exited parent's pid in its descendants'
+    // parent column, so this walk still finds the whole tree. A hung
+    // PowerShell (WMI/CIM service trouble) must not stall the abort path
+    // indefinitely, so the enumeration is bounded.
+    ps = spawnSync('powershell', processTableArgs('win32'), { encoding: 'utf8', timeout: 10000 })
+  } else {
+    ps = spawnSync('ps', processTableArgs('posix'), { encoding: 'utf8' })
+  }
+  if (ps.error !== undefined) return []
+  return collectDescendants(root, parsePidPpidLines(ps.stdout))
+}
+
+/**
+ * The process-table enumeration command for one platform. Windows queries the
+ * CIM provider through PowerShell (each line `pid ppid`); other platforms use
+ * `ps -axo pid=,ppid=`.
+ * @param platform - the target platform.
+ * @returns the command arguments to enumerate every live process's pid/ppid.
+ */
+function processTableArgs(platform: 'win32' | 'posix'): string[] {
+  if (platform === 'win32') {
+    return ['-NoProfile', '-NonInteractive', '-Command', 'Get-CimInstance Win32_Process | ForEach-Object { "$($_.ProcessId) $($_.ParentProcessId)" }']
+  }
+  return ['-axo', 'pid=,ppid=']
+}
+
+/**
+ * Asynchronous descendant enumeration, so a slow WMI/CIM call (bounded by a
+ * 10-second timeout) cannot block the event loop: the sampler runs it while
+ * the gate's output streams and exit handling must keep flowing. Returns the
+ * same descendant list as {@link descendantPids}; used by the fail-fast
+ * sampler only, never on the abort path (which needs the synchronous walk to
+ * capture the tree before any member exits).
+ * @param root - the pid whose descendants are wanted.
+ * @param platform - the platform whose table the enumeration reads.
+ * @returns a promise of descendant pids in breadth-first order; empty on
+ * enumeration failure.
+ */
+function descendantPidsAsync(root: number, platform: NodeJS.Platform): { promise: Promise<number[]>; cancel: () => void } {
+  if (root <= 0 || platform === 'linux') {
+    // The /proc walk is synchronous inside the async wrapper so the sampler
+    // keeps the same contract on every platform; /proc reads are fast and
+    // need no subprocess, and a completed enumeration needs no cancellation.
+    return { promise: Promise.resolve(descendantPids(root)), cancel: () => {} }
+  }
+  const [command, args] = platform === 'win32'
+    ? ['powershell', processTableArgs('win32')]
+    : ['ps', processTableArgs('posix')]
+  const child = spawn(command, args, {
+    stdio: ['ignore', 'pipe', 'ignore'],
+    timeout: platform === 'win32' ? 10000 : undefined,
+  })
+  child.stdout.setEncoding('utf8')
+  let stdout = ''
+  let settled = false
+  let settle!: (value: number[]) => void
+  const promise = new Promise<number[]>((resolve) => { settle = resolve })
+  const finish = (value: number[]) => {
+    if (settled) return
+    settled = true
+    // The enumeration completed (or was cancelled): stop the subprocess so
+    // the gate does not wait on its stdio handles.
+    child.kill('SIGTERM')
+    settle(value)
+  }
+  child.stdout.on('data', (chunk: string) => { stdout += chunk })
+  child.on('error', () => { finish([]) })
+  child.on('close', () => { finish(collectDescendants(root, parsePidPpidLines(stdout))) })
+  return {
+    promise,
+    cancel: () => { finish([]) },
+  }
+}
+
+/** Parse `pid ppid` rows from a process-table dump. Both the POSIX `ps -axo
+ * pid=,ppid=` output and the Windows PowerShell `Get-CimInstance Win32_Process`
+ * projection emit one `pid ppid` pair per line.
+ * @param output - the raw dump text.
+ * @returns the parsed pid/ppid rows in line order; blank and malformed lines
+ * are dropped.
+ */
+export function parsePidPpidLines(output: string): Array<[number, number]> {
+  const rows: Array<[number, number]> = []
+  for (const line of output.split('\n')) {
+    const match = line.trim().match(/^(\d+)\s+(\d+)$/)
+    if (match !== null) rows.push([Number(match[1]), Number(match[2])])
+  }
+  return rows
+}
+
+/**
+ * The taskkill invocations that terminate one Windows gate tree. The direct
+ * child leads, because a live `taskkill /T` walks its whole subtree in one
+ * call; each captured descendant follows individually, because when the root
+ * already exited (a descendant holding the stdio write ends keeps `close`
+ * pending) `taskkill /T` rooted at the dead pid finds nothing — Windows never
+ * reparents, so the ppid chain captured at terminate still reaches the whole
+ * tree, and `/T` lets a surviving intermediate carry its own subtree. A pid
+ * that exited between capture and termination is as tolerable as ESRCH on
+ * POSIX: taskkill reports a nonzero status that is deliberately unchecked.
+ * @param rootPid - the direct child's pid.
+ * @param descendants - the captured descendant pids.
+ * @returns one `taskkill` argument list per pid, in termination order.
+ */
+export function taskkillArgs(rootPid: number, descendants: number[]): string[][] {
+  return [rootPid, ...descendants].map(pid => ['/PID', String(pid), '/T', '/F'])
+}
+
+/** Breadth-first walk of the pid/ppid rows starting at `root`. */
+function collectDescendants(root: number, rows: Array<[number, number]>): number[] {
+  const byParent = new Map<number, number[]>()
+  for (const [pid, ppid] of rows) {
+    const children = byParent.get(ppid) ?? []
+    children.push(pid)
+    byParent.set(ppid, children)
+  }
+  const result: number[] = []
+  const queue = byParent.get(root) ?? []
+  for (let index = 0; index < queue.length; index += 1) {
+    const pid = queue[index]
+    if (pid === undefined) continue
+    result.push(pid)
+    queue.push(...(byParent.get(pid) ?? []))
+  }
   return result
 }
 
@@ -1098,9 +1515,7 @@ export async function runGate(gate: Gate): Promise<GateResult> {
  * @param result - unsuccessful gate result.
  * @returns error, exit, and signal facts without allowing one to hide another.
  */
-/* 中文说明：函数 formatGateResultReason 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 export function formatGateResultReason(result: GateResult): string {
-  /** 中文说明：变量 facts 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const facts: string[] = []
   if (result.error !== undefined) facts.push(result.error)
   if (result.exitCode !== null) facts.push(`exit ${result.exitCode}`)
@@ -1108,20 +1523,15 @@ export function formatGateResultReason(result: GateResult): string {
   return facts.length === 0 ? 'no exit code or signal' : facts.join(', ')
 }
 
-/** 中文说明：函数 printResult 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function printResult(result: GateResult): void {
-  /** 中文说明：变量 verbose 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const verbose = process.env.DSH_GATE_VERBOSE === '1'
-  /** 中文说明：变量 seconds 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const seconds = (result.durationMs / 1000).toFixed(2)
   if (result.status === 'passed' && !verbose) {
     console.log(`run-gates: PASS ${result.gate.label} (${seconds}s)`)
     return
   }
 
-  /** 中文说明：变量 heading 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const heading = `${result.status.toUpperCase()} ${result.gate.label} (${seconds}s)`
-  /** 中文说明：变量 writeHeading 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const writeHeading = result.status === 'passed' ? console.log : console.error
   writeHeading(`\n== ${heading} ==`)
   if (result.status !== 'passed') {
@@ -1131,39 +1541,27 @@ function printResult(result: GateResult): void {
   if (result.gate.streamOutput !== true) printOutput(result.output)
 }
 
-/** 中文说明：函数 printSummary 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function printSummary(results: GateResult[], durationMs: number): void {
-  /** 中文说明：函数值 passed 封装本脚本的局部步骤；参数和返回值由右侧签名约束；示例见本脚本调用。 */
   const passed = results.filter(result => result.status === 'passed').length
-  /** 中文说明：函数值 failed 封装本脚本的局部步骤；参数和返回值由右侧签名约束；示例见本脚本调用。 */
   const failed = results.filter(result => result.status === 'failed').length
-  /** 中文说明：函数值 skipped 封装本脚本的局部步骤；参数和返回值由右侧签名约束；示例见本脚本调用。 */
   const skipped = results.filter(result => result.status === 'skipped').length
-  /** 中文说明：变量 seconds 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const seconds = (durationMs / 1000).toFixed(2)
   console.log(`\nrun-gates: ${passed} passed, ${failed} failed, ${skipped} skipped in ${seconds}s.`)
 
-  /** 中文说明：函数值 unsuccessful 封装本脚本的局部步骤；参数和返回值由右侧签名约束；示例见本脚本调用。 */
   const unsuccessful = results.filter(result => result.status === 'failed' || result.status === 'skipped')
   if (unsuccessful.length === 0) return
 
   console.error('run-gates: unsuccessful gates:')
-  /** 中文说明：该循环依次处理仓库文件或状态；循环变量仅在当前循环中有效。 */
   for (const result of unsuccessful) {
-    /** 中文说明：变量 duration 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const duration = (result.durationMs / 1000).toFixed(2)
-    /** 中文说明：变量 reason 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const reason = formatGateResultReason(result)
-    /** 中文说明：变量 disposition 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const disposition = result.gate.allowFailure === true ? 'NON-BLOCKING ' : ''
     console.error(`  - ${disposition}${result.status.toUpperCase()} ${result.gate.label} (${duration}s, ${reason})`)
     console.error(`    ${result.gate.displayCommand}`)
   }
 }
 
-/** 中文说明：函数 printOutput 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function printOutput(output: GateOutputChunk[]): void {
-  /** 中文说明：该循环依次处理仓库文件或状态；循环变量仅在当前循环中有效。 */
   for (const chunk of output) {
     if (chunk.stream === 'stdout') process.stdout.write(chunk.text)
     else process.stderr.write(chunk.text)

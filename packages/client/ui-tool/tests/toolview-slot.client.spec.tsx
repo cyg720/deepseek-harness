@@ -15,11 +15,9 @@ import { apply as applyTool, inject as injectTool } from '@deepseek-ai/dsh-clien
 import type { ToolCallViewProps } from '@deepseek-ai/dsh-client-ui-tool/client'
 import { toolSessionEvents } from './tool-details-render.client.tsx'
 
-/** 中文说明：测试局部值 SID，由紧邻初始化决定。 */
 const SID = 's1' as SessionId
 
 /** jsdom has no ResizeObserver; the composer seat publishes its height through one. */
-/* 中文说明：类型或类 ResizeObserverStub 约束工具或轨迹数据职责。 */
 class ResizeObserverStub {
   observe(): void {}
   unobserve(): void {}
@@ -36,7 +34,6 @@ beforeEach(() => {
   vi.stubGlobal('ResizeObserver', ResizeObserverStub)
 })
 
-/** 中文说明：测试局部值 toolResult，由紧邻初始化决定。 */
 const toolResult = (seq: number, callId: string, name: string, args = '{"command":"make build","description":"Build"}'): ToolResultNode => ({
   kind: 'tool-result', seq, time: seq * 1_000, callId,
   call: { name, argsRaw: args },
@@ -45,14 +42,11 @@ const toolResult = (seq: number, callId: string, name: string, args = '{"command
 })
 
 /** Test-owned AppFrame role: declares and renders the resident conversation area. */
-/* 中文说明：类型或类 AppRootProps 约束工具或轨迹数据职责。 */
 type AppRootProps = PropsRenderSlots<'conversation' | 'details'>
-/** 中文说明：函数 AppRoot 的参数见签名，返回结果供展示流程使用；示例见本文件。 */
 function AppRoot({ renderSlot }: AppRootProps) {
   return <>{renderSlot('conversation', {})}</>
 }
 
-/** 中文说明：测试局部值 LAYOUT_CHILDREN，由紧邻初始化决定。 */
 const LAYOUT_CHILDREN = {
   'conversation': { kind: 'single', scope: 'session-maybe' },
   'details': { kind: 'single', scope: 'session' },
@@ -63,14 +57,8 @@ const LAYOUT_CHILDREN = {
  * service boundaries only, the package apply on its own
  * fiber, and the test AppFrame occupying 'root'.
  */
-/* 中文说明：函数 bench 的参数见签名，返回结果供展示流程使用；示例见本文件。 */
 async function bench(nodes: ToolResultNode[]) {
-  /** 中文说明：测试局部值 runtime，由紧邻初始化决定。 */
   const runtime = await SlotTestRuntime.create()
-  runtime.ctx.provide('connection', {
-    isLoopback: false,
-    generation: { getSnapshot: () => undefined, subscribe: () => () => {} },
-  })
   const openWorkspacePath = vi.fn(async () => ({ ok: true, value: { opened: true } }))
   new TestRemote(runtime.ctx, { session: { openWorkspacePath } })
   runtime.ctx.provide('settingsScope', { bind: () => stubSettingsScope().scope } as never)
@@ -100,12 +88,10 @@ async function bench(nodes: ToolResultNode[]) {
 
 describe('keyed toolview hole through the real machinery', () => {
   it('dispatches registered rows by entryKey and unregistered tools to the GenericToolCard fallback', async () => {
-    /** 中文说明：测试局部值 b，由紧邻初始化决定。 */
     const b = await bench([
       toolResult(3, 'c1', 'bash'),
       toolResult(4, 'c2', 'mystery', '{"n":1}'),
     ])
-    /** 中文说明：测试局部值 view，由紧邻初始化决定。 */
     const view = b.runtime.renderRoot()
     // bash: the sample plugin's keyed registration took the row (root
     // session → global arm, decided inside the component off useSessions).
@@ -118,20 +104,17 @@ describe('keyed toolview hole through the real machinery', () => {
   })
 
   it('renders top-level Cordis calls with lifecycle titles over the generic variants', async () => {
-    /** 中文说明：测试局部值 b，由紧邻初始化决定。 */
     const b = await bench([
       toolResult(3, 'cordis-1', 'cordis_runtime_inspect', '{"what":"api","name":"tools"}'),
       toolResult(4, 'cordis-2', 'cordis_run', '{"id":"dyn-2"}'),
       toolResult(5, 'cordis-3', 'cordis_stop', '{"id":"dyn-2"}'),
       toolResult(6, 'cordis-4', 'cordis_undefine', '{"id":"dyn-2"}'),
     ])
-    /** 中文说明：测试局部值 view，由紧邻初始化决定。 */
     const view = b.runtime.renderRoot()
 
     // Every one of these rows is user-visible on each model define/run, so each
     // names its act and carries the package id rather than falling back to the
     // generic "Tool call · <name> · <id>" row.
-    /** 中文说明：测试局部值 rowText，由紧邻初始化决定。 */
     const rowText = (name: string) => view.container.querySelector(`[data-tool="${name}"]`)?.textContent
     expect(rowText('cordis_runtime_inspect')).toContain('Inspect')
     expect(rowText('cordis_run')).toContain('Run Cordis Plugindyn-2')
@@ -145,7 +128,6 @@ describe('keyed toolview hole through the real machinery', () => {
 
   it('file-path clicks travel owner openFile → chat inject → session.openWorkspacePath', async () => {
     const b = await bench([toolResult(3, 'c1', 'read', '{"path":"src/a.ts"}')])
-    /** 中文说明：测试局部值 view，由紧邻初始化决定。 */
     const view = b.runtime.renderRoot()
     view.getByText('src/a.ts').click()
     expect(b.layout.openDetails).not.toHaveBeenCalled()
@@ -156,9 +138,7 @@ describe('keyed toolview hole through the real machinery', () => {
   })
 
   it('bash summary clicks do not open details or host paths', async () => {
-    /** 中文说明：测试局部值 b，由紧邻初始化决定。 */
     const b = await bench([toolResult(3, 'c1', 'bash')])
-    /** 中文说明：测试局部值 view，由紧邻初始化决定。 */
     const view = b.runtime.renderRoot()
     view.getByText('Build').click()
     expect(b.layout.openDetails).not.toHaveBeenCalled()
@@ -167,12 +147,9 @@ describe('keyed toolview hole through the real machinery', () => {
   })
 
   it('a live keyed registration takes over its tool row and unload reverts to the fallback', async () => {
-    /** 中文说明：测试局部值 b，由紧邻初始化决定。 */
     const b = await bench([toolResult(3, 'c2', 'mystery', '{"n":1}')])
-    /** 中文说明：测试局部值 view，由紧邻初始化决定。 */
     const view = b.runtime.renderRoot()
     expect(view.getByText('Tool call')).toBeTruthy()
-    /** 中文说明：测试局部值 dispose，由紧邻初始化决定。 */
     let dispose = (): void => {}
     dispose = b.slots.register(
       { name: 'tool.call.toolview', key: 'mystery' },
@@ -189,7 +166,6 @@ describe('keyed toolview hole through the real machinery', () => {
   })
 
   it('a duplicate key registration fails loud at load', async () => {
-    /** 中文说明：测试局部值 b，由紧邻初始化决定。 */
     const b = await bench([])
     expect(() => b.slots.register(
       { name: 'tool.call.toolview', key: 'bash' },
@@ -199,9 +175,7 @@ describe('keyed toolview hole through the real machinery', () => {
   })
 
   it('the inject channel feeds (sessionId) => I into the row component', async () => {
-    /** 中文说明：测试局部值 b，由紧邻初始化决定。 */
     const b = await bench([toolResult(3, 'c3', 'probe', '{"x":1}')])
-    /** 中文说明：测试局部值 poked，由紧邻初始化决定。 */
     const poked: string[] = []
     b.slots.register({
       name: 'tool.call.toolview',
@@ -215,9 +189,7 @@ describe('keyed toolview hole through the real machinery', () => {
     }, ({ mark, poke }: ToolCallViewProps & { mark: string; poke: () => void }) => (
       <button data-testid="probe-row" onClick={poke}>{mark}</button>
     ))
-    /** 中文说明：测试局部值 view，由紧邻初始化决定。 */
     const view = b.runtime.renderRoot()
-    /** 中文说明：测试局部值 row，由紧邻初始化决定。 */
     const row = view.getByTestId('probe-row')
     expect(row.textContent).toBe(`for:${SID}`)
     row.click()
@@ -228,12 +200,7 @@ describe('keyed toolview hole through the real machinery', () => {
 
 describe('registrant declaration injection', () => {
   it('runs a registrant before ui-tool and waits on the actual toolview declaration', async () => {
-    /** 中文说明：测试局部值 runtime，由紧邻初始化决定。 */
     const runtime = await SlotTestRuntime.create()
-    runtime.ctx.provide('connection', {
-      isLoopback: false,
-      generation: { getSnapshot: () => undefined, subscribe: () => () => {} },
-    })
     new TestRemote(runtime.ctx, {
       session: {
         openWorkspacePath: vi.fn(async () => ({ ok: true, value: { opened: true } })),
@@ -251,15 +218,12 @@ describe('registrant declaration injection', () => {
 
     // Third-party posture, mounted BEFORE ui-conversation. Plugin apply runs,
     // while slots.inject waits for the declaration itself.
-    /** 中文说明：测试局部值 applyRuns，由紧邻初始化决定。 */
     let applyRuns = 0
-    /** 中文说明：测试局部值 registrantApply，由紧邻初始化决定。 */
     const registrantApply = (registrantCtx: typeof runtime.ctx): void => {
       applyRuns += 1
       registrantCtx.slots.inject('tool.call.toolview', () => registrantCtx.slots.register(
         { name: 'tool.call.toolview', key: 'late' }, () => null))
     }
-    /** 中文说明：测试局部值 late，由紧邻初始化决定。 */
     const late = runtime.ctx.plugin({
       name: 'late-registrant',
       inject: ['slots'],

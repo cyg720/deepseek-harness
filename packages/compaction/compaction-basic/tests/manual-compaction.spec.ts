@@ -1,11 +1,3 @@
-/**
- * 文件职责：验证上下文压缩的 manual-compaction.spec.ts 行为。
- * 技术维度：Vitest、会话事件、模型请求夹具和 Cordis 组装。
- * 产品维度：防止上下文压缩改变模型可见内容或生命周期语义。
- * 逻辑维度：构造日志与配置，运行插件并断言事件、请求和清理。
- * 关键边界：模型可见内容必须可重建；工具调用和结果必须保持配对。
- * 新手阅读建议：先读事件夹具，再按正常、边界和失败场景阅读。
- */
 import { describe, expect, it, vi } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
 import AgentLoop from '@deepseek-ai/dsh-agent-loop'
@@ -33,6 +25,7 @@ import type {
   TokenUsage,
 } from '@deepseek-ai/dsh-llm'
 import SessionStore, { Session, SessionId, type SessionEvent } from '@deepseek-ai/dsh-session'
+import SessionProjectionRegistry from '@deepseek-ai/dsh-session-projection'
 import LlmRuntime from '@deepseek-ai/dsh-llm'
 import TokenMeter from '@deepseek-ai/dsh-token-meter'
 import type { Agent } from '@deepseek-ai/dsh-agent'
@@ -41,15 +34,11 @@ import type {
   SummaryResult,
 } from '@deepseek-ai/dsh-compaction-basic/src/summarizer.ts'
 
-/** 中文说明：测试局部值 MODEL，由紧邻初始化决定。 */
 const MODEL = 'mock'
-/** 中文说明：测试局部值 SIGNAL，由紧邻初始化决定。 */
 const SIGNAL = new AbortController().signal
-/** 中文说明：测试局部值 PROMPT，由紧邻初始化决定。 */
 const PROMPT = 'older conversation history '.repeat(60)
 
 /** A summarizer under test control: it can block, fail, or mutate mid-call. */
-/* 中文说明：类型或类 GatedCompactionEngine 约束上下文或压缩数据职责。 */
 class GatedCompactionEngine extends BasicCompactionEngine {
   summary: ContentBlock[] = [{ type: 'text', text: 'checkpoint' }]
   rawOutput: ContentBlock[] | undefined
@@ -79,7 +68,6 @@ class GatedCompactionEngine extends BasicCompactionEngine {
 }
 
 /** One text answer per request, with a context window large enough to avoid pressure. */
-/* 中文说明：类型或类 TextAdapter 约束上下文或压缩数据职责。 */
 class TextAdapter extends LlmAdapter {
   readonly requests: Message[][] = []
 
@@ -100,7 +88,6 @@ class TextAdapter extends LlmAdapter {
   }
 }
 
-/** 中文说明：类型或类 LoopHarness 约束上下文或压缩数据职责。 */
 interface LoopHarness {
   readonly ctx: Context
   readonly agent: Agent
@@ -110,9 +97,7 @@ interface LoopHarness {
 }
 
 /** Real loop, session store, and invariant companions around manual compaction. */
-/* 中文说明：函数 loopHarness 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 async function loopHarness(): Promise<LoopHarness> {
-  /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
   const ctx = new Context()
   await mountAgentLoopTestDependencies(ctx)
   await ctx.plugin(InvariantRegistry)
@@ -121,16 +106,13 @@ async function loopHarness(): Promise<LoopHarness> {
   await ctx.plugin(AgentLoopInvariant)
   await ctx.plugin(CompactionInvariant)
   await ctx.plugin(CompactionBasicInvariant)
+  await ctx.plugin(SessionProjectionRegistry)
   await ctx.plugin(AgentLoop, { agents: [] })
   await ctx.plugin(TokenMeter)
-  /** 中文说明：测试局部值 adapter，由紧邻初始化决定。 */
   const adapter = new TextAdapter()
   ctx.llm.registerAdapter([MODEL], adapter)
-  /** 中文说明：测试局部值 compact，由紧邻初始化决定。 */
   const compact = new GatedCompactionEngine(ctx, { auto: false })
-  /** 中文说明：测试局部值 agent，由紧邻初始化决定。 */
   const agent = ctx.agentLoop.create(SessionId('manual-compact'), { provider: MODEL, model: MODEL })
-  /** 中文说明：测试局部值 log，由紧邻初始化决定。 */
   const log: string[] = []
   ctx.on('session/event', (_session, event) => {
     if (event.type === 'turn/start') log.push('turn/start')
@@ -145,7 +127,6 @@ async function loopHarness(): Promise<LoopHarness> {
 }
 
 /** Drive one real turn so the closed history holds a compactable older span. */
-/* 中文说明：函数 seedHistory 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 async function seedHistory(harness: LoopHarness): Promise<void> {
   harness.agent.followup(createUserMessage({
     content: [{ type: 'text', text: PROMPT }],
@@ -156,7 +137,6 @@ async function seedHistory(harness: LoopHarness): Promise<void> {
 }
 
 /** Text of every derived model-visible message, in request order. */
-/* 中文说明：函数 derivedText 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function derivedText(session: Session): string[] {
   return session.deriveMessages().map((message: Message) => message.content
     .map(block => block.type === 'text' ? block.text : '')
@@ -164,12 +144,9 @@ function derivedText(session: Session): string[] {
 }
 
 /** Await one classified manual-compaction rejection. */
-/* 中文说明：函数 rejection 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 async function rejection(operation: Promise<unknown> | (() => Promise<unknown>)): Promise<ManualCompactionError> {
-  /** 中文说明：测试局部值 caught: unknown，由紧邻初始化决定。 */
   let caught: unknown
   try {
-    /** 中文说明：测试局部值 value，由紧邻初始化决定。 */
     const value = await (typeof operation === 'function' ? operation() : operation)
     throw new Error(`expected a rejection, resolved with ${String(value)}`)
   } catch (error: unknown) {
@@ -182,29 +159,21 @@ async function rejection(operation: Promise<unknown> | (() => Promise<unknown>))
 }
 
 /** The Error a classified failure wraps. */
-/* 中文说明：函数 causeOf 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function causeOf(error: ManualCompactionError): Error {
-  /** 中文说明：测试局部值 { cause }，由紧邻初始化决定。 */
   const { cause } = error
   if (!(cause instanceof Error)) throw new Error(`expected an Error cause, got ${String(cause)}`)
   return cause
 }
 
-/** 中文说明：函数 deferred 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function deferred(): { promise: Promise<undefined>; resolve: () => void } {
-  /** 中文说明：测试局部值 { promise, resolve }，由紧邻初始化决定。 */
   const { promise, resolve } = Promise.withResolvers<undefined>()
   return { promise, resolve: () => { resolve(undefined) } }
 }
 
 /** A closed-tail session with compactable exchanges and no live agent. */
-/* 中文说明：函数 closedConversation 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function closedConversation(turns = 2, lastTurnNumber = turns): Session {
-  /** 中文说明：测试局部值 session，由紧邻初始化决定。 */
   const session = Session.create(SessionId(`closed-${turns}-${lastTurnNumber}`))
-  /** 中文说明：测试局部值 index，由紧邻初始化决定。 */
   for (let index = 1; index <= turns; index += 1) {
-    /** 中文说明：测试局部值 turn，由紧邻初始化决定。 */
     const turn = index === turns ? lastTurnNumber : index
     session.append('turn/start', { turn })
     session.append('user/message', createUserMessage({
@@ -233,7 +202,6 @@ function closedConversation(turns = 2, lastTurnNumber = turns): Session {
 }
 
 /** A fake idle agent whose maintenance claim is scripted per test. */
-/* 中文说明：函数 fakeAgent 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function fakeAgent(
   session: Session,
   reserve: () => (() => void) | undefined,
@@ -243,7 +211,6 @@ function fakeAgent(
     session,
     options: { provider: MODEL, model: MODEL },
     runMaintenance<T>(task: (signal: AbortSignal) => Promise<T>): Promise<T> {
-      /** 中文说明：测试局部值 release，由紧邻初始化决定。 */
       const release = reserve()
       if (release === undefined) throw new Error('agent already has active work')
       return task(maintenanceSignal).finally(release)
@@ -252,15 +219,13 @@ function fakeAgent(
 }
 
 /** Service over a store-detached session for failure classification. */
-/* 中文说明：函数 detachedService 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function detachedService(): { ctx: Context; compact: GatedCompactionEngine; flushes: () => number } {
-  /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
   const ctx = new Context()
   void new LlmRuntime(ctx)
   void new SessionStore(ctx)
+  new SessionProjectionRegistry(ctx)
   void new TokenMeter(ctx)
   ctx.llm.registerAdapter([MODEL], new TextAdapter())
-  /** 中文说明：测试局部值 flushes，由紧邻初始化决定。 */
   let flushes = 0
   vi.spyOn(ctx.sessions, 'flush').mockImplementation(() => {
     flushes += 1
@@ -269,23 +234,18 @@ function detachedService(): { ctx: Context; compact: GatedCompactionEngine; flus
   return { ctx, compact: new GatedCompactionEngine(ctx, { auto: false }), flushes: () => flushes }
 }
 
-/** 中文说明：函数 compactEvents 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function compactEvents(session: Session): Array<Session['events'][number]> {
   return session.events.filter(event => event.type.startsWith('compaction/'))
 }
 
 describe('compactNow through the real loop', () => {
   it('holds a prompt accepted during summarization until the standalone bracket is flushed', async () => {
-    /** 中文说明：测试局部值 harness，由紧邻初始化决定。 */
     const harness = await loopHarness()
-    /** 中文说明：测试局部值 解构结果，由紧邻初始化决定。 */
     const { agent, compact, adapter, log } = harness
     await seedHistory(harness)
-    /** 中文说明：测试局部值 gate，由紧邻初始化决定。 */
     const gate = deferred()
     compact.gate = gate.promise
 
-    /** 中文说明：测试局部值 running，由紧邻初始化决定。 */
     const running = compact.compactNow(agent, SIGNAL)
     await Promise.resolve()
     expect(log).toEqual(['compaction/start:null'])
@@ -300,27 +260,20 @@ describe('compactNow through the real loop', () => {
     expect(log).toEqual(['compaction/start:null'])
 
     gate.resolve()
-    /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
     const result = await running
     expect(result).not.toBeNull()
     await agent.whenIdle()
 
-    /** 中文说明：测试局部值 start，由紧邻初始化决定。 */
     const start = log.indexOf('compaction/start:null')
-    /** 中文说明：测试局部值 summary，由紧邻初始化决定。 */
     const summary = log.indexOf('compaction/summary')
-    /** 中文说明：测试局部值 end，由紧邻初始化决定。 */
     const end = log.indexOf('compaction/end:null')
-    /** 中文说明：测试局部值 flush，由紧邻初始化决定。 */
     const flush = log.indexOf('flush')
-    /** 中文说明：测试局部值 nextTurn，由紧邻初始化决定。 */
     const nextTurn = log.indexOf('turn/start')
     expect(start).toBeLessThan(summary)
     expect(summary).toBeLessThan(end)
     expect(end).toBeLessThan(flush)
     expect(flush).toBeLessThan(nextTurn)
     expect(adapter.requests).toHaveLength(2)
-    /** 中文说明：测试局部值 second，由紧邻初始化决定。 */
     const second = (adapter.requests[1] ?? []).map(message => message.content
       .map(block => block.type === 'text' ? block.text : '')
       .join(''))
@@ -330,9 +283,7 @@ describe('compactNow through the real loop', () => {
   })
 
   it('keeps context injected during summarization pending for the next step', async () => {
-    /** 中文说明：测试局部值 harness，由紧邻初始化决定。 */
     const harness = await loopHarness()
-    /** 中文说明：测试局部值 { agent, compact }，由紧邻初始化决定。 */
     const { agent, compact } = harness
     await seedHistory(harness)
     compact.duringSummary = () => {
@@ -342,16 +293,12 @@ describe('compactNow through the real loop', () => {
       }))
     }
 
-    /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
     const result = await compact.compactNow(agent, SIGNAL)
 
     expect(result).not.toBeNull()
-    /** 中文说明：测试局部值 start，由紧邻初始化决定。 */
     const start = agent.session.events.findLast(event => event.type === 'compaction/start')
-    /** 中文说明：测试局部值 injected，由紧邻初始化决定。 */
     const injected = agent.inbox.nextStep.find(message =>
       message.source.kind === 'plugin' && message.source.plugin === 'test')
-    /** 中文说明：测试局部值 end，由紧邻初始化决定。 */
     const end = agent.session.events.findLast(event => event.type === 'compaction/end')
     expect(start).toBeDefined()
     expect(injected).toBeDefined()
@@ -364,19 +311,15 @@ describe('compactNow through the real loop', () => {
       source: { kind: 'user' },
     }))
     await agent.whenIdle()
-    /** 中文说明：测试局部值 messages，由紧邻初始化决定。 */
     const messages = derivedText(agent.session)
     expect(messages[0]).toContain('checkpoint')
     expect(messages.filter(text => text.includes('INJECTED CONTEXT'))).toHaveLength(1)
   })
 
   it('keeps the marker order when listeners attempt a re-entrant injection', async () => {
-    /** 中文说明：测试局部值 harness，由紧邻初始化决定。 */
     const harness = await loopHarness()
-    /** 中文说明：测试局部值 { ctx, agent, compact }，由紧邻初始化决定。 */
     const { ctx, agent, compact } = harness
     await seedHistory(harness)
-    /** 中文说明：测试局部值 attempts，由紧邻初始化决定。 */
     const attempts: string[] = []
     ctx.on('session/event', (_session, event) => {
       if (event.type !== 'compaction/start' && event.type !== 'compaction/summary') return
@@ -387,7 +330,6 @@ describe('compactNow through the real loop', () => {
       }))
     })
 
-    /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
     const result = await compact.compactNow(agent, SIGNAL)
 
     expect(attempts).toEqual(['compaction/start', 'compaction/summary'])
@@ -395,15 +337,12 @@ describe('compactNow through the real loop', () => {
     expect(derivedText(agent.session)[0]).toContain('checkpoint')
     expect(agent.session.events.filter(event => event.type === 'user/message'
       && event.data.source.kind === 'plugin' && event.data.source.plugin === 'listener')).toHaveLength(0)
-    /** 中文说明：测试局部值 types，由紧邻初始化决定。 */
     const types = compactEvents(agent.session).map(event => event.type)
     expect(types).toEqual(['compaction/start', 'compaction/summary', 'compaction/end'])
   })
 
   it('reports busy without summarizing when a prompt already owns the next turn', async () => {
-    /** 中文说明：测试局部值 harness，由紧邻初始化决定。 */
     const harness = await loopHarness()
-    /** 中文说明：测试局部值 解构结果，由紧邻初始化决定。 */
     const { agent, compact, adapter } = harness
     await seedHistory(harness)
 
@@ -420,18 +359,14 @@ describe('compactNow through the real loop', () => {
   })
 
   it('releases turn admission after a summarizer failure and records the failed attempt', async () => {
-    /** 中文说明：测试局部值 harness，由紧邻初始化决定。 */
     const harness = await loopHarness()
-    /** 中文说明：测试局部值 解构结果，由紧邻初始化决定。 */
     const { agent, compact, adapter } = harness
     await seedHistory(harness)
     compact.error = new Error('summarizer unavailable')
-    /** 中文说明：测试局部值 before，由紧邻初始化决定。 */
     const before = [...agent.session.surface.nodes]
 
     expect((await rejection(compact.compactNow(agent, SIGNAL))).code).toBe('summary')
     expect(agent.session.surface.nodes).toEqual(before)
-    /** 中文说明：测试局部值 markers，由紧邻初始化决定。 */
     const markers = compactEvents(agent.session)
     expect(markers.map(event => event.type)).toEqual(['compaction/start', 'compaction/end'])
     expect(markers[1]?.type === 'compaction/end' && markers[1].data.error)
@@ -448,13 +383,9 @@ describe('compactNow through the real loop', () => {
 
 describe('compactNow transaction and failure classification', () => {
   it('returns null without writing a bracket for history that cannot be compacted', async () => {
-    /** 中文说明：测试局部值 { compact }，由紧邻初始化决定。 */
     const { compact } = detachedService()
-    /** 中文说明：测试局部值 session，由紧邻初始化决定。 */
     const session = Session.create(SessionId('empty'))
-    /** 中文说明：测试局部值 released，由紧邻初始化决定。 */
     let released = 0
-    /** 中文说明：测试局部值 agent，由紧邻初始化决定。 */
     const agent = fakeAgent(session, () => () => { released += 1 })
 
     expect(await compact.compactNow(agent, SIGNAL)).toBeNull()
@@ -464,34 +395,24 @@ describe('compactNow transaction and failure classification', () => {
   })
 
   it('commits a standalone bracket without consuming a turn number and checkpoints durability', async () => {
-    /** 中文说明：测试局部值 { compact, flushes }，由紧邻初始化决定。 */
     const { compact, flushes } = detachedService()
-    /** 中文说明：测试局部值 session，由紧邻初始化决定。 */
     const session = closedConversation(2, 7)
-    /** 中文说明：测试局部值 agent，由紧邻初始化决定。 */
     const agent = fakeAgent(session, () => () => undefined)
-    /** 中文说明：测试局部值 commandId，由紧邻初始化决定。 */
     const commandId = CommandId('manual-compact-command')
 
-    /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
     const result = await compact.compactNow(agent, SIGNAL, commandId)
 
     expect(result).not.toBeNull()
     expect(result?.sourceCommandId).toBe(commandId)
     expect(flushes()).toBe(1)
     expect(session.events.filter(event => event.type === 'turn/start').at(-1)?.data.turn).toBe(7)
-    /** 中文说明：测试局部值 start，由紧邻初始化决定。 */
     const start = session.events.findLast(event => event.type === 'compaction/start')
-    /** 中文说明：测试局部值 summaryEvent，由紧邻初始化决定。 */
     const summaryEvent = session.events.findLast(event => event.type === 'compaction/summary')
-    /** 中文说明：测试局部值 checkpoint，由紧邻初始化决定。 */
     const checkpoint = session.events.findLast(
       (event): event is SessionEvent<'user/message'> => event.type === 'user/message'
         && isCompactCheckpointSource(event.data.source),
     )
-    /** 中文说明：测试局部值 end，由紧邻初始化决定。 */
     const end = session.events.findLast(event => event.type === 'compaction/end')
-    /** 中文说明：测试局部值 correlated，由紧邻初始化决定。 */
     const correlated = { compactionId: result?.compactionId, sourceCommandId: commandId }
     expect(start?.data).toEqual({ ...correlated, turn: null })
     expect(summaryEvent?.data.sourceCommandId).toBe(commandId)
@@ -500,18 +421,14 @@ describe('compactNow transaction and failure classification', () => {
   })
 
   it('reports a live unmatched bracket as busy without summarizing', async () => {
-    /** 中文说明：测试局部值 { compact }，由紧邻初始化决定。 */
     const { compact } = detachedService()
-    /** 中文说明：测试局部值 session，由紧邻初始化决定。 */
     const session = closedConversation(2)
     session.append('compaction/start', {
       compactionId: CompactionId('live-manual-compaction'),
       turn: null,
     })
-    /** 中文说明：测试局部值 agent，由紧邻初始化决定。 */
     const agent = fakeAgent(session, () => () => undefined)
 
-    /** 中文说明：测试局部值 error，由紧邻初始化决定。 */
     const error = await rejection(() => compact.compactNow(agent, SIGNAL))
     expect(error.code).toBe('busy')
     expect(error.message).toContain('compaction lock is already active')
@@ -519,21 +436,15 @@ describe('compactNow transaction and failure classification', () => {
   })
 
   it('ignores an unmatched bracket inherited before a later end-seed marker', async () => {
-    /** 中文说明：测试局部值 { compact }，由紧邻初始化决定。 */
     const { compact } = detachedService()
-    /** 中文说明：测试局部值 original，由紧邻初始化决定。 */
     const original = closedConversation(2)
     original.append('compaction/start', {
       compactionId: CompactionId('stale-manual-compaction'),
       turn: null,
     })
-    /** 中文说明：测试局部值 reloaded，由紧邻初始化决定。 */
     const reloaded = Session.create(SessionId('stale-orphan'), [...original.events])
-    /** 中文说明：测试局部值 boundary，由紧邻初始化决定。 */
     const boundary = reloaded.events.findLast(event => event.type === 'session/end-seed')
-    /** 中文说明：测试局部值 orphan，由紧邻初始化决定。 */
     const orphan = reloaded.events.find(event => event.type === 'compaction/start')
-    /** 中文说明：测试局部值 agent，由紧邻初始化决定。 */
     const agent = fakeAgent(reloaded, () => () => undefined)
 
     expect(boundary?.seq).toBeGreaterThan(orphan?.seq ?? Number.MAX_SAFE_INTEGER)
@@ -542,9 +453,7 @@ describe('compactNow transaction and failure classification', () => {
   })
 
   it('scans a stale orphan independently of later repaired turn state', async () => {
-    /** 中文说明：测试局部值 { compact }，由紧邻初始化决定。 */
     const { compact } = detachedService()
-    /** 中文说明：测试局部值 original，由紧邻初始化决定。 */
     const original = closedConversation(2)
     original.append('compaction/start', {
       compactionId: CompactionId('reloaded-manual-compaction'),
@@ -552,9 +461,7 @@ describe('compactNow transaction and failure classification', () => {
     })
     original.append('turn/start', { turn: 3 })
     original.append('turn/end', { turn: 3, reason: { kind: 'interrupted' } })
-    /** 中文说明：测试局部值 reloaded，由紧邻初始化决定。 */
     const reloaded = Session.create(SessionId('reloaded-orphan'), [...original.events])
-    /** 中文说明：测试局部值 agent，由紧邻初始化决定。 */
     const agent = fakeAgent(reloaded, () => () => undefined)
 
     await expect(compact.compactNow(agent, SIGNAL)).resolves.not.toBeNull()
@@ -562,24 +469,18 @@ describe('compactNow transaction and failure classification', () => {
   })
 
   it('refuses an open turn in the log', async () => {
-    /** 中文说明：测试局部值 { compact }，由紧邻初始化决定。 */
     const { compact } = detachedService()
-    /** 中文说明：测试局部值 session，由紧邻初始化决定。 */
     const session = closedConversation(2)
     session.append('turn/start', { turn: 3 })
-    /** 中文说明：测试局部值 agent，由紧邻初始化决定。 */
     const agent = fakeAgent(session, () => () => undefined)
 
-    /** 中文说明：测试局部值 error，由紧邻初始化决定。 */
     const error = await rejection(compact.compactNow(agent, SIGNAL))
     expect(error.code).toBe('busy')
     expect(error.message).toContain('already has an open turn')
   })
 
   it('reports busy and skips summarization when admission is unavailable', async () => {
-    /** 中文说明：测试局部值 { compact }，由紧邻初始化决定。 */
     const { compact } = detachedService()
-    /** 中文说明：测试局部值 agent，由紧邻初始化决定。 */
     const agent = fakeAgent(closedConversation(2), () => undefined)
 
     expect((await rejection(() => compact.compactNow(agent, SIGNAL))).code).toBe('busy')
@@ -587,16 +488,11 @@ describe('compactNow transaction and failure classification', () => {
   })
 
   it('rejects a selected span replaced during summarization and records an error close', async () => {
-    /** 中文说明：测试局部值 { compact, flushes }，由紧邻初始化决定。 */
     const { compact, flushes } = detachedService()
-    /** 中文说明：测试局部值 session，由紧邻初始化决定。 */
     const session = closedConversation(2)
-    /** 中文说明：测试局部值 released，由紧邻初始化决定。 */
     let released = 0
-    /** 中文说明：测试局部值 agent，由紧邻初始化决定。 */
     const agent = fakeAgent(session, () => () => { released += 1 })
     compact.duringSummary = () => {
-      /** 中文说明：测试局部值 [head]，由紧邻初始化决定。 */
       const [head] = session.surface.nodes
       session.append('user/message', createUserMessage({
         content: [{ type: 'text', text: 'competing replacement' }],
@@ -614,14 +510,10 @@ describe('compactNow transaction and failure classification', () => {
   })
 
   it('rejects a selected span whose middle node was replaced during summarization', async () => {
-    /** 中文说明：测试局部值 { compact }，由紧邻初始化决定。 */
     const { compact } = detachedService()
-    /** 中文说明：测试局部值 session，由紧邻初始化决定。 */
     const session = closedConversation(3)
-    /** 中文说明：测试局部值 agent，由紧邻初始化决定。 */
     const agent = fakeAgent(session, () => () => undefined)
     compact.duringSummary = () => {
-      /** 中文说明：测试局部值 middle，由紧邻初始化决定。 */
       const middle = session.surface.nodes[1]
       session.append('user/message', createUserMessage({
         content: [{ type: 'text', text: 'rewritten middle node' }],
@@ -632,30 +524,21 @@ describe('compactNow transaction and failure classification', () => {
       })
     }
 
-    /** 中文说明：测试局部值 error，由紧邻初始化决定。 */
     const error = await rejection(compact.compactNow(agent, SIGNAL))
     expect(error.code).toBe('changed')
     expect(causeOf(error).message).toContain('span changed during summarization')
   })
 
   it('revalidates the selected span after the summarizer continuation settles', async () => {
-    /** 中文说明：测试局部值 { compact, flushes }，由紧邻初始化决定。 */
     const { compact, flushes } = detachedService()
-    /** 中文说明：测试局部值 session，由紧邻初始化决定。 */
     const session = closedConversation(2)
-    /** 中文说明：测试局部值 gate，由紧邻初始化决定。 */
     const gate = deferred()
     compact.gate = gate.promise
-    /** 中文说明：测试局部值 released，由紧邻初始化决定。 */
     let released = 0
-    /** 中文说明：测试局部值 agent，由紧邻初始化决定。 */
     const agent = fakeAgent(session, () => () => { released += 1 })
-    /** 中文说明：测试局部值 head，由紧邻初始化决定。 */
     const head = session.surface.nodes[0]!
-    /** 中文说明：测试局部值 generation，由紧邻初始化决定。 */
     const generation = session.surface.replaceGeneration
 
-    /** 中文说明：测试局部值 running，由紧邻初始化决定。 */
     const running = compact.compactNow(agent, SIGNAL)
     await Promise.resolve()
     expect(compact.calls).toHaveLength(1)
@@ -673,7 +556,6 @@ describe('compactNow transaction and failure classification', () => {
       })
     })
 
-    /** 中文说明：测试局部值 error，由紧邻初始化决定。 */
     const error = await rejection(running)
     expect(error.code).toBe('changed')
     expect(causeOf(error).message).toContain('selected span')
@@ -687,20 +569,15 @@ describe('compactNow transaction and failure classification', () => {
   })
 
   it('classifies a failing compaction/end as commit failure and leaves one orphan', async () => {
-    /** 中文说明：测试局部值 { compact, flushes }，由紧邻初始化决定。 */
     const { compact, flushes } = detachedService()
-    /** 中文说明：测试局部值 session，由紧邻初始化决定。 */
     const session = closedConversation(2)
-    /** 中文说明：测试局部值 agent，由紧邻初始化决定。 */
     const agent = fakeAgent(session, () => () => undefined)
-    /** 中文说明：测试局部值 append，由紧邻初始化决定。 */
     const append = session.append.bind(session)
     vi.spyOn(session, 'append').mockImplementation(((type: string, ...rest: never[]) => {
       if (type === 'compaction/end') throw new Error('boundary rejected')
       return (append as (...args: never[]) => unknown)(type as never, ...rest)
     }) as never)
 
-    /** 中文说明：测试局部值 error，由紧邻初始化决定。 */
     const error = await rejection(compact.compactNow(agent, SIGNAL))
     expect(error.code).toBe('commit')
     expect(causeOf(error).message).toBe('boundary rejected')
@@ -710,30 +587,23 @@ describe('compactNow transaction and failure classification', () => {
       .toBe('compaction/summary')
     expect(compactEvents(session).filter(event => event.type === 'compaction/start')).toHaveLength(1)
 
-    /** 中文说明：测试局部值 calls，由紧邻初始化决定。 */
     const calls = compact.calls.length
     expect((await rejection(compact.compactNow(agent, SIGNAL))).code).toBe('busy')
     expect(compact.calls).toHaveLength(calls)
   })
 
   it('keeps a failed error-close as the commit failure and does not flush', async () => {
-    /** 中文说明：测试局部值 { compact, flushes }，由紧邻初始化决定。 */
     const { compact, flushes } = detachedService()
-    /** 中文说明：测试局部值 session，由紧邻初始化决定。 */
     const session = closedConversation(2)
-    /** 中文说明：测试局部值 released，由紧邻初始化决定。 */
     let released = 0
-    /** 中文说明：测试局部值 agent，由紧邻初始化决定。 */
     const agent = fakeAgent(session, () => () => { released += 1 })
     compact.error = new Error('summary rejected')
-    /** 中文说明：测试局部值 append，由紧邻初始化决定。 */
     const append = session.append.bind(session)
     vi.spyOn(session, 'append').mockImplementation(((type: string, ...rest: never[]) => {
       if (type === 'compaction/end') throw new Error('error boundary rejected')
       return (append as (...args: never[]) => unknown)(type as never, ...rest)
     }) as never)
 
-    /** 中文说明：测试局部值 error，由紧邻初始化决定。 */
     const error = await rejection(compact.compactNow(agent, SIGNAL))
     vi.restoreAllMocks()
     expect(error.code).toBe('commit')
@@ -744,19 +614,13 @@ describe('compactNow transaction and failure classification', () => {
   })
 
   it('rejects a selected span whose pricing changed during summarization', async () => {
-    /** 中文说明：测试局部值 { ctx, compact }，由紧邻初始化决定。 */
     const { ctx, compact } = detachedService()
-    /** 中文说明：测试局部值 session，由紧邻初始化决定。 */
     const session = closedConversation(2)
-    /** 中文说明：测试局部值 agent，由紧邻初始化决定。 */
     const agent = fakeAgent(session, () => () => undefined)
-    /** 中文说明：测试局部值 meter，由紧邻初始化决定。 */
     const meter = ctx.tokenMeter
-    /** 中文说明：测试局部值 original，由紧邻初始化决定。 */
     const original = meter.measure.bind(meter)
     compact.duringSummary = () => {
       vi.spyOn(meter, 'measure').mockImplementationOnce((target) => {
-        /** 中文说明：测试局部值 measurement，由紧邻初始化决定。 */
         const measurement = original(target)
         return {
           ...measurement,
@@ -771,40 +635,29 @@ describe('compactNow transaction and failure classification', () => {
   })
 
   it('classifies a commit-body failure and still releases admission', async () => {
-    /** 中文说明：测试局部值 { compact }，由紧邻初始化决定。 */
     const { compact } = detachedService()
-    /** 中文说明：测试局部值 session，由紧邻初始化决定。 */
     const session = closedConversation(2)
-    /** 中文说明：测试局部值 released，由紧邻初始化决定。 */
     let released = 0
-    /** 中文说明：测试局部值 agent，由紧邻初始化决定。 */
     const agent = fakeAgent(session, () => () => { released += 1 })
-    /** 中文说明：测试局部值 append，由紧邻初始化决定。 */
     const append = session.append.bind(session)
     vi.spyOn(session, 'append').mockImplementation(((type: string, ...rest: never[]) => {
       if (type === 'compaction/summary') throw new Error('summary record rejected')
       return (append as (...args: never[]) => unknown)(type as never, ...rest)
     }) as never)
 
-    /** 中文说明：测试局部值 error，由紧邻初始化决定。 */
     const error = await rejection(compact.compactNow(agent, SIGNAL))
     vi.restoreAllMocks()
     expect(error.code).toBe('commit')
     expect(released).toBe(1)
-    /** 中文说明：测试局部值 end，由紧邻初始化决定。 */
     const end = session.events.findLast(event => event.type === 'compaction/end')
     expect(end?.type === 'compaction/end' && end.data.error).toContain('summary record rejected')
     expect(end?.type === 'compaction/end' && end.data.turn).toBeNull()
   })
 
   it('keeps a commit failure when the durability checkpoint also fails', async () => {
-    /** 中文说明：测试局部值 { ctx, compact }，由紧邻初始化决定。 */
     const { ctx, compact } = detachedService()
-    /** 中文说明：测试局部值 session，由紧邻初始化决定。 */
     const session = closedConversation(2)
-    /** 中文说明：测试局部值 agent，由紧邻初始化决定。 */
     const agent = fakeAgent(session, () => () => undefined)
-    /** 中文说明：测试局部值 append，由紧邻初始化决定。 */
     const append = session.append.bind(session)
     vi.spyOn(session, 'append').mockImplementation(((type: string, ...rest: never[]) => {
       if (type === 'compaction/summary') throw new Error('summary record rejected')
@@ -812,7 +665,6 @@ describe('compactNow transaction and failure classification', () => {
     }) as never)
     vi.spyOn(ctx.sessions, 'flush').mockRejectedValueOnce(new Error('disk full'))
 
-    /** 中文说明：测试局部值 error，由紧邻初始化决定。 */
     const error = await rejection(compact.compactNow(agent, SIGNAL))
     expect(error.code).toBe('commit')
     expect(causeOf(error).message).toBe('summary record rejected')
@@ -820,21 +672,16 @@ describe('compactNow transaction and failure classification', () => {
   })
 
   it('compacts a session with no durable turn boundary without creating one', async () => {
-    /** 中文说明：测试局部值 { compact }，由紧邻初始化决定。 */
     const { compact } = detachedService()
-    /** 中文说明：测试局部值 session，由紧邻初始化决定。 */
     const session = Session.create(SessionId('turnless'))
-    /** 中文说明：测试局部值 text，由紧邻初始化决定。 */
     for (const text of [PROMPT, 'recent tail']) {
       session.append('user/message', createUserMessage({
         content: [{ type: 'text', text }],
         source: { kind: 'user' },
       }), { surfaceOp: 'append' })
     }
-    /** 中文说明：测试局部值 agent，由紧邻初始化决定。 */
     const agent = fakeAgent(session, () => () => undefined)
 
-    /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
     const result = await compact.compactNow(agent, SIGNAL)
 
     expect(result).not.toBeNull()
@@ -844,51 +691,36 @@ describe('compactNow transaction and failure classification', () => {
   })
 
   it('classifies a durability failure after the standalone bracket committed', async () => {
-    /** 中文说明：测试局部值 { ctx, compact }，由紧邻初始化决定。 */
     const { ctx, compact } = detachedService()
-    /** 中文说明：测试局部值 session，由紧邻初始化决定。 */
     const session = closedConversation(2)
-    /** 中文说明：测试局部值 agent，由紧邻初始化决定。 */
     const agent = fakeAgent(session, () => () => undefined)
     vi.spyOn(ctx.sessions, 'flush').mockRejectedValueOnce(new Error('disk full'))
 
     expect((await rejection(compact.compactNow(agent, SIGNAL))).code).toBe('persistence')
     vi.restoreAllMocks()
     expect(session.events.some(event => event.type === 'compaction/summary')).toBe(true)
-    /** 中文说明：测试局部值 start，由紧邻初始化决定。 */
     const start = session.events.findLast(event => event.type === 'compaction/start')
-    /** 中文说明：测试局部值 end，由紧邻初始化决定。 */
     const end = session.events.findLast(event => event.type === 'compaction/end')
     expect(end?.data).toEqual({ compactionId: start?.data.compactionId, turn: null })
   })
 
   it('lets a pre-aborted signal win before reservation, measurement, or summarization', async () => {
-    /** 中文说明：测试局部值 cases，由紧邻初始化决定。 */
     const cases = [
       { name: 'busy', session: closedConversation(2), release: undefined },
       { name: 'empty', session: Session.create(SessionId('pre-aborted-empty')), release: () => undefined },
       { name: 'compactable', session: closedConversation(2, 9), release: () => undefined },
     ] as const
 
-    /** 中文说明：测试局部值 testCase，由紧邻初始化决定。 */
     for (const testCase of cases) {
-      /** 中文说明：测试局部值 { ctx, compact }，由紧邻初始化决定。 */
       const { ctx, compact } = detachedService()
-      /** 中文说明：测试局部值 reserve，由紧邻初始化决定。 */
       const reserve = vi.fn(() => testCase.release)
-      /** 中文说明：测试局部值 measure，由紧邻初始化决定。 */
       const measure = vi.spyOn(ctx.tokenMeter, 'measure')
-      /** 中文说明：测试局部值 agent，由紧邻初始化决定。 */
       const agent = fakeAgent(testCase.session, reserve)
-      /** 中文说明：测试局部值 before，由紧邻初始化决定。 */
       const before = [...testCase.session.events]
-      /** 中文说明：测试局部值 reason，由紧邻初始化决定。 */
       const reason = Object.freeze({ kind: 'cancelled', case: testCase.name })
-      /** 中文说明：测试局部值 controller，由紧邻初始化决定。 */
       const controller = new AbortController()
       controller.abort(reason)
 
-      /** 中文说明：测试局部值 thrown: unknown，由紧邻初始化决定。 */
       let thrown: unknown
       try {
         void compact.compactNow(agent, controller.signal)
@@ -905,17 +737,11 @@ describe('compactNow transaction and failure classification', () => {
   })
 
   it('preserves the exact cancellation reason when the summarizer also rejects', async () => {
-    /** 中文说明：测试局部值 { compact, flushes }，由紧邻初始化决定。 */
     const { compact, flushes } = detachedService()
-    /** 中文说明：测试局部值 controller，由紧邻初始化决定。 */
     const controller = new AbortController()
-    /** 中文说明：测试局部值 reason，由紧邻初始化决定。 */
     const reason = new Error('cancelled by the caller')
-    /** 中文说明：测试局部值 released，由紧邻初始化决定。 */
     let released = 0
-    /** 中文说明：测试局部值 session，由紧邻初始化决定。 */
     const session = closedConversation(2)
-    /** 中文说明：测试局部值 agent，由紧邻初始化决定。 */
     const agent = fakeAgent(session, () => () => { released += 1 })
     compact.duringSummary = () => { controller.abort(reason) }
     compact.error = new Error('summarizer aborted')
@@ -923,7 +749,6 @@ describe('compactNow transaction and failure classification', () => {
     await expect(compact.compactNow(agent, controller.signal)).rejects.toBe(reason)
     expect(released).toBe(1)
     expect(flushes()).toBe(1)
-    /** 中文说明：测试局部值 events，由紧邻初始化决定。 */
     const events = compactEvents(session)
     expect(events.map(event => event.type)).toEqual(['compaction/start', 'compaction/end'])
     expect(events[1]?.type === 'compaction/end' && events[1].data.error)
@@ -931,20 +756,14 @@ describe('compactNow transaction and failure classification', () => {
   })
 
   it('classifies agent cancellation during maintenance as an expected cancellation', async () => {
-    /** 中文说明：测试局部值 { compact }，由紧邻初始化决定。 */
     const { compact } = detachedService()
-    /** 中文说明：测试局部值 controller，由紧邻初始化决定。 */
     const controller = new AbortController()
-    /** 中文说明：测试局部值 reason，由紧邻初始化决定。 */
     const reason = new Error('agent cancelled maintenance')
-    /** 中文说明：测试局部值 session，由紧邻初始化决定。 */
     const session = closedConversation(2)
-    /** 中文说明：测试局部值 agent，由紧邻初始化决定。 */
     const agent = fakeAgent(session, () => () => undefined, controller.signal)
     compact.duringSummary = () => { controller.abort(reason) }
     compact.error = new Error('summarizer observed cancellation')
 
-    /** 中文说明：测试局部值 error，由紧邻初始化决定。 */
     const error = await rejection(compact.compactNow(agent, SIGNAL))
 
     expect(error.code).toBe('cancelled')
@@ -952,15 +771,10 @@ describe('compactNow transaction and failure classification', () => {
   })
 
   it('aborts before committing when cancellation lands after summarization', async () => {
-    /** 中文说明：测试局部值 { compact }，由紧邻初始化决定。 */
     const { compact } = detachedService()
-    /** 中文说明：测试局部值 controller，由紧邻初始化决定。 */
     const controller = new AbortController()
-    /** 中文说明：测试局部值 reason，由紧邻初始化决定。 */
     const reason = new Error('cancelled by the caller')
-    /** 中文说明：测试局部值 session，由紧邻初始化决定。 */
     const session = closedConversation(2)
-    /** 中文说明：测试局部值 agent，由紧邻初始化决定。 */
     const agent = fakeAgent(session, () => () => undefined)
     compact.duringSummary = () => { controller.abort(reason) }
 
@@ -970,26 +784,16 @@ describe('compactNow transaction and failure classification', () => {
   })
 
   it('waits for the durability checkpoint before cancellation wins and admission releases', async () => {
-    /** 中文说明：测试局部值 { ctx, compact }，由紧邻初始化决定。 */
     const { ctx, compact } = detachedService()
-    /** 中文说明：测试局部值 controller，由紧邻初始化决定。 */
     const controller = new AbortController()
-    /** 中文说明：测试局部值 reason，由紧邻初始化决定。 */
     const reason = new Error('cancelled during flush')
-    /** 中文说明：测试局部值 flushGate，由紧邻初始化决定。 */
     const flushGate = Promise.withResolvers<boolean>()
-    /** 中文说明：测试局部值 flush，由紧邻初始化决定。 */
     const flush = vi.spyOn(ctx.sessions, 'flush').mockReturnValueOnce(flushGate.promise)
-    /** 中文说明：测试局部值 session，由紧邻初始化决定。 */
     const session = closedConversation(2)
-    /** 中文说明：测试局部值 released，由紧邻初始化决定。 */
     let released = 0
-    /** 中文说明：测试局部值 agent，由紧邻初始化决定。 */
     const agent = fakeAgent(session, () => () => { released += 1 })
 
-    /** 中文说明：测试局部值 running，由紧邻初始化决定。 */
     const running = compact.compactNow(agent, controller.signal)
-    /** 中文说明：测试局部值 settled，由紧邻初始化决定。 */
     let settled = false
     void running.then(
       () => { settled = true },
@@ -1009,11 +813,8 @@ describe('compactNow transaction and failure classification', () => {
   })
 
   it('preserves raw output and usage in the manual summary event', async () => {
-    /** 中文说明：测试局部值 { compact }，由紧邻初始化决定。 */
     const { compact } = detachedService()
-    /** 中文说明：测试局部值 session，由紧邻初始化决定。 */
     const session = closedConversation(2)
-    /** 中文说明：测试局部值 agent，由紧邻初始化决定。 */
     const agent = fakeAgent(session, () => () => undefined)
     compact.rawOutput = [
       { type: 'text', text: 'checkpoint' },
@@ -1023,18 +824,14 @@ describe('compactNow transaction and failure classification', () => {
 
     await compact.compactNow(agent, SIGNAL)
 
-    /** 中文说明：测试局部值 summary，由紧邻初始化决定。 */
     const summary = session.events.find(event => event.type === 'compaction/summary')
     expect(summary?.type === 'compaction/summary' && summary.data.rawOutput).toEqual(compact.rawOutput)
     expect(summary?.type === 'compaction/summary' && summary.data.usage).toEqual(compact.usage)
   })
 
   it('makes duration derivable from the opening and closing marker times', async () => {
-    /** 中文说明：测试局部值 { compact }，由紧邻初始化决定。 */
     const { compact } = detachedService()
-    /** 中文说明：测试局部值 session，由紧邻初始化决定。 */
     const session = closedConversation(2)
-    /** 中文说明：测试局部值 agent，由紧邻初始化决定。 */
     const agent = fakeAgent(session, () => () => undefined)
     compact.gate = new Promise<undefined>((resolve) => {
       setTimeout(() => { resolve(undefined) }, 5)
@@ -1042,9 +839,7 @@ describe('compactNow transaction and failure classification', () => {
 
     await compact.compactNow(agent, SIGNAL)
 
-    /** 中文说明：测试局部值 start，由紧邻初始化决定。 */
     const start = session.events.findLast(event => event.type === 'compaction/start')
-    /** 中文说明：测试局部值 end，由紧邻初始化决定。 */
     const end = session.events.findLast(event => event.type === 'compaction/end')
     expect(start).toBeDefined()
     expect(end).toBeDefined()
@@ -1052,20 +847,14 @@ describe('compactNow transaction and failure classification', () => {
   })
 
   it('excludes concurrent automatic and manual compaction of one session', async () => {
-    /** 中文说明：测试局部值 { compact }，由紧邻初始化决定。 */
     const { compact } = detachedService()
-    /** 中文说明：测试局部值 session，由紧邻初始化决定。 */
     const session = closedConversation(3)
-    /** 中文说明：测试局部值 agent，由紧邻初始化决定。 */
     const agent = fakeAgent(session, () => () => undefined)
-    /** 中文说明：测试局部值 gate，由紧邻初始化决定。 */
     const gate = deferred()
     compact.gate = gate.promise
 
-    /** 中文说明：测试局部值 manual，由紧邻初始化决定。 */
     const manual = compact.compactNow(agent, SIGNAL)
     await Promise.resolve()
-    /** 中文说明：测试局部值 nodes，由紧邻初始化决定。 */
     const nodes = session.surface.nodes
     await expect(compact.compactRegion(
       nodes[0]!,
@@ -1075,25 +864,18 @@ describe('compactNow transaction and failure classification', () => {
 
     gate.resolve()
     compact.gate = undefined
-    /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
     const result: CompactionResult | null = await manual
     expect(result).not.toBeNull()
   })
 
   it('excludes a manual request while an explicit region compaction runs', async () => {
-    /** 中文说明：测试局部值 { compact }，由紧邻初始化决定。 */
     const { compact } = detachedService()
-    /** 中文说明：测试局部值 session，由紧邻初始化决定。 */
     const session = closedConversation(3)
     session.append('turn/start', { turn: 4 })
-    /** 中文说明：测试局部值 agent，由紧邻初始化决定。 */
     const agent = fakeAgent(session, () => () => undefined)
-    /** 中文说明：测试局部值 gate，由紧邻初始化决定。 */
     const gate = deferred()
     compact.gate = gate.promise
-    /** 中文说明：测试局部值 nodes，由紧邻初始化决定。 */
     const nodes = session.surface.nodes
-    /** 中文说明：测试局部值 region，由紧邻初始化决定。 */
     const region = compact.compactRegion(nodes[0]!, nodes[1]!, agent)
     await Promise.resolve()
 

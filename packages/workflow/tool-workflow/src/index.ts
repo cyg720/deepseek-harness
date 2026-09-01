@@ -9,21 +9,14 @@
  * section rather than deployment persona prose.
  * @module @deepseek-ai/dsh-tool-workflow
  */
-/*
- * 文件职责：实现 index.ts 覆盖的工作流与 Worker Thread行为与生命周期。
- * 技术维度：使用 TypeScript、Vitest、Cordis 插件、Worker Thread、消息协议或领域实体。
- * 产品维度：保障 Agent 的工作流与 Worker Thread能力稳定、可隔离且可诊断。
- * 逻辑维度：准备配置和消息，建立运行环境，执行流程，再处理事件、错误与清理。
- * 关键边界：线程消息不可信；跨线程状态必须显式传递；终止时必须等待所拥有资源停止。
- * 新手阅读建议：先看协议和类型，再读 Host/Runtime 主流程，最后关注隔离、失败与清理。
- */
 
 import type { Context } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
 import { defineTool } from '@deepseek-ai/dsh-tools'
 import type { ToolCallView, ToolResultView } from '@deepseek-ai/dsh-tools'
 import type { ContentBlock } from '@deepseek-ai/dsh-llm'
-import type { JsonValue, Session, SessionEventMap } from '@deepseek-ai/dsh-session'
+import type { Session, SessionEventMap } from '@deepseek-ai/dsh-session'
+import type { JsonValue } from '@deepseek-ai/dsh-util-values'
 import type {
   WorkflowResult, WorkflowRun, WorkflowRunId, WorkflowStopReason,
 } from '@deepseek-ai/dsh-workflow'
@@ -31,15 +24,11 @@ import type {
   ToolWorkflowAgentEndData, ToolWorkflowAgentStartData,
   ToolWorkflowRunEndData, ToolWorkflowRunStartData,
 } from './types.ts'
-import { FIRST_PARTY_SECTION_ORDER } from '@deepseek-ai/dsh-system-prompt'
 
-/** 中文说明：变量 name 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 export const name = 'tool-workflow'
-/** 中文说明：变量 inject 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 export const inject = ['tools', 'workflowEngine', 'systemPrompt']
 
 /** Config: the model-facing tool name plus result rendering caps. */
-/* 中文说明：interface Config 定义本模块所需的数据或行为，用于表达工作流与 Worker Thread场景。 */
 export interface Config {
   /** The model-facing tool name to register (default `workflow`). */
   toolName?: string
@@ -47,23 +36,19 @@ export interface Config {
   maxResultChars?: number
 }
 
-/** 中文说明：变量 Config 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 export const Config: z<Config> = z.object({
   toolName: z.string().default('workflow'),
   maxResultChars: z.natural().min(1).default(50_000),
 })
 
-/** 中文说明：type ResolvedConfig 定义本模块所需的数据或行为，用于表达工作流与 Worker Thread场景。 */
 type ResolvedConfig = Required<Config>
 
-/** 中文说明：interface WorkflowRecorder 定义本模块所需的数据或行为，用于表达工作流与 Worker Thread场景。 */
 interface WorkflowRecorder {
   start(session: Session, run: WorkflowRun): void
   finish(runId: WorkflowRunId, stopReason: WorkflowStopReason): void
   abandon(runId: WorkflowRunId): void
 }
 
-/** 中文说明：interface ToolWorkflowRecordEventMap 定义本模块所需的数据或行为，用于表达工作流与 Worker Thread场景。 */
 interface ToolWorkflowRecordEventMap {
   'tool-workflow/run-start': ToolWorkflowRunStartData
   'tool-workflow/agent-start': ToolWorkflowAgentStartData
@@ -72,7 +57,6 @@ interface ToolWorkflowRecordEventMap {
 }
 
 /** Render a contained recording failure without trusting the thrown value. */
-/* 中文说明：函数 renderRecordingError 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function renderRecordingError(error: unknown): string {
   try {
     return String(error)
@@ -85,11 +69,8 @@ function renderRecordingError(error: unknown): string {
  * Project active top-level workflow runs into their parent Sessions without
  * letting recording failure affect tool execution.
  */
-/* 中文说明：函数 createWorkflowRecorder 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function createWorkflowRecorder(ctx: Context): WorkflowRecorder {
-  /** 中文说明：变量 active 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const active = new Map<WorkflowRunId, Session>()
-  /** 中文说明：变量 append 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const append = <Type extends keyof ToolWorkflowRecordEventMap>(
     session: Session,
     type: Type,
@@ -97,7 +78,6 @@ function createWorkflowRecorder(ctx: Context): WorkflowRecorder {
   ): boolean => {
     // These four package-owned events are all log-only. Narrowing the generic
     // append face here discharges Session.append's conditional options tuple.
-    /** 中文说明：变量 appendRecord 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const appendRecord = session.append.bind(session) as <Event extends keyof ToolWorkflowRecordEventMap>(
       event: Event,
       value: SessionEventMap[Event],
@@ -112,10 +92,8 @@ function createWorkflowRecorder(ctx: Context): WorkflowRecorder {
   }
 
   ctx.on('workflow/agent-start', (info, agent) => {
-    /** 中文说明：变量 session 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const session = active.get(info.id)
     if (session === undefined) return
-    /** 中文说明：变量 data 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const data: ToolWorkflowAgentStartData = {
       runId: info.id,
       seq: agent.seq,
@@ -126,10 +104,8 @@ function createWorkflowRecorder(ctx: Context): WorkflowRecorder {
     if (!append(session, 'tool-workflow/agent-start', data)) active.delete(info.id)
   })
   ctx.on('workflow/agent-end', (info, agent) => {
-    /** 中文说明：变量 session 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const session = active.get(info.id)
     if (session === undefined) return
-    /** 中文说明：变量 data 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const data: ToolWorkflowAgentEndData = {
       runId: info.id,
       seq: agent.seq,
@@ -145,7 +121,6 @@ function createWorkflowRecorder(ctx: Context): WorkflowRecorder {
       }
     },
     finish(runId, stopReason) {
-      /** 中文说明：变量 session 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const session = active.get(runId)
       if (session !== undefined) append(session, 'tool-workflow/run-end', { runId, stopReason })
       active.delete(runId)
@@ -159,7 +134,6 @@ function createWorkflowRecorder(ctx: Context): WorkflowRecorder {
  * model-facing spec: the meta block, the hooks and their exact semantics, and
  * the supported schema subset.
  */
-/* 中文说明：常量 DESCRIPTION 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const DESCRIPTION = `Run a JavaScript workflow script that orchestrates subagents at scale. Use this for work that fans out across many independent pieces — an audit over many files, a migration, multi-angle research, adversarial verification of findings — where you write the orchestration as a script instead of delegating turn by turn.
 
 The workflow's identity rides the \`meta\` parameter as JSON: required \`name\` (short kebab-case) and \`description\` strings, optional \`whenToUse\` string and \`phases\` array (\`{title, detail?, provider?, model?}\`). The \`script\` parameter is the plain JavaScript body ONLY (NOT TypeScript, and NO \`export const meta\` statement — meta is a parameter, not code), running with top-level await; end with \`return <value>\` — the value must be JSON-serializable and is this tool's result.
@@ -174,7 +148,6 @@ Misused hooks (bad arguments, unknown options, unsupported schemas, tripped caps
 
 Constraints: concurrency and total-agent caps apply; no filesystem, network, timers, or Node.js APIs are provided — the agents do the work, the script only coordinates them. The run executes in the foreground: this call returns when the whole script finishes.`
 
-/** 中文说明：type WorkflowCallArgs 定义本模块所需的数据或行为，用于表达工作流与 Worker Thread场景。 */
 type WorkflowCallArgs = {
   script: string
   meta: {
@@ -187,7 +160,6 @@ type WorkflowCallArgs = {
 }
 
 /** The pending-state card: a generic card titled by the workflow's meta name. */
-/* 中文说明：函数 presentWorkflowCall 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function presentWorkflowCall(args: WorkflowCallArgs): ToolCallView {
   return {
     card: 'generic',
@@ -197,7 +169,6 @@ function presentWorkflowCall(args: WorkflowCallArgs): ToolCallView {
 }
 
 /** The completed-state card: keep the pending title; render the result content as-is. */
-/* 中文说明：函数 presentWorkflowResult 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function presentWorkflowResult(args: WorkflowCallArgs, result: { content: ContentBlock[]; isError: boolean }): ToolResultView {
   void args
   void result
@@ -205,7 +176,6 @@ function presentWorkflowResult(args: WorkflowCallArgs, result: { content: Conten
 }
 
 /** A non-`completed` stop reason means the script did not finish cleanly. */
-/* 中文说明：函数 stopReasonError 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function stopReasonError(result: WorkflowResult): string | undefined {
   switch (result.stopReason) {
     case 'completed':
@@ -222,30 +192,25 @@ function stopReasonError(result: WorkflowResult): string | undefined {
 }
 
 /** Render the run's outcome text: the meta name, agent count, and the JSON value (capped). */
-/* 中文说明：函数 renderResult 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function renderResult(name: string, agentsStarted: number, value: JsonValue, maxChars: number): string {
   // The engine returns JSON data (null for a valueless script), so stringify never yields undefined.
-  /** 中文说明：变量 rendered 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const rendered = JSON.stringify(value, null, 2)
-  /** 中文说明：变量 clipped 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const clipped = rendered.length > maxChars
     ? `${rendered.slice(0, maxChars)}\n… [truncated: ${rendered.length - maxChars} more characters]`
     : rendered
   return `workflow "${name}" completed (${agentsStarted} agent${agentsStarted === 1 ? '' : 's'}).\nReturn value:\n${clipped}`
 }
 
-/** 中文说明：函数 apply 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 export function apply(ctx: Context, config: Config): void {
   // schemastery (the exported Config schema) has already filled the defaulted
   // fields; the assertion records that resolution, not a hidden fallback.
   const { toolName, maxResultChars } = config as ResolvedConfig
-  /** 中文说明：变量 recorder 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const recorder = createWorkflowRecorder(ctx)
   // Usage policy ships with the tool (the master convention: tool guidance
   // lives in tool plugins as prompt sections, not in the deployment persona).
   ctx.systemPrompt.section({
     name: `tool:${toolName}`,
-    order: FIRST_PARTY_SECTION_ORDER.TOOL_WORKFLOW,
+    order: ctx.systemPrompt.getSectionOrder('TOOL_WORKFLOW'),
     text: `Use the ${toolName} tool ONLY when the user explicitly asks for a workflow or for large multi-agent orchestration: you write a JavaScript script (the tool description documents the exact format) that fans work out across many subagents with phases and structured results. For one or two delegations, prefer plain subagent calls.`,
   })
   ctx.tools.register(defineTool({
@@ -304,7 +269,6 @@ export function apply(ctx: Context, config: Config): void {
       }],
     },
     async execute(args, exec) {
-      /** 中文说明：变量 parent 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const parent = exec.agent
       if (!parent) {
         // The loop sets `exec.agent` for every model-driven call; its absence
@@ -316,7 +280,6 @@ export function apply(ctx: Context, config: Config): void {
       // Meta/body validation failures (META_INVALID/SCRIPT_PARSE) throw
       // synchronously here and become isError results via the registry — the
       // model sees the violation list and can correct the call.
-      /** 中文说明：变量 run 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const run = ctx.workflowEngine.start({
         script: args.script,
         meta: args.meta,
@@ -324,7 +287,6 @@ export function apply(ctx: Context, config: Config): void {
         parent,
         signal: exec.signal,
       })
-      /** 中文说明：变量 recordsRun 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const recordsRun = exec.parent === undefined
       // The shipped worker-thread engine publishes member events from later
       // worker messages, after start() returns and this run record is active.
@@ -333,15 +295,12 @@ export function apply(ctx: Context, config: Config): void {
       // Bridge the tool's abort signal to the run: if the parent step is aborted while the
       // script is in flight, cancel the whole run. The signal also enters the engine directly, but
       // this local bridge preserves the tool contract even if an implementation ignores it.
-      /** 中文说明：函数值 onAbort 封装本模块的局部步骤；参数和返回值由右侧签名约束；示例见本模块调用。 */
       const onAbort = (): void => { run.cancel('parent step aborted') }
       exec.signal.addEventListener('abort', onAbort, { once: true })
 
-      /** 中文说明：变量 result 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       let result: WorkflowResult | undefined
       try {
         result = await run.result
-        /** 中文说明：变量 error 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
         const error = stopReasonError(result)
         if (error !== undefined) {
           // Map a non-clean finish to an isError result (the registry turns a

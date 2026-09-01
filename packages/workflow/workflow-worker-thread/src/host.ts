@@ -5,14 +5,6 @@
  * cleanup, and quiescence waits for both while synthesizing any missing end events.
  * @module @deepseek-ai/dsh-workflow-worker-thread/host
  */
-/*
- * 文件职责：实现 host.ts 覆盖的工作流与 Worker Thread行为与生命周期。
- * 技术维度：使用 TypeScript、Vitest、Cordis 插件、Worker Thread、消息协议或领域实体。
- * 产品维度：保障 Agent 的工作流与 Worker Thread能力稳定、可隔离且可诊断。
- * 逻辑维度：准备配置和消息，建立运行环境，执行流程，再处理事件、错误与清理。
- * 关键边界：线程消息不可信；跨线程状态必须显式传递；终止时必须等待所拥有资源停止。
- * 新手阅读建议：先看协议和类型，再读 Host/Runtime 主流程，最后关注隔离、失败与清理。
- */
 
 import { tmpdir } from 'node:os'
 import { Worker } from 'node:worker_threads'
@@ -20,8 +12,7 @@ import type { WorkerOptions } from 'node:worker_threads'
 import { fileURLToPath } from 'node:url'
 import type { Context } from '@deepseek-ai/cordis'
 import type { Agent } from '@deepseek-ai/dsh-agent'
-import { assertNever } from '@deepseek-ai/dsh-llm'
-import { snapshotJsonValue } from '@deepseek-ai/dsh-session'
+import { assertNever, snapshotJsonValue } from '@deepseek-ai/dsh-util-values'
 import type SubagentRuntime from '@deepseek-ai/dsh-subagent'
 import type { SubagentRun } from '@deepseek-ai/dsh-subagent'
 import type { WorkflowAgentEndInfo, WorkflowAgentInfo, WorkflowMeta, WorkflowResult, WorkflowRun, WorkflowRunId } from '@deepseek-ai/dsh-workflow'
@@ -32,7 +23,6 @@ import type { HostToWorkerPayloads, WorkerToHostMessage } from './protocol.ts'
 import type { ChildResult, ChildStartRequest, WorkerInit } from './types.ts'
 
 /** One published child and its shared quiescent-disposal transaction. */
-/* 中文说明：interface ChildRecord 定义本模块所需的数据或行为，用于表达工作流与 Worker Thread场景。 */
 interface ChildRecord {
   readonly run: SubagentRun
   disposal?: Promise<void>
@@ -51,20 +41,12 @@ interface ChildRecord {
  *   passes one, so the built worker never observes the host's pin.
  * @returns the scrubbed worker environment object.
  */
-/*
- * 中文说明：函数 workerSpawnEnv 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。
- * @param platform 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
- * @param tsconfigPath 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
- * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
- */
 export function workerSpawnEnv(
   platform: NodeJS.Platform = process.platform,
   tsconfigPath?: string,
 ): NodeJS.ProcessEnv {
-  /** 中文说明：变量 env 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const env: NodeJS.ProcessEnv = {}
   if (platform === 'win32') {
-    /** 中文说明：变量 tmp 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const tmp = tmpdir()
     env.TMP = tmp
     env.TEMP = tmp
@@ -81,20 +63,15 @@ export function workerSpawnEnv(
  * @param init - the run payload, passed as `workerData`.
  * @returns the entry path or URL and the Worker options to spawn it with.
  */
-/* 中文说明：函数 resolveWorkerSpawn 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function resolveWorkerSpawn(init: WorkerInit): { entry: string | URL; options: WorkerOptions } {
   /* v8 ignore next 3 -- the built-output arm: tests always run unbuilt (src/); the built-worker e2e exercises this shape for real */
   if (!import.meta.url.endsWith('.ts')) {
     return { entry: fileURLToPath(new URL('./worker.cjs', import.meta.url)), options: { workerData: init, env: workerSpawnEnv(), execArgv: [] } }
   }
   // Resolve tsx only for unbuilt consumers and install it before importing TS.
-  /** 中文说明：变量 workerEntry 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const workerEntry = new URL('./worker.ts', import.meta.url)
-  /** 中文说明：变量 tsxEsmApiEntry 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const tsxEsmApiEntry = import.meta.resolve('tsx/esm/api')
-  /** 中文说明：变量 tsxCjsApiEntry 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const tsxCjsApiEntry = import.meta.resolve('tsx/cjs/api')
-  /** 中文说明：变量 bootstrap 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const bootstrap = [
     `import { register as registerEsm } from ${JSON.stringify(tsxEsmApiEntry)}`,
     `import { register as registerCjs } from ${JSON.stringify(tsxCjsApiEntry)}`,
@@ -121,7 +98,6 @@ function resolveWorkerSpawn(init: WorkerInit): { entry: string | URL; options: W
  * engine returns this run, so unloading the engine removes only the ability to
  * start another workflow; this run can still start and clean up its children.
  */
-/* 中文说明：class WorkerRun 定义本模块所需的数据或行为，用于表达工作流与 Worker Thread场景。 */
 export class WorkerRun implements WorkflowRun {
   /** Settles exactly once with the run's outcome; never rejects. */
   readonly result: Promise<WorkflowResult>
@@ -181,7 +157,6 @@ export class WorkerRun implements WorkflowRun {
     if (signal?.aborted) {
       this.cancel('workflow start signal already aborted')
     } else if (signal !== undefined) {
-      /** 中文说明：函数值 onAbort 封装本模块的局部步骤；参数和返回值由右侧签名约束；示例见本模块调用。 */
       const onAbort = (): void => {
         this.detachInputSignal()
         this.cancel('workflow signal aborted')
@@ -247,7 +222,6 @@ export class WorkerRun implements WorkflowRun {
     // Claim the public transaction BEFORE its body invokes child/provider
     // disposal. A raw provider callback can reenter handle.dispose(); it must
     // join this promise rather than start a second traversal.
-    /** 中文说明：变量 claimed 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const claimed = Promise.withResolvers<undefined>()
     this.disposed = claimed.promise
     void (async () => {
@@ -352,7 +326,6 @@ export class WorkerRun implements WorkflowRun {
   }
 
   private onChildStart(callId: number, request: ChildStartRequest): void {
-    /** 中文说明：变量 initialFailure 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const initialFailure = this.childAdmissionFailure()
     if (initialFailure !== undefined) {
       // Refuse after a terminal boundary: a child must never start on an
@@ -362,7 +335,6 @@ export class WorkerRun implements WorkflowRun {
       return
     }
     this.hostStarted += 1
-    /** 中文说明：变量 task 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const task = this.startChild(callId, request)
     this.pendingStarts.add(task)
     void task.then(
@@ -374,7 +346,6 @@ export class WorkerRun implements WorkflowRun {
 
   /** Await one provider-owned startup transaction and publish only while admitted. */
   private async startChild(callId: number, request: ChildStartRequest): Promise<void> {
-    /** 中文说明：变量 run 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     let run: SubagentRun
     try {
       run = await this.subagents.start(this.provider, {
@@ -392,7 +363,6 @@ export class WorkerRun implements WorkflowRun {
           : {},
       })
     } catch (error: unknown) {
-      /** 中文说明：变量 failure 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const failure = this.childAdmissionFailure()
       this.post(HostToWorkerType.ChildStartError, {
         callId,
@@ -400,7 +370,6 @@ export class WorkerRun implements WorkflowRun {
       })
       return
     }
-    /** 中文说明：变量 failure 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const failure = this.childAdmissionFailure()
     if (failure !== undefined) {
       this.post(HostToWorkerType.ChildStartError, { callId, rendered: failure.rendered })
@@ -412,17 +381,14 @@ export class WorkerRun implements WorkflowRun {
       return
     }
 
-    /** 中文说明：变量 record 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const record: ChildRecord = { run }
     this.children.set(callId, record)
     // Attach result forwarding before publishing the child handle. Because the
     // callback itself runs in a later microtask, ChildStarted is still posted
     // first even for an already-settled scripted provider.
-    /** 中文说明：函数值 forwardResult 封装本模块的局部步骤；参数和返回值由右侧签名约束；示例见本模块调用。 */
     const forwardResult = run.result.then<() => void, () => void>(
       (result) => {
         try {
-          /** 中文说明：变量 snapshot 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
           const snapshot = snapshotJsonValue<ChildResult>({
             output: result.output,
             ...result.structured !== undefined ? { structured: result.structured } : {},
@@ -431,13 +397,11 @@ export class WorkerRun implements WorkflowRun {
           if (snapshot === undefined) throw new TypeError('child result is not losslessly JSON-serializable')
           return () => { this.post(HostToWorkerType.ChildSettled, { callId, result: snapshot }) }
         } catch (error: unknown) {
-          /** 中文说明：变量 rendered 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
           const rendered = `workflow child result could not cross the worker boundary: ${renderThrown(error)}`
           return () => { this.post(HostToWorkerType.ChildFailed, { callId, rendered }) }
         }
       },
       (error: unknown) => {
-        /** 中文说明：变量 rendered 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
         const rendered = renderThrown(error)
         return () => { this.post(HostToWorkerType.ChildFailed, { callId, rendered }) }
       },
@@ -447,7 +411,6 @@ export class WorkerRun implements WorkflowRun {
   }
 
   private onChildDispose(callId: number): void {
-    /** 中文说明：变量 record 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const record = this.children.get(callId)
     if (record === undefined) {
       // Already disposed host-side (a dispose() drive or a death reap beat
@@ -497,7 +460,6 @@ export class WorkerRun implements WorkflowRun {
   /** Release waiters only after both pending starts and published children end. */
   private notifyChildQuiescence(): void {
     if (this.children.size !== 0 || this.pendingStarts.size !== 0) return
-    /** 中文说明：该循环依次处理消息或实体；循环变量仅在当前循环中有效。 */
     for (const waiter of this.quiescenceWaiters.splice(0)) waiter()
   }
 
@@ -510,7 +472,6 @@ export class WorkerRun implements WorkflowRun {
   /** Abort + dispose every registered child (worker death / final teardown); disposal is contained, not awaited. */
   private reapChildren(reason: string): void {
     this.abortChildren(this.cancelReason ?? reason)
-    /** 中文说明：该循环依次处理消息或实体；循环变量仅在当前循环中有效。 */
     for (const [callId, record] of [...this.children]) {
       void this.disposeChild(callId, record)
     }
@@ -530,7 +491,6 @@ export class WorkerRun implements WorkflowRun {
     // stray child below may synchronously reenter cancel() through provider
     // callbacks, but that internal post-result cleanup must not retroactively
     // rewrite the worker result that arrived first.
-    /** 中文说明：变量 cancellationWasRequested 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const cancellationWasRequested = this.cancelReason !== undefined
     // Claim before settlement cleanup invokes provider disposal. Once Result
     // won, a later cancellation cannot rewrite it.
@@ -562,9 +522,7 @@ export class WorkerRun implements WorkflowRun {
       // first death signal as a logical barrier prevents that late message
       // from creating work or narrating after workflow/end.
       this.workerDeathObserved = true
-      /** 中文说明：变量 outcomeWasClaimed 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const outcomeWasClaimed = this.terminalClaimed
-      /** 中文说明：变量 cancellationWasRequested 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const cancellationWasRequested = this.cancelReason !== undefined
       // When death is itself the terminal source, claim BEFORE child reap or
       // synthesized observer callbacks. Either can reenter cancel(); a death
@@ -587,7 +545,6 @@ export class WorkerRun implements WorkflowRun {
     // precede `exit`. Admission is already closed, so this final sweep only
     // joins/starts disposal for registry survivors; it deliberately does not
     // repeat explicit provider cancellation.
-    /** 中文说明：该循环依次处理消息或实体；循环变量仅在当前循环中有效。 */
     for (const [callId, record] of [...this.children]) void this.disposeChild(callId, record)
     this.endStrandedAgents()
   }
@@ -618,7 +575,6 @@ export class WorkerRun implements WorkflowRun {
    * The ledger preserves exactly-once pairing in both orders.
    */
   private endStrandedAgents(): void {
-    /** 中文说明：该循环依次处理消息或实体；循环变量仅在当前循环中有效。 */
     for (const info of [...this.liveAgents.values()]) {
       this.endAgent({ ...info, outcome: 'cancelled' })
     }
@@ -627,7 +583,6 @@ export class WorkerRun implements WorkflowRun {
   private cancelledResult(agentsStarted: number): WorkflowResult {
     // cancel() is the only writer of cancelReason and every caller checks it
     // first; the fallback guards the type, not a reachable path.
-    /** 中文说明：变量 reason 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     /* v8 ignore next */
     const reason = this.cancelReason ?? 'workflow cancelled'
     return { value: null, stopReason: 'cancelled', error: `workflow run cancelled: ${reason}`, agentsStarted }
@@ -635,9 +590,7 @@ export class WorkerRun implements WorkflowRun {
 
   /** Remove the exact abort callback installed on the caller's start signal. */
   private detachInputSignal(): void {
-    /** 中文说明：变量 signal 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const signal = this.inputSignal
-    /** 中文说明：变量 onAbort 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const onAbort = this.inputSignalAbort
     if (signal === undefined || onAbort === undefined) return
     this.inputSignal = undefined
@@ -660,10 +613,8 @@ export class WorkerRun implements WorkflowRun {
 }
 
 /** A plain timer sleep (the dispose grace); unref'd so it never holds the process open. */
-/* 中文说明：函数 sleep 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => {
-    /** 中文说明：变量 timer 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const timer = setTimeout(resolve, ms)
     timer.unref()
   })

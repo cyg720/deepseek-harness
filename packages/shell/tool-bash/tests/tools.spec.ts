@@ -1,11 +1,3 @@
-/**
- * 文件职责：验证 tools.spec.ts 覆盖的Shell 命令与沙箱行为、并发与异常场景。
- * 技术维度：使用 TypeScript、Vitest、Cordis 插件、临时文件系统或受控子进程。
- * 产品维度：保障 Agent 的Shell 命令与沙箱能力稳定、安全且可诊断。
- * 逻辑维度：准备配置和测试资源，执行被测流程，再核对结果、错误与资源清理。
- * 关键边界：并发写入和进程退出可能竞态；敏感配置不得泄露；资源必须等待完全停止。
- * 新手阅读建议：先看夹具与平台条件，再读正常场景，最后关注并发、安全与失败路径。
- */
 import { mkdtempSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -14,10 +6,11 @@ import { Context } from '@deepseek-ai/cordis'
 import { ToolCallId } from '@deepseek-ai/dsh-llm'
 import { ShellExecutor } from '@deepseek-ai/dsh-shell'
 import type { ShellExecRequest, ShellExecSpec, ShellProcess, ShellProcessRead, ShellRunResult } from '@deepseek-ai/dsh-shell'
-import SystemPrompt, { FIRST_PARTY_SECTION_ORDER } from '@deepseek-ai/dsh-system-prompt'
+import SystemPrompt from '@deepseek-ai/dsh-system-prompt'
 import ToolRuntime, { TOOL_ABORTED, TOOL_ABORTED_BEFORE_DISPATCH } from '@deepseek-ai/dsh-tools'
 import AgentRegistry from '@deepseek-ai/dsh-agent'
 import type { Agent } from '@deepseek-ai/dsh-agent'
+import { turnBoundaryProjectionDefinition } from '@deepseek-ai/dsh-agent-loop'
 import SessionStore, { SessionId } from '@deepseek-ai/dsh-session'
 import JsonlSessionPersistence from '@deepseek-ai/dsh-session-persistence-jsonl'
 import LocalJobRegistry from '@deepseek-ai/dsh-jobs-local'
@@ -27,21 +20,18 @@ import type { ApprovalOutcome } from '@deepseek-ai/dsh-user-approval'
 import { LocalBashExecutor } from '@deepseek-ai/dsh-bash-local'
 import LocalSubprocessRuntime from '@deepseek-ai/dsh-subprocess-local'
 import SandboxPolicyService from '@deepseek-ai/dsh-sandbox-policy'
+import SessionProjectionRegistry from '@deepseek-ai/dsh-session-projection'
 import * as ToolBash from '@deepseek-ai/dsh-tool-bash'
 import * as BashEnvPlugin from '@deepseek-ai/dsh-shell-env'
 import { processOutcome } from '../src/background.ts'
 import { renderProcessRead, renderResult } from '../src/render.ts'
 
-/** 中文说明：变量 testToolSignal 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const testToolSignal = new AbortController().signal
 
-/** 中文说明：变量 spillDir 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const spillDir = mkdtempSync(join(tmpdir(), 'dsh-tool-bash-spec-'))
 
 /** Foreground-only harness: no job runtime (backgrounding fails loud here). */
-/* 中文说明：函数 setup 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 async function setup() {
-  /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const ctx = new Context()
   await ctx.plugin(SystemPrompt)
   await ctx.plugin(ToolRuntime)
@@ -55,9 +45,7 @@ async function setup() {
 }
 
 /** Full harness: the generic job runtime + its controller, then the bash tool. */
-/* 中文说明：函数 setupWithTasks 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 async function setupWithTasks() {
-  /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const ctx = new Context()
   await ctx.plugin(SystemPrompt)
   await ctx.plugin(ToolRuntime)
@@ -76,13 +64,9 @@ async function setupWithTasks() {
  * Build a fake {@link Agent} with the shared agent/session identity, give it a
  * dedicated lifecycle fiber for `Agent.ctx`, and register it in `ctx.agents`.
  */
-/* 中文说明：函数 registerFakeAgent 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function registerFakeAgent(ctx: Context, sessionId: string, inject: (...args: unknown[]) => void = () => {}): Agent {
-  /** 中文说明：函数值 scopeFiber 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
   const scopeFiber = ctx.plugin(() => {})
-  /** 中文说明：变量 id 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const id = SessionId(sessionId)
-  /** 中文说明：变量 agent 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const agent = {
     id,
     ctx: scopeFiber.ctx,
@@ -92,19 +76,15 @@ function registerFakeAgent(ctx: Context, sessionId: string, inject: (...args: un
   ctx.agents.register(agent)
   return agent
 }
-/** 中文说明：变量 callCounter 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 let callCounter = 0
-/** 中文说明：函数 call 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function call(ctx: Context, name: string, args: unknown, agent?: Agent) {
   return ctx.tools.execute({ signal: testToolSignal, callId: ToolCallId(`call-${++callCounter}`), name, arguments: args, ...agent ? { agent } : {} })
 }
 
-/** 中文说明：函数 text 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function text(result: { content: { type: string; text?: string }[] }): string {
   return result.content.filter(block => block.type === 'text').map(block => block.text).join('')
 }
 
-/** 中文说明：函数 callUntilText 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 async function callUntilText(
   ctx: Context,
   name: string,
@@ -112,9 +92,7 @@ async function callUntilText(
   expected: string,
   timeoutMs = 5_000,
 ): Promise<Awaited<ReturnType<typeof call>>> {
-  /** 中文说明：变量 deadline 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const deadline = Date.now() + timeoutMs
-  /** 中文说明：变量 last 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   let last: Awaited<ReturnType<typeof call>> | undefined
   while (Date.now() < deadline) {
     last = await call(ctx, name, args)
@@ -124,7 +102,6 @@ async function callUntilText(
   throw new Error(`${name} output did not include ${JSON.stringify(expected)}; last text was ${JSON.stringify(last !== undefined ? text(last) : '')}`)
 }
 
-/** 中文说明：class RecordingSandboxExecutor 定义本测试所需的数据或行为，用于表达Shell 命令与沙箱场景。 */
 class RecordingSandboxExecutor extends ShellExecutor {
   readonly modes: Array<string | undefined> = []
 
@@ -178,7 +155,6 @@ class RecordingSandboxExecutor extends ShellExecutor {
 }
 
 /** Test executor that records whether the background start boundary was crossed. */
-/* 中文说明：class CountingStartExecutor 定义本测试所需的数据或行为，用于表达Shell 命令与沙箱场景。 */
 class CountingStartExecutor extends ShellExecutor {
   starts = 0
 
@@ -207,15 +183,15 @@ class CountingStartExecutor extends ShellExecutor {
   }
 }
 
-/** 中文说明：函数 setupSandboxed 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 async function setupSandboxed(withApproval = false) {
-  /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const ctx = new Context()
   await ctx.plugin(SystemPrompt)
   await ctx.plugin(ToolRuntime)
   await ctx.plugin(AgentRegistry)
   await ctx.plugin(LocalJobRegistry)
   await ctx.plugin(ToolTasks)
+  await ctx.plugin(SessionProjectionRegistry)
+  ctx.sessionProjections.register(turnBoundaryProjectionDefinition)
   await ctx.plugin(SandboxPolicyService, {})
   await ctx.plugin(RecordingSandboxExecutor)
   if (withApproval) await ctx.plugin(ApprovalService)
@@ -224,16 +200,13 @@ async function setupSandboxed(withApproval = false) {
   return { ctx, bash: ctx.shell as RecordingSandboxExecutor }
 }
 
-/** 中文说明：函数 sandboxAgent 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function sandboxAgent(
   mode?: 'read-only' | 'workspace-write' | 'danger-full-access',
   ctx?: Context,
   onAppend?: (type: string) => void,
 ): Agent {
-  /** 中文说明：变量 events 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-  const events: Array<{ type: string; data?: Record<string, unknown> }> = [{ type: 'turn/start' }]
+  const events: Array<{ type: string; data?: Record<string, unknown> }> = [{ type: 'turn/start', data: { turn: 1 } }]
   if (mode !== undefined) events.push({ type: 'sandbox/mode', data: { mode } })
-  /** 中文说明：变量 id 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const id = SessionId('sandbox-session')
   return {
     id,
@@ -243,7 +216,6 @@ function sandboxAgent(
       header: { version: 0, id, createdAt: 0 },
       events,
       append: (type: string, data: Record<string, unknown>) => {
-        /** 中文说明：变量 event 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
         const event = { type, data }
         events.push(event)
         onAppend?.(type)
@@ -255,9 +227,7 @@ function sandboxAgent(
 
 describe('bash tool', () => {
   it('returns stdout for a successful command', async () => {
-    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await setup()
-    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await call(ctx, 'bash', { command: 'echo hello', description: 'test command' })
     expect(result.isError).toBe(false)
     if (result.isError) throw new Error('expected bash success')
@@ -274,35 +244,27 @@ describe('bash tool', () => {
   })
 
   it('reports (no output) for silent commands', async () => {
-    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await setup()
-    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await call(ctx, 'bash', { command: 'true', description: 'test command' })
     expect(text(result)).toBe('(no output)')
   })
 
   it('marks stderr sections', async () => {
-    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await setup()
-    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await call(ctx, 'bash', { command: 'echo out; echo err >&2', description: 'test command' })
     expect(text(result)).toBe('out\n[stderr]\nerr\n')
     expect(result.isError).toBe(false)
   })
 
   it('reports non-zero exits without isError', async () => {
-    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await setup()
-    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await call(ctx, 'bash', { command: 'echo failing; exit 3', description: 'test command' })
     expect(result.isError).toBe(false)
     expect(text(result)).toBe('failing\n[exit code: 3]')
   })
 
   it('reports timeout kills with both markers (timeout first)', async () => {
-    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await setup()
-    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await call(ctx, 'bash', { command: 'sleep 60', description: 'test command', timeoutMs: 100 })
     expect(result.isError).toBe(false)
     expect(text(result)).toBe('(no output)\n[timed out after 100ms]\n[killed by signal: SIGTERM]')
@@ -313,9 +275,7 @@ describe('bash tool', () => {
     // after our timer fired must NOT look like a clean success. (bash may
     // print "Terminated" to stderr for the killed sleep — environment
     // dependent — so assert the marker, not the exact body.)
-    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await setup()
-    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await call(ctx, 'bash', { command: 'trap "exit 0" TERM; sleep 60', description: 'test command', timeoutMs: 100 })
     expect(result.isError).toBe(false)
     expect(text(result)).toContain('[timed out after 100ms]')
@@ -323,7 +283,6 @@ describe('bash tool', () => {
   })
 
   it('reports truncation with the spill path', async () => {
-    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
     await ctx.plugin(SystemPrompt)
     await ctx.plugin(ToolRuntime)
@@ -332,35 +291,27 @@ describe('bash tool', () => {
     await ctx.plugin(LocalBashExecutor, { maxOutputBytes: 100, graceMs: 200 })
     await ctx.plugin(BashEnvPlugin)
     await ctx.plugin(ToolBash)
-    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await call(ctx, 'bash', { command: 'for i in $(seq 1 100); do printf "line-%04d\\n" $i; done', description: 'test command' })
     expect(text(result)).toContain('[output truncated; full output: ')
     expect(text(result)).toContain('line-0100')
   })
 
   it('honors workdir', async () => {
-    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await setup()
-    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await call(ctx, 'bash', { command: 'pwd', description: 'test command', workdir: '/tmp' })
     expect(text(result).trim()).toMatch(/\/tmp$/)
   })
 
   it('surfaces spawn failures as isError', async () => {
-    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await setup()
-    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await call(ctx, 'bash', { command: 'true', description: 'test command', workdir: '/nonexistent-dsh' })
     expect(result.isError).toBe(true)
     expect(text(result)).toMatch(/ENOENT/)
   })
 
   it('surfaces foreground aborts as the structured TOOL_ABORTED error', async () => {
-    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await setup()
-    /** 中文说明：变量 controller 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const controller = new AbortController()
-    /** 中文说明：变量 pending 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const pending = ctx.tools.execute({
       callId: ToolCallId('call-abort'),
       name: 'bash',
@@ -368,7 +319,6 @@ describe('bash tool', () => {
       signal: controller.signal,
     })
     setTimeout(() => { controller.abort() }, 50)
-    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await pending
     expect(result.isError).toBe(true)
     expect(result.error).toMatchObject({
@@ -388,9 +338,7 @@ describe('bash tool', () => {
     [{ command: 'x', description: 'd', workdir: 7 }, /"workdir" must be a string/],
     [{ command: 'x', description: 'd', run_in_background: 'yes' }, /"run_in_background" must be a boolean/],
   ])('rejects schema-invalid args %j', async (args, pattern) => {
-    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await setup()
-    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await call(ctx, 'bash', args)
     expect(result.isError).toBe(true)
     expect(text(result)).toMatch(pattern)
@@ -402,18 +350,14 @@ describe('bash tool', () => {
     [{ command: 'x', description: '   ' }, /invalid description/],
     [{ command: 'x', description: 'd', timeoutMs: -1 }, /invalid timeoutMs/],
   ])('rejects value-invalid args %j', async (args, pattern) => {
-    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await setup()
-    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await call(ctx, 'bash', args)
     expect(result.isError).toBe(true)
     expect(text(result)).toMatch(pattern)
   })
 
   it('rejects a non-JSON numeric argument before tool-specific validation', async () => {
-    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await setup()
-    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await call(ctx, 'bash', {
       command: 'x', description: 'd', timeoutMs: Number.NaN,
     })
@@ -422,12 +366,9 @@ describe('bash tool', () => {
   })
 
   it('registers the bash schema with run_in_background exposed by default', async () => {
-    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await setup()
-    /** 中文说明：变量 schemas 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const schemas = ctx.tools.schemas()
     expect(schemas.map(schema => schema.name)).toEqual(['bash'])
-    /** 中文说明：变量 bashSchema 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const bashSchema = schemas[0]!
     expect(bashSchema.parameters).toMatchObject({
       type: 'object',
@@ -439,20 +380,18 @@ describe('bash tool', () => {
   })
 
   it('contributes the exit-code habit as its prompt section (guidance the descriptions cannot carry)', async () => {
-    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await setup()
     ctx.systemPrompt.section({
       name: 'test:before-bash',
-      order: FIRST_PARTY_SECTION_ORDER.TOOL_BASH - 10,
+      order: ctx.systemPrompt.getSectionOrder('TOOL_BASH') - 10,
       text: 'before',
     })
     ctx.systemPrompt.section({
       name: 'test:after-bash',
-      order: FIRST_PARTY_SECTION_ORDER.TOOL_BASH + 10,
+      order: ctx.systemPrompt.getSectionOrder('TOOL_BASH') + 10,
       text: 'after',
     })
     const assembly = await ctx.systemPrompt.assemble()
-    /** 中文说明：函数值 section 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const section = assembly.sections.find(s => s.name === 'tool:bash')
     expect(assembly.sections.map(s => s.name)).toEqual([
       'harness:identity',
@@ -465,14 +404,12 @@ describe('bash tool', () => {
   })
 
   it('unregisters everything when the plugin fiber is disposed (HMR safety)', async () => {
-    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
     await ctx.plugin(SystemPrompt)
     await ctx.plugin(ToolRuntime)
     await ctx.plugin(LocalSubprocessRuntime)
     await ctx.plugin(LocalBashExecutor, {})
     await ctx.plugin(BashEnvPlugin)
-    /** 中文说明：变量 fiber 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const fiber = await ctx.plugin(ToolBash)
     expect(ctx.tools.schemas()).toHaveLength(1)
     expect((await ctx.systemPrompt.assemble()).sections.map(s => s.name)).toEqual(['harness:identity', 'deployment:persona', 'tool:bash'])
@@ -483,7 +420,6 @@ describe('bash tool', () => {
   })
 
   it('tools depend on the executor: no registration without ctx.shell', async () => {
-    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
     await ctx.plugin(SystemPrompt)
     await ctx.plugin(ToolRuntime)
@@ -500,14 +436,12 @@ describe('bash tool', () => {
   it('applies the built-in background default when apply() receives a bare config', async () => {
     // Bypasses the schemastery defaults on purpose: apply() must stand on its
     // own `?? true` fallback when embedded programmatically without the schema.
-    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
     await ctx.plugin(SystemPrompt)
     await ctx.plugin(ToolRuntime)
     await ctx.plugin(LocalSubprocessRuntime)
     await ctx.plugin(LocalBashExecutor, {})
     ToolBash.apply(ctx, {})
-    /** 中文说明：变量 schema 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const schema = ctx.tools.schemas()[0]!
     expect(Object.keys(schema.parameters.properties as Record<string, unknown>))
       .toContain('run_in_background')
@@ -516,81 +450,64 @@ describe('bash tool', () => {
 
 describe('background execution through the job runtime', () => {
   it('run_in_background acks with the job id, readable through the REAL job_output tool', async () => {
-    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await setupWithTasks()
-    /** 中文说明：变量 started 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const started = await call(ctx, 'bash', { command: 'echo bg-ok', description: 'test command', run_in_background: true })
     expect(started.isError).toBe(false)
     if (started.isError) throw new Error('expected background bash success')
     expect(started.value).toEqual({ kind: 'background', jobId: 'bash-1' })
     expect(text(started)).toBe('started background job bash-1')
 
-    /** 中文说明：变量 read 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const read = await callUntilText(ctx, 'job_output', { job_id: 'bash-1' }, 'bg-ok')
     expect(text(read)).toContain('bg-ok')
     // A later read reports the terminal outcome in the generic status line.
-    /** 中文说明：变量 final 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const final = await callUntilText(ctx, 'job_output', { job_id: 'bash-1' }, '[status: completed, exit code: 0]')
     expect(final.isError).toBe(false)
   })
 
   it('a running background job is killable through the REAL job_kill tool', async () => {
-    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await setupWithTasks()
     await call(ctx, 'bash', { command: 'sleep 60', description: 'test command', run_in_background: true })
 
-    /** 中文说明：变量 killed 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const killed = await call(ctx, 'job_kill', { job_id: 'bash-1' })
     expect(text(killed)).toBe('requested cancellation of job bash-1')
     // The cancel reached the process handle; the task settles as killed with
     // the signal detail mapped by processOutcome.
-    /** 中文说明：变量 final 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const final = await call(ctx, 'job_output', { job_id: 'bash-1', wait: true })
     expect(text(final)).toContain('[status: killed, signal: SIGTERM]')
   })
 
   it('a self-signal background exit is reported as killed through the REAL job_output tool', async () => {
-    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await setupWithTasks()
     await call(ctx, 'bash', { command: 'kill -TERM $$', description: 'test command', run_in_background: true })
 
-    /** 中文说明：变量 final 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const final = await call(ctx, 'job_output', { job_id: 'bash-1', wait: true })
     expect(text(final)).toContain('[status: killed, signal: SIGTERM]')
   })
 
   it('a background job started by an agent is registered with that agent as owner', async () => {
     // The producer must forward exec.agent as the job owner.
-    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await setupWithTasks()
-    /** 中文说明：变量 agent 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const agent = registerFakeAgent(ctx, 'sess-owner')
-    /** 中文说明：变量 started 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const started = await call(ctx, 'bash', { command: 'sleep 60', description: 'test command', run_in_background: true }, agent)
     expect(text(started)).toBe('started background job bash-1')
 
-    /** 中文说明：变量 anon 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const anon = await call(ctx, 'job_output', { job_id: 'bash-1' })
     expect(anon.isError).toBe(true)
     expect(text(anon)).toMatch(/belongs to another session/)
 
-    /** 中文说明：变量 killed 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const killed = await call(ctx, 'job_kill', { job_id: 'bash-1' }, agent)
     expect(killed.isError).toBe(false)
     await call(ctx, 'job_output', { job_id: 'bash-1', wait: true }, agent) // await settlement — no orphan
   })
 
   it('fails loud when the job runtime is not loaded', async () => {
-    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await setup() // no LocalJobRegistry / ToolTasks
-    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await call(ctx, 'bash', { command: 'sleep 60', description: 'test command', run_in_background: true })
     expect(result.isError).toBe(true)
     expect(text(result)).toContain('background jobs unavailable: load @deepseek-ai/dsh-jobs and @deepseek-ai/dsh-tool-jobs')
   })
 
   it('a pre-aborted call is skipped before the process starts', async () => {
-    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
     await ctx.plugin(SystemPrompt)
     await ctx.plugin(ToolRuntime)
@@ -601,10 +518,8 @@ describe('background execution through the job runtime', () => {
     await ctx.plugin(BashEnvPlugin)
     await ctx.plugin(ToolBash)
 
-    /** 中文说明：变量 controller 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const controller = new AbortController()
     controller.abort()
-    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await ctx.tools.execute({
       callId: ToolCallId('call-pre-aborted'),
       name: 'bash',
@@ -622,7 +537,6 @@ describe('background execution through the job runtime', () => {
 
   it('never spawns the process when tasks.start preflight throws (no orphan, by construction)', async () => {
     // With no job controller, preflight fails before the executor can spawn.
-    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
     await ctx.plugin(SystemPrompt)
     await ctx.plugin(ToolRuntime)
@@ -632,7 +546,6 @@ describe('background execution through the job runtime', () => {
     await ctx.plugin(BashEnvPlugin)
     await ctx.plugin(ToolBash)
 
-    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await call(ctx, 'bash', { command: 'sleep 60', description: 'test command', run_in_background: true })
     expect(result.isError).toBe(true)
     expect(text(result)).toContain('no job controller serves this agent')
@@ -641,7 +554,6 @@ describe('background execution through the job runtime', () => {
   })
 
   it('enableRunInBackground: false removes the parameter and flips the description', async () => {
-    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
     await ctx.plugin(SystemPrompt)
     await ctx.plugin(ToolRuntime)
@@ -650,30 +562,25 @@ describe('background execution through the job runtime', () => {
     await ctx.plugin(LocalBashExecutor, {})
     await ctx.plugin(ToolBash, { enableRunInBackground: false })
 
-    /** 中文说明：函数值 schema 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const schema = ctx.tools.schemas().find(s => s.name === 'bash')!
     expect(Object.keys(schema.parameters.properties as Record<string, unknown>))
       .toEqual(['command', 'description', 'timeoutMs', 'workdir'])
     expect(schema.description).toContain('Background execution is not available')
     expect(schema.description).not.toContain('run_in_background')
     // The registry-held definition agrees (schema and capability never disagree).
-    /** 中文说明：变量 parameters 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const parameters = ctx.tools.get('bash')!.parameters as { properties: Record<string, unknown> }
     expect('run_in_background' in parameters.properties).toBe(false)
 
     // Schema omission is advertising; execution must also enforce the opt-out.
-    /** 中文说明：变量 forced 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const forced = await call(ctx, 'bash', { command: 'echo hi', description: 'test command', run_in_background: true })
     expect(forced.isError).toBe(true)
     expect(text(forced)).toContain('run_in_background is disabled for this deployment')
-    /** 中文说明：变量 foreground 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const foreground = await call(ctx, 'bash', { command: 'echo hi', description: 'test command' })
     expect(foreground.isError).toBe(false)
   })
 })
 
 describe('sandbox escalation through the generic task producer', () => {
-  /** 中文说明：变量 escalate 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const escalate = {
     command: 'true',
     description: 'test escalation',
@@ -682,7 +589,6 @@ describe('sandbox escalation through the generic task producer', () => {
   }
 
   it('fails load when a confining executor has no shared sandbox-policy resolver', async () => {
-    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
     await ctx.plugin(SystemPrompt)
     await ctx.plugin(ToolRuntime)
@@ -693,14 +599,11 @@ describe('sandbox escalation through the generic task producer', () => {
 
   it('advertises the sandbox fields and validates their pairing', async () => {
     const { ctx } = await setupSandboxed()
-    /** 中文说明：函数值 schema 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const schema = ctx.tools.schemas().find(item => item.name === 'bash')!
-    /** 中文说明：变量 properties 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const properties = schema.parameters.properties as Record<string, { enum?: string[] }>
     expect(properties['sandbox_permissions']?.enum).toEqual(['workspace-write', 'danger-full-access'])
     expect(schema.description).toContain('approval prompt')
 
-    /** 中文说明：该循环依次处理测试数据；循环变量仅在当前循环中有效。 */
     for (const args of [
       { command: 'true', description: 'd', sandbox_permissions: 'workspace-write' },
       { command: 'true', description: 'd', justification: 'why' },
@@ -711,20 +614,16 @@ describe('sandbox escalation through the generic task producer', () => {
   })
 
   it('rejects injected escalation without a sandbox and non-widening escalation without prompting', async () => {
-    /** 中文说明：变量 plain 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const plain = await setup()
     expect(text(await call(plain, 'bash', escalate))).toContain('not available in this composition')
 
     const { ctx } = await setupSandboxed(true)
-    /** 中文说明：变量 prompted 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const prompted = vi.fn()
     ctx.on('approval/request', () => { prompted(); return Promise.resolve<ApprovalOutcome>('allowed-once') })
-    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await call(ctx, 'bash', { ...escalate, sandbox_permissions: 'workspace-write' }, sandboxAgent('workspace-write'))
     expect(text(result)).toContain('not strictly wider')
     expect(prompted).not.toHaveBeenCalled()
 
-    /** 中文说明：变量 malformed 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const malformed = sandboxAgent()
     ;(malformed.session.events as unknown as Array<{ type: string; data: { mode: string } }>).push({
       type: 'sandbox/mode',
@@ -734,11 +633,9 @@ describe('sandbox escalation through the generic task producer', () => {
   })
 
   it('fails closed when approval cannot be routed', async () => {
-    /** 中文说明：变量 withoutService 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const withoutService = await setupSandboxed()
     expect(text(await call(withoutService.ctx, 'bash', escalate, sandboxAgent()))).toContain('no approval service')
 
-    /** 中文说明：变量 withService 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const withService = await setupSandboxed(true)
     expect(text(await call(withService.ctx, 'bash', escalate))).toContain('no agent to route')
     expect(text(await call(withService.ctx, 'bash', escalate, sandboxAgent()))).toContain('no approval channel')
@@ -750,7 +647,6 @@ describe('sandbox escalation through the generic task producer', () => {
   ] as const)('maps an approval %s to its distinct failure', async (outcome, message) => {
     const { ctx, bash } = await setupSandboxed(true)
     ctx.on('approval/request', () => Promise.resolve<ApprovalOutcome>(outcome))
-    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await call(ctx, 'bash', escalate, sandboxAgent())
     expect(text(result)).toContain(message)
     expect(bash.modes).toEqual([])
@@ -759,10 +655,8 @@ describe('sandbox escalation through the generic task producer', () => {
   it('runs a granted foreground or background call under the approved mode', async () => {
     const { ctx, bash } = await setupSandboxed(true)
     ctx.on('approval/request', () => Promise.resolve<ApprovalOutcome>('allowed-once'))
-    /** 中文说明：变量 agent 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const agent = sandboxAgent(undefined, ctx)
     ctx.agents.register(agent)
-    /** 中文说明：变量 foreground 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const foreground = await ctx.tools.execute({
       callId: ToolCallId('sandbox-signal'),
       name: 'bash',
@@ -771,7 +665,6 @@ describe('sandbox escalation through the generic task producer', () => {
       signal: new AbortController().signal,
     })
     expect(foreground.isError).toBe(false)
-    /** 中文说明：变量 background 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const background = await call(ctx, 'bash', { ...escalate, run_in_background: true }, agent)
     expect(text(background)).toBe('started background job bash-1')
     expect(bash.modes).toEqual(['workspace-write', 'workspace-write'])
@@ -779,18 +672,14 @@ describe('sandbox escalation through the generic task producer', () => {
 
   it('does not publish detached work when cancellation follows the escalation grant', async () => {
     const { ctx, bash } = await setupSandboxed(true)
-    /** 中文说明：变量 controller 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const controller = new AbortController()
-    /** 中文说明：函数值 agent 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const agent = sandboxAgent(undefined, ctx, (type) => {
       if (type === 'approval/decided') controller.abort()
     })
     ctx.agents.register(agent)
     ctx.on('approval/request', () => Promise.resolve<ApprovalOutcome>('allowed-once'))
-    /** 中文说明：变量 start 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const start = vi.spyOn(bash, 'start')
 
-    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await ctx.tools.execute({
       callId: ToolCallId('cancelled-escalation-background'),
       name: 'bash',
@@ -809,7 +698,6 @@ describe('sandbox escalation through the generic task producer', () => {
 
   it('uses the session override for ordinary calls and evaluates widening against it', async () => {
     const { ctx, bash } = await setupSandboxed(true)
-    /** 中文说明：变量 agent 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const agent = sandboxAgent('workspace-write')
     await call(ctx, 'bash', { command: 'true', description: 'ordinary' }, agent)
     ctx.on('approval/request', () => Promise.resolve<ApprovalOutcome>('allowed-once'))
@@ -819,7 +707,6 @@ describe('sandbox escalation through the generic task producer', () => {
 
   it('omits sandbox facts the executor did not acquire from the canonical result', async () => {
     const { ctx } = await setupSandboxed()
-    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await call(ctx, 'bash', {
       command: 'without optional sandbox facts',
       description: 'exercise optional sandbox facts',
@@ -837,14 +724,12 @@ describe('sandbox escalation through the generic task producer', () => {
   it('keeps the exhaustiveness backstop for a rogue approval implementation', async () => {
     const { ctx } = await setupSandboxed(true)
     ctx.approval.request = () => Promise.resolve('rogue' as ApprovalOutcome)
-    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await call(ctx, 'bash', escalate, sandboxAgent())
     expect(text(result)).toContain('unreachable variant in EscalationOutcome')
   })
 })
 
 describe('renderProcessRead', () => {
-  /** 中文说明：变量 base 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const base: ShellProcessRead = { delta: 'out\n', lossy: false }
 
   it('returns the delta verbatim for a lossless read', () => {
@@ -881,7 +766,6 @@ describe('renderProcessRead', () => {
       .toContain('[sandbox: escalation available')
     expect(renderProcessRead({ delta: 'tail', lossy: false }, { mode: 'read-only', denied: true }))
       .toBe('tail\n[sandbox: file access denied under read-only mode]')
-    /** 中文说明：变量 runner 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const runner = renderProcessRead(
       { delta: '', lossy: false },
       { mode: 'workspace-write', denied: true, runnerFailed: true },
@@ -893,7 +777,6 @@ describe('renderProcessRead', () => {
 })
 
 describe('processOutcome', () => {
-  /** 中文说明：函数 settled 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
   function settled(over: Partial<ShellProcess>): ShellProcess {
     return {
       status: 'completed',
@@ -929,48 +812,37 @@ describe('processOutcome', () => {
 
 describe('session-cwd routing (per-session workdir)', () => {
   // An agent whose session header carries a cwd (what session/new records).
-  /** 中文说明：函数值 agentInCwd 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
   const agentInCwd = (cwd: string) =>
     ({ inject: () => undefined, session: { header: { version: 0, id: 'c', createdAt: 0, cwd } } }) as unknown as Agent
 
   it('defaults bash to the agent\'s session cwd (not the server launch dir)', async () => {
-    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await setup()
-    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await call(ctx, 'bash', { command: 'pwd', description: 'pwd' }, agentInCwd('/tmp'))
     expect(text(result).trim()).toMatch(/\/tmp$/)
   })
 
   it('an explicit absolute workdir overrides the session cwd', async () => {
-    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await setup()
-    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await call(ctx, 'bash', { command: 'pwd', description: 'pwd', workdir: '/tmp' }, agentInCwd('/'))
     expect(text(result).trim()).toMatch(/\/tmp$/)
   })
 
   it('a relative workdir is resolved against the session cwd', async () => {
-    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await setup()
     // session cwd /usr + relative 'bin' → /usr/bin
-    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await call(ctx, 'bash', { command: 'pwd', description: 'pwd', workdir: 'bin' }, agentInCwd('/usr'))
     expect(text(result).trim()).toMatch(/\/usr\/bin$/)
   })
 
   it('two sessions with different cwds each run bash in their own dir', async () => {
-    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await setup()
-    /** 中文说明：变量 inUsr 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const inUsr = await call(ctx, 'bash', { command: 'pwd', description: 'pwd' }, agentInCwd('/usr'))
-    /** 中文说明：变量 inTmp 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const inTmp = await call(ctx, 'bash', { command: 'pwd', description: 'pwd' }, agentInCwd('/tmp'))
     expect(text(inUsr).trim()).toMatch(/\/usr$/)
     expect(text(inTmp).trim()).toMatch(/\/tmp$/)
   })
 
   it('falls back to the executor default when the agent has no session cwd', async () => {
-    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await setup()
     // No exec.agent at all → executor uses its config/process.cwd() default.
     const result = await ctx.tools.execute({ signal: testToolSignal, callId: ToolCallId('cwd-noagent'), name: 'bash', arguments: { command: 'pwd', description: 'pwd' } })
@@ -980,7 +852,6 @@ describe('session-cwd routing (per-session workdir)', () => {
 })
 
 describe('renderResult', () => {
-  /** 中文说明：变量 base 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const base = {
     exitCode: 0 as number | null,
     signal: null as NodeJS.Signals | null,
@@ -1030,7 +901,6 @@ describe('renderResult', () => {
   })
 
   it('reports sandbox denials before exit status and hints only when escalation is advertised', () => {
-    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result: ShellRunResult = {
       exitCode: 1,
       signal: null,
@@ -1050,7 +920,6 @@ describe('renderResult', () => {
 
 describe('tool-owned UI presentation (presentCall / presentResult)', () => {
   it('bash presentCall: a foreground run is a terminal card (command title, description, workdir → cwd absolute or relative)', async () => {
-    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await setup()
     // No explicit workdir → a terminal card with no cwd (the UI bridge fills the
     // session cwd it owns; the pure presenter can't see it).
@@ -1066,9 +935,7 @@ describe('tool-owned UI presentation (presentCall / presentResult)', () => {
   })
 
   it('bash presentResult: a terminal result carries RAW output (newlines intact) + parsed exit code', async () => {
-    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await setup()
-    /** 中文说明：变量 present 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const present = ctx.tools.get('bash')!.presentResult!(
       { command: 'printf "hi\\n\\n"', description: 'echo' },
       // A clean run renders no exit marker at all, so the body is the raw bytes.
@@ -1080,24 +947,17 @@ describe('tool-owned UI presentation (presentCall / presentResult)', () => {
   })
 
   it('bash presentResult: a non-zero exit and a signal kill parse into exitCode / signal', async () => {
-    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await setup()
-    /** 中文说明：变量 args 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const args = { command: 'x', description: 'x' }
-    /** 中文说明：变量 nonzero 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const nonzero = ctx.tools.get('bash')!.presentResult!(args, { content: [{ type: 'text', text: 'oops\n[exit code: 3]' }], isError: false })
     expect(nonzero).toEqual({ card: 'terminal', output: 'oops', exitCode: 3 })
-    /** 中文说明：变量 killed 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const killed = ctx.tools.get('bash')!.presentResult!(args, { content: [{ type: 'text', text: 'gone\n[killed by signal: SIGKILL]' }], isError: false })
     expect(killed).toEqual({ card: 'terminal', output: 'gone', signal: 'SIGKILL' })
   })
 
   it('bash presentResult: markers a pill CANNOT show (timeout, sandbox denial) stay in the terminal output', async () => {
-    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await setup()
-    /** 中文说明：变量 args 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const args = { command: 'x', description: 'x' }
-    /** 中文说明：变量 timedOut 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const timedOut = ctx.tools.get('bash')!.presentResult!(
       args,
       { content: [{ type: 'text', text: 'slow\n[timed out after 100ms]\n[exit code: 143]' }], isError: false },
@@ -1106,21 +966,17 @@ describe('tool-owned UI presentation (presentCall / presentResult)', () => {
   })
 
   it('bash presentResult exit parse is the inverse of renderResult markers (round-trip)', async () => {
-    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await setup()
-    /** 中文说明：变量 present 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const present = ctx.tools.get('bash')!
     // For each renderResult outcome, the rendered text fed back through
     // presentResult recovers the matching structured exit — the parse and the
     // marker emission co-evolve in one file, so this pins the pair.
-    /** 中文说明：变量 base 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const base = {
       aborted: false,
       timeoutMs: 1000,
       stdout: { text: 'out', truncated: false },
       stderr: { text: '', truncated: false },
     }
-    /** 中文说明：变量 cases 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const cases = [
       { result: { ...base, exitCode: 0, signal: null, timedOut: false }, expect: { exitCode: 0 } },
       { result: { ...base, exitCode: 7, signal: null, timedOut: false }, expect: { exitCode: 7 } },
@@ -1128,11 +984,8 @@ describe('tool-owned UI presentation (presentCall / presentResult)', () => {
       // A trapped-timeout run that exits 0 has no signal/exit marker → reads as exit 0 (it did exit 0).
       { result: { ...base, exitCode: 0, signal: null, timedOut: true }, expect: { exitCode: 0 } },
     ]
-    /** 中文说明：该循环依次处理测试数据；循环变量仅在当前循环中有效。 */
     for (const c of cases) {
-      /** 中文说明：变量 rendered 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const rendered = renderResult(c.result)
-      /** 中文说明：变量 out 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const out = present.presentResult!({ command: 'x', description: 'x' }, { content: [{ type: 'text', text: rendered }], isError: false })
       // Drop card + output; the remaining fields are the parsed exit.
       const { card: _c, output, ...exit } = out as { card: string; output?: string; exitCode?: number; signal?: string }
@@ -1144,32 +997,25 @@ describe('tool-owned UI presentation (presentCall / presentResult)', () => {
   })
 
   it('bash presentResult: a clean exit-0 whose output ENDS in marker-like text is NOT read as a failure', async () => {
-    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await setup()
-    /** 中文说明：变量 args 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const args = { command: 'printf "[exit code: 5]"', description: 'print' }
     // A successful command may print marker-like text. A clean result appends no marker or
     // newline; parsing requires the leading newline emitted for real markers, so this stays exit 0.
-    /** 中文说明：变量 out 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const out = ctx.tools.get('bash')!.presentResult!(args, { content: [{ type: 'text', text: '[exit code: 5]' }], isError: false })
     expect(out).toEqual({ card: 'terminal', output: '[exit code: 5]', exitCode: 0 })
     // Unparsed marker-like text is real output, so it is NOT stripped from the body.
     // Same for a fake signal marker with no leading newline.
-    /** 中文说明：变量 sig 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const sig = ctx.tools.get('bash')!.presentResult!(args, { content: [{ type: 'text', text: '[killed by signal: SIGKILL]' }], isError: false })
     expect(sig).toEqual({ card: 'terminal', output: '[killed by signal: SIGKILL]', exitCode: 0 })
   })
 
   it('bash presentCall/presentResult: a run_in_background call is a generic card and its ack carries no exit pill', async () => {
-    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await setup()
     // The background start returns a task-id ack, not a streamed run — a generic
     // execute card with the command as rawInput and the description as content.
-    /** 中文说明：变量 call 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const call = ctx.tools.get('bash')!.presentCall!({ command: 'sleep 100', description: 'wait', run_in_background: true })
     expect(call).toEqual({ card: 'generic', title: 'sleep 100', kind: 'execute', rawInput: 'sleep 100', content: [{ type: 'text', text: 'wait' }] })
     // The ack result is a generic fenced-text card — no terminal output / exit pill.
-    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = ctx.tools.get('bash')!.presentResult!(
       { command: 'sleep 100', description: 'wait', run_in_background: true },
       { content: [{ type: 'text', text: 'started background job bash-1' }], isError: false },
@@ -1178,11 +1024,9 @@ describe('tool-owned UI presentation (presentCall / presentResult)', () => {
   })
 
   it('bash presentResult: an isError result is a generic card (no real process exit to report)', async () => {
-    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await setup()
     // A spawn failure / abort has no process exit — the body is an error message,
     // not renderResult output, so a generic fenced card, no terminal output/exit.
-    /** 中文说明：变量 out 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const out = ctx.tools.get('bash')!.presentResult!(
       { command: 'x', description: 'x' },
       { content: [{ type: 'text', text: 'tool call aborted' }], isError: true },
@@ -1191,9 +1035,7 @@ describe('tool-owned UI presentation (presentCall / presentResult)', () => {
   })
 
   it('bash presentResult: leaves a non-text (unexpected) result untouched → undefined (UI keeps raw content)', async () => {
-    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await setup()
-    /** 中文说明：变量 present 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const present = ctx.tools.get('bash')!.presentResult!(
       { command: 'x', description: 'x' },
       { content: [{ type: 'reasoning', text: 'unexpected' }], isError: false },
@@ -1202,9 +1044,7 @@ describe('tool-owned UI presentation (presentCall / presentResult)', () => {
   })
 
   it('bash presentResult: a result that is not exactly one block → undefined (no single text to fence)', async () => {
-    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await setup()
-    /** 中文说明：变量 args 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const args = { command: 'x', description: 'x' }
     // Empty content (no block) and multi-block content both fall through.
     expect(ctx.tools.get('bash')!.presentResult!(args, { content: [], isError: false })).toBeUndefined()
@@ -1215,7 +1055,6 @@ describe('tool-owned UI presentation (presentCall / presentResult)', () => {
   })
 
   it('presentCall validates softly: malformed args (missing required description) return undefined, never throw', async () => {
-    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await setup()
     // `defineTool` soft-validates replayed logged args before presentation. Invalid shapes return
     // undefined for generic UI rendering rather than throwing; `presentCall` accepts `unknown`.
@@ -1224,7 +1063,6 @@ describe('tool-owned UI presentation (presentCall / presentResult)', () => {
 })
 
 describe('the model-facing bash tool builds its request from named args only (no {...args} forward)', () => {
-  /** 中文说明：变量 recordingDshHome 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const recordingDshHome = join(spillDir, 'dsh-home')
 
   /**
@@ -1240,7 +1078,6 @@ describe('the model-facing bash tool builds its request from named args only (no
    * bash-stdin-env Agent Note). Foreground `run()` returns a canned result; `start()`
    * hands back an already-settled fake handle so the task registration completes.
    */
-  /* 中文说明：class RecordingBashExecutor 定义本测试所需的数据或行为，用于表达Shell 命令与沙箱场景。 */
   class RecordingBashExecutor extends ShellExecutor {
     readonly requests: ShellExecRequest[] = []
     resolve(request: ShellExecRequest): ShellExecSpec {
@@ -1275,9 +1112,7 @@ describe('the model-facing bash tool builds its request from named args only (no
     }
   }
 
-  /** 中文说明：函数 setupRecording 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
   async function setupRecording(withJsonl = false) {
-    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
     await ctx.plugin(SystemPrompt)
     await ctx.plugin(ToolRuntime)
@@ -1296,7 +1131,6 @@ describe('the model-facing bash tool builds its request from named args only (no
 
   it('describes the managed harness environment namespace to the model', async () => {
     const { ctx } = await setupRecording()
-    /** 中文说明：变量 description 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const description = ctx.tools.get('bash')?.description ?? ''
     expect(description).toContain('$DSH_*')
     expect(description).not.toContain('DSH_SESSION_JSONL')
@@ -1304,9 +1138,7 @@ describe('the model-facing bash tool builds its request from named args only (no
 
   it('injects the session id and JSONL target path into a foreground request', async () => {
     const { ctx, bash } = await setupRecording(true)
-    /** 中文说明：函数值 agent 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const agent = registerFakeAgent(ctx, 'request-fg', () => undefined)
-    /** 中文说明：变量 path 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const path = ctx.sessionPersistence.locate(agent.session.header)?.path
 
     await ctx.tools.execute({
@@ -1327,9 +1159,7 @@ describe('the model-facing bash tool builds its request from named args only (no
 
   it('injects the same trusted variables into a background request without forwarding model env', async () => {
     const { ctx, bash } = await setupRecording(true)
-    /** 中文说明：函数值 agent 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const agent = registerFakeAgent(ctx, 'request-bg', () => undefined)
-    /** 中文说明：变量 path 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const path = ctx.sessionPersistence.locate(agent.session.header)?.path
 
     await ctx.tools.execute({
@@ -1356,9 +1186,7 @@ describe('the model-facing bash tool builds its request from named args only (no
 
   it('injects built-ins and the stable session id when no JSONL locator is available', async () => {
     const { ctx, bash } = await setupRecording()
-    /** 中文说明：函数值 agent 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const agent = registerFakeAgent(ctx, 'request-id-only', () => undefined)
-    /** 中文说明：变量 ambient 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ambient = process.env.DSH_SESSION_ID
 
     await ctx.tools.execute({
@@ -1379,12 +1207,9 @@ describe('the model-facing bash tool builds its request from named args only (no
 
   it('keeps parent and child agent session environments isolated', async () => {
     const { ctx, bash } = await setupRecording(true)
-    /** 中文说明：函数值 parent 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const parent = registerFakeAgent(ctx, 'request-parent', () => undefined)
-    /** 中文说明：函数值 child 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const child = registerFakeAgent(ctx, 'request-child', () => undefined)
 
-    /** 中文说明：该循环依次处理测试数据；循环变量仅在当前循环中有效。 */
     for (const [callId, agent] of [['parent', parent], ['child', child]] as const) {
       await ctx.tools.execute({
         signal: testToolSignal,
@@ -1430,7 +1255,6 @@ describe('the model-facing bash tool builds its request from named args only (no
       },
     })
     expect(bash.requests).toHaveLength(1)
-    /** 中文说明：变量 request 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const request = bash.requests[0]!
     expect(request.command).toBe('echo hi')
     expect('env' in request).toBe(false)
@@ -1440,7 +1264,6 @@ describe('the model-facing bash tool builds its request from named args only (no
 
   it('a background bash call likewise carries no trusted-only fields', async () => {
     const { ctx, bash } = await setupRecording()
-    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await ctx.tools.execute({
       signal: testToolSignal,
       callId: ToolCallId('no-forward-2'),
@@ -1459,7 +1282,6 @@ describe('the model-facing bash tool builds its request from named args only (no
     // negative, not a recorder that drops everything).
     expect(text(result)).toBe('started background job bash-1')
     expect(bash.requests).toHaveLength(1)
-    /** 中文说明：变量 request 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const request = bash.requests[0]!
     expect(request.command).toBe('sleep 1')
     expect('env' in request).toBe(false)

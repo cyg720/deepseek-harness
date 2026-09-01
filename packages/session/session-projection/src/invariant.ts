@@ -1,16 +1,3 @@
-/*
- * ================================ 文件注释 ================================
- * 【文件职责】session-projection 包的 invariant 伴生插件：本包刻意"无运行时不变量"，
- *   注册一个空安装器说明原因（契约由服务内部同步强制 + spec 证明 + 载体线路上断言）。
- * 【技术维度】标准 invariants 插件形态（name/inject/apply），install 为空函数；
- *   文件整体被 jscpd:ignore 包裹（防重复代码检测）。
- * 【产品维度】占位说明：哪些关系为什么不在伴生插件里重复检查。
- * 【逻辑维度】按代码顺序：name/inject → 空 install（附详细论证注释）→ apply。
- * 【关键边界】jscpd pragma 与 install 定义保持原样。
- * 【新手阅读建议】读 install 上方的大段英文注释，理解"为何没有运行时不变量"。
- * ==========================================================================
- */
-
 /**
  * Package-owned invariant companion for `@deepseek-ai/dsh-session-projection`.
  * @module @deepseek-ai/dsh-session-projection/invariant
@@ -23,16 +10,14 @@ import type { InvariantInstaller } from '@deepseek-ai/dsh-invariants'
 const PACKAGE_NAME = '@deepseek-ai/dsh-session-projection'
 
 /** Cordis companion plugin name. */
-// 中文：伴生插件名。
 export const name = 'session-projection-invariant'
 /** Service required before the companion can reserve package ownership. */
-// 中文：依赖 invariants 服务，Cordis 保证其先可用。
 export const inject = ['invariants']
 
 /**
  * No runtime invariant: the registry's own contracts (duplicate-key and
- * stateVersion rejection, effect-tied removal, the Object.is change gate) are
- * enforced synchronously inside the service and proven by its spec, the
+ * stateVersion rejection, effect-tied removal, and the state/view `Object.is`
+ * gates) are enforced synchronously inside the service and proven by its spec, the
  * drive relation (every committed `session/event` passes every unit) would
  * require re-running the drive to check — duplicating the implementation
  * rather than detecting drift — and the served-value relation (every served

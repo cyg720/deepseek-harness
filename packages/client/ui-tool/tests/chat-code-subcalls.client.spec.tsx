@@ -18,11 +18,9 @@ import { apply as applyChat, inject as injectChat } from '@deepseek-ai/dsh-clien
 import { apply as applyTool, inject as injectTool } from '../src/client/apply.ts'
 import { toolChatSnapshot } from './tool-details-render.client.tsx'
 
-/** 中文说明：测试局部值 SID，由紧邻初始化决定。 */
 const SID = 's1' as SessionId
 
 /** jsdom has no ResizeObserver; the composer seat publishes its height through one. */
-/* 中文说明：类型或类 ResizeObserverStub 约束工具或轨迹数据职责。 */
 class ResizeObserverStub {
   observe(): void {}
   unobserve(): void {}
@@ -41,12 +39,9 @@ beforeEach(() => {
   vi.stubGlobal('ResizeObserver', ResizeObserverStub)
 })
 
-/** 中文说明：测试局部值 PROGRAM，由紧邻初始化决定。 */
 const PROGRAM = 'const listing = await tools.bash({ command: "ls notes", description: "List notes" })\nreturn listing'
-/** 中文说明：测试局部值 RUN_CODE_ARGS，由紧邻初始化决定。 */
 const RUN_CODE_ARGS = JSON.stringify({ code: PROGRAM, description: 'List the notes directory' })
 
-/** 中文说明：测试局部值 codeResult，由紧邻初始化决定。 */
 const codeResult = (seq: number, callId: string): ToolResultNode => ({
   kind: 'tool-result', seq, time: seq * 1_000, callId,
   call: { name: 'run_code', argsRaw: RUN_CODE_ARGS },
@@ -55,13 +50,11 @@ const codeResult = (seq: number, callId: string): ToolResultNode => ({
   subCalls: [],
 })
 
-/** 中文说明：测试局部值 runningCode，由紧邻初始化决定。 */
 const runningCode = (callId: string): RunningToolCall => ({
   callId, name: 'run_code', argsRaw: RUN_CODE_ARGS, turn: 9, step: 0, time: 9_000,
   subCalls: [],
 })
 
-/** 中文说明：测试局部值 subCall，由紧邻初始化决定。 */
 const subCall = (
   seq: number, parent: string, n: number, name: string, args: object, resultText: string, isError = false,
 ): ToolCallBlock => ({
@@ -74,14 +67,12 @@ const subCall = (
   subCalls: [],
 })
 
-/** 中文说明：函数 snapshotWith 的参数见签名，返回结果供展示流程使用；示例见本文件。 */
 function snapshotWith(
   nodes: ToolResultNode[],
   subCalls: readonly ToolCallBlock[],
   runningCalls: RunningToolCall[] = [],
 ): ChatSnapshot {
   const nestedNodes = nodes.map(node => ({ ...node, subCalls }))
-  /** 中文说明：测试局部值 nestedRunningCalls，由紧邻初始化决定。 */
   const nestedRunningCalls = runningCalls.map(call => ({ ...call, subCalls }))
   return toolChatSnapshot(nestedNodes, nestedRunningCalls)
 }
@@ -129,10 +120,6 @@ async function bench(snapshot: ChatSnapshot) {
   ctx.provide('layout', layout as never)
   ctx.provide('uiWorkspace', {} as never)
   new TestRemote(ctx, { session: { openWorkspacePath } })
-  ctx.provide('connection', {
-    isLoopback: false,
-    generation: { getSnapshot: () => undefined, subscribe: () => () => {} },
-  } as never)
   const locale = new LocaleRuntime(ctx)
   ctx.provide('locale', locale)
   locale.register(CONVERSATION_NS, { zh: conversationZh, en: conversationEn })
@@ -150,19 +137,15 @@ function mountApp(runtime: SlotTestRuntime) {
 
 describe('run_code sub-calls through the real chat machinery', () => {
   it('renders the code-variant parent row with the description summary and nested sub-rows', async () => {
-    /** 中文说明：测试局部值 parent，由紧邻初始化决定。 */
     const parent = 'call-64'
-    /** 中文说明：测试局部值 subCalls，由紧邻初始化决定。 */
     const subCalls = [
       subCall(11, parent, 1, 'bash', { command: 'ls notes', description: 'List notes' }, 'demo.txt'),
       subCall(12, parent, 2, 'mystery', { n: 1 }, 'ok'),
     ]
-    /** 中文说明：测试局部值 b，由紧邻初始化决定。 */
     const b = await bench(snapshotWith([codeResult(10, parent)], subCalls))
     const view = mountApp(b.runtime)
 
     // Parent row: the code variant with the model-authored description.
-    /** 中文说明：测试局部值 codeRoot，由紧邻初始化决定。 */
     const codeRoot = view.container.querySelector('[data-variant="code"]')
     expect(codeRoot).not.toBeNull()
     expect(view.getByText('Code')).toBeTruthy()
@@ -177,15 +160,12 @@ describe('run_code sub-calls through the real chat machinery', () => {
   })
 
   it('renders Cordis sub-calls with lifecycle titles over the generic variants', async () => {
-    /** 中文说明：测试局部值 parent，由紧邻初始化决定。 */
     const parent = 'call-cordis'
-    /** 中文说明：测试局部值 subCalls，由紧邻初始化决定。 */
     const subCalls = [
       subCall(11, parent, 1, 'cordis_runtime_inspect', { what: 'temporary' }, '## Dynamic Packages'),
       subCall(12, parent, 2, 'cordis_run', { id: 'dyn-2' }, 'Dynamic package dyn-2 is running'),
       subCall(13, parent, 3, 'cordis_undefine', { id: 'dyn-2' }, 'Dynamic package dyn-2 was discarded.'),
     ]
-    /** 中文说明：测试局部值 b，由紧邻初始化决定。 */
     const b = await bench(snapshotWith([codeResult(10, parent)], subCalls))
     const view = mountApp(b.runtime)
     const nest = view.container.querySelector('[data-subcalls]')!
@@ -201,19 +181,15 @@ describe('run_code sub-calls through the real chat machinery', () => {
   })
 
   it('expanding the code row reveals the program body verbatim (shiki-tokenized)', async () => {
-    /** 中文说明：测试局部值 parent，由紧邻初始化决定。 */
     const parent = 'call-64'
-    /** 中文说明：测试局部值 b，由紧邻初始化决定。 */
     const b = await bench(snapshotWith([codeResult(10, parent)], []))
     const view = mountApp(b.runtime)
     // The code row is expandable via the whole summary row (body = the program).
-    /** 中文说明：测试局部值 toggle，由紧邻初始化决定。 */
     const toggle = view.container.querySelector('[data-variant="code"] [data-expandable]')
     expect(toggle).not.toBeNull()
     fireEvent.click(toggle!)
     // Shiki splits the program into token spans inside one <pre class="shiki">:
     // assert the whole text and the highlighted tree rather than one node.
-    /** 中文说明：测试局部值 pre，由紧邻初始化决定。 */
     const pre = view.container.querySelector('pre.shiki')
     expect(pre).not.toBeNull()
     expect(pre!.textContent).toContain('const listing = await tools.bash')
@@ -221,13 +197,10 @@ describe('run_code sub-calls through the real chat machinery', () => {
   })
 
   it('an isError sub-call renders the error state dot exactly like a failed native row', async () => {
-    /** 中文说明：测试局部值 parent，由紧邻初始化决定。 */
     const parent = 'call-64'
-    /** 中文说明：测试局部值 subCalls，由紧邻初始化决定。 */
     const subCalls = [
       subCall(11, parent, 1, 'mystery', { n: 1 }, 'Error: boom', true),
     ]
-    /** 中文说明：测试局部值 b，由紧邻初始化决定。 */
     const b = await bench(snapshotWith([codeResult(10, parent)], subCalls))
     const view = mountApp(b.runtime)
     const nested = view.container.querySelector('[data-subcalls] [data-variant][data-state="error"]')
@@ -235,14 +208,11 @@ describe('run_code sub-calls through the real chat machinery', () => {
   })
 
   it('a file sub-row click opens the host path; bash sub-rows do not open details', async () => {
-    /** 中文说明：测试局部值 parent，由紧邻初始化决定。 */
     const parent = 'call-64'
-    /** 中文说明：测试局部值 subCalls，由紧邻初始化决定。 */
     const subCalls = [
       subCall(11, parent, 1, 'read', { path: 'notes/demo.txt' }, 'ok'),
       subCall(12, parent, 2, 'bash', { command: 'ls notes', description: 'List notes' }, 'demo.txt'),
     ]
-    /** 中文说明：测试局部值 b，由紧邻初始化决定。 */
     const b = await bench(snapshotWith([codeResult(10, parent)], subCalls))
     const view = mountApp(b.runtime)
     view.getByText('notes/demo.txt').click()
@@ -255,53 +225,42 @@ describe('run_code sub-calls through the real chat machinery', () => {
   })
 
   it('a RUNNING run_code call nests its so-far dispatches under the spinner row', async () => {
-    /** 中文说明：测试局部值 parent，由紧邻初始化决定。 */
     const parent = 'call-live'
-    /** 中文说明：测试局部值 subCalls，由紧邻初始化决定。 */
     const subCalls = [
       subCall(21, parent, 1, 'bash', { command: 'ls notes', description: 'List notes' }, 'demo.txt'),
     ]
-    /** 中文说明：测试局部值 b，由紧邻初始化决定。 */
     const b = await bench(snapshotWith([], subCalls, [runningCode(parent)]))
     const view = mountApp(b.runtime)
     const running = view.container.querySelector('[data-variant="code"][data-state="running"]')
     expect(running).not.toBeNull()
-    /** 中文说明：测试局部值 nest，由紧邻初始化决定。 */
     const nest = view.container.querySelector('[data-subcalls]')
     expect(nest).not.toBeNull()
     expect(nest!.querySelector('[data-sample="bash"]')).not.toBeNull()
   })
 
   it('a started-but-unsettled sub-call renders the running state exactly like a native in-flight row', async () => {
-    /** 中文说明：测试局部值 parent，由紧邻初始化决定。 */
     const parent = 'call-live'
-    /** 中文说明：测试局部值 runningSub，由紧邻初始化决定。 */
     const runningSub: ToolCallBlock = {
       callId: `${parent}:code:1`, name: 'grep', argsRaw: '{"pattern":"todo"}',
       parentCallId: parent,
       turn: 0, step: 0, time: 21_000, subCalls: [],
     }
-    /** 中文说明：测试局部值 b，由紧邻初始化决定。 */
     const b = await bench(snapshotWith([], [runningSub], [runningCode(parent)]))
     const view = mountApp(b.runtime)
     // The nested row derives 'running' from the RunningToolCall shape — the
     // same data-state chrome (row sweep) a native in-flight row wears.
-    /** 中文说明：测试局部值 nested，由紧邻初始化决定。 */
     const nested = view.container.querySelector('[data-subcalls] [data-variant][data-state="running"]')
     expect(nested).not.toBeNull()
   })
 
   it('an ordinary tool row renders no sub-call nest', async () => {
-    /** 中文说明：测试局部值 parent，由紧邻初始化决定。 */
     const parent = 'call-64'
-    /** 中文说明：测试局部值 plain，由紧邻初始化决定。 */
     const plain: ToolResultNode = {
       kind: 'tool-result', seq: 10, time: 10_000, callId: parent,
       call: { name: 'mystery', argsRaw: '{"n":1}' },
       callTime: 9_500,
       content: [], isError: false, subCalls: [],
     }
-    /** 中文说明：测试局部值 b，由紧邻初始化决定。 */
     const b = await bench(snapshotWith([plain], []))
     const view = mountApp(b.runtime)
     expect(view.container.querySelector('[data-subcalls]')).toBeNull()

@@ -1,94 +1,61 @@
-/*
- * ================================ 文件注释 ================================
- * 【文件职责】实现增量式"块级" markdown 解析器 IncrementalMarkdownParser：面向只追加的
- *             流式文本。每次新内容到达时不重新解析整个文档，而是冻结大部分旧块、只重解析
- *             尾部少数块，把总开销从"块数 × 更新次数"降为近线性。
- * 【技术维度】基于 mdast（Root / RootContent）与调用方提供的 parse 语法；利用 micromark 的
- *             position 偏移决定冻结边界；key 取块的绝对起始偏移，保证 React 跨更新稳定复用。
- * 【产品维度】AI 回复流式输出时每来一个 chunk 都要更新界面；若每次都全量重解析，长回复下
- *             界面会越来越卡。增量解析让滚动中的长对话保持流畅。
- * 【逻辑维度】1) UNSTABLE_TAIL_BLOCKS 保留不稳定尾部块数；2) PositionedBlock /
- *             IncrementalBlocks 数据结构；3) blockKey 计算稳定 key；4) update()：同文本
- *             去重 → 非追加输入重置 → 只解析尾部 → 冻结除最后两块外的块 → 推进 tailStart。
- * 【关键边界】冻结边界取自 parser 的 position 偏移（取前一块的 end 而非下一块的 start，
- *             以便把块间空行留在尾部，切片源码保持逐字不变）；已知偏差：引用式链接/脚注
- *             是文档级解析，定义跨冻结边界时会以字面量显示，直到完整解析自愈。
- * 【新手阅读建议】先理解"为什么可以只重解析尾部"（CommonMark 块解析是逐行的，追加内容
- *             只能重塑解析前沿），再读 update() 的冻结逻辑。
- * ==========================================================================
- */
 /**
  * Incremental block-level markdown parsing for an append-only text stream.
  *
  * Re-parsing the whole accumulated document on every streaming chunk is
  * quadratic in the final reply length. CommonMark block parsing is line-based
  * and appended text can only reshape the parse frontier — the last top-level
- * block (a paragraph becoming a setext heading or a table, a list continuing
- * after a blank line, an unclosed fence swallowing lines) — so earlier blocks
- * are final. This parser therefore freezes all but the trailing
- * {@link UNSTABLE_TAIL_BLOCKS} blocks and re-parses only the source tail
- * behind them: each source region is parsed O(1) times over the stream
- * instead of once per chunk.
+ * block (a paragraph becoming a setext heading or a table, or a list
+ * continuing after a blank line) — so earlier blocks are final. This parser
+ * therefore freezes all but the trailing {@link UNSTABLE_TAIL_BLOCKS} blocks
+ * and re-parses only the source tail behind them. A final unclosed top-level
+ * fence cannot freeze as a block, so its completed content lines use a second
+ * frontier: only the last completed line and current partial line return
+ * through the caller's grammar. Each source region is therefore parsed a
+ * bounded number of times over the stream instead of once per chunk.
  *
- * The freeze boundary comes from the parser's own `position` offsets, never
- * from custom source scanning. The cut sits at the *end offset* of the last
- * frozen block (not the next block's start): a following block's start offset
- * excludes up to three spaces of insignificant leading indentation, which is
- * harmless to drop, but cutting at the previous end also keeps the
- * inter-block blank lines in the tail so the sliced source stays verbatim.
+ * The block freeze boundary comes from the parser's own `position` offsets.
+ * The cut sits at the *end offset* of the last frozen block (not the next
+ * block's start): a following block's start offset excludes up to three spaces
+ * of insignificant leading indentation, which is harmless to drop, but
+ * cutting at the previous end also keeps the inter-block blank lines in the
+ * tail so the sliced source stays verbatim. Fence scanning only recognizes a
+ * parser-confirmed code node and closing delimiter; ambiguous input returns to
+ * the normal tail parse.
  *
  * Known deviation, shared with any prefix-freeze scheme: micromark resolves
  * reference-style links and footnotes document-wide at parse time, so a
  * reference whose definition lands on the other side of the freeze boundary
  * renders literally until the settled full parse self-heals it.
  */
-/*
- * 本文件实现只追加文本流的增量块级 markdown 解析：每次只重解析尾部少量块，
- * 之前的块一旦越过冻结边界就不会再变。
- */
 
-import type { Root, RootContent } from 'mdast'
+import type { Code, Root, RootContent } from 'mdast'
 
 /**
  * Trailing blocks kept unstable. Appended text reshapes at most the last
  * block; the second-to-last is retained as safety margin so a freeze decision
  * never has to reason about the parse frontier.
  */
-// 保留的不稳定尾部块数：追加文本最多重塑最后一个块，倒数第二个是安全余量，
-// 让"冻结决策"永远不需要推理解析前沿本身。
 const UNSTABLE_TAIL_BLOCKS = 2
 
 /** A top-level mdast block plus a render key that is stable across chunks. */
-/*
- * 一个顶层 mdast 块 + 跨更新稳定的渲染 key。
- */
 export interface PositionedBlock {
   /** The parsed block. Positions inside it are relative to its parse slice. */
-  // 解析出的块；其内部 position 相对于本次解析的切片。
   readonly node: RootContent
   /**
    * The block's start offset in the full source text. Stable from the frame
    * a block first appears through freezing, so React reconciles rather than
    * remounts when a block crosses the freeze boundary.
    */
-  // 块在整个源码中的起始偏移。从块首次出现到被冻结都保持不变，
-  // 因此块跨冻结边界时 React 是"协调复用"而不是"重挂载"。
   readonly key: number
 }
 
 /** One {@link IncrementalMarkdownParser.update} result. */
-/*
- * update() 的一次返回值：冻结块 + 尾部块 + 代数。
- */
 export interface IncrementalBlocks {
   /** Blocks that can no longer change; grows monotonically per generation. */
-  // 不会再变化的块，随更新代数单调增长。
   readonly frozen: readonly PositionedBlock[]
   /** The re-parsed unstable tail (at most {@link UNSTABLE_TAIL_BLOCKS} blocks plus growth). */
-  // 重新解析的不稳定尾部（最多 UNSTABLE_TAIL_BLOCKS 块再加增长）。
   readonly tail: readonly PositionedBlock[]
   /** Bumped whenever non-append input discards the frozen prefix; callers drop caches keyed on it. */
-  // 非追加输入清空冻结前缀时自增；调用方据此丢弃以它为键的缓存。
   readonly generation: number
 }
 
@@ -100,45 +67,238 @@ export interface IncrementalBlocks {
  * position-less parse keeps every block in the tail (real grammars always
  * stamp positions and never take this path).
  */
-/*
- * 块的渲染 key：绝对起始偏移。没有 position 的节点回退为负数下标 key——该回退只可能
- * 发生在尾部：冻结需要被切块的 position，故无 position 时整棵解析都在尾部。
- * @param node - 待取 key 的块。
- * @param base - 本次解析切片的起始偏移（加回后才能得到绝对偏移）。
- * @param index - 块在切片内的下标（回退 key 用）。
- * @returns 稳定的渲染 key。
- */
 function blockKey(node: RootContent, base: number, index: number): number {
   const offset = node.position?.start.offset
   return offset === undefined ? -(index + 1) : base + offset
+}
+
+interface OpenFenceState {
+  readonly marker: '`' | '~'
+  readonly markerLength: number
+  readonly syntheticPrefix: string
+  readonly codeIndex: number
+  readonly frozen: readonly PositionedBlock[]
+  readonly tail: readonly PositionedBlock[]
+  readonly pendingStart: number
+  readonly valuePrefix: string
+  readonly end: { readonly line: number; readonly column: number; readonly offset: number }
+  readonly endedWithCarriageReturn: boolean
+}
+
+/** Return the first line terminator at or after `start`, including a CRLF pair. */
+function lineTerminatorEnd(text: string, start: number): number | undefined {
+  for (let index = start; index < text.length; index += 1) {
+    const char = text[index]
+    if (char === '\n') return index + 1
+    if (char === '\r') return text[index + 1] === '\n' ? index + 2 : index + 1
+  }
+  return undefined
+}
+
+/**
+ * Source prefix before the last completed line. Keeping that line beside the
+ * current partial line lets the grammar retain its trailing-newline semantics.
+ */
+function committableLinePrefixLength(text: string): number {
+  let previousEnd = 0
+  let end = 0
+  for (let index = 0; index < text.length; index += 1) {
+    const char = text[index]
+    if (char === '\n') {
+      previousEnd = end
+      end = index + 1
+      continue
+    }
+    if (char !== '\r' || index + 1 >= text.length) continue
+    if (text[index + 1] === '\n') index += 1
+    previousEnd = end
+    end = index + 1
+  }
+  return previousEnd
+}
+
+/** Exact source terminator ending a non-empty committable prefix. */
+function trailingLineTerminator(text: string): '\n' | '\r' | '\r\n' {
+  return text.endsWith('\r\n') ? '\r\n' : text.endsWith('\r') ? '\r' : '\n'
+}
+
+/** Whether `text` contains a CommonMark closing fence on one of its logical lines. */
+function containsClosingFence(text: string, marker: '`' | '~', markerLength: number): boolean {
+  let start = 0
+  while (start <= text.length) {
+    let end = start
+    while (end < text.length && text[end] !== '\n' && text[end] !== '\r') end += 1
+    const line = text.slice(start, end)
+    let indent = 0
+    while (indent < 3 && line[indent] === ' ') indent += 1
+    let run = indent
+    while (line[run] === marker) run += 1
+    if (run - indent >= markerLength && /^[ \t]*$/.test(line.slice(run))) return true
+    if (end === text.length) return false
+    start = text[end] === '\r' && text[end + 1] === '\n' ? end + 2 : end + 1
+  }
+  /* v8 ignore next -- each loop iteration returns at EOF or advances past a line terminator. */
+  return false
+}
+
+/** Advance an mdast point across one append while treating a split CRLF as one line ending. */
+function advancePoint(
+  point: OpenFenceState['end'],
+  appended: string,
+  precededByCarriageReturn: boolean,
+): OpenFenceState['end'] {
+  let line = point.line
+  let column = point.column
+  let afterCarriageReturn = precededByCarriageReturn
+  for (const char of appended) {
+    if (char === '\n') {
+      if (!afterCarriageReturn) line += 1
+      column = 1
+      afterCarriageReturn = false
+      continue
+    }
+    if (char === '\r') {
+      line += 1
+      column = 1
+      afterCarriageReturn = true
+      continue
+    }
+    column += 1
+    afterCarriageReturn = false
+  }
+  return { line, column, offset: point.offset + appended.length }
 }
 
 /**
  * Append-only incremental parser over a caller-supplied grammar. One instance
  * accumulates one streaming document; non-append input resets it.
  */
-/*
- * 基于调用方语法的只追加增量解析器。一个实例累积一份流式文档；非追加输入会重置它。
- * 使用示例：const parser = new IncrementalMarkdownParser(parseGfm)；每收到一个 chunk 调用
- *   update(accumulatedText)，把返回的 frozen 与 tail 交给渲染层。
- */
 export class IncrementalMarkdownParser {
-  // 上次 update 的完整文本，用于快速判断"新文本是否仍是追加"。
   private prevText = ''
-  // 尾部切片在完整源码中的起始偏移；冻结推进时前移。
   private tailStart = 0
-  // 已冻结的块（不会再变化），用于拼接最终结果。
   private frozen: PositionedBlock[] = []
-  // 代数：非追加输入时自增，供调用方作缓存失效信号。
   private generation = 0
-  // 上次结果缓存：输入未变时直接复用，让调用方可在渲染路径中安全重入。
   private cached: IncrementalBlocks | null = null
+  private openFence: OpenFenceState | null = null
 
   /** @param parse - Grammar shared with whatever renders the blocks, so boundaries agree. */
-  /*
-   * @param parse - 与块渲染方共享的语法（如 parseGfm），保证块边界判定一致。
-   */
   constructor(private readonly parse: (text: string) => Root) {}
+
+  /** Parse one unclosed-fence content slice through the caller's grammar. */
+  private fenceValue(state: Pick<OpenFenceState, 'syntheticPrefix'>, text: string): string | undefined {
+    const root = this.parse(`${state.syntheticPrefix}${text}`)
+    if (root.children.length !== 1) return undefined
+    const node = root.children[0] as RootContent
+    return node.type === 'code' ? node.value : undefined
+  }
+
+  /** Recognize the parsed tail's final unclosed fence and prepare its incremental content frontier. */
+  private openFenceState(
+    text: string,
+    base: number,
+    tail: readonly PositionedBlock[],
+    frozen: readonly PositionedBlock[],
+  ): OpenFenceState | null {
+    const codeIndex = tail.length - 1
+    const block = tail[codeIndex]
+    if (block?.node.type !== 'code') return null
+    const node = block.node
+    const startOffset = node.position?.start.offset
+    const end = node.position?.end
+    if (startOffset === undefined || end?.offset === undefined) return null
+    /* v8 ignore next -- the caller's parse slice ends at text.length, so its final node ends there. */
+    if (base + end.offset !== text.length) return null
+    const source = text.slice(base)
+    const previousLf = source.lastIndexOf('\n', startOffset - 1)
+    const previousCr = source.lastIndexOf('\r', startOffset - 1)
+    const lineStart = Math.max(previousLf, previousCr) + 1
+    const terminatorEnd = lineTerminatorEnd(source, startOffset)
+    /* v8 ignore next -- a parser-confirmed fenced code node requires its opening line terminator. */
+    if (terminatorEnd === undefined) return null
+    if (terminatorEnd === source.length && source.endsWith('\r')) return null
+    const openingLine = source.slice(lineStart, terminatorEnd).replace(/[\r\n]+$/, '')
+    const opening = /^( {0,3})(`{3,}|~{3,})/.exec(openingLine)
+    if (opening === null) return null
+    const indent = opening[1] as string
+    const run = opening[2] as string
+    /* v8 ignore next -- mdast positions a fenced code node at the matched delimiter after indentation. */
+    if (lineStart + indent.length !== startOffset) return null
+    const marker = run[0] as '`' | '~'
+    const contentStart = base + terminatorEnd
+    const content = text.slice(contentStart)
+    if (containsClosingFence(content, marker, run.length)) return null
+    const syntheticPrefix = `${indent}${run}\n`
+    const stableLength = committableLinePrefixLength(content)
+    const stableValue = stableLength === 0
+      ? ''
+      : this.fenceValue({ syntheticPrefix }, content.slice(0, stableLength))
+    if (stableValue === undefined) return null
+    const pendingStart = contentStart + stableLength
+    const stableSource = content.slice(0, stableLength)
+    const valuePrefix = stableLength === 0 ? '' : `${stableValue}${trailingLineTerminator(stableSource)}`
+    const pendingValue = this.fenceValue({ syntheticPrefix }, text.slice(pendingStart))
+    if (pendingValue === undefined || `${valuePrefix}${pendingValue}` !== node.value) return null
+    return {
+      marker,
+      markerLength: run.length,
+      syntheticPrefix,
+      codeIndex,
+      frozen,
+      tail,
+      pendingStart,
+      valuePrefix,
+      end: { line: end.line, column: end.column, offset: end.offset },
+      endedWithCarriageReturn: text.endsWith('\r'),
+    }
+  }
+
+  /** Extend a recognized unclosed fence without parsing its completed content prefix again. */
+  private updateOpenFence(
+    state: OpenFenceState,
+    text: string,
+    previousText: string,
+  ): IncrementalBlocks | undefined {
+    const pending = text.slice(state.pendingStart)
+    if (containsClosingFence(pending, state.marker, state.markerLength)) return undefined
+    const pendingValue = this.fenceValue(state, pending)
+    if (pendingValue === undefined) return undefined
+    const stableLength = committableLinePrefixLength(pending)
+    const stableValue = stableLength === 0
+      ? ''
+      : this.fenceValue(state, pending.slice(0, stableLength))
+    if (stableValue === undefined) return undefined
+    // OpenFenceState is private and is installed only from this exact retained
+    // code entry; updates replace that entry with another positioned Code.
+    const block = state.tail[state.codeIndex] as PositionedBlock
+    const previousNode = block.node as Code & { position: NonNullable<Code['position']> }
+    const end = advancePoint(
+      state.end,
+      text.slice(previousText.length),
+      state.endedWithCarriageReturn,
+    )
+    const node: Code = {
+      ...previousNode,
+      value: `${state.valuePrefix}${pendingValue}`,
+      position: { start: previousNode.position.start, end },
+    }
+    const tail = state.tail.map((entry, index) => index === state.codeIndex ? { ...entry, node } : entry)
+    const cached = {
+      frozen: state.frozen,
+      tail,
+      generation: this.generation,
+    }
+    this.openFence = {
+      ...state,
+      tail,
+      pendingStart: state.pendingStart + stableLength,
+      valuePrefix: stableLength === 0
+        ? state.valuePrefix
+        : `${state.valuePrefix}${stableValue}${trailingLineTerminator(pending.slice(0, stableLength))}`,
+      end,
+      endedWithCarriageReturn: text.endsWith('\r'),
+    }
+    return cached
+  }
 
   /**
    * Fold the current accumulated text and return the frozen/tail split.
@@ -146,13 +306,6 @@ export class IncrementalMarkdownParser {
    * so callers may invoke it from render paths that re-execute.
    * @param text - The full accumulated markdown source.
    * @returns Frozen and tail blocks with stream-stable render keys.
-   */
-  /*
-   * 归并当前累积文本并返回 frozen / tail 划分。对相同输入是幂等的（直接返回上次结果），
-   * 因此渲染路径中重复调用也安全。
-   * 使用示例：const { frozen, tail } = parser.update(text)；渲染层拼 frozen + tail。
-   * @param text - 累积到当前的完整 markdown 源码。
-   * @returns 带稳定渲染 key 的 frozen 与 tail 块。
    */
   update(text: string): IncrementalBlocks {
     if (this.cached !== null && text === this.prevText) return this.cached
@@ -162,44 +315,46 @@ export class IncrementalMarkdownParser {
     // exists to remove. Passing append/reset deltas instead would push
     // append bookkeeping across the session-projection update boundary for a check
     // that stays sub-millisecond at realistic reply sizes.
-    // 刻意选择 O(前缀) 的字节比较：要可靠检测"是否仍是追加"必须核对整个保留前缀，
-    // 而 startsWith 比解析快两个数量级——这正是本类要消除的成本；把追加记账推给上游
-    // 反而得不偿失。
     if (!text.startsWith(this.prevText)) {
-      // 不是追加（文本被改写/截断）：整体重置，代数 +1 通知调用方丢弃缓存。
       this.prevText = ''
       this.tailStart = 0
       this.frozen = []
+      this.openFence = null
       this.generation += 1
     }
+    const previousText = this.prevText
+    if (previousText !== '' && this.openFence !== null) {
+      const incremental = this.updateOpenFence(this.openFence, text, previousText)
+      if (incremental !== undefined) {
+        this.prevText = text
+        this.cached = incremental
+        return incremental
+      }
+      this.openFence = null
+    }
     this.prevText = text
-    // base 是本次解析切片在完整源码中的起点：只解析 tailStart 之后的部分。
     const base = this.tailStart
     const blocks = this.parse(text.slice(base)).children
-    // 不稳定起点：默认保留最后 UNSTABLE_TAIL_BLOCKS 块；切不出边界时整棵都在尾部。
     let firstUnstable = Math.max(0, blocks.length - UNSTABLE_TAIL_BLOCKS)
     if (firstUnstable > 0) {
       const cutEnd = blocks[firstUnstable - 1]?.position?.end.offset
       if (cutEnd === undefined) {
         // A grammar that omits positions leaves nothing to cut at; keep the
         // whole parse in the tail rather than guessing a boundary.
-        // 语法省略 position 时没有可切的边界：把整棵解析留在尾部，而不是猜一个边界。
         firstUnstable = 0
       } else {
-        // 把切点之前的块推入 frozen；tailStart 前移到切点（前一块的 end 偏移），
-        // 下次解析只覆盖尾部，且块间空行留在尾部保持源码逐字不变。
         for (const node of blocks.slice(0, firstUnstable)) {
           this.frozen.push({ node, key: blockKey(node, base, this.frozen.length) })
         }
         this.tailStart = base + cutEnd
       }
     }
-    // 尾部块重解析并取 key；key 使用绝对偏移，跨更新稳定。
     const tail = blocks.slice(firstUnstable).map((node, index) => ({
       node,
       key: blockKey(node, base, index),
     }))
     this.cached = { frozen: [...this.frozen], tail, generation: this.generation }
+    this.openFence = this.openFenceState(text, base, tail, this.cached.frozen)
     return this.cached
   }
 }

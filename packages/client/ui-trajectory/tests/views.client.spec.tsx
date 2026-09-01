@@ -1,12 +1,4 @@
 // @vitest-environment jsdom
-/*
- * 文件职责：验证运行轨迹的 views.client.spec.tsx 行为。
- * 技术维度：Vitest、React 渲染、虚拟列表和服务替身。
- * 产品维度：防止运行轨迹展示与操作流程回归。
- * 逻辑维度：构造状态，触发交互并断言输出和清理。
- * 关键边界：计时器、观察器、DOM 尺寸和异步请求必须恢复。
- * 新手阅读建议：先读夹具，再按加载、交互和异常场景阅读。
- */
 /**
  * View registration acceptance on the real framework stack: the plugin fiber
  * registers Trajectory into a real SlotRegistry view ring, tabs
@@ -18,7 +10,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { createElement, type ComponentProps, type FC, type ReactNode } from 'react'
-import { bindSnapshotSelector, SlotTestRuntime } from '@deepseek-ai/dsh-client-test-runtime'
+import { bindSnapshotSelector, SlotTestRuntime, stubSettingsScope } from '@deepseek-ai/dsh-client-test-runtime'
 import { resolveSlotLabel } from '@deepseek-ai/dsh-client-ui-slots'
 import {
   EMPTY_CONVERSATION_SNAPSHOT, UiConversation,
@@ -42,13 +34,11 @@ import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import type { SessionPendingInteractionSnapshot } from '@deepseek-ai/dsh-client-ui-session/client'
 import {
   ConversationSession, ConversationSessionHeader,
-  /** 中文说明：类型或类 ConversationSessionHeaderProps 约束模块数据或组件职责。 */
   type ConversationSessionHeaderProps, type ConversationSessionProps,
 } from '@deepseek-ai/dsh-client-ui-conversation/src/client/skeleton/ConversationSession.tsx'
 import { createConversationStore } from '@deepseek-ai/dsh-client-ui-conversation/src/client/stores.ts'
 import { zh as conversationZh } from '@deepseek-ai/dsh-client-ui-conversation/src/client/locales.ts'
 import { apply as localeApply, inject as localeInject } from '@deepseek-ai/dsh-client-locale/client'
-import { stubSettingsScope } from '@deepseek-ai/dsh-client-test-runtime'
 import { apply, inject } from '@deepseek-ai/dsh-client-ui-trajectory/client'
 import { apply as nodeApply } from '@deepseek-ai/dsh-client-ui-trajectory'
 import type { TrajectoryTurnModel } from '../src/client/layout.ts'
@@ -68,7 +58,6 @@ function TrajectoryTimeline(
   return <LocalizedTrajectoryTimeline {...props} t={tTrajectory} />
 }
 
-/** 中文说明：测试局部值 SID，由紧邻初始化决定。 */
 const SID = 's1' as SessionId
 const tConversation: ConversationSessionHeaderProps['t'] =
   key => (conversationZh as Record<string, string>)[key] ?? key
@@ -102,7 +91,6 @@ const NODES: LegacyConversationSlice['nodes'] = [
   },
 ]
 
-/** 中文说明：函数 historySnapshot 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function historySnapshot(
   nodes: LegacyConversationSlice['nodes'],
   inspection: Partial<TrajectorySnapshot> = {},
@@ -149,7 +137,6 @@ function conversationSnapshot(
   }
 }
 
-/** 中文说明：函数 standaloneHistory 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function standaloneHistory(
   snapshot: TrajectorySnapshot,
 ): Pick<
@@ -165,11 +152,9 @@ function standaloneHistory(
   }
 }
 
-/** 中文说明：函数 standaloneDuration 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function standaloneDuration(): Pick<
   ComponentProps<typeof TrajectoryView>, 'useDuration' | 'setActualDuration'
 > {
-  /** 中文说明：测试局部值 duration，由紧邻初始化决定。 */
   const duration = createSnapshotStore(false)
   return {
     useDuration: bindSnapshotSelector(duration),
@@ -178,15 +163,12 @@ function standaloneDuration(): Pick<
 }
 
 /** Empty sessions-list hook; breadcrumbs therefore fall back to the raw id. */
-/* 中文说明：函数 emptySessions 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function emptySessions() {
-  /** 中文说明：测试局部值 store，由紧邻初始化决定。 */
   const store = createSnapshotStore<SessionListState>(
     { ids: [], byId: {}, current: undefined, phase: 'ready', subagentsByParent: {}, jobsBySession: {}, currentAddress: undefined })
   return bindSnapshotSelector(store)
 }
 
-/** 中文说明：函数 emptyWorkspaces 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function emptyWorkspaces() {
   const store = createSnapshotStore<WorkspaceSnapshot>({
     items: [], archivedSessionIds: [], state: 'idle', phase: 'ready', error: null,
@@ -217,7 +199,6 @@ type StandaloneBaseProps = Omit<
 >
 
 /** Standalone view props: the session-scope standard kit the outlet would bake. */
-/* 中文说明：函数 standaloneProps 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function standaloneProps(
   nodes: LegacyConversationSlice['nodes'],
 ): StandaloneBaseProps {
@@ -262,7 +243,6 @@ type ConversationTargetSources = {
 }
 
 /** Real-stack bench: root Context + real SlotRegistry ring + the plugin fiber. */
-/* 中文说明：函数 bench 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 async function bench(snapshot = historySnapshot(NODES)) {
   const runtime = await SlotTestRuntime.create()
   runtimes.push(runtime)
@@ -284,6 +264,7 @@ async function bench(snapshot = historySnapshot(NODES)) {
   }
   const binding: ConversationBinding = {
     snapshot: conversationStore,
+    activate: () => {},
     target: target => targetSources[target],
   }
   vi.spyOn(uiConversation, 'binding').mockReturnValue(binding)
@@ -313,7 +294,6 @@ async function bench(snapshot = historySnapshot(NODES)) {
 }
 
 /** Tab projection twin of apply's viewTabs (the render-side consumption path). */
-/* 中文说明：函数 tabsOf 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function tabsOf(slots: SlotRegistry): ViewTab[] {
   return slots.entries('conversation.view')
     .map(e => ({ id: e.options.id!, label: resolveSlotLabel(e.options.label) ?? e.options.id! }))
@@ -377,16 +357,12 @@ function mount(fixture: Awaited<ReturnType<typeof bench>>) {
     if (entry === undefined) return null
     if (!isConvViewOwner(owner)) throw new Error('trajectory fixture expected Conversation view owner props')
     const View = entry.component as FC<ConvViewProps>
-    /** 中文说明：测试局部值 injectEntry，由紧邻初始化决定。 */
     const injectEntry = entry.inject as ((sessionId: SessionId) => object) | undefined
-    /** 中文说明：测试局部值 injected，由紧邻初始化决定。 */
     const injected = injectEntry === undefined
       ? {}
       : injectEntry(SID)
-    /** 中文说明：测试局部值 injectedProps，由紧邻初始化决定。 */
     const injectedProps = 'hooks' in injected
       ? (() => {
-        /** 中文说明：测试局部值 trajectory，由紧邻初始化决定。 */
         const trajectory = injected as TrajectoryViewInjected
         return {
           loadOlder: trajectory.loadOlder,
@@ -414,6 +390,7 @@ function mount(fixture: Awaited<ReturnType<typeof bench>>) {
         actions={conversation.actions}
         renderSlot={() => null}
         open={vi.fn()}
+        selectView={conversation.actions.setView}
         t={tConversation}
       />
       <ConversationSession
@@ -423,6 +400,7 @@ function mount(fixture: Awaited<ReturnType<typeof bench>>) {
         actions={conversation.actions}
         renderSlot={renderSlot}
         bindDraftMirror={() => () => {}}
+        openView={conversation.actions.openView}
       />
     </>,
   )
@@ -430,7 +408,6 @@ function mount(fixture: Awaited<ReturnType<typeof bench>>) {
 
 describe('plugin registration', () => {
   it('registers trajectory after chat on the ring', async () => {
-    /** 中文说明：测试局部值 b，由紧邻初始化决定。 */
     const b = await bench()
     expect(tabsOf(b.slots)).toEqual([
       { id: 'chat', label: 'Chat' },
@@ -439,7 +416,6 @@ describe('plugin registration', () => {
   })
 
   it('fiber disposal removes the tab and leaves chat standing', async () => {
-    /** 中文说明：测试局部值 b，由紧邻初始化决定。 */
     const b = await bench()
     expect(b.events.entries().length).toBeGreaterThan(0)
     expect(b.views.entries()).toHaveLength(1)
@@ -474,17 +450,13 @@ describe('plugin registration', () => {
   })
 
   it('shares one browser-wide duration preference across session injections', async () => {
-    /** 中文说明：测试局部值 b，由紧邻初始化决定。 */
     const b = await bench()
-    /** 中文说明：测试局部值 entry，由紧邻初始化决定。 */
     const entry = b.slots.entries('conversation.view')
       .find(candidate => candidate.options.id === 'trajectory')
     expect(entry).toBeDefined()
-    /** 中文说明：测试局部值 injectEntry，由紧邻初始化决定。 */
     const injectEntry = entry!.inject as unknown as (
       sessionId: SessionId,
     ) => TrajectoryViewInjected
-    /** 中文说明：测试局部值 first，由紧邻初始化决定。 */
     const first = injectEntry(SID)
     await b.runtime.sessions.add({ id: 's2' }, { current: false })
     const second = injectEntry('s2' as SessionId)
@@ -497,16 +469,12 @@ describe('plugin registration', () => {
   })
 
   it('reports whether loading older history changed the Trajectory snapshot', async () => {
-    /** 中文说明：测试局部值 b，由紧邻初始化决定。 */
     const b = await bench()
-    /** 中文说明：测试局部值 entry，由紧邻初始化决定。 */
     const entry = b.slots.entries('conversation.view')
       .find(candidate => candidate.options.id === 'trajectory')
-    /** 中文说明：测试局部值 injectEntry，由紧邻初始化决定。 */
     const injectEntry = entry!.inject as unknown as (
       sessionId: SessionId,
     ) => TrajectoryViewInjected
-    /** 中文说明：测试局部值 injected，由紧邻初始化决定。 */
     const injected = injectEntry(SID)
 
     expect(await injected.loadOlder()).toBe(false)
@@ -520,7 +488,6 @@ describe('plugin registration', () => {
 
 describe('tab switching in ConversationRoot', () => {
   it('renders two tabs, defaults to chat, and switches to the trajectory ledger', async () => {
-    /** 中文说明：测试局部值 b，由紧邻初始化决定。 */
     const b = await bench()
     const view = mount(b)
     expect(screen.getByTestId('chat-body')).toBeTruthy()
@@ -544,12 +511,9 @@ describe('tab switching in ConversationRoot', () => {
   })
 
   it('labels the trajectory tab in the active locale', async () => {
-    /** 中文说明：测试局部值 b，由紧邻初始化决定。 */
     const b = await bench()
-    /** 中文说明：测试局部值 labelOf，由紧邻初始化决定。 */
     const labelOf = () => tabsOf(b.slots).find(tab => tab.id === 'trajectory')?.label
     expect(labelOf()).toBe('Trajectory')
-    /** 中文说明：测试局部值 locale，由紧邻初始化决定。 */
     const locale = b.ctx.get('locale') as { setLocale(id: string): void }
     locale.setLocale('zh')
     expect(labelOf()).toBe('轨迹')
@@ -558,7 +522,6 @@ describe('tab switching in ConversationRoot', () => {
   })
 
   it('opens a local record inspector and switches payload tabs without opening chat details', async () => {
-    /** 中文说明：测试局部值 b，由紧邻初始化决定。 */
     const b = await bench()
     mount(b)
     fireEvent.click(screen.getByRole('tab', { name: 'Trajectory' }))
@@ -596,7 +559,6 @@ describe('tab switching in ConversationRoot', () => {
       status: 'complete',
       summary: [{ type: 'text', text: 'standalone summary' }],
     }
-    /** 中文说明：测试局部值 b，由紧邻初始化决定。 */
     const b = await bench(historySnapshot(nodes, { requests: [compaction] }))
     const view = mount(b)
     fireEvent.click(screen.getByRole('tab', { name: 'Trajectory' }))
@@ -649,7 +611,6 @@ describe('tab switching in ConversationRoot', () => {
         summary: [{ type: 'text', text: 'second standalone summary' }],
       },
     ]
-    /** 中文说明：测试局部值 b，由紧邻初始化决定。 */
     const b = await bench(historySnapshot(nodes, { requests: compactions }))
     mount(b)
     fireEvent.click(screen.getByRole('tab', { name: 'Trajectory' }))
@@ -657,7 +618,6 @@ describe('tab switching in ConversationRoot', () => {
     const firstRequest = screen.getByRole('button', { name: '请求 #2 · 压缩' })
     const secondRequest = screen.getByRole('button', { name: '请求 #4 · 压缩' })
     const firstSection = firstRequest.closest('tr')?.querySelector('span')
-    /** 中文说明：测试局部值 secondSection，由紧邻初始化决定。 */
     const secondSection = secondRequest.closest('tr')?.querySelector('span')
     expect(firstSection?.textContent).toBe('轮次之间')
     expect(secondSection?.textContent).toBe('轮次之间')
@@ -676,7 +636,6 @@ describe('tab switching in ConversationRoot', () => {
   })
 
   it('dragging the overview focuses overlapping records without filtering the ledger', async () => {
-    /** 中文说明：测试局部值 b，由紧邻初始化决定。 */
     const b = await bench()
     mount(b)
     fireEvent.click(screen.getByRole('tab', { name: 'Trajectory' }))
@@ -692,7 +651,6 @@ describe('tab switching in ConversationRoot', () => {
     expect(screen.getByRole('row', { name: /用户/ }).getAttribute('data-timeline-focus'))
       .toBe('outside')
 
-    /** 中文说明：测试局部值 tablePane，由紧邻初始化决定。 */
     const tablePane = screen.getByRole('table').parentElement
     expect(tablePane).not.toBeNull()
     fireEvent.click(tablePane as HTMLElement)
@@ -710,7 +668,6 @@ describe('tab switching in ConversationRoot', () => {
   })
 
   it('clicking a timeline block clears the range, selects the record, and opens its inspector', async () => {
-    /** 中文说明：测试局部值 b，由紧邻初始化决定。 */
     const b = await bench()
     const view = mount(b)
     fireEvent.click(screen.getByRole('tab', { name: 'Trajectory' }))
@@ -719,12 +676,10 @@ describe('tab switching in ConversationRoot', () => {
       x: 0, y: 0, left: 0, top: 0, right: 100, bottom: 72, width: 100, height: 72,
       toJSON: () => ({}),
     })
-    /** 中文说明：测试局部值 toolSpan，由紧邻初始化决定。 */
     const toolSpan = view.container.querySelector<HTMLElement>(
       '[data-timeline-span="tool"]',
     )
     expect(toolSpan).not.toBeNull()
-    /** 中文说明：测试局部值 recordIndex，由紧邻初始化决定。 */
     const recordIndex = toolSpan?.dataset.timelineRecordIndex
     expect(recordIndex).toBeTruthy()
 
@@ -742,7 +697,6 @@ describe('tab switching in ConversationRoot', () => {
     })
     fireEvent.pointerUp(toolSpan as HTMLElement, { clientX: 50, pointerId: 2 })
 
-    /** 中文说明：测试局部值 selectedRow，由紧邻初始化决定。 */
     const selectedRow = view.container.querySelector<HTMLElement>(
       `tr[data-record-index="${recordIndex}"]`,
     )
@@ -752,7 +706,6 @@ describe('tab switching in ConversationRoot', () => {
   })
 
   it('empty window keeps the toolbar and reports no timing data', async () => {
-    /** 中文说明：测试局部值 b，由紧邻初始化决定。 */
     const b = await bench(historySnapshot([]))
     mount(b)
     fireEvent.click(screen.getByRole('tab', { name: 'Trajectory' }))
@@ -770,7 +723,6 @@ describe('tab switching in ConversationRoot', () => {
 })
 
 describe('timeline projection', () => {
-  /** 中文说明：测试局部值 turns，由紧邻初始化决定。 */
   const turns = [{
     turn: 1,
     groups: [{
@@ -782,7 +734,6 @@ describe('timeline projection', () => {
       ],
     }],
   }] satisfies readonly TrajectoryTurnModel[]
-  /** 中文说明：测试局部值 longTurns，由紧邻初始化决定。 */
   const longTurns = [{
     turn: 1,
     groups: [{
@@ -799,7 +750,6 @@ describe('timeline projection', () => {
   it('splits assistant time into recorded TTFT and decoding proportions with a delayed tooltip', () => {
     vi.useFakeTimers()
     try {
-      /** 中文说明：测试局部值 view，由紧邻初始化决定。 */
       const view = render(
         <TrajectoryTimeline
           turns={[{
@@ -828,7 +778,6 @@ describe('timeline projection', () => {
           onRangeChange={vi.fn()}
         />,
       )
-      /** 中文说明：测试局部值 span，由紧邻初始化决定。 */
       const span = view.container.querySelector<HTMLElement>(
         '[data-timeline-span="message"]',
       )
@@ -840,7 +789,6 @@ describe('timeline projection', () => {
       act(() => { vi.advanceTimersByTime(499) })
       expect(view.container.querySelector('[role="tooltip"]')).toBeNull()
       act(() => { vi.advanceTimersByTime(1) })
-      /** 中文说明：测试局部值 tooltip，由紧邻初始化决定。 */
       const tooltip = view.container.querySelector<HTMLElement>('[role="tooltip"]')
       expect(tooltip?.textContent).toContain('Total 2,000 ms')
       expect(tooltip?.textContent).toContain('TTFT 500 ms')
@@ -851,9 +799,7 @@ describe('timeline projection', () => {
   })
 
   it('marks an unloaded history prefix without inventing timeline duration', () => {
-    /** 中文说明：测试局部值 onLoadEarlier，由紧邻初始化决定。 */
     const onLoadEarlier = vi.fn(() => new Promise<boolean>(() => {}))
-    /** 中文说明：测试局部值 view，由紧邻初始化决定。 */
     const view = render(
       <TrajectoryTimeline
         turns={turns}
@@ -865,10 +811,8 @@ describe('timeline projection', () => {
       />,
     )
 
-    /** 中文说明：测试局部值 boundary，由紧邻初始化决定。 */
     const boundary = screen.getByLabelText('Load earlier history')
     expect(boundary.getAttribute('data-earlier-history')).not.toBeNull()
-    /** 中文说明：测试局部值 plot，由紧邻初始化决定。 */
     const plot = screen.getByLabelText('Timeline overview; drag horizontally to focus events')
     fireEvent.pointerMove(plot, { clientX: 50, pointerId: 1 })
     expect(view.container.querySelector('[data-timeline-hover-line]')).toBeTruthy()
@@ -902,7 +846,6 @@ describe('timeline projection', () => {
         onRangeChange={vi.fn()}
       />,
     )
-    /** 中文说明：测试局部值 plot，由紧邻初始化决定。 */
     const plot = screen.getByLabelText('Timeline overview; drag horizontally to focus events')
     vi.spyOn(plot, 'getBoundingClientRect').mockReturnValue({
       x: 44, y: 0, left: 44, top: 0, right: 144, bottom: 50, width: 100, height: 50,
@@ -917,7 +860,6 @@ describe('timeline projection', () => {
   })
 
   it('scales sequence gutters with narrow operation spans', () => {
-    /** 中文说明：测试局部值 view，由紧邻初始化决定。 */
     const view = render(
       <TrajectoryTimeline
         turns={longTurns}
@@ -926,7 +868,6 @@ describe('timeline projection', () => {
         onRangeChange={vi.fn()}
       />,
     )
-    /** 中文说明：测试局部值 span，由紧邻初始化决定。 */
     const span = view.container.querySelector<HTMLElement>('[data-timeline-span]')
     expect(span?.style.getPropertyValue('--trajectory-span-width')).toBe('10%')
     expect(span?.style.getPropertyValue('--trajectory-span-gap'))
@@ -934,7 +875,6 @@ describe('timeline projection', () => {
   })
 
   it('keeps dense sequence spans proportional before applying the pixel floor', () => {
-    /** 中文说明：测试局部值 denseTurns，由紧邻初始化决定。 */
     const denseTurns = [{
       turn: 1,
       groups: [{
@@ -947,7 +887,6 @@ describe('timeline projection', () => {
         })),
       }],
     }]
-    /** 中文说明：测试局部值 view，由紧邻初始化决定。 */
     const view = render(
       <TrajectoryTimeline
         turns={denseTurns}
@@ -957,7 +896,6 @@ describe('timeline projection', () => {
       />,
     )
 
-    /** 中文说明：测试局部值 span，由紧邻初始化决定。 */
     const span = view.container.querySelector<HTMLElement>('[data-timeline-span]')
     expect(span?.style.getPropertyValue('--trajectory-span-width')).toBe('0.25%')
     expect(span?.style.getPropertyValue('--trajectory-span-gap'))
@@ -965,9 +903,7 @@ describe('timeline projection', () => {
   })
 
   it('clears the selection without changing zoom on a zoomed right click', () => {
-    /** 中文说明：测试局部值 onRangeChange，由紧邻初始化决定。 */
     const onRangeChange = vi.fn()
-    /** 中文说明：测试局部值 view，由紧邻初始化决定。 */
     const view = render(
       <TrajectoryTimeline
         turns={longTurns}
@@ -977,7 +913,6 @@ describe('timeline projection', () => {
         onRangeChange={onRangeChange}
       />,
     )
-    /** 中文说明：测试局部值 plot，由紧邻初始化决定。 */
     const plot = screen.getByLabelText('Timeline overview; drag horizontally to focus events')
     expect(screen.getByLabelText('Load earlier history')).toBeTruthy()
     vi.spyOn(plot, 'getBoundingClientRect').mockReturnValue({
@@ -986,9 +921,7 @@ describe('timeline projection', () => {
     })
     fireEvent.wheel(plot, { clientX: 50, deltaY: -1_000 })
     expect(screen.queryByLabelText('Load earlier history')).toBeNull()
-    /** 中文说明：测试局部值 domain，由紧邻初始化决定。 */
     const domain = view.container.querySelector<HTMLElement>('[data-timeline-domain]')
-    /** 中文说明：测试局部值 domainWidth，由紧邻初始化决定。 */
     const domainWidth = domain?.style.getPropertyValue('--trajectory-domain-width')
     expect(domainWidth).not.toBe('100%')
 
@@ -1002,7 +935,6 @@ describe('timeline projection', () => {
   })
 
   it('clears the selection and suppresses the context menu at full zoom', () => {
-    /** 中文说明：测试局部值 onRangeChange，由紧邻初始化决定。 */
     const onRangeChange = vi.fn()
     render(
       <TrajectoryTimeline
@@ -1012,7 +944,6 @@ describe('timeline projection', () => {
         onRangeChange={onRangeChange}
       />,
     )
-    /** 中文说明：测试局部值 plot，由紧邻初始化决定。 */
     const plot = screen.getByLabelText('Timeline overview; drag horizontally to focus events')
 
     fireEvent.pointerDown(plot, { button: 2, clientX: 50, pointerId: 1 })
@@ -1023,9 +954,7 @@ describe('timeline projection', () => {
   })
 
   it('pans the zoomed viewport with a right-button drag without changing the selection', () => {
-    /** 中文说明：测试局部值 onRangeChange，由紧邻初始化决定。 */
     const onRangeChange = vi.fn()
-    /** 中文说明：测试局部值 view，由紧邻初始化决定。 */
     const view = render(
       <TrajectoryTimeline
         turns={longTurns}
@@ -1034,16 +963,13 @@ describe('timeline projection', () => {
         onRangeChange={onRangeChange}
       />,
     )
-    /** 中文说明：测试局部值 plot，由紧邻初始化决定。 */
     const plot = screen.getByLabelText('Timeline overview; drag horizontally to focus events')
     vi.spyOn(plot, 'getBoundingClientRect').mockReturnValue({
       x: 0, y: 0, left: 0, top: 0, right: 100, bottom: 72, width: 100, height: 72,
       toJSON: () => ({}),
     })
     fireEvent.wheel(plot, { clientX: 50, deltaY: -1_000 })
-    /** 中文说明：测试局部值 domain，由紧邻初始化决定。 */
     const domain = view.container.querySelector<HTMLElement>('[data-timeline-domain]')
-    /** 中文说明：测试局部值 before，由紧邻初始化决定。 */
     const before = domain?.style.getPropertyValue('--trajectory-domain-left')
 
     fireEvent.pointerDown(plot, { button: 2, clientX: 50, pointerId: 1 })
@@ -1058,9 +984,7 @@ describe('timeline projection', () => {
   })
 
   it('pans the zoomed viewport only far enough to reveal a newly selected record', async () => {
-    /** 中文说明：测试局部值 onRangeChange，由紧邻初始化决定。 */
     const onRangeChange = vi.fn()
-    /** 中文说明：测试局部值 view，由紧邻初始化决定。 */
     const view = render(
       <TrajectoryTimeline
         turns={longTurns}
@@ -1069,7 +993,6 @@ describe('timeline projection', () => {
         onRangeChange={onRangeChange}
       />,
     )
-    /** 中文说明：测试局部值 plot，由紧邻初始化决定。 */
     const plot = screen.getByLabelText('Timeline overview; drag horizontally to focus events')
     vi.spyOn(plot, 'getBoundingClientRect').mockReturnValue({
       x: 0, y: 0, left: 0, top: 0, right: 100, bottom: 72, width: 100, height: 72,
@@ -1087,7 +1010,6 @@ describe('timeline projection', () => {
       />,
     )
     await vi.waitFor(() => {
-      /** 中文说明：测试局部值 domain，由紧邻初始化决定。 */
       const domain = view.container.querySelector<HTMLElement>(
         '[data-timeline-domain]',
       )
@@ -1104,7 +1026,6 @@ describe('timeline projection', () => {
       />,
     )
     await vi.waitFor(() => {
-      /** 中文说明：测试局部值 domain，由紧邻初始化决定。 */
       const domain = view.container.querySelector<HTMLElement>(
         '[data-timeline-domain]',
       )
@@ -1113,9 +1034,7 @@ describe('timeline projection', () => {
   })
 
   it('auto-pans a zoomed viewport while a range drag pushes against an edge', () => {
-    /** 中文说明：测试局部值 onRangeChange，由紧邻初始化决定。 */
     const onRangeChange = vi.fn()
-    /** 中文说明：测试局部值 view，由紧邻初始化决定。 */
     const view = render(
       <TrajectoryTimeline
         turns={longTurns}
@@ -1124,7 +1043,6 @@ describe('timeline projection', () => {
         onRangeChange={onRangeChange}
       />,
     )
-    /** 中文说明：测试局部值 plot，由紧邻初始化决定。 */
     const plot = screen.getByLabelText('Timeline overview; drag horizontally to focus events')
     vi.spyOn(plot, 'getBoundingClientRect').mockReturnValue({
       x: 0, y: 0, left: 0, top: 0, right: 100, bottom: 72, width: 100, height: 72,
@@ -1132,16 +1050,13 @@ describe('timeline projection', () => {
     })
     fireEvent.wheel(plot, { clientX: 50, deltaY: -1_000 })
     fireEvent.pointerDown(plot, { button: 0, clientX: 50, pointerId: 1 })
-    /** 中文说明：测试局部值 index，由紧邻初始化决定。 */
     for (let index = 0; index < 24; index++) {
       fireEvent.pointerMove(plot, { clientX: 99, pointerId: 1 })
     }
-    /** 中文说明：测试局部值 draftSelection，由紧邻初始化决定。 */
     const draftSelection = view.container.querySelectorAll<HTMLElement>(
       '[data-dragging="true"]',
     )
     expect(draftSelection).toHaveLength(2)
-    /** 中文说明：测试局部值 overlay，由紧邻初始化决定。 */
     for (const overlay of draftSelection) {
       expect(Number.parseFloat(
         overlay.style.getPropertyValue('--trajectory-selection-left'),
@@ -1149,11 +1064,9 @@ describe('timeline projection', () => {
     }
     fireEvent.pointerUp(plot, { clientX: 99, pointerId: 1 })
 
-    /** 中文说明：测试局部值 selectedRange，由紧邻初始化决定。 */
     const selectedRange = onRangeChange.mock.calls.at(-1)?.[0] as
       | { start: number; end: number }
       | undefined
-    /** 中文说明：测试局部值 fullRange，由紧邻初始化决定。 */
     const fullRange = deriveTrajectoryTimeline(longTurns)
     expect(selectedRange).toBeDefined()
     expect(fullRange).not.toBeNull()
@@ -1185,7 +1098,6 @@ describe('timeline projection', () => {
   })
 
   it('marks error records directly on timeline spans', () => {
-    /** 中文说明：测试局部值 errorTurns，由紧邻初始化决定。 */
     const errorTurns = [{
       turn: 1,
       groups: [{
@@ -1199,7 +1111,6 @@ describe('timeline projection', () => {
         }],
       }],
     }] satisfies readonly TrajectoryTurnModel[]
-    /** 中文说明：测试局部值 view，由紧邻初始化决定。 */
     const view = render(
       <TrajectoryTimeline
         turns={errorTurns}
@@ -1215,7 +1126,6 @@ describe('timeline projection', () => {
   })
 
   it('ignores durations and idle gaps while retaining turn boundaries', () => {
-    /** 中文说明：测试局部值 separatedTurns，由紧邻初始化决定。 */
     const separatedTurns = [
       {
         turn: 1,
@@ -1254,7 +1164,6 @@ describe('timeline projection', () => {
   })
 
   it('compresses every idle gap in duration mode while actual mode retains wall time', () => {
-    /** 中文说明：测试局部值 separatedTurns，由紧邻初始化决定。 */
     const separatedTurns = [
       {
         turn: 1,
@@ -1302,7 +1211,6 @@ describe('timeline projection', () => {
   })
 
   it('projects between-turn compaction without inventing a turn boundary', () => {
-    /** 中文说明：测试局部值 withStandaloneCompaction，由紧邻初始化决定。 */
     const withStandaloneCompaction = [
       {
         turn: 1,
@@ -1357,14 +1265,11 @@ describe('timeline projection', () => {
 
 describe('TrajectoryView state', () => {
   it('persists the duration preference through the runtime snapshot-store seam', () => {
-    /** 中文说明：测试局部值 firstDuration，由紧邻初始化决定。 */
     const firstDuration = createTrajectoryDurationStore()
-    /** 中文说明：测试局部值 commonProps，由紧邻初始化决定。 */
     const commonProps = {
       ...standaloneProps(NODES),
       ...standaloneHistory(historySnapshot(NODES)),
     }
-    /** 中文说明：测试局部值 first，由紧邻初始化决定。 */
     const first = render(
       <TrajectoryView
         {...commonProps}
@@ -1379,7 +1284,6 @@ describe('TrajectoryView state', () => {
     expect(localStorage.getItem('dsh.trajectory.duration')).toBe('true')
     first.unmount()
 
-    /** 中文说明：测试局部值 restoredDuration，由紧邻初始化决定。 */
     const restoredDuration = createTrajectoryDurationStore()
     render(
       <TrajectoryView
@@ -1404,7 +1308,6 @@ describe('TrajectoryView state', () => {
       blocks: [{ kind: 'text', text: 'selected current response' }],
     }
     const store = createSnapshotStore(historySnapshot([current]))
-    /** 中文说明：测试局部值 view，由紧邻初始化决定。 */
     const view = render(
       <TrajectoryView
         {...standaloneProps([])}
@@ -1418,10 +1321,8 @@ describe('TrajectoryView state', () => {
 
     act(() => { store.set(historySnapshot([older, current])) })
 
-    /** 中文说明：测试局部值 row，由紧邻初始化决定。 */
     const row = screen.getByRole('row', { name: /selected current response/ })
     expect(row.getAttribute('aria-selected')).toBe('true')
-    /** 中文说明：测试局部值 currentIndex，由紧邻初始化决定。 */
     const currentIndex = row.getAttribute('data-record-index')
     expect(view.container.querySelector(
       `[data-timeline-record-index="${currentIndex}"][data-current="true"]`,

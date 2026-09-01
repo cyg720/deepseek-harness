@@ -15,19 +15,18 @@ import SystemPrompt from '@deepseek-ai/dsh-system-prompt'
 import ToolRuntime, { defineContentToolFixture, TOOL_ABORTED_BEFORE_DISPATCH } from '@deepseek-ai/dsh-tools'
 import AgentRegistry, { type Agent } from '@deepseek-ai/dsh-agent'
 import AgentLoop from '@deepseek-ai/dsh-agent-loop'
+import SessionProjectionRegistry from '@deepseek-ai/dsh-session-projection'
 import { MockAdapter, textResponse, toolCallResponse } from './mock-adapter.ts'
 
-/** 中文说明：测试辅助函数 driverDone 的参数见签名，返回值用于驱动或断言场景；示例见下方用例。 */
 function driverDone(agent: Agent): Promise<void> {
   return (agent as Agent & { done: Promise<void> }).done
 }
 
-/** 中文说明：测试辅助函数 harness 的参数见签名，返回值用于驱动或断言场景；示例见下方用例。 */
 async function harness(adapter: MockAdapter) {
-  /** 中文说明：测试局部值 ctx，由紧邻初始化决定，仅在当前场景使用。 */
   const ctx = new Context()
   await ctx.plugin(LlmRuntime)
   await ctx.plugin(SessionStore)
+  await ctx.plugin(SessionProjectionRegistry)
   await ctx.plugin(SystemPrompt)
   await ctx.plugin(ToolRuntime)
   await ctx.plugin(AgentRegistry)
@@ -36,16 +35,13 @@ async function harness(adapter: MockAdapter) {
   return ctx
 }
 
-/** 中文说明：测试辅助函数 send 的参数见签名，返回值用于驱动或断言场景；示例见下方用例。 */
 function send(agent: Agent, text: string) {
   agent.followup(createUserMessage({ content: [{ type: 'text', text }], source: { kind: 'user' } }))
 }
 
 /** Resolve on the agent's next idle transition (event-based, not status poll). */
-/* 中文说明：测试辅助函数 waitForIdle 的参数见签名，返回值用于驱动或断言场景；示例见下方用例。 */
 function waitForIdle(ctx: Context, agent: Agent): Promise<void> {
   return new Promise((resolve) => {
-    /** 中文说明：测试局部值 dispose，由紧邻初始化决定，仅在当前场景使用。 */
     const dispose = ctx.on('agent/status', ({ agent: subject, status }) => {
       if (subject === agent && status === 'idle') { dispose(); resolve() }
     })
@@ -53,7 +49,6 @@ function waitForIdle(ctx: Context, agent: Agent): Promise<void> {
 }
 
 /** All user-message texts recorded in the log (to assert what actually ran). */
-/* 中文说明：测试辅助函数 userTexts 的参数见签名，返回值用于驱动或断言场景；示例见下方用例。 */
 function userTexts(agent: Agent): string[] {
   return agent.session.events
     .filter(e => e.type === 'user/message')
@@ -63,11 +58,8 @@ function userTexts(agent: Agent): string[] {
 
 describe('Agent.cancel()', () => {
   it('cancel() on an idle agent with nothing queued is a no-op; the next prompt runs (F2 leak guard)', async () => {
-    /** 中文说明：测试局部值 adapter，由紧邻初始化决定，仅在当前场景使用。 */
     const adapter = new MockAdapter([textResponse('reply')])
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定，仅在当前场景使用。 */
     const ctx = await harness(adapter)
-    /** 中文说明：测试局部值 agent，由紧邻初始化决定，仅在当前场景使用。 */
     const agent = ctx.agentLoop.create(SessionId('a1'), { provider: 'mock', model: 'mock' })
 
     // The loop is parked at the idle wait with nothing queued. A cancel here must
@@ -83,11 +75,8 @@ describe('Agent.cancel()', () => {
   })
 
   it('cancel({ keepInbox: true }) does not restore work already claimed by a waking send', async () => {
-    /** 中文说明：测试局部值 adapter，由紧邻初始化决定，仅在当前场景使用。 */
     const adapter = new MockAdapter([textResponse('wake reply')])
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定，仅在当前场景使用。 */
     const ctx = await harness(adapter)
-    /** 中文说明：测试局部值 agent，由紧邻初始化决定，仅在当前场景使用。 */
     const agent = ctx.agentLoop.create(SessionId('a1'), { provider: 'mock', model: 'mock' })
 
     agent.followup(createUserMessage({
@@ -106,7 +95,6 @@ describe('Agent.cancel()', () => {
     expect(agent.session.events.findLast(event => event.type === 'turn/end')?.data.reason)
       .toEqual({ kind: 'aborted', reason: { kind: 'user' } })
 
-    /** 中文说明：测试局部值 idle，由紧邻初始化决定，仅在当前场景使用。 */
     const idle = waitForIdle(ctx, agent)
     send(agent, 'wake it')
     await idle
@@ -115,15 +103,12 @@ describe('Agent.cancel()', () => {
   })
 
   it('cancel({ keepInbox: true }) parks queued work after an active turn aborts', async () => {
-    /** 中文说明：测试局部值 adapter，由紧邻初始化决定，仅在当前场景使用。 */
     const adapter = new MockAdapter([
       'hang',
       textResponse('preserved reply'),
       textResponse('wake reply'),
     ])
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定，仅在当前场景使用。 */
     const ctx = await harness(adapter)
-    /** 中文说明：测试局部值 agent，由紧邻初始化决定，仅在当前场景使用。 */
     const agent = ctx.agentLoop.create(SessionId('keep-after-abort'), { provider: 'mock', model: 'mock' })
 
     send(agent, 'active')
@@ -136,7 +121,6 @@ describe('Agent.cancel()', () => {
     expect(agent.inbox.nextTurn).toHaveLength(1)
     expect(adapter.requests).toHaveLength(1)
 
-    /** 中文说明：测试局部值 idle，由紧邻初始化决定，仅在当前场景使用。 */
     const idle = waitForIdle(ctx, agent)
     send(agent, 'wake it')
     await idle
@@ -145,11 +129,8 @@ describe('Agent.cancel()', () => {
   })
 
   it('cancel({ keepInbox: true }) latches a waking send landing in the abort-to-idle window', async () => {
-    /** 中文说明：测试局部值 adapter，由紧邻初始化决定，仅在当前场景使用。 */
     const adapter = new MockAdapter(['hang', textResponse('B reply')])
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定，仅在当前场景使用。 */
     const ctx = await harness(adapter)
-    /** 中文说明：测试局部值 agent，由紧邻初始化决定，仅在当前场景使用。 */
     const agent = ctx.agentLoop.create(SessionId('latch-window'), { provider: 'mock', model: 'mock' })
 
     send(agent, 'active')
@@ -173,11 +154,8 @@ describe('Agent.cancel()', () => {
   })
 
   it('cancel() without keepInbox clears a latched wake alongside the inbox', async () => {
-    /** 中文说明：测试局部值 adapter，由紧邻初始化决定，仅在当前场景使用。 */
     const adapter = new MockAdapter(['hang', textResponse('C reply')])
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定，仅在当前场景使用。 */
     const ctx = await harness(adapter)
-    /** 中文说明：测试局部值 agent，由紧邻初始化决定，仅在当前场景使用。 */
     const agent = ctx.agentLoop.create(SessionId('latch-cleared'), { provider: 'mock', model: 'mock' })
 
     send(agent, 'active')
@@ -198,18 +176,14 @@ describe('Agent.cancel()', () => {
   })
 
   it('removing the latched wake before convergence suppresses the replay', async () => {
-    /** 中文说明：测试局部值 adapter，由紧邻初始化决定，仅在当前场景使用。 */
     const adapter = new MockAdapter(['hang'])
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定，仅在当前场景使用。 */
     const ctx = await harness(adapter)
-    /** 中文说明：测试局部值 agent，由紧邻初始化决定，仅在当前场景使用。 */
     const agent = ctx.agentLoop.create(SessionId('removed-latched-wake'), { provider: 'mock', model: 'mock' })
 
     send(agent, 'active')
     await new Promise(resolve => setTimeout(resolve, 30))
 
     agent.cancel({ kind: 'user' }, { keepInbox: true })
-    /** 中文说明：测试局部值 steer，由紧邻初始化决定，仅在当前场景使用。 */
     const steer = createUserMessage({ content: [{ type: 'text', text: 'steer me' }], source: { kind: 'user' } })
     agent.steer(steer) // latched behind the aborted activity
     agent.inbox.remove(steer.id) // the wake is retracted before convergence
@@ -229,11 +203,8 @@ describe('Agent.cancel()', () => {
     // The stream notices the abort only after 50ms, so the driver stays in
     // the abort-to-idle window long after `cancel()` returned: the wake must
     // be latched across the whole window, not just the same-tick case.
-    /** 中文说明：测试局部值 adapter，由紧邻初始化决定，仅在当前场景使用。 */
     const adapter = new MockAdapter(['hang-slow', textResponse('B reply')])
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定，仅在当前场景使用。 */
     const ctx = await harness(adapter)
-    /** 中文说明：测试局部值 agent，由紧邻初始化决定，仅在当前场景使用。 */
     const agent = ctx.agentLoop.create(SessionId('slow-convergence'), { provider: 'mock', model: 'mock' })
 
     send(agent, 'A')
@@ -250,16 +221,12 @@ describe('Agent.cancel()', () => {
   })
 
   it('does not latch a wake landing after disposal begins', async () => {
-    /** 中文说明：测试局部值 adapter，由紧邻初始化决定，仅在当前场景使用。 */
     const adapter = new MockAdapter(['hang-slow', textResponse('late reply')])
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定，仅在当前场景使用。 */
     const ctx = await harness(adapter)
-    /** 中文说明：测试局部值 handle，由紧邻初始化决定，仅在当前场景使用。 */
     const handle = await ctx.agents.create({
       sessionId: SessionId('dispose-window-wake'),
       agentOptions: { provider: 'mock', model: 'mock' },
     })
-    /** 中文说明：测试局部值 agent，由紧邻初始化决定，仅在当前场景使用。 */
     const agent = handle.agent
 
     send(agent, 'active')
@@ -268,7 +235,6 @@ describe('Agent.cancel()', () => {
     // Dispose cancels with `{ kind: 'disposed' }`; a wake landing in the
     // abort-to-idle window must not latch, so `whenIdle()` does not wait on
     // a model turn over the session being torn down.
-    /** 中文说明：测试局部值 disposal，由紧邻初始化决定，仅在当前场景使用。 */
     const disposal = handle.dispose()
     setTimeout(() => { send(agent, 'late wake') }, 10)
     await disposal
@@ -278,11 +244,8 @@ describe('Agent.cancel()', () => {
   })
 
   it('cancel after waking send closes its synchronously opened turn without a step', async () => {
-    /** 中文说明：测试局部值 adapter，由紧邻初始化决定，仅在当前场景使用。 */
     const adapter = new MockAdapter([textResponse('should not run')])
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定，仅在当前场景使用。 */
     const ctx = await harness(adapter)
-    /** 中文说明：测试局部值 agent，由紧邻初始化决定，仅在当前场景使用。 */
     const agent = ctx.agentLoop.create(SessionId('a1'), { provider: 'mock', model: 'mock' })
 
     send(agent, 'drop me first')
@@ -300,21 +263,15 @@ describe('Agent.cancel()', () => {
   })
 
   it('disposal from the running notification drops queued work before turn start', async () => {
-    /** 中文说明：测试局部值 adapter，由紧邻初始化决定，仅在当前场景使用。 */
     const adapter = new MockAdapter([textResponse('should not run')])
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定，仅在当前场景使用。 */
     const ctx = await harness(adapter)
-    /** 中文说明：测试局部值 handle，由紧邻初始化决定，仅在当前场景使用。 */
     const handle = await ctx.agents.create({
       sessionId: SessionId('dispose-running-session'),
       agentOptions: { provider: 'mock', model: 'mock' },
     })
-    /** 中文说明：测试局部值 agent，由紧邻初始化决定，仅在当前场景使用。 */
     const agent = handle.agent
 
-    /** 中文说明：测试局部值 running，由紧邻初始化决定，仅在当前场景使用。 */
     const running = Promise.withResolvers<undefined>()
-    /** 中文说明：测试局部值 解构结果，由紧邻初始化决定，仅在当前场景使用。 */
     let disposalDone: Promise<void> | undefined
     ctx.on('agent/status', ({ agent: subject, status }) => {
       if (subject !== agent || status !== 'running') return
@@ -335,17 +292,13 @@ describe('Agent.cancel()', () => {
   })
 
   it('a whenIdle() waiter registered BEFORE a pre-step cancel resolves (F1 hang guard)', async () => {
-    /** 中文说明：测试局部值 adapter，由紧邻初始化决定，仅在当前场景使用。 */
     const adapter = new MockAdapter([textResponse('x')])
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定，仅在当前场景使用。 */
     const ctx = await harness(adapter)
-    /** 中文说明：测试局部值 agent，由紧邻初始化决定，仅在当前场景使用。 */
     const agent = ctx.agentLoop.create(SessionId('a1'), { provider: 'mock', model: 'mock' })
 
     // This waiter cannot rely on a running→idle transition because cancellation
     // drops the turn before it runs; the skip path must settle it directly.
     send(agent, 'q')
-    /** 中文说明：测试局部值 idle，由紧邻初始化决定，仅在当前场景使用。 */
     const idle = agent.whenIdle()
     agent.cancel({ kind: 'user' })
 
@@ -358,16 +311,11 @@ describe('Agent.cancel()', () => {
   })
 
   it('idle-listener cancellation settles its waiter without cancelling later work', async () => {
-    /** 中文说明：测试局部值 adapter，由紧邻初始化决定，仅在当前场景使用。 */
     const adapter = new MockAdapter([textResponse('first reply'), textResponse('later reply')])
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定，仅在当前场景使用。 */
     const ctx = await harness(adapter)
-    /** 中文说明：测试局部值 agent，由紧邻初始化决定，仅在当前场景使用。 */
     const agent = ctx.agentLoop.create(SessionId('idle-listener-cancel'), { provider: 'mock', model: 'mock' })
 
-    /** 中文说明：测试局部值 replacementRegistered，由紧邻初始化决定，仅在当前场景使用。 */
     const replacementRegistered = Promise.withResolvers<undefined>()
-    /** 中文说明：测试局部值 解构结果，由紧邻初始化决定，仅在当前场景使用。 */
     let replacementObservation: Promise<{ status: string; requests: number; turns: number }> | undefined
     ctx.on('agent/status', ({ agent: subject, status }) => {
       if (subject !== agent || status !== 'idle' || replacementObservation !== undefined) return
@@ -390,7 +338,6 @@ describe('Agent.cancel()', () => {
       new Promise((_resolve, reject) => setTimeout(() => { reject(new Error('whenIdle hung after idle-listener cancel')) }, 1000)),
     ])).resolves.toEqual({ status: 'idle', requests: 1, turns: 2 })
 
-    /** 中文说明：测试局部值 idle，由紧邻初始化决定，仅在当前场景使用。 */
     const idle = waitForIdle(ctx, agent)
     send(agent, 'later')
     await idle
@@ -399,20 +346,15 @@ describe('Agent.cancel()', () => {
   })
 
   it('replacement work queued after idle-listener cancellation replays at convergence', async () => {
-    /** 中文说明：测试局部值 adapter，由紧邻初始化决定，仅在当前场景使用。 */
     const adapter = new MockAdapter([
       textResponse('first reply'),
       textResponse('replacement reply'),
       textResponse('wake reply'),
     ])
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定，仅在当前场景使用。 */
     const ctx = await harness(adapter)
-    /** 中文说明：测试局部值 agent，由紧邻初始化决定，仅在当前场景使用。 */
     const agent = ctx.agentLoop.create(SessionId('idle-listener-post-cancel-send'), { provider: 'mock', model: 'mock' })
 
-    /** 中文说明：测试局部值 replacementRegistered，由紧邻初始化决定，仅在当前场景使用。 */
     const replacementRegistered = Promise.withResolvers<undefined>()
-    /** 中文说明：测试局部值 解构结果，由紧邻初始化决定，仅在当前场景使用。 */
     let replacementIdle: Promise<void> | undefined
     ctx.on('agent/status', ({ agent: subject, status }) => {
       if (subject !== agent || status !== 'idle' || replacementIdle !== undefined) return
@@ -434,7 +376,6 @@ describe('Agent.cancel()', () => {
     expect(userTexts(agent)).toEqual(['first', 'surviving replacement'])
     expect(agent.inbox.nextTurn).toHaveLength(0)
 
-    /** 中文说明：测试局部值 idle，由紧邻初始化决定，仅在当前场景使用。 */
     const idle = waitForIdle(ctx, agent)
     send(agent, 'wake it')
     await idle
@@ -443,14 +384,10 @@ describe('Agent.cancel()', () => {
   })
 
   it('cancel() mid-step aborts the active turn and drops every queued tail item', async () => {
-    /** 中文说明：测试局部值 adapter，由紧邻初始化决定，仅在当前场景使用。 */
     const adapter = new MockAdapter(['hang'])
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定，仅在当前场景使用。 */
     const ctx = await harness(adapter)
-    /** 中文说明：测试局部值 agent，由紧邻初始化决定，仅在当前场景使用。 */
     const agent = ctx.agentLoop.create(SessionId('a1'), { provider: 'mock', model: 'mock' })
 
-    /** 中文说明：测试局部值 reasons，由紧邻初始化决定，仅在当前场景使用。 */
     const reasons: TurnEndReason[] = []
     ctx.on('session/event', (_s, event) => { if (event.type === 'turn/end') reasons.push(event.data.reason) })
 
@@ -468,14 +405,11 @@ describe('Agent.cancel()', () => {
   })
 
   it('cancel from an assistant/message observer skips execution but balances replay', async () => {
-    /** 中文说明：测试局部值 adapter，由紧邻初始化决定，仅在当前场景使用。 */
     const adapter = new MockAdapter([
       toolCallResponse('c1', 'danger', {}),
       textResponse('recovered after cancellation'),
     ])
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定，仅在当前场景使用。 */
     const ctx = await harness(adapter)
-    /** 中文说明：测试局部值 executions，由紧邻初始化决定，仅在当前场景使用。 */
     let executions = 0
     ctx.tools.register(defineContentToolFixture({
       name: 'danger',
@@ -486,16 +420,13 @@ describe('Agent.cancel()', () => {
         return [{ type: 'text', text: 'ran' }]
       },
     }))
-    /** 中文说明：测试局部值 agent，由紧邻初始化决定，仅在当前场景使用。 */
     const agent = ctx.agentLoop.create(SessionId('cancel-after-assistant-message'), { provider: 'mock', model: 'mock' })
-    /** 中文说明：测试局部值 dispose，由紧邻初始化决定，仅在当前场景使用。 */
     const dispose = ctx.on('session/event', (session, event) => {
       if (session === agent.session && event.type === 'assistant/message') {
         agent.cancel({ kind: 'user' })
       }
     })
 
-    /** 中文说明：测试局部值 reasons，由紧邻初始化决定，仅在当前场景使用。 */
     const reasons: TurnEndReason[] = []
     ctx.on('session/event', (_session, event) => { if (event.type === 'turn/end') reasons.push(event.data.reason) })
 
@@ -505,9 +436,7 @@ describe('Agent.cancel()', () => {
 
     expect(executions).toBe(0)
     expect(reasons).toEqual([{ kind: 'aborted', reason: { kind: 'user' } }])
-    /** 中文说明：测试局部值 call，由紧邻初始化决定，仅在当前场景使用。 */
     const call = agent.session.events.find(event => event.type === 'tool/call')
-    /** 中文说明：测试局部值 result，由紧邻初始化决定，仅在当前场景使用。 */
     const result = agent.session.events.find(event => event.type === 'tool/result')
     expect(call?.type === 'tool/call' ? call.data.callId : undefined).toBe('c1')
     expect(result?.type === 'tool/result' ? result.data : undefined).toMatchObject({
@@ -520,7 +449,6 @@ describe('Agent.cancel()', () => {
 
     send(agent, 'continue safely')
     await waitForIdle(ctx, agent)
-    /** 中文说明：测试局部值 replayedResult，由紧邻初始化决定，仅在当前场景使用。 */
     const replayedResult = adapter.requests[1]!.messages
       .flatMap(message => message.content)
       .find(block => block.type === 'tool-result')
@@ -532,11 +460,8 @@ describe('Agent.cancel()', () => {
   })
 
   it('a prompt sent AFTER a cancelled turn settles runs normally (marker reset)', async () => {
-    /** 中文说明：测试局部值 adapter，由紧邻初始化决定，仅在当前场景使用。 */
     const adapter = new MockAdapter(['hang', textResponse('second reply')])
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定，仅在当前场景使用。 */
     const ctx = await harness(adapter)
-    /** 中文说明：测试局部值 agent，由紧邻初始化决定，仅在当前场景使用。 */
     const agent = ctx.agentLoop.create(SessionId('a1'), { provider: 'mock', model: 'mock' })
 
     // First turn hangs; cancel it mid-step.
@@ -552,17 +477,13 @@ describe('Agent.cancel()', () => {
 
     expect(userTexts(agent)).toContain('second')
     // The second turn completed (its reply was streamed).
-    /** 中文说明：测试局部值 reasons，由紧邻初始化决定，仅在当前场景使用。 */
     const reasons = agent.session.events.filter(e => e.type === 'turn/end')
     expect(reasons.length).toBe(2)
   })
 
   it('cancel mid-stream finalizes the streamed prefix onto the surface', async () => {
-    /** 中文说明：测试局部值 adapter，由紧邻初始化决定，仅在当前场景使用。 */
     const adapter = new MockAdapter(['hang', textResponse('after')])
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定，仅在当前场景使用。 */
     const ctx = await harness(adapter)
-    /** 中文说明：测试局部值 agent，由紧邻初始化决定，仅在当前场景使用。 */
     const agent = ctx.agentLoop.create(SessionId('partial-finalize'), { provider: 'mock', model: 'mock' })
 
     send(agent, 'go')
@@ -573,15 +494,12 @@ describe('Agent.cancel()', () => {
     // The prefix the user watched stream is committed as the step's message,
     // carrying the truncation marker and citing exactly the chunk events that
     // delivered it.
-    /** 中文说明：测试局部值 message，由紧邻初始化决定，仅在当前场景使用。 */
     const message = agent.session.events.find(e => e.type === 'assistant/message')
     expect(message?.type === 'assistant/message' ? message.data.message.content : undefined)
       .toEqual([{ type: 'text', text: 'partial' }])
     expect(message?.type === 'assistant/message' ? message.data.interrupted : undefined).toBe(true)
-    /** 中文说明：测试局部值 chunkSeqs，由紧邻初始化决定，仅在当前场景使用。 */
     const chunkSeqs = agent.session.events.filter(e => e.type === 'assistant/chunk').map(e => e.seq)
     expect(message?.sourceEventSeqs).toEqual(chunkSeqs)
-    /** 中文说明：测试局部值 types，由紧邻初始化决定，仅在当前场景使用。 */
     const types = agent.session.events.map(e => e.type)
     expect(types.indexOf('assistant/message')).toBeLessThan(types.indexOf('step/end'))
     expect(types.indexOf('step/end')).toBeLessThan(types.indexOf('turn/end'))
@@ -589,7 +507,6 @@ describe('Agent.cancel()', () => {
     // The next request derives the finalized prefix: the model sees what the user saw.
     send(agent, 'continue')
     await waitForIdle(ctx, agent)
-    /** 中文说明：测试局部值 replayed，由紧邻初始化决定，仅在当前场景使用。 */
     const replayed = adapter.requests[1]!.messages
       .filter(m => m.role === 'assistant')
       .flatMap(m => m.content)
@@ -598,7 +515,6 @@ describe('Agent.cancel()', () => {
   })
 
   it('cancel during reasoning-only streaming finalizes the reasoning prefix', async () => {
-    /** 中文说明：测试局部值 adapter，由紧邻初始化决定，仅在当前场景使用。 */
     const adapter = new MockAdapter([{
       hangAfter: [
         { type: 'block-start', index: 0, blockType: 'reasoning' },
@@ -606,9 +522,7 @@ describe('Agent.cancel()', () => {
         { type: 'usage', usage: { inputTokens: 7, outputTokens: 4 } },
       ],
     }])
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定，仅在当前场景使用。 */
     const ctx = await harness(adapter)
-    /** 中文说明：测试局部值 agent，由紧邻初始化决定，仅在当前场景使用。 */
     const agent = ctx.agentLoop.create(SessionId('reasoning-finalize'), { provider: 'mock', model: 'mock' })
 
     send(agent, 'go')
@@ -616,7 +530,6 @@ describe('Agent.cancel()', () => {
     agent.cancel({ kind: 'user' })
     await waitForIdle(ctx, agent)
 
-    /** 中文说明：测试局部值 message，由紧邻初始化决定，仅在当前场景使用。 */
     const message = agent.session.events.find(e => e.type === 'assistant/message')
     expect(message?.type === 'assistant/message' ? message.data.message.content : undefined)
       .toEqual([{ type: 'reasoning', text: 'thinking about it' }])
@@ -626,7 +539,6 @@ describe('Agent.cancel()', () => {
   })
 
   it('cancel drops a half-streamed tool call and keeps the completed text before it', async () => {
-    /** 中文说明：测试局部值 adapter，由紧邻初始化决定，仅在当前场景使用。 */
     const adapter = new MockAdapter([{
       hangAfter: [
         { type: 'block-start', index: 0, blockType: 'text' },
@@ -636,9 +548,7 @@ describe('Agent.cancel()', () => {
         { type: 'tool-call-delta', index: 1, id: ToolCallId('c1'), name: 'read', argumentsDelta: '{"pa' },
       ],
     }])
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定，仅在当前场景使用。 */
     const ctx = await harness(adapter)
-    /** 中文说明：测试局部值 agent，由紧邻初始化决定，仅在当前场景使用。 */
     const agent = ctx.agentLoop.create(SessionId('tool-call-drop'), { provider: 'mock', model: 'mock' })
 
     send(agent, 'go')
@@ -647,7 +557,6 @@ describe('Agent.cancel()', () => {
     await waitForIdle(ctx, agent)
 
     // The undispatched call is dropped whole — no dangling tool_use to pair.
-    /** 中文说明：测试局部值 message，由紧邻初始化决定，仅在当前场景使用。 */
     const message = agent.session.events.find(e => e.type === 'assistant/message')
     expect(message?.type === 'assistant/message' ? message.data.message.content : undefined)
       .toEqual([{ type: 'text', text: 'reading the file' }])
@@ -655,15 +564,12 @@ describe('Agent.cancel()', () => {
   })
 
   it('cancel during error recovery does not finalize the failed stream', async () => {
-    /** 中文说明：测试局部值 adapter，由紧邻初始化决定，仅在当前场景使用。 */
     const adapter = new MockAdapter([[
       { type: 'block-start', index: 0, blockType: 'text' },
       { type: 'text-delta', index: 0, text: 'doomed partial' },
       { type: 'finish', reason: { kind: 'error', failure: { message: 'boom', code: 'SERVER_ERROR' } } },
     ]])
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定，仅在当前场景使用。 */
     const ctx = await harness(adapter)
-    /** 中文说明：测试局部值 agent，由紧邻初始化决定，仅在当前场景使用。 */
     const agent = ctx.agentLoop.create(SessionId('recovery-cancel'), { provider: 'mock', model: 'mock' })
     // Cancellation lands while agent/request-error is in flight — the window
     // dsh-llm-retry opens when its backoff waits after appending llm/retry.
@@ -677,13 +583,11 @@ describe('Agent.cancel()', () => {
     // The failed stream's prefix stays off the surface: clients reset it on
     // retry, and provider failures commit nothing.
     expect(agent.session.events.some(e => e.type === 'assistant/message')).toBe(false)
-    /** 中文说明：测试局部值 end，由紧邻初始化决定，仅在当前场景使用。 */
     const end = agent.session.events.find(e => e.type === 'turn/end')
     expect(end?.type === 'turn/end' ? end.data.reason.kind : undefined).toBe('aborted')
   })
 
   it('retry discards the failed attempt; the final message cites only its own chunks', async () => {
-    /** 中文说明：测试局部值 adapter，由紧邻初始化决定，仅在当前场景使用。 */
     const adapter = new MockAdapter([
       [
         { type: 'block-start', index: 0, blockType: 'text' },
@@ -692,25 +596,20 @@ describe('Agent.cancel()', () => {
       ],
       textResponse('recovered'),
     ])
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定，仅在当前场景使用。 */
     const ctx = await harness(adapter)
-    /** 中文说明：测试局部值 agent，由紧邻初始化决定，仅在当前场景使用。 */
     const agent = ctx.agentLoop.create(SessionId('retry-discards-content'), { provider: 'mock', model: 'mock' })
     ctx.on('agent/request-error', async () => ({ kind: 'retry' as const }))
 
     send(agent, 'go')
     await waitForIdle(ctx, agent)
 
-    /** 中文说明：测试局部值 messages，由紧邻初始化决定，仅在当前场景使用。 */
     const messages = agent.session.events.filter(e => e.type === 'assistant/message')
     expect(messages).toHaveLength(1)
-    /** 中文说明：测试局部值 message，由紧邻初始化决定，仅在当前场景使用。 */
     const message = messages[0]!
     expect(message.type === 'assistant/message' ? message.data.message.content : undefined)
       .toEqual([{ type: 'text', text: 'recovered' }])
     expect(message.type === 'assistant/message' ? message.data.interrupted : undefined).toBeUndefined()
     // The abandoned attempt's chunks stay out of the completion's source set.
-    /** 中文说明：测试局部值 doomedSeqs，由紧邻初始化决定，仅在当前场景使用。 */
     const doomedSeqs = agent.session.events
       .filter(e => e.type === 'assistant/chunk'
         && e.data.chunk.type === 'text-delta' && e.data.chunk.text === 'doomed partial')
@@ -720,16 +619,13 @@ describe('Agent.cancel()', () => {
   })
 
   it('cancel before any visible content finalizes nothing', async () => {
-    /** 中文说明：测试局部值 adapter，由紧邻初始化决定，仅在当前场景使用。 */
     const adapter = new MockAdapter([{
       hangAfter: [
         { type: 'block-start', index: 0, blockType: 'tool-call' },
         { type: 'tool-call-delta', index: 0, id: ToolCallId('c1'), name: 'read', argumentsDelta: '{"pa' },
       ],
     }])
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定，仅在当前场景使用。 */
     const ctx = await harness(adapter)
-    /** 中文说明：测试局部值 agent，由紧邻初始化决定，仅在当前场景使用。 */
     const agent = ctx.agentLoop.create(SessionId('nothing-to-finalize'), { provider: 'mock', model: 'mock' })
 
     send(agent, 'go')
@@ -741,26 +637,20 @@ describe('Agent.cancel()', () => {
   })
 
   it('cancel from a synchronous step/start session-event listener drops the step (post-step-start window)', async () => {
-    /** 中文说明：测试局部值 adapter，由紧邻初始化决定，仅在当前场景使用。 */
     const adapter = new MockAdapter([textResponse('should not stream')])
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定，仅在当前场景使用。 */
     const ctx = await harness(adapter)
-    /** 中文说明：测试局部值 agent，由紧邻初始化决定，仅在当前场景使用。 */
     const agent = ctx.agentLoop.create(SessionId('a1'), { provider: 'mock', model: 'mock' })
 
     // A step/start session-event listener fires AFTER step/start is appended
     // (and after the pre-step extension point), so cancelling there lands in the SECOND
     // cancel check (the one that must closeStep() to balance the already-open
     // step) — distinct from a turn-start cancel, caught before the step opens.
-    /** 中文说明：测试局部值 streamed，由紧邻初始化决定，仅在当前场景使用。 */
     let streamed = false
     ctx.on('session/event', (_s, event) => { if (event.type === 'assistant/chunk') streamed = true })
-    /** 中文说明：测试局部值 dispose，由紧邻初始化决定，仅在当前场景使用。 */
     const dispose = ctx.on('session/event', (session, event) => {
       if (session === agent.session && event.type === 'step/start') agent.cancel({ kind: 'user' })
     })
 
-    /** 中文说明：测试局部值 reasons，由紧邻初始化决定，仅在当前场景使用。 */
     const reasons: TurnEndReason[] = []
     ctx.on('session/event', (_s, event) => { if (event.type === 'turn/end') reasons.push(event.data.reason) })
 
@@ -772,35 +662,29 @@ describe('Agent.cancel()', () => {
     // log is balanced (the open step was closed by the cancel branch).
     expect(streamed).toBe(false)
     expect(reasons).toEqual([{ kind: 'aborted', reason: { kind: 'user' } }])
-    /** 中文说明：测试局部值 types，由紧邻初始化决定，仅在当前场景使用。 */
     const types = agent.session.events.map(e => e.type)
     expect(types.filter(t => t === 'step/start').length).toBe(types.filter(t => t === 'step/end').length)
   })
 
   it('disposal from a synchronous step/start session-event listener stops before adapter dispatch', async () => {
-    /** 中文说明：测试局部值 adapter，由紧邻初始化决定，仅在当前场景使用。 */
     const adapter = new MockAdapter([textResponse('should not stream')])
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定，仅在当前场景使用。 */
     const ctx = new Context()
     await ctx.plugin(LlmRuntime)
     await ctx.plugin(SessionStore)
+    await ctx.plugin(SessionProjectionRegistry)
     await ctx.plugin(SystemPrompt)
     await ctx.plugin(ToolRuntime)
     await ctx.plugin(AgentRegistry)
     await ctx.plugin(AgentLoop, { agents: [] })
     ctx.llm.registerAdapter(['mock'], adapter)
 
-    /** 中文说明：测试局部值 handle，由紧邻初始化决定，仅在当前场景使用。 */
     const handle = await ctx.agents.create({
       sessionId: SessionId('dispose-step-start-session'),
       agentOptions: { provider: 'mock', model: 'mock' },
     })
-    /** 中文说明：测试局部值 agent，由紧邻初始化决定，仅在当前场景使用。 */
     const agent = handle.agent
 
-    /** 中文说明：测试局部值 解构结果，由紧邻初始化决定，仅在当前场景使用。 */
     let disposalDone: Promise<void> | undefined
-    /** 中文说明：测试局部值 streamed，由紧邻初始化决定，仅在当前场景使用。 */
     let streamed = false
     ctx.on('session/event', (_s, event) => { if (event.type === 'assistant/chunk') streamed = true })
     ctx.on('session/event', (session, event) => {
@@ -814,29 +698,22 @@ describe('Agent.cancel()', () => {
     expect(streamed).toBe(false)
     expect(adapter.requests).toHaveLength(0)
     expect(agent.session.events.some(e => e.type === 'turn/end')).toBe(false)
-    /** 中文说明：测试局部值 types，由紧邻初始化决定，仅在当前场景使用。 */
     const types = agent.session.events.map(e => e.type)
     expect(types.filter(t => t === 'step/start').length).toBe(types.filter(t => t === 'step/end').length)
   })
 
   it('cancel during the stopping window ends the turn aborted and runs no further step', async () => {
-    /** 中文说明：测试局部值 adapter，由紧邻初始化决定，仅在当前场景使用。 */
     const adapter = new MockAdapter([textResponse('one'), textResponse('two')])
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定，仅在当前场景使用。 */
     const ctx = await harness(adapter)
-    /** 中文说明：测试局部值 agent，由紧邻初始化决定，仅在当前场景使用。 */
     const agent = ctx.agentLoop.create(SessionId('a1'), { provider: 'mock', model: 'mock' })
 
-    /** 中文说明：测试局部值 steps，由紧邻初始化决定，仅在当前场景使用。 */
     let steps = 0
-    /** 中文说明：测试局部值 reasons，由紧邻初始化决定，仅在当前场景使用。 */
     const reasons: TurnEndReason[] = []
     ctx.on('session/event', (_session, event) => {
       if (event.type === 'step/start') steps += 1
       if (event.type === 'turn/end') reasons.push(event.data.reason)
     })
 
-    /** 中文说明：测试局部值 cancelled，由紧邻初始化决定，仅在当前场景使用。 */
     let cancelled = false
     ctx.on('agent/turn-stopping', ({ agent: subject }) => {
       if (subject === agent && !cancelled) {
@@ -855,19 +732,14 @@ describe('Agent.cancel()', () => {
   })
 
   it('cancel from a synchronous agent/status(running) listener drops the turn (window 2)', async () => {
-    /** 中文说明：测试局部值 adapter，由紧邻初始化决定，仅在当前场景使用。 */
     const adapter = new MockAdapter([textResponse('should not run')])
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定，仅在当前场景使用。 */
     const ctx = await harness(adapter)
-    /** 中文说明：测试局部值 agent，由紧邻初始化决定，仅在当前场景使用。 */
     const agent = ctx.agentLoop.create(SessionId('a1'), { provider: 'mock', model: 'mock' })
 
     // `agent/status` is synchronous, so cancellation can land before the
     // durable turn-start commit and must drop the reserved work.
-    /** 中文说明：测试局部值 streamed，由紧邻初始化决定，仅在当前场景使用。 */
     let streamed = false
     ctx.on('session/event', (_s, event) => { if (event.type === 'assistant/chunk') streamed = true })
-    /** 中文说明：测试局部值 dispose，由紧邻初始化决定，仅在当前场景使用。 */
     const dispose = ctx.on('agent/status', ({ agent: subject, status }) => {
       if (subject === agent && status === 'running') agent.cancel({ kind: 'user' })
     })
@@ -883,16 +755,11 @@ describe('Agent.cancel()', () => {
   })
 
   it('a running-listener cancellation replays replacement work at convergence', async () => {
-    /** 中文说明：测试局部值 adapter，由紧邻初始化决定，仅在当前场景使用。 */
     const adapter = new MockAdapter([textResponse('A reply'), textResponse('B reply')])
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定，仅在当前场景使用。 */
     const ctx = await harness(adapter)
-    /** 中文说明：测试局部值 agent，由紧邻初始化决定，仅在当前场景使用。 */
     const agent = ctx.agentLoop.create(SessionId('a1'), { provider: 'mock', model: 'mock' })
 
-    /** 中文说明：测试局部值 replaced，由紧邻初始化决定，仅在当前场景使用。 */
     let replaced = false
-    /** 中文说明：测试局部值 dispose，由紧邻初始化决定，仅在当前场景使用。 */
     const dispose = ctx.on('agent/status', ({ agent: subject, status }) => {
       if (subject !== agent || status !== 'running' || replaced) return
       replaced = true
@@ -901,7 +768,6 @@ describe('Agent.cancel()', () => {
     })
 
     send(agent, 'A')
-    /** 中文说明：测试局部值 idle，由紧邻初始化决定，仅在当前场景使用。 */
     const idle = agent.whenIdle()
     await idle
     dispose()
@@ -911,7 +777,6 @@ describe('Agent.cancel()', () => {
     expect(agent.inbox.nextTurn).toHaveLength(0)
     expect(adapter.requests).toHaveLength(1)
 
-    /** 中文说明：测试局部值 replacementIdle，由紧邻初始化决定，仅在当前场景使用。 */
     const replacementIdle = waitForIdle(ctx, agent)
     send(agent, 'C')
     await replacementIdle
@@ -921,15 +786,11 @@ describe('Agent.cancel()', () => {
   })
 
   it('a prompt queued during pre-step cancellation replays at convergence', async () => {
-    /** 中文说明：测试局部值 adapter，由紧邻初始化决定，仅在当前场景使用。 */
     const adapter = new MockAdapter([textResponse('A reply'), textResponse('B reply')])
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定，仅在当前场景使用。 */
     const ctx = await harness(adapter)
-    /** 中文说明：测试局部值 agent，由紧邻初始化决定，仅在当前场景使用。 */
     const agent = ctx.agentLoop.create(SessionId('a1'), { provider: 'mock', model: 'mock' })
 
     send(agent, 'A')
-    /** 中文说明：测试局部值 idle，由紧邻初始化决定，仅在当前场景使用。 */
     const idle = agent.whenIdle()
     agent.cancel({ kind: 'user' })
     send(agent, 'B')
@@ -939,7 +800,6 @@ describe('Agent.cancel()', () => {
     expect(agent.inbox.nextTurn).toHaveLength(0)
     expect(adapter.requests).toHaveLength(1)
 
-    /** 中文说明：测试局部值 replacementIdle，由紧邻初始化决定，仅在当前场景使用。 */
     const replacementIdle = waitForIdle(ctx, agent)
     send(agent, 'C')
     await replacementIdle
@@ -949,11 +809,8 @@ describe('Agent.cancel()', () => {
   })
 
   it("cancel clears the turn's steering — it is not re-enqueued as a fresh turn", async () => {
-    /** 中文说明：测试局部值 adapter，由紧邻初始化决定，仅在当前场景使用。 */
     const adapter = new MockAdapter(['hang'])
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定，仅在当前场景使用。 */
     const ctx = await harness(adapter)
-    /** 中文说明：测试局部值 agent，由紧邻初始化决定，仅在当前场景使用。 */
     const agent = ctx.agentLoop.create(SessionId('a1'), { provider: 'mock', model: 'mock' })
 
     send(agent, 'go')
@@ -969,11 +826,9 @@ describe('Agent.cancel()', () => {
     // started from the dropped steering.
     await new Promise(r => setTimeout(r, 30))
     expect(agent.status).toBe('idle')
-    /** 中文说明：测试局部值 turnStarts，由紧邻初始化决定，仅在当前场景使用。 */
     const turnStarts = agent.session.events.filter(e => e.type === 'turn/start')
     expect(turnStarts.length).toBe(1) // only the original (cancelled) turn
     // The steering text was dropped — it never reached the log.
-    /** 中文说明：测试局部值 flat，由紧邻初始化决定，仅在当前场景使用。 */
     const flat = agent.session.events
       .filter(e => e.type === 'user/message')
       .flatMap(e => e.data.content)
@@ -982,24 +837,19 @@ describe('Agent.cancel()', () => {
   })
 
   it('replays replacement work queued synchronously by an abort observer', async () => {
-    /** 中文说明：测试局部值 adapter，由紧邻初始化决定，仅在当前场景使用。 */
     const adapter = new MockAdapter([
       'hang',
       textResponse('replacement reply'),
       textResponse('wake reply'),
     ])
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定，仅在当前场景使用。 */
     const ctx = await harness(adapter)
-    /** 中文说明：测试局部值 agent，由紧邻初始化决定，仅在当前场景使用。 */
     const agent = ctx.agentLoop.create(SessionId('abort-observer-replacement'), { provider: 'mock', model: 'mock' })
 
     send(agent, 'original')
     await expect.poll(() => adapter.requests.length).toBe(1)
-    /** 中文说明：测试局部值 signal，由紧邻初始化决定，仅在当前场景使用。 */
     const signal = adapter.requests[0]?.signal
     if (signal === undefined) throw new Error('model request omitted its turn signal')
     signal.addEventListener('abort', () => { send(agent, 'replacement') }, { once: true })
-    /** 中文说明：测试局部值 idle，由紧邻初始化决定，仅在当前场景使用。 */
     const idle = agent.whenIdle()
     agent.cancel({ kind: 'user' })
     await Promise.race([
@@ -1021,13 +871,11 @@ describe('Agent.cancel()', () => {
     expect(adapter.requests).toHaveLength(2)
     expect(userTexts(agent)).toEqual(['original', 'replacement'])
     expect(agent.inbox.nextTurn).toHaveLength(0)
-    /** 中文说明：测试局部值 reasons，由紧邻初始化决定，仅在当前场景使用。 */
     const reasons = agent.session.events
       .filter(event => event.type === 'turn/end')
       .map(event => event.type === 'turn/end' ? event.data.reason : undefined)
     expect(reasons).toEqual([{ kind: 'aborted', reason: { kind: 'user' } }, { kind: 'completed' }])
 
-    /** 中文说明：测试局部值 replacementIdle，由紧邻初始化决定，仅在当前场景使用。 */
     const replacementIdle = waitForIdle(ctx, agent)
     send(agent, 'wake it')
     await replacementIdle
@@ -1036,13 +884,9 @@ describe('Agent.cancel()', () => {
   })
 
   it('keeps the first typed cause for an active turn', async () => {
-    /** 中文说明：测试局部值 adapter，由紧邻初始化决定，仅在当前场景使用。 */
     const adapter = new MockAdapter(['hang'])
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定，仅在当前场景使用。 */
     const ctx = await harness(adapter)
-    /** 中文说明：测试局部值 agent，由紧邻初始化决定，仅在当前场景使用。 */
     const agent = ctx.agentLoop.create(SessionId('typed-first-wins'), { provider: 'mock', model: 'mock' })
-    /** 中文说明：测试局部值 supplied，由紧邻初始化决定，仅在当前场景使用。 */
     const supplied: { kind: 'parent' | 'user' } = { kind: 'parent' }
 
     send(agent, 'go')
@@ -1051,11 +895,9 @@ describe('Agent.cancel()', () => {
     agent.cancel({ kind: 'user' })
     await waitForIdle(ctx, agent)
 
-    /** 中文说明：测试局部值 runtimeReason，由紧邻初始化决定，仅在当前场景使用。 */
     const runtimeReason: unknown = adapter.requests[0]?.signal?.reason
     expect(runtimeReason).toEqual({ kind: 'parent' })
     expect(runtimeReason).toBe(supplied)
-    /** 中文说明：测试局部值 turnEnd，由紧邻初始化决定，仅在当前场景使用。 */
     const turnEnd = agent.session.events.findLast(event => event.type === 'turn/end')
     expect(turnEnd?.type === 'turn/end' && turnEnd.data.reason).toEqual({
       kind: 'aborted',
@@ -1064,16 +906,12 @@ describe('Agent.cancel()', () => {
   })
 
   it('preserves the first user cancellation when lifecycle teardown races it', async () => {
-    /** 中文说明：测试局部值 adapter，由紧邻初始化决定，仅在当前场景使用。 */
     const adapter = new MockAdapter(['hang'])
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定，仅在当前场景使用。 */
     const ctx = await harness(adapter)
-    /** 中文说明：测试局部值 handle，由紧邻初始化决定，仅在当前场景使用。 */
     const handle = await ctx.agents.create({
       sessionId: SessionId('cancel-dispose-race'),
       agentOptions: { provider: 'mock', model: 'mock' },
     })
-    /** 中文说明：测试局部值 { agent }，由紧邻初始化决定，仅在当前场景使用。 */
     const { agent } = handle
 
     send(agent, 'go')
@@ -1081,7 +919,6 @@ describe('Agent.cancel()', () => {
     agent.cancel({ kind: 'user' })
     await handle.dispose()
 
-    /** 中文说明：测试局部值 turnEnd，由紧邻初始化决定，仅在当前场景使用。 */
     const turnEnd = agent.session.events.findLast(event => event.type === 'turn/end')
     expect(turnEnd?.type === 'turn/end' && turnEnd.data.reason).toEqual({ kind: 'aborted', reason: { kind: 'user' } })
   })
@@ -1093,17 +930,12 @@ describe('Agent.cancel()', () => {
     'stopping',
     'tool',
   ] as const)('lets a cooperative %s boundary settle from the explicit turn signal', async (stage) => {
-    /** 中文说明：测试局部值 adapter，由紧邻初始化决定，仅在当前场景使用。 */
     const adapter = new MockAdapter(stage === 'tool'
       ? [toolCallResponse('blocked-tool', 'blocked', {})]
       : [textResponse('done')])
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定，仅在当前场景使用。 */
     const ctx = await harness(adapter)
-    /** 中文说明：测试局部值 agent，由紧邻初始化决定，仅在当前场景使用。 */
     const agent = ctx.agentLoop.create(SessionId(`cooperative-${stage}`), { provider: 'mock', model: 'mock' })
-    /** 中文说明：测试局部值 started，由紧邻初始化决定，仅在当前场景使用。 */
     const started = Promise.withResolvers<undefined>()
-    /** 中文说明：测试局部值 blockUntilAbort，由紧邻初始化决定，仅在当前场景使用。 */
     const blockUntilAbort = async (signal: AbortSignal): Promise<void> => {
       started.resolve(undefined)
       if (signal.aborted) return
@@ -1155,11 +987,9 @@ describe('Agent.cancel()', () => {
 
     send(agent, 'go')
     await started.promise
-    /** 中文说明：测试局部值 idle，由紧邻初始化决定，仅在当前场景使用。 */
     const idle = agent.whenIdle()
     agent.cancel({ kind: 'user' })
     await idle
-    /** 中文说明：测试局部值 turnEnd，由紧邻初始化决定，仅在当前场景使用。 */
     const turnEnd = agent.session.events.findLast(event => event.type === 'turn/end')
     expect(turnEnd?.type === 'turn/end' && turnEnd.data.reason)
       .toEqual({ kind: 'aborted', reason: { kind: 'user' } })

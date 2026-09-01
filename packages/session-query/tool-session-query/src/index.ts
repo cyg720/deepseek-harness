@@ -1,19 +1,3 @@
-/*
- * ================================ 文件注释 ================================
- * 【文件职责】模型面、工作区授权的会话历史搜索与读取工具：注册五个工具
- *   （session_search/session_event_search/session_trace/session_event_trace/
- *   session_event_read）并注入共享模型引导提示。
- * 【技术维度】defineTool 注册 + 共享 TEXT_OUTPUT 渲染 + 可配超时/结果上限；
- *   参数 schema 在 input.ts、执行在 operations.ts、展示在 presentation.ts。
- * 【产品维度】让模型能检索/追踪/精读历史会话，全部限定在调用者工作区内。
- * 【逻辑维度】name/inject → 常量与 Config → apply（系统提示段 + 五个工具注册）→
- *   resolveConfig。
- * 【关键边界】searchTimeoutMs 上限受 MAX_TIMER_DELAY_MS 约束；
- *   并发安全工具（trace/read）声明 isConcurrencySafe。
- * 【新手阅读建议】对照 input/operations/presentation 三文件读 apply 的注册清单。
- * ==========================================================================
- */
-
 /**
  * Model-facing, workspace-authorized session-history search and read tools.
  *
@@ -24,7 +8,6 @@ import type { Context } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
 import { MAX_TIMER_DELAY_MS } from '@deepseek-ai/dsh-timeout'
 import { defineTool } from '@deepseek-ai/dsh-tools'
-import { FIRST_PARTY_SECTION_ORDER } from '@deepseek-ai/dsh-system-prompt'
 import { toolInput } from './input.ts'
 import { operations } from './operations.ts'
 import { presentation } from './presentation.ts'
@@ -33,7 +16,7 @@ import { presentation } from './presentation.ts'
 export const name = 'tool-session-query'
 
 /** Capability services required by the model-facing consumer. */
-export const inject = ['tools', 'systemPrompt', 'sessionQuery']
+export const inject = ['tools', 'systemPrompt', 'sessionQuery', 'sessionProjections']
 
 /** Default maximum number of authorized search hits returned by one call. */
 export const DEFAULT_MAX_SEARCH_RESULTS = 100
@@ -75,7 +58,7 @@ export function apply(ctx: Context, config: Config): void {
   const resolved = resolveConfig(config)
   ctx.systemPrompt.section({
     name: 'tool:session-query',
-    order: FIRST_PARTY_SECTION_ORDER.TOOL_SESSION_QUERY,
+    order: ctx.systemPrompt.getSectionOrder('TOOL_SESSION_QUERY'),
     text: PROMPT_TEXT,
   })
 

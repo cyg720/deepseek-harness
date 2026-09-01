@@ -17,14 +17,6 @@
  * byte for byte" test failing, which reads like a snapshot regression rather than
  * a missing regeneration.
  */
-/*
- * 文件职责：实现 gen-cordis-catalog.ts 覆盖的仓库生成、校验或维护职责。
- * 技术维度：使用 TypeScript、JavaScript、Vitest、Node.js 文件系统、AST 或项目图分析。
- * 产品维度：保障源码、生成目录、文档和发布元数据在开发与 CI 中保持一致。
- * 逻辑维度：读取仓库输入，构建中间模型，执行生成或校验，再报告差异和失败。
- * 关键边界：生成结果必须确定；路径与源码文本不可信；校验失败必须以非零状态显式报告。
- * 新手阅读建议：先看命令入口和输入目录，再读模型转换，最后关注输出文件与失败条件。
- */
 
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
@@ -48,13 +40,9 @@ import {
 } from './translation-pairing.ts'
 import { rewriteTranslationLinkLocales } from './translation-links.ts'
 
-/** 中文说明：变量 root 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const root = resolve(import.meta.dirname, '..')
-/** 中文说明：常量 SUBSYSTEMS_DIR 保存本脚本共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const SUBSYSTEMS_DIR = 'docs/subsystems'
-/** 中文说明：常量 OUT_INHERITED 保存本脚本共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const OUT_INHERITED = 'docs/cordis-api/inherited.md'
-/** 中文说明：常量 OUT_RUNTIME_API 保存本脚本共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const OUT_RUNTIME_API = 'packages/extensions/tool-cordis/src/api-catalog.ts'
 
 export { REGION_BEGIN, REGION_END }
@@ -65,7 +53,6 @@ export { REGION_BEGIN, REGION_END }
  * and an entry whose key the projection no longer discovers are both hard
  * errors, so the partition can never silently drift from the service API.
  */
-/* 中文说明：常量 SERVICE_PAGE 保存本脚本共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 export const SERVICE_PAGE: Record<string, string> = {
   agentLoop: 'core.md',
   agentDefaultModel: 'core.md',
@@ -156,7 +143,6 @@ export const SERVICE_PAGE: Record<string, string> = {
  * surface has its own generated catalog (`scripts/gen-client-catalog.ts`, served
  * to a model as `cordis_runtime_inspect what:"client"`).
  */
-/* 中文说明：常量 SERVICE_WALK_EXEMPTIONS 保存本脚本共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 export const SERVICE_WALK_EXEMPTIONS: Record<string, string> = {
   agent: 'not a service: the DX accessor field on Agent.ctx (root accessor defaulting to undefined) — docs/subsystems/core.md owns the Agent handle',
   appReady: 'not a service: launcher-provided successful-startup signal — packages/boot/cmdline/README.md owns the launcher contract',
@@ -196,7 +182,6 @@ export const SERVICE_WALK_EXEMPTIONS: Record<string, string> = {
  * invisible to the host-face projection and therefore never reach this map;
  * {@link EVENT_WALK_EXEMPTIONS} names each one with its documentation owner.
  */
-/** 中文说明：常量 EVENT_SCOPE_PAGE 保存本脚本共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 export const EVENT_SCOPE_PAGE: Record<string, string> = {
   'agent': 'core.md',
   'agent-loop': 'core.md',
@@ -233,7 +218,6 @@ export const EVENT_SCOPE_PAGE: Record<string, string> = {
  * silently. Keys are full event names rather than scopes, so a scope-level
  * exemption cannot mask another declaration in that scope.
  */
-/* 中文说明：常量 EVENT_WALK_EXEMPTIONS 保存本脚本共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 export const EVENT_WALK_EXEMPTIONS: Record<string, string> = {
   'command/executed': 'client-face local command acknowledgment — packages/client/ui-commands/README.md owns the API',
   'connection/reset': 'client-face transport signal — packages/api/session-controller/README.md owns the API',
@@ -252,7 +236,6 @@ export const EVENT_WALK_EXEMPTIONS: Record<string, string> = {
  * reuse the type-equivalence manifest's map-symbol entries and some symbols
  * appear on more than one page.
  */
-/* 中文说明：常量 LINK_MAP 保存本脚本共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 export const LINK_MAP: Readonly<Record<string, string>> = {
   Agent: 'core.md',
   AgentCancelCause: 'core.md',
@@ -510,7 +493,9 @@ export const LINK_MAP: Readonly<Record<string, string>> = {
   SubagentStartRequest: 'subagent.md',
   AssembleContext: 'system-prompt.md',
   PromptContext: 'system-prompt.md',
+  PromptContextOrderName: 'system-prompt.md',
   PromptSection: 'system-prompt.md',
+  PromptSectionOrderName: 'system-prompt.md',
   SystemPrompt: 'system-prompt.md',
   ToolProviderResult: 'system-prompt.md',
   JobDoneListener: 'jobs.md',
@@ -550,7 +535,9 @@ export const LINK_MAP: Readonly<Record<string, string>> = {
   ToolRestriction: 'tools.md',
   ToolSchema: 'tools.md',
   SettingsNamespace: 'settings.md',
+  SettingsNamespaceInput: 'settings.md',
   SettingsRegisterOptions: 'settings.md',
+  SettingsSectionHooks: 'settings.md',
   SettingsScope: 'settings.md',
   SettingsDescriptor: 'settings.md',
   SettingsDescribeValue: 'settings.md',
@@ -643,7 +630,6 @@ export const LINK_MAP: Readonly<Record<string, string>> = {
 }
 
 /** TypeScript lib and pinned framework types with no repository-owned data page. */
-/* 中文说明：常量 FOUNDATION_TYPE_NAMES 保存本脚本共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 export const FOUNDATION_TYPE_NAMES: ReadonlySet<string> = new Set([
   'AbortSignal',
   'AsyncIterable',
@@ -664,7 +650,6 @@ export const FOUNDATION_TYPE_NAMES: ReadonlySet<string> = new Set([
 ])
 
 /** Project types deliberately documented outside the subsystems catalog. */
-/* 中文说明：常量 TYPE_LINK_EXEMPTIONS 保存本脚本共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 export const TYPE_LINK_EXEMPTIONS: Readonly<Record<string, string>> = {
   z: 'schemastery schema constructor is owned by vendor/schemastery (vendored upstream)',
   BeginCommandRequest: 'event-local request contract is owned by packages/client/ui-input-trigger/src/types.ts',
@@ -675,6 +660,7 @@ export const TYPE_LINK_EXEMPTIONS: Readonly<Record<string, string>> = {
   AgentPreset: 'discovered preset record is owned by packages/preset/agent-presets/README.md',
   AgentPresetRoster: 'path-free preset roster is owned by packages/preset/agent-presets/README.md',
   AgentPresetDocument: 'preset composition view is owned by packages/preset/agent-presets/README.md',
+  AgentPresetComposition: 'flattened composition rows are owned by packages/preset/agent-presets/README.md',
   PresetMetadata: 'preset display text is owned by packages/preset/agent-presets/README.md',
   BashEnvContributor: 'service-local extension type is owned by packages/shell/tool-bash/src/index.ts',
   BashEnvVariableInfo: 'service-local metadata type is owned by packages/shell/tool-bash/src/index.ts',
@@ -744,7 +730,6 @@ export const TYPE_LINK_EXEMPTIONS: Readonly<Record<string, string>> = {
 }
 
 /** Repository data policy consumed by the Cordis catalog projector. */
-/* 中文说明：常量 CORDIS_CATALOG_POLICY 保存本脚本共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 export const CORDIS_CATALOG_POLICY: CordisCatalogPolicy = {
   linkedTypePages: LINK_MAP,
   foundationTypeNames: FOUNDATION_TYPE_NAMES,
@@ -827,27 +812,20 @@ export const CORDIS_CATALOG_POLICY: CordisCatalogPolicy = {
  * @param region - the freshly rendered marker-delimited region.
  * @returns the page text with the region replaced.
  */
-/* 中文说明：函数 spliceRegion 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 export function spliceRegion(content: string, region: string): string {
-  /** 中文说明：变量 lines 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const lines = content.split('\n')
-  /** 中文说明：函数值 begins 封装本脚本的局部步骤；参数和返回值由右侧签名约束；示例见本脚本调用。 */
   const begins = lines.flatMap((line, index) => (line === REGION_BEGIN ? [index] : []))
-  /** 中文说明：函数值 ends 封装本脚本的局部步骤；参数和返回值由右侧签名约束；示例见本脚本调用。 */
   const ends = lines.flatMap((line, index) => (line === REGION_END ? [index] : []))
   if (begins.length !== 1 || ends.length !== 1) {
     throw new Error(`expected exactly 1 cordis-surface region, found ${begins.length} BEGIN/${ends.length} END; add the BEGIN/END cordis-surface markers once`)
   }
-  /** 中文说明：变量 begin 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const begin = begins[0] ?? -1
-  /** 中文说明：变量 end 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const end = ends[0] ?? -1
   if (end < begin) throw new Error('cordis-surface END marker precedes its BEGIN')
   return [...lines.slice(0, begin), ...region.split('\n'), ...lines.slice(end + 1)].join('\n')
 }
 
 /** The declared-vs-rendered inputs {@link walkPartitionProblems} judges. */
-/* 中文说明：interface WalkPartitionInput 定义本脚本所需的数据或行为，用于表达仓库脚本场景。 */
 export interface WalkPartitionInput {
   /** Service key → source pointer, as the rendering projection produced them. */
   readonly renderedKeys: ReadonlyMap<string, string>
@@ -862,7 +840,6 @@ export interface WalkPartitionInput {
 }
 
 /** The curated partition maps {@link walkPartitionProblems} enforces. */
-/* 中文说明：interface WalkPartitionMaps 定义本脚本所需的数据或行为，用于表达仓库脚本场景。 */
 export interface WalkPartitionMaps {
   readonly servicePage: Readonly<Record<string, string>>
   readonly serviceWalkExemptions: Readonly<Record<string, string>>
@@ -871,10 +848,8 @@ export interface WalkPartitionMaps {
 }
 
 /** Project paired Markdown destinations in one generated region to the page's locale. */
-/* 中文说明：函数 localizePageRegion 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 export function localizePageRegion(region: string, pageRel: string, scanRoot: string = root): string {
   if (!pageRel.endsWith('.zh.md')) return region
-  /** 中文说明：变量 manifest 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const manifest = parseTranslationPairingManifest(
     readFileSync(resolve(scanRoot, 'scripts/translation-pairing.manifest.json'), 'utf8'),
   )
@@ -898,23 +873,17 @@ export function localizePageRegion(region: string, pageRel: string, scanRoot: st
  * @param maps - the curated page maps and walk exemptions.
  * @returns one message per violation, empty when the partition holds.
  */
-/* 中文说明：函数 walkPartitionProblems 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 export function walkPartitionProblems(input: WalkPartitionInput, maps: WalkPartitionMaps): string[] {
-  /** 中文说明：变量 problems 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const problems: string[] = []
-  /** 中文说明：该循环依次处理仓库文件或模型；循环变量仅在当前循环中有效。 */
   for (const [key, source] of input.renderedKeys) {
     if (!Object.hasOwn(maps.servicePage, key)) problems.push(`service ctx.${key} (${source}) has no SERVICE_PAGE entry; every service maps to exactly one subsystems page.`)
   }
-  /** 中文说明：该循环依次处理仓库文件或模型；循环变量仅在当前循环中有效。 */
   for (const scope of [...input.renderedScopes].sort()) {
     if (!Object.hasOwn(maps.eventScopePage, scope)) problems.push(`event scope '${scope}/*' has no EVENT_SCOPE_PAGE entry; every event scope maps to exactly one subsystems page.`)
   }
-  /** 中文说明：该循环依次处理仓库文件或模型；循环变量仅在当前循环中有效。 */
   for (const key of Object.keys(maps.servicePage)) {
     if (!input.renderedKeys.has(key)) problems.push(`SERVICE_PAGE maps 'ctx.${key}' but the projection discovers no such service; remove the stale entry.`)
   }
-  /** 中文说明：该循环依次处理仓库文件或模型；循环变量仅在当前循环中有效。 */
   for (const scope of Object.keys(maps.eventScopePage)) {
     if (!input.renderedScopes.has(scope)) problems.push(`EVENT_SCOPE_PAGE maps '${scope}/*' but the projection discovers no such scope; remove the stale entry.`)
   }
@@ -922,36 +891,28 @@ export function walkPartitionProblems(input: WalkPartitionInput, maps: WalkParti
   // documented service class. The independent scan reads EVERY Context merge
   // so a key the projection cannot render must either be rendered (mapped) or
   // carry a named SERVICE_WALK_EXEMPTIONS reason — never vanish silently.
-  /** 中文说明：该循环依次处理仓库文件或模型；循环变量仅在当前循环中有效。 */
   for (const [key, rel] of input.declaredKeys) {
-    /** 中文说明：变量 rendered 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const rendered = input.renderedKeys.has(key)
-    /** 中文说明：变量 exempt 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const exempt = Object.hasOwn(maps.serviceWalkExemptions, key)
     if (!rendered && !exempt) {
       problems.push(`ctx.${key} (${rel}) is declared in a Context merge but invisible to the rendering projection; map it in SERVICE_PAGE (after making it renderable) or name it in SERVICE_WALK_EXEMPTIONS with its documentation owner.`)
     }
     if (rendered && exempt) problems.push(`ctx.${key} is rendered by the projection but still listed in SERVICE_WALK_EXEMPTIONS; remove the stale exemption.`)
   }
-  /** 中文说明：该循环依次处理仓库文件或模型；循环变量仅在当前循环中有效。 */
   for (const key of Object.keys(maps.serviceWalkExemptions)) {
     if (!input.declaredKeys.has(key)) problems.push(`SERVICE_WALK_EXEMPTIONS names 'ctx.${key}' but no Context merge declares it; remove the stale exemption.`)
   }
   // The event mirror of the service backstop: the projection walks only files
   // reachable from host-face package exports, so a client-face or unreachable
   // Events merge would otherwise vanish without a trace.
-  /** 中文说明：该循环依次处理仓库文件或模型；循环变量仅在当前循环中有效。 */
   for (const [name, rel] of input.declaredEvents) {
-    /** 中文说明：变量 rendered 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const rendered = input.renderedEventNames.has(name)
-    /** 中文说明：变量 exempt 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const exempt = Object.hasOwn(maps.eventWalkExemptions, name)
     if (!rendered && !exempt) {
       problems.push(`event '${name}' (${rel}) is declared in an Events merge but invisible to the rendering projection; make it renderable (mapped via EVENT_SCOPE_PAGE) or name it in EVENT_WALK_EXEMPTIONS with its documentation owner.`)
     }
     if (rendered && exempt) problems.push(`event '${name}' is rendered by the projection but still listed in EVENT_WALK_EXEMPTIONS; remove the stale exemption.`)
   }
-  /** 中文说明：该循环依次处理仓库文件或模型；循环变量仅在当前循环中有效。 */
   for (const name of Object.keys(maps.eventWalkExemptions)) {
     if (!input.declaredEvents.has(name)) problems.push(`EVENT_WALK_EXEMPTIONS names '${name}' but no Events merge declares it; remove the stale exemption.`)
   }
@@ -960,11 +921,9 @@ export function walkPartitionProblems(input: WalkPartitionInput, maps: WalkParti
   // event the scan cannot see means the SCAN regressed (glob, prefilter, or
   // block walk) — a partial blind spot that exemption staleness alone would
   // never appear.
-  /** 中文说明：该循环依次处理仓库文件或模型；循环变量仅在当前循环中有效。 */
   for (const key of input.renderedKeys.keys()) {
     if (!input.declaredKeys.has(key)) problems.push(`ctx.${key} is rendered by the projection but the independent scan finds no Context merge declaring it; the scan has a blind spot (glob, prefilter, or module-block walk) — fix the scan, not the maps.`)
   }
-  /** 中文说明：该循环依次处理仓库文件或模型；循环变量仅在当前循环中有效。 */
   for (const name of input.renderedEventNames) {
     if (!input.declaredEvents.has(name)) problems.push(`event '${name}' is rendered by the projection but the independent scan finds no Events merge declaring it; the scan has a blind spot (glob, prefilter, or module-block walk) — fix the scan, not the maps.`)
   }
@@ -981,30 +940,21 @@ export function walkPartitionProblems(input: WalkPartitionInput, maps: WalkParti
  * exemption, and a mapped page missing its markers are all aggregated errors.
  * @returns `[repo-relative path, exact content]` for every generated artifact.
  */
-/* 中文说明：函数 computeOutputs 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 export function computeOutputs(): [string, string][] {
   const { projector, model } = projectCordisCatalog(root, CORDIS_CATALOG_POLICY)
-  /** 中文说明：变量 services 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const services = [...model.services]
-  /** 中文说明：变量 events 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const events = [...model.events]
 
-  /** 中文说明：变量 declaredKeys 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const declaredKeys = new Map<string, string>()
-  /** 中文说明：变量 declaredEvents 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const declaredEvents = new Map<string, string>()
-  /** 中文说明：该循环依次处理仓库文件或模型；循环变量仅在当前循环中有效。 */
   for (const { rel, sf, body } of contextMergeFiles(root, ['packages/*/*/src/**/*.ts', 'packages/*/*/src/**/*.tsx'])) {
-    /** 中文说明：该循环依次处理仓库文件或模型；循环变量仅在当前循环中有效。 */
     for (const key of contextKeyMap(body, sf).keys()) {
       if (!declaredKeys.has(key)) declaredKeys.set(key, rel)
     }
-    /** 中文说明：该循环依次处理仓库文件或模型；循环变量仅在当前循环中有效。 */
     for (const name of eventNameList(body, sf)) {
       if (!declaredEvents.has(name)) declaredEvents.set(name, rel)
     }
   }
-  /** 中文说明：变量 problems 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const problems = walkPartitionProblems({
     renderedKeys: new Map(services.map(s => [s.key, s.source])),
     renderedScopes: new Set(events.map(e => e.scope)),
@@ -1019,29 +969,21 @@ export function computeOutputs(): [string, string][] {
   })
   if (problems.length > 0) throw new Error(`gen-cordis-catalog: ${problems.length} partition violation(s):\n${problems.map(p => `  ${p}`).join('\n')}`)
 
-  /** 中文说明：变量 pages 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const pages = [...new Set([...Object.values(SERVICE_PAGE), ...Object.values(EVENT_SCOPE_PAGE)])].sort()
-  /** 中文说明：变量 outputs 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const outputs: [string, string][] = [
     [OUT_INHERITED, renderInheritedPage(CORDIS_CATALOG_POLICY)],
     [OUT_RUNTIME_API, projector.renderRuntimeApi(model)],
   ]
-  /** 中文说明：该循环依次处理仓库文件或模型；循环变量仅在当前循环中有效。 */
   for (const page of pages) {
-    /** 中文说明：变量 region 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const region = renderPageRegion(
       page,
       services.filter(s => SERVICE_PAGE[s.key] === page),
       events.filter(e => EVENT_SCOPE_PAGE[e.scope] === page),
       CORDIS_CATALOG_POLICY,
     )
-    /** 中文说明：该循环依次处理仓库文件或模型；循环变量仅在当前循环中有效。 */
     for (const side of [page, page.replace(/\.md$/, '.zh.md')]) {
-      /** 中文说明：变量 rel 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const rel = `${SUBSYSTEMS_DIR}/${side}`
-      /** 中文说明：变量 localizedRegion 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const localizedRegion = localizePageRegion(region, rel)
-      /** 中文说明：变量 current 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       let current: string
       try {
         current = readFileSync(resolve(root, rel), 'utf8')
@@ -1074,15 +1016,10 @@ export function computeOutputs(): [string, string][] {
  * @param scanRoot - repository root override for tests.
  * @returns true when the record was refreshed.
  */
-/* 中文说明：函数 maybeRecordPair 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 export function maybeRecordPair(pageRel: string, before: Map<string, Buffer>, scanRoot: string = root): boolean {
-  /** 中文说明：变量 zhRel 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const zhRel = pageRel.replace(/\.md$/, '.zh.md')
-  /** 中文说明：变量 metaRel 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const metaRel = pageRel.replace(/\.md$/, '.i18n.yaml')
-  /** 中文说明：变量 metaAbs 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const metaAbs = resolve(scanRoot, metaRel)
-  /** 中文说明：变量 meta 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   let meta: string
   try {
     meta = readFileSync(metaAbs, 'utf8')
@@ -1094,28 +1031,19 @@ export function maybeRecordPair(pageRel: string, before: Map<string, Buffer>, sc
   // The record must contain exactly the two valid entries for THIS pair;
   // a malformed or renamed-key sidecar is the pairing gate's problem to
   // report, never something regeneration silently repairs into validity.
-  /** 中文说明：变量 recorded 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const recorded = parsePairMeta(meta)
-  /** 中文说明：函数值 names 封装本脚本的局部步骤；参数和返回值由右侧签名约束；示例见本脚本调用。 */
   const names = [pageRel, zhRel].map(rel => rel.split('/').at(-1) ?? rel)
   if (!recorded || recorded.size !== 2 || !names.every(name => recorded.has(name))) return false
-  /** 中文说明：该循环依次处理仓库文件或模型；循环变量仅在当前循环中有效。 */
   for (const rel of [pageRel, zhRel]) {
-    /** 中文说明：变量 previous 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const previous = before.get(rel)
     if (!previous) return false
     if (recorded.get(rel.split('/').at(-1) ?? rel) !== blobHash(previous)) return false
-    /** 中文说明：变量 current 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const current = readFileSync(resolve(scanRoot, rel))
-    /** 中文说明：变量 strippedBefore 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const strippedBefore = partitionGeneratedRegions(previous.toString('utf8')).stripped
-    /** 中文说明：变量 strippedAfter 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const strippedAfter = partitionGeneratedRegions(current.toString('utf8')).stripped
     if (strippedBefore !== strippedAfter) return false
   }
-  /** 中文说明：变量 source 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const source = readFileSync(resolve(scanRoot, pageRel))
-  /** 中文说明：变量 zh 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const zh = readFileSync(resolve(scanRoot, zhRel))
   writeFileSync(metaAbs, renderPairMeta(pageRel, blobHash(source), zhRel, blobHash(zh)))
   return true
@@ -1126,19 +1054,14 @@ export function maybeRecordPair(pageRel: string, before: Map<string, Buffer>, sc
  * tests neither regenerates the committed files nor calls process.exit.
  * @returns nothing; writes files or reports freshness through the process.
  */
-/* 中文说明：函数 main 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 export function main(): void {
-  /** 中文说明：变量 outputs 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const outputs: [string, string][] = [
     ...computeOutputs(),
     ...renderCordisCoreApiPages(),
   ]
   if (process.argv.includes('--check')) {
-    /** 中文说明：变量 stale 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const stale: string[] = []
-    /** 中文说明：该循环依次处理仓库文件或模型；循环变量仅在当前循环中有效。 */
     for (const [out, content] of outputs) {
-      /** 中文说明：变量 committed 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       let committed: string | null = null
       try {
         committed = readFileSync(resolve(root, out), 'utf8')
@@ -1158,9 +1081,7 @@ export function main(): void {
     process.exit(1)
   }
 
-  /** 中文说明：变量 before 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const before = new Map<string, Buffer>()
-  /** 中文说明：该循环依次处理仓库文件或模型；循环变量仅在当前循环中有效。 */
   for (const [out] of outputs) {
     try {
       before.set(out, readFileSync(resolve(root, out)))
@@ -1168,28 +1089,19 @@ export function main(): void {
       // First generation of this artifact; nothing to guard, nothing to record.
     }
   }
-  /** 中文说明：变量 changedPages 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   let changedPages = 0
-  /** 中文说明：变量 recorded 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   let recorded = 0
-  /** 中文说明：该循环依次处理仓库文件或模型；循环变量仅在当前循环中有效。 */
   for (const [out, content] of outputs) {
-    /** 中文说明：变量 destination 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const destination = resolve(root, out)
     if (before.get(out)?.toString('utf8') === content) continue
     mkdirSync(dirname(destination), { recursive: true })
     writeFileSync(destination, content)
     changedPages++
   }
-  /** 中文说明：该循环依次处理仓库文件或模型；循环变量仅在当前循环中有效。 */
   for (const page of [...new Set([...Object.values(SERVICE_PAGE), ...Object.values(EVENT_SCOPE_PAGE)])]) {
-    /** 中文说明：变量 rel 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const rel = `${SUBSYSTEMS_DIR}/${page}`
-    /** 中文说明：变量 zhRel 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const zhRel = rel.replace(/\.md$/, '.zh.md')
-    /** 中文说明：函数值 wroteEither 封装本脚本的局部步骤；参数和返回值由右侧签名约束；示例见本脚本调用。 */
     const wroteEither = [rel, zhRel].some((side) => {
-      /** 中文说明：变量 previous 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const previous = before.get(side)
       return previous !== undefined && previous.toString('utf8') !== readFileSync(resolve(root, side), 'utf8')
     })

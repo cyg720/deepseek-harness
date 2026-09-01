@@ -1,12 +1,4 @@
 // @vitest-environment jsdom
-/*
- * 文件职责：验证消息反馈的 browser-plugin.client.spec.tsx 行为。
- * 技术维度：Vitest、React 渲染和可控服务替身。
- * 产品维度：防止消息反馈用户流程回归。
- * 逻辑维度：构造状态，触发交互并断言输出与清理。
- * 关键边界：全局替身和异步任务必须在用例后恢复。
- * 新手阅读建议：先读辅助函数，再按场景顺序阅读。
- */
 /**
  * ui-message-feedback browser half on a real cordis Context with fake slots/remote
  * faces: the plugin registers the feedback entry at
@@ -22,7 +14,7 @@ import { cleanup } from '@testing-library/react'
 import { SlotRegistry } from '@deepseek-ai/dsh-client-ui-renderer/client'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import { LocaleRuntime } from '@deepseek-ai/dsh-client-locale/client'
-import type { MessageId } from '@deepseek-ai/dsh-client-connection/client'
+import type { MessageId } from '@deepseek-ai/dsh-api-remotes/client'
 import type { MessageFeedbackItem, MessageFeedbackVersion } from '@deepseek-ai/dsh-message-feedback/types'
 import type { MessageFeedbackInjected } from '../src/client/slots.ts'
 import { apply, inject } from '../src/client/index.ts'
@@ -30,12 +22,9 @@ import { apply as nodeApply } from '../src/index.ts'
 
 afterEach(cleanup)
 
-/** 中文说明：测试局部值 sid，由紧邻初始化决定。 */
 const sid = (k: string): SessionId => k as SessionId
-/** 中文说明：测试局部值 MSG，由紧邻初始化决定。 */
 const MSG = 'm-1' as MessageId
 
-/** 中文说明：测试局部值 seeded，由紧邻初始化决定。 */
 const seeded: MessageFeedbackItem = {
   messageId: MSG,
   rating: 'positive',
@@ -45,16 +34,11 @@ const seeded: MessageFeedbackItem = {
 }
 
 /** Boot the plugin over fake faces; the Remote namespace records every call. */
-/* 中文说明：函数 bench 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 async function bench() {
-  /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
   const ctx = new Context()
-  /** 中文说明：测试局部值 calls，由紧邻初始化决定。 */
   const calls: { method: string; request: unknown }[] = []
   // The generated face wraps every business result in the carrier envelope.
-  /** 中文说明：测试局部值 carried，由紧邻初始化决定。 */
   const carried = <T,>(value: T) => Promise.resolve({ ok: true as const, value })
-  /** 中文说明：测试局部值 messageFeedback，由紧邻初始化决定。 */
   const messageFeedback = {
     list: (request: unknown) => {
       calls.push({ method: 'list', request })
@@ -69,7 +53,6 @@ async function bench() {
       return carried({ ok: true as const, value: { absent: true as const } })
     },
   }
-  /** 中文说明：类型或类 RemoteService 约束本文件数据或组件职责。 */
   class RemoteService extends Service {
     constructor(serviceCtx: Context) {
       super(serviceCtx, 'remote')
@@ -83,14 +66,12 @@ async function bench() {
     children: { 'conversation.chat.assistant-actions': { kind: 'list', scope: 'session' } },
   } as never, (() => null) as never)
   ctx.provide('locale', new LocaleRuntime(ctx))
-  /** 中文说明：测试局部值 fiber，由紧邻初始化决定。 */
   const fiber = ctx.plugin({ inject: [...inject], apply })
   return {
     ctx,
     fiber,
     calls,
     entry: () => {
-      /** 中文说明：测试局部值 entry，由紧邻初始化决定。 */
       const entry = ctx.slots.entries('conversation.chat.assistant-actions')[0]
       if (entry === undefined) return undefined
       return {
@@ -104,7 +85,6 @@ async function bench() {
 
 describe('ui-message-feedback browser plugin', () => {
   it('registers the feedback entry with the documented id, order, and locale', async () => {
-    /** 中文说明：测试局部值 b，由紧邻初始化决定。 */
     const b = await bench()
     await b.fiber.await()
 
@@ -113,11 +93,9 @@ describe('ui-message-feedback browser plugin', () => {
   })
 
   it('exposes the feedback hook plus the ensure/rate/clear verbs', async () => {
-    /** 中文说明：测试局部值 b，由紧邻初始化决定。 */
     const b = await bench()
     await b.fiber.await()
 
-    /** 中文说明：测试局部值 face，由紧邻初始化决定。 */
     const face = b.entry()!.inject!(sid('s1'))
     expect(face.hooks.feedback.getSnapshot()).toMatchObject({ status: 'cold' })
     expect(face.ensure).toBeTypeOf('function')
@@ -126,13 +104,10 @@ describe('ui-message-feedback browser plugin', () => {
   })
 
   it('shares one controller across every message in the same Session', async () => {
-    /** 中文说明：测试局部值 b，由紧邻初始化决定。 */
     const b = await bench()
     await b.fiber.await()
 
-    /** 中文说明：测试局部值 first，由紧邻初始化决定。 */
     const first = b.entry()!.inject!(sid('s1'))
-    /** 中文说明：测试局部值 second，由紧邻初始化决定。 */
     const second = b.entry()!.inject!(sid('s1'))
     expect(first.hooks.feedback).toBe(second.hooks.feedback)
 
@@ -142,13 +117,10 @@ describe('ui-message-feedback browser plugin', () => {
   })
 
   it('keeps separate Sessions on separate controllers', async () => {
-    /** 中文说明：测试局部值 b，由紧邻初始化决定。 */
     const b = await bench()
     await b.fiber.await()
 
-    /** 中文说明：测试局部值 one，由紧邻初始化决定。 */
     const one = b.entry()!.inject!(sid('s1'))
-    /** 中文说明：测试局部值 two，由紧邻初始化决定。 */
     const two = b.entry()!.inject!(sid('s2'))
     expect(one.hooks.feedback).not.toBe(two.hooks.feedback)
 
@@ -161,11 +133,9 @@ describe('ui-message-feedback browser plugin', () => {
   })
 
   it('routes rate and clear to the Remote with the addressed message', async () => {
-    /** 中文说明：测试局部值 b，由紧邻初始化决定。 */
     const b = await bench()
     await b.fiber.await()
 
-    /** 中文说明：测试局部值 face，由紧邻初始化决定。 */
     const face = b.entry()!.inject!(sid('s1'))
     expect(await face.rate(MSG, 'negative', 'wrong answer')).toEqual({ ok: true })
     expect(await face.clear(MSG)).toEqual({ ok: true })
@@ -179,49 +149,40 @@ describe('ui-message-feedback browser plugin', () => {
   })
 
   it('routes toggle and clearNote to the controller', async () => {
-    /** 中文说明：测试局部值 b，由紧邻初始化决定。 */
     const b = await bench()
     await b.fiber.await()
 
-    /** 中文说明：测试局部值 face，由紧邻初始化决定。 */
     const face = b.entry()!.inject!(sid('s1'))
     expect(await face.toggle(MSG, 'negative')).toEqual({ ok: true })
     expect(await face.clearNote(MSG)).toEqual({ ok: true })
 
     // The seeded item is positive with no note, so a negative toggle replaces it
     // through put, and clearNote has nothing to drop and touches no wire.
-    /** 中文说明：测试局部值 puts，由紧邻初始化决定。 */
     const puts = b.calls.filter(call => call.method === 'put').map(call => call.request)
     expect(puts).toHaveLength(1)
     expect(puts[0]).toMatchObject({ messageId: MSG, rating: 'negative' })
   })
 
   it('refreshes only Sessions already read when the connection resets', async () => {
-    /** 中文说明：测试局部值 b，由紧邻初始化决定。 */
     const b = await bench()
     await b.fiber.await()
 
-    /** 中文说明：测试局部值 warm，由紧邻初始化决定。 */
     const warm = b.entry()!.inject!(sid('warm'))
     await warm.ensure()
     b.entry()!.inject!(sid('cold'))
-    /** 中文说明：测试局部值 before，由紧邻初始化决定。 */
     const before = b.calls.filter(call => call.method === 'list').length
 
     b.ctx.emit('connection/reset')
     await Promise.resolve()
 
-    /** 中文说明：测试局部值 reads，由紧邻初始化决定。 */
     const reads = b.calls.filter(call => call.method === 'list')
     expect(reads).toHaveLength(before + 1)
     expect(reads.at(-1)?.request).toEqual({ sessionId: 'warm' })
   })
 
   it('withdraws the registration and disposes controllers with the plugin fiber', async () => {
-    /** 中文说明：测试局部值 b，由紧邻初始化决定。 */
     const b = await bench()
     await b.fiber.await()
-    /** 中文说明：测试局部值 face，由紧邻初始化决定。 */
     const face = b.entry()!.inject!(sid('s1'))
     await face.ensure()
 
@@ -229,19 +190,16 @@ describe('ui-message-feedback browser plugin', () => {
 
     expect(b.ctx.slots.entries('conversation.chat.assistant-actions')).toHaveLength(0)
     // A disposed controller refuses further mutations, so no request outlives the fiber.
-    /** 中文说明：测试局部值 before，由紧邻初始化决定。 */
     const before = b.calls.length
     expect(await face.rate(MSG, 'positive')).toMatchObject({ ok: false, error: { code: 'disposed' } })
     expect(b.calls).toHaveLength(before)
   })
 
   it('re-registers cleanly when the plugin is reloaded', async () => {
-    /** 中文说明：测试局部值 b，由紧邻初始化决定。 */
     const b = await bench()
     await b.fiber.await()
     await b.fiber.dispose()
 
-    /** 中文说明：测试局部值 reloaded，由紧邻初始化决定。 */
     const reloaded = b.ctx.plugin({ inject: [...inject], apply })
     await reloaded.await()
 

@@ -1,19 +1,3 @@
-/*
- * ================================ 文件注释 ================================
- * 【文件职责】InputTriggerController：触发器管线的会话级（per-session）半部——
- *             持有全部可变交互状态（权威触发命中、菜单存储、候选拉取生命周期），
- *             并通过 scoped 输入事件执行挑选结果。
- * 【技术维度】SnapshotStore 状态 + Cordis scoped 事件（bail）：根服务只保存源花名册，
- *             每个会话作用域一个控制器，随作用域 fiber 销毁。
- * 【产品维度】'/' 与 '@' 菜单在会话中的完整交互：追踪输入、菜单打开/移动/选择、
- *             空格裁决、回车裁决、引用序列化。
- * 【逻辑维度】track 喂入输入变化 → fetchCandidates 拉候选 → pick/arbitrate 用户交互
- *             → onSpace/adjudicate 空格与回车裁决 → execute 通过 scoped 事件执行结算。
- * 【关键边界】空格裁决必须同步（只读热状态）；回车可强等待源预热；
- *             序列化缺失时拒绝提交而非静默降级。
- * 【新手阅读建议】先看 track 与 pick 两个入口，再看 execute 的事件分派。
- * ==========================================================================
- */
 /**
  * InputTriggerController: the per-session half of the trigger pipeline. Owns every
  * piece of mutable interaction state — the authoritative trigger hit (span
@@ -58,7 +42,6 @@ export interface InputTriggerControllerDeps {
  * inside; MenuView renders from {@link InputTriggerController.menu} and routes
  * pointer picks back through {@link InputTriggerController.pick}.
  */
-// 会话级触发管线：全部状态变更都在内部，MenuView 渲染 menu 并通过 pick 回传指针选择。
 export class InputTriggerController {
   /** Menu state store (per-session; survives session switches, dies with the scope). */
   readonly menu: SnapshotStore<MenuState> = createSnapshotStore<MenuState>(MENU_CLOSED)
@@ -118,7 +101,6 @@ export class InputTriggerController {
    * @param draftRev - the input machine's current draft revision, stamped
    * into the hit span for pick-time CAS.
    */
-  // 追踪输入变化：跑触发器检测并驱动菜单；相同命中（含启动器场景）时跳过刷新。
   track(draft: string, caret: number, guard: TriggerGuard, draftRev: number): void {
     if (this.disposed) return
     const launched = this.launcher.getSnapshot() !== null
@@ -232,7 +214,11 @@ export class InputTriggerController {
    * Keyboard arbitration while the menu is open.
    * @param key - intercepted key.
    * @param composing - inside IME composition: everything passes.
-   * @returns consumed / pick-highlighted / pass.
+   * @returns `pass` when the browser keeps the key (closed menu, no
+   * highlight, or a vanished candidate), `consumed` when the menu handled
+   * the key without a settling pick (move, close, drill descent, or a
+   * pending-refinement no-op), or `pick-highlighted` when the highlighted
+   * candidate settled and the menu closed.
    */
   arbitrate(key: ArbitrateKey, composing: boolean): ArbitrateOutcome {
     if (composing || this.disposed) return 'pass'
@@ -254,20 +240,28 @@ export class InputTriggerController {
       }
       case 'enter': {
         if (state.highlight === null) return 'pass'
+        // Refinement keeps the previous rows and highlight visible while the
+        // next fetch is pending; Enter then neither picks the stale row nor
+        // falls through to submit — an explicit no-op until the group is ready.
+        const group = state.groups.find(g => g.source === state.highlight?.source)
+        if (group === undefined || group.status !== 'ready') return 'consumed'
         this.pick(state.highlight.source, state.highlight.index)
         return 'pick-highlighted'
       }
       case 'tab': {
-        // Tab drills into the highlighted candidate when it offers descent;
-        // otherwise the key passes so native focus behavior is untouched.
         if (state.highlight === null) return 'pass'
         const group = state.groups.find(g => g.source === state.highlight?.source)
-        const item = group !== undefined && group.status === 'ready'
-          ? group.items[state.highlight.index]
-          : undefined
-        if (item?.drill !== true) return 'pass'
-        this.pick(state.highlight.source, state.highlight.index, 'drill')
-        return 'consumed'
+        // Pending refinement keeps the stale highlight visible: consume the
+        // gesture rather than pick a stale row or let Tab move focus away.
+        if (group === undefined || group.status !== 'ready') return 'consumed'
+        const item = group.items[state.highlight.index]
+        if (item === undefined) return 'pass'
+        if (item.drill === true) {
+          this.pick(state.highlight.source, state.highlight.index, 'drill')
+          return 'consumed'
+        }
+        this.pick(state.highlight.source, state.highlight.index)
+        return 'pick-highlighted'
       }
     }
   }
@@ -503,13 +497,16 @@ export class InputTriggerController {
     })
     this.stopFetch()
     this.reduce({ type: 'close' })
-    const applied = this.execute(outcome, hit.span)
-    // Set after the close above, so the reducer's own teardown cannot clear
-    // it, and only when the descent text actually landed: a refused edit
-    // (stale draft revision, or no listener) leaves the draft where it was,
-    // and a header over that draft would name a directory nobody descended
-    // into while hiding the locations its rows still need.
-    this.drilled = action === 'drill' && applied
+    // Claimed before the edit, and after the close above so the reducer's own
+    // teardown cannot clear it: the input may apply the descent through a
+    // synchronous editor commit that re-enters track(), and the header and
+    // candidate requests raised there read this flag. A refused edit (stale
+    // draft revision, or an unmappable span) mutates nothing and so reaches
+    // no re-entry, which is why withdrawing the claim afterwards still keeps
+    // a header off a draft nobody descended into — one that would name a
+    // directory while hiding the locations its rows still need.
+    this.drilled = action === 'drill'
+    if (!this.execute(outcome, hit.span)) this.drilled = false
   }
 
   /** Re-poll every header-bearing source in the hit roster and publish their crumbs. */

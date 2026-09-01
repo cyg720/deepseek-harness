@@ -1,19 +1,3 @@
-/*
- * ================================ 文件注释 ================================
- * 【文件职责】设置命名空间作用域契约的宿主传输：按命名空间在共享 describe 镜像上
- *             派生出该作用域的快照，并序列化该命名空间的宿主写入。
- * 【技术维度】Cordis Service + SnapshotStore：读取从不触网（镜像唯一读取者）；
- *             写入携带最新命名空间修订号、应答回折进镜像、拆除等待正在过网的
- *             操作（tail 队列）。
- * 【产品维度】每个偏好行的持久化基础：读派生自镜像、写序列化过网。
- * 【逻辑维度】SettingsScopeController.derive 从镜像派生 → set/unset 入队写入
- *             （带修订号与失败恢复）→ dispose 等待队列静默；SettingsScopeBinder
- *             在调用方 fiber 上绑定作用域。
- * 【关键边界】写入串行（enqueue）；被取代的写入把修订号留给后继者（pendingRevision）；
- *             非回环浏览器为 memory 模式（写入直接忽略）。
- * 【新手阅读建议】先看 write/enqueue 的队列与修订协议，再看 derive/decode 的派生。
- * ==========================================================================
- */
 /**
  * Host transport for the settings-namespace scope contract. This file owns the
  * per-namespace derivation over the shared {@link SettingsDescribeMirror} and
@@ -25,9 +9,10 @@
 import { Service } from '@deepseek-ai/cordis'
 import type { Context } from '@deepseek-ai/cordis'
 import type {
-  ConnectionHandle, JsonValue, SettingsNamespaceView, SettingsPathOpView,
+  SettingsNamespaceView, SettingsPathOpView,
 } from '@deepseek-ai/dsh-api-remotes/client'
 import { createSnapshotStore, type SnapshotStore } from '@deepseek-ai/dsh-client-store'
+import type { JsonValue } from '@deepseek-ai/dsh-util-values'
 // Type-only, and deliberately NOT `@deepseek-ai/dsh-api-remotes/client`: this
 // package is reachable from the Host build graph through its feature-package
 // callers, and api-remotes' Client face imports a Host-tsdown-generated
@@ -46,9 +31,7 @@ import type {} from '@deepseek-ai/dsh-api-remotes/types'
 import type {} from '@deepseek-ai/dsh-settings/types'
 import type { SettingsSchemaService } from './schema.ts'
 import type { SettingsScope, SettingsScopeSnapshot, SettingsScopeSpec } from './settings-contract.ts'
-import { SettingsDescribeMirror, type SettingsDescribeFace, type SettingsWireFace } from './settings-mirror.ts'
-
-type SettingsFace = SettingsWireFace
+import { SettingsDescribeMirror, type SettingsDescribeFace } from './settings-mirror.ts'
 
 /**
  * One namespace's derived view over the shared describe mirror, plus that
@@ -70,14 +53,15 @@ export class SettingsScopeController<T> implements SettingsScope<T> {
   private pendingRevision: number | undefined
 
   /**
-   * @param api - settings wire face (writes only; reads ride the mirror).
+   * @param ctx - the providing plugin's context, whose `remote.settings`
+   * namespace carries this scope's writes (reads ride the mirror).
    * @param spec - namespace identity and optional narrowing decoder.
    * @param mirror - the shared describe mirror this scope derives from.
    * @param persistence - client-selected Host persistence; non-loopback pages may remain process-local.
    * @param schema - settings-owned schema operations.
    */
   constructor(
-    private readonly api: SettingsFace,
+    private readonly ctx: Context,
     private readonly spec: SettingsScopeSpec<T>,
     private readonly mirror: SettingsDescribeMirror,
     private readonly persistence: 'host' | 'memory',
@@ -144,13 +128,7 @@ export class SettingsScopeController<T> implements SettingsScope<T> {
     const generation = ++this.writeGeneration
     return this.enqueue(async () => {
       const revision = expectedRevision ?? this.pendingRevision ?? this.getSnapshot().revision
-      let response: Awaited<ReturnType<SettingsFace['settings']['mutate']>>
-      try {
-        response = await this.api.settings.mutate(this.spec.namespace, ownedOps, revision)
-      } catch (_settingsWriteFailure) {
-        await this.recover(generation)
-        return
-      }
+      const response = await this.ctx.remote.settings.mutate(this.spec.namespace, ownedOps, revision)
       if (!response.ok) {
         await this.recover(generation)
         return
@@ -254,26 +232,30 @@ declare module '@deepseek-ai/cordis' {
 export class SettingsScopeBinder extends Service {
   private readonly mirror: SettingsDescribeMirror
   private readonly schema: SettingsSchemaService
-  private readonly wire: SettingsWireFace
+  private readonly persistence: 'host' | 'memory'
+  /**
+   * The PROVIDING fiber, kept because a Service reads `ctx` as its *consumer's*
+   * fiber: letting a bound scope write through the caller's context would make
+   * every caller declare `remote.settings` in its own `inject`.
+   */
+  private readonly owner: Context
 
   /**
    * @param ctx - the providing plugin's context.
    * @param config - the shared describe mirror every bound scope derives from,
-   * the settings-owned schema operations, and the settings Remote namespace the
-   * bound scopes write through. The namespace is captured here rather than read
-   * inside {@link bind}, because a Service reads `ctx` as its *consumer's*
-   * fiber: reading it there would make every caller declare `remote.settings`
-   * in its own `inject`.
+   * the settings-owned schema operations, and the Host persistence the provider
+   * resolved from `remote.$host`.
    */
   constructor(ctx: Context, config: {
     mirror: SettingsDescribeMirror
     schema: SettingsSchemaService
-    wire: SettingsWireFace
+    persistence: 'host' | 'memory'
   }) {
     super(ctx, 'settingsScope')
     this.mirror = config.mirror
     this.schema = config.schema
-    this.wire = config.wire
+    this.persistence = config.persistence
+    this.owner = ctx
   }
 
   /**
@@ -299,12 +281,11 @@ export class SettingsScopeBinder extends Service {
    */
   bind<T>(spec: SettingsScopeSpec<T>): SettingsScope<T> {
     const ctx = this.ctx
-    const connection = ctx.get('connection') as ConnectionHandle
     const controller = new SettingsScopeController<T>(
-      this.wire,
+      this.owner,
       spec,
       this.mirror,
-      connection.isLoopback ? 'host' : 'memory',
+      this.persistence,
       this.schema,
     )
     ctx.effect(() => {

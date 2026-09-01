@@ -9,14 +9,6 @@
  * medium — they come from the domain's in-memory tables, which writes mutate
  * only after durability.
  */
-/*
- * 文件职责：验证 cache.spec.ts 覆盖的会话投影统计行为、持久化与生命周期。
- * 技术维度：使用 TypeScript、Vitest、Cordis 插件、事件日志、SQLite 或 OpenTelemetry。
- * 产品维度：保障 Agent 的会话投影统计状态稳定、可重放且可诊断。
- * 逻辑维度：准备或解析会话数据，执行核心流程，再处理结果、错误与资源清理。
- * 关键边界：持久化和遥测输入不可信；敏感数据必须脱敏；事件与数据库资源必须正确收尾。
- * 新手阅读建议：先看数据类型和辅助函数，再读写入/投影主流程，最后关注恢复、脱敏和失败场景。
- */
 
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
@@ -40,33 +32,28 @@ import { checkpointRecord, projectionCacheDomainSpec } from '../src/spec.ts'
 import type { CheckpointRecord } from '../src/spec.ts'
 
 declare module '@deepseek-ai/dsh-session-projection/types' {
-  /** 中文说明：interface SessionProjectionStateMap 定义本测试所需的数据或行为，用于表达会话投影统计场景。 */
   interface SessionProjectionStateMap {
     'cache-test/marks': MarksState
     'cache-test/marks2': Map<string, string>
     'cache-test/count': number
+    'cache-test/secret': string
   }
-  /** 中文说明：interface SessionProjectionMap 定义本测试所需的数据或行为，用于表达会话投影统计场景。 */
   interface SessionProjectionMap {
     'cache-test/marks': { marks: string[] }
   }
 }
 
 declare module '@deepseek-ai/dsh-session/types' {
-  /** 中文说明：interface SessionEventMap 定义本测试所需的数据或行为，用于表达会话投影统计场景。 */
   interface SessionEventMap {
     'cache-test/mark': { marks: string[] }
   }
 
-  /** 中文说明：interface OutOfBandSessionEventMap 定义本测试所需的数据或行为，用于表达会话投影统计场景。 */
   interface OutOfBandSessionEventMap {
     'cache-test/mark': true
   }
 }
 
-/** 中文说明：type MarksState 定义本测试所需的数据或行为，用于表达会话投影统计场景。 */
 type MarksState = { marks: string[] } | null
-/** 中文说明：函数值 marksUnit 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
 const marksUnit = (stateVersion = 1) => ({
   key: 'cache-test/marks',
   stateSchema: z.object({ marks: z.array(z.string()) }).nullable(),
@@ -79,6 +66,14 @@ const marksUnit = (stateVersion = 1) => ({
   stateVersion,
 }) satisfies ProjectionDefinition<'cache-test/marks', MarksState>
 
+const secretUnit = {
+  key: 'cache-test/secret',
+  stateSchema: z.string(),
+  init: () => '',
+  apply: state => state,
+  stateVersion: 1,
+} satisfies ProjectionDefinition<'cache-test/secret', string>
+
 /** One session's record document on the per-record medium. */
 const recordPath = (root: string, id: Session['id']): string =>
   join(root, projectionCacheDomainSpec.name, 'sessions', `${String(id)}.json`)
@@ -87,18 +82,15 @@ const recordPath = (root: string, id: Session['id']): string =>
 const headerOf = (id: SessionId, createdAt = 0, cwd?: string) =>
   ({ version: 0, id, createdAt, ...cwd === undefined ? {} : { cwd } })
 
-/** 中文说明：interface HarnessOptions 定义本测试所需的数据或行为，用于表达会话投影统计场景。 */
 interface HarnessOptions {
   root?: string
   config?: { writeEveryEvents: number; writeIntervalMs: number }
   stateVersion?: number
 }
 
-/** 中文说明：变量 contexts 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const contexts: Context[] = []
 const roots: string[] = []
 
-/** 中文说明：函数 harness 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 async function harness(options: HarnessOptions = {}) {
   const root = options.root ?? await mkdtemp(join(tmpdir(), 'dsh-projcache-'))
   roots.push(root)
@@ -116,11 +108,9 @@ async function harness(options: HarnessOptions = {}) {
   return { ctx, root, fiber, cache: ctx.sessionProjectionCache }
 }
 
-/** 中文说明：函数值 mark 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
 const mark = (session: Session, marks: string[]): SessionEvent =>
   session.append('cache-test/mark', { marks })
 
-/** 中文说明：函数值 endTurn 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
 const endTurn = (session: Session): SessionEvent =>
   session.append('turn/end', { turn: 1, reason: { kind: 'completed' } })
 
@@ -151,9 +141,6 @@ async function seedRecord(
   await writeFile(path, JSON.stringify({ version: projectionCacheDomainSpec.version, record: { identity, rows } }))
 }
 
-/** Wait until queued fail-soft writes (event-listener fire-and-forget over real fs I/O) drain. */
-const settle = () => new Promise(resolve => setTimeout(resolve, 40))
-
 afterEach(async () => {
   vi.useRealTimers()
   await Promise.all(contexts.splice(0).map(ctx => ctx.fiber.dispose()))
@@ -167,12 +154,14 @@ describe('SessionProjectionCache write policy', () => {
     mark(session, ['a'])
     // Creation already wrote the init cut; the mark is throttled, so the
     // stored row is still the creation-time cut (no marks folded).
-    await settle()
-    expect((await storedRows(root, session.id))?.['cache-test/marks']?.seq).toBe(-1)
+    await vi.waitFor(async () => {
+      expect((await storedRows(root, session.id))?.['cache-test/marks']?.seq).toBe(-1)
+    }, { timeout: 5_000 })
     const end = endTurn(session)
-    await settle()
-    const rows = await storedRows(root, session.id)
-    expect(rows?.['cache-test/marks']).toEqual({ ver: 1, seq: end.seq, val: { marks: ['a'] } })
+    await vi.waitFor(async () => {
+      expect((await storedRows(root, session.id))?.['cache-test/marks'])
+        .toEqual({ ver: 1, seq: end.seq, val: { marks: ['a'] } })
+    }, { timeout: 5_000 })
   })
 
   it('writes a checkpoint at session creation, capturing the seed-derived cut', async () => {
@@ -183,25 +172,26 @@ describe('SessionProjectionCache write policy', () => {
     const session = ctx.sessions.create(SessionId('seeded'), {
       seed: [{ type: 'cache-test/mark', seq: 0, time: 1, data: { marks: ['seed'] } }] as SessionEvent[],
     })
-    await settle()
-    expect((await storedRows(root, session.id))?.['cache-test/marks']?.val)
-      .toEqual({ marks: ['seed'] })
+    await vi.waitFor(async () => {
+      expect((await storedRows(root, session.id))?.['cache-test/marks']?.val)
+        .toEqual({ marks: ['seed'] })
+    }, { timeout: 5_000 })
   })
 
   it('writes at session disposal (detach, the live-to-cold moment)', async () => {
     const { ctx, root } = await harness()
     // Sessions dispose with their owning fiber: create in a child plugin.
-    /** 中文说明：变量 session 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     let session: Session | undefined
-    /** 中文说明：函数值 owner 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const owner = await ctx.plugin(Object.assign((inner: Context) => {
       session = inner.sessions.create(SessionId('detach'))
     }, { inject: ['sessions'] }))
     if (session === undefined) throw new Error('session was not created')
     mark(session, ['live'])
     await owner.dispose()
-    await settle()
-    expect((await storedRows(root, session.id))?.['cache-test/marks']?.val).toEqual({ marks: ['live'] })
+    const detached = session
+    await vi.waitFor(async () => {
+      expect((await storedRows(root, detached.id))?.['cache-test/marks']?.val).toEqual({ marks: ['live'] })
+    }, { timeout: 5_000 })
   })
 
   it('flushes when the in-turn event count reaches the configured threshold', async () => {
@@ -209,11 +199,13 @@ describe('SessionProjectionCache write policy', () => {
     const session = ctx.sessions.create(SessionId('count'))
     mark(session, ['1'])
     mark(session, ['2'])
-    await settle()
-    expect((await storedRows(root, session.id))?.['cache-test/marks']?.seq).toBe(-1) // still the creation cut
+    await vi.waitFor(async () => {
+      expect((await storedRows(root, session.id))?.['cache-test/marks']?.seq).toBe(-1) // still the creation cut
+    }, { timeout: 5_000 })
     mark(session, ['3'])
-    await settle()
-    expect((await storedRows(root, session.id))?.['cache-test/marks']?.val).toEqual({ marks: ['3'] })
+    await vi.waitFor(async () => {
+      expect((await storedRows(root, session.id))?.['cache-test/marks']?.val).toEqual({ marks: ['3'] })
+    }, { timeout: 5_000 })
   })
 
   it('flushes on the configured interval when the count threshold is not reached', async () => {
@@ -232,7 +224,6 @@ describe('SessionProjectionCache write policy', () => {
   it('write() on a never-dirty session checkpoints directly and rejects a non-JSON unit state', async () => {
     const { ctx, root } = await harness()
     // Never dirtied: no events — write() still lands the init-derived cut.
-    /** 中文说明：变量 clean 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const clean = ctx.sessions.create(SessionId('clean-write'))
     await ctx.sessionProjectionCache.write(clean)
     expect((await storedRows(root, clean.id))?.['cache-test/marks']).toEqual({ ver: 1, seq: -1, val: null })
@@ -251,7 +242,6 @@ describe('SessionProjectionCache write policy', () => {
     vi.useFakeTimers()
     const { ctx, root, fiber } = await harness({ config: { writeEveryEvents: 100, writeIntervalMs: 5000 } })
     const armed = ctx.sessions.create(SessionId('armed'))
-    /** 中文说明：变量 cleaned 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const cleaned = ctx.sessions.create(SessionId('cleaned'))
     mark(armed, ['pending']) // timer armed, no write yet
     mark(cleaned, ['done'])
@@ -284,19 +274,44 @@ describe('SessionProjectionCache write policy', () => {
     const session = ctx.sessions.create(SessionId('fail-soft'))
     mark(session, ['x'])
     endTurn(session)
-    await settle()
-    expect(await storedRows(root, session.id)).toBeUndefined()
-    expect(warn).toHaveBeenCalledWith(expect.stringContaining('turn/end write for "fail-soft" failed'))
+    // The failed creation/turn-end writes are fire-and-forget: wait for the
+    // warn (the write actually failed), then assert no row landed — the
+    // property under test is that a failed write leaves no partial row.
+    await vi.waitFor(() => {
+      expect(warn).toHaveBeenCalledWith(expect.stringContaining('turn/end write for "fail-soft" failed'))
+    }, { timeout: 5_000 })
+    await vi.waitFor(async () => {
+      expect(await storedRows(root, session.id)).toBeUndefined()
+    }, { timeout: 5_000 })
     // Self-heal: once the blocker clears, the next mandatory point writes.
     await rm(recordPath(root, session.id), { recursive: true })
     mark(session, ['y'])
     endTurn(session)
-    await settle()
-    expect((await storedRows(root, session.id))?.['cache-test/marks']?.val).toEqual({ marks: ['y'] })
+    await vi.waitFor(async () => {
+      expect((await storedRows(root, session.id))?.['cache-test/marks']?.val).toEqual({ marks: ['y'] })
+    }, { timeout: 5_000 })
   })
 })
 
 describe('SessionProjectionCache listing read', () => {
+  it('keeps host-only checkpoint state out of cached wire snapshots', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'dsh-projcache-'))
+    roots.push(root)
+    await seedRecord(root, 'host-state', {
+      'cache-test/marks': { ver: 1, seq: 4, val: { marks: ['wire'] } },
+      'cache-test/secret': { ver: 1, seq: 4, val: 'private prompt text' },
+    })
+    const { ctx, cache } = await harness({ root })
+    ctx.sessionProjections.register(secretUnit)
+    const header = headerOf(SessionId('host-state'))
+
+    expect(cache.cachedSnapshot(header)).toEqual({
+      asOfSeq: 4,
+      values: { 'cache-test/marks': { marks: ['wire'] } },
+    })
+    expect(JSON.stringify(cache.cachedSnapshot(header))).not.toContain('private prompt text')
+  })
+
   it('serves identity-matching rows with the cut watermark and refuses unrelated ones', async () => {
     const root = await mkdtemp(join(tmpdir(), 'dsh-projcache-'))
     roots.push(root)
@@ -360,11 +375,9 @@ describe('SessionProjectionCache listing read', () => {
 describe('SessionProjectionCache cold-read seeding', () => {
   /** One session's event log: turn/start, one mark per group, turn/end. */
   const storedLog = (marks: string[][]): SessionEvent[] => {
-    /** 中文说明：变量 events 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const events: SessionEvent[] = [
       { type: 'turn/start', seq: 0, time: 0, data: { turn: 1 } },
     ]
-    /** 中文说明：该循环依次处理会话数据；循环变量仅在当前循环中有效。 */
     for (const m of marks) {
       events.push({ type: 'cache-test/mark', seq: events.length, time: events.length, data: { marks: m } })
     }
@@ -440,15 +453,17 @@ describe('SessionProjectionCache cold-read seeding', () => {
     // Host-only unit: folded but not served; the refreshed row is written
     // back (fail-soft, fire-and-forget) once the write lands.
     expect(Object.keys(snapshot.values)).not.toContain('cache-test/count')
-    await settle()
-    expect((await storedRows(root, meta.id))?.['cache-test/count']?.seq).toBe(4)
+    await vi.waitFor(async () => {
+      expect((await storedRows(root, meta.id))?.['cache-test/count']?.seq).toBe(4)
+    })
     // No cached row yet: the first cold read folds from init over the full
     // log and creates the cache row (the `?? {}` seed path).
     const fresh = headerOf(SessionId('cold-fresh'), 10)
     cache.coldSnapshot(fresh, events)
     expect(apply).toHaveBeenCalledTimes(7) // 2 tail + 5 full
-    await settle()
-    expect((await storedRows(root, fresh.id))?.['cache-test/count']?.seq).toBe(4)
+    await vi.waitFor(async () => {
+      expect((await storedRows(root, fresh.id))?.['cache-test/count']?.seq).toBe(4)
+    })
   })
 
   it('coldSnapshot write-back is fail-soft: a failed durable write logs and never throws', async () => {
@@ -469,7 +484,10 @@ describe('SessionProjectionCache cold-read seeding', () => {
     const meta = headerOf(SessionId('cold-fail'))
     await mkdir(recordPath(root, meta.id), { recursive: true })
     expect(ctx.sessionProjectionCache.coldSnapshot(meta, [])).toBeDefined()
-    await settle()
-    expect(warn).toHaveBeenCalledWith(expect.stringContaining('cold-read write-back for "cold-fail" failed'))
+    // The failed write-back is fire-and-forget: poll for the warn instead of
+    // assuming a fixed settle window (slow runners exceed it).
+    await vi.waitFor(() => {
+      expect(warn).toHaveBeenCalledWith(expect.stringContaining('cold-read write-back for "cold-fail" failed'))
+    }, { timeout: 5_000 })
   })
 })

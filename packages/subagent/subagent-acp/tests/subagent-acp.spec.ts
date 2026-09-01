@@ -1,11 +1,3 @@
-/**
- * 文件职责：验证 subagent-acp.spec.ts 覆盖的子代理进程与协议行为与生命周期。
- * 技术维度：使用 TypeScript、Vitest、Cordis 插件、文件存储或受控子进程协议。
- * 产品维度：保障 Agent 的子代理进程与协议能力稳定、安全且可诊断。
- * 逻辑维度：准备或解析输入，执行核心流程，再处理结果、错误与资源清理。
- * 关键边界：外部进程和持久化数据不可信；敏感环境需净化；清理必须等待资源完全停止。
- * 新手阅读建议：先看导出类型和夹具，再读主流程，最后关注协议错误、恢复和清理。
- */
 import { describe, expect, it } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
 import Loader from '@deepseek-ai/cordis-plugin-loader'
@@ -15,6 +7,7 @@ import { join, resolve } from 'node:path'
 import { PassThrough, type Readable } from 'node:stream'
 import { fileURLToPath } from 'node:url'
 import SubagentRuntime from '@deepseek-ai/dsh-subagent'
+import SessionProjectionRegistry from '@deepseek-ai/dsh-session-projection'
 import type { Agent } from '@deepseek-ai/dsh-agent'
 import { MAX_TIMER_DELAY_MS } from '@deepseek-ai/dsh-timeout'
 import type { SubprocessHandle, SubprocessOutcome } from '@deepseek-ai/dsh-subprocess'
@@ -32,19 +25,15 @@ import { spawnSubprocess } from '@deepseek-ai/dsh-subprocess-local/src/spawn.ts'
  * No model, no key.
  */
 
-/* 中文说明：变量 mockServer 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const mockServer = fileURLToPath(new URL('./mock-acp-server.ts', import.meta.url))
 
 /** A parent Agent stub. The ACP backend reads exactly one thing off it: the session header's cwd (the workspace its child inherits). */
-/* 中文说明：变量 fakeParent 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const fakeParent = { id: 'parent', session: { header: { cwd: process.cwd() } } } as unknown as Agent
 
-/** 中文说明：函数 request 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function request(text = 'p', signal = new AbortController().signal) {
   return { prompt: [{ type: 'text' as const, text }], parent: fakeParent, signal }
 }
 
-/** 中文说明：interface SetupEnv 定义本测试所需的数据或行为，用于表达子代理进程与协议场景。 */
 interface SetupEnv {
   /** Mock-server scripting env: MOCK_TEXT / MOCK_STOP / MOCK_HANG / MOCK_PERMISSION. */
   [key: string]: string
@@ -54,10 +43,9 @@ interface SetupEnv {
  * Mount the ACP backend pointed at the mock server, scripted by `mockEnv`.
  * `permission` selects the backend's auto-answer policy.
  */
-/* 中文说明：函数 setup 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 async function setup(mockEnv: SetupEnv = {}, permission: 'allow' | 'reject' = 'reject') {
-  /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const ctx = new Context()
+  await ctx.plugin(SessionProjectionRegistry)
   await ctx.plugin(SubagentRuntime)
   await ctx.plugin(LocalSubprocessRuntime)
   await ctx.plugin(acp, {
@@ -70,7 +58,6 @@ async function setup(mockEnv: SetupEnv = {}, permission: 'allow' | 'reject' = 'r
   return ctx
 }
 
-/** 中文说明：函数 text 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function text(blocks: { type: string; text?: string }[]): string {
   return blocks.filter(b => b.type === 'text').map(b => b.text).join('')
 }
@@ -89,9 +76,7 @@ function expectedPermission(policy: 'allow' | 'reject', requestKind: string, dec
  * subprocess cold-start is variable, and a fixed sleep both flakes and
  * slows the suite. Fails loud if the child never signals readiness.
  */
-/* 中文说明：函数 waitForFile 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 async function waitForFile(file: string, timeoutMs = 5000): Promise<void> {
-  /** 中文说明：变量 deadline 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const deadline = Date.now() + timeoutMs
   while (!existsSync(file)) {
     if (Date.now() > deadline) throw new Error(`mock child never became ready (${file})`)
@@ -231,7 +216,6 @@ describe('child env layering (through the subprocess seam)', () => {
     try {
       // The spec.env layer merges after the seam's scrub, so the child's own
       // explicitly-forwarded key survives while ambient credentials do not.
-      /** 中文说明：变量 running 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const running = spawnSubprocess({
         argv: [
           process.execPath,
@@ -255,18 +239,13 @@ describe('child env layering (through the subprocess seam)', () => {
     // A deployment sets child-harness facts like DSH_PERMISSION_MODE in
     // config.env; the seam's scrub drops only the AMBIENT namesakes, so the
     // explicit entry merges after it and the child must see the value.
-    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await setup({ MOCK_ECHO_ENV: 'DSH_ACP_TEST_FACT', DSH_ACP_TEST_FACT: 'managed' })
-    /** 中文说明：变量 parent 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const parent = { id: 'parent', session: { header: { cwd: process.cwd() } } } as unknown as Agent
-    /** 中文说明：变量 run 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const run = await ctx.subagents.start('acp', {
       label: 'p', prompt: [{ type: 'text' as const, text: 'p' }], parent, signal: new AbortController().signal,
     })
-    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await run.result
     await run.dispose()
-    /** 中文说明：函数值 text 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const text = result.output.filter(b => b.type === 'text').map(b => (b as { text: string }).text).join('')
     expect(text).toBe('managed')
     await ctx.fiber.dispose()
@@ -274,14 +253,12 @@ describe('child env layering (through the subprocess seam)', () => {
 })
 
 describe('disposeAcpChild (the backend-owned teardown ladder over seam verbs)', () => {
-  /** 中文说明：函数值 node 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
   const node = (source: string, stdin: 'pipe' | 'ignore' = 'pipe') => spawnSubprocess({
     argv: [process.execPath, '--input-type=module', '--eval', source],
     cwd: process.cwd(),
     stdio: { stdin, stdout: { maxBytes: 1000 }, stderr: { maxBytes: 1000 } },
     graceMs: 200,
   })
-  /** 中文说明：函数值 expectHostTermination 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
   const expectHostTermination = (outcome: SubprocessOutcome, posixSignal: NodeJS.Signals): void => {
     if (process.platform === 'win32') {
       expect(outcome.signal).toBeNull()
@@ -292,39 +269,32 @@ describe('disposeAcpChild (the backend-owned teardown ladder over seam verbs)', 
   }
 
   it('tier 1: a cooperative child exits on stdin EOF without any signal', async () => {
-    /** 中文说明：函数值 child 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const child = node('process.stdin.resume(); process.stdin.on("end", () => process.exit(0))')
     await disposeAcpChild(child, 5_000)
-    /** 中文说明：变量 outcome 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const outcome = await child.done
     expect(outcome.exitCode).toBe(0)
     expect(outcome.signal).toBeNull()
   })
 
   it('tier 2: an EOF-deaf child reaches the host terminate outcome', async () => {
-    /** 中文说明：函数值 child 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const child = node('setInterval(() => {}, 60_000)')
     await disposeAcpChild(child, 100)
-    /** 中文说明：变量 outcome 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const outcome = await child.done
     expectHostTermination(outcome, 'SIGTERM')
   })
 
   it('tier 3: a TERM-trapping child reaches the host force-termination outcome', async () => {
-    /** 中文说明：函数值 child 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const child = node('process.on("SIGTERM", () => {}); process.stdout.write("armed\\n"); setInterval(() => {}, 60_000)', 'ignore')
     // Wait for the trap to arm so SIGTERM cannot race the default handler.
     while (!child.collected.stdout!.readFrom(0).text.includes('armed')) {
       await new Promise(resolve => setTimeout(resolve, 10))
     }
     await disposeAcpChild(child, 50)
-    /** 中文说明：变量 outcome 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const outcome = await child.done
     expectHostTermination(outcome, 'SIGKILL')
   })
 
   it('observes a spawn-level rejection and returns without a process to reap', async () => {
-    /** 中文说明：变量 child 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const child = spawnSubprocess({
       argv: [process.execPath, '--input-type=module', '--eval', ''],
       cwd: '/nonexistent-dir-dsh-acp-ladder-test',
@@ -340,16 +310,11 @@ describe('cwd resolution', () => {
   it('falls back to the parent session cwd for the child process AND its ACP session', async () => {
     // realpath: on macOS `tmpdir()` sits behind a symlink (/var → /private/var),
     // and the child reports its REAL process.cwd() — compare canonical paths.
-    /** 中文说明：变量 workdir 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const workdir = realpathSync(mkdtempSync(join(tmpdir(), 'acp-parent-cwd-')))
     try {
-      /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const ctx = await setup({ MOCK_ECHO_CWD: '1' })
-      /** 中文说明：变量 parent 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const parent = { id: 'parent', session: { header: { cwd: workdir } } } as unknown as Agent
-      /** 中文说明：变量 run 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const run = await ctx.subagents.start('acp', { prompt: [{ type: 'text' as const, text: 'p' }], parent, signal: new AbortController().signal })
-      /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const result = await run.result
       await run.dispose()
       // Line 1: where the child process actually ran; line 2: the workspace the
@@ -361,18 +326,15 @@ describe('cwd resolution', () => {
   })
 
   it('rejects before spawning when neither config.cwd nor the parent session provides one', async () => {
-    /** 中文说明：变量 tmp 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const tmp = mkdtempSync(join(tmpdir(), 'acp-no-cwd-'))
-    /** 中文说明：变量 sentinel 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const sentinel = join(tmp, 'spawned')
     try {
-      /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const ctx = new Context()
+      await ctx.plugin(SessionProjectionRegistry)
       await ctx.plugin(SubagentRuntime)
       await ctx.plugin(LocalSubprocessRuntime)
       // A command that would create the sentinel if the child were ever spawned.
       await ctx.plugin(acp, { providerName: 'acp', command: 'touch', args: [sentinel], permission: 'reject', env: {} })
-      /** 中文说明：变量 parent 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const parent = { id: 'parent', session: { header: {} } } as unknown as Agent
       await expect(ctx.subagents.start('acp', { prompt: [{ type: 'text' as const, text: 'p' }], parent, signal: new AbortController().signal }))
         .rejects.toThrow(`subagent-acp: ${expectedFailure('stage: initialize; category: configuration')}`)
@@ -384,13 +346,11 @@ describe('cwd resolution', () => {
   })
 
   it('prefers the configured cwd override to the parent session cwd', async () => {
-    /** 中文说明：变量 configured 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const configured = realpathSync(mkdtempSync(join(tmpdir(), 'acp-cfg-cwd-')))
-    /** 中文说明：变量 parentDir 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const parentDir = realpathSync(mkdtempSync(join(tmpdir(), 'acp-parent-cwd-')))
     try {
-      /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const ctx = new Context()
+      await ctx.plugin(SessionProjectionRegistry)
       await ctx.plugin(SubagentRuntime)
       await ctx.plugin(LocalSubprocessRuntime)
       await ctx.plugin(acp, {
@@ -401,11 +361,8 @@ describe('cwd resolution', () => {
         permission: 'reject',
         env: { MOCK_ECHO_CWD: '1' },
       })
-      /** 中文说明：变量 parent 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const parent = { id: 'parent', session: { header: { cwd: parentDir } } } as unknown as Agent
-      /** 中文说明：变量 run 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const run = await ctx.subagents.start('acp', { prompt: [{ type: 'text' as const, text: 'p' }], parent, signal: new AbortController().signal })
-      /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const result = await run.result
       await run.dispose()
       expect(text(result.output)).toBe(`${configured}\n${configured}`)
@@ -419,12 +376,10 @@ describe('cwd resolution', () => {
     // The child process AND its announced ACP session cwd must both get the
     // ABSOLUTE form — DSH's own ACP server rejects a relative session cwd, and
     // deferring resolution to spawn would hide the launch-dir dependency.
-    /** 中文说明：变量 relative 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const relative = 'packages/subagent/subagent-acp'
-    /** 中文说明：变量 absolute 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const absolute = resolve(relative)
-    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
+    await ctx.plugin(SessionProjectionRegistry)
     await ctx.plugin(SubagentRuntime)
     await ctx.plugin(LocalSubprocessRuntime)
     await ctx.plugin(acp, {
@@ -435,9 +390,7 @@ describe('cwd resolution', () => {
       permission: 'reject',
       env: { MOCK_ECHO_CWD: '1' },
     })
-    /** 中文说明：变量 run 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const run = await ctx.subagents.start('acp', request())
-    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await run.result
     await run.dispose()
     expect(text(result.output)).toBe(`${realpathSync(absolute)}\n${absolute}`)
@@ -446,8 +399,8 @@ describe('cwd resolution', () => {
   it('rejects an empty config cwd at load', async () => {
     // `path.resolve('')` is the process cwd, so an empty string would silently
     // reintroduce the launch-directory fallback this resolution removed.
-    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
+    await ctx.plugin(SessionProjectionRegistry)
     await ctx.plugin(SubagentRuntime)
     await ctx.plugin(LocalSubprocessRuntime)
     await expect(ctx.plugin(acp, {
@@ -465,12 +418,11 @@ describe('cwd resolution', () => {
   it.skipIf(process.platform === 'win32')('rejects a config cwd directory without search permission at load', async () => {
     // statSync().isDirectory() is true for a mode-600 directory, but a
     // subprocess cwd needs SEARCH permission — spawn would fail EACCES.
-    /** 中文说明：变量 tmp 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const tmp = mkdtempSync(join(tmpdir(), 'acp-noexec-'))
     chmodSync(tmp, 0o600)
     try {
-      /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const ctx = new Context()
+      await ctx.plugin(SessionProjectionRegistry)
       await ctx.plugin(SubagentRuntime)
       await ctx.plugin(LocalSubprocessRuntime)
       await expect(ctx.plugin(acp, {
@@ -489,8 +441,8 @@ describe('cwd resolution', () => {
   })
 
   it('rejects a config cwd that is not an accessible directory at load', async () => {
-    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
+    await ctx.plugin(SessionProjectionRegistry)
     await ctx.plugin(SubagentRuntime)
     await ctx.plugin(LocalSubprocessRuntime)
     await expect(ctx.plugin(acp, {
@@ -508,24 +460,18 @@ describe('cwd resolution', () => {
     // SessionHeader documents cwd as absolute; a relative value here is a broken
     // header, and resolving it against the server process cwd would silently
     // re-introduce the launch-directory dependency this resolution removes.
-    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await setup({})
-    /** 中文说明：变量 parent 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const parent = { id: 'parent', session: { header: { cwd: 'relative/workspace' } } } as unknown as Agent
     await expect(ctx.subagents.start('acp', { prompt: [{ type: 'text' as const, text: 'p' }], parent, signal: new AbortController().signal }))
       .rejects.toThrow(`subagent-acp: ${expectedFailure('stage: initialize; category: configuration')}`)
   })
 
   it('rejects a parent session cwd that names a FILE, not a directory', async () => {
-    /** 中文说明：变量 tmp 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const tmp = mkdtempSync(join(tmpdir(), 'acp-file-cwd-'))
-    /** 中文说明：变量 file 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const file = join(tmp, 'a-file')
     writeFileSync(file, 'x')
     try {
-      /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const ctx = await setup({})
-      /** 中文说明：变量 parent 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const parent = { id: 'parent', session: { header: { cwd: file } } } as unknown as Agent
       await expect(ctx.subagents.start('acp', { prompt: [{ type: 'text' as const, text: 'p' }], parent, signal: new AbortController().signal }))
         .rejects.toThrow(`subagent-acp: ${expectedFailure('stage: initialize; category: configuration')}`)
@@ -535,17 +481,14 @@ describe('cwd resolution', () => {
   })
 
   it('rejects a parent session cwd that is not an accessible directory, before spawning', async () => {
-    /** 中文说明：变量 tmp 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const tmp = mkdtempSync(join(tmpdir(), 'acp-bad-parent-cwd-'))
-    /** 中文说明：变量 sentinel 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const sentinel = join(tmp, 'spawned')
     try {
-      /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const ctx = new Context()
+      await ctx.plugin(SessionProjectionRegistry)
       await ctx.plugin(SubagentRuntime)
       await ctx.plugin(LocalSubprocessRuntime)
       await ctx.plugin(acp, { providerName: 'acp', command: 'touch', args: [sentinel], permission: 'reject', env: {} })
-      /** 中文说明：变量 parent 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const parent = { id: 'parent', session: { header: { cwd: join(tmp, 'vanished') } } } as unknown as Agent
       await expect(ctx.subagents.start('acp', { prompt: [{ type: 'text' as const, text: 'p' }], parent, signal: new AbortController().signal }))
         .rejects.toThrow(`subagent-acp: ${expectedFailure('stage: initialize; category: configuration')}`)
@@ -558,22 +501,17 @@ describe('cwd resolution', () => {
 
 describe('dsh-subagent-acp', () => {
   it('drives child processes with parent-unique run ids and returns streamed output', async () => {
-    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await setup({ MOCK_TEXT: 'hello from acp child', MOCK_STOP: 'end_turn', MOCK_SESSION_ID: 'acp-child-session' })
-    /** 中文说明：变量 run 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const run = await ctx.subagents.start('acp', request('do X'))
     expect(run.id).not.toBe('acp-child-session')
-    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await run.result
     expect(result.stopReason).toBe('completed')
     expect(result.diagnostic).toBeUndefined()
     expect(text(result.output)).toBe('hello from acp child')
-    /** 中文说明：变量 disposal 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const disposal = run.dispose()
     expect(run.dispose()).toBe(disposal)
     await disposal
 
-    /** 中文说明：变量 nextRun 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const nextRun = await ctx.subagents.start('acp', request('do X again'))
     expect(nextRun.id).not.toBe(run.id)
     expect(nextRun.id).not.toBe('acp-child-session')
@@ -582,11 +520,8 @@ describe('dsh-subagent-acp', () => {
   })
 
   it('maps a max_tokens stop reason', async () => {
-    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await setup({ MOCK_TEXT: 'cut off', MOCK_STOP: 'max_tokens' })
-    /** 中文说明：变量 run 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const run = await ctx.subagents.start('acp', request())
-    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await run.result
     expect(result.stopReason).toBe('max-tokens')
     expect(result.diagnostic).toBeUndefined()
@@ -594,11 +529,8 @@ describe('dsh-subagent-acp', () => {
   })
 
   it('maps a refusal stop reason', async () => {
-    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await setup({ MOCK_TEXT: '', MOCK_STOP: 'refusal' })
-    /** 中文说明：变量 run 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const run = await ctx.subagents.start('acp', request())
-    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await run.result
     expect(result.stopReason).toBe('refusal')
     expect(result.diagnostic).toBeUndefined()
@@ -655,22 +587,16 @@ describe('dsh-subagent-acp', () => {
   })
 
   it('aborting the required signal cancels a running child', async () => {
-    /** 中文说明：变量 tmp 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const tmp = mkdtempSync(join(tmpdir(), 'acp-cancel-'))
-    /** 中文说明：变量 readyFile 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const readyFile = join(tmp, 'ready')
     try {
-      /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const ctx = await setup({ MOCK_TEXT: 'partial', MOCK_HANG: '1', MOCK_READY_FILE: readyFile })
-      /** 中文说明：变量 controller 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const controller = new AbortController()
-      /** 中文说明：变量 run 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const run = await ctx.subagents.start('acp', request('p', controller.signal))
       // Wait until the child's prompt is in flight (condition, not a sleep),
       // then cancel — so we exercise the mid-run session/cancel path.
       await waitForFile(readyFile)
       controller.abort('test')
-      /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const result = await run.result
       expect(result.stopReason).toBe('aborted')
       expect(result.diagnostic).toBeUndefined()
@@ -684,12 +610,9 @@ describe('dsh-subagent-acp', () => {
     // A pre-aborted request must not even launch the configured binary. Point
     // the command at one that would create a sentinel file if it ever ran, and
     // assert the sentinel never appears.
-    /** 中文说明：变量 tmp 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const tmp = mkdtempSync(join(tmpdir(), 'acp-preabort-'))
-    /** 中文说明：变量 sentinel 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const sentinel = join(tmp, 'spawned')
     try {
-      /** 中文说明：变量 controller 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const controller = new AbortController()
       controller.abort()
       await expect(startAcpRun(
@@ -751,9 +674,7 @@ describe('dsh-subagent-acp', () => {
   })
 
   it('reaps a child whose session/new response omits the session id', async () => {
-    /** 中文说明：变量 tmp 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const tmp = mkdtempSync(join(tmpdir(), 'acp-malformed-session-'))
-    /** 中文说明：变量 flushed 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const flushed = join(tmp, 'flushed')
     let boundedWaits = 0
     try {
@@ -855,12 +776,9 @@ describe('dsh-subagent-acp', () => {
     // The child traps SIGTERM and keeps its event loop alive, so a graceful
     // term alone would hang dispose forever. With a short grace, dispose must
     // escalate to SIGKILL and return once the process is actually gone.
-    /** 中文说明：变量 tmp 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const tmp = mkdtempSync(join(tmpdir(), 'acp-trap-'))
-    /** 中文说明：变量 ready 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ready = join(tmp, 'trap-armed')
     try {
-      /** 中文说明：变量 spec 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const spec: AcpRunSpec = {
         command: process.execPath,
         args: [mockServer],
@@ -874,7 +792,6 @@ describe('dsh-subagent-acp', () => {
         disposeGraceMs: 150,
         spawn: spawnSubprocess,
       }
-      /** 中文说明：变量 run 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const run = await startAcpRun(request(), spec)
       // Wait until the child has BOOTED AND ARMED THE TRAP (a condition, not a
       // sleep) — otherwise SIGTERM races the trap install and the default handler
@@ -902,14 +819,10 @@ describe('dsh-subagent-acp', () => {
     // under the EOF grace: it lands only because tier 1 waits eofGraceMs, not
     // graceMs. (If dispose reused the small SIGTERM grace for the EOF wait — the
     // round-2 bug — SIGTERM would fire mid-flush and the marker would be missing.)
-    /** 中文说明：变量 tmp 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const tmp = mkdtempSync(join(tmpdir(), 'acp-eof-'))
-    /** 中文说明：变量 ready 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ready = join(tmp, 'ready')
-    /** 中文说明：变量 flushed 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const flushed = join(tmp, 'flushed')
     try {
-      /** 中文说明：变量 spec 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const spec: AcpRunSpec = {
         command: process.execPath,
         args: [mockServer],
@@ -927,7 +840,6 @@ describe('dsh-subagent-acp', () => {
         disposeGraceMs: 50,
         spawn: spawnSubprocess,
       }
-      /** 中文说明：变量 run 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const run = await startAcpRun(request(), spec)
       // Wait until the child is fully booted with its prompt in flight (its ACP
       // stdin reader is attached), so dispose's stdin EOF reaches a live child.
@@ -944,14 +856,10 @@ describe('dsh-subagent-acp', () => {
   it('terminates a child that ignores EOF using the host platform semantics', async () => {
     // POSIX uses the catchable SIGTERM tier and records the marker. Windows has
     // no distinct graceful signal, so disposal skips directly to forced exit.
-    /** 中文说明：变量 tmp 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const tmp = mkdtempSync(join(tmpdir(), 'acp-ignore-eof-'))
-    /** 中文说明：变量 ready 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ready = join(tmp, 'ready')
-    /** 中文说明：变量 sigterm 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const sigterm = join(tmp, 'sigterm')
     try {
-      /** 中文说明：变量 spec 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const spec: AcpRunSpec = {
         command: process.execPath,
         args: [mockServer],
@@ -966,7 +874,6 @@ describe('dsh-subagent-acp', () => {
         disposeGraceMs: 2000,
         spawn: spawnSubprocess,
       }
-      /** 中文说明：变量 run 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const run = await startAcpRun(request(), spec)
       await waitForFile(ready)
       // Bound it so a hang fails loud rather than stalling the suite.
@@ -985,18 +892,12 @@ describe('dsh-subagent-acp', () => {
     // We cancel WHILE newSession is pending (sessionId still undefined, so the
     // backend cannot send session/cancel) — the `cancelled` flag alone must
     // settle the run aborted after newSession resolves, never issuing the prompt.
-    /** 中文说明：变量 tmp 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const tmp = mkdtempSync(join(tmpdir(), 'acp-early-'))
-    /** 中文说明：变量 ready 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ready = join(tmp, 'ready')
-    /** 中文说明：变量 go 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const go = join(tmp, 'go')
     try {
-      /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const ctx = await setup({ MOCK_NEWSESSION_READY: ready, MOCK_NEWSESSION_GO: go, MOCK_TEXT: 'should not run' })
-      /** 中文说明：变量 controller 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const controller = new AbortController()
-      /** 中文说明：变量 starting 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const starting = ctx.subagents.start('acp', request('p', controller.signal))
       await waitForFile(ready) // newSession is now in flight, sessionId undefined
       controller.abort('early')
@@ -1008,20 +909,14 @@ describe('dsh-subagent-acp', () => {
   })
 
   it('bridges the request signal to a session/cancel mid-run', async () => {
-    /** 中文说明：变量 tmp 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const tmp = mkdtempSync(join(tmpdir(), 'acp-signal-'))
-    /** 中文说明：变量 readyFile 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const readyFile = join(tmp, 'ready')
     try {
-      /** 中文说明：变量 controller 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const controller = new AbortController()
-      /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const ctx = await setup({ MOCK_TEXT: 'partial', MOCK_HANG: '1', MOCK_READY_FILE: readyFile })
-      /** 中文说明：变量 run 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const run = await ctx.subagents.start('acp', request('p', controller.signal))
       await waitForFile(readyFile)
       controller.abort()
-      /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const result = await run.result
       expect(result.stopReason).toBe('aborted')
       expect(result.diagnostic).toBeUndefined()
@@ -1034,7 +929,6 @@ describe('dsh-subagent-acp', () => {
   it('auto-rejects a permission prompt by default (child settles cancelled→aborted)', async () => {
     const ctx = await setup({ MOCK_TEXT: 'x', MOCK_PERMISSION: '1', MOCK_TOOL_KIND: 'execute' }, 'reject')
     const run = await ctx.subagents.start('acp', request())
-    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await run.result
     // The child asked permission, the backend rejected, the child returned cancelled.
     expect(result.stopReason).toBe('aborted')
@@ -1043,11 +937,8 @@ describe('dsh-subagent-acp', () => {
   })
 
   it('auto-approves a permission prompt under the allow policy', async () => {
-    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await setup({ MOCK_TEXT: 'approved answer', MOCK_PERMISSION: '1', MOCK_STOP: 'end_turn' }, 'allow')
-    /** 中文说明：变量 run 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const run = await ctx.subagents.start('acp', request())
-    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await run.result
     expect(result.stopReason).toBe('completed')
     expect(result.diagnostic).toBeUndefined()
@@ -1058,11 +949,8 @@ describe('dsh-subagent-acp', () => {
   it('falls back to cancelled under the allow policy when the child offers no allow option', async () => {
     // The child asks permission but offers ONLY reject-shaped options, so an
     // allow-policy client finds nothing to select and must answer cancelled.
-    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await setup({ MOCK_PERMISSION: '1', MOCK_NO_ALLOW: '1' }, 'allow')
-    /** 中文说明：变量 run 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const run = await ctx.subagents.start('acp', request())
-    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await run.result
     expect(result.stopReason).toBe('aborted')
     expect(result.diagnostic).toBe(expectedPermission('allow', 'unknown', 'denied'))
@@ -1106,11 +994,8 @@ describe('dsh-subagent-acp', () => {
   it('consumes a non-message update (a thought) without adding it to the output', async () => {
     // The child streams an agent_thought_chunk before its answer; the backend
     // must consume it but NOT include it in the result output.
-    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await setup({ MOCK_THOUGHT: '1', MOCK_TEXT: 'final answer', MOCK_STOP: 'end_turn' })
-    /** 中文说明：变量 run 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const run = await ctx.subagents.start('acp', request())
-    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await run.result
     expect(result.stopReason).toBe('completed')
     // Only the message text, NOT the thought.
@@ -1247,13 +1132,11 @@ describe('dsh-subagent-acp', () => {
     // graces arrive via the PLUGIN CONFIG through the registered provider — so a
     // regression that stops threading config into AcpRunSpec (falling back to
     // the 6s/3s defaults) blows past the 4000ms bound and fails loud.
-    /** 中文说明：变量 tmp 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const tmp = mkdtempSync(join(tmpdir(), 'acp-cfg-trap-'))
-    /** 中文说明：变量 ready 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ready = join(tmp, 'trap-armed')
     try {
-      /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const ctx = new Context()
+      await ctx.plugin(SessionProjectionRegistry)
       await ctx.plugin(SubagentRuntime)
       await ctx.plugin(LocalSubprocessRuntime)
       await ctx.plugin(acp, {
@@ -1265,7 +1148,6 @@ describe('dsh-subagent-acp', () => {
         disposeEofGraceMs: 150,
         disposeGraceMs: 150,
       })
-      /** 中文说明：变量 run 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const run = await ctx.subagents.start('acp', request())
       await waitForFile(ready)
       await expect(Promise.race([
@@ -1279,7 +1161,6 @@ describe('dsh-subagent-acp', () => {
   })
 
   it('rejects a dispose grace outside the Node timer range at load', async () => {
-    /** 中文说明：该循环依次处理输入数据；循环变量仅在当前循环中有效。 */
     for (const bad of [
       { disposeEofGraceMs: 0 },
       { disposeGraceMs: -1 },
@@ -1288,8 +1169,8 @@ describe('dsh-subagent-acp', () => {
       { disposeEofGraceMs: MAX_TIMER_DELAY_MS + 1 },
       { disposeGraceMs: MAX_TIMER_DELAY_MS + 1 },
     ]) {
-      /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const ctx = new Context()
+      await ctx.plugin(SessionProjectionRegistry)
       await ctx.plugin(SubagentRuntime)
       await ctx.plugin(LocalSubprocessRuntime)
       await expect(ctx.plugin(acp, { providerName: 'acp', command: 'true', args: [], permission: 'reject', env: {}, ...bad }))
@@ -1299,8 +1180,8 @@ describe('dsh-subagent-acp', () => {
   })
 
   it('rejects a startup failure via the provider load path', async () => {
-    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
+    await ctx.plugin(SessionProjectionRegistry)
     await ctx.plugin(SubagentRuntime)
     await ctx.plugin(LocalSubprocessRuntime)
     await ctx.plugin(acp, {
@@ -1406,9 +1287,7 @@ describe('dsh-subagent-acp', () => {
     // to a stop reason — onError must still surface the original error so a real
     // fault is logged, not swallowed. The child exits after its session is
     // published but while prompt is in flight.
-    /** 中文说明：变量 errors 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const errors: { message: string; stopReason: string }[] = []
-    /** 中文说明：变量 run 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const run = await startAcpRun(
       request(),
       {
@@ -1423,7 +1302,6 @@ describe('dsh-subagent-acp', () => {
         onError: (error, stopReason) => { errors.push({ message: error.message, stopReason }) },
       },
     )
-    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await run.result
     expect(result.stopReason).toBe('error')
     expect(result.diagnostic).toBe(
@@ -1436,14 +1314,10 @@ describe('dsh-subagent-acp', () => {
   })
 
   it('logs a flattened child failure through the registered provider', async () => {
-    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await setup({ MOCK_CRASH_ON_PROMPT: '1' })
-    /** 中文说明：变量 warnings 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const warnings: string[] = []
     ctx.logger.warn = ((message: unknown) => { warnings.push(String(message)) }) as typeof ctx.logger.warn
-    /** 中文说明：变量 run 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const run = await ctx.subagents.start('acp', request())
-    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await run.result
     expect(result.stopReason).toBe('error')
     expect(result.diagnostic).toBe(
@@ -1459,7 +1333,6 @@ describe('dsh-subagent-acp', () => {
     // onError is a caller-supplied callback boundary: its own exception must be
     // contained, or it would reject `result` and break the seam's "result never
     // rejects" contract that the flattening above exists to uphold.
-    /** 中文说明：变量 run 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const run = await startAcpRun(
       request(),
       {
@@ -1474,7 +1347,6 @@ describe('dsh-subagent-acp', () => {
         onError: () => { throw new Error('sink boom') },
       },
     )
-    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await run.result
     expect(result.stopReason).toBe('error')
     expect(result.diagnostic).toBe(
@@ -1488,20 +1360,14 @@ describe('dsh-subagent-acp', () => {
     // — the pending prompt RPC rejects. With a cancel already requested, the
     // backend's catch path must settle `aborted` (the failure is the cancel
     // surfacing as a torn pipe), not `error`.
-    /** 中文说明：变量 tmp 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const tmp = mkdtempSync(join(tmpdir(), 'acp-crash-'))
-    /** 中文说明：变量 ready 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ready = join(tmp, 'ready')
     try {
-      /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const ctx = await setup({ MOCK_TEXT: 'partial', MOCK_HANG: '1', MOCK_CRASH_ON_CANCEL: '1', MOCK_READY_FILE: ready })
-      /** 中文说明：变量 controller 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const controller = new AbortController()
-      /** 中文说明：变量 run 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const run = await ctx.subagents.start('acp', request('p', controller.signal))
       await waitForFile(ready)
       controller.abort('crash it')
-      /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const result = await run.result
       expect(result.stopReason).toBe('aborted')
       expect(result.diagnostic).toBeUndefined()
@@ -1516,22 +1382,16 @@ describe('dsh-subagent-acp', () => {
     // its prompt AND ignores session/cancel must not wedge the parent — the
     // backend's own cancel-settle path resolves `aborted` without the child's
     // cooperation, and dispose() still reaps the process.
-    /** 中文说明：变量 tmp 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const tmp = mkdtempSync(join(tmpdir(), 'acp-ignorecancel-'))
-    /** 中文说明：变量 ready 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ready = join(tmp, 'ready')
     try {
-      /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const ctx = await setup({ MOCK_TEXT: 'partial', MOCK_HANG: '1', MOCK_IGNORE_CANCEL: '1', MOCK_READY_FILE: ready })
-      /** 中文说明：变量 controller 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const controller = new AbortController()
-      /** 中文说明：变量 run 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const run = await ctx.subagents.start('acp', request('p', controller.signal))
       await waitForFile(ready)
       controller.abort('test')
       // Bound it: a regression (cancel only notifies the child, which ignores it)
       // would hang result forever — fail loud instead of stalling the suite.
-      /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const result = await Promise.race([
         run.result,
         new Promise<never>((_r, reject) => { setTimeout(() => { reject(new Error('result did not settle on cancel — backend waited on the child')) }, 4000) }),
@@ -1545,9 +1405,7 @@ describe('dsh-subagent-acp', () => {
   })
 
   it('advertises no start-time capabilities (out-of-process child)', async () => {
-    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await setup()
-    /** 中文说明：变量 provider 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const provider = ctx.subagents.getProvider('acp')!
     expect(provider.capabilities).toEqual({
       agentOptions: false,
@@ -1559,11 +1417,10 @@ describe('dsh-subagent-acp', () => {
   })
 
   it('unregisters the provider when its fiber is disposed (HMR safety)', async () => {
-    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
+    await ctx.plugin(SessionProjectionRegistry)
     await ctx.plugin(SubagentRuntime)
     await ctx.plugin(LocalSubprocessRuntime)
-    /** 中文说明：变量 fiber 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const fiber = await ctx.plugin(acp, { providerName: 'acp', command: 'x', args: [], permission: 'reject', env: {} })
     expect(ctx.subagents.list()).toEqual(['acp'])
     await fiber.dispose()
@@ -1574,9 +1431,7 @@ describe('dsh-subagent-acp', () => {
     expect('default' in acp).toBe(false)
     expect(acp.name).toBe('subagent-acp')
     expect(acp.inject).toEqual(['subagents', 'subprocess'])
-    /** 中文说明：变量 loader 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const loader = Object.create(Loader.prototype) as Loader
-    /** 中文说明：变量 unwrapped 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const unwrapped = loader.unwrapExports(acp) as Record<string, unknown>
     expect(unwrapped).toBe(acp)
     expect(unwrapped.name).toBe('subagent-acp')

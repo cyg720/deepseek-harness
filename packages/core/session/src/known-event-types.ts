@@ -8,20 +8,16 @@
 /**
  * Every `SessionEventMap` member declared in this repository — the event
  * vocabulary this build understands. The persistence read path refuses to
- * interpret a log containing a type outside this set: such a log was likely
- * written by a newer harness, and silently skipping the event could
- * reconstruct a wrong session.
+ * interpret a log containing a type outside this set unless the event
+ * carries the envelope's `ignorable` marker (see `SessionEvent.ignorable`
+ * in `./types.ts`): such a log was likely written by a newer harness, and
+ * silently skipping a required event would reconstruct a wrong session.
  * Downstream (out-of-repo) plugin events are outside this list by
- * construction; a registration surface for them is deferred until such a
- * consumer exists.
- * @remarks 文件说明：文件职责：实现 core/session 中 known event types 模块的职责，
- * 并向相邻模块提供可复用能力。；技术维度：主要使用TypeScript/JavaScript 的 ESM 模块、严格类型约束与 Cordis
- * 插件机制，通过当前文件中的类型、函数与数据结构完成实现。；产品维度：支撑 DeepSeek Harness 的 core/session 能力，
- * 使上层功能能够稳定组合和扩展。；逻辑维度：建议按“依赖与类型定义 → 常量和状态 → 核心函数或类 → 导出或注册入口”的顺序理解。；
- * 关键边界：调用方必须遵守类型、生命周期和错误处理约定；涉及外部输入、异步任务或资源释放时需特别关注异常分支。；
- * 新手阅读建议：先确认导入依赖和公开导出，再沿主要函数调用链阅读，最后结合相邻测试理解输入、输出与边界条件。
- * @remarks 中文说明：常量说明：KNOWN_SESSION_EVENT_TYPES 用于处理
- * KNOWN_SESSION_EVENT_TYPES 相关数据，作用于当前作用域；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。
+ * construction. The persisted `SessionEvent.ignorable` marker is the
+ * compatibility mechanism; event-name registration was rejected because
+ * it does not classify omission safety and would make reads
+ * composition-dependent. The rationale is in
+ * `.agents/notes/implemented/architecture/2026-08-30-retain-ignorable-external-session-events.md`.
  */
 export const KNOWN_SESSION_EVENT_TYPES: ReadonlySet<string> = new Set([
   'agent-preset/selected',

@@ -1,13 +1,5 @@
 // @vitest-environment jsdom
 /**
- * 文件职责：验证工作区浏览的 rename-assembly.client.spec.tsx 行为。
- * 技术维度：Vitest、React 渲染、虚拟列表和服务替身。
- * 产品维度：防止工作区浏览展示与操作流程回归。
- * 逻辑维度：构造状态，触发交互并断言输出和清理。
- * 关键边界：计时器、观察器、DOM 尺寸和异步请求必须恢复。
- * 新手阅读建议：先读夹具，再按加载、交互和异常场景阅读。
- */
-/**
  * The session-rename assembly chain on SlotTestRuntime (real apply, real
  * WorkspaceBrowser occupying the sidebar hole): row menu → rename dialog →
  * the injected renameSession hop (sessions.binding → ISession.rename) → on
@@ -25,7 +17,7 @@ import type { ISession } from '@deepseek-ai/dsh-api-session-controller/client'
 import type { WorkspaceId } from '@deepseek-ai/dsh-api-workspace-controller/client'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import type { PropsRenderSlots } from '@deepseek-ai/dsh-client-ui-slots'
-import { SlotTestRuntime, TestRemote, usePinnedBrowserLanguages } from '@deepseek-ai/dsh-client-test-runtime'
+import { RemoteError, SlotTestRuntime, TestRemote, usePinnedBrowserLanguages } from '@deepseek-ai/dsh-client-test-runtime'
 import { LocaleRuntime } from '@deepseek-ai/dsh-client-locale/client'
 import { apply, inject } from '@deepseek-ai/dsh-client-ui-workspace/client'
 
@@ -33,21 +25,15 @@ import { apply, inject } from '@deepseek-ai/dsh-client-ui-workspace/client'
 // the shipped Chinese copy, so they state the browser they assume.
 usePinnedBrowserLanguages('zh-CN')
 
-/** 中文说明：测试局部值 SID，由紧邻初始化决定。 */
 const SID = 's1' as SessionId
 
 afterEach(cleanup)
 beforeEach(() => { localStorage.clear() })
 
 /** Runtime with the locale face installed (the browser entry declares `locale:` — zh default backs the t seat). */
-/* 中文说明：函数 createRuntime 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 async function createRuntime(): Promise<SlotTestRuntime> {
-  /** 中文说明：测试局部值 runtime，由紧邻初始化决定。 */
   const runtime = await SlotTestRuntime.create()
   runtime.releaseWorkspaceSource()
-  runtime.ctx.provide('connection', {
-    generation: { getSnapshot: () => undefined, subscribe: () => () => {} },
-  })
   // The rename flow never picks a directory; the namespace only has to be there
   // for ui-workspace's inject to settle.
   const directoryPicker = {}
@@ -60,18 +46,14 @@ async function createRuntime(): Promise<SlotTestRuntime> {
 }
 
 /** Test-owned sidebar shell role: declares and renders the browsing region. */
-/* 中文说明：类型或类 FrameProps 约束模块数据或组件职责。 */
 type FrameProps = PropsRenderSlots<'sidebar.workspaces'>
-/** 中文说明：函数 SidebarFrame 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function SidebarFrame({ renderSlot }: FrameProps) {
   return <>{renderSlot('sidebar.workspaces', { wide: true, expandSidebar: () => {} })}</>
 }
 
 describe('session rename through the assembled browser', () => {
   it('renames via the row menu: binding.session.rename fires, the dialog closes, the row re-labels from the list', async () => {
-    /** 中文说明：测试局部值 runtime，由紧邻初始化决定。 */
     const runtime = await createRuntime()
-    /** 中文说明：测试局部值 rename，由紧邻初始化决定。 */
     const rename = vi.fn<ISession['rename']>(async title => ({
       ok: true, value: { title: title.trim().replace(/\s+/g, ' '), seq: 7 },
     }))
@@ -91,17 +73,14 @@ describe('session rename through the assembled browser', () => {
       SidebarFrame as never,
     )
     await runtime.mount({ inject: [...inject], apply })
-    /** 中文说明：测试局部值 view，由紧邻初始化决定。 */
     const view = runtime.renderRoot()
 
     // The current session's group auto-expands; open the row's action menu.
-    /** 中文说明：测试局部值 row，由紧邻初始化决定。 */
     const row = (await view.findByText('旧标题')).closest('[role="treeitem"]')!
     fireEvent.click(within(row as HTMLElement).getByLabelText('会话“旧标题”的操作'))
     fireEvent.click(view.getByRole('menuitem', { name: '重命名', hidden: true }))
 
     // The dialog seeds from the current title; submit a padded value.
-    /** 中文说明：测试局部值 input，由紧邻初始化决定。 */
     const input = await view.findByLabelText('会话名称') as HTMLInputElement
     expect(input.value).toBe('旧标题')
     fireEvent.change(input, { target: { value: '  分叉  实验记录  ' } })
@@ -121,11 +100,9 @@ describe('session rename through the assembled browser', () => {
   })
 
   it('a rejected rename keeps the dialog open with the error surfaced', async () => {
-    /** 中文说明：测试局部值 runtime，由紧邻初始化决定。 */
     const runtime = await createRuntime()
-    /** 中文说明：测试局部值 rename，由紧邻初始化决定。 */
     const rename = vi.fn<ISession['rename']>(async () => ({
-      ok: false, error: { code: 'internal', message: 'title write failed', details: {} },
+      ok: false, error: new RemoteError('gateway/internal', 'title write failed', {}),
     }))
     await runtime.sessions.add({
       id: SID,
@@ -143,22 +120,18 @@ describe('session rename through the assembled browser', () => {
       SidebarFrame as never,
     )
     await runtime.mount({ inject: [...inject], apply })
-    /** 中文说明：测试局部值 view，由紧邻初始化决定。 */
     const view = runtime.renderRoot()
     await runtime.flush()
 
-    /** 中文说明：测试局部值 row，由紧邻初始化决定。 */
     const row = (await view.findByText('旧标题')).closest('[role="treeitem"]')!
     fireEvent.click(within(row as HTMLElement).getByLabelText('会话“旧标题”的操作'))
     fireEvent.click(view.getByRole('menuitem', { name: '重命名', hidden: true }))
-    /** 中文说明：测试局部值 input，由紧邻初始化决定。 */
     const input = await view.findByLabelText('会话名称')
     fireEvent.change(input, { target: { value: '新名' } })
     fireEvent.click(view.getByRole('button', { name: '重命名' }))
 
     // Failure: the injected hop rethrows the business error; the dialog
     // stays open with the alert and the row keeps its title.
-    /** 中文说明：测试局部值 alert，由紧邻初始化决定。 */
     const alert = await view.findByRole('alert')
     expect(alert.textContent).toContain('title write failed')
     expect(view.getByLabelText('会话名称')).toBeTruthy()

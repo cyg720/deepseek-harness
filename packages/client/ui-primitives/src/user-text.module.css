@@ -3,34 +3,33 @@
    White-space policy stays with the consumer: the bubble wraps with pre-wrap,
    the queue preview keeps its single nowrap/ellipsis line. */
 
-/**
- * 文件职责：实现 client/ui-primitives 中 user text module 模块的职责，并向相邻模块提供可复用能力。
- * 技术维度：主要使用CSS Modules、层叠样式与项目统一的设计变量，通过当前文件中的类型、函数与数据结构完成实现。
- * 产品维度：支撑 DeepSeek Harness 的 client/ui-primitives 能力，使上层功能能够稳定组合和扩展。
- * 逻辑维度：建议按“依赖与类型定义 → 常量和状态 → 核心函数或类 → 导出或注册入口”的顺序理解。
- * 关键边界：调用方必须遵守类型、生命周期和错误处理约定；涉及外部输入、异步任务或资源释放时需特别关注异常分支。
- * 新手阅读建议：先确认导入依赖和公开导出，再沿主要函数调用链阅读，最后结合相邻测试理解输入、输出与边界条件。
- */
 .plainRun {
   font-size: inherit;
   line-height: inherit;
 }
 
 .refChip {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
+  /* Plain inline, NOT inline-flex: a flex container takes its baseline from
+     its first flex item — the icon svg, which has no text baseline — so the
+     chip's label rode ~3px above the surrounding text in both surfaces. An
+     inline chip shares the consumer's baseline by construction. */
+  display: inline;
   margin: 0 2px;
   color: var(--dsw-alias-state-business-primary);
   font-weight: 500;
   white-space: nowrap;
-  vertical-align: baseline;
 }
 
-/* Inline reference glyphs (always ReferenceIcon svgs) ride the consumer's text
-   size: the 16px svg edge moves by the same px delta as the surrounding font. */
+/* Inline reference glyphs (always ReferenceIcon svgs) ride the consumer's own
+   font: 1em keeps the glyph at the text's size in the bubble (14px + user
+   setting), the queue preview's fixed 13px line, and any future consumer — a
+   px+delta size followed only the bubble axis and left the glyph oversized in
+   the queue row. */
 .refIcon {
-  flex: none;
-  width: calc(16px + var(--dsh-content-font-delta, 0px));
-  height: calc(16px + var(--dsh-content-font-delta, 0px));
+  width: 1em;
+  height: 1em;
+  margin-right: 4px;
+  /* Optical centering against the text: drops the glyph below the baseline by
+     a font-relative amount, so it holds across the font axis. */
+  vertical-align: -0.125em;
 }

@@ -3,14 +3,6 @@
  * answerers fail closed; grants apply only to the requested action.
  * @module @deepseek-ai/dsh-user-approval
  */
-/*
- * 文件职责：实现交互与审批的 index.ts 模块。
- * 技术维度：TypeScript、Cordis 服务、会话事件、持久状态、Node 宿主接口和 Vitest。
- * 产品维度：保证交互与审批在授权、等待、失败和清理场景中可靠。
- * 逻辑维度：注册能力，校验请求，更新状态并记录事件。
- * 关键边界：匿名标识不是认证；模型可见审批、提问和任务信息必须写入会话日志。
- * 新手阅读建议：先读类型与事件，再按注册、请求、状态变化和清理流程阅读。
- */
 
 import { randomUUID } from 'node:crypto'
 import { Context, Service } from '@deepseek-ai/cordis'
@@ -22,14 +14,12 @@ import type { Session, SessionEvent } from '@deepseek-ai/dsh-session'
 import type {} from '@deepseek-ai/dsh-system-prompt'
 
 declare module '@deepseek-ai/cordis' {
-  /** 中文说明：类型或类 Context 约束宿主、交互或任务数据职责。 */
   interface Context {
     approval: ApprovalService
   }
 }
 
 declare module '@deepseek-ai/dsh-session/types' {
-  /** 中文说明：类型或类 SessionEventMap 约束宿主、交互或任务数据职责。 */
   interface SessionEventMap {
     /**
      * The session's approval policy was switched — log-only, durable,
@@ -54,7 +44,6 @@ export { ApprovalRequestId } from './types.ts'
 export type { ApprovalOutcome } from './types.ts'
 
 /** Every {@link ApprovalOutcome}, for runtime normalization of answerer returns. */
-/* 中文说明：服务局部值 OUTCOMES，由紧邻初始化决定。 */
 const OUTCOMES: readonly ApprovalOutcome[] = ['allowed-once', 'rejected', 'cancelled', 'unavailable']
 
 /**
@@ -67,18 +56,14 @@ const OUTCOMES: readonly ApprovalOutcome[] = ['allowed-once', 'rejected', 'cance
  *   deterministically. The strict headless stance (CI, unattended runs) and
  *   the policy whose outcome is knowable without asking.
  */
-/* 中文说明：类型或类 ApprovalPolicy 约束宿主、交互或任务数据职责。 */
 export type ApprovalPolicy = 'ask' | 'never'
 
 /** Every {@link ApprovalPolicy}, for option advertisement and runtime validation of untrusted policy strings. */
-/* 中文说明：服务局部值 APPROVAL_POLICIES，由紧邻初始化决定。 */
 export const APPROVAL_POLICIES: readonly ApprovalPolicy[] = ['ask', 'never']
 
 /** Model-facing statement for the deterministic `'never'` policy. */
-/* 中文说明：服务局部值 NEVER_SENTENCE，由紧邻初始化决定。 */
 const NEVER_SENTENCE = 'Approval prompts are disabled in this session: actions that require approval are rejected automatically — do not request sandbox escalation (do not set `sandbox_permissions`).'
 /** Model-facing statement for an interactive policy that may still fail closed. */
-/* 中文说明：服务局部值 ASK_SENTENCE，由紧邻初始化决定。 */
 const ASK_SENTENCE = 'Approval policy: ask. Operations that require approval may ask through the configured answerers; without an available answerer, the request fails closed.'
 
 /**
@@ -89,15 +74,8 @@ const ASK_SENTENCE = 'Approval policy: ask. Operations that require approval may
  * @param events - session events in log order (other event types are skipped).
  * @returns the policy of the last switch event, or undefined without one.
  */
-/*
- * 中文说明：函数 effectiveApprovalPolicy 的参数见签名，返回结果供相邻流程使用；示例见本文件。
- * @param events 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
- * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
- */
 export function effectiveApprovalPolicy(events: readonly SessionEvent[]): ApprovalPolicy | undefined {
-  /** 中文说明：服务局部值 index，由紧邻初始化决定。 */
   for (let index = events.length - 1; index >= 0; index -= 1) {
-    /** 中文说明：服务局部值 event，由紧邻初始化决定。 */
     const event = events[index] as SessionEvent
     if (event.type === 'approval/policy') return event.data.policy
   }
@@ -111,11 +89,8 @@ export function effectiveApprovalPolicy(events: readonly SessionEvent[]): Approv
  * commit/replay boundary, so a bare event appended between turns is
  * indistinguishable from a crash tail and silently dropped on reload.
  */
-/* 中文说明：函数 hasOpenTurn 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function hasOpenTurn(events: readonly SessionEvent[]): boolean {
-  /** 中文说明：服务局部值 index，由紧邻初始化决定。 */
   for (let index = events.length - 1; index >= 0; index -= 1) {
-    /** 中文说明：服务局部值 type，由紧邻初始化决定。 */
     const type = (events[index] as SessionEvent).type
     if (type === 'turn/start') return true
     if (type === 'turn/end') return false
@@ -128,11 +103,6 @@ function hasOpenTurn(events: readonly SessionEvent[]): boolean {
  * values throw before the log changes; consumers fold the new value on each read.
  * @param session - the session the override belongs to.
  * @param policy - the policy in effect until the next switch.
- */
-/*
- * 中文说明：函数 setApprovalPolicy 的参数见签名，返回结果供相邻流程使用；示例见本文件。
- * @param session 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
- * @param policy 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
  */
 export function setApprovalPolicy(session: Session, policy: ApprovalPolicy): void {
   if (!APPROVAL_POLICIES.includes(policy)) {
@@ -169,7 +139,6 @@ export interface ApprovalRequest extends ApprovalRequestEvent {
 }
 
 /** Plugin config. All optional — `static Config` supplies the defaults. */
-/* 中文说明：类型或类 Config 约束宿主、交互或任务数据职责。 */
 export interface Config {
   /**
    * The deployment's default {@link ApprovalPolicy} for sessions without an
@@ -185,7 +154,6 @@ export interface Config {
  * ask/outcome pair to the requesting session. It exposes deterministic policy
  * changes to the model through the runtime-context snapshot and switch notices.
  */
-/* 中文说明：类型或类 ApprovalService 约束宿主、交互或任务数据职责。 */
 export class ApprovalService extends Service {
   static Config: z<Config> = z.object({
     policy: z.union(['ask', 'never'] as const).default('ask'),
@@ -194,7 +162,6 @@ export class ApprovalService extends Service {
   constructor(ctx: Context, public config: Config) {
     super(ctx, 'approval')
 
-    /** 中文说明：服务局部值 effective，由紧邻初始化决定。 */
     const effective = (agent: Agent): ApprovalPolicy => this.effectivePolicy(agent.session)
 
     // The complete current value travels after retained history, so switching
@@ -202,13 +169,11 @@ export class ApprovalService extends Service {
     ctx.inject(['systemPrompt'], (scope: Context) => {
       scope.systemPrompt.context({
         name: 'approval:policy',
-        order: 115,
+        order: scope.systemPrompt.getContextOrder('APPROVAL_POLICY'),
         text: (context) => {
-          /** 中文说明：服务局部值 agent，由紧邻初始化决定。 */
           const agent = context.agent
           // A bare assemble() (tests, diagnostics) has no session to state.
           if (agent === undefined) return ''
-          /** 中文说明：服务局部值 policy，由紧邻初始化决定。 */
           const policy = effective(agent)
           return policy === 'never' ? NEVER_SENTENCE : ASK_SENTENCE
         },
@@ -224,7 +189,6 @@ export class ApprovalService extends Service {
    * @param policy - the new effective policy.
    */
   setPolicy(agent: Agent, policy: ApprovalPolicy): void {
-    /** 中文说明：服务局部值 previous，由紧邻初始化决定。 */
     const previous = this.effectivePolicy(agent.session)
     if (previous === policy) return
     setApprovalPolicy(agent.session, policy)
@@ -256,7 +220,6 @@ export class ApprovalService extends Service {
    *   append commit point.
    */
   async request(req: ApprovalRequest): Promise<ApprovalOutcome> {
-    /** 中文说明：服务局部值 session，由紧邻初始化决定。 */
     const session = req.agent.session
     if (!hasOpenTurn(session.events)) {
       throw new Error(
@@ -265,7 +228,6 @@ export class ApprovalService extends Service {
         + 'Ask from inside the turn that needs the decision.',
       )
     }
-    /** 中文说明：服务局部值 id，由紧邻初始化决定。 */
     const id = ApprovalRequestId(randomUUID())
     session.append('approval/asked', {
       id,
@@ -273,7 +235,6 @@ export class ApprovalService extends Service {
       ...req.callId !== undefined ? { callId: req.callId } : {},
       ...req.reason !== undefined ? { reason: req.reason } : {},
     })
-    /** 中文说明：服务局部值 outcome，由紧邻初始化决定。 */
     const outcome = await this.decide(req, session)
     session.append('approval/decided', { id, outcome })
     return outcome
@@ -306,7 +267,6 @@ export class ApprovalService extends Service {
    * @returns the normalized closed outcome.
    */
   private async decide(req: ApprovalRequest, session: Session): Promise<ApprovalOutcome> {
-    /** 中文说明：服务局部值 signal，由紧邻初始化决定。 */
     const signal = req.signal
     if (signal?.aborted) return 'cancelled'
     // The 'never' policy is decided HERE, before any dispatch: a listener
@@ -319,7 +279,6 @@ export class ApprovalService extends Service {
     // SYNCHRONOUSLY (before its first await) must land in the same rejection
     // path as an async one — `Promise.resolve(call())` would let it escape
     // the containment into the caller.
-    /** 中文说明：服务局部值 answer，由紧邻初始化决定。 */
     const answer: Promise<ApprovalOutcome> = Promise.resolve().then(
       () => this.ctx.waterfall(
         scopeTarget(req.agent, req.agent), 'approval/request', req,
@@ -335,7 +294,6 @@ export class ApprovalService extends Service {
     )
     if (signal === undefined) return answer
     return await new Promise<ApprovalOutcome>((resolve) => {
-      /** 中文说明：服务局部值 onAbort，由紧邻初始化决定。 */
       const onAbort = () => {
         signal.removeEventListener('abort', onAbort)
         resolve('cancelled')

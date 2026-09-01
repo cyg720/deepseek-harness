@@ -1,36 +1,29 @@
 // @vitest-environment jsdom
-/**
- * 文件职责：验证工具调用的 tool-row.client.spec.tsx 行为。
- * 技术维度：Vitest、React 渲染、插槽替身和类型化工具数据。
- * 产品维度：防止工具调用展示与展开交互回归。
- * 逻辑维度：构造工具调用或轨迹数据，渲染后断言 DOM 与状态。
- * 关键边界：测试只验证展示，不执行真实工具；DOM 和替身必须清理。
- * 新手阅读建议：先读数据夹具，再按工具类型和状态阅读。
- */
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render } from '@testing-library/react'
 
 import type { RunningToolCall, ToolResultNode } from '@deepseek-ai/dsh-client-ui-chat/client'
 import { makeTranslate } from '@deepseek-ai/dsh-client-test-runtime'
 import { zh as commonZh } from '@deepseek-ai/dsh-client-locale/src/locales/zh.ts'
-import { classifyTool, resultText, toolRowModel } from '../src/client/tool/models/tool-call-model.ts'
+import {
+  classifyTool, formatToolBody, resultText, toolRowModel,
+} from '../src/client/tool/models/tool-call-model.ts'
 import { ToolRow } from '../src/client/tool/components/ToolRow.tsx'
 import { GenericToolCard, type GenericToolCardProps } from '../src/client/tool/toolviews/GenericToolCard.tsx'
 import { zh } from '@deepseek-ai/dsh-client-ui-conversation/src/client/locales.ts'
 
 afterEach(() => {
   cleanup()
+  vi.restoreAllMocks()
 })
 
 const t: GenericToolCardProps['t'] = makeTranslate(zh, commonZh)
 
-/** 中文说明：测试局部值 running，由紧邻初始化决定。 */
 const running = (over?: Partial<RunningToolCall>): RunningToolCall => ({
   callId: 'c1', name: 'bash', argsRaw: '{"command":"ls -la","description":"List files"}',
   turn: 1, step: 1, time: 1_000, subCalls: [], ...over,
 })
 
-/** 中文说明：测试局部值 result，由紧邻初始化决定。 */
 const result = (over?: Partial<ToolResultNode>): ToolResultNode => ({
   kind: 'tool-result', seq: 10, time: 2_000, callId: 'c1',
   call: { name: 'bash', argsRaw: '{"command":"ls -la","description":"List files"}' },
@@ -60,7 +53,6 @@ describe('tool-call-model', () => {
   it('names each cordis verb instead of leaving it a bare tool call', () => {
     // Every define/run pair the model makes puts a row in the flow, so the
     // generic "Tool call · cordis_run · dyn-1" fallback is user-visible slop.
-    /** 中文说明：测试局部值 titleOf，由紧邻初始化决定。 */
     const titleOf = (name: string) => toolRowModel(name, running({ name, argsRaw: '{"id":"dyn-1"}' }))
     expect(t(titleOf('cordis_run').titleKey)).toBe('运行 Cordis 插件')
     expect(t(titleOf('cordis_stop').titleKey)).toBe('停止 Cordis 插件')
@@ -75,7 +67,6 @@ describe('tool-call-model', () => {
     // and a keyed hit replaces the generic row (this model is only reached
     // through the dispatch fallback). A mapping here would be unreachable, and a
     // title here would be a second answer to what the card already renders.
-    /** 中文说明：测试局部值 model，由紧邻初始化决定。 */
     const model = toolRowModel('cordis_define', running({ name: 'cordis_define', argsRaw: '{"name":"clock"}' }))
     expect(model.variant).toBe('others')
     expect(t(model.titleKey)).toBe('工具调用')
@@ -90,7 +81,6 @@ describe('tool-call-model', () => {
   })
 
   it('gives the pwsh shell row the bash family treatment with its own title', () => {
-    /** 中文说明：测试局部值 m，由紧邻初始化决定。 */
     const m = toolRowModel('pwsh', running())
     expect(m.variant).toBe('bash')
     expect(t(m.titleKey)).toBe('Pwsh')
@@ -104,7 +94,6 @@ describe('tool-call-model', () => {
   })
 
   it('derives the bash summary from description over command', () => {
-    /** 中文说明：测试局部值 m，由紧邻初始化决定。 */
     const m = toolRowModel('bash', running())
     expect(t(m.titleKey)).toBe('Bash')
     expect(m.summary).toBe('List files')
@@ -141,7 +130,6 @@ describe('tool-call-model', () => {
   })
 
   it('displays workspace-rooted paths relative to the session cwd', () => {
-    /** 中文说明：测试局部值 cwd，由紧邻初始化决定。 */
     const cwd = '/Users/u/ws/'
     expect(toolRowModel('edit', running({ name: 'edit', argsRaw: '{"file_path":"/Users/u/ws/src/x.ts"}' }), cwd).summary).toBe('src/x.ts')
     expect(toolRowModel('read', running({ name: 'read', argsRaw: '{"path":"/Users/u/ws/a.md"}' }), cwd).summary).toBe('a.md')
@@ -152,9 +140,7 @@ describe('tool-call-model', () => {
   })
 
   it('abbreviates leftover POSIX home paths after cwd relativization', () => {
-    /** 中文说明：测试局部值 home，由紧邻初始化决定。 */
     const home = '/Users/u'
-    /** 中文说明：测试局部值 cwd，由紧邻初始化决定。 */
     const cwd = '/tmp/ws'
     expect(toolRowModel('read', running({ name: 'read', argsRaw: '{"path":"/Users/u"}' }), cwd, home).summary).toBe('~')
     expect(toolRowModel('read', running({ name: 'read', argsRaw: '{"path":"/Users/u/notes.md"}' }), cwd, home).summary)
@@ -180,14 +166,17 @@ describe('tool-call-model', () => {
   })
 
   it('body pretty-prints JSON args, keeps raw non-JSON, null when empty', () => {
-    expect(toolRowModel('bash', running({ argsRaw: '{"a":1}' })).body).toBe('{\n  "a": 1\n}')
-    expect(toolRowModel('bash', running({ argsRaw: 'raw' })).body).toBe('raw')
-    expect(toolRowModel('bash', running({ argsRaw: '' })).body).toBeNull()
-    expect(toolRowModel('bash', result({ call: null })).body).toBeNull()
+    expect(formatToolBody('bash', toolRowModel('bash', running({ argsRaw: '{"a":1}' })).bodyRaw ?? ''))
+      .toBe('{\n  "a": 1\n}')
+    expect(formatToolBody('bash', toolRowModel('bash', running({ argsRaw: 'raw' })).bodyRaw ?? ''))
+      .toBe('raw')
+    expect(toolRowModel('bash', running({ argsRaw: '' })).bodyRaw).toBeNull()
+    expect(toolRowModel('bash', result({ call: null })).bodyRaw).toBeNull()
   })
 
   it('a code row with an empty program falls back to the args JSON envelope', () => {
-    expect(toolRowModel('run_code', running({ name: 'run_code', argsRaw: '{"code":""}' })).body)
+    const model = toolRowModel('run_code', running({ name: 'run_code', argsRaw: '{"code":""}' }))
+    expect(formatToolBody(model.variant, model.bodyRaw ?? ''))
       .toBe('{\n  "code": ""\n}')
   })
 
@@ -207,7 +196,6 @@ describe('tool-call-model', () => {
   })
 
   it('derives errorSummary as the first output line on error rows only', () => {
-    /** 中文说明：测试局部值 failed，由紧邻初始化决定。 */
     const failed = result({ content: [{ type: 'text', text: 'boom\ndetail' }], isError: true })
     expect(toolRowModel('bash', failed).errorSummary).toBe('boom')
     expect(toolRowModel('bash', result({ content: [{ type: 'text', text: 'boom' }] })).errorSummary).toBeNull()
@@ -243,15 +231,13 @@ describe('tool-call-model', () => {
 })
 
 describe('ToolRow', () => {
-  /** 中文说明：测试局部值 rowProps，由紧邻初始化决定。 */
   const rowProps = {
     t,
     variant: 'bash' as const, icon: <i data-testid="tool-icon" />, title: 'Bash',
-    summary: 'List files', body: '{\n  "a": 1\n}', state: 'ok' as const,
+    summary: 'List files', bodyRaw: '{"a":1}', state: 'ok' as const,
   }
 
   it('renders leading icon, title and summary while collapsed', () => {
-    /** 中文说明：测试局部值 view，由紧邻初始化决定。 */
     const view = render(<ToolRow {...rowProps} />)
     expect(view.queryByTestId('tool-icon')).not.toBeNull()
     expect(view.getByText('Bash')).toBeTruthy()
@@ -260,7 +246,6 @@ describe('ToolRow', () => {
   })
 
   it('row click expands: chevron leading, summary kept inline, body in the scrolling card', () => {
-    /** 中文说明：测试局部值 view，由紧邻初始化决定。 */
     const view = render(<ToolRow {...rowProps} />)
     fireEvent.click(view.getByRole('button'))
     expect(view.queryByTestId('tool-icon')).toBeNull()
@@ -273,12 +258,32 @@ describe('ToolRow', () => {
     expect(view.getByText('List files')).toBeTruthy()
   })
 
+  it('formats the argument body only while expanding it', () => {
+    const stringify = vi.spyOn(JSON, 'stringify')
+    const bodyFormatCalls = () => stringify.mock.calls.filter(
+      ([value, replacer, space]) => typeof value === 'object'
+        && value !== null
+        && 'a' in value
+        && (value as { a?: unknown }).a === 1
+        && replacer === null
+        && space === 2,
+    ).length
+    const view = render(<ToolRow {...rowProps} />)
+    expect(bodyFormatCalls()).toBe(0)
+
+    fireEvent.click(view.getByRole('button'))
+    expect(bodyFormatCalls()).toBe(1)
+    expect(view.getByText(/"a": 1/)).toBeTruthy()
+
+    fireEvent.click(view.getByRole('button'))
+    expect(bodyFormatCalls()).toBe(1)
+    expect(view.queryByText(/"a": 1/)).toBeNull()
+  })
+
   it('running keeps the icon (row sweep carries the signal); error swaps in a StateDot', () => {
-    /** 中文说明：测试局部值 runningView，由紧邻初始化决定。 */
     const runningView = render(<ToolRow {...rowProps} state="running" />)
     expect(runningView.queryByTestId('tool-icon')).not.toBeNull()
     expect(runningView.container.querySelector('[data-state="running"]')).not.toBeNull()
-    /** 中文说明：测试局部值 errorView，由紧邻初始化决定。 */
     const errorView = render(<ToolRow {...rowProps} state="error" />)
     expect(errorView.container.querySelector('[data-testid="tool-icon"]')).toBeNull()
     // The dot rides the idle slot, so an expandable error row keeps the
@@ -287,17 +292,14 @@ describe('ToolRow', () => {
   })
 
   it('non-expandable rows render a passive leading slot and no row button', () => {
-    /** 中文说明：测试局部值 view，由紧邻初始化决定。 */
-    const view = render(<ToolRow {...rowProps} body={null} />)
+    const view = render(<ToolRow {...rowProps} bodyRaw={null} />)
     expect(view.queryByRole('button')).toBeNull()
     expect(view.container.querySelector('[aria-expanded]')).toBeNull()
     expect(view.queryByTestId('tool-icon')).not.toBeNull()
   })
 
   it('the row toggles from Enter and Space, ignoring other keys', () => {
-    /** 中文说明：测试局部值 view，由紧邻初始化决定。 */
     const view = render(<ToolRow {...rowProps} />)
-    /** 中文说明：测试局部值 row，由紧邻初始化决定。 */
     const row = view.getByRole('button')
     fireEvent.keyDown(row, { key: 'Tab' })
     expect(row.getAttribute('aria-expanded')).toBe('false')
@@ -308,13 +310,10 @@ describe('ToolRow', () => {
   })
 
   it('file rows expand from the row while the path link opens without toggling', () => {
-    /** 中文说明：测试局部值 open，由紧邻初始化决定。 */
     const open = vi.fn()
-    /** 中文说明：测试局部值 view，由紧邻初始化决定。 */
     const view = render(
       <ToolRow {...rowProps} variant="read" title="Read" summary="src/a.ts" filePath="src/a.ts" onOpenFile={open} />,
     )
-    /** 中文说明：测试局部值 row，由紧邻初始化决定。 */
     const row = view.getByRole('button', { name: /Read/ })
     // Path click opens the file and leaves the row collapsed.
     fireEvent.click(view.getByText('src/a.ts'))
@@ -327,12 +326,10 @@ describe('ToolRow', () => {
   })
 
   it('a file path without onOpenFile renders a plain summary on an expandable row', () => {
-    /** 中文说明：测试局部值 view，由紧邻初始化决定。 */
     const view = render(
       <ToolRow {...rowProps} variant="write" title="Write" summary="作文.md" filePath="作文.md" />,
     )
     expect(view.container.querySelector('button')).toBeNull()
-    /** 中文说明：测试局部值 row，由紧邻初始化决定。 */
     const row = view.getByRole('button')
     fireEvent.click(row)
     expect(row.getAttribute('aria-expanded')).toBe('true')
@@ -340,16 +337,13 @@ describe('ToolRow', () => {
   })
 
   it('non-file rows do not open anything when the summary is clicked', () => {
-    /** 中文说明：测试局部值 open，由紧邻初始化决定。 */
     const open = vi.fn()
-    /** 中文说明：测试局部值 view，由紧邻初始化决定。 */
     const view = render(<ToolRow {...rowProps} onOpenFile={open} />)
     fireEvent.click(view.getByText('List files'))
     expect(open).not.toHaveBeenCalled()
   })
 
   it('an error row shows the failure first line in the collapsed summary and the full text expanded', () => {
-    /** 中文说明：测试局部值 view，由紧邻初始化决定。 */
     const view = render(
       <ToolRow {...rowProps} state="error" errorSummary="boom" output={'boom\ndetail'} />,
     )
@@ -361,23 +355,18 @@ describe('ToolRow', () => {
   })
 
   it('an error row without an error summary keeps the args summary', () => {
-    /** 中文说明：测试局部值 view，由紧邻初始化决定。 */
     const view = render(<ToolRow {...rowProps} state="error" errorSummary={null} />)
     expect(view.getByText('List files')).toBeTruthy()
   })
 
   it('renders summarySuffix outside the ellipsized summary span, and drops it on a failure line', () => {
-    /** 中文说明：测试局部值 view，由紧邻初始化决定。 */
     const view = render(<ToolRow {...rowProps} summarySuffix="+2" />)
-    /** 中文说明：测试局部值 summary，由紧邻初始化决定。 */
     const summary = view.getByText('List files')
-    /** 中文说明：测试局部值 suffix，由紧邻初始化决定。 */
     const suffix = view.getByText('+2')
     // Separate spans: .summary truncates, the suffix must not travel inside it.
     expect(summary.contains(suffix)).toBe(false)
     view.unmount()
     // The failure line replaces the summary wholesale, so the suffix goes with it.
-    /** 中文说明：测试局部值 failed，由紧邻初始化决定。 */
     const failed = render(
       <ToolRow {...rowProps} state="error" errorSummary="boom" summarySuffix="+2" />,
     )
@@ -385,9 +374,7 @@ describe('ToolRow', () => {
   })
 
   it('an error file row drops the open-file link (the summary is failure prose, not the path)', () => {
-    /** 中文说明：测试局部值 open，由紧邻初始化决定。 */
     const open = vi.fn()
-    /** 中文说明：测试局部值 view，由紧邻初始化决定。 */
     const view = render(
       <ToolRow
         {...rowProps}
@@ -402,9 +389,7 @@ describe('ToolRow', () => {
   })
 
   it('the expanded body carries a hover Inspect pill that fires the callback', () => {
-    /** 中文说明：测试局部值 inspect，由紧邻初始化决定。 */
     const inspect = vi.fn()
-    /** 中文说明：测试局部值 view，由紧邻初始化决定。 */
     const view = render(<ToolRow {...rowProps} inspect={inspect} />)
     // Collapsed: no pill.
     expect(view.queryByText('查看')).toBeNull()
@@ -417,28 +402,24 @@ describe('ToolRow', () => {
   })
 
   it('no inspect callback, no pill', () => {
-    /** 中文说明：测试局部值 view，由紧邻初始化决定。 */
     const view = render(<ToolRow {...rowProps} />)
     fireEvent.click(view.getByRole('button'))
     expect(view.queryByText('查看')).toBeNull()
   })
 
   it('the expanded card gutter-labels each section it carries (IN / OUT)', () => {
-    /** 中文说明：测试局部值 both，由紧邻初始化决定。 */
     const both = render(<ToolRow {...rowProps} output="result text" />)
     fireEvent.click(both.getByRole('button'))
     expect(both.getByText('输入')).toBeTruthy()
     expect(both.getByText('输出')).toBeTruthy()
     expect(both.getByText('result text')).toBeTruthy()
     cleanup()
-    /** 中文说明：测试局部值 inputOnly，由紧邻初始化决定。 */
     const inputOnly = render(<ToolRow {...rowProps} />)
     fireEvent.click(inputOnly.getByRole('button'))
     expect(inputOnly.getByText('输入')).toBeTruthy()
     expect(inputOnly.queryByText('输出')).toBeNull()
     cleanup()
-    /** 中文说明：测试局部值 outputOnly，由紧邻初始化决定。 */
-    const outputOnly = render(<ToolRow {...rowProps} body={null} output="only out" />)
+    const outputOnly = render(<ToolRow {...rowProps} bodyRaw={null} output="only out" />)
     fireEvent.click(outputOnly.getByRole('button'))
     expect(outputOnly.queryByText('输入')).toBeNull()
     expect(outputOnly.getByText('输出')).toBeTruthy()
@@ -447,13 +428,11 @@ describe('ToolRow', () => {
 })
 
 describe('GenericToolCard', () => {
-  /** 中文说明：测试局部值 props，由紧邻初始化决定。 */
   const props = (toolName: string, block: RunningToolCall | ToolResultNode): GenericToolCardProps => ({
     callId: 'c1', toolName, block, openFile: vi.fn(), t,
   })
 
   it('renders the classified variant row from the frozen slice', () => {
-    /** 中文说明：测试局部值 view，由紧邻初始化决定。 */
     const view = render(<GenericToolCard {...props('bash', result())} />)
     expect(view.getByText('Bash')).toBeTruthy()
     expect(view.getByText('List files')).toBeTruthy()
@@ -461,7 +440,6 @@ describe('GenericToolCard', () => {
   })
 
   it('unknown tools land on the others variant titled Tool call', () => {
-    /** 中文说明：测试局部值 view，由紧邻初始化决定。 */
     const view = render(
       <GenericToolCard {...props('todo_write', running({ name: 'todo_write', argsRaw: '{"note":"x"}' }))} />,
     )
@@ -471,7 +449,6 @@ describe('GenericToolCard', () => {
   })
 
   it('renders edit with its dedicated title, icon variant, and path summary', () => {
-    /** 中文说明：测试局部值 view，由紧邻初始化决定。 */
     const view = render(
       <GenericToolCard {...props('edit', running({
         name: 'edit',
@@ -485,7 +462,6 @@ describe('GenericToolCard', () => {
   })
 
   it('renders write with its dedicated title, icon variant, and path summary', () => {
-    /** 中文说明：测试局部值 view，由紧邻初始化决定。 */
     const view = render(
       <GenericToolCard {...props('write', running({
         name: 'write',
@@ -499,9 +475,7 @@ describe('GenericToolCard', () => {
   })
 
   it('passes the owner inspect callback through to the expanded row pill', () => {
-    /** 中文说明：测试局部值 inspect，由紧邻初始化决定。 */
     const inspect = vi.fn()
-    /** 中文说明：测试局部值 view，由紧邻初始化决定。 */
     const view = render(<GenericToolCard {...props('bash', result())} inspect={inspect} />)
     fireEvent.click(view.getByRole('button', { name: /Bash/ }))
     fireEvent.click(view.getByText('查看'))
@@ -509,16 +483,12 @@ describe('GenericToolCard', () => {
   })
 
   it('file-path summary click reaches openFile; bash summary does not', () => {
-    /** 中文说明：测试局部值 file，由紧邻初始化决定。 */
     const file = props('read', running({ name: 'read', argsRaw: '{"path":"src/x.ts"}' }))
-    /** 中文说明：测试局部值 fileView，由紧邻初始化决定。 */
     const fileView = render(<GenericToolCard {...file} />)
     fireEvent.click(fileView.getByText('src/x.ts'))
     expect(file.openFile).toHaveBeenCalledWith('src/x.ts')
 
-    /** 中文说明：测试局部值 bash，由紧邻初始化决定。 */
     const bash = props('bash', result())
-    /** 中文说明：测试局部值 bashView，由紧邻初始化决定。 */
     const bashView = render(<GenericToolCard {...bash} />)
     fireEvent.click(bashView.getByText('List files'))
     expect(bash.openFile).not.toHaveBeenCalled()

@@ -1,39 +1,15 @@
-/*
- * ================================ 文件注释 ================================
- * 【文件职责】会话级"运行卡片指针"所有权索引：追踪每次成功的 cordis_run 结果，
- *             决定哪个卡片承载该插件的业务视图（tool.view.cordis），并保证同一
- *             插件同时只有"最新"的运行卡片生效（按日志序列号淘汰旧卡）。
- * 【技术维度】CordisRunCardStore 是 HostObservable 约定的可订阅索引；observe 用
- *             seq（日志序列号）比较新旧——只有更大序列才能替换；Registry 按会话
- *             缓存 Store，页面生命周期内所有卡片共享同一份。
- * 【产品维度】用户连续运行同一插件多次时，只有最新一张卡片承载可交互业务视图，
- *             旧卡显示"已有更新的运行卡片"提示，避免视图错位。
- * 【逻辑维度】类型（Key/Pointer/Store）→ createStore 工厂 → Registry 按会话分发。
- * 【关键边界】seq 单调比较（等值/更小不替换）；Pointer 只含稳定身份字段，可安全
- *             跨会话日志回放。
- * 【新手阅读建议】先看 CordisRunCardPointer 与 observe 的淘汰逻辑，再看 Registry。
- * ==========================================================================
- */
-
 /** Session-local ownership index for Package business views on `cordis_run` cards. */
 
-import type { SessionId } from '@deepseek-ai/dsh-client-connection/client'
+import type { SessionId } from '@deepseek-ai/dsh-api-remotes/client'
 import type { HostObservable } from '@deepseek-ai/dsh-client-ui-slots'
 import type {
   CordisDynamicPackageId, CordisDynamicPluginId, CordisDynamicPluginRunId,
 } from './events.ts'
 
 /** Stable keyed-slot identity of one Package-owned business view. */
-/*
- * 一个包业务视图的稳定槽位键：由 插件ID.包ID 组成，注册与运行卡片用同一键对齐。
- */
 export type CordisToolViewKey = `${CordisDynamicPluginId}.${CordisDynamicPackageId}`
 
 /** One successful tool result competing to host a Package business view. */
-/*
- * 一次成功工具结果的指针：携带槽位键、调用 ID、日志序列号与运行 ID，
- * 参与"谁承载业务视图"的竞争。
- */
 export interface CordisRunCardPointer {
   readonly key: CordisToolViewKey
   readonly callId: string
@@ -48,7 +24,6 @@ export interface CordisRunCardStore extends HostObservable<ReadonlyMap<CordisToo
 }
 
 function createStore(): CordisRunCardStore {
-  // 指针表 + 监听器 + 快照缓存；observe 按 seq 单调淘汰旧指针后发布通知
   const pointers = new Map<CordisToolViewKey, CordisRunCardPointer>()
   const listeners = new Set<() => void>()
   let cache: ReadonlyMap<CordisToolViewKey, CordisRunCardPointer> | undefined
@@ -69,10 +44,6 @@ function createStore(): CordisRunCardStore {
 }
 
 /** Page-lifetime registry that gives all cards of one session the same Store. */
-/*
- * 页面生命周期内的注册表：为每个会话创建并保留唯一的 Store，使同会话所有
- * 运行卡片共享同一份"最新卡片"索引。
- */
 export class CordisRunCardRegistry {
   private readonly sessions = new Map<SessionId, CordisRunCardStore>()
 
@@ -96,12 +67,6 @@ export class CordisRunCardRegistry {
  * @param pluginId - stable Plugin identity.
  * @param packageId - immutable Package identity.
  * @returns the shared business-view key.
- */
-/*
- * 构造业务视图共享键：注册与运行卡片都用它对齐同一插件/包。
- * @param pluginId 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
- * @param packageId 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
- * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
  */
 export function cordisToolViewKey(
   pluginId: CordisDynamicPluginId,

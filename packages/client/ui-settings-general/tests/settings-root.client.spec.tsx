@@ -1,27 +1,21 @@
 // @vitest-environment jsdom
-/**
- * 文件职责：验证通用设置的 settings-root.client.spec.tsx 行为。
- * 技术维度：Vitest、React 测试渲染、DOM 事件和服务替身。
- * 产品维度：防止通用设置的展示、作用域或交互回归。
- * 逻辑维度：构造上下文与属性，渲染后断言状态和清理。
- * 关键边界：Provider、订阅、全局 DOM 与异步任务必须释放。
- * 新手阅读建议：先读辅助夹具，再按场景顺序阅读。
- */
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { useEffect, useState } from 'react'
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { makeTranslate } from '@deepseek-ai/dsh-client-test-runtime'
 import type { SettingsRootComponentProps } from '../src/client/shell-contract.ts'
 import { SettingsRoot } from '../src/client/SettingsRoot.tsx'
+import { en } from '../src/client/locales.ts'
 
-afterEach(cleanup)
+afterEach(() => {
+  cleanup()
+  vi.useRealTimers()
+})
 
-/** 中文说明：类型或类 Row 约束模块数据或职责。 */
 type Row = { id: string; order: number; label: string }
-/** 中文说明：类型或类 Step 约束模块数据或职责。 */
 type Step = { id: string; order: number }
 
 /** Slot-content stand-ins: the shell renders whatever the seats contribute. */
-/* 中文说明：测试局部值 SEAT_CONTENT，由紧邻初始化决定。 */
 const SEAT_CONTENT: Record<string, string> = {
   'settings.trigger': 'Settings',
   'settings.header': 'Settings Title',
@@ -30,11 +24,13 @@ const SEAT_CONTENT: Record<string, string> = {
 }
 
 type AttentionSnapshot = Parameters<Parameters<SettingsRootComponentProps['useSessionPendingInteraction']>[0]>[0]
+type ConnectionSnapshot = Parameters<Parameters<SettingsRootComponentProps['useConnectionState']>[0]>[0]
 const noAttention: AttentionSnapshot = new Map()
 const useSessionPendingInteraction: SettingsRootComponentProps['useSessionPendingInteraction'] = selector => selector(noAttention)
 
 function mount({
   wide = true,
+  connectionState = 'connected',
   onboardingActive = true,
   rows = [
     { id: 'general', order: 0, label: 'General' },
@@ -45,21 +41,26 @@ function mount({
     { id: 'welcome', order: -100 },
     { id: 'credential', order: 0 },
   ],
-}: { wide?: boolean; onboardingActive?: boolean; rows?: Row[]; steps?: Step[] } = {}) {
+}: {
+  wide?: boolean
+  connectionState?: ConnectionSnapshot
+  onboardingActive?: boolean
+  rows?: Row[]
+  steps?: Step[]
+} = {}) {
   // Mutable row source standing in for the bound useSections hook; bump()
   // plays a ledger change through the same observable contract.
-  /** 中文说明：测试局部值 current，由紧邻初始化决定。 */
   let current = rows
-  /** 中文说明：测试局部值 listeners，由紧邻初始化决定。 */
+  let currentConnectionState = connectionState
   const listeners = new Set<() => void>()
-  /** 中文说明：测试局部值 renderSlot，由紧邻初始化决定。 */
+  const connectionListeners = new Set<() => void>()
+  const reconnect = vi.fn()
   const renderSlot = vi.fn(
     ((key: string, _owner: unknown, opts?: { only?: string }) => {
       if (key === 'settings.section') return <div data-testid={`section-${opts?.only ?? 'all'}`} />
       return SEAT_CONTENT[key]
     }) as SettingsRootComponentProps['renderSlot'],
   )
-  /** 中文说明：测试局部值 useSessions，由紧邻初始化决定。 */
   const useSessions = ((select: (state: unknown) => unknown) => select(onboardingActive
     ? { phase: 'ready', current: undefined, byId: {} }
     : {
@@ -67,20 +68,27 @@ function mount({
       current: 'active-session',
       byId: { 'active-session': { blank: false } },
     })) as never
-  /** 中文说明：测试局部值 unusedHook，由紧邻初始化决定。 */
   const unusedHook = (() => { throw new Error('unused by SettingsRoot') }) as never
-  /** 中文说明：测试局部值 props，由紧邻初始化决定。 */
   const props: SettingsRootComponentProps = {
     useSessions,
     useSessionPendingInteraction,
     useWorkspaces: unusedHook,
     wide,
-    useOnboardingSteps: select => select(steps),
-    useSections: (select) => {
-      /** 中文说明：测试局部值 [, force]，由紧邻初始化决定。 */
+    reconnect,
+    t: makeTranslate(en),
+    useConnectionState: (select) => {
       const [, force] = useState(0)
       useEffect(() => {
-        /** 中文说明：测试局部值 listener，由紧邻初始化决定。 */
+        const listener = () => { force(n => n + 1) }
+        connectionListeners.add(listener)
+        return () => { connectionListeners.delete(listener) }
+      }, [])
+      return select(currentConnectionState)
+    },
+    useOnboardingSteps: select => select(steps),
+    useSections: (select) => {
+      const [, force] = useState(0)
+      useEffect(() => {
         const listener = () => { force(n => n + 1) }
         listeners.add(listener)
         return () => { listeners.delete(listener) }
@@ -89,29 +97,32 @@ function mount({
     },
     renderSlot,
   }
-  /** 中文说明：测试局部值 view，由紧邻初始化决定。 */
   const view = render(<SettingsRoot {...props} />)
-  /** 中文说明：测试局部值 bump，由紧邻初始化决定。 */
   const bump = (next: Row[]) => {
     act(() => {
       current = next
-      /** 中文说明：测试局部值 fn，由紧邻初始化决定。 */
       for (const fn of [...listeners]) fn()
     })
   }
-  return { view, renderSlot, bump, listeners }
+  const setConnectionState = (next: typeof currentConnectionState) => {
+    act(() => {
+      currentConnectionState = next
+      for (const fn of [...connectionListeners]) fn()
+    })
+  }
+  return { view, renderSlot, bump, listeners, reconnect, setConnectionState }
 }
 
-/** 中文说明：函数 openPanel 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function openPanel() {
-  fireEvent.click(screen.getByRole('button', { name: 'Settings' }))
+  const trigger = screen.getByRole('button', { name: 'Settings' })
+  trigger.focus()
+  fireEvent.click(trigger)
+  return trigger
 }
 
 describe('SettingsRoot trigger', () => {
   it('renders the trigger seat content as the accessible name (no aria-label of its own)', () => {
-    /** 中文说明：测试局部值 { renderSlot }，由紧邻初始化决定。 */
     const { renderSlot } = mount()
-    /** 中文说明：测试局部值 trigger，由紧邻初始化决定。 */
     const trigger = screen.getByRole('button', { name: 'Settings' })
     expect(trigger.hasAttribute('aria-label')).toBe(false)
     expect(renderSlot).toHaveBeenCalledWith('settings.trigger', { wide: true })
@@ -122,9 +133,38 @@ describe('SettingsRoot trigger', () => {
   })
 
   it('hands the rail state to the trigger seat', () => {
-    /** 中文说明：测试局部值 { renderSlot }，由紧邻初始化决定。 */
     const { renderSlot } = mount({ wide: false })
     expect(renderSlot).toHaveBeenCalledWith('settings.trigger', { wide: false })
+  })
+
+  it('shows outage, retry progress, and a two-second recovery confirmation', () => {
+    vi.useFakeTimers()
+    const mounted = mount()
+    expect(screen.queryByRole('button', { name: 'Disconnected, reconnect now' })).toBeNull()
+
+    mounted.setConnectionState('disconnected')
+    const indicator = screen.getByRole('button', { name: 'Disconnected, reconnect now' })
+    expect(indicator.textContent).toContain('Disconnected')
+    expect(indicator.hasAttribute('title')).toBe(false)
+    expect(indicator.querySelector('svg')).toBeTruthy()
+    fireEvent.click(indicator)
+    expect(mounted.reconnect).toHaveBeenCalledOnce()
+
+    mounted.setConnectionState('connecting')
+    expect(screen.getByRole('button', { name: 'Connecting, restart now' }).textContent)
+      .toContain('Connecting...')
+
+    mounted.setConnectionState('connected')
+    expect(screen.getByRole('status', { name: 'Connected' })).toBeTruthy()
+    act(() => { vi.advanceTimersByTime(1_999) })
+    expect(screen.getByRole('status', { name: 'Connected' })).toBeTruthy()
+    act(() => { vi.advanceTimersByTime(1) })
+    expect(screen.queryByRole('status')).toBeNull()
+  })
+
+  it('keeps the reconnect indicator out of the collapsed rail', () => {
+    mount({ wide: false, connectionState: 'disconnected' })
+    expect(screen.queryByRole('button', { name: 'Disconnected, reconnect now' })).toBeNull()
   })
 })
 
@@ -132,12 +172,9 @@ describe('SettingsPanel chrome seats', () => {
   it('names the dialog via aria-labelledby pointing at the header seat node', () => {
     mount()
     openPanel()
-    /** 中文说明：测试局部值 dialog，由紧邻初始化决定。 */
     const dialog = screen.getByRole('dialog')
-    /** 中文说明：测试局部值 titleId，由紧邻初始化决定。 */
     const titleId = dialog.getAttribute('aria-labelledby')!
     expect(titleId).toBeTruthy()
-    /** 中文说明：测试局部值 title，由紧邻初始化决定。 */
     const title = document.getElementById(titleId)!
     expect(title.textContent).toBe('Settings Title')
     expect(screen.getByRole('dialog', { name: 'Settings Title' })).toBeTruthy()
@@ -146,14 +183,12 @@ describe('SettingsPanel chrome seats', () => {
   it('names the close button through the visually-hidden close seat text', () => {
     mount()
     openPanel()
-    /** 中文说明：测试局部值 close，由紧邻初始化决定。 */
     const close = screen.getByRole('button', { name: 'Close' })
     expect(close.hasAttribute('aria-label')).toBe(false)
     expect(close.textContent).toContain('Close')
   })
 
   it('renders header actions before the shell-owned close control', () => {
-    /** 中文说明：测试局部值 { renderSlot }，由紧邻初始化决定。 */
     const { renderSlot } = mount()
     openPanel()
     expect(screen.getByText('Open configuration file')).toBeTruthy()
@@ -162,27 +197,29 @@ describe('SettingsPanel chrome seats', () => {
 })
 
 describe('SettingsPanel close paths', () => {
-  it('closes via the header button', () => {
+  it('closes via the header button and restores trigger focus', async () => {
     mount()
-    openPanel()
+    const trigger = openPanel()
     fireEvent.click(screen.getByRole('button', { name: 'Close' }))
     expect(screen.queryByRole('dialog')).toBeNull()
+    await vi.waitFor(() => { expect(document.activeElement).toBe(trigger) })
   })
 
-  it('closes via a mask click', () => {
+  it('closes via a mask click and restores trigger focus', async () => {
     mount()
-    openPanel()
-    /** 中文说明：测试局部值 dialog，由紧邻初始化决定。 */
+    const trigger = openPanel()
     const dialog = screen.getByRole('dialog')
     fireEvent.click(dialog.parentElement!.firstElementChild!)
     expect(screen.queryByRole('dialog')).toBeNull()
+    await vi.waitFor(() => { expect(document.activeElement).toBe(trigger) })
   })
 
-  it('closes via document-level Escape and unhooks the listener with the panel', () => {
+  it('closes via document-level Escape, restores trigger focus, and unhooks the listener', async () => {
     mount()
-    openPanel()
+    const trigger = openPanel()
     fireEvent.keyDown(document, { key: 'Escape' })
     expect(screen.queryByRole('dialog')).toBeNull()
+    await vi.waitFor(() => { expect(document.activeElement).toBe(trigger) })
     // Ignored while closed (listener removed with the panel) and non-Escape
     // keys are ignored while open.
     fireEvent.keyDown(document, { key: 'Escape' })
@@ -219,7 +256,6 @@ describe('SettingsPanel navigation', () => {
     })
     openPanel()
     // Glyphs carry no id of their own, so the drawn paths are what tells them apart.
-    /** 中文说明：测试局部值 glyphs，由紧邻初始化决定。 */
     const glyphs = ['General', 'Models', 'Agent presets', 'Plugins', 'Contributed']
       .map(name => screen.getByRole('button', { name }).querySelector('svg')?.innerHTML)
 
@@ -240,9 +276,7 @@ describe('SettingsPanel navigation', () => {
   })
 
   it('mounts onboarding steps in order and transfers ownership only on completion', () => {
-    /** 中文说明：测试局部值 { renderSlot }，由紧邻初始化决定。 */
     const { renderSlot } = mount()
-    /** 中文说明：测试局部值 first，由紧邻初始化决定。 */
     const first = renderSlot.mock.calls.find(call => call[0] === 'settings.onboarding')
     expect(first?.[1]).toMatchObject({ stepId: 'welcome' })
     expect(first?.[2]).toEqual({ only: 'welcome' })
@@ -250,9 +284,7 @@ describe('SettingsPanel navigation', () => {
       (first?.[1] as { complete: () => void }).complete()
       ;(first?.[1] as { complete: () => void }).complete()
     })
-    /** 中文说明：测试局部值 onboardingCalls，由紧邻初始化决定。 */
     const onboardingCalls = renderSlot.mock.calls.filter(call => call[0] === 'settings.onboarding')
-    /** 中文说明：测试局部值 second，由紧邻初始化决定。 */
     const second = onboardingCalls.at(-1)
     expect(second?.[1]).toMatchObject({ stepId: 'credential' })
     expect(second?.[2]).toEqual({ only: 'credential' })
@@ -264,7 +296,6 @@ describe('SettingsPanel navigation', () => {
     expect(screen.getByTestId('section-models')).toBeTruthy()
 
     cleanup()
-    /** 中文说明：测试局部值 inactive，由紧邻初始化决定。 */
     const inactive = mount({ onboardingActive: false }).renderSlot.mock.calls
       .filter(call => call[0] === 'settings.onboarding')
     expect(inactive).toHaveLength(0)
@@ -275,11 +306,9 @@ describe('SettingsPanel navigation', () => {
     // the step-owned dialog surface — a mounted-but-deciding step that
     // renders null must show and block nothing (the reload white-flash fix;
     // onboarding-surface.spec.tsx pins the primitive's half).
-    /** 中文说明：测试局部值 appRoot，由紧邻初始化决定。 */
     const appRoot = document.createElement('div')
     appRoot.id = 'root'
     document.body.append(appRoot)
-    /** 中文说明：测试局部值 { view }，由紧邻初始化决定。 */
     const { view } = mount()
     expect(view.container.querySelector('[class*="onboarding"]')).toBeNull()
     expect(document.body.querySelector('[class*="onboarding"]')).toBeNull()
@@ -289,7 +318,6 @@ describe('SettingsPanel navigation', () => {
   })
 
   it('falls back to the first row when the active entry unregisters', () => {
-    /** 中文说明：测试局部值 { bump }，由紧邻初始化决定。 */
     const { bump } = mount()
     openPanel()
     fireEvent.click(screen.getByRole('button', { name: 'Models' }))
@@ -299,17 +327,14 @@ describe('SettingsPanel navigation', () => {
   })
 
   it('renders an empty content column when the ledger is empty', () => {
-    /** 中文说明：测试局部值 { renderSlot }，由紧邻初始化决定。 */
     const { renderSlot } = mount({ rows: [] })
     openPanel()
     expect(screen.getByRole('dialog')).toBeTruthy()
-    /** 中文说明：测试局部值 sectionCalls，由紧邻初始化决定。 */
     const sectionCalls = renderSlot.mock.calls.filter(c => c[0] === 'settings.section')
     expect(sectionCalls).toHaveLength(0)
   })
 
   it('drops the ledger subscription on unmount', () => {
-    /** 中文说明：测试局部值 { view, listeners }，由紧邻初始化决定。 */
     const { view, listeners } = mount()
     expect(listeners.size).toBe(1)
     view.unmount()

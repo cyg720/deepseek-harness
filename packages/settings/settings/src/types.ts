@@ -8,29 +8,12 @@
  * @module @deepseek-ai/dsh-settings/types
  */
 
-/*
- * ================================ 文件注释 ================================
- * 【文件职责】dsh-settings 缝对"客户端"（Client 编译面）暴露的纯类型表面：命名空间品牌类型、
- *   提交来源联合类型、以及 Cordis 事件声明。只含类型、无任何运行时代码。
- * 【技术维度】利用 TS declaration merging 扩展 Cordis 的 Events 接口；Branded 品牌类型防止
- *   裸字符串被误当作命名空间使用；不触碰 Host 专属符号，保证 Client 面读到的签名与 Host 一致。
- * 【产品维度】事件 settings/updated 与 settings/document-updated 是配置界面与插件感知设置
- *   变更的通道：前者面向消费方（按解析值是否变化过滤），后者面向配置面（按原始段落修订号通知）。
- * 【逻辑维度】命名空间品牌 → 更新来源联合 → 两个事件的声明与语义说明。
- * 【关键边界】监听器失败被包含并记日志，仅 INVARIANT 类失败在全部监听跑完后重抛；同步监听器
- *   不应写成 async（异步拒绝无法经 INVARIANT 重抛）。
- * 【新手阅读建议】先读 index.ts 理解事件在哪里发出，再回来看本文件的事件语义与参数说明。
- * ==========================================================================
- */
-
 import type { Branded } from '@deepseek-ai/dsh-brand'
-import type { JsonValue } from '@deepseek-ai/dsh-session/types'
+import type { JsonValue } from '@deepseek-ai/dsh-util-values'
 
-// 命名空间是"品牌"类型：底层仍是 string，但编译器禁止与普通字符串混用，防止传错参数。
 /** Nominal id of one registered settings namespace. */
 export type SettingsNamespace = Branded<'SettingsNamespace'>
 
-// 一次设置变更的来源：'update' 表示经服务 API 写入，'provider' 表示由存储层（如文件监听）发布。
 /** Origin of one committed settings change. */
 export type SettingsUpdateSource = 'update' | 'provider'
 
@@ -106,7 +89,6 @@ declare module '@deepseek-ai/cordis' {
      * @param source - whether the change entered through `update()` or the provider.
      * @mode emit
      */
-    // 提交事件：命名空间解析值发生变化后发出；消费方（设置 UI、插件逻辑）靠它感知变更并刷新。
     'settings/updated'(ns: SettingsNamespace, next: unknown, prev: unknown, source: SettingsUpdateSource): void
 
     /**
@@ -120,7 +102,6 @@ declare module '@deepseek-ai/cordis' {
      * @param revision - the namespace's new revision.
      * @mode emit
      */
-    // 文档事件：原始用户段落一有变化即发出（哪怕解析值未变），配置界面据此得知"字段从继承变为覆盖"。
     'settings/document-updated'(ns: SettingsNamespace, revision: number): void
   }
 }

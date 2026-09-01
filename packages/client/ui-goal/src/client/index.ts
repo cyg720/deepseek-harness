@@ -1,18 +1,3 @@
-/*
- * ================================ 文件注释 ================================
- * 【文件职责】ui-goal 包在浏览器侧的插件入口：把 GoalBar（目标栏）挂到对话输入区
- *             停靠条（dock），并注册 /goal 命令输入的聊天节点投影。
- * 【技术维度】Cordis 浏览器插件 + 投影（projection）模式：实时目标通过
- *             useProjection('goal') 到达，本插件不持有 store、不监听事件；
- *             注入面只带四个变更动词（edit/pause/resume/clear），经生成的
- *             Goal Remote API 以 CAS ref 提交。
- * 【产品维度】用户可在输入区旁看到当前目标、编辑/暂停/恢复/清除；对话中展示 /goal 命令输入。
- * 【逻辑维度】1) 注册 goal-command-input 定义；2) 注册字典；
- *             3) 注册命令输入视图；4) 注入四个变更动词到输入停靠条槽位。
- * 【关键边界】目标创建走宿主 /goal 命令；无当前目标时变更动词返回固定错误结果。
- * 【新手阅读建议】先看 slots.ts 的注入面与 goal-command-input.ts 的投影定义。
- * ==========================================================================
- */
 /**
  * Goal surface plugin, browser half: the GoalBar entry in the
  * conversation.input.dock strip. Projection-mode surface — the live goal
@@ -59,7 +44,6 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
 }
 
 /** Dictionary namespace owned by this plugin. */
-// 本插件拥有的字典命名空间名。
 const NS = 'goal'
 
 /** Required services for the Goal dock, command-input projection, Remote mutations, and copy. */
@@ -91,7 +75,7 @@ export function apply(ctx: ClientContext): void {
 
   const noCurrentGoal: GoalActionResult = {
     ok: false,
-    error: { code: 'no-current-goal', message: 'no current goal to mutate', details: {} },
+    error: { code: 'no-current-goal', message: 'no current goal to mutate' },
   }
 
   ctx.slots.inject('conversation.input.dock', () => ctx.slots.register({

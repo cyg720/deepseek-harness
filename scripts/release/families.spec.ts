@@ -1,12 +1,4 @@
 /** Release family discovery, publish order, tag naming, and the bump judgements. */
-/*
- * 文件职责：验证 families.spec.ts 覆盖的发布、门禁、翻译配对或仓库维护职责。
- * 技术维度：使用 TypeScript、Vitest、Node.js 文件系统、Git、包管理器或构建产物校验。
- * 产品维度：保障项目发布物、文档配对和 CI 门禁保持一致且可追踪。
- * 逻辑维度：解析参数与仓库状态，执行检查或发布步骤，再输出诊断和退出状态。
- * 关键边界：发布与 Git 操作会改变外部状态；失败必须显式停止；路径和命令输出不可信。
- * 新手阅读建议：先看入口参数和只读检查，再读状态变更步骤，最后关注回滚、错误码和平台差异。
- */
 
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
@@ -23,23 +15,18 @@ import { compareVersions, nextVendorVersion, planShared, reachesPayload } from '
  * @param manifest - manifest fields the subject reads.
  * @returns The member.
  */
-/* 中文说明：函数 member 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function member(directory: string, name: string, manifest: Record<string, unknown> = {}): ReleaseMember {
   return { directory, name, version: '0.0.1', manifest }
 }
 
-/** 中文说明：变量 roots 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const roots: string[] = []
 
-/** 中文说明：函数 write 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function write(path: string, content: string): void {
   mkdirSync(dirname(path), { recursive: true })
   writeFileSync(path, content)
 }
 
-/** 中文说明：函数 buildFixture 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function buildFixture(environment: Record<string, string>): string {
-  /** 中文说明：变量 root 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const root = mkdtempSync(join(tmpdir(), 'dsh-release-build-'))
   roots.push(root)
   write(join(root, 'package.json'), `${JSON.stringify({ version: environment.DSH_CLIENT_VERSION ?? '0.0.1' })}\n`)
@@ -50,14 +37,12 @@ function buildFixture(environment: Record<string, string>): string {
 }
 
 afterEach(() => {
-  /** 中文说明：该循环依次处理仓库文件或状态；循环变量仅在当前循环中有效。 */
   for (const root of roots.splice(0)) rmSync(root, { recursive: true, force: true })
   vi.unstubAllEnvs()
 })
 
 describe('release families', () => {
   it('excludes private experimental packages from the dsh release', () => {
-    /** 中文说明：变量 members 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const members = releaseFamily('dsh').members(resolve(import.meta.dirname, '../..'))
 
     expect(members.some(member => member.directory.startsWith('packages/experimental/'))).toBe(false)
@@ -65,16 +50,13 @@ describe('release families', () => {
   })
 
   it('bumps private dsh packages without adding release tags', () => {
-    /** 中文说明：变量 root 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const root = mkdtempSync(join(tmpdir(), 'dsh-release-version-'))
     roots.push(root)
     write(join(root, 'package.json'), '{"version":"0.0.1"}\n')
     write(join(root, 'packages/experimental/prototype/package.json'), '{"version":"0.0.1","private":true}\n')
     write(join(root, 'packages/core/unselected/package.json'), '{"version":"0.0.1"}\n')
 
-    /** 中文说明：变量 dsh 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const dsh = releaseFamily('dsh')
-    /** 中文说明：变量 published 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const published = member('packages/core/published', '@deepseek-ai/dsh-published')
     const { planned } = planShared(dsh, root, [published], '0.0.2')
 
@@ -85,14 +67,26 @@ describe('release families', () => {
     ])
   })
 
+  it.each(['0.0.2-alpha.1', '0.0.2-canary.1', '0.0.2-rc.1'])(
+    'accepts the explicit dsh prerelease version %s',
+    (version) => {
+      const root = mkdtempSync(join(tmpdir(), 'dsh-release-prerelease-'))
+      roots.push(root)
+      write(join(root, 'package.json'), '{"version":"0.0.1"}\n')
+
+      const dsh = releaseFamily('dsh')
+      const published = member('packages/core/published', '@deepseek-ai/dsh-published')
+      const plan = planShared(dsh, root, [published], version)
+
+      expect(plan.version).toBe(version)
+      expect(plan.planned[1]?.tag).toBe(`dsh-v${version}`)
+    },
+  )
+
   it('names one tag for the whole dsh family and one per vendored package', () => {
-    /** 中文说明：变量 dsh 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const dsh = releaseFamily('dsh')
-    /** 中文说明：变量 vendor 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const vendor = releaseFamily('vendor')
-    /** 中文说明：变量 cli 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const cli = member('apps/cli', '@deepseek-ai/dsh')
-    /** 中文说明：变量 cordis 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const cordis = { ...member('vendor/cordis', '@deepseek-ai/cordis'), version: '4.0.1' }
 
     expect(dsh.tagFor(cli)).toBe('dsh-v0.0.1')
@@ -103,10 +97,20 @@ describe('release families', () => {
     expect(vendor.tagFor({ ...cordis, version: '4.0.0-rc.7' })).toBe('vendor-cordis-v4.0.0-rc.7')
   })
 
-  it('rejects a family whose members disagree on the shared version', () => {
-    /** 中文说明：变量 dsh 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
+  it('assigns alpha and canary dist-tags only to dsh releases', () => {
     const dsh = releaseFamily('dsh')
-    /** 中文说明：变量 members 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
+    const vendor = releaseFamily('vendor')
+
+    expect(dsh.distTagForVersion('0.0.2-alpha.1')).toBe('alpha')
+    expect(dsh.distTagForVersion('0.0.2-canary.1')).toBe('canary')
+    expect(dsh.distTagForVersion('0.0.2-rc.1')).toBe('next')
+    expect(dsh.distTagForVersion('0.0.2')).toBeUndefined()
+    expect(vendor.distTagForVersion('4.0.1-alpha.1')).toBe('next')
+    expect(vendor.distTagForVersion('4.0.1-canary.1')).toBe('next')
+  })
+
+  it('rejects a family whose members disagree on the shared version', () => {
+    const dsh = releaseFamily('dsh')
     const members = [member('apps/cli', '@deepseek-ai/dsh'), { ...member('apps/web', '@deepseek-ai/dsh-web-frontend'), version: '0.0.2' }]
 
     expect(() => { dsh.verifyVersions(members) }).toThrow(/must share one version/)
@@ -114,9 +118,7 @@ describe('release families', () => {
   })
 
   it('accepts independent vendored versions and rejects an unpublishable one', () => {
-    /** 中文说明：变量 vendor 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const vendor = releaseFamily('vendor')
-    /** 中文说明：变量 members 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const members = [
       { ...member('vendor/cordis', '@deepseek-ai/cordis'), version: '4.0.1' },
       { ...member('vendor/cosmokit', '@deepseek-ai/cosmokit'), version: '1.8.2' },
@@ -127,16 +129,11 @@ describe('release families', () => {
   })
 
   it('requires a current official client build only for dsh artifacts', () => {
-    /** 中文说明：变量 dsh 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const dsh = releaseFamily('dsh')
-    /** 中文说明：变量 vendor 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const vendor = releaseFamily('vendor')
-    /** 中文说明：变量 officialEnvironment 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const officialEnvironment = officialClientBuildEnvironment(resolve(import.meta.dirname, '../..'))
     vi.stubEnv('DSH_CLIENT_COMMIT_HASH', officialEnvironment.DSH_CLIENT_COMMIT_HASH)
-    /** 中文说明：变量 official 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const official = buildFixture(officialEnvironment)
-    /** 中文说明：变量 defaultBuild 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const defaultBuild = buildFixture({})
     const missing = join(defaultBuild, 'missing')
     write(join(missing, 'package.json'), `${JSON.stringify({ version: officialEnvironment.DSH_CLIENT_VERSION })}\n`)
@@ -151,9 +148,7 @@ describe('release families', () => {
   })
 
   it('publishes a dependency before its consumer, and orders ties by name', () => {
-    /** 中文说明：变量 dsh 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const dsh = releaseFamily('dsh')
-    /** 中文说明：变量 members 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const members = [
       member('packages/a/consumer', '@deepseek-ai/dsh-consumer', { dependencies: { '@deepseek-ai/dsh-library': 'workspace:^' } }),
       member('packages/a/library', '@deepseek-ai/dsh-library'),
@@ -168,9 +163,7 @@ describe('release families', () => {
   })
 
   it('reports a runtime dependency cycle instead of emitting an arbitrary order', () => {
-    /** 中文说明：变量 dsh 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const dsh = releaseFamily('dsh')
-    /** 中文说明：变量 members 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const members = [
       member('packages/a/left', '@deepseek-ai/dsh-left', { dependencies: { '@deepseek-ai/dsh-right': 'workspace:^' } }),
       member('packages/a/right', '@deepseek-ai/dsh-right', { dependencies: { '@deepseek-ai/dsh-left': 'workspace:^' } }),
@@ -180,9 +173,7 @@ describe('release families', () => {
   })
 
   it('publishes a peer before its consumer', () => {
-    /** 中文说明：变量 dsh 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const dsh = releaseFamily('dsh')
-    /** 中文说明：变量 members 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const members = [
       member('packages/a/consumer', '@deepseek-ai/dsh-consumer', { peerDependencies: { '@deepseek-ai/dsh-zebra': 'workspace:^' } }),
       member('packages/a/zebra', '@deepseek-ai/dsh-zebra'),
@@ -196,9 +187,7 @@ describe('release families', () => {
   })
 
   it('orders around a peer cycle rather than refusing to publish, and reports the edge it dropped', () => {
-    /** 中文说明：变量 dsh 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const dsh = releaseFamily('dsh')
-    /** 中文说明：变量 members 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const members = [
       member('packages/a/left', '@deepseek-ai/dsh-left', { peerDependencies: { '@deepseek-ai/dsh-right': 'workspace:^' } }),
       member('packages/a/right', '@deepseek-ai/dsh-right', { peerDependencies: { '@deepseek-ai/dsh-left': 'workspace:^' } }),
@@ -206,7 +195,6 @@ describe('release families', () => {
 
     // Sibling packages declare each other as peers, and npm treats an unmet peer
     // as a warning, so this pair has to publish rather than fail the release.
-    /** 中文说明：变量 plan 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const plan = dsh.publishOrder(members)
     expect(plan.order.map(entry => entry.name)).toEqual([
       '@deepseek-ai/dsh-right',
@@ -219,9 +207,7 @@ describe('release families', () => {
   })
 
   it('honours an install edge even when a peer cycle surrounds it', () => {
-    /** 中文说明：变量 dsh 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const dsh = releaseFamily('dsh')
-    /** 中文说明：变量 members 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const members = [
       member('packages/a/base', '@deepseek-ai/dsh-base', { peerDependencies: { '@deepseek-ai/dsh-consumer': 'workspace:^' } }),
       member('packages/a/consumer', '@deepseek-ai/dsh-consumer', {
@@ -232,7 +218,6 @@ describe('release families', () => {
 
     // The install edge is absolute: base publishes first, and the peer edge that
     // would reverse it is the one dropped.
-    /** 中文说明：变量 plan 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const plan = dsh.publishOrder(members)
     expect(plan.order.map(entry => entry.name)).toEqual([
       '@deepseek-ai/dsh-base',
@@ -244,9 +229,7 @@ describe('release families', () => {
   })
 
   it('refuses an order that would publish a consumer before a dependency it installs', () => {
-    /** 中文说明：变量 dsh 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const dsh = releaseFamily('dsh')
-    /** 中文说明：变量 members 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const members = [
       member('packages/a/alpha', '@deepseek-ai/dsh-alpha', { peerDependencies: { '@deepseek-ai/dsh-bravo': 'workspace:^' } }),
       member('packages/a/bravo', '@deepseek-ai/dsh-bravo', { peerDependencies: { '@deepseek-ai/dsh-charlie': 'workspace:^' } }),
@@ -261,9 +244,7 @@ describe('release families', () => {
   })
 
   it('ignores devDependencies when ordering', () => {
-    /** 中文说明：变量 dsh 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const dsh = releaseFamily('dsh')
-    /** 中文说明：变量 members 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const members = [
       member('packages/a/alpha', '@deepseek-ai/dsh-alpha', { devDependencies: { '@deepseek-ai/dsh-zebra': 'workspace:^' } }),
       member('packages/a/zebra', '@deepseek-ai/dsh-zebra'),
@@ -278,13 +259,9 @@ describe('release families', () => {
   })
 
   it('applies the harness payload policy to dsh and keeps upstream payloads for vendored packages', () => {
-    /** 中文说明：变量 dsh 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const dsh = releaseFamily('dsh')
-    /** 中文说明：变量 vendor 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const vendor = releaseFamily('vendor')
-    /** 中文说明：变量 harness 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const harness = member('packages/a/library', '@deepseek-ai/dsh-library')
-    /** 中文说明：变量 vendored 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const vendored = member('vendor/cordis', '@deepseek-ai/cordis')
 
     expect(() => { dsh.validatePayload(harness, ['package/lib/index.js', 'package/src/index.ts']) })
@@ -328,6 +305,12 @@ describe('vendored version baseline', () => {
 })
 
 describe('version precedence', () => {
+  it('orders alpha, canary, and release-candidate versions by semver precedence', () => {
+    expect(compareVersions('4.0.1-alpha.1', '4.0.1-canary.1')).toBeLessThan(0)
+    expect(compareVersions('4.0.1-canary.1', '4.0.1-rc.1')).toBeLessThan(0)
+    expect(compareVersions('4.0.1-rc.1', '4.0.1')).toBeLessThan(0)
+  })
+
   it('ranks a release above the prerelease it follows', () => {
     // git --sort=v:refname disagrees, placing 4.0.1-rc.1 above 4.0.1, which is
     // why the newest published version is chosen here rather than by git.
@@ -349,11 +332,9 @@ describe('version precedence', () => {
 })
 
 describe('payload change judgement', () => {
-  /** 中文说明：变量 sourceShipping 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const sourceShipping = member('vendor/cosmokit', '@deepseek-ai/cosmokit', {
     files: ['lib/index.js', 'lib/types/**/*.d.ts', 'src'],
   })
-  /** 中文说明：变量 buildOutputOnly 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const buildOutputOnly = member('vendor/cordis', '@deepseek-ai/cordis', {
     files: ['lib/index.js', 'lib/types/**/*.d.ts', 'bin.js'],
   })

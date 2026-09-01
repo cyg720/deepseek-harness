@@ -1,16 +1,9 @@
-/**
- * 文件职责：验证系统提示词的 system-prompt.spec.ts 行为与边界。
- * 技术维度：TypeScript、Cordis、Vitest、会话事件、JSON 模式和服务作用域。
- * 产品维度：保证系统提示词在配置、错误、恢复和生命周期场景中可靠。
- * 逻辑维度：构造输入并驱动服务，再断言输出、日志和清理。
- * 关键边界：持久与凭据数据属于不可信边界；工具和提示词必须保持模型可见内容可重建。
- * 新手阅读建议：先读类型和夹具，再按正常、非法输入、作用域和清理场景阅读。
- */
 import { describe, expect, it } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
 import SystemPrompt, {
-  AssembleContext, FIRST_PARTY_SECTION_ORDER, PromptAssembly, renderContextSnapshot, renderPrompt,
+  AssembleContext, PromptAssembly, renderContextSnapshot, renderPrompt,
 } from '@deepseek-ai/dsh-system-prompt'
+import type { PromptContextOrderName, PromptSectionOrderName } from '@deepseek-ai/dsh-system-prompt'
 
 /**
  * Every assembly carries the plugin's own built-ins — `harness:identity`
@@ -18,31 +11,48 @@ import SystemPrompt, {
  * registry MECHANICS strip them with {@link contributed} to stay focused on
  * their own sections; the built-ins' behavior is pinned by its own describe.
  */
-/* 中文说明：测试局部值 BUILT_IN，由紧邻初始化决定。 */
 const BUILT_IN = ['harness:identity', 'deployment:persona']
-/** 中文说明：测试局部值 IDENTITY，由紧邻初始化决定。 */
 const IDENTITY = 'You are an AI agent powered by DeepSeek Harness.'
-/** 中文说明：函数 contributed 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+const SECTION_ORDER_NAMES = [
+  'HARNESS_IDENTITY', 'HARNESS_SOURCE', 'WEB_SURFACE', 'DEPLOYMENT_PERSONA',
+  'PLAN_POLICY', 'TEAM_POLICY', 'PTC_ONLY', 'FILE_REFERENCE', 'TOOL_BASH',
+  'TOOL_PWSH', 'TOOL_READ', 'TOOL_WRITE', 'TOOL_EDIT', 'TOOL_GLOB',
+  'TOOL_GREP', 'TOOL_JOBS', 'TOOL_PTY', 'TOOL_WEB_SEARCH', 'TOOL_WEB_FETCH',
+  'TOOL_LSP', 'TOOL_SESSION_QUERY', 'TOOL_GOAL', 'TOOL_CORDIS', 'TOOL_WORKFLOW',
+  'TOOL_RALPH', 'TOOL_SUBAGENT', 'TOOL_REPORT', 'TOOLS_SDK',
+  'DELIVERABLE_FILE_REFERENCES', 'STRUCTURED_OUTPUT',
+] as const satisfies readonly PromptSectionOrderName[]
+const CONTEXT_ORDER_NAMES = [
+  'SANDBOX_POLICY', 'APPROVAL_POLICY', 'SUBAGENT_DELEGATION',
+] as const satisfies readonly PromptContextOrderName[]
 function contributed(assembly: PromptAssembly): PromptAssembly['sections'] {
   return assembly.sections.filter(section => !BUILT_IN.includes(section.name))
 }
 
 describe('SystemPrompt', () => {
-  it('keeps first-party section placements unique, integral, and at least ten apart', () => {
-    const orders = Object.values(FIRST_PARTY_SECTION_ORDER)
+  it('keeps repository section placements unique, integral, and at least ten apart', async () => {
+    const ctx = new Context()
+    await ctx.plugin(SystemPrompt, {})
+    const orders = SECTION_ORDER_NAMES.map(name => ctx.systemPrompt.getSectionOrder(name))
     expect(orders.every(Number.isInteger)).toBe(true)
     expect(new Set(orders).size).toBe(orders.length)
     const sorted = [...orders].sort((a, b) => a - b)
     expect(sorted.slice(1).every((order, index) => order - sorted[index]! >= 10)).toBe(true)
   })
 
+  it('keeps repository context placements unique and integral', async () => {
+    const ctx = new Context()
+    await ctx.plugin(SystemPrompt, {})
+    const orders = CONTEXT_ORDER_NAMES.map(name => ctx.systemPrompt.getContextOrder(name))
+    expect(orders.every(Number.isInteger)).toBe(true)
+    expect(new Set(orders).size).toBe(orders.length)
+  })
+
   describe('built-in sections', () => {
     it('registers the harness identity and the configured deployment persona', async () => {
-      /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
       const ctx = new Context()
       await ctx.plugin(SystemPrompt, { persona: 'You are DeepSeek Harness.' })
 
-      /** 中文说明：测试局部值 assembly，由紧邻初始化决定。 */
       const assembly = await ctx.systemPrompt.assemble()
       expect(assembly.sections.map(s => s.name)).toEqual([
         'harness:identity',
@@ -55,31 +65,26 @@ describe('SystemPrompt', () => {
     })
 
     it('renders no persona section for a persona-less deployment (empty default)', async () => {
-      /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
       const ctx = new Context()
       await ctx.plugin(SystemPrompt)
       expect(renderPrompt(await ctx.systemPrompt.assemble())).toBe(IDENTITY)
     })
 
     it('can omit the harness identity for a deployment that owns the complete persona', async () => {
-      /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
       const ctx = new Context()
       await ctx.plugin(SystemPrompt, {
         includeHarnessIdentity: false,
         persona: 'You are a helpful software engineer assistant.',
       })
 
-      /** 中文说明：测试局部值 assembly，由紧邻初始化决定。 */
       const assembly = await ctx.systemPrompt.assemble()
       expect(assembly.sections.map(section => section.name)).toEqual(['deployment:persona'])
       expect(renderPrompt(assembly)).toBe('You are a helpful software engineer assistant.')
     })
 
     it('can suppress runtime context without evaluating providers or accepting waterfall additions', async () => {
-      /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
       const ctx = new Context()
       await ctx.plugin(SystemPrompt, { includeRuntimeContext: false })
-      /** 中文说明：测试局部值 providerCalls，由紧邻初始化决定。 */
       let providerCalls = 0
       ctx.systemPrompt.context({
         name: 'policy',
@@ -91,7 +96,6 @@ describe('SystemPrompt', () => {
         return next()
       })
 
-      /** 中文说明：测试局部值 assembly，由紧邻初始化决定。 */
       const assembly = await ctx.systemPrompt.assemble()
       expect(assembly.contexts).toEqual([])
       expect(providerCalls).toBe(0)
@@ -100,16 +104,13 @@ describe('SystemPrompt', () => {
     it('tolerates a schema-bypassing direct construction (persona omitted)', async () => {
       // ctx.plugin validates + defaults the config first; a direct construction
       // skips the schema, so the ctor's `?? ''` narrowing is what fires.
-      /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
       const ctx = new Context()
-      /** 中文说明：测试局部值 service，由紧邻初始化决定。 */
       const service = new SystemPrompt(ctx, {})
       expect(renderPrompt(await service.assemble())).toBe(IDENTITY)
     })
   })
 
   it('assembles sections in order with context-resolved text and collected tools', async () => {
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = new Context()
     await ctx.plugin(SystemPrompt, { persona: 'You are DeepSeek Harness.' })
 
@@ -119,7 +120,6 @@ describe('SystemPrompt', () => {
     ctx.systemPrompt.context({ name: 'earlier', order: 10, text: 'context 1' })
     ctx.systemPrompt.tools(() => ({ schemas: [{ name: 'echo', description: 'echo back', parameters: {} }] }))
 
-    /** 中文说明：测试局部值 assembly，由紧邻初始化决定。 */
     const assembly = await ctx.systemPrompt.assemble()
     expect(assembly.sections.map(s => s.name)).toEqual(['harness:identity', 'deployment:persona', 'rules', 'cwd'])
     expect(assembly.sections.map(s => s.text)).toEqual([IDENTITY, 'You are DeepSeek Harness.', 'Be precise.', 'cwd: /tmp'])
@@ -145,10 +145,8 @@ describe('SystemPrompt', () => {
   it('resolves section text providers against the assemble context, at each assemble call', async () => {
     // The context is HOW per-agent sections work (the loop passes { agent });
     // this spec stays agent-agnostic and smuggles a marker through a plain field.
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = new Context()
     await ctx.plugin(SystemPrompt)
-    /** 中文说明：测试局部值 calls，由紧邻初始化决定。 */
     let calls = 0
     ctx.systemPrompt.section({
       name: 'dynamic',
@@ -161,11 +159,9 @@ describe('SystemPrompt', () => {
   })
 
   it('removes contributions when the contributing fiber is disposed (HMR safety)', async () => {
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = new Context()
     await ctx.plugin(SystemPrompt)
 
-    /** 中文说明：测试局部值 fiber，由紧邻初始化决定。 */
     const fiber = await ctx.plugin(Object.assign((inner: Context) => {
       inner.systemPrompt.section({ name: 'scoped', order: 0, text: 'scoped section' })
       inner.systemPrompt.context({ name: 'scoped-context', order: 0, text: 'scoped context' })
@@ -173,13 +169,11 @@ describe('SystemPrompt', () => {
       inner.systemPrompt.variable('scoped_var', () => 'v')
     }, { inject: ['systemPrompt'] }))
 
-    /** 中文说明：测试局部值 before，由紧邻初始化决定。 */
     const before = await ctx.systemPrompt.assemble()
     expect(contributed(before)).toHaveLength(1)
     expect(before.contexts).toHaveLength(1)
     expect(before.variables).toEqual({ scoped_var: 'v' })
     await fiber.dispose()
-    /** 中文说明：测试局部值 assembly，由紧邻初始化决定。 */
     const assembly = await ctx.systemPrompt.assemble()
     expect(contributed(assembly)).toHaveLength(0)
     expect(assembly.contexts).toHaveLength(0)
@@ -190,20 +184,17 @@ describe('SystemPrompt', () => {
   })
 
   it('rejects a duplicate section name (a double-loaded plugin must fail, not double its text)', async () => {
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = new Context()
     await ctx.plugin(SystemPrompt)
     ctx.systemPrompt.section({ name: 'dup', order: 0, text: 'first' })
     expect(() => ctx.systemPrompt.section({ name: 'dup', order: 1, text: 'second' }))
       .toThrow('prompt section "dup" is already registered')
     // The failed registration leaked nothing; the original stays intact.
-    /** 中文说明：测试局部值 assembly，由紧邻初始化决定。 */
     const assembly = await ctx.systemPrompt.assemble()
     expect(contributed(assembly).map(s => s.text)).toEqual(['first'])
   })
 
   it('rejects a non-finite section order', async () => {
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = new Context()
     await ctx.plugin(SystemPrompt)
     expect(() => ctx.systemPrompt.section({ name: 'bad-order', order: Number.NaN, text: 'x' }))
@@ -212,7 +203,6 @@ describe('SystemPrompt', () => {
   })
 
   it('rejects duplicate and non-finite context registrations without leaking', async () => {
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = new Context()
     await ctx.plugin(SystemPrompt)
     ctx.systemPrompt.context({ name: 'policy', order: 1, text: 'first' })
@@ -224,16 +214,13 @@ describe('SystemPrompt', () => {
   })
 
   it('rolls back a section when a system-prompt/change listener throws (P1-1)', async () => {
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = new Context()
     await ctx.plugin(SystemPrompt)
 
     // Throw on the first emit only. Note the rollback path itself emits
     // system-prompt/change, so a multi-shot guard would also fire on rollback;
     // a single-shot guard isolates the register's own emit.
-    /** 中文说明：测试局部值 threw，由紧邻初始化决定。 */
     let threw = false
-    /** 中文说明：测试局部值 off，由紧邻初始化决定。 */
     const off = ctx.on('system-prompt/change', () => {
       if (!threw) { threw = true; throw new Error('boom change listener') }
     })
@@ -248,13 +235,10 @@ describe('SystemPrompt', () => {
   })
 
   it('rolls back a tool provider when a system-prompt/change listener throws (P1-1)', async () => {
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = new Context()
     await ctx.plugin(SystemPrompt)
 
-    /** 中文说明：测试局部值 threw，由紧邻初始化决定。 */
     let threw = false
-    /** 中文说明：测试局部值 off，由紧邻初始化决定。 */
     const off = ctx.on('system-prompt/change', () => {
       if (!threw) { threw = true; throw new Error('boom change listener') }
     })
@@ -268,10 +252,8 @@ describe('SystemPrompt', () => {
   })
 
   it('snapshots tool-provider membership before evaluating an assembly', async () => {
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = new Context()
     await ctx.plugin(SystemPrompt)
-    /** 中文说明：测试局部值 added，由紧邻初始化决定。 */
     let added = false
     ctx.systemPrompt.tools(() => {
       if (!added) {
@@ -288,13 +270,10 @@ describe('SystemPrompt', () => {
   })
 
   it('rolls back a variable when a system-prompt/change listener throws (P1-1)', async () => {
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = new Context()
     await ctx.plugin(SystemPrompt)
 
-    /** 中文说明：测试局部值 threw，由紧邻初始化决定。 */
     let threw = false
-    /** 中文说明：测试局部值 off，由紧邻初始化决定。 */
     const off = ctx.on('system-prompt/change', () => {
       if (!threw) { threw = true; throw new Error('boom change listener') }
     })
@@ -308,13 +287,11 @@ describe('SystemPrompt', () => {
   })
 
   it('composes multiple system-prompt/assemble waterfall listeners in order, with the context', async () => {
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = new Context()
     await ctx.plugin(SystemPrompt)
     ctx.systemPrompt.section({ name: 'base', order: 10, text: 'base' })
 
     // Listener A appends a section, then delegates.
-    /** 中文说明：测试局部值 contexts，由紧邻初始化决定。 */
     const contexts: AssembleContext[] = []
     ctx.on('system-prompt/assemble', async (assembly: PromptAssembly, context, next) => {
       contexts.push(context)
@@ -322,16 +299,13 @@ describe('SystemPrompt', () => {
       return next()
     })
     // Listener B (registered later, runs after A) sees A's contribution.
-    /** 中文说明：测试局部值 seen，由紧邻初始化决定。 */
     const seen: string[][] = []
     ctx.on('system-prompt/assemble', async (assembly: PromptAssembly, _context, next) => {
       seen.push(assembly.sections.map(s => s.name))
       return next()
     })
 
-    /** 中文说明：测试局部值 passed，由紧邻初始化决定。 */
     const passed: AssembleContext = {}
-    /** 中文说明：测试局部值 assembly，由紧邻初始化决定。 */
     const assembly = await ctx.systemPrompt.assemble(passed)
     expect(seen).toEqual([['harness:identity', 'deployment:persona', 'base', 'from-a']])
     expect(assembly.sections.map(s => s.name)).toEqual(['harness:identity', 'deployment:persona', 'base', 'from-a'])
@@ -339,7 +313,6 @@ describe('SystemPrompt', () => {
   })
 
   it('lets a waterfall listener short-circuit by not calling next()', async () => {
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = new Context()
     await ctx.plugin(SystemPrompt)
     ctx.systemPrompt.section({ name: 'real', order: 0, text: 'real' })
@@ -348,19 +321,16 @@ describe('SystemPrompt', () => {
       return { sections: [], contexts: [], tools: [], variables: {} } satisfies PromptAssembly
     })
 
-    /** 中文说明：测试局部值 assembly，由紧邻初始化决定。 */
     const assembly = await ctx.systemPrompt.assemble()
     expect(assembly.sections).toHaveLength(0)
   })
 
   it('restores one complete section after the assembly waterfall', async () => {
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = new Context()
     await ctx.plugin(SystemPrompt)
     ctx.systemPrompt.section({ name: 'complete', order: 10, text: 'Exact prompt.', complete: true })
     ctx.systemPrompt.section({ name: 'extra', order: 20, text: 'extra' })
     ctx.on('system-prompt/assemble', async (assembly, _context, next) => {
-      /** 中文说明：测试局部值 complete，由紧邻初始化决定。 */
       const complete = assembly.sections.find(section => section.name === 'complete')
       if (complete === undefined) throw new Error('complete section missing before waterfall')
       complete.text = 'mutated'
@@ -374,7 +344,6 @@ describe('SystemPrompt', () => {
   })
 
   it('rejects multiple effective complete sections', async () => {
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = new Context()
     await ctx.plugin(SystemPrompt)
     ctx.systemPrompt.section({ name: 'first', order: 10, text: 'first', complete: true })
@@ -385,23 +354,19 @@ describe('SystemPrompt', () => {
   })
 
   it('assembles snapshots so one-step mutations do not leak into future assemblies', async () => {
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = new Context()
     await ctx.plugin(SystemPrompt)
     ctx.systemPrompt.section({ name: 'base', order: 10, text: 'base' })
     ctx.systemPrompt.tools(() => ({ schemas: [{ name: 't', description: 'tool', parameters: { type: 'object', properties: {} } }] }))
 
-    /** 中文说明：测试局部值 first，由紧邻初始化决定。 */
     const first = await ctx.systemPrompt.assemble()
     first.sections[0]!.name = 'mutated'
     first.sections[0]!.text = 'mutated'
     first.contexts.push({ name: 'mutated', text: 'mutated' })
     first.tools[0]!.description = 'mutated'
-    /** 中文说明：测试局部值 firstParameters，由紧邻初始化决定。 */
     const firstParameters = first.tools[0]!.parameters as { properties: Record<string, unknown> }
     firstParameters.properties['leak'] = { type: 'string' }
 
-    /** 中文说明：测试局部值 second，由紧邻初始化决定。 */
     const second = await ctx.systemPrompt.assemble()
     expect(second.sections.map(section => section.name)).toEqual(['harness:identity', 'deployment:persona', 'base'])
     expect(second.sections[0]!.text).toBe(IDENTITY)
@@ -410,7 +375,6 @@ describe('SystemPrompt', () => {
   })
 
   it('filters out empty section text from renderPrompt', () => {
-    /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
     const result = renderPrompt({
       sections: [
         { name: 'empty', text: '' },
@@ -424,7 +388,6 @@ describe('SystemPrompt', () => {
   })
 
   it('filters empty context, interpolates variables, and returns empty without active context', async () => {
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = new Context()
     await ctx.plugin(SystemPrompt)
     ctx.systemPrompt.context({ name: 'empty', order: 0, text: '' })
@@ -445,15 +408,12 @@ describe('SystemPrompt', () => {
   })
 
   it('emits system-prompt/change when a tool provider is registered and disposed', async () => {
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = new Context()
     await ctx.plugin(SystemPrompt)
 
-    /** 中文说明：测试局部值 changeCount，由紧邻初始化决定。 */
     let changeCount = 0
     ctx.on('system-prompt/change', () => void changeCount++)
 
-    /** 中文说明：测试局部值 dispose，由紧邻初始化决定。 */
     const dispose = ctx.systemPrompt.tools(() => ({ schemas: [] }))
     // registration emits change
     expect(changeCount).toBe(1)
@@ -464,13 +424,10 @@ describe('SystemPrompt', () => {
   })
 
   it('emits system-prompt/change when a context is registered and disposed', async () => {
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = new Context()
     await ctx.plugin(SystemPrompt)
-    /** 中文说明：测试局部值 changeCount，由紧邻初始化决定。 */
     let changeCount = 0
     ctx.on('system-prompt/change', () => void changeCount++)
-    /** 中文说明：测试局部值 dispose，由紧邻初始化决定。 */
     const dispose = ctx.systemPrompt.context({ name: 'policy', order: 0, text: 'current' })
     expect(changeCount).toBe(1)
     dispose()
@@ -478,11 +435,9 @@ describe('SystemPrompt', () => {
   })
 
   it('cleans up tool providers on fiber dispose', async () => {
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = new Context()
     await ctx.plugin(SystemPrompt)
 
-    /** 中文说明：测试局部值 fiber，由紧邻初始化决定。 */
     const fiber = await ctx.plugin(Object.assign((inner: Context) => {
       inner.systemPrompt.tools(() => ({ schemas: [{ name: 'fiber-tool', description: '', parameters: {} }] }))
     }, { inject: ['systemPrompt'] }))
@@ -493,11 +448,9 @@ describe('SystemPrompt', () => {
   })
 
   it('removes section when returned disposer is called directly', async () => {
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = new Context()
     await ctx.plugin(SystemPrompt)
 
-    /** 中文说明：测试局部值 dispose，由紧邻初始化决定。 */
     const dispose = ctx.systemPrompt.section({ name: 'direct', order: 0, text: 'direct section' })
     expect(contributed(await ctx.systemPrompt.assemble())).toHaveLength(1)
 
@@ -506,11 +459,9 @@ describe('SystemPrompt', () => {
   })
 
   it('removes tool provider when returned disposer is called directly', async () => {
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = new Context()
     await ctx.plugin(SystemPrompt)
 
-    /** 中文说明：测试局部值 dispose，由紧邻初始化决定。 */
     const dispose = ctx.systemPrompt.tools(() => ({ schemas: [{ name: 'direct-tool', description: '', parameters: {} }] }))
     expect((await ctx.systemPrompt.assemble()).tools).toHaveLength(1)
 
@@ -520,14 +471,11 @@ describe('SystemPrompt', () => {
 
   describe('prompt variables', () => {
     it('resolves each variable against the assemble context and emits change on register/unregister', async () => {
-      /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
       const ctx = new Context()
       await ctx.plugin(SystemPrompt)
-      /** 中文说明：测试局部值 changeCount，由紧邻初始化决定。 */
       let changeCount = 0
       ctx.on('system-prompt/change', () => void changeCount++)
 
-      /** 中文说明：测试局部值 dispose，由紧邻初始化决定。 */
       const dispose = ctx.systemPrompt.variable('who', context => (context as { who?: string }).who)
       expect(changeCount).toBe(1)
 
@@ -541,10 +489,8 @@ describe('SystemPrompt', () => {
     })
 
     it('live-iterates variables registered by an earlier provider', async () => {
-      /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
       const ctx = new Context()
       await ctx.plugin(SystemPrompt)
-      /** 中文说明：测试局部值 added，由紧邻初始化决定。 */
       let added = false
       ctx.systemPrompt.variable('first', () => {
         if (!added) {
@@ -561,7 +507,6 @@ describe('SystemPrompt', () => {
     })
 
     it('rejects a duplicate variable name and an unreferenceable name', async () => {
-      /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
       const ctx = new Context()
       await ctx.plugin(SystemPrompt)
       ctx.systemPrompt.variable('model', () => 'm1')
@@ -574,7 +519,6 @@ describe('SystemPrompt', () => {
     })
 
     it('interpolates {{name}} references in section text at render — the persona included', async () => {
-      /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
       const ctx = new Context()
       await ctx.plugin(SystemPrompt, { persona: 'You run on {{model}} in {{cwd}}.' })
       ctx.systemPrompt.variable('model', () => 'deepseek-v4')
@@ -584,7 +528,6 @@ describe('SystemPrompt', () => {
     })
 
     it('lets a waterfall listener add or override variables before render', async () => {
-      /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
       const ctx = new Context()
       await ctx.plugin(SystemPrompt)
       ctx.systemPrompt.section({ name: 's', order: 0, text: '{{extra}}' })
@@ -596,7 +539,6 @@ describe('SystemPrompt', () => {
     })
 
     it('throws on a reference to an unregistered variable, listing what exists', async () => {
-      /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
       const ctx = new Context()
       await ctx.plugin(SystemPrompt)
       ctx.systemPrompt.section({ name: 'persona', order: 0, text: 'on {{modle}}' })
@@ -629,7 +571,6 @@ describe('SystemPrompt', () => {
     })
 
     it('leaves a lone {{ verbatim only when NO }} follows anywhere after it', () => {
-      /** 中文说明：测试局部值 text，由紧邻初始化决定。 */
       const text = renderPrompt({
         sections: [{ name: 's', text: 'shell ${X:-{{fallback} stays' }],
         contexts: [],
@@ -663,7 +604,6 @@ describe('SystemPrompt', () => {
     })
 
     it('a variable NAMED like a prototype property works once actually registered', async () => {
-      /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
       const ctx = new Context()
       await ctx.plugin(SystemPrompt)
       ctx.systemPrompt.section({ name: 's', order: 0, text: '{{constructor}}' })
@@ -672,7 +612,6 @@ describe('SystemPrompt', () => {
     })
 
     it('never re-scans substituted values (a value containing {{sneaky}} stays literal)', () => {
-      /** 中文说明：测试局部值 text，由紧邻初始化决定。 */
       const text = renderPrompt({
         sections: [{ name: 's', text: 'v = {{model}}!' }],
         contexts: [],

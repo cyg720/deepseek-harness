@@ -1,11 +1,3 @@
-/**
- * 文件职责：验证 service.spec.ts 覆盖的子代理工具行为与生命周期。
- * 技术维度：使用 TypeScript、Vitest、Cordis 插件、进程流、终端会话或快照规范化。
- * 产品维度：保障 Agent 的子代理工具能力稳定、可复现且可诊断。
- * 逻辑维度：准备输入和资源，执行核心流程，收集事件或输出，再处理错误与清理。
- * 关键边界：进程退出与取消可能竞态；外部输出不可信；清理必须等待子资源完全停止。
- * 新手阅读建议：先看类型和夹具，再读启动/收集主流程，最后关注平台差异、规范化和清理。
- */
 import { describe, expect, expectTypeOf, it, vi } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
 import { type Agent } from '@deepseek-ai/dsh-agent'
@@ -18,24 +10,17 @@ import SubagentRuntime, {
   SUBAGENT_DESCRIPTOR_VERSION,
   SubagentError,
   assertSubagentMaxDepth,
-  /** 中文说明：type ResolvedSubagentStartRequest 定义本测试所需的数据或行为，用于表达子代理工具场景。 */
   type ResolvedSubagentStartRequest,
-  /** 中文说明：type SubagentCapabilities 定义本测试所需的数据或行为，用于表达子代理工具场景。 */
   type SubagentCapabilities,
-  /** 中文说明：type SubagentProvider 定义本测试所需的数据或行为，用于表达子代理工具场景。 */
   type SubagentProvider,
-  /** 中文说明：type SubagentResult 定义本测试所需的数据或行为，用于表达子代理工具场景。 */
   type SubagentResult,
-  /** 中文说明：type SubagentRun 定义本测试所需的数据或行为，用于表达子代理工具场景。 */
   type SubagentRun,
-  /** 中文说明：type SubagentRunEndInfo 定义本测试所需的数据或行为，用于表达子代理工具场景。 */
   type SubagentRunEndInfo,
-  /** 中文说明：type SubagentStartRequest 定义本测试所需的数据或行为，用于表达子代理工具场景。 */
   type SubagentStartRequest,
 } from '@deepseek-ai/dsh-subagent'
 import { SessionId, type SessionEvent } from '@deepseek-ai/dsh-session'
+import SessionProjectionRegistry from '@deepseek-ai/dsh-session-projection'
 
-/** 中文说明：函数 fakeParent 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function fakeParent(id = 'parent-1'): Agent {
   return { id: SessionId(id) } as unknown as Agent
 }
@@ -43,7 +28,6 @@ function fakeParent(id = 'parent-1'): Agent {
 const ALL_CAPS: SubagentCapabilities = { agentOptions: true, outputSchema: true, depthLimit: true, toolFilter: true, persona: true }
 const NO_CAPS: SubagentCapabilities = { agentOptions: false, outputSchema: false, depthLimit: false, toolFilter: false, persona: false }
 
-/** 中文说明：函数 baseRequest 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function baseRequest(overrides: Partial<SubagentStartRequest> = {}): SubagentStartRequest {
   return {
     prompt: [{ type: 'text', text: 'do a thing' }],
@@ -53,7 +37,6 @@ function baseRequest(overrides: Partial<SubagentStartRequest> = {}): SubagentSta
   }
 }
 
-/** 中文说明：class StubProvider 定义本测试所需的数据或行为，用于表达子代理工具场景。 */
 class StubProvider implements SubagentProvider {
   readonly inheritsParentContext = false
   startCount = 0
@@ -80,10 +63,11 @@ class StubProvider implements SubagentProvider {
   }
 }
 
-/** 中文说明：函数 service 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 async function service(): Promise<{ ctx: Context; subagents: SubagentRuntime }> {
-  /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const ctx = new Context()
+  // The registry is a required injection of SubagentRuntime (its projection
+  // units register in the constructor).
+  await ctx.plugin(SessionProjectionRegistry)
   await ctx.plugin(SubagentRuntime)
   return { ctx, subagents: ctx.subagents }
 }
@@ -91,20 +75,15 @@ async function service(): Promise<{ ctx: Context; subagents: SubagentRuntime }> 
 describe('SubagentRuntime', () => {
   it('registers, lists, looks up, starts, and removes providers', async () => {
     const { ctx, subagents } = await service()
-    /** 中文说明：变量 added 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const added: string[] = []
-    /** 中文说明：变量 removed 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const removed: string[] = []
     ctx.on('subagent/provider-added', provider => void added.push(provider.name))
     ctx.on('subagent/provider-removed', name => void removed.push(name))
-    /** 中文说明：变量 provider 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const provider = new StubProvider('alpha')
 
-    /** 中文说明：变量 dispose 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const dispose = subagents.registerProvider(provider)
     expect(subagents.list()).toEqual(['alpha'])
     expect(subagents.getProvider('alpha')).toBe(provider)
-    /** 中文说明：变量 run 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const run = await subagents.start('alpha', baseRequest())
     await expect(run.result).resolves.toMatchObject({ stopReason: 'completed' })
     expect(provider.startCount).toBe(1)
@@ -133,10 +112,8 @@ describe('SubagentRuntime', () => {
 
   it('resolves the one-shot descriptor and exposes no provider continuation operations', async () => {
     const { subagents } = await service()
-    /** 中文说明：变量 provider 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const provider = new StubProvider('one-shot')
     subagents.registerProvider(provider)
-    /** 中文说明：变量 request 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const request = baseRequest()
     await subagents.start('one-shot', request)
 
@@ -196,7 +173,6 @@ describe('SubagentRuntime', () => {
     ['persona', { persona: 'reviewer' }],
   ] as const)('rejects unsupported %s before provider startup', async (_capability, override) => {
     const { subagents } = await service()
-    /** 中文说明：变量 provider 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const provider = new StubProvider('weak', NO_CAPS)
     subagents.registerProvider(provider)
     await expect(subagents.start('weak', baseRequest(override)))
@@ -206,7 +182,6 @@ describe('SubagentRuntime', () => {
 
   it('validates depth and schema semantics before provider startup', async () => {
     const { subagents } = await service()
-    /** 中文说明：变量 provider 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const provider = new StubProvider('strong')
     subagents.registerProvider(provider)
     await expect(subagents.start('strong', baseRequest({ maxDepth: -1 })))
@@ -219,9 +194,7 @@ describe('SubagentRuntime', () => {
 
   it('publishes lifecycle only after async provider start and keeps parent scope', async () => {
     const { ctx, subagents } = await service()
-    /** 中文说明：变量 ready 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ready = Promise.withResolvers<SubagentRun>()
-    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = Promise.withResolvers<SubagentResult>()
     subagents.registerProvider({
       name: 'deferred',
@@ -229,23 +202,17 @@ describe('SubagentRuntime', () => {
       inheritsParentContext: false,
       start: () => ready.promise,
     })
-    /** 中文说明：变量 parent 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const parent = fakeParent('delegator')
-    /** 中文说明：变量 events 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const events: string[] = []
-    /** 中文说明：变量 keys 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const keys: unknown[] = []
-    /** 中文说明：变量 runIds 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const runIds: string[] = []
     ctx.on('subagent/start', function (info) { events.push('start'); keys.push(carrierKeyOf(this)); runIds.push(info.runId) })
     ctx.on('subagent/end', function (info) { events.push('end'); keys.push(carrierKeyOf(this)); runIds.push(info.runId) })
 
-    /** 中文说明：变量 starting 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const starting = subagents.start('deferred', baseRequest({ parent }))
     await Promise.resolve()
     expect(events).toEqual([])
     ready.resolve({ id: SessionId('child'), localAgent: undefined, result: result.promise, async dispose() {} })
-    /** 中文说明：变量 run 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const run = await starting
     expect(events).toEqual(['start'])
     result.resolve({ output: [{ type: 'text', text: 'answer' }], stopReason: 'completed' })
@@ -259,13 +226,10 @@ describe('SubagentRuntime', () => {
   it('mints distinct lifecycle identities when provider and child ids repeat', async () => {
     const { ctx, subagents } = await service()
     subagents.registerProvider(new StubProvider('reused'))
-    /** 中文说明：变量 runIds 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const runIds: string[] = []
     ctx.on('subagent/start', info => void runIds.push(info.runId))
 
-    /** 中文说明：变量 first 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const first = await subagents.start('reused', baseRequest())
-    /** 中文说明：变量 second 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const second = await subagents.start('reused', baseRequest())
     await Promise.all([first.result, second.result])
 
@@ -281,7 +245,6 @@ describe('SubagentRuntime', () => {
       inheritsParentContext: false,
       start: async () => { throw new Error('setup rolled back') },
     })
-    /** 中文说明：变量 lifecycle 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const lifecycle = vi.fn()
     ctx.on('subagent/start', lifecycle)
     ctx.on('subagent/end', lifecycle)
@@ -291,16 +254,13 @@ describe('SubagentRuntime', () => {
 
   it('emits an enriched end event and maps result rejection to error telemetry', async () => {
     const { ctx, subagents } = await service()
-    /** 中文说明：变量 completed 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const completed = new StubProvider('completed', NO_CAPS, {
       output: [{ type: 'text', text: 'answer' }],
       stopReason: 'completed',
     })
     subagents.registerProvider(completed)
-    /** 中文说明：变量 ended 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ended = vi.fn()
     ctx.on('subagent/end', ended)
-    /** 中文说明：变量 run 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const run = await subagents.start('completed', baseRequest())
     await run.result
     await Promise.resolve()
@@ -312,19 +272,15 @@ describe('SubagentRuntime', () => {
 
     // The lifecycle event omits lastAssistantMessage when output is empty,
     // matching the continuable epoch event.
-    /** 中文说明：变量 silent 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const silent = new StubProvider('silent', NO_CAPS, { output: [], stopReason: 'completed' })
     subagents.registerProvider(silent)
-    /** 中文说明：变量 silentRun 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const silentRun = await subagents.start('silent', baseRequest())
     await silentRun.result
     await Promise.resolve()
-    /** 中文说明：函数值 silentEnd 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const silentEnd = ended.mock.calls.map(call => call[0] as SubagentRunEndInfo).find(info => info.provider === 'silent')
     expect(silentEnd).toBeDefined()
     expect('lastAssistantMessage' in silentEnd!).toBe(false)
 
-    /** 中文说明：变量 failure 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const failure = Promise.withResolvers<SubagentResult>()
     subagents.registerProvider({
       name: 'infra',
@@ -334,7 +290,6 @@ describe('SubagentRuntime', () => {
         return { id: SessionId('infra-child'), localAgent: undefined, result: failure.promise, async dispose() {} }
       },
     })
-    /** 中文说明：变量 failedRun 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const failedRun = await subagents.start('infra', baseRequest())
     failure.reject(new Error('transport'))
     await expect(failedRun.result).rejects.toThrow('transport')
@@ -344,10 +299,8 @@ describe('SubagentRuntime', () => {
 
   it('contains synchronous and asynchronous lifecycle observer failures', async () => {
     const { ctx, subagents } = await service()
-    /** 中文说明：变量 warnings 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const warnings: string[] = []
     ctx.logger.warn = ((message: unknown) => void warnings.push(String(message))) as typeof ctx.logger.warn
-    /** 中文说明：变量 heard 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const heard: string[] = []
     ctx.on('subagent/provider-removed', () => { throw new Error('sync boom') })
     // Runtime listeners may return thenables even though the declaration's observable result is void.
@@ -355,7 +308,6 @@ describe('SubagentRuntime', () => {
     ctx.on('subagent/provider-removed', async () => { throw new Error('async boom') })
     ctx.on('subagent/provider-removed', () => { throw { toString: () => { throw new Error('coercion') } } })
     ctx.on('subagent/provider-removed', name => void heard.push(name))
-    /** 中文说明：变量 dispose 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const dispose = subagents.registerProvider(new StubProvider('contained'))
 
     dispose()
@@ -367,7 +319,6 @@ describe('SubagentRuntime', () => {
   })
 
   it('SubagentError participates in the harness error taxonomy', () => {
-    /** 中文说明：变量 error 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const error = new SubagentError('boom', 'NO_PROVIDER')
     expect(error).toBeInstanceOf(HarnessError)
     expect(error.name).toBe('SubagentError')
@@ -376,7 +327,6 @@ describe('SubagentRuntime', () => {
 })
 
 describe('subagent descriptors', () => {
-  /** 中文说明：函数值 event 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
   const event = (data: unknown): SessionEvent<'subagent/descriptor'> => ({
     type: 'subagent/descriptor',
     data,
@@ -384,7 +334,6 @@ describe('subagent descriptors', () => {
 
   it('omits absent fields, recovers a complete payload, and rejects unsupported versions', () => {
     expect(foldSubagentDescriptor([])).toBeUndefined()
-    /** 中文说明：变量 minimal 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const minimal = snapshotSubagentDescriptor({ mode: 'one-shot', provider: 'spawn' })
     expect(minimal).toEqual({
       version: SUBAGENT_DESCRIPTOR_VERSION,
@@ -397,7 +346,6 @@ describe('subagent descriptors', () => {
       provider: 'spawn',
       label: 'child work',
     })).toEqual({ ...minimal, label: 'child work' })
-    /** 中文说明：变量 complete 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const complete = {
       version: SUBAGENT_DESCRIPTOR_VERSION,
       mode: 'continuable' as const,

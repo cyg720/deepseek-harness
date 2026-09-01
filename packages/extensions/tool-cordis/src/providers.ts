@@ -1,28 +1,9 @@
-/**
- * ================================ 文件注释 ================================
- * 【文件职责】由 tool-cordis 注册的"第一方 Host inspect 提供者"：把生成的能力目录
- *             （Service/Event 目录）、Host 内置符号清单与实时工具注册表暴露为模型
- *             可查询的只读提供者（cordis_inspect_list/query 的数据来源）。
- * 【技术维度】HostCordisInspectProviderRegistration 注册项 + registration 工厂；
- *             Service/Event 目录来自 api-catalog.ts 的生成数据；Tool 提供者读取
- *             ctx.tools.schemas 且按调用 agent 作用域过滤。
- * 【产品维度】让模型在写插件前"查能力目录"：确认某个服务有哪些方法、事件是什么
- *             模式、沙箱里有哪些内置符号、自己能调哪些工具，避免瞎猜 API。
- * 【逻辑维度】常量（输入/输出 schema、HOST_EVENTS 过滤）→ hostInspectProviders 组装
- *             四个提供者（Service/Event/Builtin/Tool）→ registration 工厂与工具函数
- *             （exactInput/readExact）。
- * 【关键边界】所有查询必须只读；Client 专属事件（cordis/ 前缀）不列入 Host Event
- *             目录；输入输出都带 JSON Schema 供校验。
- * 【新手阅读建议】先看 registration 工厂理解一个提供者的结构，再看四个提供者的组装。
- * ==========================================================================
- */
-
 /** First-party Host inspect providers registered by the Cordis tool package. */
 
 import type { Context } from '@deepseek-ai/cordis'
 import { HOST_BUILTIN_INSPECTION } from '@deepseek-ai/dsh-cordis-host-runner'
 import type { HostCordisInspectProviderRegistration } from '@deepseek-ai/dsh-cordis-host-runner'
-import type { JsonValue } from '@deepseek-ai/dsh-session'
+import type { JsonValue } from '@deepseek-ai/dsh-util-values'
 import { EVENT_API, queryEventApi, queryServiceApi } from './api-catalog.ts'
 
 const EMPTY_INPUT = { type: 'object', properties: {}, additionalProperties: false } as const
@@ -41,12 +22,6 @@ const HOST_EVENTS = EVENT_API.filter(event => !event.name.startsWith('cordis/'))
  * Construct Host providers over generated Catalogs, evaluator declarations, and live Tool scope.
  * @param ctx - Host context used for Agent-scoped live Tool queries.
  * @returns registrations for static catalogs and live Host capabilities.
- */
-/*
- * 组装四个 Host 提供者：Service（渐进式服务目录）、Event（渐进式事件目录）、
- * Builtin（沙箱内置符号清单）、Tool（当前 agent 可调用的工具 schema）。
- * @param ctx 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
- * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
  */
 export function hostInspectProviders(ctx: Context): HostCordisInspectProviderRegistration[] {
   return [
@@ -97,7 +72,6 @@ function registration(
   inputSchema: JsonValue = EMPTY_INPUT,
   outputSchema: JsonValue = ANY_OUTPUT,
 ): HostCordisInspectProviderRegistration {
-  // 提供者工厂：把"单方法提供者"打包为清单 + 查询函数（方法名不匹配时报错）
   return {
     manifest: {
       id,
@@ -116,16 +90,10 @@ function registration(
   }
 }
 
-/**
- * 构造"精确字段"的输入 schema：只允许一个可选的字符串字段（如 service/event 名）。
- */
 function exactInput(field: string, description: string): JsonValue {
   return { type: 'object', properties: { [field]: { type: 'string', description } }, additionalProperties: false }
 }
 
-/**
- * 从查询输入中读取指定字符串字段；输入缺失或类型不符时返回 undefined（即"查询目录"）。
- */
 function readExact(input: JsonValue | undefined, field: string): string | undefined {
   if (input === undefined || input === null || Array.isArray(input) || typeof input !== 'object') return undefined
   const value = input[field]

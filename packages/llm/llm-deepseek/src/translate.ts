@@ -1,22 +1,3 @@
-/*
- * ================================ 文件注释 ================================
- * 【文件职责】把 DeepSeek 的 SSE 负载翻译成 harness 的 StreamChunk 流协议：
- * 每个 content/reasoning/tool-call 索引对应一个有状态的 harness 块。
- * 【技术维度】纯生成器翻译层：按 delta 增量累积文本，块结束/用量/finish 都
- * 延迟到 [DONE] 哨兵再一次性产出（覆盖"finish 附着"与"末尾仅用量"两种线上
- * 形态，且保证 finish 之后不再有任何块）；空的首个 reasoning delta 不打开块。
- * 【产品维度】thinking 模式把思维链与可见文本交错下发，工具参数跨多个 delta
- * 拼接；正确的"延迟冲刷"保证消费方（agent loop/日志）看到的是顺序正确、
- * 永不"finish 后再冒内容"的稳定流。
- * 【逻辑维度】OpenBlock 内部结构 → mapFinishReason → mapUsage → closeBlock →
- * translate 主生成器（累积 → [DONE] 冲刷 → 逐 choice 处理 delta）。
- * 【关键边界】退化完成（stop/缺席 finish 但零块）映射为 EMPTY_RESPONSE 错误；
- * 畸形 JSON 抛 MALFORMED_RESPONSE；payload 源违反 [DONE] 约定抛 STREAM_CLOSED。
- * 【新手阅读建议】先读 translate 主循环理解三路 delta（reasoning/content/tool），
- * 再看 [DONE] 分支的冲刷顺序（block-end → usage → finish）。
- * ==========================================================================
- */
-
 /**
  * Translate DeepSeek SSE payloads with one stateful harness block per content, reasoning, or tool
  * call index. An empty initial reasoning delta does not open a block. Finish reason and the latest
@@ -27,13 +8,13 @@
  * @module dsh-llm-deepseek/translate
  */
 
-import { ToolCallId, EMPTY_RESPONSE_CODE, LlmError } from '@deepseek-ai/dsh-llm'
-import type { ContentBlock, FinishReason, StreamChunk, TokenUsage } from '@deepseek-ai/dsh-llm'
+import { brandString } from '@deepseek-ai/dsh-brand'
+import { EMPTY_RESPONSE_CODE, LlmError } from '@deepseek-ai/dsh-llm'
+import type { ContentBlock, FinishReason, StreamChunk, TokenUsage, ToolCallId } from '@deepseek-ai/dsh-llm'
 import { DONE } from './sse.ts'
 import type { WireChunk, WireUsage } from './types.ts'
 
 /** One open block under assembly. */
-// 中文：正在组装的一个开放块：记录块类型、累积文本与工具调用字段。
 interface OpenBlock {
   index: number
   kind: 'text' | 'reasoning' | 'tool-call'
@@ -43,12 +24,6 @@ interface OpenBlock {
   name?: string
 }
 
-/*
- * （中文）把线上 finish_reason 词汇表映射到 harness 的 FinishReason。
- * @param reason 线上的 finish_reason 字符串。
- * @returns 映射后的原因；未识别值（content_filter 等）变为 code 为大写值的
- *   {kind: 'error'}。
- */
 /**
  * Map the wire finish_reason vocabulary to the harness FinishReason.
  * @param reason - the wire `finish_reason` string.
@@ -61,7 +36,6 @@ export function mapFinishReason(reason: string): FinishReason {
     case 'length': return { kind: 'max-tokens' }
     default:
       // content_filter, insufficient_system_resource, future additions.
-      // 中文：content_filter、insufficient_system_resource 及未来新增值都归为错误。
       return {
         kind: 'error',
         failure: { message: `model stopped: ${reason}`, code: reason.toUpperCase() },
@@ -69,13 +43,6 @@ export function mapFinishReason(reason: string): FinishReason {
   }
 }
 
-/*
- * （中文）映射线上用量字段。DeepSeek 的 prompt_tokens 包含缓存命中
- * （prompt_tokens = prompt_cache_hit_tokens + prompt_cache_miss_tokens）；
- * harness 的 TokenUsage 约定是互斥计数，因此缓存读取从 inputTokens 中扣除。
- * @param usage 来自 finish 块或末尾"仅用量"块的线上用量。
- * @returns 互斥的 harness 计数；缓存/推理字段仅在线上报告时才出现。
- */
 /**
  * Map wire usage fields. DeepSeek's `prompt_tokens` INCLUDES cache hits
  * (`prompt_tokens = prompt_cache_hit_tokens + prompt_cache_miss_tokens`,
@@ -86,7 +53,6 @@ export function mapFinishReason(reason: string): FinishReason {
  *   aggregate prompt/completion counters are valid and agree with any wire total.
  */
 export function mapUsage(usage: WireUsage): TokenUsage {
-  // 中文：缓存命中数有两个兼容写法，取任一存在者。
   const cacheRead = usage.prompt_tokens_details?.cached_tokens ?? usage.prompt_cache_hit_tokens
   const reasoning = usage.completion_tokens_details?.reasoning_tokens
   const combined = usage.prompt_tokens + usage.completion_tokens
@@ -106,28 +72,19 @@ export function mapUsage(usage: WireUsage): TokenUsage {
 }
 
 /** Assemble the final ContentBlock for one open block. */
-// 中文：为某个开放块组装最终的 ContentBlock（按 kind 分派）。
 function closeBlock(block: OpenBlock): ContentBlock {
   switch (block.kind) {
     case 'text': return { type: 'text', text: block.text }
     case 'reasoning': return { type: 'reasoning', text: block.text }
     case 'tool-call': return {
       type: 'tool-call',
-      id: ToolCallId(block.callId ?? ''),
+      id: brandString<ToolCallId>(block.callId ?? ''),
       name: block.name ?? '',
       arguments: block.text,
     }
   }
 }
 
-/*
- * （中文）消费 SSE data 负载（以 [DONE] 结束）并产出 StreamChunk。
- * 畸形 JSON 负载以 MALFORMED_RESPONSE 中止流。
- * @param payloads parseSse 产出的 SSE data 负载，[DONE] 终止。
- * @returns 逐条到达的 delta；block-end、usage 与 finish 都延迟到 [DONE]
- *   哨兵统一产出。stop（或缺席）finish 且未打开任何块是退化的 provider
- *   完成，映射为 EMPTY_RESPONSE 错误 finish 而非成功的空消息。
- */
 /**
  * Consume SSE data payloads (ending with `[DONE]`) and yield StreamChunks.
  * Malformed JSON payloads abort the stream with `MALFORMED_RESPONSE`.
@@ -137,19 +94,14 @@ function closeBlock(block: OpenBlock): ContentBlock {
  *   `EMPTY_RESPONSE` error finish instead of a successful empty message.
  */
 export async function* translate(payloads: AsyncIterable<string>): AsyncGenerator<StreamChunk> {
-  // 中文：下一个块的索引（全局递增，跨三路块共享）。
   let nextIndex = 0
-  // 中文：当前开放的文本块与推理块（各自至多一个）。
   let textBlock: OpenBlock | undefined
   let reasoningBlock: OpenBlock | undefined
-  // 中文：并行工具调用块（按线上 index 区分）与所有块的打开顺序。
   const toolBlocks = new Map<number, OpenBlock>()
   const order: OpenBlock[] = []
-  // 中文：延迟到 [DONE] 的 finish 原因与用量。
   let pendingFinish: FinishReason | undefined
   let pendingUsage: TokenUsage | undefined
 
-  // 中文：打开一个新块并登记顺序（供 [DONE] 冲刷）。
   function open(kind: OpenBlock['kind']): OpenBlock {
     const block: OpenBlock = { index: nextIndex++, kind, text: '' }
     order.push(block)
@@ -158,8 +110,6 @@ export async function* translate(payloads: AsyncIterable<string>): AsyncGenerato
 
   for await (const payload of payloads) {
     if (payload === DONE) {
-      // 中文：终结：按打开顺序冲刷所有块，再发用量与 finish（stop 且零块
-      // 时映射为 EMPTY_RESPONSE 错误）。
       for (const block of order) {
         yield { type: 'block-end', index: block.index, block: closeBlock(block) }
       }
@@ -189,8 +139,6 @@ export async function* translate(payloads: AsyncIterable<string>): AsyncGenerato
 
       // Reasoning first: thinking mode interleaves it before text. The
       // empty-string first chunk must not open a block.
-      // 中文：先处理推理：thinking 模式把它交错在文本之前；首个空字符串块
-      // 不得打开推理块（否则会产生一个空块）。
       const reasoning = delta?.reasoning_content
       if (typeof reasoning === 'string' && reasoning.length > 0) {
         if (!reasoningBlock) {
@@ -211,8 +159,6 @@ export async function* translate(payloads: AsyncIterable<string>): AsyncGenerato
         yield { type: 'text-delta', index: textBlock.index, text: content }
       }
 
-      // 中文：工具调用增量：按线上 index 找块，首次出现时打开；id/name 只在
-      // 首个 delta 上出现，arguments 片段累积拼接。
       for (const call of delta?.tool_calls ?? []) {
         let block = toolBlocks.get(call.index)
         if (!block) {
@@ -227,7 +173,7 @@ export async function* translate(payloads: AsyncIterable<string>): AsyncGenerato
         yield {
           type: 'tool-call-delta',
           index: block.index,
-          id: ToolCallId(block.callId ?? ''),
+          id: brandString<ToolCallId>(block.callId ?? ''),
           ...block.name !== undefined ? { name: block.name } : {},
           argumentsDelta: fragment,
         }
@@ -240,13 +186,10 @@ export async function* translate(payloads: AsyncIterable<string>): AsyncGenerato
 
     // Usage may arrive attached to the finish chunk or as a trailing
     // usage-only chunk — keep the latest.
-    // 中文：用量可能附着在 finish 块或作为末尾的"仅用量"块到达——保留最新值。
     if (chunk.usage) pendingUsage = mapUsage(chunk.usage)
   }
 
   // parseSse guarantees the [DONE] sentinel (or throws); reaching here means
   // the payload source violated that contract.
-  // 中文：parseSse 保证 [DONE] 哨兵（否则抛错）；走到这里意味着负载源违反了
-  // 该约定，直接抛错。
   throw new LlmError('SSE payload stream ended without [DONE]', 'STREAM_CLOSED')
 }

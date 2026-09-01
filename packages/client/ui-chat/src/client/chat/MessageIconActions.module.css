@@ -1,67 +1,52 @@
 /* Shared message IconActions row (user + assistant). Parent modules own
-   layout offsets via the composed className. Icons stay visible when mounted;
-   the time label is hover-revealed inside a data-time-hover-root scope. */
-/* 中文：用户和助手消息共用的图标操作行；父模块控制偏移，图标常驻，时间仅在指定悬停范围内显现。 */
-/*
- * 中文说明：
- * - 文件职责：定义消息操作按钮行、时间位置、运行时分隔符、悬停显隐和无障碍隐藏文本样式。
- * - 技术维度：使用 CSS Modules、媒体查询、属性选择器、:is 与设计令牌。
- * - 产品维度：为复制等消息操作提供稳定入口，同时减少时间信息对正文的视觉干扰。
- * - 逻辑维度：先布局行与两侧时间，再设置悬停显隐，最后定义操作按钮及不可用状态。
- * - 关键边界：只有带 data-time-hover-root 的容器参与显隐；无悬停设备始终显示时间。
- * - 新手阅读建议：先比较 timeStart/timeEnd，再看媒体查询如何保持布局不变只切换 opacity。
- */
+   layout offsets via the composed className. Row containers gate visibility
+   by recency through data-actions-reveal. */
 
-/* 消息操作行容器，固定 28px 高并水平排列。 */
 .actions {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   height: calc(28px + var(--dsh-content-font-delta, 0px));
 }
 
-/* Clock before icons (user figma 388:20051) / after (assistant 43:32997). */
-/* 中文：用户消息的时间放在图标前，因此在右侧保留间距。 */
+/* Clock before icons (user figma 388:20051) / after (assistant 43:32997).
+   Both read the secondary tier so the user row's clock matches the assistant
+   tail's meta line. */
 .timeStart {
   padding-right: 12px;
-  font-size: var(--dsh-content-font-size, 14px);
+  font-size: var(--dsh-content-font-size-secondary, 13px);
   line-height: calc(24px + var(--dsh-content-font-delta, 0px));
   color: var(--dsw-alias-label-tertiary);
   white-space: nowrap;
 }
 
-/* 助手消息的时间放在图标后，因此在左侧保留间距。 */
+/* The assistant tail's clock sits at the row end after the stat pills; the
+   row's 8px flex gap spaces it, and it reads the secondary tier so it matches
+   the pill labels beside it. */
 .timeEnd {
-  padding-left: 12px;
-  font-size: var(--dsh-content-font-size, 14px);
+  font-size: var(--dsh-content-font-size-secondary, 13px);
   line-height: calc(24px + var(--dsh-content-font-delta, 0px));
   color: var(--dsw-alias-label-tertiary);
   white-space: nowrap;
 }
 
-/* Separator between the clock and the run-time label (time · Ran for 15s). */
-/* 中文：时间与“运行了多久”文字之间的圆点分隔符。 */
-.runTimeDot {
-  margin: 0 10px;
-}
-
-/* Message containers opt in with data-time-hover-root: the time label fades
-   in on message hover (or keyboard focus within). Opacity keeps the layout
-   stable, and devices without hover keep the label always visible. */
-/* 中文：支持悬停的设备中，时间默认透明；消息悬停或内部获得键盘焦点时淡入。 */
+/* Row containers (user rows and turn tails) opt in with
+   data-actions-reveal='hover': every row but the latest of its kind reveals
+   the entire actions row (icons and text) on hover or focus-within, while the
+   latest ('always') keeps its row visible — no rule matches it. Opacity keeps
+   the layout stable, and devices without hover keep the row visible. */
 @media (hover: hover) {
-  [data-time-hover-root] :is(.timeStart, .timeEnd) {
+  [data-actions-reveal='hover'] .actions {
     opacity: 0;
     transition: opacity 80ms ease;
   }
 
-  [data-time-hover-root]:hover :is(.timeStart, .timeEnd),
-  [data-time-hover-root]:focus-within :is(.timeStart, .timeEnd) {
+  [data-actions-reveal='hover']:hover .actions,
+  [data-actions-reveal='hover']:focus-within .actions {
     opacity: 1;
   }
 }
 
-/* 单个圆形图标操作按钮。 */
 .action {
   display: inline-flex;
   align-items: center;
@@ -76,11 +61,11 @@
   cursor: pointer;
 }
 
-/* The 16px action glyphs follow the same px delta as the text they serve;
+/* The 15px action glyphs follow the same px delta as the text they serve;
    the CSS edge overrides each svg's own width/height attributes. */
 .action svg {
-  width: calc(16px + var(--dsh-content-font-delta, 0px));
-  height: calc(16px + var(--dsh-content-font-delta, 0px));
+  width: calc(15px + var(--dsh-content-font-delta, 0px));
+  height: calc(15px + var(--dsh-content-font-delta, 0px));
 }
 
 .action:hover {
@@ -89,19 +74,16 @@
 }
 
 /* Unavailable stays focusable and hoverable so Tooltip can explain why. */
-/* 中文：不可用操作仍可聚焦和悬停，以便 Tooltip 解释原因，仅降低透明度。 */
 .action[data-unavailable] {
   cursor: default;
   opacity: 0.4;
 }
 
-/* 不可用操作悬停时不显示可执行反馈。 */
 .action[data-unavailable]:hover {
   background: transparent;
   color: var(--dsw-alias-label-tertiary);
 }
 
-/* 视觉隐藏但仍供屏幕阅读器读取的文字。 */
 .visuallyHidden {
   position: absolute;
   width: 1px;

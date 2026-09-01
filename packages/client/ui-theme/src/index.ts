@@ -1,21 +1,8 @@
-/*
- * ================================ 文件注释 ================================
- * 【文件职责】ui-theme 包的宿主侧入口：注册耐久主题设置段（有设置服务时），
- *             并每次以当前主题引导行应答 index 注入收集。
- * 【技术维度】Cordis 宿主插件：ctx.inject(['settings']) 注册命名空间与模式；
- *             webserver/index-inject 事件推送引导行（预插件明暗调色板）。
- * 【产品维度】宿主侧主题偏好的持久化与首屏明暗调色板引导。
- * 【逻辑维度】readPreference 读设置段（缺省用模式默认）→ apply 注册段并挂
- *             index 注入监听。
- * 【关键边界】无设置提供者时用 DEFAULT_PREFERENCE。
- * 【新手阅读建议】与 boot-theme.ts 和 theme-settings.ts 对照阅读。
- * ==========================================================================
- */
 /** Host registration for the browser theme preference and pre-plugin palette. */
 
 import type { Context } from '@deepseek-ai/cordis'
 import type {} from '@deepseek-ai/dsh-host-webserver'
-import { settingsNamespace } from '@deepseek-ai/dsh-settings'
+import type {} from '@deepseek-ai/dsh-settings'
 import { bootThemeInjection } from './boot-theme.ts'
 import {
   DEFAULT_FONT_SIZE, DEFAULT_PREFERENCE, THEME_SETTINGS_NAMESPACE, ThemeSettingsSchema,
@@ -28,7 +15,7 @@ export {
   type ThemePreference, type ThemeSettings,
 } from './theme-settings.ts'
 
-const THEME_NAMESPACE = settingsNamespace(THEME_SETTINGS_NAMESPACE)
+const THEME_NAMESPACE = THEME_SETTINGS_NAMESPACE
 
 /** Read the registered theme section or the schema defaults without a settings provider. */
 function readSection(ctx: Context): { preference: ThemePreference; fontSize: number } {

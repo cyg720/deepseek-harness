@@ -1,17 +1,10 @@
-/**
- * 文件职责：验证目标管理的 goal.spec.ts 行为与安全边界。
- * 技术维度：TypeScript、Cordis、会话事件、路径策略、判别联合和 Vitest。
- * 产品维度：保证目标管理操作可预测、可审计并在失败时保持一致。
- * 逻辑维度：构造请求与状态，驱动服务并断言输出和清理。
- * 关键边界：文件路径必须经过策略检查；目标引用含版本，过期修改必须拒绝。
- * 新手阅读建议：先读类型与测试夹具，再按校验、执行、事件折叠和错误流程阅读。
- */
 import { describe, expect, it, vi } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
 import AgentRegistry, { agentEvents, Inbox } from '@deepseek-ai/dsh-agent'
 import type { Agent } from '@deepseek-ai/dsh-agent'
 import { createUserMessage, HarnessError } from '@deepseek-ai/dsh-llm'
 import SessionStore, { Session, SessionId, type UserMessage } from '@deepseek-ai/dsh-session'
+import SessionProjectionRegistry from '@deepseek-ai/dsh-session-projection'
 import GoalService, {
   GoalError,
   GoalId,
@@ -20,32 +13,25 @@ import GoalService, {
 } from '@deepseek-ai/dsh-goal'
 import type { GoalChangeMeta, GoalRef, GoalSnapshotChangeMeta } from '@deepseek-ai/dsh-goal'
 
-/** 中文说明：类型或类 StubAgent 约束文件或目标数据职责。 */
 interface StubAgent {
   agent: Agent
   session: Session
 }
 
 /** Number the next balanced test-fixture turn. */
-/* 中文说明：函数 nextTurn 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function nextTurn(session: Session): number {
   return session.events.reduce((max, event) => event.type === 'turn/start' ? Math.max(max, event.data.turn) : max, 0) + 1
 }
 
 /** Mirror the public Agent.inject contract for domain tests. */
-/* 中文说明：函数 appendInjection 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function appendInjection(session: Session, input: UserMessage): void {
   new Inbox(session, { inserted: () => {}, discarded: () => {}, claimed: () => {} }).append('next-step', input)
 }
 
 /** Build a registry-compatible agent around one concrete session. */
-/* 中文说明：函数 stubAgentForSession 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function stubAgentForSession(session: Session): StubAgent {
-  /** 中文说明：测试局部值 id，由紧邻初始化决定。 */
   const id = session.id
-  /** 中文说明：测试局部值 inbox，由紧邻初始化决定。 */
   const inbox = new Inbox(session, { inserted: () => {}, discarded: () => {}, claimed: () => {} })
-  /** 中文说明：测试局部值 agent，由紧邻初始化决定。 */
   const agent: Agent = {
     id,
     options: {},
@@ -68,29 +54,24 @@ function stubAgentForSession(session: Session): StubAgent {
 }
 
 /** Build a registry-compatible agent around a fresh session. */
-/* 中文说明：函数 stubAgent 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function stubAgent(rawId: string, seed?: readonly import('@deepseek-ai/dsh-session').SessionEvent[]): StubAgent {
   return stubAgentForSession(Session.create(SessionId(rawId), seed))
 }
 
-/** 中文说明：函数 harness 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 async function harness(config: { defaultMaxGoalRounds?: number } = {}) {
-  /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
   const ctx = new Context()
+  await ctx.plugin(SessionStore)
   await ctx.plugin(AgentRegistry)
+  await ctx.plugin(SessionProjectionRegistry)
   await ctx.plugin(GoalService, config)
-  /** 中文说明：测试局部值 stub，由紧邻初始化决定。 */
-  const stub = stubAgent(`goal-test-${Math.random()}`)
+  const stub = stubAgentForSession(ctx.sessions.create(SessionId(`goal-test-${Math.random()}`)))
   ctx.agents.register(stub.agent)
   return { ctx, ...stub }
 }
 
 /** Append one admitted goal round as a balanced user-message turn. */
-/* 中文说明：函数 appendRound 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function appendRound(session: Session, ref: GoalRef, round: number): void {
-  /** 中文说明：测试局部值 source，由紧邻初始化决定。 */
   const source = { kind: 'goal', goalId: ref.id, revision: ref.revision, round } as const
-  /** 中文说明：测试局部值 turn，由紧邻初始化决定。 */
   const turn = nextTurn(session)
   session.append('turn/start', { turn })
   session.append('user/message', createUserMessage({
@@ -100,16 +81,20 @@ function appendRound(session: Session, ref: GoalRef, round: number): void {
 }
 
 describe('GoalService creation and replay', () => {
+  it('does not activate without the required projection registry', async () => {
+    const ctx = new Context()
+    await ctx.plugin(AgentRegistry)
+    await ctx.plugin(GoalService)
+    expect(ctx.get('goals')).toBeUndefined()
+  })
+
   it('applies the configured default and writes one durable goal change', async () => {
     vi.useFakeTimers()
     vi.setSystemTime(1_700_000_000_000)
-    /** 中文说明：测试局部值 { ctx, agent, session }，由紧邻初始化决定。 */
     const { ctx, agent, session } = await harness({ defaultMaxGoalRounds: 17 })
-    /** 中文说明：测试局部值 seen，由紧邻初始化决定。 */
     const seen: string[] = []
     ctx.on('goal/changed', ({ change }) => { seen.push(change.operation) })
 
-    /** 中文说明：测试局部值 goal，由紧邻初始化决定。 */
     const goal = ctx.goals.create(agent, { objective: '  finish the feature  ' })
 
     expect(goal).toMatchObject({
@@ -125,11 +110,9 @@ describe('GoalService creation and replay', () => {
     expect(goal.id).toMatch(/^goal-/)
     expect(seen).toEqual(['create'])
     expect(session.events.map(event => event.type)).toEqual(['goal/change'])
-    /** 中文说明：测试局部值 context，由紧邻初始化决定。 */
     const context = session.events[0]
     expect(context?.type).toBe('goal/change')
     if (context?.type !== 'goal/change') throw new Error('expected durable goal change')
-    /** 中文说明：测试局部值 change，由紧邻初始化决定。 */
     const change = decodeGoalChange(context.data)
     if (change === undefined) throw new Error('expected decoded goal change')
     expect(change).toMatchObject({ operation: 'create', goal: { id: goal.id } })
@@ -140,7 +123,6 @@ describe('GoalService creation and replay', () => {
   })
 
   it('uses 256 rounds by default and validates create input inside create', async () => {
-    /** 中文说明：测试局部值 { ctx, agent }，由紧邻初始化决定。 */
     const { ctx, agent } = await harness()
     expect(() => ctx.goals.create(agent, { objective: '   ' })).toThrow(expect.objectContaining({
       code: 'GOAL_INVALID_OBJECTIVE',
@@ -157,41 +139,37 @@ describe('GoalService creation and replay', () => {
   })
 
   it('also resolves the default when constructed directly without Cordis config normalization', async () => {
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = new Context()
     await ctx.plugin(AgentRegistry)
-    /** 中文说明：测试局部值 goals，由紧邻初始化决定。 */
-    const goals = new GoalService(ctx)
-    /** 中文说明：测试局部值 stub，由紧邻初始化决定。 */
+    await ctx.plugin(SessionProjectionRegistry)
     const stub = stubAgent('goal-direct-construction')
     ctx.agents.register(stub.agent)
+    const goals = new GoalService(ctx)
+    await new Promise(resolve => setImmediate(resolve))
     expect(goals.create(stub.agent, { objective: 'direct' })).toMatchObject({
       objective: 'direct', maxGoalRounds: 256,
     })
   })
 
   it('rejects invalid direct configuration', async () => {
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = new Context()
     await ctx.plugin(AgentRegistry)
+    await ctx.plugin(SessionProjectionRegistry)
     await expect(ctx.plugin(GoalService, { defaultMaxGoalRounds: -1 })).rejects.toThrow(expect.objectContaining({
       code: 'GOAL_INVALID_MAX_ROUNDS',
     }))
   })
 
   it('restores a seeded goal and rounds with activation disarmed', async () => {
-    /** 中文说明：测试局部值 first，由紧邻初始化决定。 */
     const first = await harness()
-    /** 中文说明：测试局部值 created，由紧邻初始化决定。 */
     const created = first.ctx.goals.create(first.agent, { objective: 'seed me', maxGoalRounds: 9 })
     appendRound(first.session, created, 1)
     appendRound(first.session, created, 2)
 
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = new Context()
     await ctx.plugin(AgentRegistry)
+    await ctx.plugin(SessionProjectionRegistry)
     await ctx.plugin(GoalService)
-    /** 中文说明：测试局部值 resumed，由紧邻初始化决定。 */
     const resumed = stubAgent('seeded-goal', first.session.events)
     ctx.agents.register(resumed.agent)
     expect(ctx.goals.get(resumed.agent)).toMatchObject({
@@ -202,19 +180,16 @@ describe('GoalService creation and replay', () => {
   })
 
   it('inherits the completed-turn goal prefix through SessionStore.fork with child activation disarmed', async () => {
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = new Context()
     await ctx.plugin(SessionStore)
     await ctx.plugin(AgentRegistry)
+    await ctx.plugin(SessionProjectionRegistry)
     await ctx.plugin(GoalService)
-    /** 中文说明：测试局部值 parent，由紧邻初始化决定。 */
     const parent = stubAgentForSession(ctx.sessions.create(SessionId('goal-fork-parent')))
     ctx.agents.register(parent.agent)
-    /** 中文说明：测试局部值 goal，由紧邻初始化决定。 */
     const goal = ctx.goals.create(parent.agent, { objective: 'inherit through fork', maxGoalRounds: 5 })
     appendRound(parent.session, goal, 1)
 
-    /** 中文说明：测试局部值 child，由紧邻初始化决定。 */
     const child = stubAgentForSession(ctx.sessions.fork(parent.session))
     ctx.agents.register(child.agent)
     expect(ctx.goals.get(child.agent)).toMatchObject({
@@ -228,9 +203,7 @@ describe('GoalService creation and replay', () => {
   })
 
   it('disarms live activation on every session-start edge', async () => {
-    /** 中文说明：测试局部值 { ctx, agent, session }，由紧邻初始化决定。 */
     const { ctx, agent, session } = await harness()
-    /** 中文说明：测试局部值 goal，由紧邻初始化决定。 */
     let goal = ctx.goals.create(agent, { objective: 'stay stopped after resume' })
     expect(goal.activation).toBe('armed')
     agentEvents(ctx, agent).emit('agent/session-start', { source: 'resume' })
@@ -241,11 +214,8 @@ describe('GoalService creation and replay', () => {
   })
 
   it('lets a lifecycle owner disarm without writing a durable revision', async () => {
-    /** 中文说明：测试局部值 { ctx, agent, session }，由紧邻初始化决定。 */
     const { ctx, agent, session } = await harness()
-    /** 中文说明：测试局部值 goal，由紧邻初始化决定。 */
     const goal = ctx.goals.create(agent, { objective: 'survive driver reload' })
-    /** 中文说明：测试局部值 before，由紧邻初始化决定。 */
     const before = session.events.length
     expect(ctx.goals.disarm(agent)).toMatchObject({
       id: goal.id,
@@ -257,24 +227,20 @@ describe('GoalService creation and replay', () => {
     expect(ctx.goals.resume(agent, goal)).toMatchObject({ revision: 2, activation: 'armed' })
   })
 
-  it('removes the service and its session-start listener with the providing fiber', async () => {
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
+  it('removes the service and projection with the providing fiber', async () => {
     const ctx = new Context()
     await ctx.plugin(AgentRegistry)
-    /** 中文说明：测试局部值 fiber，由紧邻初始化决定。 */
+    await ctx.plugin(SessionProjectionRegistry)
     const fiber = await ctx.plugin(GoalService)
-    /** 中文说明：测试局部值 first，由紧邻初始化决定。 */
     const first = ctx.goals
-    /** 中文说明：测试局部值 stub，由紧邻初始化决定。 */
     const stub = stubAgent('goal-hmr')
     ctx.agents.register(stub.agent)
-    /** 中文说明：测试局部值 goal，由紧邻初始化决定。 */
-    const goal = first.create(stub.agent, { objective: 'survive service reload' })
+    const goal = ctx.goals.create(stub.agent, { objective: 'survive service reload' })
 
     await fiber.dispose()
     expect(ctx.get('goals')).toBeUndefined()
-    agentEvents(ctx, stub.agent).emit('agent/session-start', { source: 'resume' })
-    expect(first.get(stub.agent)).toMatchObject({ id: goal.id, activation: 'armed' })
+    expect(ctx.sessionProjections.stateOf(stub.session, 'goal')).toBeUndefined()
+    expect(() => first.get(stub.agent)).toThrow('goal projection is not registered')
 
     await ctx.plugin(GoalService)
     expect(ctx.goals).not.toBe(first)
@@ -282,11 +248,9 @@ describe('GoalService creation and replay', () => {
   })
 
   it('requires the exact live registry instance for reads and mutations', async () => {
-    /** 中文说明：测试局部值 { ctx, agent }，由紧邻初始化决定。 */
     const { ctx, agent } = await harness()
     // A same-id agent backed by a different session object — the live-instance
     // check must reject it even though the ids match.
-    /** 中文说明：测试局部值 impostor，由紧邻初始化决定。 */
     const impostor = stubAgentForSession(Session.create(agent.id)).agent
     expect(() => ctx.goals.get(impostor)).toThrow(expect.objectContaining({ code: 'GOAL_AGENT_NOT_LIVE' }))
     expect(() => ctx.goals.create(impostor, { objective: 'no' })).toThrow(expect.objectContaining({
@@ -298,19 +262,12 @@ describe('GoalService creation and replay', () => {
 
 describe('GoalService mutations', () => {
   it('adapts Remote creation and reuses business methods for later mutations', async () => {
-    /** 中文说明：测试局部值 { ctx, agent }，由紧邻初始化决定。 */
     const { ctx, agent } = await harness()
-    /** 中文说明：测试局部值 created，由紧邻初始化决定。 */
     const created = ctx.goals.remoteExportCreate(agent, { objective: 'remote lifecycle' })
-    /** 中文说明：测试局部值 edited，由紧邻初始化决定。 */
     const edited = ctx.goals.edit(agent, created.ref, { objective: 'edited remotely' })
-    /** 中文说明：测试局部值 paused，由紧邻初始化决定。 */
     const paused = ctx.goals.pause(agent, edited)
-    /** 中文说明：测试局部值 resumed，由紧邻初始化决定。 */
     const resumed = ctx.goals.resume(agent, paused)
-    /** 中文说明：测试局部值 completed，由紧邻初始化决定。 */
     const completed = ctx.goals.complete(agent, resumed)
-    /** 中文说明：测试局部值 cleared，由紧邻初始化决定。 */
     const cleared = ctx.goals.clear(agent, completed)
 
     expect(edited).toMatchObject({ objective: 'edited remotely', revision: 2 })
@@ -321,18 +278,14 @@ describe('GoalService mutations', () => {
   })
 
   it('edits with compare-and-set revisions and rejects empty edits', async () => {
-    /** 中文说明：测试局部值 { ctx, agent }，由紧邻初始化决定。 */
     const { ctx, agent } = await harness()
-    /** 中文说明：测试局部值 created，由紧邻初始化决定。 */
     const created = ctx.goals.create(agent, { objective: 'old', maxGoalRounds: 4 })
     expect(() => ctx.goals.edit(agent, created, {})).toThrow(expect.objectContaining({ code: 'GOAL_INVALID_EDIT' }))
-    /** 中文说明：测试局部值 objective，由紧邻初始化决定。 */
     const objective = ctx.goals.edit(agent, created, { objective: ' new ' })
     expect(objective).toMatchObject({ objective: 'new', maxGoalRounds: 4, revision: 2, activation: 'armed' })
     expect(() => ctx.goals.edit(agent, created, { maxGoalRounds: 8 })).toThrow(expect.objectContaining({
       code: 'GOAL_STALE_REVISION',
     }))
-    /** 中文说明：测试局部值 cap，由紧邻初始化决定。 */
     const cap = ctx.goals.edit(agent, objective, { maxGoalRounds: 8 })
     expect(cap).toMatchObject({ objective: 'new', maxGoalRounds: 8, revision: 3 })
     expect(() => ctx.goals.edit(agent, cap, { objective: ' ' })).toThrow(expect.objectContaining({
@@ -341,9 +294,7 @@ describe('GoalService mutations', () => {
   })
 
   it('supports pause, resume, block, and completion transitions', async () => {
-    /** 中文说明：测试局部值 { ctx, agent }，由紧邻初始化决定。 */
     const { ctx, agent } = await harness()
-    /** 中文说明：测试局部值 goal，由紧邻初始化决定。 */
     let goal = ctx.goals.create(agent, { objective: 'lifecycle' })
     goal = ctx.goals.pause(agent, goal)
     expect(goal).toMatchObject({ phase: 'paused', activation: 'disarmed', revision: 2 })
@@ -363,20 +314,14 @@ describe('GoalService mutations', () => {
   })
 
   it('allows completion from every stopped phase and replacement only after completion', async () => {
-    /** 中文说明：测试局部值 phases，由紧邻初始化决定。 */
     const phases = ['paused', 'blocked'] as const
-    /** 中文说明：测试局部值 phase，由紧邻初始化决定。 */
     for (const phase of phases) {
-      /** 中文说明：测试局部值 { ctx, agent }，由紧邻初始化决定。 */
       const { ctx, agent } = await harness()
-      /** 中文说明：测试局部值 goal，由紧邻初始化决定。 */
       let goal = ctx.goals.create(agent, { objective: phase })
       goal = phase === 'paused'
         ? ctx.goals.pause(agent, goal)
         : ctx.goals.block(agent, goal, { code: 'test-blocker', message: 'Blocked for the test.' })
-      /** 中文说明：测试局部值 complete，由紧邻初始化决定。 */
       const complete = ctx.goals.complete(agent, goal)
-      /** 中文说明：测试局部值 replacement，由紧邻初始化决定。 */
       const replacement = ctx.goals.create(agent, { objective: `after ${phase}` })
       expect(complete.phase).toBe('complete')
       expect(replacement.id).not.toBe(complete.id)
@@ -385,15 +330,12 @@ describe('GoalService mutations', () => {
   })
 
   it('rejects replacement and invalid phase transitions while a resumable goal exists', async () => {
-    /** 中文说明：测试局部值 { ctx, agent }，由紧邻初始化决定。 */
     const { ctx, agent } = await harness()
-    /** 中文说明：测试局部值 goal，由紧邻初始化决定。 */
     const goal = ctx.goals.create(agent, { objective: 'still active' })
     expect(() => ctx.goals.create(agent, { objective: 'replacement' })).toThrow(expect.objectContaining({
       code: 'GOAL_ALREADY_EXISTS',
     }))
     expect(() => ctx.goals.resume(agent, goal)).toThrow(expect.objectContaining({ code: 'GOAL_INVALID_TRANSITION' }))
-    /** 中文说明：测试局部值 paused，由紧邻初始化决定。 */
     const paused = ctx.goals.pause(agent, goal)
     expect(() => ctx.goals.pause(agent, paused)).toThrow(expect.objectContaining({ code: 'GOAL_INVALID_TRANSITION' }))
     expect(() => ctx.goals.block(agent, paused, {
@@ -404,11 +346,8 @@ describe('GoalService mutations', () => {
   })
 
   it('records canonical blocker reasons and enforces the round cap on resume', async () => {
-    /** 中文说明：测试局部值 { ctx, agent, session }，由紧邻初始化决定。 */
     const { ctx, agent, session } = await harness()
-    /** 中文说明：测试局部值 goal，由紧邻初始化决定。 */
     let goal = ctx.goals.create(agent, { objective: 'bounded', maxGoalRounds: 2 })
-    /** 中文说明：测试局部值 reason，由紧邻初始化决定。 */
     for (const reason of [null, [], { code: 1, message: 'invalid code' }, { code: 'round-limit', message: 1 }]) {
       expect(() => ctx.goals.block(agent, goal, reason as never)).toThrow(expect.objectContaining({
         code: 'GOAL_INVALID_BLOCK_REASON',
@@ -442,17 +381,13 @@ describe('GoalService mutations', () => {
   })
 
   it('clears through a revisioned tombstone and permits a fresh goal', async () => {
-    /** 中文说明：测试局部值 { ctx, agent, session }，由紧邻初始化决定。 */
     const { ctx, agent, session } = await harness()
-    /** 中文说明：测试局部值 goal，由紧邻初始化决定。 */
     const goal = ctx.goals.create(agent, { objective: 'temporary' })
-    /** 中文说明：测试局部值 tombstone，由紧邻初始化决定。 */
     const tombstone = ctx.goals.clear(agent, goal)
     expect(tombstone).toEqual({ id: goal.id, revision: 2 })
     expect(ctx.goals.get(agent)).toBeUndefined()
     expect(foldGoal(session.events)).toEqual({ roundsStarted: 0, lastRef: tombstone })
     expect(() => ctx.goals.clear(agent, goal)).toThrow(expect.objectContaining({ code: 'GOAL_NOT_FOUND' }))
-    /** 中文说明：测试局部值 next，由紧邻初始化决定。 */
     const next = ctx.goals.create(agent, { objective: 'fresh' })
     expect(next.id).not.toBe(goal.id)
   })
@@ -460,16 +395,13 @@ describe('GoalService mutations', () => {
   it('keeps per-goal mutation timestamps monotonic when the wall clock moves backward', async () => {
     vi.useFakeTimers()
     vi.setSystemTime(100)
-    /** 中文说明：测试局部值 { ctx, agent, session }，由紧邻初始化决定。 */
     const { ctx, agent, session } = await harness()
-    /** 中文说明：测试局部值 goal，由紧邻初始化决定。 */
     let goal = ctx.goals.create(agent, { objective: 'monotonic time' })
     vi.setSystemTime(90)
     goal = ctx.goals.pause(agent, goal)
     expect(goal.updatedAt).toBe(100)
     vi.setSystemTime(80)
     ctx.goals.clear(agent, goal)
-    /** 中文说明：测试局部值 clear，由紧邻初始化决定。 */
     const clear = session.events
       .filter(event => event.type === 'goal/change')
       .map(event => event.type === 'goal/change' ? decodeGoalChange(event.data) : undefined)
@@ -480,11 +412,8 @@ describe('GoalService mutations', () => {
   })
 
   it('contains goal notification failures and preserves later listeners', async () => {
-    /** 中文说明：测试局部值 { ctx, agent }，由紧邻初始化决定。 */
     const { ctx, agent } = await harness()
-    /** 中文说明：测试局部值 warn，由紧邻初始化决定。 */
     const warn = vi.spyOn(ctx.logger, 'warn').mockImplementation(() => {})
-    /** 中文说明：测试局部值 seen，由紧邻初始化决定。 */
     const seen: string[] = []
     ctx.on('goal/changed', () => { throw new Error('broken observer') })
     ctx.on('goal/changed', ({ change }) => { seen.push(change.operation) })
@@ -494,9 +423,7 @@ describe('GoalService mutations', () => {
   })
 
   it('commits consecutive revisions through durable goal events', async () => {
-    /** 中文说明：测试局部值 { ctx, agent, session }，由紧邻初始化决定。 */
     const { ctx, agent, session } = await harness()
-    /** 中文说明：测试局部值 goal，由紧邻初始化决定。 */
     let goal = ctx.goals.create(agent, { objective: 'deferred', maxGoalRounds: 5 })
     goal = ctx.goals.edit(agent, goal, { objective: 'deferred edit' })
     goal = ctx.goals.pause(agent, goal)
@@ -509,21 +436,18 @@ describe('GoalService mutations', () => {
   })
 
   it('publishes a mutation consistently to a reentrant session observer', async () => {
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = new Context()
     await ctx.plugin(SessionStore)
     await ctx.plugin(AgentRegistry)
+    await ctx.plugin(SessionProjectionRegistry)
     await ctx.plugin(GoalService)
-    /** 中文说明：测试局部值 stub，由紧邻初始化决定。 */
     const stub = stubAgentForSession(ctx.sessions.create(SessionId('goal-reentrant-observer')))
     ctx.agents.register(stub.agent)
-    /** 中文说明：测试局部值 解构结果，由紧邻初始化决定。 */
     let observed: ReturnType<GoalService['get']>
     ctx.on('session/event', (session, event) => {
       if (session === stub.session && event.type === 'goal/change') observed = ctx.goals.get(stub.agent)
     })
 
-    /** 中文说明：测试局部值 created，由紧邻初始化决定。 */
     const created = ctx.goals.create(stub.agent, { objective: 'publish once' })
 
     expect(observed).toEqual(created)
@@ -532,11 +456,10 @@ describe('GoalService mutations', () => {
   })
 
   it('does not delegate goal persistence to agent injection', async () => {
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = new Context()
     await ctx.plugin(AgentRegistry)
+    await ctx.plugin(SessionProjectionRegistry)
     await ctx.plugin(GoalService)
-    /** 中文说明：测试局部值 stub，由紧邻初始化决定。 */
     const stub = stubAgent('goal-independent-injection')
     stub.agent.inject = () => { throw new Error('injection must not be called') }
     ctx.agents.register(stub.agent)
@@ -549,25 +472,24 @@ describe('GoalService mutations', () => {
     expect(stub.session.events.map(event => event.type)).toEqual(['goal/change'])
   })
 
-  it('observes a valid goal snapshot appended after an empty cache was established', async () => {
-    /** 中文说明：测试局部值 { ctx, agent, session }，由紧邻初始化决定。 */
+  it('observes an external goal change and disarms local activation', async () => {
     const { ctx, agent, session } = await harness()
-    expect(ctx.goals.get(agent)).toBeUndefined()
-    /** 中文说明：测试局部值 change，由紧邻初始化决定。 */
+    const created = ctx.goals.create(agent, { objective: 'before external edit', maxGoalRounds: 4 })
+    expect(created.activation).toBe('armed')
     const change: GoalSnapshotChangeMeta = {
       kind: 'goal/change',
       version: 1,
-      operation: 'create',
+      operation: 'edit',
       goal: {
-        id: GoalId('goal-external'),
-        revision: 1,
+        id: created.id,
+        revision: created.revision + 1,
         objective: 'observe external append',
         phase: 'active',
         maxGoalRounds: 4,
       },
-      roundsStarted: 0,
-      createdAt: 12,
-      updatedAt: 12,
+      roundsStarted: created.roundsStarted,
+      createdAt: created.createdAt,
+      updatedAt: created.updatedAt,
     }
     session.append('goal/change', change)
 
@@ -578,36 +500,9 @@ describe('GoalService mutations', () => {
     })
   })
 
-  it('reports the same corrupt unseen event after committing its valid prefix', async () => {
-    /** 中文说明：测试局部值 { ctx, agent, session }，由紧邻初始化决定。 */
-    const { ctx, agent, session } = await harness()
-    expect(ctx.goals.get(agent)).toBeUndefined()
-    /** 中文说明：测试局部值 change，由紧邻初始化决定。 */
-    const change: GoalSnapshotChangeMeta = {
-      kind: 'goal/change',
-      version: 1,
-      operation: 'create',
-      goal: {
-        id: GoalId('goal-valid-prefix'),
-        revision: 1,
-        objective: 'valid prefix',
-        phase: 'active',
-        maxGoalRounds: 4,
-      },
-      roundsStarted: 0,
-      createdAt: 12,
-      updatedAt: 12,
-    }
-    session.append('goal/change', change)
-    session.append('goal/change', { ...change, operation: 'edit', extra: true } as never)
-
-    expect(() => ctx.goals.get(agent)).toThrow('snapshot change must have exactly')
-    expect(() => ctx.goals.get(agent)).toThrow('snapshot change must have exactly')
-  })
 })
 
 describe('goal replay validation', () => {
-  /** 中文说明：函数 snapshotChange 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
   function snapshotChange(overrides: Partial<GoalSnapshotChangeMeta> = {}): GoalSnapshotChangeMeta {
     return {
       kind: 'goal/change',
@@ -627,20 +522,16 @@ describe('goal replay validation', () => {
     }
   }
 
-  /** 中文说明：函数 appendChange 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
   function appendChange(session: Session, change: GoalChangeMeta): void {
     session.append('goal/change', change)
   }
 
-  /** 中文说明：函数 oneChange 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
   function oneChange(change: GoalChangeMeta) {
-    /** 中文说明：测试局部值 session，由紧邻初始化决定。 */
     const session = Session.create(SessionId(`validation-${Math.random()}`))
     appendChange(session, change)
     return session.events
   }
 
-  /** 中文说明：函数 mutation 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
   function mutation(
     current: GoalSnapshotChangeMeta,
     operation: Exclude<GoalSnapshotChangeMeta['operation'], 'create'>,
@@ -666,27 +557,21 @@ describe('goal replay validation', () => {
   }
 
   it('keeps durable goal state independent from inbox changes', () => {
-    /** 中文说明：测试局部值 change，由紧邻初始化决定。 */
     const change = snapshotChange()
-    /** 中文说明：测试局部值 session，由紧邻初始化决定。 */
     const session = Session.create(SessionId('inbox-independent-change'))
     appendChange(session, change)
     expect(foldGoal(session.events)).toMatchObject({ goal: { id: change.goal.id, revision: 1 } })
-    /** 中文说明：测试局部值 message，由紧邻初始化决定。 */
     const message = createUserMessage({
       content: [{ type: 'text', text: 'unrelated pending context' }],
       source: { kind: 'plugin', plugin: 'test' },
     })
-    /** 中文说明：测试局部值 inbox，由紧邻初始化决定。 */
     const inbox = new Inbox(session, { inserted: () => {}, discarded: () => {}, claimed: () => {} })
     inbox.append('next-step', message)
     expect(inbox.remove(message.id)).toBe(true)
     expect(foldGoal(session.events)).toMatchObject({ goal: { id: change.goal.id, revision: 1 } })
   })
 
-  /** 中文说明：函数 foldPair 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
   function foldPair(first: GoalSnapshotChangeMeta, second: GoalChangeMeta): ReturnType<typeof foldGoal> {
-    /** 中文说明：测试局部值 session，由紧邻初始化决定。 */
     const session = Session.create(SessionId(`validation-pair-${Math.random()}`))
     appendChange(session, first)
     appendChange(session, second)
@@ -696,16 +581,13 @@ describe('goal replay validation', () => {
   it('ignores unrelated metadata and non-goal round sources', () => {
     expect(decodeGoalChange(undefined)).toBeUndefined()
     expect(decodeGoalChange({ kind: 'other' })).toBeUndefined()
-    /** 中文说明：测试局部值 session，由紧邻初始化决定。 */
     const session = Session.create(SessionId('unrelated'))
     appendInjection(session, createUserMessage({
       content: [{ type: 'text', text: 'other' }],
       source: { kind: 'plugin', plugin: 'test' },
     }))
     expect(foldGoal(session.events)).toEqual({ roundsStarted: 0 })
-    /** 中文说明：测试局部值 source，由紧邻初始化决定。 */
     const source = { kind: 'plugin', plugin: 'ordinary-user-message' } as const
-    /** 中文说明：测试局部值 turn，由紧邻初始化决定。 */
     const turn = nextTurn(session)
     session.append('turn/start', { turn })
     session.append('user/message', createUserMessage({
@@ -716,9 +598,7 @@ describe('goal replay validation', () => {
   })
 
   it('rejects rounds attributed to another goal', () => {
-    /** 中文说明：测试局部值 change，由紧邻初始化决定。 */
     const change = snapshotChange()
-    /** 中文说明：测试局部值 session，由紧邻初始化决定。 */
     const session = Session.create(SessionId('other-goal-round'), oneChange(change))
     appendRound(session, { id: GoalId('goal-other'), revision: 1 }, 1)
     expect(() => foldGoal(session.events)).toThrow('not the next admitted round')
@@ -734,27 +614,21 @@ describe('goal replay validation', () => {
   })
 
   it('rejects invalid create and missing-current mutation sequences', () => {
-    /** 中文说明：测试局部值 base，由紧邻初始化决定。 */
     const base = snapshotChange()
-    /** 中文说明：测试局部值 invalidCreates，由紧邻初始化决定。 */
     const invalidCreates: GoalSnapshotChangeMeta[] = [
       { ...base, goal: { ...base.goal, revision: 2 } },
       { ...base, goal: { ...base.goal, phase: 'paused' } },
       { ...base, roundsStarted: 1 },
     ]
-    /** 中文说明：测试局部值 change，由紧邻初始化决定。 */
     for (const change of invalidCreates) expect(() => foldGoal(oneChange(change))).toThrow('goal create requires')
 
-    /** 中文说明：测试局部值 edit，由紧邻初始化决定。 */
     const edit = mutation(base, 'edit', 'active')
     expect(() => foldGoal(oneChange(edit))).toThrow('requires a current goal')
-    /** 中文说明：测试局部值 clear，由紧邻初始化决定。 */
     const clear: GoalChangeMeta = {
       kind: 'goal/change', version: 1, operation: 'clear', cleared: { id: base.goal.id, revision: 2 }, clearedAt: 12,
     }
     expect(() => foldGoal(oneChange(clear))).toThrow('clear requires a current goal')
 
-    /** 中文说明：测试局部值 secondCreate，由紧邻初始化决定。 */
     const secondCreate = snapshotChange({
       goal: { ...base.goal, id: GoalId('goal-second') },
       createdAt: 20,
@@ -764,9 +638,7 @@ describe('goal replay validation', () => {
   })
 
   it('rejects stale identity, counters, timestamps, and definition changes', () => {
-    /** 中文说明：测试局部值 base，由紧邻初始化决定。 */
     const base = snapshotChange()
-    /** 中文说明：测试局部值 invalid，由紧邻初始化决定。 */
     const invalid: GoalSnapshotChangeMeta[] = [
       mutation(base, 'edit', 'active', { goal: { ...base.goal, id: GoalId('goal-wrong'), revision: 2 } }),
       mutation(base, 'edit', 'active', { goal: { ...base.goal, revision: 3 } }),
@@ -780,14 +652,11 @@ describe('goal replay validation', () => {
         goal: { ...base.goal, revision: 2, phase: 'paused', maxGoalRounds: 3 },
       }),
     ]
-    /** 中文说明：测试局部值 change，由紧邻初始化决定。 */
     for (const change of invalid) expect(() => foldPair(base, change)).toThrow()
   })
 
   it('rejects invalid replayed lifecycle phase transitions', () => {
-    /** 中文说明：测试局部值 base，由紧邻初始化决定。 */
     const base = snapshotChange()
-    /** 中文说明：测试局部值 invalid，由紧邻初始化决定。 */
     const invalid: GoalSnapshotChangeMeta[] = [
       mutation(base, 'edit', 'paused'),
       mutation(base, 'pause', 'active'),
@@ -795,17 +664,13 @@ describe('goal replay validation', () => {
       mutation(base, 'complete', 'active'),
       mutation(base, 'block', 'active'),
     ]
-    /** 中文说明：测试局部值 change，由紧邻初始化决定。 */
     for (const change of invalid) expect(() => foldPair(base, change)).toThrow()
 
-    /** 中文说明：测试局部值 paused，由紧邻初始化决定。 */
     const paused = mutation(base, 'pause', 'paused')
-    /** 中文说明：测试局部值 exhausted，由紧邻初始化决定。 */
     const exhausted = mutation(paused, 'resume', 'active', {
       roundsStarted: 2,
       goal: { ...paused.goal, revision: 3, phase: 'active', maxGoalRounds: 2 },
     })
-    /** 中文说明：测试局部值 session，由紧邻初始化决定。 */
     const session = Session.create(SessionId('exhausted-resume'))
     appendChange(session, base)
     appendRound(session, base.goal, 1)
@@ -816,43 +681,34 @@ describe('goal replay validation', () => {
   })
 
   it('rejects invalid clear continuity and goal id reuse', () => {
-    /** 中文说明：测试局部值 base，由紧邻初始化决定。 */
     const base = snapshotChange()
-    /** 中文说明：测试局部值 staleClear，由紧邻初始化决定。 */
     const staleClear: GoalChangeMeta = {
       kind: 'goal/change', version: 1, operation: 'clear', cleared: { id: base.goal.id, revision: 3 }, clearedAt: 11,
     }
     expect(() => foldPair(base, staleClear)).toThrow('advance the current goal')
-    /** 中文说明：测试局部值 earlyClear，由紧邻初始化决定。 */
     const earlyClear: GoalChangeMeta = {
       kind: 'goal/change', version: 1, operation: 'clear', cleared: { id: base.goal.id, revision: 2 }, clearedAt: 9,
     }
     expect(() => foldPair(base, earlyClear)).toThrow('timestamp cannot precede')
 
-    /** 中文说明：测试局部值 complete，由紧邻初始化决定。 */
     const complete = mutation(base, 'complete', 'complete')
-    /** 中文说明：测试局部值 sameCurrentId，由紧邻初始化决定。 */
     const sameCurrentId = snapshotChange({
       goal: { ...base.goal, revision: 1 },
       createdAt: 20,
       updatedAt: 20,
     })
-    /** 中文说明：测试局部值 completedSession，由紧邻初始化决定。 */
     const completedSession = Session.create(SessionId('reuse-complete'))
     appendChange(completedSession, base)
     appendChange(completedSession, complete)
     appendChange(completedSession, sameCurrentId)
     expect(() => foldGoal(completedSession.events)).toThrow('fresh active revision-one')
 
-    /** 中文说明：测试局部值 second，由紧邻初始化决定。 */
     const second = snapshotChange({
       goal: { ...base.goal, id: GoalId('goal-second') },
       createdAt: 20,
       updatedAt: 20,
     })
-    /** 中文说明：测试局部值 secondComplete，由紧邻初始化决定。 */
     const secondComplete = mutation(second, 'complete', 'complete')
-    /** 中文说明：测试局部值 nonAdjacentReuse，由紧邻初始化决定。 */
     const nonAdjacentReuse = Session.create(SessionId('reuse-non-adjacent'))
     appendChange(nonAdjacentReuse, base)
     appendChange(nonAdjacentReuse, complete)
@@ -861,11 +717,9 @@ describe('goal replay validation', () => {
     appendChange(nonAdjacentReuse, { ...sameCurrentId, createdAt: 30, updatedAt: 30 })
     expect(() => foldGoal(nonAdjacentReuse.events)).toThrow('fresh active revision-one')
 
-    /** 中文说明：测试局部值 clear，由紧邻初始化决定。 */
     const clear: GoalChangeMeta = {
       kind: 'goal/change', version: 1, operation: 'clear', cleared: { id: base.goal.id, revision: 2 }, clearedAt: 11,
     }
-    /** 中文说明：测试局部值 clearedSession，由紧邻初始化决定。 */
     const clearedSession = Session.create(SessionId('reuse-clear'))
     appendChange(clearedSession, base)
     appendChange(clearedSession, clear)
@@ -874,11 +728,8 @@ describe('goal replay validation', () => {
   })
 
   it('rejects non-positive goal round sources', () => {
-    /** 中文说明：测试局部值 session，由紧邻初始化决定。 */
     const session = Session.create(SessionId('goal-source-without-meta'))
-    /** 中文说明：测试局部值 source，由紧邻初始化决定。 */
     const source = { kind: 'goal', goalId: GoalId('goal-missing-meta'), revision: 1, round: 0 } as const
-    /** 中文说明：测试局部值 turn，由紧邻初始化决定。 */
     const turn = nextTurn(session)
     session.append('turn/start', { turn })
     session.append('user/message', createUserMessage({
@@ -889,9 +740,7 @@ describe('goal replay validation', () => {
   })
 
   it('rejects malformed snapshots, refs, counters, and timestamps', () => {
-    /** 中文说明：测试局部值 base，由紧邻初始化决定。 */
     const base = snapshotChange()
-    /** 中文说明：测试局部值 badSnapshots，由紧邻初始化决定。 */
     const badSnapshots: unknown[] = [
       null,
       { ...base.goal, extra: true },
@@ -908,7 +757,6 @@ describe('goal replay validation', () => {
       { ...base.goal, revision: 0 },
       { ...base.goal, maxGoalRounds: -1 },
     ]
-    /** 中文说明：测试局部值 goal，由紧邻初始化决定。 */
     for (const goal of badSnapshots) expect(() => decodeGoalChange({ ...base, goal })).toThrow()
     expect(() => decodeGoalChange({ ...base, roundsStarted: -1 })).toThrow('roundsStarted')
     expect(() => decodeGoalChange({ ...base, createdAt: -1 })).toThrow('createdAt')
@@ -925,11 +773,8 @@ describe('goal replay validation', () => {
   })
 
   it('folds a clear tombstone after a snapshot', () => {
-    /** 中文说明：测试局部值 change，由紧邻初始化决定。 */
     const change = snapshotChange()
-    /** 中文说明：测试局部值 session，由紧邻初始化决定。 */
     const session = Session.create(SessionId('fold-clear'), oneChange(change))
-    /** 中文说明：测试局部值 clear，由紧邻初始化决定。 */
     const clear: GoalChangeMeta = {
       kind: 'goal/change',
       version: 1,

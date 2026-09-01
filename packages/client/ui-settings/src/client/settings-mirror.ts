@@ -1,17 +1,3 @@
-/*
- * ================================ 文件注释 ================================
- * 【文件职责】宿主设置文档的客户端镜像：浏览器中唯一的 settings.describe 读取者，
- *             所有设置消费方都从它派生（按命名空间作用域经 bind、跨命名空间经
- *             describe 面）。
- * 【技术维度】SnapshotStore + 单飞读取：并发 load 折叠为"飞行中的读取 + 一次重跑"，
- *             中途中止的失效既不丢失也不重复；写入应答经 acceptView 回折。
- * 【产品维度】设置面板所有行的启动成本与新鲜度都由本类决定，与功能数量无关。
- * 【逻辑维度】load/ensure 触发读取 → run 执行读取（带重跑与代数守卫）→
- *             acceptView 回折写入应答 → namespace 便捷查询。
- * 【关键边界】宿主是事实源；'memory' 持久化（非回环浏览器）为终态 unavailable。
- * 【新手阅读建议】先看 run 的"in-flight 槽位 + rerun"协议，再看 acceptView 的回折。
- * ==========================================================================
- */
 /**
  * Client mirror of the Host settings document: the one `settings.describe`
  * reader in the browser. Every settings consumer derives from this store —
@@ -23,24 +9,9 @@
  * through {@link SettingsDescribeMirror.acceptView}.
  */
 
-import type { ClientRemote, SettingsNamespaceView } from '@deepseek-ai/dsh-api-remotes/client'
+import type { Context as ClientContext } from '@deepseek-ai/cordis'
+import type { SettingsNamespaceView } from '@deepseek-ai/dsh-api-remotes/client'
 import { createSnapshotStore, type SnapshotStore } from '@deepseek-ai/dsh-client-store'
-
-/**
- * The settings Remote methods browser configuration surfaces may reach: the
- * redacted read plus merge, replacement, and path-addressed writes.
- * Named once here so the consumers share one face instead of each re-deriving
- * it from the namespace.
- */
-export type SettingsRemote = Pick<ClientRemote['settings'], 'describe' | 'update' | 'replace' | 'mutate'>
-
-/** Wire face carrying the settings Remote namespace. */
-export interface SettingsWireFace {
-  /** The settings Remote namespace. */
-  settings: SettingsRemote
-}
-
-type SettingsFace = SettingsWireFace
 
 /** The full `settings.describe` answer the mirror serves. */
 export interface SettingsDescribeView {
@@ -106,11 +77,12 @@ export class SettingsDescribeMirror implements SettingsDescribeFace {
   private generation = 0
 
   /**
-   * @param api - settings wire face.
+   * @param ctx - the providing plugin's context, whose `remote.settings`
+   * namespace answers the describe read.
    * @param persistence - client-selected Host persistence; non-loopback pages may remain process-local.
    */
   constructor(
-    private readonly api: SettingsFace,
+    private readonly ctx: ClientContext,
     private readonly persistence: 'host' | 'memory' = 'host',
   ) {
     this.store = createSnapshotStore<SettingsMirrorSnapshot>({
@@ -208,7 +180,7 @@ export class SettingsDescribeMirror implements SettingsDescribeFace {
         const generation = ++this.generation
         let outcome: { view: SettingsDescribeView } | { failure: string }
         try {
-          const response = await this.api.settings.describe()
+          const response = await this.ctx.remote.settings.describe()
           outcome = response.ok
             ? { view: response.value }
             : { failure: response.error.message }

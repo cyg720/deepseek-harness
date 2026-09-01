@@ -6,14 +6,6 @@
  * plain Node subprocess, disposes the child before settlement, and requires the
  * SDK completion notification to retain the delegating parent.
  */
-/*
- * 文件职责：验证 built-scope-carrier.e2e.ts 覆盖的SDK 通信行为与生命周期。
- * 技术维度：使用 TypeScript、Cordis 插件、Vitest、事件日志或异步传输。
- * 产品维度：保障 Agent 的SDK 通信能力稳定、可追踪且可恢复。
- * 逻辑维度：准备或解析输入，执行核心流程，再处理结果、错误与资源清理。
- * 关键边界：跨进程数据不可信；持久化状态必须可重放；异步资源必须完全释放。
- * 新手阅读建议：先看导出类型和辅助函数，再读主流程，最后关注错误、恢复和清理。
- */
 
 import { execFile } from 'node:child_process'
 import { existsSync } from 'node:fs'
@@ -21,14 +13,10 @@ import { fileURLToPath } from 'node:url'
 import { promisify } from 'node:util'
 import { describe, expect, it } from 'vitest'
 
-/** 中文说明：变量 repoRoot 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const repoRoot = fileURLToPath(new URL('../../../../', import.meta.url))
-/** 中文说明：变量 jsonrpcBundle 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const jsonrpcBundle = fileURLToPath(new URL('../lib/index.js', import.meta.url))
-/** 中文说明：变量 execFileAsync 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const execFileAsync = promisify(execFile)
 
-/** 中文说明：变量 builtRuntimeProbe 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const builtRuntimeProbe = String.raw`
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -38,14 +26,18 @@ import { pathToFileURL } from "node:url";
 const load = (path) => import(pathToFileURL(resolve(path)).href);
 const [
   { Context },
-  agentCore,
+  { default: AgentLoop },
+  { mountAgentLoopTestDependencies },
+  { default: SessionProjectionRegistry },
   { default: SubagentRuntime },
   { default: JsonlSessionPersistence },
   { HarnessSdkJsonRpcServer },
   { SessionId },
 ] = await Promise.all([
   load("vendor/cordis/lib/index.js"),
-  load("packages/examples/agent-spine-demo/lib/index.js"),
+  load("packages/core/agent-loop/lib/index.js"),
+  load("packages/test-support/agent-loop-testkit/lib/index.js"),
+  load("packages/session/session-projection/lib/index.js"),
   load("packages/subagent/subagent/lib/index.js"),
   load("packages/session/session-persistence-jsonl/lib/index.js"),
   load("packages/sdk/server/lib/index.js"),
@@ -55,7 +47,9 @@ const [
 const storageRoot = await mkdtemp(join(tmpdir(), "jsonrpc-built-scope-"));
 const ctx = new Context();
 try {
-  await ctx.plugin(agentCore, { workspaceContext: false });
+  await mountAgentLoopTestDependencies(ctx);
+  await ctx.plugin(SessionProjectionRegistry);
+  await ctx.plugin(AgentLoop, { agents: [] });
   await ctx.plugin(SubagentRuntime);
   await ctx.plugin(JsonlSessionPersistence, { root: storageRoot });
   await new Promise((ready) => setTimeout(ready, 50));

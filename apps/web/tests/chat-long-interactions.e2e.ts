@@ -2,15 +2,6 @@
 // renderer: wheel input only navigates to the semantic target; assertions pin
 // content identity and interaction routing rather than scroll geometry or
 // mounted row counts.
-// 滚轮只用于导航到语义目标，断言固定内容身份和交互路由，不依赖几何或挂载行数。
-/**
- * 文件职责：验证虚拟化长聊天中异构行、工具调用、分叉和继续回复始终绑定正确语义身份。
- * 技术维度：使用 Playwright、88 轮确定性夹具、会话事件键、模型回放和真实分叉操作。
- * 产品维度：用户在很长历史中展开工具、复制内容或从旧轮次分叉时不会操作到错误消息。
- * 逻辑维度：播种长历史并定位末轮工具，验证行顺序与独立展开，再定位分叉轮并继续对话。
- * 关键边界：滚动实现可替换，测试不固定 DOM 数量或像素位置；记录模式不运行该确定性断言。
- * 新手阅读建议：先看 FIXTURE 的关键轮次，再读 requiredEvent 和语义键函数，最后看交互用例。
- */
 import { mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -30,36 +21,23 @@ import {
 } from './scaffold.ts'
 import { conversationContextKey, expandOwningTurnProcess, newEnglishPage, saveFailureShot } from './support.ts'
 
-/** 当前快照运行模式。 */
 const MODE = webSnapshotMode()
-/** 播种长历史会话的固定编号。 */
 const SESSION_ID = 'chat-long-interactions-e2e'
-/** 夹具包含的总轮数。 */
 const FIXTURE_TURNS = 88
-/** 含两次 Bash 调用的最后一轮。 */
 const TOOL_TURN = FIXTURE_TURNS
-/** 用于验证分叉的历史轮次。 */
 const BRANCH_TURN = 80
-/** 目标轮第一条工具调用编号。 */
 const TARGET_CALL_1 = 'chat-scroll-088-1'
-/** 目标轮第二条工具调用编号。 */
 const TARGET_CALL_2 = 'chat-scroll-088-2'
-/** 分叉后继续对话的用户提示。 */
 const CONTINUE_PROMPT = 'CHAT_INTERACTION_CONTINUE Continue from this exact branch point.'
-/** 分叉后回复的首增量标记。 */
 const CONTINUE_FIRST = 'CHAT_INTERACTION_CONTINUE_FIRST'
-/** 分叉后回复的完成标记。 */
 const CONTINUE_DONE = 'CHAT_INTERACTION_CONTINUE_DONE'
-/** 具有稳定消息和工具标记的 88 轮聊天夹具。 */
 const FIXTURE = createChatScrollFixture({
   markerPrefix: 'INTERACTION',
   title: 'CHAT_INTERACTION long semantic identity session',
   turns: FIXTURE_TURNS,
 })
 
-/** 生成分叉后唯一一次模型继续回复的确定性增量。 */
 function continuationChunks(): StreamChunk[] {
-  /** 所有增量拼接后的最终回复。 */
   const response = `${CONTINUE_FIRST} The fork retained the intended prefix. ${CONTINUE_DONE}.`
   return [
     { type: 'block-start', index: 0, blockType: 'text' },
@@ -71,21 +49,17 @@ function continuationChunks(): StreamChunk[] {
   ]
 }
 
-/** 把增量数组包装为回放提供方条目。 */
 function replayEntry(chunks: StreamChunk[]): ReplayEntry {
   return { kind: 'chunks', chunks }
 }
 
-/** 判断任意会话事件序列化后是否携带目标标记。 */
 function carries(event: SessionEvent, marker: string): boolean {
   return JSON.stringify(event).includes(marker)
 }
 
-/** 从未知内容块数组中安全提取所有文本。 */
 function textContent(content: readonly unknown[]): string {
   return content.flatMap((block) => {
     if (typeof block !== 'object' || block === null) return []
-    /** 只读取 type 和 text 的内容块视图。 */
     const candidate = block as { type?: unknown; text?: unknown }
     return candidate.type === 'text' && typeof candidate.text === 'string'
       ? [candidate.text]
@@ -93,7 +67,6 @@ function textContent(content: readonly unknown[]): string {
   }).join('')
 }
 
-/** 等待字体完成并跨过两帧，使虚拟列表布局稳定。 */
 async function nextPaint(page: Page): Promise<void> {
   await page.evaluate(async () => {
     await document.fonts.ready
@@ -103,24 +76,17 @@ async function nextPaint(page: Page): Promise<void> {
   })
 }
 
-/** 通过会话搜索打开播种长历史并等待最后一轮渲染。 */
 async function openSeed(page: Page): Promise<void> {
   // The compact layout dropped group session counts; the seeded baseline is
   // the Ungrouped bucket once cold summaries load.
-  // 紧凑布局取消分组计数，冷摘要完成后以 Ungrouped 行作为加载屏障。
   await page.getByText('Ungrouped', { exact: true }).waitFor({ timeout: 30_000 })
   // Search collapsed into a header action; expand it before filling.
-  // 搜索收进头部操作，填入查询前先确保它已展开。
-  /** 会话搜索展开按钮。 */
   const searchButton = page.getByRole('button', { name: 'Search sessions' })
   if (await searchButton.getAttribute('aria-expanded') !== 'true') await searchButton.click()
-  /** 会话搜索输入框。 */
   const search = page.getByRole('textbox', { name: 'Search sessions...', exact: true })
   await search.fill(FIXTURE.markers.user(1))
-  /** 搜索结果树中的会话行集合。 */
   const results = page.getByRole('tree', { name: 'Search results' }).getByRole('treeitem')
   await results.first().waitFor({ timeout: 60_000 })
-  /** 搜索返回的会话行数量，必须精确为一。 */
   const resultCount = await results.count()
   if (resultCount !== 1) throw new Error(`expected one seeded search result, received ${String(resultCount)}`)
   await results.click()
@@ -130,11 +96,8 @@ async function openSeed(page: Page): Promise<void> {
   await nextPaint(page)
 }
 
-/** 使用滚轮逐步导航，直到虚拟列表挂载目标选择器。 */
 async function wheelUntilMounted(page: Page, selector: string, deltaY: number): Promise<void> {
-  /** 真实聊天外层滚动容器。 */
   const scrollport = page.locator('[data-conversation-scroll]')
-  /** 用于把鼠标移入滚动区域的布局框。 */
   const box = await scrollport.boundingBox()
   if (box === null) throw new Error('conversation scrollport has no layout box')
   await page.mouse.move(box.x + box.width / 2, box.y + Math.min(140, box.height / 3))
@@ -146,13 +109,11 @@ async function wheelUntilMounted(page: Page, selector: string, deltaY: number): 
   throw new Error(`semantic Chat target did not mount: ${selector}`)
 }
 
-/** 从事件列表中取得指定类型且携带标记的必需事件。 */
 function requiredEvent<T extends SessionEvent['type']>(
   events: readonly SessionEvent[],
   type: T,
   marker: string,
 ): Extract<SessionEvent, { type: T }> {
-  /** 第一个类型和标记均匹配的事件。 */
   const event = events.find((candidate): candidate is Extract<SessionEvent, { type: T }> => (
     candidate.type === type && carries(candidate, marker)
   ))
@@ -160,38 +121,28 @@ function requiredEvent<T extends SessionEvent['type']>(
   return event
 }
 
-/** 计算用户消息行的稳定聊天语义键。 */
 function messageKey(event: SessionEvent<'user/message'>): string {
   return conversationContextKey('input-message', String(event.data.id))
 }
 
-/** 计算助手步骤行的稳定聊天语义键。 */
 function assistantKey(event: SessionEvent<'assistant/message'>): string {
   return conversationContextKey('assistant-step', `${event.data.turn}:${event.data.step}`)
 }
 
-/** 计算指定轮次尾部操作行的稳定聊天语义键。 */
 function turnTailKey(turn: number): string {
   return conversationContextKey('turn-tail', String(turn))
 }
 
 describe('web e2e: long Chat interaction contract', () => {
-  /** 本场景使用的 Chromium 实例。 */
   let browser: Browser
-  /** 打开长历史会话的页面。 */
   let page: Page
-  /** 临时回放覆盖目录。 */
   let replayDir: string
-  /** 真实 Web 主机与工作区夹具。 */
   let scaffold: WebScaffold
-  /** 页面错误和警告监视器。 */
   let tripwire: ReturnType<typeof watchConsole>
 
   beforeAll(async () => {
     replayDir = await mkdtemp(join(tmpdir(), 'dsh-chat-interaction-replay-'))
-    /** 回放覆盖 JSON 路径。 */
     const replayOverride = join(replayDir, 'replay.override.json')
-    /** 只包含分叉继续回复的回放脚本。 */
     const replay: ReplayOverrideDoc = [replayEntry(continuationChunks())]
     await writeFile(replayOverride, JSON.stringify(replay))
     scaffold = await launchWebScaffold({
@@ -210,7 +161,6 @@ describe('web e2e: long Chat interaction contract', () => {
   }, 120_000)
 
   afterAll(async () => {
-    /** 清理浏览器、服务或临时目录时聚合的错误。 */
     const failures: unknown[] = []
     await browser?.close().catch((error: unknown) => failures.push(error))
     await scaffold?.close().catch((error: unknown) => failures.push(error))
@@ -245,43 +195,44 @@ describe('web e2e: long Chat interaction contract', () => {
 
     const turnNavigation = page.getByRole('navigation', { name: 'Turn navigation' })
     await turnNavigation.waitFor({ state: 'visible', timeout: 15_000 })
-    const initialTurnButtons = turnNavigation.getByRole('button')
-    const initialTurnCount = await initialTurnButtons.count()
-    expect(initialTurnCount).toBeGreaterThan(1)
-    expect(await initialTurnButtons.last().getAttribute('aria-current')).toBe('true')
-    const firstTurnButton = initialTurnButtons.first()
-    const firstTurnLabel = await firstTurnButton.getAttribute('aria-label')
-    if (firstTurnLabel === null) throw new Error('first Turn navigation mark has no accessible label')
-    const firstTurn = Number(firstTurnLabel.match(/^Jump to turn (\d+)$/)?.[1])
-    expect(Number.isSafeInteger(firstTurn)).toBe(true)
+    // The whole-log outline offers every fixture turn before any paging, with
+    // the live tail mark current.
+    const marks = turnNavigation.getByRole('button')
+    await expect.poll(() => marks.count(), { timeout: 15_000 }).toBe(FIXTURE_TURNS)
+    expect(await marks.last().getAttribute('aria-current')).toBe('true')
+    // The oldest turn is an unloaded mark whose outline preview already
+    // carries both the prompt and the settled response.
+    const firstTurnButton = turnNavigation
+      .getByRole('button', { name: 'Load and jump to turn 1', exact: true })
     await firstTurnButton.focus()
     const preview = page.getByRole('tooltip')
     await preview.waitFor({ state: 'visible', timeout: 5_000 })
-    // The first loaded Turn may begin mid-Turn at a page boundary. Its mark is
-    // still useful with the loaded response and gains the prompt after prepend.
-    expect(await preview.textContent()).toContain(`Turn ${String(firstTurn)}`)
-    expect(await preview.textContent()).toContain(FIXTURE.markers.assistant(firstTurn))
+    expect(await preview.textContent()).toContain(FIXTURE.markers.user(1))
+    expect(await preview.textContent()).toContain(FIXTURE.markers.assistant(1))
     const firstTurnPosition = await firstTurnButton.evaluate(button => (
-      button.parentElement?.style.getPropertyValue('--turn-position') ?? ''
+      button.parentElement?.style.getPropertyValue('--turn-natural-position') ?? ''
     ))
-    expect(firstTurnPosition).toBe('0%')
+    expect(firstTurnPosition).toBe('0px')
 
     const loadEarlier = page.getByRole('button', { name: 'Load earlier', exact: true })
+    const loadedMarks = turnNavigation.getByRole('button', { name: /^Jump to turn / })
+    const loadedBefore = await loadedMarks.count()
     await loadEarlier.click()
-    await expect.poll(() => turnNavigation.getByRole('button').count(), { timeout: 15_000 })
-      .toBeGreaterThan(initialTurnCount)
-    const stableFirstTurnButton = turnNavigation.getByRole('button', { name: firstTurnLabel })
-    expect(await stableFirstTurnButton.evaluate(button => (
-      button.parentElement?.style.getPropertyValue('--turn-position') ?? ''
-    ))).not.toBe(firstTurnPosition)
-    await stableFirstTurnButton.focus()
-    await expect.poll(() => preview.textContent(), { timeout: 5_000 })
-      .toContain(FIXTURE.markers.user(firstTurn))
-    expect(await preview.textContent()).toContain(FIXTURE.markers.assistant(firstTurn))
-    await stableFirstTurnButton.press('Enter')
-    await expect.poll(() => stableFirstTurnButton.getAttribute('aria-current'), { timeout: 5_000 }).toBe('true')
+    // Paging converts marks to their loaded form without moving the
+    // fixed-pitch ladder.
+    await expect.poll(() => loadedMarks.count(), { timeout: 15_000 }).toBeGreaterThan(loadedBefore)
+    expect(await firstTurnButton.evaluate(button => (
+      button.parentElement?.style.getPropertyValue('--turn-natural-position') ?? ''
+    ))).toBe(firstTurnPosition)
+    // Activating the still-unloaded oldest mark pages the rest in and lands
+    // on the turn's own row.
+    await firstTurnButton.focus()
+    await firstTurnButton.press('Enter')
+    const firstLoaded = turnNavigation.getByRole('button', { name: 'Jump to turn 1', exact: true })
+    await firstLoaded.waitFor({ timeout: 60_000 })
+    await expect.poll(() => firstLoaded.getAttribute('aria-current'), { timeout: 15_000 }).toBe('true')
     await expect.poll(
-      () => page.locator(`[data-chat-turn="${String(firstTurn)}"][data-chat-flow-kind="user"]`).count(),
+      () => page.locator('[data-chat-turn="1"][data-chat-flow-kind="user"]').count(),
       { timeout: 5_000 },
     ).toBe(1)
 

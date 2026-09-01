@@ -1,16 +1,8 @@
 // @vitest-environment jsdom
-/**
- * 文件职责：验证会话界面的 gate-branch-tails.client.spec.tsx 行为和边界。
- * 技术维度：Vitest、React 测试渲染、事件模拟与可控服务替身。
- * 产品维度：防止会话界面交互和展示在扩展后回归。
- * 逻辑维度：构造状态，触发渲染或交互，再断言输出和清理。
- * 关键边界：全局替身、计时器和异步任务必须在用例后恢复。
- * 新手阅读建议：先读辅助夹具，再按 describe 场景顺序阅读。
- */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, render } from '@testing-library/react'
-import { bindSnapshotSelector } from '@deepseek-ai/dsh-client-test-runtime'
+import { bindSnapshotSelector, makeTranslate } from '@deepseek-ai/dsh-client-test-runtime'
 import { createSnapshotStore } from '@deepseek-ai/dsh-client-store'
 import type {
   SessionListState, SessionSnapshot,
@@ -23,7 +15,6 @@ import { EMPTY_CONVERSATION_SNAPSHOT } from '@deepseek-ai/dsh-client-ui-conversa
 import type {
   DetailsSlotProps, DetailsToolOwnerProps, RunningToolCall, SelectionTarget,
 } from '@deepseek-ai/dsh-client-ui-chat/client'
-import { makeTranslate } from '@deepseek-ai/dsh-client-test-runtime'
 import { zh as commonZh } from '@deepseek-ai/dsh-client-locale/src/locales/zh.ts'
 import { createChatStore } from '../src/client/stores.ts'
 import { AssistantMarkdown, type AssistantMarkdownProps } from '../src/client/chat/AssistantMarkdown.tsx'
@@ -33,11 +24,9 @@ import { zh } from '../src/client/locale.ts'
 import { chatSnapshotFixture } from './chat-snapshot-fixture.client.ts'
 
 const t: AssistantMarkdownProps['t'] = makeTranslate(zh, commonZh)
-/** 中文说明：当前数据 renderMessageImages，取值由紧邻初始化决定。 */
 const renderMessageImages: AssistantMarkdownProps['renderMessageImages'] = () => null
 
 /** jsdom has no ResizeObserver; StatsLine watches its row for ellipsis truncation through one. */
-/* 中文说明：类型或类 ResizeObserverStub 约束本文件的数据或组件职责。 */
 class ResizeObserverStub {
   observe(): void {}
   unobserve(): void {}
@@ -50,14 +39,12 @@ afterEach(() => {
   vi.unstubAllGlobals()
 })
 
-/** 中文说明：测试局部值 SID，取值由紧邻初始化决定。 */
 const SID = 's1' as SessionId
 
 /** Minimal framework seat for direct DetailsPanel host tests. */
 const SessionProviderStub: SessionProviderComponent = ({ children }) => children
 
 /** Observe the owner currency without importing the Tool details renderer. */
-/* 中文说明：函数 renderToolDetailsProbe 的参数见签名，返回结果供相邻流程使用；示例见本文件调用处。 */
 function renderToolDetailsProbe(owners?: DetailsToolOwnerProps[]): DetailsSlotProps['renderSlot'] {
   return (_key, owner) => {
     owners?.push(owner as unknown as DetailsToolOwnerProps)
@@ -93,7 +80,6 @@ function emptyWorkspaces() {
 
 describe('render branch tails', () => {
   it('AssistantMarkdown reasoning row is ok-state when not the streaming tail', () => {
-    /** 中文说明：测试局部值 view，取值由紧邻初始化决定。 */
     const view = render(
       <AssistantMarkdown
         t={t}
@@ -111,7 +97,6 @@ describe('render branch tails', () => {
     // assembly-without-the-unit fallback). Node `usage` is deliberately
     // ignored: billing rides the durable tokenUsage projection, so an absent
     // projection leaves counts only.
-    /** 中文说明：有序集合 nodes，取值由紧邻初始化决定。 */
     const nodes = [
       { kind: 'assistant', seq: 1, time: 1, turn: 1, step: 1, blocks: [] },
       { kind: 'assistant', seq: 2, time: 2, turn: 1, step: 2, blocks: [], usage: { inputTokens: 4, outputTokens: 6 } },
@@ -119,7 +104,6 @@ describe('render branch tails', () => {
     ] as const
     const snap = chatSnapshotFixture({ nodes })
     const source = { getSnapshot: () => snap, subscribe: () => () => {} }
-    /** 中文说明：测试局部值 view，取值由紧邻初始化决定。 */
     const view = render(
       <StatsLine
         t={t}
@@ -131,7 +115,6 @@ describe('render branch tails', () => {
   })
 
   it('AssistantMarkdown reasoning as the streaming tail renders the running ring', () => {
-    /** 中文说明：测试局部值 view，取值由紧邻初始化决定。 */
     const view = render(
       <AssistantMarkdown
         t={t}
@@ -149,7 +132,6 @@ describe('render branch tails', () => {
     const chatSnapshot = chatSnapshotFixture()
     const chat = createChatStore().create()
     chat.actions.select({ turnSeq: 1, callId: 'ghost' } satisfies SelectionTarget)
-    /** 中文说明：有序集合 emptyList，取值由紧邻初始化决定。 */
     const emptyList = createSnapshotStore<SessionListState>(
       { ids: [], byId: {}, current: undefined, phase: 'ready', subagentsByParent: {}, jobsBySession: {}, currentAddress: undefined })
     const workspaces = emptyWorkspaces()
@@ -211,12 +193,10 @@ describe('render branch tails', () => {
     const chatSnapshot = chatSnapshotFixture({ runningCalls })
     const chat = createChatStore().create()
     chat.actions.select({ turnSeq: 9, callId: 'p1:code:1:code:1', toolName: 'read' } satisfies SelectionTarget)
-    /** 中文说明：有序集合 emptyList，取值由紧邻初始化决定。 */
     const emptyList = createSnapshotStore<SessionListState>(
       { ids: [], byId: {}, current: undefined, phase: 'ready', subagentsByParent: {}, jobsBySession: {}, currentAddress: undefined })
     const workspaces = emptyWorkspaces()
     const owners: DetailsToolOwnerProps[] = []
-    /** 中文说明：测试局部值 view，取值由紧邻初始化决定。 */
     const view = render(
       <DetailsPanel
         SessionProvider={SessionProviderStub}

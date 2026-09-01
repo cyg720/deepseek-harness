@@ -1,17 +1,3 @@
-/*
- * ================================ 文件注释 ================================
- * 【文件职责】session-projcache 存储域的声明：一张按 SessionId 键控的 sessions 表，
- *   每条记录是一个会话的完整投影检查点（key → {ver, seq, val} 行）。
- * 【技术维度】defineDomain + domainTable 声明域的身份/版本/记录 schema；
- *   zod 在持久化边界强制 val 为纯 JSON（z.json()）。
- * 【产品维度】域路由决定介质（json 后端落在 <root>/session_projcache.json 旁）。
- * 【逻辑维度】按代码顺序：checkpointRow → checkpointIdentity → CheckpointIdentity →
- *   checkpointRecord → CheckpointRecord → projectionCacheDomainSpec。
- * 【关键边界】域版本 3：版本升级会丢弃整个介质（缓存语义：旧缓存只贵在回放，不会错）。
- * 【新手阅读建议】理解"行可过期不可错"与"身份绑定"两个概念即可。
- * ==========================================================================
- */
-
 /**
  * The projection-cache domain declaration: one `sessions` table keyed by
  * {@link SessionId}, each record the full projection checkpoint for one
@@ -25,7 +11,7 @@
  */
 
 import { z } from 'zod'
-import { SessionId } from '@deepseek-ai/dsh-session'
+import type { SessionId } from '@deepseek-ai/dsh-session'
 import { defineDomain, domainTable } from '@deepseek-ai/dsh-storage-domain'
 
 /**

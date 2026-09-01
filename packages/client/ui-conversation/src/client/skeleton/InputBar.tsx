@@ -39,7 +39,6 @@ import css from './InputBar.module.css'
 
 export type InputBarProps = ComposerBarProps
 
-/** 中文说明：函数 InputBar 的参数见签名，返回结果供相邻流程使用；示例见本文件调用处。 */
 export function InputBar({
   useSession, useInput, inputActions, keyboard, addImages, removeImage, draftImages,
   resolveSubmitMode, toggleCommandMenu, stop, command, t,
@@ -48,109 +47,87 @@ export function InputBar({
   workspacePickerOpen = false, onRequestWorkspace,
   placeholder, accessory, overlay, leftItems, rightItems, footer,
 }: InputBarProps) {
-  /** 中文说明：组件局部值 input，取值由紧邻初始化决定。 */
   const input = useInput(s => s)
-  /** 中文说明：组件局部值 notice，取值由紧邻初始化决定。 */
   const notice = useNotices(s => s)
   void useLexicon // hook seat stays bound by the inject compartment; text-ref decoration rides the shell's editor transforms
   const commandMenuOpen = useMenuLauncher(source => source === 'command')
-  /** 中文说明：失败观测值 promptError，取值由紧邻初始化决定。 */
   const promptError = useSession(s => s.promptError) ?? null
-  /** 中文说明：组件局部值 running，取值由紧邻初始化决定。 */
   const running = useSession(s => s.running) ?? false
-  /** 中文说明：组件局部值 subagent，取值由紧邻初始化决定。 */
   const subagent = useSession(s => s.subagent) ?? null
-  /** 中文说明：清理函数 removed，取值由紧邻初始化决定。 */
   const removed = useSession(s => s.removed) ?? false
   // Plan mode swaps the composer placeholder (the projection is the folded
   // host value; owner-prop placeholders — hero, session-unavailable — win).
-  /** 中文说明：组件局部值 planActive，取值由紧邻初始化决定。 */
   const planActive = useProjection('plan', plan => plan !== undefined && (plan.pending ? !plan.active : plan.active))
   // Absent (undefined: no frame yet) and cleared (null) both mean no goal.
-  /** 中文说明：组件局部值 hasGoal，取值由紧邻初始化决定。 */
   const hasGoal = useProjection('goal', goal => goal != null)
   // Session-maybe: the machine faces are absent together while no session is
   // current; the bar renders the same DOM inert instead of a parallel tree.
-  /** 中文说明：组件局部值 live，取值由紧邻初始化决定。 */
   const live = input !== undefined && keyboard !== undefined && inputActions !== undefined
-  /** 中文说明：组件局部值 draft，取值由紧邻初始化决定。 */
   const draft = input?.draft ?? ''
   const editor = keyboard?.editor ?? null
   const attachments = useMemo(
     () => input === undefined || draftImages === undefined ? [] : draftImages(input.imageIds),
     [draftImages, input?.imageIds],
   )
-  /** 中文说明：组件局部值 empty，取值由紧邻初始化决定。 */
   const empty = draft.trim() === '' && attachments.length === 0
   // Transient error banner (machine notices, image-intake rejections, and
   // prompt failures): the seq keys the Toast so an identical repeated message
   // restarts the hold-then-fade cycle instead of reusing the faded one.
-  /** 中文说明：组件局部值 [toast, setToast]，取值由紧邻初始化决定。 */
   const [toast, setToast] = useState<{ seq: number; text: string } | null>(null)
-  /** 中文说明：组件局部值 toastSeq，取值由紧邻初始化决定。 */
   const toastSeq = useRef(0)
-  /** 中文说明：组件局部值 showToast，取值由紧邻初始化决定。 */
   const showToast = useCallback((text: string) => {
     toastSeq.current += 1
     setToast({ seq: toastSeq.current, text })
   }, [])
-  /** 中文说明：组件局部值 dismissToast，取值由紧邻初始化决定。 */
   const dismissToast = useCallback(() => { setToast(null) }, [])
   // The deployment's image-intake limits (absent while no attachment service
   // is composed — the pre-check below then defers entirely to the host).
-  /** 中文说明：组件局部值 imageLimits，取值由紧邻初始化决定。 */
   const imageLimits = useProjection('imageLimits')
   // Prompt failures are ordinary failures (no create/attach transaction exists
   // anymore): the toast announces promptError, the draft stays in the machine,
   // and the user resubmits. A remount over a session whose machine still holds
   // an unresolved promptError deliberately re-announces it once — the failure
   // is still pending, and a transient banner is its only surface. Attachment
-  // rejections show product copy keyed by the wire reason; other codes are
-  // developer-facing and keep the raw message plus code.
+  // rejections show product copy keyed by the wire reason — whichever domain
+  // refused them; other codes are developer-facing and keep the raw message
+  // plus code.
   useEffect(() => {
     if (promptError === null) return
-    showToast(promptError.error.code === 'attachment-error'
-      ? attachmentErrorText(t, promptError.error.details.reason, imageLimits)
-      : `${promptError.error.message} (${promptError.error.code})`)
+    const { error } = promptError
+    showToast(error.code === 'session/attachment-invalid' || error.code === 'subagent/attachment-invalid'
+      ? attachmentErrorText(t, error.details.reason, imageLimits)
+      : `${error.message} (${error.code})`)
   }, [promptError, showToast, t, imageLimits])
   useEffect(() => {
     if (notice?.level === 'error') showToast(notice.text)
   }, [notice, showToast])
   const cardRef = useRef<HTMLDivElement | null>(null)
-  /** 中文说明：组件局部值 scrollRef，取值由紧邻初始化决定。 */
   const scrollRef = useRef<HTMLDivElement | null>(null)
 
   // The Access seat's data: the host-computed permissions projection
   // (undefined = capability absent → the chip renders nothing).
-  /** 中文说明：组件局部值 permissions，取值由紧邻初始化决定。 */
   const permissions = useProjection('permissions')
 
   // A continuable child without its live parent cannot accept human input,
   // but its independent Stop below stays available while it runs.
-  /** 中文说明：组件局部值 continuable，取值由紧邻初始化决定。 */
   const continuable = subagent?.address.mode === 'continuable'
   const parentOffline = continuable && subagent.parentAvailable !== true
   // Running input stays free; locked = session removed, the
   // inert no-workspace state, the machine faces absent (no session), or a
   // parent-offline continuable child. An owner block also disables input;
   // adjudicating and submitting render read-only so the draft stays visible.
-  /** 中文说明：组件局部值 disabled，取值由紧邻初始化决定。 */
   const disabled = removed || inert || !live || blocked !== undefined || parentOffline
-  /** 中文说明：组件局部值 locked，取值由紧邻初始化决定。 */
   const locked = disabled
   // The model seat is the ONE control a block leaves live: every block this
   // contract has is cleared by choosing a model, so locking it too would leave
   // the composer asking for the only thing it prevents. The other reasons to
   // be disabled do lock it — there is no session to choose a model for.
-  /** 中文说明：组件局部值 modelSeatLocked，取值由紧邻初始化决定。 */
   const modelSeatLocked = removed || inert || !live
-  /** 中文说明：组件局部值 machineBusy，取值由紧邻初始化决定。 */
   const machineBusy = input?.phase === 'adjudicating' || input?.phase === 'submitting'
   // The no-workspace surface remains the resident DOM node but acts as the
   // existing picker trigger. Message controls stay locked until a Session
   // exists; the trigger itself is read-only rather than disabled so pointer
   // and keyboard users can reach the recovery action.
-  /** 中文说明：组件局部值 workspaceTrigger，取值由紧邻初始化决定。 */
   const workspaceTrigger = inert && !removed && onRequestWorkspace !== undefined
   const editorDisabled = removed || (locked && !workspaceTrigger)
   const editable = live && !locked && !machineBusy
@@ -220,17 +197,12 @@ export function InputBar({
   // a short draft never traps the gesture and a long draft stays scrollable.
   // Hero mounts have no host and keep native wheel scrolling.
   useEffect(() => {
-    /** 中文说明：组件局部值 el，取值由紧邻初始化决定。 */
     const el = scrollRef.current
     if (el === null) return
-    /** 中文说明：组件局部值 onWheel，取值由紧邻初始化决定。 */
     const onWheel = (e: WheelEvent): void => {
-      /** 中文说明：组件局部值 host，取值由紧邻初始化决定。 */
       const host = el.closest('[data-conversation-scroll]')
       if (!(host instanceof HTMLElement) || e.deltaY === 0) return
-      /** 中文说明：组件局部值 atTop，取值由紧邻初始化决定。 */
       const atTop = el.scrollTop <= 0
-      /** 中文说明：组件局部值 atEnd，取值由紧邻初始化决定。 */
       const atEnd = el.scrollTop + el.clientHeight >= el.scrollHeight - 1
       if ((e.deltaY < 0 && !atTop) || (e.deltaY > 0 && !atEnd)) return
       e.preventDefault()
@@ -245,10 +217,8 @@ export function InputBar({
   // never enters the rail — no more submit-time failure rolling the rail
   // back. The host enforces the same limits at submit for callers that bypass
   // this composer.
-  /** 中文说明：组件局部值 intakeImages，取值由紧邻初始化决定。 */
   const intakeImages = useCallback((files: readonly File[]): void => {
     if (addImages === undefined || files.length === 0) return
-    /** 中文说明：组件局部值 rejected，取值由紧邻初始化决定。 */
     const rejected = ((): string | null => {
       if (imageLimits !== undefined) {
         // Format precedes limits: a batch with
@@ -263,7 +233,6 @@ export function InputBar({
         if (files.some(file => file.size > imageLimits.maxImageBytes)) {
           return t('image.fileTooLarge', { size: imageSizeText(imageLimits.maxImageBytes) })
         }
-        /** 中文说明：组件局部值 total，取值由紧邻初始化决定。 */
         const total = attachments.reduce((sum, attachment) => sum + attachment.file.size, 0)
           + files.reduce((sum, file) => sum + file.size, 0)
         if (total > imageLimits.maxMessageImageBytes) {
@@ -275,7 +244,6 @@ export function InputBar({
     if (rejected !== null) showToast(rejected)
   }, [addImages, attachments, imageLimits, showToast, t])
 
-  /** 中文说明：组件局部值 canAcceptDrop，取值由紧邻初始化决定。 */
   const canAcceptDrop = !locked && !machineBusy && addImages !== undefined
 
   // The keymap handlers read live bar state through this ref so the editor
@@ -327,7 +295,6 @@ export function InputBar({
     editor?.getRootElement()?.focus({ preventScroll: true })
   }
 
-  /** 中文说明：组件局部值 onToggleCommandMenu，取值由紧邻初始化决定。 */
   const onToggleCommandMenu = (): void => {
     if (keyboard !== undefined) toggleCommandMenu?.(keyboard.caretSpan())
   }
@@ -347,9 +314,7 @@ export function InputBar({
   // continuable child keeps Send primary and exposes Stop independently.
   const primaryStops = running && subagent === null && (empty || blocked !== undefined)
   const interruptible = running && continuable
-  /** 中文说明：组件局部值 primaryLabel，取值由紧邻初始化决定。 */
   const primaryLabel = primaryStops ? t('input.stop') : t('input.send')
-  /** 中文说明：组件局部值 onPrimary，取值由紧邻初始化决定。 */
   const onPrimary = (): void => {
     if (primaryStops) {
       stop?.()
@@ -363,7 +328,6 @@ export function InputBar({
   // The Access seat: the projection-fed permission chip (renders nothing
   // while the permissions key is absent — permission-less host or Draft —
   // or while the command face is absent with the session).
-  /** 中文说明：组件局部值 accessSelect，取值由紧邻初始化决定。 */
   const accessSelect: ReactNode = command === undefined
     ? null
     : <PermissionSelect key={sessionId} value={permissions} locked={locked} command={command} t={t} />

@@ -19,14 +19,6 @@
  * restricting list and NTFS hard links alias one file object across paths.
  * @module @deepseek-ai/dsh-sandbox-local
  */
-/*
- * 文件职责：实现 index.ts 承担的沙箱策略与本地隔离配置、注册与生命周期职责。
- * 技术维度：使用 TypeScript、Cordis 插件、配置校验和系统资源管理。
- * 产品维度：为 Agent 提供可靠的沙箱策略与本地隔离能力。
- * 逻辑维度：解析配置，注册能力，执行核心操作，并在卸载时等待资源停止。
- * 关键边界：安全配置应尽早失败；不得泄露环境凭据；清理必须达到静止状态。
- * 新手阅读建议：先看导出类型与配置，再读主流程，最后关注平台限制和清理。
- */
 
 import { spawnSync } from 'node:child_process'
 import { existsSync, mkdtempSync, rmSync } from 'node:fs'
@@ -41,15 +33,14 @@ import {
 } from '@deepseek-ai/node-addon-landlock-run'
 import { Context } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
-import { assertNever } from '@deepseek-ai/dsh-llm'
 import { SandboxProvider, SandboxUnavailableError } from '@deepseek-ai/dsh-sandbox'
 import type { ConfinedArgv, ConfinedSandboxMode, RunnerFailureRule, SandboxEnforcement, SandboxPolicy } from '@deepseek-ai/dsh-sandbox'
 import type { SessionId } from '@deepseek-ai/dsh-session'
 import { AclWriteGrant, assertTempRootOutsideWorkspace, tempWriteSid, workspaceWriteSid } from '@deepseek-ai/dsh-sandbox-windows-acl'
+import { assertNever } from '@deepseek-ai/dsh-util-values'
 import { bwrapProfileArgs, landlockProfileArgs, seatbeltProfileArgs } from './profiles.ts'
 
 /** Plugin config. All optional — `static Config` supplies the defaults. */
-/* 中文说明：interface Config 定义本模块所需的数据或行为，用于表达沙箱策略与本地隔离场景。 */
 export interface Config {
   /**
    * Override the runner argv; bwrap-compatible profile arguments are appended. A
@@ -74,9 +65,7 @@ export interface Config {
 }
 
 /** Probe whether `bwrap` can create the profile; the provider caches the bounded result. */
-/* 中文说明：函数 defaultProbeBwrap 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function defaultProbeBwrap(timeoutMs: number): boolean {
-  /** 中文说明：变量 probe 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const probe = spawnSync('bwrap', [...bwrapProfileArgs({ mode: 'read-only', workspaceRoot: '/' }), '--', 'true'], {
     timeout: timeoutMs,
     stdio: 'ignore',
@@ -93,9 +82,7 @@ function defaultProbeBwrap(timeoutMs: number): boolean {
  * rungs' absent binaries. Apple marks the CLI deprecated but ships it on
  * every macOS; if it ever disappears, this probe is what fails closed.
  */
-/* 中文说明：函数 defaultProbeSeatbelt 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function defaultProbeSeatbelt(seatbeltExec: string, timeoutMs: number): boolean {
-  /** 中文说明：变量 probe 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const probe = spawnSync(seatbeltExec, [...seatbeltProfileArgs({ mode: 'read-only', workspaceRoot: '/' }), '--', 'true'], {
     timeout: timeoutMs,
     stdio: 'ignore',
@@ -110,12 +97,9 @@ function defaultProbeSeatbelt(seatbeltExec: string, timeoutMs: number): boolean 
  * sole candidate, so the product never probes; the probe exists for override
  * chains and mirrors the other rungs' shape.
  */
-/* 中文说明：函数 defaultProbeWindowsAcl 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function defaultProbeWindowsAcl(runnerInvocation: string[], timeoutMs: number): boolean {
-  /** 中文说明：变量 program 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const program = runnerInvocation[0]
   if (program === undefined) return false
-  /** 中文说明：变量 probe 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const probe = spawnSync(program, [
     ...runnerInvocation.slice(1),
     '--workspace', tmpdir(), '--temp', tmpdir(), '--mode', 'read-only',
@@ -128,7 +112,6 @@ function defaultProbeWindowsAcl(runnerInvocation: string[], timeoutMs: number): 
 }
 
 /** Test hook: inject probe verdicts / a fake launcher / a platform without real runners. */
-/* 中文说明：interface SandboxInternals 定义本模块所需的数据或行为，用于表达沙箱策略与本地隔离场景。 */
 export interface SandboxInternals {
   /** Replaces `process.platform` for chain selection (exercise any platform's chain from any host). */
   platform?: string
@@ -155,11 +138,9 @@ export interface SandboxInternals {
 }
 
 /** The chain's verdict: which runner confines, and how completely it enforces. */
-/* 中文说明：type SelectedRunner 定义本模块所需的数据或行为，用于表达沙箱策略与本地隔离场景。 */
 type SelectedRunner = { runner: 'bwrap' | 'landlock' | 'seatbelt' | 'windows-acl'; enforcement: SandboxEnforcement }
 
 /** One live session/workspace pair's private temp directory and capability. */
-/* 中文说明：interface AclTempCapability 定义本模块所需的数据或行为，用于表达沙箱策略与本地隔离场景。 */
 interface AclTempCapability {
   dir: string
   writeSid: string
@@ -175,7 +156,6 @@ interface AclTempCapability {
  * mode vocabulary) over the Landlock launcher; darwin has exactly one
  * candidate, selected without any probe.
  */
-/* 中文说明：常量 PLATFORM_CHAINS 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const PLATFORM_CHAINS: Record<string, readonly SelectedRunner['runner'][]> = {
   linux: ['bwrap', 'landlock'],
   darwin: ['seatbelt'],
@@ -194,7 +174,6 @@ const PLATFORM_CHAINS: Record<string, readonly SelectedRunner['runner'][]> = {
  * what distinguishes full from per-ABI-partial — and the launcher additionally
  * self-reports partial enforcement on stderr at every confined run).
  */
-/* 中文说明：常量 STATIC_ENFORCEMENT 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const STATIC_ENFORCEMENT: Record<SelectedRunner['runner'], SandboxEnforcement> = {
   bwrap: 'full',
   landlock: 'full',
@@ -212,7 +191,6 @@ const STATIC_ENFORCEMENT: Record<SelectedRunner['runner'], SandboxEnforcement> =
  * `spawnSync({ timeout: 0 })` as NO timeout, so an unvalidated 0 would
  * silently mean "unbounded" — the opposite of what the field promises.
  */
-/* 中文说明：函数 assertPositiveFinite 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function assertPositiveFinite(name: string, value: number): void {
   if (!Number.isFinite(value) || value <= 0) {
     throw new Error(`sandbox-local: ${name} must be a positive finite number`)
@@ -224,7 +202,6 @@ function assertPositiveFinite(name: string, value: number): void {
  * denied file effect produces under it, carried on every wrap (the seam's
  * `ConfinedArgv.denialSignatures`).
  */
-/* 中文说明：常量 DENIAL_SIGNATURES 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const DENIAL_SIGNATURES = {
   bwrap: ['read-only file system'],
   landlock: ['permission denied'],
@@ -236,7 +213,6 @@ const DENIAL_SIGNATURES = {
 } as const satisfies Record<SelectedRunner['runner'] | 'runnerCommand', readonly string[]>
 
 /** The windows-acl runner's documented failure exit (its own RUNNER_FAILURE_EXIT contract, distinct from Landlock's 125). */
-/* 中文说明：常量 WINDOWS_ACL_RUNNER_FAILURE_EXIT 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const WINDOWS_ACL_RUNNER_FAILURE_EXIT = 127
 
 /**
@@ -252,7 +228,6 @@ const WINDOWS_ACL_RUNNER_FAILURE_EXIT = 127
  * assembled snapshot fixture at
  * `packages/test-support/session-snapshot/tests/fixtures/partial-landlock-sandbox.ts`.
  */
-/* 中文说明：常量 RUNNER_FAILURE_RULES 保存本模块共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const RUNNER_FAILURE_RULES = {
   bwrap: [{ fatalSignatures: ['bwrap: '] }],
   landlock: [{
@@ -272,7 +247,6 @@ const RUNNER_FAILURE_RULES = {
  * latter revoked on provider dispose); the one-time probes spawn nothing
  * else.
  */
-/* 中文说明：class LocalSandboxProvider 定义本模块所需的数据或行为，用于表达沙箱策略与本地隔离场景。 */
 export class LocalSandboxProvider extends SandboxProvider {
   // Inline schema call: the config catalog walks `static Config` statically.
   static Config: z<Config> = z.object({
@@ -304,9 +278,7 @@ export class LocalSandboxProvider extends SandboxProvider {
     // The schema (static Config) defaults every field — the casts record
     // those runtime facts. An empty runnerCommand means "not configured":
     // use the platform chain.
-    /** 中文说明：变量 runner 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const runner = config.runnerCommand as string[]
-    /** 中文说明：变量 runnerFailureSignatures 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const runnerFailureSignatures = config.runnerFailureSignatures as string[]
     if (runner.length === 0 && runnerFailureSignatures.length > 0) {
       throw new Error('sandbox-local: runnerFailureSignatures requires runnerCommand')
@@ -350,9 +322,7 @@ export class LocalSandboxProvider extends SandboxProvider {
         runnerFailureRules: [{ fatalSignatures: this.configuredRunnerFailureSignatures }],
       }
     }
-    /** 中文说明：变量 selected 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const selected = this.selectRunner(policy.mode)
-    /** 中文说明：变量 runnerArgv 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const runnerArgv = this.runnerArgv(selected.runner, policy)
     return {
       argv: [...runnerArgv, '--', ...argv],
@@ -386,7 +356,6 @@ export class LocalSandboxProvider extends SandboxProvider {
    * @returns the runner invocation.
    */
   private windowsAclRunnerArgv(policy: SandboxPolicy): string[] {
-    /** 中文说明：变量 sessionId 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const sessionId = policy.sessionId
     if (sessionId === undefined || policy.mode === 'read-only') {
       return [
@@ -396,7 +365,6 @@ export class LocalSandboxProvider extends SandboxProvider {
         '--mode', policy.mode,
       ]
     }
-    /** 中文说明：变量 temp 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const temp = this.materializeAclGrant(sessionId, policy.workspaceRoot)
     return [
       ...this.windowsAclRunnerInvocation(),
@@ -423,10 +391,8 @@ export class LocalSandboxProvider extends SandboxProvider {
    */
   private materializeAclGrant(sessionId: SessionId, workspaceRoot: string): AclTempCapability {
     assertTempRootOutsideWorkspace(workspaceRoot, tmpdir())
-    /** 中文说明：变量 writeSid 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const writeSid = workspaceWriteSid(workspaceRoot)
     if (!this.workspaceGrants.has(workspaceRoot)) {
-      /** 中文说明：变量 grant 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const grant = AclWriteGrant.create(writeSid)
       try {
         grant.add(workspaceRoot, true)
@@ -443,22 +409,16 @@ export class LocalSandboxProvider extends SandboxProvider {
       }
       this.workspaceGrants.set(workspaceRoot, grant)
     }
-    /** 中文说明：变量 key 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const key = JSON.stringify([String(sessionId), workspaceRoot])
-    /** 中文说明：变量 existing 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const existing = this.tempCapabilities.get(key)
     if (existing !== undefined) return existing
-    /** 中文说明：变量 tempDir 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const tempDir = mkdtempSync(join(tmpdir(), 'dsh-'))
-    /** 中文说明：变量 tempSid 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const tempSid = tempWriteSid(tempDir)
-    /** 中文说明：变量 grant 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     let grant: AclWriteGrant | undefined
     try {
       grant = AclWriteGrant.create(tempSid)
       grant.add(tempDir)
     } catch (error) {
-      /** 中文说明：变量 cleanupFailures 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const cleanupFailures: unknown[] = []
       if (grant !== undefined) {
         try {
@@ -477,7 +437,6 @@ export class LocalSandboxProvider extends SandboxProvider {
       }
       throw error
     }
-    /** 中文说明：变量 capability 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const capability = { dir: tempDir, writeSid: tempSid, grant }
     this.tempCapabilities.set(key, capability)
     return capability
@@ -494,9 +453,7 @@ export class LocalSandboxProvider extends SandboxProvider {
    */
   private revokeAclGrants(): void {
     if (this.workspaceGrants.size === 0 && this.tempCapabilities.size === 0) return
-    /** 中文说明：变量 failures 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const failures: unknown[] = []
-    /** 中文说明：该循环依次处理输入数据；循环变量仅在当前循环中有效。 */
     for (const grant of [...this.workspaceGrants.values(), ...[...this.tempCapabilities.values()].map(capability => capability.grant)]) {
       try {
         grant.dispose()
@@ -504,7 +461,6 @@ export class LocalSandboxProvider extends SandboxProvider {
         failures.push(error)
       }
     }
-    /** 中文说明：该循环依次处理输入数据；循环变量仅在当前循环中有效。 */
     for (const { dir } of this.tempCapabilities.values()) {
       try {
         this.removeTempDir(dir)
@@ -516,14 +472,12 @@ export class LocalSandboxProvider extends SandboxProvider {
     this.tempCapabilities.clear()
     if (failures.length > 0) {
       this.ctx.logger.warn(`sandbox-local: windows-acl grant cleanup completed with ${failures.length} failure(s)`)
-      /** 中文说明：该循环依次处理输入数据；循环变量仅在当前循环中有效。 */
       for (const error of failures) this.ctx.logger.warn(error)
     }
   }
 
   /** Remove one provider-owned private temp directory (injectable for cleanup tests). */
   private removeTempDir(dir: string): void {
-    /** 中文说明：函数值 remove 封装本模块的局部步骤；参数和返回值由右侧签名约束；示例见本模块调用。 */
     const remove = this.internals.rmTempDir ?? ((path: string) => { rmSync(path, { recursive: true, force: true }) })
     remove(dir)
   }
@@ -543,15 +497,12 @@ export class LocalSandboxProvider extends SandboxProvider {
 
   /** Walk this platform's chain: sole candidate unprobed, several probed in order, none usable → unavailable. */
   private chainVerdict(): SelectedRunner | 'unavailable' {
-    /** 中文说明：变量 chain 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const chain = this.internals.chain ?? PLATFORM_CHAINS[this.internals.platform ?? process.platform] ?? []
     const [first, ...rest] = chain
     if (first === undefined) return 'unavailable'
     // A sole candidate needs no arbitration; its execution-time refusal still fails closed.
     if (rest.length === 0) return { runner: first, enforcement: STATIC_ENFORCEMENT[first] }
-    /** 中文说明：该循环依次处理输入数据；循环变量仅在当前循环中有效。 */
     for (const runner of chain) {
-      /** 中文说明：变量 enforcement 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const enforcement = this.probeRunner(runner)
       if (enforcement !== 'unusable') return { runner, enforcement }
     }
@@ -567,22 +518,18 @@ export class LocalSandboxProvider extends SandboxProvider {
     // partial for its documented Everyone and hard-link boundaries.
     switch (runner) {
       case 'bwrap': {
-        /** 中文说明：函数值 probe 封装本模块的局部步骤；参数和返回值由右侧签名约束；示例见本模块调用。 */
         const probe = this.internals.probeBwrap ?? (() => defaultProbeBwrap(this.probeTimeoutMs))
         return probe() ? 'full' : 'unusable'
       }
       case 'landlock': {
-        /** 中文说明：函数值 probe 封装本模块的局部步骤；参数和返回值由右侧签名约束；示例见本模块调用。 */
         const probe = this.internals.probeLandlock ?? (launcher => defaultProbeLandlock(launcher, { timeoutMs: this.probeTimeoutMs }))
         return probe(this.landlockLauncher())
       }
       case 'seatbelt': {
-        /** 中文说明：函数值 probe 封装本模块的局部步骤；参数和返回值由右侧签名约束；示例见本模块调用。 */
         const probe = this.internals.probeSeatbelt ?? (exec => defaultProbeSeatbelt(exec, this.probeTimeoutMs))
         return probe(this.seatbeltExec()) ? 'full' : 'unusable'
       }
       case 'windows-acl': {
-        /** 中文说明：变量 probe 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
         const probe = this.internals.probeWindowsAcl
           ?? (() => defaultProbeWindowsAcl(this.windowsAclRunnerInvocation(), this.probeTimeoutMs))
         return probe() ? 'partial' : 'unusable'
@@ -608,13 +555,10 @@ export class LocalSandboxProvider extends SandboxProvider {
    * the same argv contract and only swaps these entries.
    */
   private windowsAclRunnerInvocation(): string[] {
-    /** 中文说明：变量 override 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const override = this.internals.windowsAclRunnerArgs
     if (override !== undefined) return override
-    /** 中文说明：变量 builtEntry 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const builtEntry = this.internals.windowsAclRunnerEntry ?? fileURLToPath(import.meta.resolve('@deepseek-ai/dsh-sandbox-windows-acl/runner'))
     if (existsSync(builtEntry)) return [process.execPath, builtEntry]
-    /** 中文说明：变量 sourceEntry 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const sourceEntry = fileURLToPath(import.meta.resolve('@deepseek-ai/dsh-sandbox-windows-acl/src/runner.ts'))
     return [process.execPath, '--import', 'tsx/esm', sourceEntry]
   }

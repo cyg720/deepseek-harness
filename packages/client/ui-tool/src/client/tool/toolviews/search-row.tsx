@@ -16,9 +16,7 @@ const SEARCH_TITLE_KEYS = {
 
 /** Lets users expand grep or glob results and recover capped searches. */
 export function SearchRow({ toolName, block, inspect, t }: SearchRowProps) {
-  /** 中文说明：视图局部值 model，由紧邻初始化决定。 */
   const model = toolRowModel(toolName, block)
-  /** 中文说明：视图局部值 search，由紧邻初始化决定。 */
   const search = searchCardModel(block)
   return (
     <ToolRow
@@ -30,7 +28,6 @@ export function SearchRow({ toolName, block, inspect, t }: SearchRowProps) {
         ? SEARCH_TITLE_KEYS.grep
         : toolName === 'glob' ? SEARCH_TITLE_KEYS.glob : model.titleKey)}
       summary={model.summary}
-      body={null}
       // ToolRow ignores output when a structured card is present; otherwise it
       // preserves the generic fallback for errors and legacy results.
       output={model.output}

@@ -4,14 +4,6 @@
  *
  * Run: `tsx scripts/check-workspace-constraints.ts`.
  */
-/*
- * 文件职责：实现 check-workspace-constraints.ts 覆盖的仓库构建、校验或维护脚本职责。
- * 技术维度：使用 TypeScript、JavaScript、Vitest、Node.js 文件系统或构建工具。
- * 产品维度：通过仓库构建、校验或维护脚本保障项目开发、发布和 Agent 工作区行为一致。
- * 逻辑维度：解析参数和文件，执行检查或转换，再输出结果并处理错误。
- * 关键边界：脚本可能修改构建产物；路径和子进程输出不可信；失败必须以非零状态显式报告。
- * 新手阅读建议：先看命令入口和参数，再读文件遍历或转换，最后关注错误码和平台差异。
- */
 
 import { existsSync, readdirSync, readFileSync } from 'node:fs'
 import { join, relative, resolve } from 'node:path'
@@ -19,11 +11,9 @@ import { pathToFileURL } from 'node:url'
 import { hasTypertRemoteNavigation, isForbiddenPublicationFile } from './publication-payload.ts'
 import { collectProjectReferenceFaceViolations } from './project-reference-faces.ts'
 
-/** 中文说明：变量 root 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const root = resolve(import.meta.dirname, '..')
 // vendor/* is single-level; packages/<group>/<pkg> nests one level deeper
 // (the group dirs — core/llm/shell/… — are pure containers with no manifest).
-/** 中文说明：变量 workspaceGlobs 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const workspaceGlobs = [
   { dir: 'vendor', depth: 1 },
   { dir: 'packages', depth: 2 },
@@ -31,7 +21,6 @@ const workspaceGlobs = [
   { dir: 'native/landlock-run/packages', depth: 1 },
   { dir: 'apps', depth: 1 },
 ] as const
-/** 中文说明：变量 vendoredPackages 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const vendoredPackages = new Set([
   '@deepseek-ai/cordis',
   '@deepseek-ai/cosmokit',
@@ -43,37 +32,29 @@ const vendoredPackages = new Set([
   '@deepseek-ai/cordis-plugin-hmr',
   '@deepseek-ai/cordis-plugin-logger-console',
 ])
-/** 中文说明：变量 publicLandlockPackages 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const publicLandlockPackages = new Set([
   '@deepseek-ai/node-addon-landlock-run',
   '@deepseek-ai/node-addon-landlock-run-linux-arm64',
   '@deepseek-ai/node-addon-landlock-run-linux-x64',
 ])
 /** Deliberate source payloads whose exact bytes are part of the package's audit surface. */
-/* 中文说明：变量 publicationSourceAllowlist 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const publicationSourceAllowlist: Readonly<Record<string, readonly string[]>> = {
   '@deepseek-ai/node-addon-landlock-run': ['src/main.c'],
 }
-/** 中文说明：变量 repositoryUrl 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const repositoryUrl = 'git+https://github.com/deepseek-harness/deepseek-harness.git'
 /**
  * Source home the published packages point consumers at. It differs from
  * {@link repositoryUrl}, which the Landlock packages keep because npm resolves
  * their trusted publishing against the repository that runs the workflow.
  */
-/* 中文说明：变量 publishedRepositoryUrl 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const publishedRepositoryUrl = 'git+https://github.com/deepseek-ai/deepseek-harness.git'
 /** Private packages that participate in workspace checks but not releases. */
-/* 中文说明：变量 experimentalPackageDirectory 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const experimentalPackageDirectory = /^packages\/experimental\/[^/]+$/
 /** npm namespace reserved for private experimental packages. */
-/* 中文说明：变量 experimentalPackageNamePrefix 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const experimentalPackageNamePrefix = '@deepseek-ai/dsh-experimental-'
 /** Directories whose packages this repository publishes: one release member each. */
-/* 中文说明：变量 releaseMemberDirectory 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const releaseMemberDirectory = /^(?:packages\/(?!experimental\/)[^/]+\/[^/]+|apps\/[^/]+|vendor\/[^/]+)$/
 const localArtifactDirs = new Set(['node_modules'])
-/** 中文说明：变量 appPackageFiles 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const appPackageFiles: Readonly<Record<string, readonly string[]>> = {
   '@deepseek-ai/dsh': ['lib/*.js'],
   // Sourcemaps stay out by payload policy; the worker-preview surface
@@ -83,7 +64,6 @@ const appPackageFiles: Readonly<Record<string, readonly string[]>> = {
 }
 
 /** The subset of package.json fields this constraint check cares about. */
-/* 中文说明：interface PackageManifest 定义本模块所需的数据或行为，用于表达仓库构建、校验或维护脚本场景。 */
 export interface PackageManifest {
   name?: string
   version?: string
@@ -117,28 +97,21 @@ export interface PackageManifest {
 }
 
 /** One workspace manifest and its repo-relative path. */
-/* 中文说明：interface WorkspaceManifest 定义本模块所需的数据或行为，用于表达仓库构建、校验或维护脚本场景。 */
 export interface WorkspaceManifest {
   dir: string
   manifest: PackageManifest
 }
 
-/** 中文说明：函数 readJson 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function readJson(path: string): PackageManifest {
   return JSON.parse(readFileSync(path, 'utf8')) as PackageManifest
 }
 
-/** 中文说明：变量 rootManifest 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const rootManifest = readJson(join(root, 'package.json'))
-/** 中文说明：变量 repositoryVersion 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const repositoryVersion = rootManifest.version
-/** 中文说明：变量 landlockWorkspaceManifest 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const landlockWorkspaceManifest = readJson(join(root, 'native/landlock-run/package.json'))
-/** 中文说明：变量 landlockVersion 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const landlockVersion = landlockWorkspaceManifest.version
 
 /** Repo-relative dirs holding a package.json, walked to the configured depth. */
-/* 中文说明：函数 packageDirs 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function packageDirs(base: string, depth: number): string[] {
   if (depth === 1) {
     return readdirSync(join(root, base), { withFileTypes: true })
@@ -153,16 +126,12 @@ function packageDirs(base: string, depth: number): string[] {
     .flatMap(group => packageDirs(`${base}/${group.name}`, depth - 1))
 }
 
-/** 中文说明：函数 workspaceManifests 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function workspaceManifests(): WorkspaceManifest[] {
-  /** 中文说明：变量 manifests 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const manifests: WorkspaceManifest[] = [
     { dir: '.', manifest: rootManifest },
   ]
 
-  /** 中文说明：该循环依次处理文件或数据；循环变量仅在当前循环中有效。 */
   for (const { dir: base, depth } of workspaceGlobs) {
-    /** 中文说明：该循环依次处理文件或数据；循环变量仅在当前循环中有效。 */
     for (const dir of packageDirs(base, depth)) {
       manifests.push({ dir, manifest: readJson(join(root, dir, 'package.json')) })
     }
@@ -171,7 +140,6 @@ function workspaceManifests(): WorkspaceManifest[] {
   return manifests
 }
 
-/** 中文说明：变量 packageFileExtras 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const packageFileExtras: Readonly<Record<string, readonly string[]>> = {
   // Statically linked client libraries keep their stylesheets next to the emitted
   // JavaScript, which imports them by relative path: the compile shell runs
@@ -192,12 +160,6 @@ const packageFileExtras: Readonly<Record<string, readonly string[]>> = {
   // sandbox-local resolves it through the package's ./runner export. tsdown
   // also shares its generated FFI code through a hashed runtime chunk.
   '@deepseek-ai/dsh-sandbox-windows-acl': ['lib/runner.js', 'lib/types-*.js'],
-  // SQLite loads its compression dictionary and every statement from immutable
-  // package resources at runtime.
-  '@deepseek-ai/dsh-session-persistence-sqlite': [
-    'resources/zstd-dictionary.bin',
-    'resources/sql/**/*.sql',
-  ],
   '@deepseek-ai/dsh-skill-badge': ['assets'],
   // tsdown shares the repository/pack code between the lib entry and the bin
   // through a hashed chunk. The committed bin.js is the link target pnpm can
@@ -206,16 +168,13 @@ const packageFileExtras: Readonly<Record<string, readonly string[]>> = {
   '@deepseek-ai/dsh-subprocess-local': ['scripts/ensure-spawn-helper.mjs'],
 }
 
-/** 中文说明：函数 sameStringList 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function sameStringList(actual: readonly string[] | undefined, expected: readonly string[]): boolean {
   return !!actual && actual.length === expected.length && actual.every((value, index) => value === expected[index])
 }
 
 export function expectedDshPackageFiles(manifest: PackageManifest): readonly string[] {
   const declaredPatch = manifest.dsh?.bundle?.patch
-  /** 中文说明：变量 bundleFiles 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const bundleFiles = declaredPatch === undefined ? [] : [declaredPatch.replace(/^\.\//, '')]
-  /** 中文说明：变量 extras 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const extras = [
     ...bundleFiles,
     ...(manifest.name ? packageFileExtras[manifest.name] ?? [] : []),
@@ -263,14 +222,12 @@ export function expectedDshPackageFiles(manifest: PackageManifest): readonly str
 }
 
 /** Whether one conditional export exactly names the generated runtime and declaration pair. */
-/* 中文说明：函数 hasExportPair 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function hasExportPair(
   manifest: PackageManifest,
   subpath: string,
   types: string,
   runtime: string,
 ): boolean {
-  /** 中文说明：变量 entry 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const entry = manifest.exports?.[subpath]
   return typeof entry === 'object'
     && entry !== null
@@ -279,9 +236,7 @@ function hasExportPair(
 }
 
 /** Runtime target of an export entry: conditional `default`, or the bare-string shorthand. */
-/* 中文说明：函数 exportDefault 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function exportDefault(manifest: PackageManifest, subpath: string): string | undefined {
-  /** 中文说明：变量 entry 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const entry = manifest.exports?.[subpath]
   if (typeof entry === 'string') return entry
   if (typeof entry === 'object' && entry !== null) return entry.default
@@ -289,19 +244,15 @@ function exportDefault(manifest: PackageManifest, subpath: string): string | und
 }
 
 /** Whether any export's runtime default points into the tsc-emitted lib/types tree. */
-/* 中文说明：函数 usesEmittedTreeDefaults 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function usesEmittedTreeDefaults(manifest: PackageManifest): boolean {
   return Object.keys(manifest.exports ?? {}).some(subpath =>
     exportDefault(manifest, subpath)?.startsWith('./lib/types/') === true)
 }
 
 /** Experimental manifest requirements enforced independently from release metadata. */
-/* 中文说明：函数 checkExperimentalManifest 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 export function checkExperimentalManifest({ dir, manifest }: WorkspaceManifest): string[] {
   if (!experimentalPackageDirectory.test(dir)) return []
-  /** 中文说明：变量 label 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const label = manifest.name ?? dir
-  /** 中文说明：变量 errors 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const errors: string[] = []
   if (manifest.name?.startsWith(experimentalPackageNamePrefix) !== true) {
     errors.push(`${label}: experimental package name must start with ${JSON.stringify(experimentalPackageNamePrefix)}`)
@@ -318,11 +269,8 @@ export function checkExperimentalManifest({ dir, manifest }: WorkspaceManifest):
  */
 export function checkWorkspaceManifest({ dir, manifest }: WorkspaceManifest): string[] {
   const errors = checkExperimentalManifest({ dir, manifest })
-  /** 中文说明：变量 label 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const label = manifest.name ?? dir
-  /** 中文说明：变量 isLandlockPackageDir 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const isLandlockPackageDir = dir.startsWith('native/landlock-run/packages/')
-  /** 中文说明：变量 isPublicLandlockPackage 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const isPublicLandlockPackage = isLandlockPackageDir
     && manifest.name !== undefined
     && publicLandlockPackages.has(manifest.name)
@@ -334,7 +282,6 @@ export function checkWorkspaceManifest({ dir, manifest }: WorkspaceManifest): st
     if (manifest.publishConfig?.access !== 'public') {
       errors.push(`${label}: published Landlock package must set publishConfig.access to "public"`)
     }
-    /** 中文说明：变量 expectedDirectory 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const expectedDirectory = dir
     if (manifest.repository?.type !== 'git'
       || manifest.repository.url !== repositoryUrl
@@ -372,9 +319,7 @@ export function checkWorkspaceManifest({ dir, manifest }: WorkspaceManifest): st
   }
 
   if (manifest.name?.startsWith('@deepseek-ai/')) {
-    /** 中文说明：变量 allowedSources 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const allowedSources = publicationSourceAllowlist[manifest.name] ?? []
-    /** 中文说明：该循环依次处理文件或数据；循环变量仅在当前循环中有效。 */
     for (const file of manifest.files ?? []) {
       if (isForbiddenPublicationFile(file) && !allowedSources.includes(file)) {
         errors.push(`${label}: package.json files must not publish ${JSON.stringify(file)}`)
@@ -383,7 +328,6 @@ export function checkWorkspaceManifest({ dir, manifest }: WorkspaceManifest): st
   }
 
   if (dir.startsWith('apps/') && manifest.name?.startsWith('@deepseek-ai/')) {
-    /** 中文说明：变量 expectedFiles 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const expectedFiles = appPackageFiles[manifest.name]
     if (expectedFiles === undefined) {
       errors.push(`${label}: app package has no publication files policy`)
@@ -402,9 +346,7 @@ export function checkWorkspaceManifest({ dir, manifest }: WorkspaceManifest): st
   }
 
   if (dir.startsWith('packages/') && manifest.name?.startsWith('@deepseek-ai/dsh-')) {
-    /** 中文说明：变量 peer 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const peer = manifest.peerDependencies?.['@deepseek-ai/cordis']
-    /** 中文说明：变量 dev 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const dev = manifest.devDependencies?.['@deepseek-ai/cordis']
 
     if (!peer) errors.push(`${label}: @deepseek-ai/cordis must be a peerDependency`)
@@ -424,9 +366,7 @@ export function checkWorkspaceManifest({ dir, manifest }: WorkspaceManifest): st
     if (manifest.types !== 'lib/types/index.d.ts') {
       errors.push(`${label}: package.json must set "types": "lib/types/index.d.ts"`)
     }
-    /** 中文说明：变量 rootExport 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const rootExport = manifest.exports?.['.']
-    /** 中文说明：变量 rootEntry 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const rootEntry = typeof rootExport === 'object' && rootExport !== null ? rootExport : undefined
     if (rootEntry?.types !== './lib/types/index.d.ts') {
       errors.push(`${label}: package.json exports["."].types must be "./lib/types/index.d.ts"`)
@@ -434,9 +374,7 @@ export function checkWorkspaceManifest({ dir, manifest }: WorkspaceManifest): st
     if (rootEntry?.default !== './lib/index.js') {
       errors.push(`${label}: package.json exports["."].default must be "./lib/index.js"`)
     }
-    /** 中文说明：变量 invariantRaw 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const invariantRaw = manifest.exports?.['./invariant']
-    /** 中文说明：变量 invariantExport 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const invariantExport = typeof invariantRaw === 'object' && invariantRaw !== null ? invariantRaw : undefined
     if (invariantExport?.types !== undefined && invariantExport.types !== './lib/types/invariant.d.ts') {
       errors.push(`${label}: package.json exports["./invariant"].types must be "./lib/types/invariant.d.ts"`)
@@ -447,7 +385,6 @@ export function checkWorkspaceManifest({ dir, manifest }: WorkspaceManifest): st
     if (invariantExport && (invariantExport.types === undefined || invariantExport.default === undefined)) {
       errors.push(`${label}: package.json exports["./invariant"] must declare both types and default targets`)
     }
-    /** 中文说明：变量 expectedFiles 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const expectedFiles = expectedDshPackageFiles(manifest)
     if (!sameStringList(manifest.files, expectedFiles)) {
       errors.push(`${label}: package.json files must be ${JSON.stringify(expectedFiles)}`)
@@ -461,26 +398,19 @@ export function checkWorkspaceManifest({ dir, manifest }: WorkspaceManifest): st
  * Enforce `packages/<group>/<pkg>`: groups are open-named containers without a
  * package.json, and packages may be neither flat nor more deeply nested.
  */
-/* 中文说明：函数 checkHierarchyShape 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function checkHierarchyShape(): string[] {
-  /** 中文说明：变量 errors 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const errors: string[] = []
-  /** 中文说明：变量 packagesRoot 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const packagesRoot = join(root, 'packages')
-  /** 中文说明：该循环依次处理文件或数据；循环变量仅在当前循环中有效。 */
   for (const group of readdirSync(packagesRoot, { withFileTypes: true })) {
     if (!group.isDirectory()) continue
-    /** 中文说明：变量 groupRel 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const groupRel = join('packages', group.name)
     if (existsSync(join(packagesRoot, group.name, 'package.json'))) {
       errors.push(`${groupRel}: a group dir must not contain a package.json — packages live at packages/<group>/<pkg>, not directly under packages/`)
       continue
     }
-    /** 中文说明：该循环依次处理文件或数据；循环变量仅在当前循环中有效。 */
     for (const pkg of readdirSync(join(packagesRoot, group.name), { withFileTypes: true })) {
       if (!pkg.isDirectory()) continue
       if (localArtifactDirs.has(pkg.name)) continue
-      /** 中文说明：变量 pkgRel 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const pkgRel = join(groupRel, pkg.name)
       if (!existsSync(join(packagesRoot, group.name, pkg.name, 'package.json'))) {
         errors.push(`${pkgRel}: expected a package here (no package.json found) — the hierarchy is exactly packages/<group>/<pkg>, no deeper nesting`)
@@ -490,7 +420,6 @@ function checkHierarchyShape(): string[] {
   return errors
 }
 
-/** 中文说明：函数 checkRepositoryVersion 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function checkRepositoryVersion(): string[] {
   // The root carries the dsh release family's version, so a prerelease such as
   // 0.0.1-rc.1 is a valid state between `release:dsh` and its publication.
@@ -499,10 +428,8 @@ function checkRepositoryVersion(): string[] {
 }
 
 /** Dependency sections whose ranges reach a published tarball or a local install. */
-/* 中文说明：变量 dependencySections 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const dependencySections = ['dependencies', 'devDependencies', 'peerDependencies', 'optionalDependencies'] as const
 /** Dependency sections present in an installed runtime. */
-/* 中文说明：变量 runtimeDependencySections 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const runtimeDependencySections = ['dependencies', 'optionalDependencies', 'peerDependencies'] as const
 
 /**
@@ -510,21 +437,15 @@ const runtimeDependencySections = ['dependencies', 'optionalDependencies', 'peer
  * @param manifests - release, private experimental, and deployment-root manifests.
  * @returns One error for each forbidden runtime dependency.
  */
-/* 中文说明：函数 checkExperimentalDependencyIsolation 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 export function checkExperimentalDependencyIsolation(manifests: readonly WorkspaceManifest[]): string[] {
-  /** 中文说明：变量 experimentalNames 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const experimentalNames = new Set(manifests
     .filter(entry => experimentalPackageDirectory.test(entry.dir))
     .map(entry => entry.manifest.name)
     .filter(name => name !== undefined))
-  /** 中文说明：变量 errors 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const errors: string[] = []
-  /** 中文说明：该循环依次处理文件或数据；循环变量仅在当前循环中有效。 */
   for (const { dir, manifest } of manifests) {
     if (!releaseMemberDirectory.test(dir) && dir !== 'python/sdk-runtime') continue
-    /** 中文说明：该循环依次处理文件或数据；循环变量仅在当前循环中有效。 */
     for (const section of runtimeDependencySections) {
-      /** 中文说明：该循环依次处理文件或数据；循环变量仅在当前循环中有效。 */
       for (const name of Object.keys(manifest[section] ?? {})) {
         if (!experimentalNames.has(name)) continue
         errors.push(`${manifest.name ?? dir}: ${section}.${name} must not reference an experimental package`)
@@ -544,17 +465,11 @@ export function checkExperimentalDependencyIsolation(manifests: readonly Workspa
  * @param manifests - every workspace manifest.
  * @returns One error per reference that names a workspace member without the protocol.
  */
-/* 中文说明：函数 checkWorkspaceProtocol 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function checkWorkspaceProtocol(manifests: readonly WorkspaceManifest[]): string[] {
-  /** 中文说明：函数值 members 封装本模块的局部步骤；参数和返回值由右侧签名约束；示例见本模块调用。 */
   const members = new Set(manifests.map(entry => entry.manifest.name).filter(name => name !== undefined))
-  /** 中文说明：变量 errors 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const errors: string[] = []
-  /** 中文说明：该循环依次处理文件或数据；循环变量仅在当前循环中有效。 */
   for (const { dir, manifest } of manifests) {
-    /** 中文说明：该循环依次处理文件或数据；循环变量仅在当前循环中有效。 */
     for (const section of dependencySections) {
-      /** 中文说明：该循环依次处理文件或数据；循环变量仅在当前循环中有效。 */
       for (const [name, range] of Object.entries(manifest[section] ?? {})) {
         if (!members.has(name) || range.startsWith('workspace:')) continue
         errors.push(`${manifest.name ?? dir}: ${section}.${name} must use the workspace: protocol, got ${range}`)
@@ -565,16 +480,12 @@ function checkWorkspaceProtocol(manifests: readonly WorkspaceManifest[]): string
 }
 
 /** Run the repository constraint gate. */
-/* 中文说明：函数 main 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 export function main(): void {
-  /** 中文说明：变量 manifests 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const manifests = workspaceManifests()
-  /** 中文说明：变量 dependencyManifests 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const dependencyManifests = [
     ...manifests,
     { dir: 'python/sdk-runtime', manifest: readJson(join(root, 'python/sdk-runtime/package.json')) },
   ]
-  /** 中文说明：变量 errors 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const errors = [
     ...checkRepositoryVersion(),
     ...manifests.flatMap(checkWorkspaceManifest),

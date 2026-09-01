@@ -2,43 +2,28 @@
  * SessionManager orchestration: lazy resident instances, list lifecycle, host
  * frame routing, and control baselines for uninstantiated sessions.
  */
-/*
- * 文件职责：验证客户端会话运行时的 manager 行为与边界。
- * 技术维度：Vitest、TypeScript、可控测试替身和真实模块组装。
- * 产品维度：防止用户可见行为在重构或扩展后发生回归。
- * 逻辑维度：构造场景输入，调用被测入口，记录状态并断言结果。
- * 关键边界：测试替身需在用例后清理；异步任务不能泄漏到后续场景。
- * 新手阅读建议：先读辅助函数和固定数据，再按 describe 场景顺序阅读。
- */
 
 import { describe, expect, it, vi } from 'vitest'
 import type { SessionId } from '@deepseek-ai/dsh-api-remotes/client'
+import { RemoteError } from '@deepseek-ai/dsh-typert-protocol'
 import type { SessionControlFrame } from '@deepseek-ai/dsh-api-session-controller/types'
 import type {} from '@deepseek-ai/dsh-session-title/client'
 import { SessionManager } from '../src/client/sessions/manager.ts'
-import { FakeApiClient, deferred, err, fakeRemote, ok, remoteErr, remoteOk } from './fake-api.client.ts'
+import { FakeApiClient, deferred, err, fakeRemote, ok } from './fake-api.client.ts'
 import { entries, plainTurn } from './event-script.client.ts'
 
-/** 中文说明：测试场景的局部值 S1，取值由紧邻初始化决定，仅在当前作用域使用。 */
 const S1 = 'fk-m1' as SessionId
-/** 中文说明：测试场景的局部值 S2，取值由紧邻初始化决定，仅在当前作用域使用。 */
 const S2 = 'fk-m2' as SessionId
 
-/** 中文说明：类型 SummaryOver 约束本文件数据字段及允许取值。 */
 type SummaryOver = Partial<{
-  /** 中文说明：成员 updatedAt 保存可编排测试状态，取值由声明类型限定。 */
   updatedAt: number
-  /** 中文说明：成员 running 保存可编排测试状态，取值由声明类型限定。 */
   running: boolean
-  /** 中文说明：成员 blank 保存可编排测试状态，取值由声明类型限定。 */
   blank: boolean
   cwd: string
   parentSessionId: SessionId
-  /** 中文说明：成员 origin 保存可编排测试状态，取值由声明类型限定。 */
   origin: 'subagent'
 }>
 
-/** 中文说明：函数 summary 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 function summary(sessionId: SessionId, over: SummaryOver = {}) {
   return { sessionId, updatedAt: 100, running: false, blank: false, ...over }
 }
@@ -50,12 +35,10 @@ function makeManager(): SessionManager {
 
 describe('SessionManager instances', () => {
   it('lazily builds one resident instance per id and syncs the running bit from the list', async () => {
-    /** 中文说明：当前服务或测试对象 api，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const api = new FakeApiClient()
     api.onList = () => Promise.resolve(ok({ items: [summary(S1, { running: true })] as never[] }))
     const manager = new SessionManager(fakeRemote(api))
     await manager.refreshList()
-    /** 中文说明：测试场景的局部值 session，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const session = manager.get(S1)
     expect(manager.get(S1)).toBe(session) // resident: same instance forever
     expect(session.getSnapshot().running).toBe(true) // list preceded instantiation
@@ -65,29 +48,23 @@ describe('SessionManager instances', () => {
 
 describe('list lifecycle', () => {
   it('single-flights refreshList and preserves the Host baseline order', async () => {
-    /** 中文说明：当前服务或测试对象 api，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const api = new FakeApiClient()
-    /** 中文说明：异步等待或同步门 gate，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const gate = deferred<Awaited<ReturnType<FakeApiClient['onList']>>>()
     api.onList = () => gate.promise
     const manager = new SessionManager(fakeRemote(api))
     const first = manager.refreshList()
-    /** 中文说明：测试场景的局部值 second，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const second = manager.refreshList()
     expect(manager.getListSnapshot().state).toBe('loading')
     gate.resolve(ok({ items: [summary(S2, { updatedAt: 200 }), summary(S1)] as never[] }))
     await Promise.all([first, second])
     expect(api.callsOf('session.list')).toHaveLength(1)
-    /** 中文说明：当前状态或快照 snapshot，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const snapshot = manager.getListSnapshot()
     expect(snapshot.state).toBe('idle')
     expect(snapshot.items.map(i => i.sessionId)).toEqual([S2, S1])
   })
 
   it('replays incremental frames over hydration and never batch-reorders established ids', async () => {
-    /** 中文说明：当前服务或测试对象 api，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const api = new FakeApiClient()
-    /** 中文说明：测试场景的局部值 first，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const first = deferred<Awaited<ReturnType<FakeApiClient['onList']>>>()
     api.onList = () => first.promise
     const manager = new SessionManager(fakeRemote(api))
@@ -115,18 +92,16 @@ describe('list lifecycle', () => {
   })
 
   it('keeps the error in the list snapshot on failure', async () => {
-    /** 中文说明：当前服务或测试对象 api，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const api = new FakeApiClient()
-    api.onList = () => Promise.resolve(err({ code: 'internal', message: 'boom', details: {} }))
+    api.onList = () => Promise.resolve(err(new RemoteError('gateway/internal', 'boom', {})))
     const manager = new SessionManager(fakeRemote(api))
     await manager.refreshList()
-    expect(manager.getListSnapshot()).toMatchObject({ state: 'error', error: { code: 'internal' } })
+    expect(manager.getListSnapshot()).toMatchObject({ state: 'error', error: { code: 'gateway/internal' } })
     // A failed pull does not step the arrival phase: still pending.
     expect(manager.getListSnapshot().phase).toBe('pending')
   })
 
   it('phase steps pending → ready on the first successful pull and never returns', async () => {
-    /** 中文说明：当前服务或测试对象 api，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const api = new FakeApiClient()
     const manager = new SessionManager(fakeRemote(api))
     expect(manager.getListSnapshot().phase).toBe('pending')
@@ -134,7 +109,7 @@ describe('list lifecycle', () => {
     expect(manager.getListSnapshot().phase).toBe('ready')
     // Sticky across later failures: the pull-activity axis reports the error,
     // the arrival phase holds.
-    api.onList = () => Promise.resolve(err({ code: 'internal', message: 'down', details: {} }))
+    api.onList = () => Promise.resolve(err(new RemoteError('gateway/internal', 'down', {})))
     await manager.refreshList()
     expect(manager.getListSnapshot()).toMatchObject({ state: 'error', phase: 'ready' })
     // And across an empty re-pull (empty-with-ready = truly no sessions).
@@ -145,7 +120,6 @@ describe('list lifecycle', () => {
   })
 
   it('merges create into the list immediately without waiting for a refresh', async () => {
-    /** 中文说明：当前服务或测试对象 api，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const api = new FakeApiClient()
     api.onCreate = () => Promise.resolve(ok({ sessionId: S2 }))
     const manager = new SessionManager(fakeRemote(api))
@@ -155,7 +129,6 @@ describe('list lifecycle', () => {
   })
 
   it('retains title projections before list arrival, keeps last-wins by seq, and clears them on removal', async () => {
-    /** 中文说明：当前服务或测试对象 api，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const api = new FakeApiClient()
     const manager = new SessionManager(fakeRemote(api))
     const titleFrame = (title: string, seq: number) => {
@@ -169,7 +142,6 @@ describe('list lifecycle', () => {
     }))
     await manager.refreshList()
 
-    /** 中文说明：测试场景的局部值 titled，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const titled = manager.getListSnapshot()
     expect(titled.items.map(item => item.sessionId)).toEqual([S1, S2])
     expect(titled.items[0]?.title).toBe('Newest')
@@ -181,7 +153,6 @@ describe('list lifecycle', () => {
   })
 
   it('seeds cold titles from the list rows\' projections block under higher-seq-wins', async () => {
-    /** 中文说明：当前服务或测试对象 api，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const api = new FakeApiClient()
     const manager = new SessionManager(fakeRemote(api))
     // A push frame landed before the list (S2's title is newer than the block's cut).
@@ -195,7 +166,6 @@ describe('list lifecycle', () => {
       ] as never[],
     }))
     await manager.refreshList()
-    /** 中文说明：按序保存的数据集合 items，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const items = manager.getListSnapshot().items
     // Cold row: title surfaces straight from the list block — no open, no history.
     expect(items.find(item => item.sessionId === S1)?.title).toBe('Cold cached')
@@ -204,7 +174,6 @@ describe('list lifecycle', () => {
   })
 
   it('drops a projection row beyond the subscription baseline before accepting its durable replay', async () => {
-    /** 中文说明：当前服务或测试对象 api，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const api = new FakeApiClient()
     api.onList = () => Promise.resolve(ok({ items: [summary(S1)] as never[] }))
     const manager = new SessionManager(fakeRemote(api))
@@ -240,7 +209,6 @@ describe('list lifecycle', () => {
 
 describe('search', () => {
   it('returns bounded Host results and forwards the caller signal', async () => {
-    /** 中文说明：当前服务或测试对象 api，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const api = new FakeApiClient()
     api.onSearch = () => Promise.resolve(ok({
       items: [{ sessionId: S1, snippet: 'matching excerpt' }],
@@ -260,27 +228,18 @@ describe('search', () => {
     expect(api.lastSearchSignal).toBe(signal)
   })
 
-  it('preserves business errors and folds transport failures', async () => {
-    /** 中文说明：当前服务或测试对象 api，取值由紧邻初始化决定，仅在当前作用域使用。 */
+  it('preserves business errors and propagates a non-Remote throw', async () => {
     const api = new FakeApiClient()
     const manager = new SessionManager(fakeRemote(api))
-    api.onSearch = () => Promise.resolve(err({
-      code: 'internal',
-      message: 'index unavailable',
-      details: {},
-    }))
-    /** 中文说明：异步取消状态 signal，取值由紧邻初始化决定，仅在当前作用域使用。 */
+    api.onSearch = () => Promise.resolve(err(new RemoteError('gateway/internal', 'index unavailable', {})))
     const signal = new AbortController().signal
     await expect(manager.search('first', signal)).resolves.toMatchObject({
       ok: false,
-      error: { code: 'internal', message: 'index unavailable' },
+      error: { code: 'gateway/internal', message: 'index unavailable' },
     })
 
     api.onSearch = () => Promise.reject(new Error('wire down'))
-    await expect(manager.search('second', signal)).resolves.toMatchObject({
-      ok: false,
-      error: { code: 'internal', message: 'wire down' },
-    })
+    await expect(manager.search('second', signal)).rejects.toThrow('wire down')
   })
 })
 
@@ -292,7 +251,6 @@ describe('Host Remote event routing', () => {
     manager.handleSessionAdded(summary(S1, { blank: true })) // dup: ignored
     expect(manager.getListSnapshot().items).toHaveLength(1)
 
-    /** 中文说明：测试场景的局部值 session，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const session = manager.get(S1)
     manager.handleSessionStatus(S1, true)
     expect(session.getSnapshot().running).toBe(true)
@@ -310,13 +268,12 @@ describe('Host Remote event routing', () => {
 
 describe('subagent catalogs', () => {
   it('keeps a catalog-discovered child address across ordinary selection and status frames', async () => {
-    /** 中文说明：当前服务或测试对象 api，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const api = new FakeApiClient()
     api.onList = () => Promise.resolve(ok({ items: [
       summary(S1),
       summary(S2, { parentSessionId: S1, origin: 'subagent' }),
     ] as never[] }))
-    api.onSubagentList = () => Promise.resolve(remoteOk({
+    api.onSubagentList = () => Promise.resolve(ok({
       entries: [{
         kind: 'child', id: S2, mode: 'continuable', label: 'worker',
         activity: 'running', hasChildren: false,
@@ -389,7 +346,6 @@ describe('subagent catalogs', () => {
   it('refetches debounced membership only while the parent catalog is open', async () => {
     vi.useFakeTimers()
     try {
-      /** 中文说明：当前服务或测试对象 api，取值由紧邻初始化决定，仅在当前作用域使用。 */
       const api = new FakeApiClient()
       const manager = new SessionManager(fakeRemote(api))
       await manager.refreshSubagents(S1)
@@ -411,11 +367,9 @@ describe('subagent catalogs', () => {
   })
 
   it('marks a loaded parent row expandable only for a direct subagent publication', async () => {
-    /** 中文说明：当前服务或测试对象 api，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const api = new FakeApiClient()
-    /** 中文说明：测试场景的局部值 root，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const root = 'fk-root' as SessionId
-    api.onSubagentList = () => Promise.resolve(remoteOk({
+    api.onSubagentList = () => Promise.resolve(ok({
       entries: [
         {
           kind: 'child', id: S1, mode: 'continuable', label: 'parent',
@@ -443,11 +397,8 @@ describe('subagent catalogs', () => {
   })
 
   it('preserves a live expandability hint across only the older in-flight catalog response', async () => {
-    /** 中文说明：当前服务或测试对象 api，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const api = new FakeApiClient()
-    /** 中文说明：测试场景的局部值 root，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const root = 'fk-root' as SessionId
-    /** 中文说明：当前传输或投影数据 response，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const response = deferred<Awaited<ReturnType<FakeApiClient['onSubagentList']>>>()
     api.onSubagentList = () => response.promise
     const manager = new SessionManager(fakeRemote(api))
@@ -456,7 +407,7 @@ describe('subagent catalogs', () => {
     manager.handleSessionAdded(summary('fk-grandchild' as SessionId, {
       parentSessionId: S1, origin: 'subagent',
     }))
-    response.resolve(remoteOk({
+    response.resolve(ok({
       entries: [{
         kind: 'child', id: S1, mode: 'continuable', label: 'parent',
         activity: 'inactive', hasChildren: false,
@@ -469,7 +420,7 @@ describe('subagent catalogs', () => {
       { kind: 'child', id: S1, hasChildren: true },
     ])
 
-    api.onSubagentList = () => Promise.resolve(remoteOk({
+    api.onSubagentList = () => Promise.resolve(ok({
       entries: [{
         kind: 'child', id: S1, mode: 'continuable', label: 'parent',
         activity: 'inactive', hasChildren: false,
@@ -483,11 +434,8 @@ describe('subagent catalogs', () => {
   })
 
   it('replays status frames over an older in-flight catalog response', async () => {
-    /** 中文说明：当前服务或测试对象 api，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const api = new FakeApiClient()
-    /** 中文说明：测试场景的局部值 root，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const root = 'fk-root' as SessionId
-    /** 中文说明：当前传输或投影数据 response，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const response = deferred<Awaited<ReturnType<FakeApiClient['onSubagentList']>>>()
     api.onSubagentList = () => response.promise
     const manager = new SessionManager(fakeRemote(api))
@@ -495,7 +443,7 @@ describe('subagent catalogs', () => {
 
     manager.handleSessionStatus(S1, false)
     manager.handleSessionStatus(S2, true)
-    response.resolve(remoteOk({
+    response.resolve(ok({
       entries: [
         {
           kind: 'child', id: S1, mode: 'continuable', label: 'stopped',
@@ -517,9 +465,8 @@ describe('subagent catalogs', () => {
   })
 
   it('marks a detached catalog child inactive without requiring a selected address', async () => {
-    /** 中文说明：当前服务或测试对象 api，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const api = new FakeApiClient()
-    api.onSubagentList = () => Promise.resolve(remoteOk({
+    api.onSubagentList = () => Promise.resolve(ok({
       entries: [{
         kind: 'child', id: S2, mode: 'continuable', label: 'worker',
         activity: 'running', hasChildren: false,
@@ -537,20 +484,16 @@ describe('subagent catalogs', () => {
   })
 
   it('coalesces overlapping catalog reads without scheduling a trailing pull', async () => {
-    /** 中文说明：当前服务或测试对象 api，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const api = new FakeApiClient()
-    /** 中文说明：测试场景的局部值 root，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const root = 'fk-root' as SessionId
-    /** 中文说明：测试场景的局部值 first，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const first = deferred<Awaited<ReturnType<FakeApiClient['onSubagentList']>>>()
     api.onSubagentList = () => first.promise
     const manager = new SessionManager(fakeRemote(api))
 
-    /** 中文说明：测试场景的局部值 refresh，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const refresh = manager.refreshSubagents(root)
     expect(manager.refreshSubagents(root)).toBe(refresh)
-    api.onSubagentList = () => Promise.resolve(remoteOk({ entries: [], parentAvailable: true }))
-    first.resolve(remoteOk({ entries: [], parentAvailable: true }))
+    api.onSubagentList = () => Promise.resolve(ok({ entries: [], parentAvailable: true }))
+    first.resolve(ok({ entries: [], parentAvailable: true }))
     await refresh
 
     expect(api.callsOf('subagents.list')).toHaveLength(1)
@@ -559,13 +502,9 @@ describe('subagent catalogs', () => {
   it('runs one trailing catalog refresh for a membership change coalesced into an in-flight pull', async () => {
     vi.useFakeTimers()
     try {
-      /** 中文说明：当前服务或测试对象 api，取值由紧邻初始化决定，仅在当前作用域使用。 */
       const api = new FakeApiClient()
-      /** 中文说明：测试场景的局部值 root，取值由紧邻初始化决定，仅在当前作用域使用。 */
       const root = 'fk-root' as SessionId
-      /** 中文说明：测试场景的局部值 first，取值由紧邻初始化决定，仅在当前作用域使用。 */
       const first = deferred<Awaited<ReturnType<FakeApiClient['onSubagentList']>>>()
-      /** 中文说明：测试场景的局部值 second，取值由紧邻初始化决定，仅在当前作用域使用。 */
       const second = deferred<Awaited<ReturnType<FakeApiClient['onSubagentList']>>>()
       api.onSubagentList = () => first.promise
       const manager = new SessionManager(fakeRemote(api), root)
@@ -579,7 +518,7 @@ describe('subagent catalogs', () => {
       manager.handleSessionAdded(summary(S2, { parentSessionId: root }))
       await vi.advanceTimersByTimeAsync(50)
       api.onSubagentList = () => second.promise
-      first.resolve(remoteOk({
+      first.resolve(ok({
         entries: [{
           kind: 'child', id: S1, mode: 'continuable', label: 'older',
           activity: 'inactive', hasChildren: false,
@@ -588,7 +527,7 @@ describe('subagent catalogs', () => {
       }))
       await refresh
       // The trailing pull is already in flight (kicked synchronously in finally).
-      second.resolve(remoteOk({
+      second.resolve(ok({
         entries: [
           {
             kind: 'child', id: S1, mode: 'continuable', label: 'older',
@@ -616,40 +555,34 @@ describe('subagent catalogs', () => {
   })
 
   it('keeps removal invalidation across a stale success and failed trailing pull', async () => {
-    /** 中文说明：当前服务或测试对象 api，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const api = new FakeApiClient()
-    /** 中文说明：测试场景的局部值 root，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const root = 'fk-root' as SessionId
-    /** 中文说明：测试场景的局部值 child，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const child = () => ({
       kind: 'child' as const, id: S2, mode: 'continuable' as const, label: 'worker',
       activity: 'inactive' as const, hasChildren: false,
     })
-    /** 中文说明：测试场景的局部值 first，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const first = deferred<Awaited<ReturnType<FakeApiClient['onSubagentList']>>>()
     api.onSubagentList = () => first.promise
     const manager = new SessionManager(fakeRemote(api))
     const refresh = manager.refreshSubagents(root)
-    first.resolve(remoteOk({ entries: [child()] as never[], parentAvailable: true }))
+    first.resolve(ok({ entries: [child()] as never[], parentAvailable: true }))
     await refresh
     manager.selectSubagent({ parentSessionId: root, childSessionId: S2, mode: 'continuable' })
 
     // The removal lands while a second pull is in flight: the invalidation
     // must survive the pre-removal ok response, so one trailing pull runs.
-    /** 中文说明：标识或顺序值 mid，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const mid = deferred<Awaited<ReturnType<FakeApiClient['onSubagentList']>>>()
     api.onSubagentList = () => mid.promise
-    /** 中文说明：标识或顺序值 midRefresh，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const midRefresh = manager.refreshSubagents(root)
     manager.handleSessionRemoved(root)
     const trailing = deferred<Awaited<ReturnType<FakeApiClient['onSubagentList']>>>()
     api.onSubagentList = () => trailing.promise
-    mid.resolve(remoteOk({ entries: [child()] as never[], parentAvailable: true }))
+    mid.resolve(ok({ entries: [child()] as never[], parentAvailable: true }))
     await midRefresh
     expect(manager.getListSnapshot().subagentsByParent[root]?.parentAvailable).toBe(false)
     expect(manager.get(S2).getSnapshot().subagent).toMatchObject({ parentAvailable: false })
 
-    trailing.resolve(remoteErr({ code: 'internal', message: 'trailing pull failed', details: {} }))
+    trailing.resolve(err(new RemoteError('gateway/internal', 'trailing pull failed', {})))
     await vi.waitFor(() => {
       expect(manager.getListSnapshot().subagentsByParent[root]).toMatchObject({
         state: 'error',
@@ -664,11 +597,9 @@ describe('subagent catalogs', () => {
   })
 
   it('invalidates catalog availability when the owning parent is removed', async () => {
-    /** 中文说明：当前服务或测试对象 api，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const api = new FakeApiClient()
-    /** 中文说明：测试场景的局部值 root，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const root = 'fk-root' as SessionId
-    api.onSubagentList = () => Promise.resolve(remoteOk({
+    api.onSubagentList = () => Promise.resolve(ok({
       entries: [{
         kind: 'child', id: S2, mode: 'continuable', label: 'worker',
         activity: 'inactive', hasChildren: false,
@@ -688,17 +619,14 @@ describe('subagent catalogs', () => {
 })
 
 describe('remaining branches', () => {
-  it('refreshList folds a transport throw into the error state', async () => {
-    /** 中文说明：当前服务或测试对象 api，取值由紧邻初始化决定，仅在当前作用域使用。 */
+  it('refreshList propagates a non-Remote throw', async () => {
     const api = new FakeApiClient()
     api.onList = () => Promise.reject(new Error('list wire down'))
     const manager = new SessionManager(fakeRemote(api))
-    await manager.refreshList()
-    expect(manager.getListSnapshot()).toMatchObject({ state: 'error', error: { code: 'internal', message: 'list wire down' } })
+    await expect(manager.refreshList()).rejects.toThrow('list wire down')
   })
 
   it('refreshList pushes running bits down to already-instantiated sessions', async () => {
-    /** 中文说明：当前服务或测试对象 api，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const api = new FakeApiClient()
     const manager = new SessionManager(fakeRemote(api))
     const session = manager.get(S1)
@@ -708,7 +636,6 @@ describe('remaining branches', () => {
   })
 
   it('create passes cwd and a preallocated id, folds transport throws, and deduplicates the echo', async () => {
-    /** 中文说明：当前服务或测试对象 api，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const api = new FakeApiClient()
     api.onCreate = () => Promise.resolve(ok({ sessionId: S1 }))
     const manager = new SessionManager(fakeRemote(api))
@@ -718,38 +645,32 @@ describe('remaining branches', () => {
     await manager.create({ cwd: '/tmp/w' }) // same id returned: no duplicate row
     expect(manager.getListSnapshot().items).toHaveLength(1)
     api.onCreate = () => Promise.reject(new Error('create wire down'))
-    expect(await manager.create()).toMatchObject({ ok: false, error: { code: 'internal' } })
+    await expect(manager.create()).rejects.toThrow('create wire down')
     // Business error passes through untouched.
-    api.onCreate = () => Promise.resolve(err({ code: 'internal', message: 'no', details: {} }))
+    api.onCreate = () => Promise.resolve(err(new RemoteError('gateway/internal', 'no', {})))
     expect(await manager.create()).toMatchObject({ ok: false })
   })
 
   it('publishes a real Ungrouped summary from workspace-attach-failed', async () => {
-    /** 中文说明：当前服务或测试对象 api，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const api = new FakeApiClient()
-    api.onCreate = () => Promise.resolve(err({
-      code: 'workspace-attach-failed',
-      message: 'published but unattached',
-      details: { sessionId: S1, workspaceId: 'w1' },
-    } as never))
+    api.onCreate = () => Promise.resolve(err(new RemoteError('session/workspace-attach-failed', 'published but unattached', {
+      sessionId: S1, workspaceId: 'w1',
+    })))
     const manager = new SessionManager(fakeRemote(api))
     const result = await manager.create({ workspaceId: 'w1' as never, sessionId: S1 })
-    expect(result).toMatchObject({ ok: false, error: { code: 'workspace-attach-failed' } })
+    expect(result).toMatchObject({ ok: false, error: { code: 'session/workspace-attach-failed' } })
     expect(manager.getListSnapshot().items).toEqual([expect.objectContaining({ sessionId: S1 })])
     expect(manager.getListSnapshot().items[0]).not.toHaveProperty('cwd')
   })
 
   it('reconciles a fork child published before workspace attachment fails', async () => {
-    /** 中文说明：当前服务或测试对象 api，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const api = new FakeApiClient()
-    api.onFork = () => Promise.resolve(err({
-      code: 'workspace-attach-failed',
-      message: 'forked but unattached',
-      details: { sessionId: S2, workspaceId: 'w1' },
-    } as never))
+    api.onFork = () => Promise.resolve(err(new RemoteError('session/workspace-attach-failed', 'forked but unattached', {
+      sessionId: S2, workspaceId: 'w1',
+    })))
     const manager = new SessionManager(fakeRemote(api))
     const result = await manager.fork({ sessionId: S1 })
-    expect(result).toMatchObject({ ok: false, error: { code: 'workspace-attach-failed' } })
+    expect(result).toMatchObject({ ok: false, error: { code: 'session/workspace-attach-failed' } })
     expect(manager.getListSnapshot().items).toEqual([expect.objectContaining({
       sessionId: S2,
       parentSessionId: S1,
@@ -758,12 +679,11 @@ describe('remaining branches', () => {
   })
 
   it('reconciles a preallocated id after an ordinary transport failure', async () => {
-    /** 中文说明：当前服务或测试对象 api，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const api = new FakeApiClient()
     api.onCreate = () => Promise.reject(new Error('response lost'))
     const manager = new SessionManager(fakeRemote(api))
-    const failed = await manager.create({ workspaceId: 'w1' as never, sessionId: S1 })
-    expect(failed).toMatchObject({ ok: false, error: { message: 'response lost' } })
+    await expect(manager.create({ workspaceId: 'w1' as never, sessionId: S1 }))
+      .rejects.toThrow('response lost')
     expect(manager.getListSnapshot().items).toEqual([])
 
     manager.handleSessionAdded(summary(S1, { blank: true, cwd: '/w/one' }))
@@ -775,16 +695,13 @@ describe('remaining branches', () => {
   })
 
   it('subscribe notifies on list changes and stops after unsubscribe', async () => {
-    /** 中文说明：当前服务或测试对象 api，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const api = new FakeApiClient()
     const manager = new SessionManager(fakeRemote(api))
     let notified = 0
-    /** 中文说明：测试场景的局部值 unsubscribe，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const unsubscribe = manager.subscribe(() => { notified++ })
     await manager.refreshList()
     await new Promise(resolve => setTimeout(resolve, 0))
     expect(notified).toBeGreaterThan(0)
-    /** 中文说明：按序保存的数据集合 seen，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const seen = notified
     unsubscribe()
     manager.handleSessionAdded(summary(S1, { blank: true }))
@@ -800,19 +717,15 @@ describe('remaining branches', () => {
   })
 
   it('keeps list-entry identity for unchanged rows across an unrelated list change', async () => {
-    /** 中文说明：当前服务或测试对象 api，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const api = new FakeApiClient()
     api.onList = () => Promise.resolve(ok({ items: [summary(S1), summary(S2, { updatedAt: 200 })] as never[] }))
     const manager = new SessionManager(fakeRemote(api))
     await manager.refreshList()
-    /** 中文说明：测试场景的局部值 before，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const before = manager.getListSnapshot()
     manager.handleSessionStatus(S2, true)
     const after = manager.getListSnapshot()
     expect(after.items).not.toBe(before.items)
-    /** 中文说明：测试场景的局部值 beforeS1，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const beforeS1 = before.items.find(e => e.sessionId === S1)
-    /** 中文说明：测试场景的局部值 afterS1，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const afterS1 = after.items.find(e => e.sessionId === S1)
     expect(afterS1).toBe(beforeS1) // untouched entry keeps identity (entryCache)
     // Same-order same-entries snapshot reuses the items array.
@@ -846,7 +759,6 @@ describe('connected generation', () => {
     const openedSession = manager.get(S1)
     await openedSession.open()
     manager.get(S2) // instantiated but never opened
-    /** 中文说明：按序保存的数据集合 historyCallsBefore，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const historyCallsBefore = api.callsOf('session.history').length
     manager.handleConnected()
     await vi.waitFor(() => {
@@ -857,7 +769,6 @@ describe('connected generation', () => {
 
   it('retains the durable parent address and refreshes its catalogs across reconnect', async () => {
     const api = new FakeApiClient()
-    /** 中文说明：测试场景的局部值 address，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const address = {
       parentSessionId: S1, childSessionId: S2, mode: 'continuable' as const,
     }
@@ -868,8 +779,8 @@ describe('connected generation', () => {
 
     manager.handleConnected()
     expect(manager.get(S2).getSnapshot().subagent).toEqual({ address })
-    parent.resolve(remoteOk({ entries: [], parentAvailable: true }))
-    child.resolve(remoteOk({ entries: [], parentAvailable: true }))
+    parent.resolve(ok({ entries: [], parentAvailable: true }))
+    child.resolve(ok({ entries: [], parentAvailable: true }))
 
     await vi.waitFor(() => {
       expect(api.callsOf('session.list')).toHaveLength(1)
@@ -954,7 +865,6 @@ describe('completed reminder', () => {
   })
 
   it('a list refresh carrying the running→idle transition arms the reminder', async () => {
-    /** 中文说明：当前服务或测试对象 api，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const api = new FakeApiClient()
     api.onList = () => Promise.resolve(ok({ items: [summary(S1), summary(S2, { updatedAt: 200, running: true })] as never[] }))
     const manager = new SessionManager(fakeRemote(api))
@@ -967,7 +877,6 @@ describe('completed reminder', () => {
   })
 
   it('never arms for sessions already idle at first observation', async () => {
-    /** 中文说明：当前服务或测试对象 api，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const api = new FakeApiClient()
     api.onList = () => Promise.resolve(ok({ items: [summary(S1), summary(S2, { updatedAt: 200 })] as never[] }))
     const manager = new SessionManager(fakeRemote(api))
@@ -980,9 +889,7 @@ describe('completed reminder', () => {
   })
 
   it('arms a completion that happened during an in-flight first pull (baseline running, replayed idle)', async () => {
-    /** 中文说明：当前服务或测试对象 api，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const api = new FakeApiClient()
-    /** 中文说明：异步等待或同步门 gate，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const gate = deferred<Awaited<ReturnType<FakeApiClient['onList']>>>()
     api.onList = () => gate.promise
     const manager = new SessionManager(fakeRemote(api))
@@ -996,9 +903,7 @@ describe('completed reminder', () => {
   })
 
   it('arms when a session ran and completed entirely between in-flight mutations (baseline idle)', async () => {
-    /** 中文说明：当前服务或测试对象 api，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const api = new FakeApiClient()
-    /** 中文说明：异步等待或同步门 gate，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const gate = deferred<Awaited<ReturnType<FakeApiClient['onList']>>>()
     api.onList = () => gate.promise
     const manager = new SessionManager(fakeRemote(api))
@@ -1015,7 +920,6 @@ describe('completed reminder', () => {
 })
 
 describe('background-job mirror', () => {
-  /** 中文说明：测试场景的局部值 view，取值由紧邻初始化决定，仅在当前作用域使用。 */
   const view = (over: Partial<{ id: string; status: string; label: string }> = {}) => ({
     id: 'bash-1', kind: 'bash', label: 'pnpm run build', status: 'running', startedAt: 5, ...over,
   })

@@ -1,12 +1,4 @@
 /** Durable attachment storage seam (`ctx.attachments`). @module @deepseek-ai/dsh-attachment */
-/*
- * 文件职责：定义ctx.attachments附件服务接口，以及图片批量准入、持久提交、读取和请求版本投影的抽象流程。
- * 技术维度：使用Cordis Service抽象类、TypeScript类型契约和模板方法统一不同存储后端行为。
- * 产品维度：让会话、协议和模型提供方通过同一能力安全使用持久图片，而不依赖具体文件或云存储实现。
- * 逻辑维度：声明上下文服务，先执行批次数量/字节/媒体类型检查，再验证全部成员并按顺序保存。
- * 关键边界：默认后端不支持请求图片投影；批量存储失败不返回部分引用；实现必须在发布引用前验证字节。
- * 新手阅读建议：先看AttachmentStore抽象方法，再读saveImages的模板流程，最后理解readImageRequest默认失败的扩展点。
- */
 
 import { Context, Service } from '@deepseek-ai/cordis'
 import { AttachmentError } from './error.ts'
@@ -22,15 +14,17 @@ import type {
 export { AttachmentId, ImageVariantId } from './brand.ts'
 export { AttachmentError, isImageAdmissionError } from './error.ts'
 export type { AttachmentErrorCode, ImageAdmissionErrorCode } from './error.ts'
-export { admitEncodedImages } from './admission.ts'
+export { admitEncodedImages, admitPromptContent } from './admission.ts'
 export { requestImageDimensions } from './request-projection.ts'
 export type {
   AttachmentId as AttachmentIdType,
+  AdmittedPromptContentPart,
   EncodedImageAttachment,
   ImageAttachmentLimits,
   ImageAttachmentRef,
   ImageRequestPolicy,
   ImageMediaType,
+  PromptContentPart,
   RequestImageAttachment,
   SaveImageAttachment,
   StoredImageAttachment,
@@ -43,19 +37,12 @@ declare module '@deepseek-ai/cordis' {
 }
 
 /** Immutable binary attachment service. Implementations validate bytes before publishing a reference. */
-/* 不可变二进制附件服务；实现必须先验证字节，再向调用者发布引用。 */
 export abstract class AttachmentStore extends Service {
-  /**
-   * 把实现注册为Cordis attachments服务。
-   * @param ctx 服务所属上下文。
-   * @example super(ctx)
-   */
   constructor(ctx: Context) {
     super(ctx, 'attachments')
   }
 
   /** Deployment-resolved image policy used by authoritative and fast-path validation. */
-  /* 部署解析后的图片策略，权威与快速验证路径必须共用。 */
   abstract readonly imageLimits: ImageAttachmentLimits
 
   /**
@@ -75,12 +62,10 @@ export abstract class AttachmentStore extends Service {
    * @returns durable references in the exact input order.
    */
   protected validateImageBatch(inputs: readonly SaveImageAttachment[]): void {
-    // 当前实现公布的批次数量、总字节和媒体类型限制。
     const { maxImagesPerMessage, maxMessageImageBytes, mediaTypes } = this.imageLimits
     if (inputs.length > maxImagesPerMessage) {
       throw new AttachmentError('Image batch exceeds the configured image-count limit.', 'TOO_MANY_IMAGES')
     }
-    // 批次全部编码图片的合计字节数。
     const totalBytes = inputs.reduce((sum, input) => sum + input.data.byteLength, 0)
     if (totalBytes > maxMessageImageBytes) {
       throw new AttachmentError('Image batch exceeds the configured aggregate image-byte limit.', 'IMAGES_TOO_LARGE')
@@ -101,7 +86,6 @@ export abstract class AttachmentStore extends Service {
     this.validateImageBatch(inputs)
     for (const input of inputs) await this.validateImage(input)
 
-    // 按输入顺序收集的持久引用，只有全部保存成功才返回。
     const refs: ImageAttachmentRef[] = []
     for (const input of inputs) refs.push(await this.saveImage(input))
     return refs

@@ -14,9 +14,6 @@
 
 /* jscpd:ignore-start */
 /** One named parameter in a Service method or Event listener. */
-/*
- * 服务方法或事件监听器中的一个命名参数：名字来自精确签名，描述来自源码文档。
- */
 export interface ApiParameter {
   /** Parameter name from the exact signature. */
   name: string
@@ -25,10 +22,6 @@ export interface ApiParameter {
 }
 
 /** One public service member and its source-owned contract. */
-/*
- * 一个公开服务方法及其源码文档契约：签名（去函数体）、描述、命名参数、返回值与
- * 失败条件。
- */
 export interface ServiceApiMethod {
   /** Public method signature with its body stripped. */
   signature: string
@@ -43,9 +36,6 @@ export interface ServiceApiMethod {
 }
 
 /** One harness `ctx.<key>` service and its public methods. */
-/*
- * 一个 harness 服务（ctx.<key>）及其公开方法：键名、摘要/完整描述与方法签名列表。
- */
 export interface ServiceApiEntry {
   /** The `ctx.<key>` name, e.g. `tools`. */
   key: string
@@ -58,9 +48,6 @@ export interface ServiceApiEntry {
 }
 
 /** One harness event: its dispatch mode, exact signature, and listener contract. */
-/*
- * 一个 harness 事件：派发模式（@mode）、精确签名与监听器契约。
- */
 export interface EventApiEntry {
   /** The scoped event name, e.g. `agent/status`. */
   name: string
@@ -77,9 +64,6 @@ export interface EventApiEntry {
 }
 
 /** One inherited (cordis core + loader/hmr/timer) `ctx` member group with its summary. */
-/*
- * 一个继承的 ctx 成员组（cordis 核心 + loader/hmr/timer）及其一句话摘要。
- */
 export interface InheritedApiEntry {
   /** The `ctx` member name(s), e.g. `ctx.on / ctx.once`. */
   name: string
@@ -88,9 +72,6 @@ export interface InheritedApiEntry {
 }
 
 /** One named type declaration referenced by a Service or Event signature. */
-/*
- * 被服务/事件签名引用的一个具名类型声明：导出名 + 去掉注释后的完整声明文本。
- */
 export interface TypeApiEntry {
   /** The exported type/interface name, e.g. `ShellRunResult`. */
   name: string
@@ -211,7 +192,7 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
         returns: 'completion of the current or newly started refresh.',
       },
       {
-        signature: 'search( query: string, signal: AbortSignal, ): Promise<ClientResult<{ items: SessionSearchResultItem[]; hasMore: boolean }>>',
+        signature: 'search( query: string, signal: AbortSignal, ): Promise<RemoteResult<{ items: SessionSearchResultItem[]; hasMore: boolean }>>',
         description: 'Search the Host\'s visible message-content index. Results stay request-local; the list snapshot remains the metadata authority.',
         parameters: [{ name: 'query', description: 'non-blank literal phrase.' }, { name: 'signal', description: 'cancellation for a superseded search.' }],
         returns: 'bounded results, or a business/transport error.',
@@ -458,7 +439,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'BeginSubmissionInput',
-    declaration: 'export interface BeginSubmissionInput {\n    readonly text: string;\n    readonly images: readonly PendingSubmissionImage[];\n    readonly onRetire?: (retirement: PendingSubmissionRetirement) => void;\n}',
+    declaration: 'export interface BeginSubmissionInput {\n    readonly mode: \'queue\' | \'steer\';\n    readonly text: string;\n    readonly images: readonly PendingSubmissionImage[];\n    readonly onRetire?: (retirement: PendingSubmissionRetirement) => void;\n}',
   },
   {
     name: 'BoundActions',
@@ -490,7 +471,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'ClientRemote',
-    declaration: 'export interface ClientRemote extends TypertClientRemote {\n    $stream<Item>(options: RemoteStreamOptions<Item>): RemoteStream<Item>;\n}',
+    declaration: 'export interface ClientRemote extends TypertClientRemote {\n    $stream<Item>(options: RemoteStreamOptions<Item>): RemoteStream<Item>;\n    readonly $host: RemoteHostFacts;\n}',
   },
   {
     name: 'CommonKeyOf',
@@ -518,11 +499,15 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'ConnectionHandle',
-    declaration: 'export interface ConnectionHandle {\n    readonly isLoopback: boolean;\n    readonly generation: ConnectionGenerationState;\n    readonly rpc: ClientConnectionRpc;\n    registerGenerationSource(source: ConnectionGenerationSource): () => void;\n    start(sinks: ConnectionSinks, config?: ConnectionConfig): {\n        stop(): void;\n    };\n}',
+    declaration: 'export interface ConnectionHandle {\n    readonly isLoopback: boolean;\n    readonly generation: ConnectionGenerationState;\n    readonly state: ConnectionStateSource;\n    readonly rpc: ClientConnectionRpc;\n    reconnect(): void;\n    registerGenerationSource(source: ConnectionGenerationSource): () => void;\n    start(sinks: ConnectionSinks, config?: ConnectionConfig): ConnectionLoop;\n}',
   },
   {
     name: 'ConnectionHostInfo',
     declaration: 'export interface ConnectionHostInfo {\n    readonly home: string;\n}',
+  },
+  {
+    name: 'ConnectionLoop',
+    declaration: 'export interface ConnectionLoop {\n    stop(): void;\n}',
   },
   {
     name: 'ConnectionRpcFailure',
@@ -534,11 +519,15 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'ConnectionSinks',
-    declaration: 'export interface ConnectionSinks {\n    onConnected?: (host: ConnectionHostInfo) => void;\n    onStateChange?: (state: ConnectionState) => void;\n}',
+    declaration: 'export interface ConnectionSinks {\n    onConnected?: (host: ConnectionHostInfo) => void;\n    onStateChange?: (state: ConnectionState) => void;\n    onReconnectRequested?: () => void;\n}',
   },
   {
     name: 'ConnectionState',
-    declaration: 'export type ConnectionState = \'connected\' | \'reconnecting\';',
+    declaration: 'export type ConnectionState = \'connected\' | \'disconnected\' | \'connecting\';',
+  },
+  {
+    name: 'ConnectionStateSource',
+    declaration: 'export interface ConnectionStateSource {\n    getSnapshot(): ConnectionState | undefined;\n    subscribe(listener: () => void): () => void;\n}',
   },
   {
     name: 'EntryKeyOf',
@@ -570,7 +559,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'ISession',
-    declaration: 'export interface ISession {\n    readonly sessionId: SessionId;\n    readonly projections: ProjectionsFace;\n    beginSubmission(input: BeginSubmissionInput): SubmissionHandle;\n    prompt(content: PromptContentPart[], mode: \'queue\' | \'steer\', signal?: AbortSignal, requestId?: SessionRequestId): Promise<ClientResult<{\n        accepted: true;\n    }>>;\n    readAttachment(attachmentId: AttachmentIdType): Promise<ClientResult<{\n        attachment: ImageAttachmentRef;\n        data: Uint8Array;\n    }>>;\n    updateQueue(itemId: MessageId, action: QueueAction): Promise<ClientResult<{\n        accepted: true;\n    }>>;\n    cancel(): Promise<ClientResult<{\n        accepted: true;\n    }>>;\n    rename(title: string): Promise<ClientResult<{\n        title: string;\n        seq: number;\n    }>>;\n    loadOlder(): Promise<void>;\n    command(line: string): Promise<RemoteResult<{\n        matched: boolean;\n    }>>;\n}',
+    declaration: 'export interface ISession {\n    readonly sessionId: SessionId;\n    readonly projections: ProjectionsFace;\n    beginSubmission(input: BeginSubmissionInput): SubmissionHandle;\n    prompt(content: PromptContentPart[], mode: \'queue\' | \'steer\', signal?: AbortSignal, requestId?: SessionRequestId): Promise<RemoteResult<{\n        accepted: true;\n    }>>;\n    readAttachment(attachmentId: AttachmentIdType): Promise<RemoteResult<{\n        attachment: ImageAttachmentRef;\n        data: Uint8Array;\n    }>>;\n    updateQueue(itemId: MessageId, action: QueueAction): Promise<RemoteResult<{\n        accepted: true;\n    }>>;\n    cancel(): Promise<RemoteResult<{\n        accepted: true;\n    }>>;\n    rename(title: string): Promise<RemoteResult<{\n        title: string;\n        seq: number;\n    }>>;\n    loadOlder(): Promise<void>;\n    loadThrough(seq: number): Promise<void>;\n    command(line: string): Promise<RemoteResult<{\n        matched: boolean;\n    }>>;\n}',
   },
   {
     name: 'KeyPropsOf',
@@ -626,11 +615,15 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'PendingSubmission',
-    declaration: 'export interface PendingSubmission {\n    readonly requestId: SessionRequestId;\n    readonly time: number;\n    readonly text: string;\n    readonly images: readonly PendingSubmissionImage[];\n}',
+    declaration: 'export interface PendingSubmission {\n    readonly requestId: SessionRequestId;\n    readonly placement: PendingSubmissionPlacement;\n    readonly time: number;\n    readonly text: string;\n    readonly images: readonly PendingSubmissionImage[];\n}',
   },
   {
     name: 'PendingSubmissionImage',
     declaration: 'export interface PendingSubmissionImage {\n    readonly previewUrl: string;\n    readonly name?: string;\n    readonly width?: number;\n    readonly height?: number;\n}',
+  },
+  {
+    name: 'PendingSubmissionPlacement',
+    declaration: 'export type PendingSubmissionPlacement = \'transcript\' | \'queued\' | \'steering\';',
   },
   {
     name: 'PendingSubmissionRetirement',
@@ -646,7 +639,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'PromptError',
-    declaration: 'export interface PromptError {\n    readonly op: \'send\' | \'stop\';\n    readonly error: ClientFailure;\n}',
+    declaration: 'export interface PromptError {\n    readonly op: \'send\' | \'stop\';\n    readonly error: RemoteFailure;\n}',
   },
   {
     name: 'PropsHooks',
@@ -671,6 +664,10 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'PropsStore',
     declaration: 'export type PropsStore<H> = H extends StoreHandle<infer T, infer A> ? {\n    useStore: SnapshotSelectorHook<T>;\n    actions: BakedActions<T, A>;\n} : object;',
+  },
+  {
+    name: 'RemoteHostFacts',
+    declaration: 'export interface RemoteHostFacts {\n    readonly home: string | undefined;\n    readonly isLoopback: boolean;\n}',
   },
   {
     name: 'RemoteStream',
@@ -746,7 +743,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'SessionSnapshot',
-    declaration: 'export interface SessionSnapshot {\n    readonly sessionId: SessionId;\n    readonly queue: readonly QueuedMessage[];\n    readonly pendingSubmissions: readonly PendingSubmission[];\n    readonly running: boolean;\n    readonly subagent: {\n        readonly address: SubagentAddress;\n        readonly parentAvailable?: boolean;\n    } | null;\n    readonly removed: boolean;\n    readonly openState: OpenState;\n    readonly openError: ClientFailure | null;\n    readonly hasMore: boolean;\n    readonly loadingOlder: boolean;\n    readonly promptError: PromptError | null;\n    readonly blank: boolean;\n    readonly lastAgentError: string | null;\n    readonly promptAttempted: boolean;\n    readonly awaitingFirstTurn: boolean;\n}',
+    declaration: 'export interface SessionSnapshot {\n    readonly sessionId: SessionId;\n    readonly queue: readonly QueuedMessage[];\n    readonly pendingSubmissions: readonly PendingSubmission[];\n    readonly running: boolean;\n    readonly subagent: {\n        readonly address: SubagentAddress;\n        readonly parentAvailable?: boolean;\n    } | null;\n    readonly removed: boolean;\n    readonly openState: OpenState;\n    readonly openError: RemoteFailure | null;\n    readonly hasMore: boolean;\n    readonly loadingOlder: boolean;\n    readonly promptError: PromptError | null;\n    readonly blank: boolean;\n    readonly lastAgentError: string | null;\n    readonly promptAttempted: boolean;\n    readonly awaitingFirstTurn: boolean;\n}',
   },
   {
     name: 'SessionStandardProps',
@@ -863,9 +860,6 @@ export const TYPE_API: readonly TypeApiEntry[] = [
 ]
 
 /** The inherited `ctx` API (cordis core + loader/hmr/timer), in curated order. */
-/*
- * 继承的 ctx API 清单（cordis 核心 + loader/hmr/timer），按策划顺序排列。
- */
 export const INHERITED_CTX_API: readonly InheritedApiEntry[] = [
   { name: 'ctx.on / ctx.once', summary: 'Register an event listener (disposable).' },
   { name: 'ctx.emit / ctx.parallel / ctx.serial / ctx.bail / ctx.waterfall', summary: 'Dispatch an event (sync / awaited / first-bail / short-circuit chain).' },
@@ -879,9 +873,6 @@ export const INHERITED_CTX_API: readonly InheritedApiEntry[] = [
   { name: 'ctx.hmr', summary: 'The hot-module-reload watcher (present under the hmr plugin).' },
 ]
 
-/**
- * 计算种子签名文本引用的类型闭包：词边界反复收录，直到不再新增。
- */
 function referencedTypeClosure(seeds: readonly string[]): TypeApiEntry[] {
   const included = new Set<string>()
   let frontier = [...seeds]
@@ -899,9 +890,6 @@ function referencedTypeClosure(seeds: readonly string[]): TypeApiEntry[] {
   return TYPE_API.filter(entry => included.has(entry.name))
 }
 
-/**
- * 把服务键名渲染为 ctx 访问表达式：合法标识符用点访问，否则用方括号 + JSON 键。
- */
 function contextProperty(key: string): string {
   return /^[A-Za-z_$][\w$]*$/.test(key) ? `ctx.${key}` : `ctx[${JSON.stringify(key)}]`
 }
@@ -911,13 +899,6 @@ function contextProperty(key: string): string {
  * @param key - exact Service key; omit it to list all Services and method signatures.
  * @param services - platform-specific visible Service entries.
  * @returns compact navigation data or one detailed Service with its referenced type closure.
- */
-/*
- * 投影服务目录：无 key 时为紧凑目录；有 key 时为精确契约（含访问方式、方法详情
- * 与被引用的类型闭包）。
- * @param key 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
- * @param services 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
- * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
  */
 export function queryServiceApi(key?: string, services: readonly ServiceApiEntry[] = SERVICE_API): object {
   if (key === undefined) {
@@ -952,12 +933,6 @@ export function queryServiceApi(key?: string, services: readonly ServiceApiEntry
  * @param name - exact Event name; omit it to list all Events and listener signatures.
  * @param events - platform-specific visible Event entries.
  * @returns compact navigation data or one detailed Event with its referenced type closure.
- */
-/*
- * 投影事件目录：无 name 时为紧凑目录；有 name 时为精确契约（含完整描述与参数）。
- * @param name 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
- * @param events 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
- * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
  */
 export function queryEventApi(name?: string, events: readonly EventApiEntry[] = EVENT_API): object {
   if (name === undefined) {

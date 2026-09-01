@@ -8,17 +8,14 @@ import { PROTOCOL_VERSION } from '@agentclientprotocol/sdk'
 import { runScenario, snapshotSpillRoot, type AgentUnderTest, type InputStep } from '../src/harness.ts'
 import { launchAcpTestAgent } from '../src/launcher.ts'
 
-/** 中文说明：函数值 fsControl 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
 const fsControl = vi.hoisted(() => ({ cleanupFailure: undefined as Error | undefined }))
 
 vi.mock('node:fs/promises', async (importOriginal) => {
-  /** 中文说明：变量 actual 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const actual = await importOriginal<typeof import('node:fs/promises')>()
   return {
     ...actual,
     async rm(...args: Parameters<typeof actual.rm>): Promise<void> {
       if (String(args[0]).includes('acp-snap-cwd-') && fsControl.cleanupFailure !== undefined) {
-        /** 中文说明：变量 failure 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
         const failure = fsControl.cleanupFailure
         fsControl.cleanupFailure = undefined
         await actual.rm(...args)
@@ -38,9 +35,7 @@ vi.mock('node:fs/promises', async (importOriginal) => {
  * assertions read plain `rawStdout`.
  */
 
-/* 中文说明：变量 fakeAgent 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const fakeAgent = fileURLToPath(new URL('./fixtures/fake-acp-agent.ts', import.meta.url))
-/** 中文说明：常量 AGENT 保存本测试共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const AGENT: AgentUnderTest = {
   binScript: fakeAgent,
   libBinScript: fakeAgent,
@@ -57,44 +52,35 @@ async function materializedPatch(root: string, filename: string): Promise<string
 }
 
 /** Temp scenario dirs to drop after the suite. */
-/* 中文说明：变量 tempDirs 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const tempDirs: string[] = []
 afterAll(async () => {
-  /** 中文说明：该循环依次处理夹具或生成数据；循环变量仅在当前循环中有效。 */
   for (const dir of tempDirs) await rm(dir, { recursive: true, force: true })
 })
 
 /** Write a behavior.json into a fresh temp dir; return the sibling fixture path the harness points the bin at. */
-/* 中文说明：函数 scenario 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 async function scenario(behavior: object): Promise<{ dir: string; fixtureFile: string }> {
-  /** 中文说明：变量 dir 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const dir = await mkdtemp(join(tmpdir(), 'acp-snap-spec-'))
   tempDirs.push(dir)
   await writeFile(join(dir, 'behavior.json'), JSON.stringify(behavior))
   return { dir, fixtureFile: join(dir, 'session.jsonl') }
 }
 
-/** 中文说明：变量 boot 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const boot: InputStep[] = [{ op: 'initialize' }, { op: 'newSession' }]
+// A Windows coverage shard can spend more than 20ms harvesting logs before vi.waitFor records the diagnostic error.
+const titleDiagnosticTimeoutMs = process.platform === 'win32' ? 5_000 : 20
 
 it('keeps scenario-owned snapshot spill root length stable across platforms', () => {
-  /** 中文说明：变量 fixtureFile 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const fixtureFile = '/fixtures/scenario/session.jsonl'
-  /** 中文说明：变量 posix 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const posix = snapshotSpillRoot(fixtureFile, 'linux')
-  /** 中文说明：变量 windows 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const windows = snapshotSpillRoot(fixtureFile, 'win32')
   expect(posix).toMatch(/^\/tmp\/dsh-acp-snap-[0-9a-f]{9}$/)
   expect(windows).toMatch(/^\/t\/dsh-acp-snap-[0-9a-f]{9}$/)
   expect(windows.length + 2).toBe(posix.length)
 })
 
-/** 中文说明：函数 environmentEcho 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function environmentEcho(rawStdout: string): Record<string, unknown> {
-  /** 中文说明：变量 frames 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const frames = rawStdout.trim().split('\n')
     .map(line => JSON.parse(line) as { params?: { update?: { content?: { text?: unknown } } } })
-  /** 中文说明：函数值 text 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
   const text = frames.map(frame => frame.params?.update?.content?.text)
     .find(value => typeof value === 'string' && value.startsWith('env:'))
   if (typeof text !== 'string') throw new Error('fake ACP agent did not echo its environment')
@@ -104,11 +90,8 @@ function environmentEcho(rawStdout: string): Record<string, unknown> {
 describe('runScenario', () => {
   it('surfaces an asynchronous child spawn failure through startup and close', async () => {
     const { dir } = await scenario({})
-    /** 中文说明：变量 launched 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const launched = launchAcpTestAgent({ agent: AGENT, cwd: join(dir, 'missing') })
-    /** 中文说明：变量 stdioClosed 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     let stdioClosed = false
-    /** 中文说明：变量 clientClosed 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     let clientClosed = false
     launched.child.once('close', () => { stdioClosed = true })
     void launched.client.closed.then(
@@ -123,10 +106,8 @@ describe('runScenario', () => {
 
   it('centralizes ACP boot, captures, updates, fail-closed permissions, and shutdown', { timeout: 20_000 }, async () => {
     const { dir, fixtureFile } = await scenario({ permissionProbe: true, echoEnv: true, stderrNote: 'launcher stderr' })
-    /** 中文说明：变量 sessionsRoot 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const sessionsRoot = await mkdtemp(join(tmpdir(), 'acp-launcher-sessions-'))
     tempDirs.push(sessionsRoot)
-    /** 中文说明：变量 launched 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const launched = launchAcpTestAgent({
       agent: AGENT,
       cwd: dir,
@@ -139,14 +120,10 @@ describe('runScenario', () => {
     })
     await launched.client.initialize({ protocolVersion: PROTOCOL_VERSION, clientCapabilities: {} })
     const { sessionId } = await launched.client.newSession({ cwd: dir, mcpServers: [] })
-    /** 中文说明：函数值 nextChunk 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const nextChunk = launched.waitForUpdate(update => update.sessionUpdate === 'agent_message_chunk')
-    /** 中文说明：函数值 laterChunk 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const laterChunk = launched.waitForUpdate(update => update.sessionUpdate === 'agent_message_chunk'
       && update.content.type === 'text' && update.content.text === 'never this one')
-    /** 中文说明：变量 predicateFailure 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const predicateFailure = new Error('predicate failed')
-    /** 中文说明：函数值 failedPredicate 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const failedPredicate = launched.waitForUpdate(() => { throw predicateFailure })
       .catch((error: unknown): unknown => error)
     await launched.client.prompt({ sessionId, prompt: [{ type: 'text', text: 'go' }] })
@@ -156,7 +133,6 @@ describe('runScenario', () => {
     expect(launched.rawStdout()).toContain('permission:{\\"outcome\\":\\"cancelled\\"}')
     expect(launched.stderr()).toContain('launcher stderr')
     void laterChunk.catch(() => undefined)
-    /** 中文说明：函数值 unmatched 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const unmatched = expect(launched.waitForUpdate(() => false)).rejects.toThrow(/update stream closed/)
     await launched.close()
     await unmatched
@@ -164,12 +140,9 @@ describe('runScenario', () => {
     await launched.close('SIGKILL')
 
     // The minimal shape needs no environment or config override.
-    /** 中文说明：变量 minimal 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const minimal = launchAcpTestAgent({ agent: AGENT, cwd: dir })
     await minimal.client.initialize({ protocolVersion: PROTOCOL_VERSION, clientCapabilities: {} })
-    /** 中文说明：变量 childFailure 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const childFailure = new Error('child process failed')
-    /** 中文说明：变量 exited 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     let exited = false
     minimal.child.once('exit', () => { exited = true })
     minimal.child.emit('error', childFailure)
@@ -284,7 +257,6 @@ describe('runScenario', () => {
 
   it('waits for inherited stdio and buffered ACP parsing after the parent exits', { timeout: 20_000 }, async () => {
     const { dir, fixtureFile } = await scenario({ lateInheritedOutput: true })
-    /** 中文说明：变量 launched 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const launched = launchAcpTestAgent({
       agent: AGENT,
       cwd: dir,
@@ -292,7 +264,6 @@ describe('runScenario', () => {
     })
     await launched.client.initialize({ protocolVersion: PROTOCOL_VERSION, clientCapabilities: {} })
     await launched.client.newSession({ cwd: dir, mcpServers: [] })
-    /** 中文说明：函数值 lateUpdate 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const lateUpdate = launched.waitForUpdate(update =>
       update.sessionUpdate === 'agent_message_chunk'
       && update.content.type === 'text'
@@ -310,21 +281,15 @@ describe('runScenario', () => {
 
   it('rejects promptly when fallback termination is refused', async () => {
     const { dir } = await scenario({})
-    /** 中文说明：变量 launched 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const launched = launchAcpTestAgent({ agent: AGENT, cwd: dir })
     await launched.spawned
 
-    /** 中文说明：变量 childFailure 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const childFailure = Object.assign(new Error('signal refused'), { code: 'EPERM' })
-    /** 中文说明：变量 originalKill 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const originalKill = launched.child.kill.bind(launched.child)
-    /** 中文说明：变量 kill 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const kill = vi.spyOn(launched.child, 'kill').mockReturnValue(false)
-    /** 中文说明：函数值 closed 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const closed = new Promise<void>(resolve => launched.child.once('close', () => { resolve() }))
     try {
       launched.child.emit('error', childFailure)
-      /** 中文说明：函数值 rejection 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
       const rejection = await launched.close('SIGTERM').catch((error: unknown): unknown => error)
       expect(rejection).toBeInstanceOf(AggregateError)
       expect(rejection).toMatchObject({
@@ -345,15 +310,11 @@ describe('runScenario', () => {
 
   it('preserves the child error when the requested signal sets an exit marker', async () => {
     const { dir } = await scenario({})
-    /** 中文说明：变量 launched 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const launched = launchAcpTestAgent({ agent: AGENT, cwd: dir })
     await launched.spawned
 
-    /** 中文说明：变量 childFailure 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const childFailure = Object.assign(new Error('signal failed as the child exited'), { code: 'EPERM' })
-    /** 中文说明：变量 originalKill 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const originalKill = launched.child.kill.bind(launched.child)
-    /** 中文说明：函数值 kill 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const kill = vi.spyOn(launched.child, 'kill').mockImplementation((signal) => {
       expect(signal).toBe('SIGTERM')
       originalKill('SIGKILL')
@@ -372,15 +333,11 @@ describe('runScenario', () => {
 
   it('preserves the child error when the requested signal publishes its exit marker later', async () => {
     const { dir } = await scenario({})
-    /** 中文说明：变量 launched 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const launched = launchAcpTestAgent({ agent: AGENT, cwd: dir })
     await launched.spawned
 
-    /** 中文说明：变量 childFailure 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const childFailure = Object.assign(new Error('signal failed before the delayed exit marker'), { code: 'EPERM' })
-    /** 中文说明：变量 originalKill 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const originalKill = launched.child.kill.bind(launched.child)
-    /** 中文说明：函数值 kill 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const kill = vi.spyOn(launched.child, 'kill').mockImplementation((signal) => {
       expect(signal).toBe('SIGTERM')
       setTimeout(() => { originalKill('SIGKILL') }, 10)
@@ -398,15 +355,11 @@ describe('runScenario', () => {
 
   it('preserves the child error when fallback refusal races with an exit marker', async () => {
     const { dir } = await scenario({})
-    /** 中文说明：变量 launched 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const launched = launchAcpTestAgent({ agent: AGENT, cwd: dir })
     await launched.spawned
 
-    /** 中文说明：变量 childFailure 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const childFailure = Object.assign(new Error('signal failed while the child exited'), { code: 'EPERM' })
-    /** 中文说明：变量 originalKill 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const originalKill = launched.child.kill.bind(launched.child)
-    /** 中文说明：函数值 kill 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const kill = vi.spyOn(launched.child, 'kill').mockImplementation((signal) => {
       if (signal === 'SIGTERM') return true
       originalKill('SIGKILL')
@@ -426,15 +379,11 @@ describe('runScenario', () => {
 
   it('preserves the child error after accepted fallback termination drains', async () => {
     const { dir } = await scenario({})
-    /** 中文说明：变量 launched 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const launched = launchAcpTestAgent({ agent: AGENT, cwd: dir })
     await launched.spawned
 
-    /** 中文说明：变量 childFailure 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const childFailure = Object.assign(new Error('requested signal failed before fallback'), { code: 'EPERM' })
-    /** 中文说明：变量 originalKill 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const originalKill = launched.child.kill.bind(launched.child)
-    /** 中文说明：函数值 kill 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const kill = vi.spyOn(launched.child, 'kill').mockImplementation((signal) => {
       if (signal === 'SIGTERM') return true
       return originalKill('SIGKILL')
@@ -452,26 +401,19 @@ describe('runScenario', () => {
 
   it('rejects promptly when fallback termination emits an error', async () => {
     const { dir } = await scenario({})
-    /** 中文说明：变量 launched 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const launched = launchAcpTestAgent({ agent: AGENT, cwd: dir })
     await launched.spawned
 
-    /** 中文说明：变量 childFailure 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const childFailure = Object.assign(new Error('signal refused'), { code: 'EPERM' })
-    /** 中文说明：变量 fallbackFailure 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const fallbackFailure = Object.assign(new Error('fallback signal refused'), { code: 'EPERM' })
-    /** 中文说明：变量 originalKill 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const originalKill = launched.child.kill.bind(launched.child)
-    /** 中文说明：函数值 kill 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const kill = vi.spyOn(launched.child, 'kill').mockImplementation((signal) => {
       if (signal === 'SIGKILL') queueMicrotask(() => launched.child.emit('error', fallbackFailure))
       return signal === 'SIGKILL'
     })
-    /** 中文说明：函数值 closed 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const closed = new Promise<void>(resolve => launched.child.once('close', () => { resolve() }))
     try {
       launched.child.emit('error', childFailure)
-      /** 中文说明：函数值 rejection 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
       const rejection = await launched.close('SIGTERM').catch((error: unknown): unknown => error)
       expect(rejection).toBeInstanceOf(AggregateError)
       expect(rejection).toMatchObject({
@@ -489,17 +431,11 @@ describe('runScenario', () => {
 
   it('waits for in-flight client callbacks after the ACP stream closes', { timeout: 20_000 }, async () => {
     const { dir, fixtureFile } = await scenario({ permissionProbe: true })
-    /** 中文说明：函数值 releasePermission 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     let releasePermission: (() => void) | undefined
-    /** 中文说明：函数值 permissionReleased 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const permissionReleased = new Promise<void>((resolve) => { releasePermission = resolve })
-    /** 中文说明：函数值 markPermissionStarted 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     let markPermissionStarted: (() => void) | undefined
-    /** 中文说明：函数值 permissionStarted 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const permissionStarted = new Promise<void>((resolve) => { markPermissionStarted = resolve })
-    /** 中文说明：变量 permissionFinished 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     let permissionFinished = false
-    /** 中文说明：变量 launched 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const launched = launchAcpTestAgent({
       agent: AGENT,
       cwd: dir,
@@ -516,11 +452,8 @@ describe('runScenario', () => {
     void launched.client.prompt({ sessionId, prompt: [{ type: 'text', text: 'go' }] }).catch(() => undefined)
     await permissionStarted
 
-    /** 中文说明：变量 childClosed 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const childClosed = once(launched.child, 'close')
-    /** 中文说明：变量 closeSettled 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     let closeSettled = false
-    /** 中文说明：函数值 closing 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const closing = launched.close('SIGKILL').then(() => { closeSettled = true })
     await childClosed
     await launched.client.closed
@@ -567,7 +500,6 @@ describe('runScenario', () => {
         ],
       }],
     })
-    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await runScenario(
       { steps: [{ op: 'initialize' }, { op: 'newSession' }, { op: 'prompt', text: 'go' }] },
       { agent: AGENT, mode: 'replay', fixtureFile },
@@ -584,14 +516,12 @@ describe('runScenario', () => {
     // The cwd is JSON-encoded in the log line, so compare the parsed field
     // rather than substring-matching a raw path (which breaks when the path
     // separator is escaped inside JSON text on Windows).
-    /** 中文说明：函数值 sessionLine 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const sessionLine = result.sessionLogs[0]?.content.split('\n').find(l => l.includes('"type":"session"')) ?? '{}'
     expect((JSON.parse(sessionLine) as { cwd?: string }).cwd).toBe(result.cwd)
   })
 
   it('drives a structured prompt-content step without flattening its wire blocks', { timeout: 20_000 }, async () => {
     const { fixtureFile } = await scenario({})
-    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await runScenario(
       {
         steps: [...boot, {
@@ -610,9 +540,7 @@ describe('runScenario', () => {
 
   it('forwards override/child fixture paths into the child env and captures stderr', { timeout: 20_000 }, async () => {
     const { dir, fixtureFile } = await scenario({ echoEnv: true, stderrNote: 'fake bin booted' })
-    /** 中文说明：变量 childFiles 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const childFiles = [join(dir, 'session.1.jsonl'), join(dir, 'session.2.jsonl')]
-    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await runScenario(
       { steps: [...boot, { op: 'prompt', text: 'env?' }] },
       {
@@ -630,13 +558,11 @@ describe('runScenario', () => {
     // Child paths ride one env var, joined with the platform delimiter.
     // Parse the fake bin's env-probe chunk rather than substring-matching a
     // JSON-encoded path (the escaping breaks raw-substring compares on Windows).
-    /** 中文说明：变量 envChunk 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const envChunk = result.rawStdout.split('\n')
       .map(l => l.trim())
       .filter(l => l.length > 0)
       .map(l => JSON.parse(l) as { params?: { update?: { content?: { text?: string } } } })
       .find(f => f.params?.update?.content?.text?.startsWith('env:'))
-    /** 中文说明：变量 env 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const env = JSON.parse((envChunk?.params?.update?.content?.text ?? 'env:{}').slice('env:'.length)) as {
       childFiles: string | null
     }
@@ -645,12 +571,10 @@ describe('runScenario', () => {
 
   it('gives concurrent scenarios distinct equal-length spill roots', { timeout: 20_000 }, async () => {
     const [first, second] = await Promise.all([scenario({ echoEnv: true }), scenario({ echoEnv: true })])
-    /** 中文说明：函数值 results 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const results = await Promise.all([first, second].map(({ fixtureFile }) => runScenario(
       { steps: [...boot, { op: 'prompt', text: 'env?' }] },
       { agent: AGENT, mode: 'replay', fixtureFile },
     )))
-    /** 中文说明：函数值 roots 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const roots = results.map(result => environmentEcho(result.rawStdout).spillRoot)
     expect(roots.every(root => typeof root === 'string')).toBe(true)
     expect(new Set(roots).size).toBe(2)
@@ -663,13 +587,11 @@ describe('runScenario', () => {
 
   it('seeds the workspace dir into the temp cwd before the run', { timeout: 20_000 }, async () => {
     const { dir, fixtureFile } = await scenario({ echoWorkspace: true })
-    /** 中文说明：变量 workspaceDir 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const workspaceDir = join(dir, 'workspace')
     await writeFile(join(dir, 'behavior.json'), JSON.stringify({ echoWorkspace: true }))
     const { mkdir } = await import('node:fs/promises')
     await mkdir(workspaceDir, { recursive: true })
     await writeFile(join(workspaceDir, 'seeded.txt'), 'hello')
-    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await runScenario(
       { steps: [...boot, { op: 'prompt', text: 'ls' }] },
       { agent: AGENT, mode: 'replay', fixtureFile, workspaceDir },
@@ -679,13 +601,11 @@ describe('runScenario', () => {
 
   it('prepares the generated workspace after copying committed fixtures', { timeout: 20_000 }, async () => {
     const { dir, fixtureFile } = await scenario({ echoWorkspace: true })
-    /** 中文说明：变量 workspaceDir 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const workspaceDir = join(dir, 'workspace')
     const { mkdir } = await import('node:fs/promises')
     await mkdir(workspaceDir, { recursive: true })
     await writeFile(join(workspaceDir, 'committed.txt'), 'committed')
 
-    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await runScenario(
       { steps: [...boot, { op: 'prompt', text: 'ls' }] },
       {
@@ -705,17 +625,14 @@ describe('runScenario', () => {
 
   it('creates the generated workspace under an explicit parent', { timeout: 20_000 }, async () => {
     const { fixtureFile } = await scenario({})
-    /** 中文说明：变量 workspaceParent 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const workspaceParent = await mkdtemp(join(tmpdir(), 'acp-snap-parent-'))
     tempDirs.push(workspaceParent)
 
-    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await runScenario(
       { steps: boot },
       { agent: AGENT, mode: 'replay', fixtureFile, workspaceParent },
     )
 
-    /** 中文说明：变量 child 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const child = relative(workspaceParent, result.cwd)
     expect(child).not.toBe('')
     expect(child).not.toBe('..')
@@ -724,7 +641,6 @@ describe('runScenario', () => {
 
   it('promptAndCancel waits for the durable turn start, cancels, and settles the prompt', { timeout: 20_000 }, async () => {
     const { fixtureFile } = await scenario({ prompt: 'hang-until-cancel' })
-    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await runScenario(
       { steps: [...boot, { op: 'promptAndCancel', text: 'hang' }] },
       { agent: AGENT, mode: 'replay', fixtureFile },
@@ -736,12 +652,10 @@ describe('runScenario', () => {
 
   it('promptAndCancel can wait for cwd-relative readiness before cancelling', { timeout: 20_000 }, async () => {
     const { dir, fixtureFile } = await scenario({ prompt: 'hang-until-cancel' })
-    /** 中文说明：变量 workspaceDir 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const workspaceDir = join(dir, 'workspace')
     const { mkdir } = await import('node:fs/promises')
     await mkdir(workspaceDir, { recursive: true })
     await writeFile(join(workspaceDir, 'started.txt'), 'started')
-    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await runScenario(
       {
         steps: [...boot, {
@@ -754,7 +668,6 @@ describe('runScenario', () => {
     )
     expect(result.rawStdout).toContain('"stopReason":"cancelled"')
 
-    /** 中文说明：变量 missing 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const missing = await scenario({ prompt: 'hang-until-cancel' })
     await expect(runScenario(
       {
@@ -770,7 +683,6 @@ describe('runScenario', () => {
 
   it('promptAndWaitForAgentMessage keeps the app live through a matching later update', { timeout: 20_000 }, async () => {
     const { fixtureFile } = await scenario({ prompt: 'respond' })
-    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await runScenario(
       {
         steps: [...boot, {
@@ -796,7 +708,6 @@ describe('runScenario', () => {
         ],
       }],
     })
-    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await runScenario(
       { steps: [...boot, { op: 'promptAndCancel', text: 'hang' }, { op: 'waitForTurnEnd' }] },
       { agent: AGENT, mode: 'replay', fixtureFile },
@@ -825,7 +736,6 @@ describe('runScenario', () => {
         ],
       }],
     })
-    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await runScenario(
       { steps: [...boot, { op: 'promptAndCancel', text: 'hang' }, { op: 'waitForInboxMessage', text: 'marker' }] },
       { agent: AGENT, mode: 'replay', fixtureFile },
@@ -834,14 +744,12 @@ describe('runScenario', () => {
   })
 
   it('waitForInboxMessage times out when the session log or matching insertion is absent', { timeout: 20_000 }, async () => {
-    /** 中文说明：变量 absent 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const absent = await scenario({ prompt: 'hang-until-cancel', persistLogsOnCancel: true })
     await expect(runScenario(
       { steps: [...boot, { op: 'promptAndCancel', text: 'hang' }, { op: 'waitForInboxMessage', text: 'missing', timeoutMs: 20 }] },
       { agent: AGENT, mode: 'replay', fixtureFile: absent.fixtureFile },
     )).rejects.toThrow(/did not persist expected inbox message within 20ms/)
 
-    /** 中文说明：变量 unmatched 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const unmatched = await scenario({
       prompt: 'hang-until-cancel',
       persistLogsOnCancel: true,
@@ -869,7 +777,6 @@ describe('runScenario', () => {
         ],
       }],
     })
-    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await runScenario(
       {
         steps: [
@@ -895,7 +802,6 @@ describe('runScenario', () => {
         ],
       }],
     })
-    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await runScenario(
       {
         steps: [
@@ -910,14 +816,12 @@ describe('runScenario', () => {
   })
 
   it('waitForTurnStart rejects missing, earlier, and malformed durable turns', { timeout: 20_000 }, async () => {
-    /** 中文说明：变量 missing 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const missing = await scenario({})
     await expect(runScenario(
       { steps: [...boot, { op: 'waitForTurnStart', timeoutMs: 200 }] },
       { agent: AGENT, mode: 'replay', fixtureFile: missing.fixtureFile },
     )).rejects.toThrow(/did not persist turn\/start within 200ms/)
 
-    /** 中文说明：变量 earlier 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const earlier = await scenario({
       prompt: 'hang-until-cancel',
       persistLogsOnCancel: true,
@@ -940,7 +844,6 @@ describe('runScenario', () => {
       { agent: AGENT, mode: 'replay', fixtureFile: earlier.fixtureFile },
     )).rejects.toThrow(/turn\/start at or beyond turn 3 within 200ms/)
 
-    /** 中文说明：变量 closed 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const closed = await scenario({
       prompt: 'hang-until-cancel',
       persistLogsOnCancel: true,
@@ -964,9 +867,7 @@ describe('runScenario', () => {
       { agent: AGENT, mode: 'replay', fixtureFile: closed.fixtureFile },
     )).rejects.toThrow(/did not persist turn\/start within 200ms/)
 
-    /** 中文说明：该循环依次处理夹具或生成数据；循环变量仅在当前循环中有效。 */
     for (const turn of [undefined, 0]) {
-      /** 中文说明：变量 malformed 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const malformed = await scenario({
         prompt: 'hang-until-cancel',
         persistLogsOnCancel: true,
@@ -992,14 +893,12 @@ describe('runScenario', () => {
   })
 
   it('waitForTurnEnd times out for a missing log and an open logged turn', { timeout: 20_000 }, async () => {
-    /** 中文说明：变量 missing 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const missing = await scenario({})
     await expect(runScenario(
       { steps: [...boot, { op: 'waitForTurnEnd', timeoutMs: 20 }] },
       { agent: AGENT, mode: 'replay', fixtureFile: missing.fixtureFile },
     )).rejects.toThrow(/did not persist turn\/end within 20ms/)
 
-    /** 中文说明：变量 open 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const open = await scenario({
       prompt: 'hang-until-cancel',
       persistLogsOnCancel: true,
@@ -1024,7 +923,6 @@ describe('runScenario', () => {
   })
 
   it('waitForGoalPhase requires the requested durable goal phase', { timeout: 20_000 }, async () => {
-    /** 中文说明：变量 reached 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const reached = await scenario({
       prompt: 'hang-until-cancel',
       persistLogsOnCancel: true,
@@ -1037,7 +935,6 @@ describe('runScenario', () => {
         ],
       }],
     })
-    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await runScenario(
       {
         steps: [
@@ -1050,7 +947,6 @@ describe('runScenario', () => {
     )
     expect(result.sessionLogs[0]?.content).toContain('"phase":"active"')
 
-    /** 中文说明：变量 missing 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const missing = await scenario({})
     await expect(runScenario(
       { steps: [...boot, { op: 'waitForGoalPhase', phase: 'blocked', timeoutMs: 20 }] },
@@ -1059,7 +955,6 @@ describe('runScenario', () => {
   })
 
   it('waitForSubagentTurnEnd requires a closed child work turn', { timeout: 20_000 }, async () => {
-    /** 中文说明：变量 closed 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const closed = await scenario({
       prompt: 'hang-until-cancel',
       persistLogsOnCancel: true,
@@ -1083,7 +978,6 @@ describe('runScenario', () => {
         },
       ],
     })
-    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await runScenario(
       {
         steps: [
@@ -1106,7 +1000,6 @@ describe('runScenario', () => {
       { agent: AGENT, mode: 'replay', fixtureFile: closed.fixtureFile },
     )).rejects.toThrow(/subagent child #1 did not persist closed turn 2 within 20ms/)
 
-    /** 中文说明：变量 seedOnly 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const seedOnly = await scenario({
       prompt: 'hang-until-cancel',
       persistLogsOnCancel: true,
@@ -1141,7 +1034,6 @@ describe('runScenario', () => {
       { agent: AGENT, mode: 'replay', fixtureFile: seedOnly.fixtureFile },
     )).rejects.toThrow(/subagent child #1 did not persist closed turn 1 within 20ms/)
 
-    /** 中文说明：变量 missing 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const missing = await scenario({})
     await expect(runScenario(
       { steps: [...boot, { op: 'waitForSubagentTurnEnd', child: 2, timeoutMs: 20 }] },
@@ -1167,15 +1059,14 @@ describe('runScenario', () => {
         steps: [
           ...boot,
           { op: 'promptAndCancel', text: 'hang' },
-          { op: 'waitForTitleAfterTurnEnd', timeoutMs: 20 },
+          { op: 'waitForTitleAfterTurnEnd', timeoutMs: titleDiagnosticTimeoutMs },
         ],
       },
       { agent: AGENT, mode: 'replay', fixtureFile },
-    )).rejects.toThrow(/did not persist session\/title after turn\/end within 20ms/)
+    )).rejects.toThrow(new RegExp(`did not persist session/title after turn/end within ${titleDiagnosticTimeoutMs}ms`))
   })
 
   it('waitForEventAfterTurnEnd holds the app for a typed post-boundary record and times out otherwise', { timeout: 20_000 }, async () => {
-    /** 中文说明：变量 late 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const late = await scenario({
       prompt: 'hang-until-cancel',
       persistLogsOnCancel: true,
@@ -1188,7 +1079,6 @@ describe('runScenario', () => {
         ],
       }],
     })
-    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await runScenario(
       {
         steps: [
@@ -1201,7 +1091,6 @@ describe('runScenario', () => {
     )
     expect(result.sessionLogs[0]?.content).toMatch(/"turn\/end"[\s\S]*"user\/message"/)
 
-    /** 中文说明：变量 early 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const early = await scenario({
       prompt: 'hang-until-cancel',
       persistLogsOnCancel: true,
@@ -1228,7 +1117,6 @@ describe('runScenario', () => {
 
   it('promptExpectError swallows a model-error response as the expected outcome', { timeout: 20_000 }, async () => {
     const { fixtureFile } = await scenario({ prompt: 'error' })
-    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await runScenario(
       { steps: [...boot, { op: 'promptExpectError', text: 'boom' }] },
       { agent: AGENT, mode: 'replay', fixtureFile },
@@ -1246,18 +1134,15 @@ describe('runScenario', () => {
 
   it('reports scenario and cleanup failures together', { timeout: 20_000 }, async () => {
     const { fixtureFile } = await scenario({ prompt: 'respond' })
-    /** 中文说明：变量 cleanupFailure 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const cleanupFailure = new Error('cleanup failed')
     fsControl.cleanupFailure = cleanupFailure
 
-    /** 中文说明：变量 failure 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const failure = await runScenario(
       { steps: [...boot, { op: 'promptExpectError', text: 'fine' }] },
       { agent: AGENT, mode: 'replay', fixtureFile },
     ).catch((error: unknown): unknown => error)
 
     expect(failure).toBeInstanceOf(AggregateError)
-    /** 中文说明：变量 failures 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const failures = (failure as AggregateError).errors as unknown[]
     expect(failures).toHaveLength(2)
     expect(failures[0]).toBeInstanceOf(Error)
@@ -1267,11 +1152,9 @@ describe('runScenario', () => {
 
   it('reports cleanup failure after an otherwise successful scenario', { timeout: 20_000 }, async () => {
     const { fixtureFile } = await scenario({})
-    /** 中文说明：变量 cleanupFailure 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const cleanupFailure = new Error('cleanup failed')
     fsControl.cleanupFailure = cleanupFailure
 
-    /** 中文说明：变量 failure 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const failure = await runScenario(
       { steps: boot },
       { agent: AGENT, mode: 'replay', fixtureFile },
@@ -1284,7 +1167,6 @@ describe('runScenario', () => {
 
   it('newSessionExpectError swallows the rejection, with and without extra dirs', { timeout: 20_000 }, async () => {
     const { fixtureFile } = await scenario({ rejectExtraDirs: true })
-    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await runScenario(
       { steps: [{ op: 'initialize' }, { op: 'newSessionExpectError', additionalDirectories: ['/elsewhere'] }] },
       { agent: AGENT, mode: 'replay', fixtureFile },
@@ -1293,9 +1175,7 @@ describe('runScenario', () => {
     expect(result.sessionId).toBeUndefined()
     expect(result.sessionLogs).toHaveLength(0)
 
-    /** 中文说明：变量 rejectAll 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const rejectAll = await scenario({ rejectNewSession: true })
-    /** 中文说明：变量 second 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const second = await runScenario(
       { steps: [{ op: 'initialize' }, { op: 'newSessionExpectError' }] },
       { agent: AGENT, mode: 'replay', fixtureFile: rejectAll.fixtureFile },
@@ -1313,7 +1193,6 @@ describe('runScenario', () => {
 
   it('a plain cancel step is forwarded (and ignored by an idle agent)', { timeout: 20_000 }, async () => {
     const { fixtureFile } = await scenario({})
-    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await runScenario(
       { steps: [...boot, { op: 'cancel' }] },
       { agent: AGENT, mode: 'replay', fixtureFile },
@@ -1323,12 +1202,10 @@ describe('runScenario', () => {
 
   it('a standalone cancel can wait for cwd-relative readiness', { timeout: 20_000 }, async () => {
     const { dir, fixtureFile } = await scenario({})
-    /** 中文说明：变量 workspaceDir 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const workspaceDir = join(dir, 'workspace')
     const { mkdir } = await import('node:fs/promises')
     await mkdir(workspaceDir, { recursive: true })
     await writeFile(join(workspaceDir, 'ready'), '')
-    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await runScenario(
       { steps: [...boot, { op: 'cancel', waitForFile: { path: 'ready' } }] },
       { agent: AGENT, mode: 'replay', fixtureFile, workspaceDir },
@@ -1338,12 +1215,10 @@ describe('runScenario', () => {
 
   it('waitForFile holds the next input step behind cwd-relative readiness', { timeout: 20_000 }, async () => {
     const { dir, fixtureFile } = await scenario({})
-    /** 中文说明：变量 workspaceDir 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const workspaceDir = join(dir, 'workspace')
     const { mkdir } = await import('node:fs/promises')
     await mkdir(workspaceDir, { recursive: true })
     await writeFile(join(workspaceDir, 'ready'), '')
-    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await runScenario(
       { steps: [...boot, { op: 'waitForFile', path: 'ready' }, { op: 'cancel' }] },
       { agent: AGENT, mode: 'replay', fixtureFile, workspaceDir },
@@ -1374,7 +1249,6 @@ describe('runScenario', () => {
 
   it('rejects an unknown input op', { timeout: 20_000 }, async () => {
     const { fixtureFile } = await scenario({})
-    /** 中文说明：变量 bogus 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const bogus = { op: 'reticulate' } as unknown as InputStep
     await expect(runScenario(
       { steps: [bogus] },
@@ -1397,7 +1271,6 @@ describe('runScenario', () => {
         { file: 'b2/orphan/session.jsonl', lines: [{ type: 'session', parentSession: '{{SID}}' }] },
       ],
     })
-    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await runScenario(
       { steps: [...boot, { op: 'prompt', text: 'go' }] },
       { agent: AGENT, mode: 'replay', fixtureFile },
@@ -1413,7 +1286,6 @@ describe('runScenario', () => {
 
   it('treats an empty log file as a header-less primary with default fields', { timeout: 20_000 }, async () => {
     const { fixtureFile } = await scenario({ logs: [{ file: 'b/empty/session.jsonl', lines: [] }] })
-    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await runScenario(
       { steps: boot },
       { agent: AGENT, mode: 'replay', fixtureFile },
@@ -1423,7 +1295,6 @@ describe('runScenario', () => {
 
   it('yields no logs when the sessions root vanished', { timeout: 20_000 }, async () => {
     const { fixtureFile } = await scenario({ deleteSessionsRoot: true })
-    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await runScenario(
       { steps: boot },
       { agent: AGENT, mode: 'replay', fixtureFile },
@@ -1435,7 +1306,6 @@ describe('runScenario', () => {
     const { fixtureFile } = await scenario({ permissionProbe: true })
     // Two prompts → two permission round-trips; one scripted answer, so the
     // second request exercises the exhausted-queue fallback.
-    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await runScenario(
       {
         steps: [...boot, { op: 'prompt', text: 'one' }, { op: 'prompt', text: 'two' }],
@@ -1443,9 +1313,7 @@ describe('runScenario', () => {
       },
       { agent: AGENT, mode: 'replay', fixtureFile },
     )
-    /** 中文说明：变量 first 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const first = result.rawStdout.indexOf('permission:{\\"outcome\\":\\"selected\\",\\"optionId\\":\\"opt-allow\\"}')
-    /** 中文说明：变量 second 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const second = result.rawStdout.indexOf('permission:{\\"outcome\\":\\"cancelled\\"}')
     expect(first).toBeGreaterThanOrEqual(0)
     expect(second).toBeGreaterThan(first)
@@ -1453,7 +1321,6 @@ describe('runScenario', () => {
 
   it('selects a non-first offered option by kind', { timeout: 20_000 }, async () => {
     const { fixtureFile } = await scenario({ permissionProbe: true })
-    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await runScenario(
       { steps: [...boot, { op: 'prompt', text: 'deny it' }], permissionAnswers: [{ kind: 'reject_once' }] },
       { agent: AGENT, mode: 'replay', fixtureFile },

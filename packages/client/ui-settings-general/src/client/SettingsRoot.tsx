@@ -10,25 +10,20 @@
  * sessions-derived empty-Hero fact is active. Visible dialog chrome belongs
  * to the step, so a mounted-but-deciding step paints nothing here.
  */
-/*
- * 文件职责：实现通用设置的 SettingsRoot 模块。
- * 技术维度：React、TypeScript、Context、外部 Store 订阅和 Cordis 插槽。
- * 产品维度：为界面提供正确作用域的会话与插槽渲染。
- * 逻辑维度：绑定作用域，订阅状态，向子树提供值并清理。
- * 关键边界：不能跨会话复用旧授权或旧投影；卸载必须取消订阅。
- * 新手阅读建议：先读导出类型，再看 Provider/Hook 和清理逻辑。
- */
-import { useCallback, useEffect, useId, useRef, useState } from 'react'
+import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from 'react'
 import clsx from 'clsx'
 import {
+  ConnectionIndicator,
   IconAgentPresetOutline16, IconCloseOutline16, IconDataOutline16,
   IconPersonalizationOutline16, IconSettingsOutline16,
 } from '@deepseek-ai/dsh-client-ui-primitives'
+import type { ConnectionIndicatorState } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { SettingsRootComponentProps, SettingsSectionRow } from './shell-contract.ts'
 import css from './SettingsRoot.module.css'
 
+const RECOVERY_CONFIRMATION_MS = 2_000
+
 /** Nav glyph by section id; unknown ids fall back to the settings gear. */
-/* 中文说明：函数 navIcon 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function navIcon(id: string) {
   if (id === 'models') return <IconDataOutline16 className={css.navIcon} size={16} />
   if (id === 'agent-presets') return <IconAgentPresetOutline16 className={css.navIcon} size={16} />
@@ -36,7 +31,6 @@ function navIcon(id: string) {
   return <IconSettingsOutline16 className={css.navIcon} size={16} />
 }
 
-/** 中文说明：类型或类 PanelProps 约束模块数据或职责。 */
 type PanelProps = {
   rows: readonly SettingsSectionRow[]
   renderSlot: SettingsRootComponentProps['renderSlot']
@@ -50,17 +44,13 @@ type PanelProps = {
  * header button, a mask click, and document-level Escape (mounted only while
  * open, so the listener lifetime is the panel's).
  */
-/* 中文说明：函数 SettingsPanel 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function SettingsPanel({ rows, renderSlot, activeId, onSelect, onClose }: PanelProps) {
   // Entries can unmount underneath the requested id, so the render-time
   // projection falls back to the first row when the id is gone.
-  /** 中文说明：模块局部值 active，由紧邻初始化决定。 */
   const active = rows.find(r => r.id === activeId)?.id ?? rows[0]?.id
-  /** 中文说明：模块局部值 titleId，由紧邻初始化决定。 */
   const titleId = useId()
 
   useEffect(() => {
-    /** 中文说明：模块局部值 onKeyDown，由紧邻初始化决定。 */
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose()
     }
@@ -68,8 +58,7 @@ function SettingsPanel({ rows, renderSlot, activeId, onSelect, onClose }: PanelP
     return () => { document.removeEventListener('keydown', onKeyDown) }
   }, [onClose])
 
-  // Baseline focus management: entering the dialog lands on the close button.
-  /** 中文说明：模块局部值 closeButton，由紧邻初始化决定。 */
+  // Entering the dialog focuses the close button; the root restores its trigger on close.
   const closeButton = useRef<HTMLButtonElement | null>(null)
   useEffect(() => { closeButton.current?.focus() }, [])
 
@@ -116,22 +105,25 @@ function SettingsPanel({ rows, renderSlot, activeId, onSelect, onClose }: PanelP
  * @param props - composed slot props (contract/slots.ts).
  * @returns the settings shell element tree.
  */
-/* 中文说明：函数 SettingsRoot 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 export function SettingsRoot(props: SettingsRootComponentProps) {
-  /** 中文说明：模块局部值 解构结果，由紧邻初始化决定。 */
-  const { wide, useSections, useOnboardingSteps, useSessions, renderSlot } = props
-  /** 中文说明：模块局部值 [open, setOpen]，由紧邻初始化决定。 */
+  const {
+    wide, reconnect, useConnectionState, useSections, useOnboardingSteps, useSessions, renderSlot, t,
+  } = props
   const [open, setOpen] = useState(false)
-  /** 中文说明：模块局部值 [activeId, setActiveId]，由紧邻初始化决定。 */
   const [activeId, setActiveId] = useState<string | undefined>(undefined)
-  /** 中文说明：模块局部值 解构结果，由紧邻初始化决定。 */
   const [completedOnboarding, setCompletedOnboarding] = useState<ReadonlySet<string>>(() => new Set())
-  /** 中文说明：模块局部值 close，由紧邻初始化决定。 */
+  const [showRecovery, setShowRecovery] = useState(false)
+  const triggerButton = useRef<HTMLButtonElement | null>(null)
+  const wasOpen = useRef(open)
   const close = useCallback(() => {
     setOpen(false)
     setActiveId(undefined)
   }, [])
-  /** 中文说明：模块局部值 openSection，由紧邻初始化决定。 */
+  // Restore after the close commit, when the dialog can no longer own focus.
+  useEffect(() => {
+    if (wasOpen.current && !open) triggerButton.current?.focus()
+    wasOpen.current = open
+  }, [open])
   const openSection = useCallback((id: string) => {
     setActiveId(id)
     setOpen(true)
@@ -140,15 +132,13 @@ export function SettingsRoot(props: SettingsRootComponentProps) {
   // The ledger tick keeps the nav rows fresh: registrants re-register with
   // freshly localized text on locale change, and the trigger/header/close
   // seats re-render through their own outlets' subscriptions.
-  /** 中文说明：模块局部值 rows，由紧邻初始化决定。 */
   const rows = useSections(s => s)
-  /** 中文说明：模块局部值 onboardingSteps，由紧邻初始化决定。 */
+  const connectionState = useConnectionState(state => state)
+  const previousConnectionState = useRef(connectionState)
   const onboardingSteps = useOnboardingSteps(s => s)
-  /** 中文说明：模块局部值 onboardingActive，由紧邻初始化决定。 */
   const onboardingActive = useSessions(state =>
     state.phase === 'ready'
     && (state.current === undefined || state.byId[state.current]?.blank === true))
-  /** 中文说明：模块局部值 onboardingStep，由紧邻初始化决定。 */
   const onboardingStep = onboardingActive
     ? onboardingSteps.find(step => !completedOnboarding.has(step.id))
     : undefined
@@ -158,7 +148,19 @@ export function SettingsRoot(props: SettingsRootComponentProps) {
     setCompletedOnboarding(new Set())
   }, [onboardingActive])
 
-  /** 中文说明：模块局部值 completeOnboardingStep，由紧邻初始化决定。 */
+  useLayoutEffect(() => {
+    const previous = previousConnectionState.current
+    previousConnectionState.current = connectionState
+    if (connectionState !== 'connected') {
+      setShowRecovery(false)
+      return
+    }
+    if (previous !== 'disconnected' && previous !== 'connecting') return
+    setShowRecovery(true)
+    const timeout = window.setTimeout(() => { setShowRecovery(false) }, RECOVERY_CONFIRMATION_MS)
+    return () => { window.clearTimeout(timeout) }
+  }, [connectionState])
+
   const completeOnboardingStep = useCallback((id: string) => {
     setCompletedOnboarding((previous) => {
       if (previous.has(id)) return previous
@@ -166,17 +168,39 @@ export function SettingsRoot(props: SettingsRootComponentProps) {
     })
   }, [])
 
+  let connectionIndicator: ConnectionIndicatorState | undefined
+  if (connectionState === 'disconnected') {
+    connectionIndicator = 'disconnected'
+  } else if (connectionState === 'connecting') {
+    connectionIndicator = 'connecting'
+  } else if (showRecovery) {
+    connectionIndicator = 'recovered'
+  }
+
   return (
     <>
-      <button
-        type="button"
-        className={clsx(css.trigger, !wide && css.rail)}
-        aria-haspopup="dialog"
-        aria-expanded={open}
-        onClick={() => { setOpen(true) }}
-      >
-        {renderSlot('settings.trigger', { wide })}
-      </button>
+      <div className={clsx(css.triggerRow, !wide && css.railRow)}>
+        <button
+          ref={triggerButton}
+          type="button"
+          className={clsx(css.trigger, !wide && css.rail)}
+          aria-haspopup="dialog"
+          aria-expanded={open}
+          onClick={() => { setOpen(true) }}
+        >
+          {renderSlot('settings.trigger', { wide })}
+        </button>
+        <ConnectionIndicator
+          state={wide ? connectionIndicator : undefined}
+          disconnectedLabel={t('connection.error')}
+          reconnectLabel={t('connection.retry')}
+          connectingLabel={t('connection.connecting')}
+          recoveredLabel={t('connection.connected')}
+          reconnectActionLabel={t('connection.reconnect')}
+          restartActionLabel={t('connection.restart')}
+          onReconnect={reconnect}
+        />
+      </div>
       {open && (
         <SettingsPanel
           rows={rows}

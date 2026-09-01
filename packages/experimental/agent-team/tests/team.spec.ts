@@ -1,11 +1,3 @@
-/**
- * 文件职责：验证实验 Agent Team的 team.spec.ts 行为与边界。
- * 技术维度：TypeScript、Cordis、异步资源生命周期、远程文件/进程接口和 Vitest。
- * 产品维度：保证实验 Agent Team在真实组装、失败和清理场景中可靠。
- * 逻辑维度：构造服务或远程替身，驱动操作并断言结果。
- * 关键边界：凭据不得泄漏；远程句柄、终端和后台进程必须在取消或卸载时释放。
- * 新手阅读建议：先读接口和夹具，再按创建、操作、错误和清理流程阅读。
- */
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
@@ -16,52 +8,50 @@ import AgentLoop from '@deepseek-ai/dsh-agent-loop'
 import { mountAgentLoopTestDependencies } from '@deepseek-ai/dsh-agent-loop-testkit'
 import { createUserMessage } from '@deepseek-ai/dsh-llm'
 import { SessionId, type Session } from '@deepseek-ai/dsh-session'
+import SessionProjectionRegistry from '@deepseek-ai/dsh-session-projection'
 import JsonlSessionPersistence from '@deepseek-ai/dsh-session-persistence-jsonl'
 import SubagentService from '@deepseek-ai/dsh-subagent'
 import * as SubagentFork from '@deepseek-ai/dsh-subagent-fork-in-process'
 import * as SubagentSpawn from '@deepseek-ai/dsh-subagent-spawn-in-process'
 import { MockAdapter, textResponse } from '../../../core/agent-loop/tests/mock-adapter.ts'
-import TeamService, { foldTeam, TeamError, TeamId, TeamMessageId, TeamTaskId } from '../src/index.ts'
+import TeamService, { TeamError, TeamId, TeamMessageId, TeamTaskId } from '../src/index.ts'
 import { TeamRuntimeLifecycle } from '../src/lifecycle.ts'
+import { teamProjectionDefinition } from '../src/projection.ts'
 import type { TeamMemberSnapshot, TeamMessageSnapshot, TeamTaskSnapshot } from '../src/index.ts'
 import { TestSessionQuery } from './test-session-query.ts'
 
-/** 中文说明：测试局部值 SIGNAL，由紧邻初始化决定。 */
 const SIGNAL = new AbortController().signal
-/** 中文说明：测试局部值 roots，由紧邻初始化决定。 */
 const roots: string[] = []
 
 afterEach(() => {
   vi.useRealTimers()
-  /** 中文说明：测试局部值 root，由紧邻初始化决定。 */
   for (const root of roots.splice(0)) rmSync(root, { recursive: true, force: true })
 })
 
-/** Detached durable Team read: the service exposes views, so assertions fold the Lead log. */
-/* 中文说明：函数 durable 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+/** Detached durable Team read through the same projection definition as the service. */
 function durable(agent: Agent): {
   members: TeamMemberSnapshot[]
   tasks: TeamTaskSnapshot[]
   pendingMessages: TeamMessageSnapshot[]
 } {
-  /** 中文说明：测试局部值 state，由紧邻初始化决定。 */
-  const state = foldTeam(agent.id, agent.session.events)
+  let projected = teamProjectionDefinition.init(agent.session.header)
+  for (const event of agent.session.events) projected = teamProjectionDefinition.apply(projected, event)
+  if (projected.failure !== undefined) throw new Error(projected.failure)
+  const state = projected
   return {
-    members: [...state.members.values()],
-    tasks: [...state.tasks.values()],
-    pendingMessages: [...state.messages.values()].filter(message => !state.delivered.has(message.id)),
+    members: state.members,
+    tasks: state.tasks,
+    pendingMessages: state.messages.filter(message => !state.delivered.includes(message.id)),
   }
 }
 
-/** 中文说明：函数 setup 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 async function setup(
   script: ConstructorParameters<typeof MockAdapter>[0],
   config: ConstructorParameters<typeof TeamService>[1] = {},
 ) {
-  /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
   const ctx = new Context()
   await mountAgentLoopTestDependencies(ctx)
-  /** 中文说明：测试局部值 storageRoot，由紧邻初始化决定。 */
+  await ctx.plugin(SessionProjectionRegistry)
   const storageRoot = mkdtempSync(join(tmpdir(), 'dsh-team-'))
   roots.push(storageRoot)
   await ctx.plugin(JsonlSessionPersistence, { root: storageRoot })
@@ -70,22 +60,17 @@ async function setup(
   await ctx.plugin(SubagentService)
   await ctx.plugin(SubagentSpawn, { providerName: 'spawn' })
   await ctx.plugin(SubagentFork, { providerName: 'fork' })
-  /** 中文说明：测试局部值 teamFiber，由紧邻初始化决定。 */
   const teamFiber = await ctx.plugin(TeamService, config)
-  /** 中文说明：测试局部值 adapter，由紧邻初始化决定。 */
   const adapter = new MockAdapter(script)
   ctx.llm.registerAdapter(['mock'], adapter)
-  /** 中文说明：测试局部值 lead，由紧邻初始化决定。 */
   const lead = ctx.agentLoop.create(SessionId('lead'), { provider: 'mock', model: 'mock' })
   return { ctx, lead, adapter, storageRoot, teamFiber }
 }
 
-/** 中文说明：函数 content 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function content(text: string) {
   return [{ type: 'text' as const, text }]
 }
 
-/** 中文说明：类型或类 TeamServiceInternals 约束远程资源或测试数据职责。 */
 interface TeamServiceInternals {
   readonly roster: {
     readonly inFlightCreations: Set<Promise<unknown>>
@@ -107,19 +92,16 @@ interface TeamServiceInternals {
 }
 
 /** White-box access follows the runtime owners so coverage does not widen the service API. */
-/* 中文说明：函数 teamInternals 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function teamInternals(ctx: Context): TeamServiceInternals {
   return ctx.agentTeams as unknown as TeamServiceInternals
 }
 
-/** 中文说明：函数 spawn 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function spawn(
   ctx: Context,
   lead: Agent,
   name: string,
   options: { context?: 'fresh' | 'fork'; provider?: string } = {},
 ) {
-  /** 中文说明：测试局部值 context，由紧邻初始化决定。 */
   const context = options.context ?? 'fresh'
   return ctx.agentTeams.spawnTeammate(lead, {
     name,
@@ -131,15 +113,12 @@ function spawn(
   })
 }
 
-/** 中文说明：函数 waitNoAgent 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 async function waitNoAgent(ctx: Context, id: SessionId): Promise<void> {
   await vi.waitFor(() => { expect(ctx.agents.get(id)).toBeUndefined() }, { timeout: 5_000 })
 }
 
-/** 中文说明：函数 waitRunning 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 async function waitRunning(ctx: Context, id: SessionId): Promise<Agent> {
   return vi.waitFor(() => {
-    /** 中文说明：测试局部值 agent，由紧邻初始化决定。 */
     const agent = ctx.agents.get(id)
     expect(agent?.status).toBe('running')
     return agent!
@@ -147,8 +126,22 @@ async function waitRunning(ctx: Context, id: SessionId): Promise<Agent> {
 }
 
 describe('Team identity and provisioning', () => {
+  it('rejects missing and failed authoritative Team projections', async () => {
+    const first = await setup([])
+    const journal = teamInternals(first.ctx).journal
+    const stateOf = first.ctx.sessionProjections.stateOf.bind(first.ctx.sessionProjections)
+    const stateOfSpy = vi.spyOn(first.ctx.sessionProjections, 'stateOf').mockImplementation((session, key) => (
+      key === 'agentTeam' ? undefined : stateOf(session, key)
+    ))
+    expect(() => journal.state(first.lead)).toThrow('Agent Teams projection is not registered')
+    stateOfSpy.mockImplementation((session, key) => key === 'agentTeam'
+      ? { ...teamProjectionDefinition.init(session.header), failure: 'failed Team projection' }
+      : stateOf(session, key))
+    expect(() => journal.state(first.lead)).toThrow('failed Team projection')
+    stateOfSpy.mockRestore()
+  })
+
   it('rejects deployment limits that are not positive safe integers', async () => {
-    /** 中文说明：测试局部值 fields，由紧邻初始化决定。 */
     const fields = [
       'maxMembers',
       'maxTasks',
@@ -156,9 +149,7 @@ describe('Team identity and provisioning', () => {
       'maxMessageBytes',
       'disposalTimeoutMs',
     ] as const
-    /** 中文说明：测试局部值 field，由紧邻初始化决定。 */
     for (const field of fields) {
-      /** 中文说明：测试局部值 value，由紧邻初始化决定。 */
       for (const value of [0, 1.5, Number.MAX_SAFE_INTEGER + 1]) {
         await expect(setup([], { [field]: value })).rejects.toThrow()
       }
@@ -166,18 +157,15 @@ describe('Team identity and provisioning', () => {
   })
 
   it('supports direct-constructor defaults and recovers roots that already exist', async () => {
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = new Context()
     await mountAgentLoopTestDependencies(ctx)
-    /** 中文说明：测试局部值 storageRoot，由紧邻初始化决定。 */
+    await ctx.plugin(SessionProjectionRegistry)
     const storageRoot = mkdtempSync(join(tmpdir(), 'dsh-team-direct-'))
     roots.push(storageRoot)
     await ctx.plugin(JsonlSessionPersistence, { root: storageRoot })
     await ctx.plugin(AgentLoop, { agents: [] })
     await ctx.plugin(SubagentService)
-    /** 中文说明：测试局部值 lead，由紧邻初始化决定。 */
     const lead = ctx.agentLoop.create(SessionId('preexisting-lead'), {})
-    /** 中文说明：测试局部值 service，由紧邻初始化决定。 */
     const service = new TeamService(ctx)
 
     expect(service.listMembers(lead)).toEqual([expect.objectContaining({
@@ -185,7 +173,6 @@ describe('Team identity and provisioning', () => {
       status: 'idle',
       diagnostics: [],
     })])
-    /** 中文说明：测试局部值 provisioning，由紧邻初始化决定。 */
     const provisioning = {
       id: SessionId('preexisting-child'),
       name: 'preexisting-worker',
@@ -209,7 +196,6 @@ describe('Team identity and provisioning', () => {
   })
 
   it('creates fresh and fork teammates with immutable names and bounded roster size', async () => {
-    /** 中文说明：测试局部值 { ctx, lead }，由紧邻初始化决定。 */
     const { ctx, lead } = await setup([
       textResponse('lead answer'),
       textResponse('fork answer'),
@@ -218,10 +204,8 @@ describe('Team identity and provisioning', () => {
     lead.followup(createUserMessage({ content: content('lead turn'), source: { kind: 'user' } }))
     await lead.whenIdle()
 
-    /** 中文说明：测试局部值 forked，由紧邻初始化决定。 */
     const forked = await spawn(ctx, lead, 'fork-worker', { context: 'fork' })
     await waitNoAgent(ctx, forked.member.id)
-    /** 中文说明：测试局部值 fresh，由紧邻初始化决定。 */
     const fresh = await spawn(ctx, lead, 'fresh-worker')
     await waitNoAgent(ctx, fresh.member.id)
 
@@ -237,11 +221,8 @@ describe('Team identity and provisioning', () => {
   })
 
   it('flushes the accepted child prompt before committing the active roster edge', async () => {
-    /** 中文说明：测试局部值 { ctx, lead }，由紧邻初始化决定。 */
     const { ctx, lead } = await setup([textResponse('checkpointed child answer')])
-    /** 中文说明：测试局部值 flush，由紧邻初始化决定。 */
     const flush = ctx.sessions.flush.bind(ctx.sessions)
-    /** 中文说明：测试局部值 order，由紧邻初始化决定。 */
     const order: string[] = []
     vi.spyOn(ctx.sessions, 'flush').mockImplementation(async (session) => {
       if (session.id === lead.id && durable(lead).members[0]?.phase === 'active') {
@@ -252,7 +233,6 @@ describe('Team identity and provisioning', () => {
       return flush(session)
     })
 
-    /** 中文说明：测试局部值 started，由紧邻初始化决定。 */
     const started = await spawn(ctx, lead, 'checkpoint-worker')
     expect(order.indexOf('child')).toBeGreaterThanOrEqual(0)
     expect(order.indexOf('child')).toBeLessThan(order.indexOf('lead-active'))
@@ -260,24 +240,17 @@ describe('Team identity and provisioning', () => {
   })
 
   it('checkpoints live and detached inbox receipts and aborts an unresolved checkpoint', async () => {
-    /** 中文说明：测试局部值 { ctx, lead }，由紧邻初始化决定。 */
     const { ctx, lead } = await setup([])
-    /** 中文说明：测试局部值 internal，由紧邻初始化决定。 */
     const internal = teamInternals(ctx).roster
-    /** 中文说明：测试局部值 解构结果，由紧邻初始化决定。 */
     let liveSession: Session | undefined
-    /** 中文说明：测试局部值 liveFiber，由紧邻初始化决定。 */
     const liveFiber = await ctx.plugin(Object.assign(function checkpointFixture(childCtx: Context) {
       liveSession = childCtx.sessions.create(SessionId('checkpoint-child'))
     }, { inject: ['sessions'] }))
     if (liveSession === undefined) throw new Error('checkpoint fixture did not create its Session')
-    /** 中文说明：测试局部值 initial，由紧邻初始化决定。 */
     const initial = createUserMessage({ content: content('checkpoint me'), source: { kind: 'user' } })
-    /** 中文说明：测试局部值 checkpoint，由紧邻初始化决定。 */
     const checkpoint = internal.checkpointInitialPrompt(liveSession.id, initial.id, SIGNAL)
     await Promise.resolve()
     lead.inject(createUserMessage({ content: content('unrelated progress'), source: { kind: 'user' } }))
-    /** 中文说明：测试局部值 unrelatedFiber，由紧邻初始化决定。 */
     const unrelatedFiber = await ctx.plugin(Object.assign(function unrelatedCheckpointFixture(childCtx: Context) {
       childCtx.sessions.create(SessionId('unrelated-checkpoint-child'))
     }, { inject: ['sessions'] }))
@@ -289,46 +262,34 @@ describe('Team identity and provisioning', () => {
     await liveFiber.dispose()
 
     await expect(internal.checkpointInitialPrompt(liveSession.id, initial.id, SIGNAL)).resolves.toBeUndefined()
-    /** 中文说明：测试局部值 missing，由紧邻初始化决定。 */
     const missing = createUserMessage({ content: content('missing'), source: { kind: 'user' } })
     await expect(internal.checkpointInitialPrompt(liveSession.id, missing.id, SIGNAL))
       .rejects.toMatchObject({ code: 'TEAM_PROVISIONING_CONFLICT' })
 
-    /** 中文说明：测试局部值 解构结果，由紧邻初始化决定。 */
     let disposedSession: Session | undefined
-    /** 中文说明：测试局部值 disposedFiber，由紧邻初始化决定。 */
     const disposedFiber = await ctx.plugin(Object.assign(function disposedCheckpointFixture(childCtx: Context) {
       disposedSession = childCtx.sessions.create(SessionId('disposed-checkpoint-child'))
     }, { inject: ['sessions'] }))
     if (disposedSession === undefined) throw new Error('disposed checkpoint fixture did not create its Session')
-    /** 中文说明：测试局部值 disposed，由紧邻初始化决定。 */
     const disposed = internal.checkpointInitialPrompt(disposedSession.id, missing.id, SIGNAL)
-    /** 中文说明：测试局部值 disposedResult，由紧邻初始化决定。 */
     const disposedResult = expect(disposed).rejects.toThrow('not found')
     await Promise.resolve()
     await disposedFiber.dispose()
     await disposedResult
 
-    /** 中文说明：测试局部值 解构结果，由紧邻初始化决定。 */
     let abortedSession: Session | undefined
-    /** 中文说明：测试局部值 abortedFiber，由紧邻初始化决定。 */
     const abortedFiber = await ctx.plugin(Object.assign(function abortedCheckpointFixture(childCtx: Context) {
       abortedSession = childCtx.sessions.create(SessionId('aborted-checkpoint-child'))
     }, { inject: ['sessions'] }))
     if (abortedSession === undefined) throw new Error('aborted checkpoint fixture did not create its Session')
-    /** 中文说明：测试局部值 controller，由紧邻初始化决定。 */
     const controller = new AbortController()
-    /** 中文说明：测试局部值 aborted，由紧邻初始化决定。 */
     const aborted = internal.checkpointInitialPrompt(abortedSession.id, missing.id, controller.signal)
     await Promise.resolve()
     controller.abort({ kind: 'test' })
     await expect(aborted).rejects.toMatchObject({ code: 'TEAM_DISPOSED' })
 
-    /** 中文说明：测试局部值 errorController，由紧邻初始化决定。 */
     const errorController = new AbortController()
-    /** 中文说明：测试局部值 errorAborted，由紧邻初始化决定。 */
     const errorAborted = internal.checkpointInitialPrompt(abortedSession.id, missing.id, errorController.signal)
-    /** 中文说明：测试局部值 errorResult，由紧邻初始化决定。 */
     const errorResult = expect(errorAborted).rejects.toThrow('checkpoint stopped')
     await Promise.resolve()
     errorController.abort(new Error('checkpoint stopped'))
@@ -337,20 +298,17 @@ describe('Team identity and provisioning', () => {
   })
 
   it('drains an accepted child when its initial durability checkpoint fails', async () => {
-    /** 中文说明：测试局部值 { ctx, lead }，由紧邻初始化决定。 */
     const { ctx, lead } = await setup(['hang'])
     vi.spyOn(teamInternals(ctx).roster, 'checkpointInitialPrompt')
       .mockRejectedValueOnce(new Error('checkpoint failed'))
 
     await expect(spawn(ctx, lead, 'checkpoint-failure')).rejects.toThrow('checkpoint failed')
-    /** 中文说明：测试局部值 member，由紧邻初始化决定。 */
     const member = durable(lead).members[0]
     expect(member).toMatchObject({ phase: 'failed', error: 'checkpoint failed' })
     if (member !== undefined) await waitNoAgent(ctx, member.id)
   })
 
   it('records failed provisioning durably, reserves its name, and counts it against the limit', async () => {
-    /** 中文说明：测试局部值 { ctx, lead }，由紧邻初始化决定。 */
     const { ctx, lead } = await setup([], { maxMembers: 1 })
     await expect(spawn(ctx, lead, 'failed-worker', { provider: 'missing' })).rejects.toThrow()
 
@@ -364,7 +322,6 @@ describe('Team identity and provisioning', () => {
   })
 
   it('records non-Error provider failures and contains a reversed provisioning settlement race', async () => {
-    /** 中文说明：测试局部值 first，由紧邻初始化决定。 */
     const first = await setup([])
     vi.spyOn(first.ctx.subagents, 'startContinuable').mockRejectedValueOnce('string provider failure')
     await expect(spawn(first.ctx, first.lead, 'string-failure')).rejects.toBe('string provider failure')
@@ -376,10 +333,8 @@ describe('Team identity and provisioning', () => {
       target: 'string-failure', content: content('cannot deliver'), delivery: 'quiet', signal: SIGNAL,
     })).rejects.toMatchObject({ code: 'TEAM_MEMBER_NOT_FOUND' })
 
-    /** 中文说明：测试局部值 second，由紧邻初始化决定。 */
     const second = await setup([])
     vi.spyOn(second.ctx.subagents, 'startContinuable').mockImplementationOnce(async () => {
-      /** 中文说明：测试局部值 provisioning，由紧邻初始化决定。 */
       const provisioning = durable(second.lead).members[0]
       if (provisioning === undefined) throw new Error('missing provisioning edge')
       second.lead.session.append('team/member', {
@@ -395,15 +350,10 @@ describe('Team identity and provisioning', () => {
   })
 
   it('cleans up a child when recovery settles its provisioning record first', async () => {
-    /** 中文说明：测试局部值 { ctx, lead }，由紧邻初始化决定。 */
     const { ctx, lead } = await setup(['hang'])
-    /** 中文说明：测试局部值 start，由紧邻初始化决定。 */
     const start = ctx.subagents.startContinuable.bind(ctx.subagents)
-    /** 中文说明：测试局部值 entered，由紧邻初始化决定。 */
     const entered = Promise.withResolvers<undefined>()
-    /** 中文说明：测试局部值 release，由紧邻初始化决定。 */
     const release = Promise.withResolvers<undefined>()
-    /** 中文说明：测试局部值 解构结果，由紧邻初始化决定。 */
     let childId: SessionId | undefined
     vi.spyOn(ctx.subagents, 'startContinuable').mockImplementation(async (spec) => {
       childId = spec.childId
@@ -412,9 +362,7 @@ describe('Team identity and provisioning', () => {
       return start(spec)
     })
 
-    /** 中文说明：测试局部值 spawning，由紧邻初始化决定。 */
     const spawning = spawn(ctx, lead, 'racing-worker')
-    /** 中文说明：测试局部值 rejected，由紧邻初始化决定。 */
     const rejected = expect(spawning).rejects.toMatchObject({ code: 'TEAM_PROVISIONING_CONFLICT' })
     await entered.promise
     await teamInternals(ctx).roster.reconcileProvisioning(lead, SIGNAL)
@@ -427,24 +375,19 @@ describe('Team identity and provisioning', () => {
   })
 
   it('handles a continuation that settles before the active roster view or conflict cleanup lookup', async () => {
-    /** 中文说明：测试局部值 first，由紧邻初始化决定。 */
     const first = await setup([])
     vi.spyOn(teamInternals(first.ctx).roster, 'checkpointInitialPrompt').mockResolvedValueOnce()
     vi.spyOn(first.ctx.subagents, 'startContinuable').mockImplementationOnce(async spec => ({
       childId: spec.childId!,
       messageId: createUserMessage({ content: content('accepted'), source: { kind: 'user' } }).id,
     }))
-    /** 中文说明：测试局部值 inactive，由紧邻初始化决定。 */
     const inactive = await spawn(first.ctx, first.lead, 'instant-worker')
     expect(inactive.member).toMatchObject({ status: 'inactive', diagnostics: [] })
     expect(inactive.member).not.toHaveProperty('model')
 
-    /** 中文说明：测试局部值 second，由紧邻初始化决定。 */
     const second = await setup([])
     vi.spyOn(teamInternals(second.ctx).roster, 'checkpointInitialPrompt').mockResolvedValueOnce()
-    /** 中文说明：测试局部值 entered，由紧邻初始化决定。 */
     const entered = Promise.withResolvers<undefined>()
-    /** 中文说明：测试局部值 release，由紧邻初始化决定。 */
     const release = Promise.withResolvers<undefined>()
     vi.spyOn(second.ctx.subagents, 'startContinuable').mockImplementationOnce(async (spec) => {
       entered.resolve(undefined)
@@ -454,9 +397,7 @@ describe('Team identity and provisioning', () => {
         messageId: createUserMessage({ content: content('accepted'), source: { kind: 'user' } }).id,
       }
     })
-    /** 中文说明：测试局部值 spawning，由紧邻初始化决定。 */
     const spawning = spawn(second.ctx, second.lead, 'instant-conflict')
-    /** 中文说明：测试局部值 rejected，由紧邻初始化决定。 */
     const rejected = expect(spawning).rejects.toMatchObject({ code: 'TEAM_PROVISIONING_CONFLICT' })
     await entered.promise
     await teamInternals(second.ctx).roster.reconcileProvisioning(second.lead, SIGNAL)
@@ -465,15 +406,11 @@ describe('Team identity and provisioning', () => {
   })
 
   it('validates names and permits only the Lead to create or interrupt teammates', async () => {
-    /** 中文说明：测试局部值 { ctx, lead }，由紧邻初始化决定。 */
     const { ctx, lead } = await setup(['hang'])
-    /** 中文说明：测试局部值 name，由紧邻初始化决定。 */
     for (const name of ['Lead', 'lead', '-bad', 'bad-', 'bad_name', 'x'.repeat(65)]) {
       await expect(spawn(ctx, lead, name)).rejects.toMatchObject({ code: 'TEAM_INVALID_MEMBER_NAME' })
     }
-    /** 中文说明：测试局部值 started，由紧邻初始化决定。 */
     const started = await spawn(ctx, lead, 'worker')
-    /** 中文说明：测试局部值 worker，由紧邻初始化决定。 */
     const worker = await waitRunning(ctx, started.member.id)
     await expect(spawn(ctx, worker, 'nested')).rejects.toMatchObject({ code: 'TEAM_LEAD_REQUIRED' })
     expect(() => ctx.agentTeams.interrupt(worker, 'worker')).toThrow(expect.objectContaining({ code: 'TEAM_LEAD_REQUIRED' }))
@@ -484,7 +421,6 @@ describe('Team identity and provisioning', () => {
   })
 
   it('validates teammate text fields and pre-provisioning cancellation', async () => {
-    /** 中文说明：测试局部值 { ctx, lead }，由紧邻初始化决定。 */
     const { ctx, lead } = await setup([])
     await expect(ctx.agentTeams.spawnTeammate(lead, {
       name: 'empty-description',
@@ -502,7 +438,6 @@ describe('Team identity and provisioning', () => {
       provider: ' ',
       signal: SIGNAL,
     })).rejects.toMatchObject({ code: 'TEAM_INVALID_ARGUMENT' })
-    /** 中文说明：测试局部值 controller，由紧邻初始化决定。 */
     const controller = new AbortController()
     controller.abort(new TeamError('cancelled before provisioning', 'TEST_CANCELLED'))
     await expect(ctx.agentTeams.spawnTeammate(lead, {
@@ -517,10 +452,8 @@ describe('Team identity and provisioning', () => {
   })
 
   it('treats an ordinary fork as a new Root Team and filters inherited Team state', async () => {
-    /** 中文说明：测试局部值 { ctx, lead }，由紧邻初始化决定。 */
     const { ctx, lead } = await setup([])
     await ctx.agentTeams.createTask(lead, { subject: 'parent task', description: 'belongs to parent' })
-    /** 中文说明：测试局部值 handle，由紧邻初始化决定。 */
     const handle = await ctx.agents.create({
       sessionId: SessionId('ordinary-fork'),
       seed: lead.session.events,
@@ -538,27 +471,22 @@ describe('Team identity and provisioning', () => {
   })
 
   it('rejects stale Agent identities and non-Team subagent children', async () => {
-    /** 中文说明：测试局部值 { ctx, lead }，由紧邻初始化决定。 */
     const { ctx, lead } = await setup([textResponse('done')])
-    /** 中文说明：测试局部值 started，由紧邻初始化决定。 */
     const started = await ctx.subagents.startContinuable({
       provider: 'spawn',
       label: 'ordinary worker',
       request: { prompt: content('ordinary'), parent: lead },
       signal: SIGNAL,
     })
-    /** 中文说明：测试局部值 live，由紧邻初始化决定。 */
     const live = ctx.agents.get(started.childId)
     if (live !== undefined) expect(ctx.agentTeams.tryMembership(live)).toBeUndefined()
     await waitNoAgent(ctx, started.childId)
     expect(() => ctx.agentTeams.membership(lead)).not.toThrow()
 
-    /** 中文说明：测试局部值 impostor，由紧邻初始化决定。 */
     const impostor = { ...lead } as Agent
     expect(ctx.agentTeams.tryMembership(impostor)).toBeUndefined()
     expect(() => ctx.agentTeams.membership(impostor)).toThrow(expect.objectContaining({ code: 'TEAM_NOT_MEMBER' }))
 
-    /** 中文说明：测试局部值 orphanRoot，由紧邻初始化决定。 */
     const orphanRoot = await ctx.agents.create({
       sessionId: SessionId('orphan-ordinary-root'),
       meta: { parentSession: SessionId('absent-parent') },
@@ -569,14 +497,11 @@ describe('Team identity and provisioning', () => {
   })
 
   it('does not reinterpret an orphaned provider child or malformed parent stream as a Team root', async () => {
-    /** 中文说明：测试局部值 first，由紧邻初始化决定。 */
     const first = await setup([textResponse('ordinary child done')])
-    /** 中文说明：测试局部值 parent，由紧邻初始化决定。 */
     const parent = await first.ctx.agents.create({
       sessionId: SessionId('temporary-parent'),
       agentOptions: { provider: 'mock', model: 'mock' },
     })
-    /** 中文说明：测试局部值 started，由紧邻初始化决定。 */
     const started = await first.ctx.subagents.startContinuable({
       provider: 'spawn',
       label: 'ordinary child',
@@ -585,7 +510,6 @@ describe('Team identity and provisioning', () => {
     })
     await waitNoAgent(first.ctx, started.childId)
     await parent.dispose()
-    /** 中文说明：测试局部值 orphan，由紧邻初始化决定。 */
     const orphan = await first.ctx.agents.resume({
       resumeSessionId: started.childId,
       agentOptions: { provider: 'mock', model: 'mock' },
@@ -594,17 +518,13 @@ describe('Team identity and provisioning', () => {
     expect(teamInternals(first.ctx).roster.liveChildrenByRoot()).toEqual(new Map())
     await orphan.dispose()
 
-    /** 中文说明：测试局部值 second，由紧邻初始化决定。 */
     const second = await setup([])
-    /** 中文说明：测试局部值 child，由紧邻初始化决定。 */
     const child = await second.ctx.agents.create({
       sessionId: SessionId('malformed-parent-child'),
       meta: { parentSession: second.lead.id },
       agentOptions: { provider: 'mock', model: 'mock' },
     })
-    /** 中文说明：测试局部值 journal，由紧邻初始化决定。 */
     const journal = teamInternals(second.ctx).journal
-    /** 中文说明：测试局部值 state，由紧邻初始化决定。 */
     const state = journal.state.bind(journal)
     journal.state = () => { throw new Error('malformed Team stream') }
     expect(second.ctx.agentTeams.tryMembership(child.agent)).toBeUndefined()
@@ -615,9 +535,7 @@ describe('Team identity and provisioning', () => {
 
 describe('Team shared task DAG', () => {
   it('fails loudly when the durable numeric task id space is exhausted', async () => {
-    /** 中文说明：测试局部值 { ctx, lead }，由紧邻初始化决定。 */
     const { ctx, lead } = await setup([])
-    /** 中文说明：测试局部值 id，由紧邻初始化决定。 */
     const id = TeamTaskId(`task-${Number.MAX_SAFE_INTEGER}`)
     lead.session.append('team/task', {
       version: 1,
@@ -641,20 +559,16 @@ describe('Team shared task DAG', () => {
   })
 
   it('bounds non-deleted tasks while retaining deleted task ids as tombstones', async () => {
-    /** 中文说明：测试局部值 { ctx, lead }，由紧邻初始化决定。 */
     const { ctx, lead } = await setup([], { maxTasks: 1 })
-    /** 中文说明：测试局部值 first，由紧邻初始化决定。 */
     const first = await ctx.agentTeams.createTask(lead, { subject: 'first', description: 'first task' })
     await expect(ctx.agentTeams.createTask(lead, { subject: 'overflow', description: 'overflow task' }))
       .rejects.toMatchObject({ code: 'TEAM_TASK_LIMIT' })
 
-    /** 中文说明：测试局部值 deleted，由紧邻初始化决定。 */
     const deleted = await ctx.agentTeams.updateTask(lead, {
       taskId: first.id,
       expectedRevision: first.revision,
       action: 'delete',
     })
-    /** 中文说明：测试局部值 second，由紧邻初始化决定。 */
     const second = await ctx.agentTeams.createTask(lead, { subject: 'second', description: 'second task' })
     expect(deleted.status).toBe('deleted')
     expect(second.id).toBe(TeamTaskId('task-2'))
@@ -663,24 +577,17 @@ describe('Team shared task DAG', () => {
   })
 
   it('enforces CAS, ownership, dependencies, transitions, and write-scope warnings', async () => {
-    /** 中文说明：测试局部值 { ctx, lead }，由紧邻初始化决定。 */
     const { ctx, lead } = await setup(['hang', 'hang'])
-    /** 中文说明：测试局部值 firstMember，由紧邻初始化决定。 */
     const firstMember = await spawn(ctx, lead, 'alpha')
-    /** 中文说明：测试局部值 alpha，由紧邻初始化决定。 */
     const alpha = await waitRunning(ctx, firstMember.member.id)
-    /** 中文说明：测试局部值 secondMember，由紧邻初始化决定。 */
     const secondMember = await spawn(ctx, lead, 'beta')
-    /** 中文说明：测试局部值 beta，由紧邻初始化决定。 */
     const beta = await waitRunning(ctx, secondMember.member.id)
 
-    /** 中文说明：测试局部值 first，由紧邻初始化决定。 */
     const first = await ctx.agentTeams.createTask(alpha, {
       subject: 'first',
       description: 'first task',
       writeScopes: ['src', './src/', 'src'],
     })
-    /** 中文说明：测试局部值 second，由紧邻初始化决定。 */
     const second = await ctx.agentTeams.createTask(beta, {
       subject: 'second',
       description: 'second task',
@@ -694,7 +601,6 @@ describe('Team shared task DAG', () => {
       action: 'claim',
     })).rejects.toMatchObject({ code: 'TEAM_TASK_BLOCKED' })
 
-    /** 中文说明：测试局部值 claimed，由紧邻初始化决定。 */
     const claimed = await ctx.agentTeams.updateTask(alpha, {
       taskId: first.id,
       expectedRevision: first.revision,
@@ -721,7 +627,6 @@ describe('Team shared task DAG', () => {
       action: 'complete',
     })).rejects.toMatchObject({ code: 'TEAM_TASK_STALE_REVISION' })
 
-    /** 中文说明：测试局部值 completed，由紧邻初始化决定。 */
     const completed = await ctx.agentTeams.updateTask(alpha, {
       taskId: first.id,
       expectedRevision: claimed.revision,
@@ -729,13 +634,11 @@ describe('Team shared task DAG', () => {
     })
     expect(completed.status).toBe('completed')
     expect(ctx.agentTeams.getTask(beta, second.id).ready).toBe(true)
-    /** 中文说明：测试局部值 secondClaim，由紧邻初始化决定。 */
     const secondClaim = await ctx.agentTeams.updateTask(beta, {
       taskId: second.id,
       expectedRevision: second.revision,
       action: 'claim',
     })
-    /** 中文说明：测试局部值 released，由紧邻初始化决定。 */
     const released = await ctx.agentTeams.updateTask(beta, {
       taskId: second.id,
       expectedRevision: secondClaim.revision,
@@ -750,11 +653,8 @@ describe('Team shared task DAG', () => {
   })
 
   it('rejects malformed scopes and every invalid dependency relation', async () => {
-    /** 中文说明：测试局部值 { ctx, lead }，由紧邻初始化决定。 */
     const { ctx, lead } = await setup([])
-    /** 中文说明：测试局部值 first，由紧邻初始化决定。 */
     const first = await ctx.agentTeams.createTask(lead, { subject: 'one', description: 'one' })
-    /** 中文说明：测试局部值 second，由紧邻初始化决定。 */
     const second = await ctx.agentTeams.createTask(lead, {
       subject: 'two', description: 'two', blockedBy: [first.id],
     })
@@ -779,7 +679,6 @@ describe('Team shared task DAG', () => {
       action: 'set_dependencies',
       blockedBy: [second.id, second.id],
     })).rejects.toMatchObject({ code: 'TEAM_INVALID_ARGUMENT' })
-    /** 中文说明：测试局部值 scope，由紧邻初始化决定。 */
     for (const scope of ['', '.', '..', '/root', 'C:\\root', 'C:root', 'a//b', 'a/../b']) {
       await expect(ctx.agentTeams.createTask(lead, {
         subject: 'scope', description: 'scope', writeScopes: [scope],
@@ -788,7 +687,6 @@ describe('Team shared task DAG', () => {
   })
 
   it('rejects incomplete mutations, invalid transitions, and deletion of a live blocker', async () => {
-    /** 中文说明：测试局部值 { ctx, lead }，由紧邻初始化决定。 */
     const { ctx, lead } = await setup([])
     await expect(ctx.agentTeams.createTask(lead, { subject: ' ', description: 'invalid' }))
       .rejects.toMatchObject({ code: 'TEAM_INVALID_ARGUMENT' })
@@ -796,14 +694,12 @@ describe('Team shared task DAG', () => {
       .rejects.toMatchObject({ code: 'TEAM_INVALID_ARGUMENT' })
     await expect(ctx.agentTeams.createTask(lead, { subject: 'x'.repeat(201), description: 'too long' }))
       .rejects.toMatchObject({ code: 'TEAM_INVALID_ARGUMENT' })
-    /** 中文说明：测试局部值 blocker，由紧邻初始化决定。 */
     const blocker = await ctx.agentTeams.createTask(lead, { subject: 'blocker', description: 'blocker' })
     await ctx.agentTeams.createTask(lead, {
       subject: 'dependent', description: 'dependent', blockedBy: [blocker.id],
     })
     expect(() => ctx.agentTeams.getTask(lead, TeamTaskId('missing')))
       .toThrow(expect.objectContaining({ code: 'TEAM_TASK_NOT_FOUND' }))
-    /** 中文说明：测试局部值 action，由紧邻初始化决定。 */
     for (const action of ['release', 'complete', 'reopen'] as const) {
       await expect(ctx.agentTeams.updateTask(lead, {
         taskId: blocker.id,
@@ -829,15 +725,10 @@ describe('Team shared task DAG', () => {
   })
 
   it('supports Lead reassignment, completion, reopen, and deletion permissions', async () => {
-    /** 中文说明：测试局部值 { ctx, lead }，由紧邻初始化决定。 */
     const { ctx, lead } = await setup(['hang'])
-    /** 中文说明：测试局部值 started，由紧邻初始化决定。 */
     const started = await spawn(ctx, lead, 'owner')
-    /** 中文说明：测试局部值 owner，由紧邻初始化决定。 */
     const owner = await waitRunning(ctx, started.member.id)
-    /** 中文说明：测试局部值 task，由紧邻初始化决定。 */
     const task = await ctx.agentTeams.createTask(owner, { subject: 'lifecycle', description: 'lifecycle' })
-    /** 中文说明：测试局部值 assigned，由紧邻初始化决定。 */
     const assigned = await ctx.agentTeams.updateTask(lead, {
       taskId: task.id,
       expectedRevision: task.revision,
@@ -850,7 +741,6 @@ describe('Team shared task DAG', () => {
       action: 'reassign',
       owner: 'lead',
     })).rejects.toMatchObject({ code: 'TEAM_LEAD_REQUIRED' })
-    /** 中文说明：测试局部值 complete，由紧邻初始化决定。 */
     const complete = await ctx.agentTeams.updateTask(owner, {
       taskId: task.id,
       expectedRevision: assigned.revision,
@@ -862,19 +752,16 @@ describe('Team shared task DAG', () => {
       action: 'reassign',
       owner: 'lead',
     })).rejects.toMatchObject({ code: 'TEAM_TASK_INVALID_TRANSITION' })
-    /** 中文说明：测试局部值 reopened，由紧邻初始化决定。 */
     const reopened = await ctx.agentTeams.updateTask(owner, {
       taskId: task.id,
       expectedRevision: complete.revision,
       action: 'reopen',
     })
-    /** 中文说明：测试局部值 claimed，由紧邻初始化决定。 */
     const claimed = await ctx.agentTeams.updateTask(owner, {
       taskId: task.id,
       expectedRevision: reopened.revision,
       action: 'claim',
     })
-    /** 中文说明：测试局部值 deleted，由紧邻初始化决定。 */
     const deleted = await ctx.agentTeams.updateTask(owner, {
       taskId: task.id,
       expectedRevision: claimed.revision,
@@ -893,15 +780,10 @@ describe('Team shared task DAG', () => {
   })
 
   it('covers partial edits, Lead ownership, unassignment, and blocked reassignment', async () => {
-    /** 中文说明：测试局部值 { ctx, lead }，由紧邻初始化决定。 */
     const { ctx, lead } = await setup(['hang'])
-    /** 中文说明：测试局部值 started，由紧邻初始化决定。 */
     const started = await spawn(ctx, lead, 'editor')
-    /** 中文说明：测试局部值 editor，由紧邻初始化决定。 */
     const editor = await waitRunning(ctx, started.member.id)
-    /** 中文说明：测试局部值 blocker，由紧邻初始化决定。 */
     const blocker = await ctx.agentTeams.createTask(lead, { subject: 'blocker', description: 'blocker' })
-    /** 中文说明：测试局部值 task，由紧邻初始化决定。 */
     const task = await ctx.agentTeams.createTask(lead, {
       subject: 'draft',
       description: 'draft description',
@@ -914,32 +796,26 @@ describe('Team shared task DAG', () => {
       taskId: task.id, expectedRevision: task.revision, action: 'reassign', owner: 'editor',
     })).rejects.toMatchObject({ code: 'TEAM_TASK_BLOCKED' })
 
-    /** 中文说明：测试局部值 leadClaim，由紧邻初始化决定。 */
     const leadClaim = await ctx.agentTeams.updateTask(lead, {
       taskId: blocker.id, expectedRevision: blocker.revision, action: 'claim',
     })
     expect(leadClaim.ownerName).toBe('lead')
-    /** 中文说明：测试局部值 completedBlocker，由紧邻初始化决定。 */
     const completedBlocker = await ctx.agentTeams.updateTask(lead, {
       taskId: blocker.id, expectedRevision: leadClaim.revision, action: 'complete',
     })
     expect(completedBlocker.status).toBe('completed')
-    /** 中文说明：测试局部值 assigned，由紧邻初始化决定。 */
     const assigned = await ctx.agentTeams.updateTask(lead, {
       taskId: task.id, expectedRevision: task.revision, action: 'reassign', owner: 'editor',
     })
-    /** 中文说明：测试局部值 subject，由紧邻初始化决定。 */
     const subject = await ctx.agentTeams.updateTask(editor, {
       taskId: task.id, expectedRevision: assigned.revision, action: 'edit', subject: 'edited subject',
     })
-    /** 中文说明：测试局部值 description，由紧邻初始化决定。 */
     const description = await ctx.agentTeams.updateTask(editor, {
       taskId: task.id,
       expectedRevision: subject.revision,
       action: 'edit',
       description: 'edited description',
     })
-    /** 中文说明：测试局部值 scopes，由紧邻初始化决定。 */
     const scopes = await ctx.agentTeams.updateTask(editor, {
       taskId: task.id,
       expectedRevision: description.revision,
@@ -951,22 +827,18 @@ describe('Team shared task DAG', () => {
       description: 'edited description',
       writeScopes: ['src/nested'],
     })
-    /** 中文说明：测试局部值 unassigned，由紧邻初始化决定。 */
     const unassigned = await ctx.agentTeams.updateTask(lead, {
       taskId: task.id, expectedRevision: scopes.revision, action: 'reassign', owner: ' ',
     })
     expect(unassigned).toMatchObject({ status: 'pending' })
     expect('ownerId' in unassigned).toBe(false)
 
-    /** 中文说明：测试局部值 broad，由紧邻初始化决定。 */
     const broad = await ctx.agentTeams.createTask(lead, {
       subject: 'broad scope', description: 'broad scope', writeScopes: ['src'],
     })
-    /** 中文说明：测试局部值 narrow，由紧邻初始化决定。 */
     const narrow = await ctx.agentTeams.createTask(lead, {
       subject: 'narrow scope', description: 'narrow scope', writeScopes: ['src/nested'],
     })
-    /** 中文说明：测试局部值 disjoint，由紧邻初始化决定。 */
     const disjoint = await ctx.agentTeams.createTask(lead, {
       subject: 'disjoint scope', description: 'disjoint scope', writeScopes: ['docs'],
     })
@@ -1072,20 +944,15 @@ describe('Team mailbox and waiting', () => {
   })
 
   it('acknowledges waking messages persisted by a busy Lead before model claim', async () => {
-    /** 中文说明：测试局部值 { ctx, lead, teamFiber }，由紧邻初始化决定。 */
     const { ctx, lead, teamFiber } = await setup(['hang', 'hang'], { maxPendingMessagesPerMember: 1 })
-    /** 中文说明：测试局部值 started，由紧邻初始化决定。 */
     const started = await spawn(ctx, lead, 'lead-reporter')
-    /** 中文说明：测试局部值 reporter，由紧邻初始化决定。 */
     const reporter = await waitRunning(ctx, started.member.id)
     lead.followup(createUserMessage({ content: content('keep the Lead busy'), source: { kind: 'user' } }))
     await waitRunning(ctx, lead.id)
 
-    /** 中文说明：测试局部值 first，由紧邻初始化决定。 */
     const first = await ctx.agentTeams.sendMessage(reporter, {
       target: 'lead', content: content('first wakeup report'), delivery: 'wakeup', signal: SIGNAL,
     })
-    /** 中文说明：测试局部值 second，由紧邻初始化决定。 */
     const second = await ctx.agentTeams.sendMessage(reporter, {
       target: 'lead', content: content('second wakeup report'), delivery: 'wakeup', signal: SIGNAL,
     })
@@ -1093,11 +960,8 @@ describe('Team mailbox and waiting', () => {
     expect(lead.status).toBe('running')
     expect(durable(lead).pendingMessages).toEqual([])
 
-    /** 中文说明：测试局部值 messageIds，由紧邻初始化决定。 */
     const messageIds = new Set([first.messageId, second.messageId])
-    /** 中文说明：测试局部值 persisted，由紧邻初始化决定。 */
     const persisted = await ctx.sessionPersistence.inspect(lead.id)
-    /** 中文说明：测试局部值 receiptOrder，由紧邻初始化决定。 */
     const receiptOrder = persisted.events.flatMap((event) => {
       if (event.type === 'agent/inbox/spliced' && event.data.inserted.some(message =>
         message.source.kind === 'team-message' && messageIds.has(message.source.messageId))) {
@@ -1115,7 +979,6 @@ describe('Team mailbox and waiting', () => {
       'team/message/delivered',
     ])
 
-    /** 中文说明：测试局部值 receiptCount，由紧邻初始化决定。 */
     const receiptCount = lead.session.events.filter(event => event.type === 'agent/inbox/spliced'
       && event.data.inserted.some(message => message.source.kind === 'team-message'
         && messageIds.has(message.source.messageId))).length
@@ -1131,13 +994,9 @@ describe('Team mailbox and waiting', () => {
   })
 
   it('flushes a live pending receipt before acknowledgement without inserting a duplicate', async () => {
-    /** 中文说明：测试局部值 { ctx, lead }，由紧邻初始化决定。 */
     const { ctx, lead } = await setup(['hang'])
-    /** 中文说明：测试局部值 started，由紧邻初始化决定。 */
     const started = await spawn(ctx, lead, 'pending-target')
-    /** 中文说明：测试局部值 target，由紧邻初始化决定。 */
     const target = await waitRunning(ctx, started.member.id)
-    /** 中文说明：测试局部值 immediate，由紧邻初始化决定。 */
     const immediate = await ctx.agentTeams.sendMessage(lead, {
       target: 'pending-target',
       content: content('live quiet receipt'),
@@ -1149,7 +1008,6 @@ describe('Team mailbox and waiting', () => {
     expect(target.inbox.nextStep.some(item => item.source.kind === 'team-message'
       && item.source.messageId === immediate.messageId)).toBe(true)
 
-    /** 中文说明：测试局部值 message，由紧邻初始化决定。 */
     const message: TeamMessageSnapshot = {
       id: TeamMessageId('live-pending-message'),
       senderId: lead.id,
@@ -1175,16 +1033,12 @@ describe('Team mailbox and waiting', () => {
       },
     }))
 
-    /** 中文说明：测试局部值 flush，由紧邻初始化决定。 */
     const flush = ctx.sessions.flush.bind(ctx.sessions)
-    /** 中文说明：测试局部值 flushed，由紧邻初始化决定。 */
     const flushed: SessionId[] = []
-    /** 中文说明：测试局部值 flushSpy，由紧邻初始化决定。 */
     const flushSpy = vi.spyOn(ctx.sessions, 'flush').mockImplementation(async (session) => {
       flushed.push(session.id)
       return flush(session)
     })
-    /** 中文说明：测试局部值 delivered，由紧邻初始化决定。 */
     const delivered = await teamInternals(ctx).mailbox.tryDispatch(lead, message, SIGNAL)
 
     expect(delivered).toBe(true)
@@ -1193,7 +1047,6 @@ describe('Team mailbox and waiting', () => {
       && item.source.messageId === message.id)).toHaveLength(1)
     expect(durable(lead).pendingMessages).toEqual([])
 
-    /** 中文说明：测试局部值 disappearing，由紧邻初始化决定。 */
     const disappearing: TeamMessageSnapshot = {
       ...message,
       id: TeamMessageId('disappearing-pending-message'),
@@ -1205,7 +1058,6 @@ describe('Team mailbox and waiting', () => {
       message: disappearing,
     })
     await flush(lead.session)
-    /** 中文说明：测试局部值 disappearingInput，由紧邻初始化决定。 */
     const disappearingInput = createUserMessage({
       content: content('canceled before checkpoint'),
       source: {
@@ -1230,22 +1082,16 @@ describe('Team mailbox and waiting', () => {
   })
 
   it('acknowledges waking messages accepted by a busy target inbox', async () => {
-    /** 中文说明：测试局部值 { ctx, lead }，由紧邻初始化决定。 */
     const { ctx, lead } = await setup(['hang'], { maxPendingMessagesPerMember: 1 })
-    /** 中文说明：测试局部值 started，由紧邻初始化决定。 */
     const started = await spawn(ctx, lead, 'busy-target')
-    /** 中文说明：测试局部值 target，由紧邻初始化决定。 */
     const target = await waitRunning(ctx, started.member.id)
-    /** 中文说明：测试局部值 flush，由紧邻初始化决定。 */
     const flush = ctx.sessions.flush.bind(ctx.sessions)
-    /** 中文说明：测试局部值 flushed，由紧邻初始化决定。 */
     const flushed: SessionId[] = []
     vi.spyOn(ctx.sessions, 'flush').mockImplementation(async (session) => {
       flushed.push(session.id)
       return flush(session)
     })
 
-    /** 中文说明：测试局部值 first，由紧邻初始化决定。 */
     const first = await ctx.agentTeams.sendMessage(lead, {
       target: 'busy-target', content: content('first waking message'), delivery: 'wakeup', signal: SIGNAL,
     })
@@ -1257,7 +1103,6 @@ describe('Team mailbox and waiting', () => {
       && message.source.messageId === first.messageId)).toBe(true)
 
     flushed.length = 0
-    /** 中文说明：测试局部值 second，由紧邻初始化决定。 */
     const second = await ctx.agentTeams.sendMessage(lead, {
       target: 'busy-target', content: content('second waking message'), delivery: 'wakeup', signal: SIGNAL,
     })
@@ -1275,21 +1120,14 @@ describe('Team mailbox and waiting', () => {
   })
 
   it('serializes concurrent waking delivery admission for one target', async () => {
-    /** 中文说明：测试局部值 { ctx, lead }，由紧邻初始化决定。 */
     const { ctx, lead } = await setup([textResponse('target initial')])
-    /** 中文说明：测试局部值 target，由紧邻初始化决定。 */
     const target = await spawn(ctx, lead, 'ordered-target')
     await waitNoAgent(ctx, target.member.id)
-    /** 中文说明：测试局部值 entered，由紧邻初始化决定。 */
     const entered = Promise.withResolvers<undefined>()
-    /** 中文说明：测试局部值 release，由紧邻初始化决定。 */
     const release = Promise.withResolvers<undefined>()
-    /** 中文说明：测试局部值 admitted，由紧邻初始化决定。 */
     const admitted: string[] = []
     vi.spyOn(ctx.subagents, 'followup').mockImplementation(async (_parent, _childId, blocks) => {
-      /** 中文说明：测试局部值 last，由紧邻初始化决定。 */
       const last = blocks.at(-1)
-      /** 中文说明：测试局部值 text，由紧邻初始化决定。 */
       const text = last?.type === 'text' ? last.text : ''
       admitted.push(text)
       if (text === 'first waking') {
@@ -1299,14 +1137,11 @@ describe('Team mailbox and waiting', () => {
       return createUserMessage({ content: blocks, source: { kind: 'user' } }).id
     })
 
-    /** 中文说明：测试局部值 first，由紧邻初始化决定。 */
     const first = ctx.agentTeams.sendMessage(lead, {
       target: 'ordered-target', content: content('first waking'), delivery: 'wakeup', signal: SIGNAL,
     })
     await entered.promise
-    /** 中文说明：测试局部值 secondSettled，由紧邻初始化决定。 */
     let secondSettled = false
-    /** 中文说明：测试局部值 second，由紧邻初始化决定。 */
     const second = ctx.agentTeams.sendMessage(lead, {
       target: 'ordered-target', content: content('second waking'), delivery: 'wakeup', signal: SIGNAL,
     }).finally(() => { secondSettled = true })
@@ -1323,15 +1158,10 @@ describe('Team mailbox and waiting', () => {
   })
 
   it('deduplicates live target history and contains inspection and delivery failures', async () => {
-    /** 中文说明：测试局部值 { ctx, lead }，由紧邻初始化决定。 */
     const { ctx, lead } = await setup(['hang', textResponse('inactive target initial')])
-    /** 中文说明：测试局部值 liveStarted，由紧邻初始化决定。 */
     const liveStarted = await spawn(ctx, lead, 'live-target')
-    /** 中文说明：测试局部值 live，由紧邻初始化决定。 */
     const live = await waitRunning(ctx, liveStarted.member.id)
-    /** 中文说明：测试局部值 internal，由紧邻初始化决定。 */
     const internal = teamInternals(ctx).mailbox
-    /** 中文说明：测试局部值 message，由紧邻初始化决定。 */
     const message: TeamMessageSnapshot = {
       id: TeamMessageId('live-recorded-message'),
       senderId: lead.id,
@@ -1367,7 +1197,6 @@ describe('Team mailbox and waiting', () => {
     await expect(internal.tryDispatch(lead, message, SIGNAL)).resolves.toBe(true)
     await internal.markDelivered(lead, message.id, live.id)
 
-    /** 中文说明：测试局部值 wrongTarget，由紧邻初始化决定。 */
     const wrongTarget: TeamMessageSnapshot = {
       ...message,
       id: TeamMessageId('wrong-target-message'),
@@ -1378,28 +1207,22 @@ describe('Team mailbox and waiting', () => {
     await ctx.sessions.flush(lead.session)
     await internal.markDelivered(lead, wrongTarget.id, SessionId('wrong-target'))
     await expect(internal.serializeDispatch(wrongTarget, async () => true)).resolves.toBe(true)
-    /** 中文说明：测试局部值 serialEntered，由紧邻初始化决定。 */
     const serialEntered = Promise.withResolvers<undefined>()
-    /** 中文说明：测试局部值 releaseSerial，由紧邻初始化决定。 */
     const releaseSerial = Promise.withResolvers<undefined>()
-    /** 中文说明：测试局部值 serialFirst，由紧邻初始化决定。 */
     const serialFirst = internal.serializeDispatch(wrongTarget, async () => {
       serialEntered.resolve(undefined)
       await releaseSerial.promise
       return true
     })
     await serialEntered.promise
-    /** 中文说明：测试局部值 serialSecond，由紧邻初始化决定。 */
     const serialSecond = internal.serializeDispatch({
       ...wrongTarget, id: TeamMessageId('second-serialized-message'),
     }, async () => true)
     releaseSerial.resolve(undefined)
     await expect(Promise.all([serialFirst, serialSecond])).resolves.toEqual([true, true])
 
-    /** 中文说明：测试局部值 warnings，由紧邻初始化决定。 */
     const warnings: string[] = []
     ctx.logger.warn = ((value: unknown) => { warnings.push(String(value)) }) as typeof ctx.logger.warn
-    /** 中文说明：测试局部值 failedAck，由紧邻初始化决定。 */
     const failedAck = vi.spyOn(ctx.sessions, 'flush').mockRejectedValueOnce(new Error('acknowledgement flush failed'))
     live.session.append('user/message', createUserMessage({
       content: content('acknowledgement failure'),
@@ -1416,12 +1239,9 @@ describe('Team mailbox and waiting', () => {
     })
     failedAck.mockRestore()
 
-    /** 中文说明：测试局部值 inactiveStarted，由紧邻初始化决定。 */
     const inactiveStarted = await spawn(ctx, lead, 'inactive-target')
     await waitNoAgent(ctx, inactiveStarted.member.id)
-    /** 中文说明：测试局部值 inspect，由紧邻初始化决定。 */
     const inspect = vi.spyOn(ctx.sessionPersistence, 'inspect').mockRejectedValueOnce(new Error('inspect unavailable'))
-    /** 中文说明：测试局部值 uncertain，由紧邻初始化决定。 */
     const uncertain = await ctx.agentTeams.sendMessage(lead, {
       target: 'inactive-target', content: content('inspection failure'), delivery: 'wakeup', signal: SIGNAL,
     })
@@ -1429,7 +1249,6 @@ describe('Team mailbox and waiting', () => {
     inspect.mockRestore()
 
     vi.spyOn(ctx.subagents, 'followup').mockRejectedValueOnce(new Error('delivery unavailable'))
-    /** 中文说明：测试局部值 failed，由紧邻初始化决定。 */
     const failed = await ctx.agentTeams.sendMessage(lead, {
       target: 'inactive-target', content: content('delivery failure'), delivery: 'wakeup', signal: SIGNAL,
     })
@@ -1442,23 +1261,17 @@ describe('Team mailbox and waiting', () => {
   })
 
   it('keeps quiet mail dormant, wakes on follow-up, preserves FIFO, and de-duplicates delivery', async () => {
-    /** 中文说明：测试局部值 { ctx, lead }，由紧邻初始化决定。 */
     const { ctx, lead } = await setup(['hang', textResponse('beta first'), textResponse('beta resumed')])
-    /** 中文说明：测试局部值 alphaStarted，由紧邻初始化决定。 */
     const alphaStarted = await spawn(ctx, lead, 'alpha')
-    /** 中文说明：测试局部值 alpha，由紧邻初始化决定。 */
     const alpha = await waitRunning(ctx, alphaStarted.member.id)
-    /** 中文说明：测试局部值 betaStarted，由紧邻初始化决定。 */
     const betaStarted = await spawn(ctx, lead, 'beta')
     await waitNoAgent(ctx, betaStarted.member.id)
 
-    /** 中文说明：测试局部值 quiet，由紧邻初始化决定。 */
     const quiet = await ctx.agentTeams.sendMessage(alpha, {
       target: 'beta', content: content('quiet info'), delivery: 'quiet', signal: SIGNAL,
     })
     expect(quiet.status).toBe('queued')
     expect(ctx.agents.get(betaStarted.member.id)).toBeUndefined()
-    /** 中文说明：测试局部值 waking，由紧邻初始化决定。 */
     const waking = await ctx.agentTeams.sendMessage(alpha, {
       target: 'beta', content: content('do another turn'), delivery: 'wakeup', signal: SIGNAL,
     })
@@ -1466,14 +1279,11 @@ describe('Team mailbox and waiting', () => {
     await waitNoAgent(ctx, betaStarted.member.id)
     await vi.waitFor(() => { expect(durable(lead).pendingMessages).toEqual([]) })
 
-    /** 中文说明：测试局部值 stored，由紧邻初始化决定。 */
     const stored = await ctx.sessionPersistence.inspect(betaStarted.member.id)
-    /** 中文说明：测试局部值 peerMessages，由紧邻初始化决定。 */
     const peerMessages = stored.events.filter(event => event.type === 'user/message'
       && event.data.source.kind === 'team-message')
     expect(peerMessages.map((event) => {
       if (event.type !== 'user/message') return undefined
-      /** 中文说明：测试局部值 block，由紧邻初始化决定。 */
       const block = event.data.content.at(-1)
       return block?.type === 'text' ? block.text : undefined
     })).toEqual(['quiet info', 'do another turn'])
@@ -1495,18 +1305,15 @@ describe('Team mailbox and waiting', () => {
   })
 
   it('enforces message byte and pending-count limits without encouraging retry after enqueue', async () => {
-    /** 中文说明：测试局部值 { ctx, lead }，由紧邻初始化决定。 */
     const { ctx, lead } = await setup([textResponse('idle')], {
       maxMessageBytes: 256,
       maxPendingMessagesPerMember: 1,
     })
-    /** 中文说明：测试局部值 target，由紧邻初始化决定。 */
     const target = await spawn(ctx, lead, 'target')
     await waitNoAgent(ctx, target.member.id)
     await expect(ctx.agentTeams.sendMessage(lead, {
       target: 'target', content: content('x'.repeat(300)), delivery: 'quiet', signal: SIGNAL,
     })).rejects.toMatchObject({ code: 'TEAM_MESSAGE_TOO_LARGE' })
-    /** 中文说明：测试局部值 queued，由紧邻初始化决定。 */
     const queued = await ctx.agentTeams.sendMessage(lead, {
       target: 'target', content: content('one'), delivery: 'quiet', signal: SIGNAL,
     })
@@ -1520,7 +1327,6 @@ describe('Team mailbox and waiting', () => {
     await expect(ctx.agentTeams.sendMessage(lead, {
       target: 'missing', content: content('unknown target'), delivery: 'quiet', signal: SIGNAL,
     })).rejects.toMatchObject({ code: 'TEAM_MEMBER_NOT_FOUND' })
-    /** 中文说明：测试局部值 controller，由紧邻初始化决定。 */
     const controller = new AbortController()
     controller.abort(new TeamError('cancelled before queue', 'TEST_CANCELLED'))
     await expect(ctx.agentTeams.sendMessage(lead, {
@@ -1529,13 +1335,9 @@ describe('Team mailbox and waiting', () => {
   })
 
   it('interrupts only the current turn and retains an already accepted follow-up', async () => {
-    /** 中文说明：测试局部值 { ctx, lead }，由紧邻初始化决定。 */
     const { ctx, lead } = await setup(['hang', textResponse('after interrupt')])
-    /** 中文说明：测试局部值 started，由紧邻初始化决定。 */
     const started = await spawn(ctx, lead, 'worker')
-    /** 中文说明：测试局部值 worker，由紧邻初始化决定。 */
     const worker = await waitRunning(ctx, started.member.id)
-    /** 中文说明：测试局部值 followup，由紧邻初始化决定。 */
     const followup = await ctx.agentTeams.sendMessage(lead, {
       target: 'worker', content: content('retained follow-up'), delivery: 'wakeup', signal: SIGNAL,
     })
@@ -1549,47 +1351,36 @@ describe('Team mailbox and waiting', () => {
   })
 
   it('waits for one change, supports cancellation, times out, and releases waiters on HMR disposal', async () => {
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = new Context()
     await mountAgentLoopTestDependencies(ctx)
-    /** 中文说明：测试局部值 storageRoot，由紧邻初始化决定。 */
+    await ctx.plugin(SessionProjectionRegistry)
     const storageRoot = mkdtempSync(join(tmpdir(), 'dsh-team-wait-'))
     roots.push(storageRoot)
     await ctx.plugin(JsonlSessionPersistence, { root: storageRoot })
     await ctx.plugin(AgentLoop, { agents: [] })
     await ctx.plugin(SubagentService)
-    /** 中文说明：测试局部值 fiber，由紧邻初始化决定。 */
     const fiber = await ctx.plugin(TeamService)
-    /** 中文说明：测试局部值 service，由紧邻初始化决定。 */
     const service = ctx.agentTeams
-    /** 中文说明：测试局部值 lead，由紧邻初始化决定。 */
     const lead = ctx.agentLoop.create(SessionId('wait-lead'), {})
 
     await expect(service.waitForChange(lead, 9_999, SIGNAL))
       .rejects.toMatchObject({ code: 'TEAM_INVALID_TIMEOUT' })
-    /** 中文说明：测试局部值 alreadyAborted，由紧邻初始化决定。 */
     const alreadyAborted = new AbortController()
     alreadyAborted.abort(new TeamError('cancelled before wait', 'TEST_CANCELLED'))
     await expect(service.waitForChange(lead, 10_000, alreadyAborted.signal))
       .rejects.toMatchObject({ code: 'TEST_CANCELLED' })
 
-    /** 中文说明：测试局部值 changed，由紧邻初始化决定。 */
     const changed = service.waitForChange(lead, 10_000, SIGNAL)
-    /** 中文说明：测试局部值 flush，由紧邻初始化决定。 */
     const flush = ctx.sessions.flush.bind(ctx.sessions)
-    /** 中文说明：测试局部值 flushEntered，由紧邻初始化决定。 */
     const flushEntered = Promise.withResolvers<undefined>()
-    /** 中文说明：测试局部值 releaseFlush，由紧邻初始化决定。 */
     const releaseFlush = Promise.withResolvers<undefined>()
     vi.spyOn(ctx.sessions, 'flush').mockImplementationOnce(async (session) => {
       flushEntered.resolve(undefined)
       await releaseFlush.promise
       return await flush(session)
     })
-    /** 中文说明：测试局部值 waitSettled，由紧邻初始化决定。 */
     let waitSettled = false
     void changed.finally(() => { waitSettled = true })
-    /** 中文说明：测试局部值 creating，由紧邻初始化决定。 */
     const creating = service.createTask(lead, { subject: 'wake', description: 'wake waiter' })
     await flushEntered.promise
     expect(waitSettled).toBe(false)
@@ -1597,18 +1388,13 @@ describe('Team mailbox and waiting', () => {
     await creating
     await expect(changed).resolves.toEqual({ timedOut: false })
 
-    /** 中文说明：测试局部值 controller，由紧邻初始化决定。 */
     const controller = new AbortController()
-    /** 中文说明：测试局部值 cancelled，由紧邻初始化决定。 */
     const cancelled = service.waitForChange(lead, 10_000, controller.signal)
     controller.abort(new TeamError('cancelled', 'TEST_CANCELLED'))
     await expect(cancelled).rejects.toMatchObject({ code: 'TEST_CANCELLED' })
 
-    /** 中文说明：测试局部值 stringAbort，由紧邻初始化决定。 */
     const stringAbort = new AbortController()
-    /** 中文说明：测试局部值 firstWaiter，由紧邻初始化决定。 */
     const firstWaiter = service.waitForChange(lead, 10_000, stringAbort.signal)
-    /** 中文说明：测试局部值 secondWaiter，由紧邻初始化决定。 */
     const secondWaiter = service.waitForChange(lead, 10_000, SIGNAL)
     stringAbort.abort('string cancellation')
     await expect(firstWaiter).rejects.toMatchObject({
@@ -1618,9 +1404,7 @@ describe('Team mailbox and waiting', () => {
     await service.createTask(lead, { subject: 'second waiter', description: 'second waiter remains registered' })
     await expect(secondWaiter).resolves.toEqual({ timedOut: false })
 
-    /** 中文说明：测试局部值 objectAbort，由紧邻初始化决定。 */
     const objectAbort = new AbortController()
-    /** 中文说明：测试局部值 objectCancelled，由紧邻初始化决定。 */
     const objectCancelled = service.waitForChange(lead, 10_000, objectAbort.signal)
     objectAbort.abort({ kind: 'user' })
     await expect(objectCancelled).rejects.toMatchObject({
@@ -1630,13 +1414,11 @@ describe('Team mailbox and waiting', () => {
 
     await service.createTask(lead, { subject: 'already changed', description: 'edge-triggered wait' })
     vi.useFakeTimers()
-    /** 中文说明：测试局部值 timeout，由紧邻初始化决定。 */
     const timeout = service.waitForChange(lead, 10_000, SIGNAL)
     await vi.advanceTimersByTimeAsync(10_000)
     await expect(timeout).resolves.toEqual({ timedOut: true })
     vi.useRealTimers()
 
-    /** 中文说明：测试局部值 disposed，由紧邻初始化决定。 */
     const disposed = service.waitForChange(lead, 10_000, SIGNAL)
     await fiber.dispose()
     await expect(disposed).resolves.toEqual({ timedOut: false })
@@ -1644,12 +1426,9 @@ describe('Team mailbox and waiting', () => {
   })
 
   it('disposes live teammate Activations and their waits when the Team service unloads', async () => {
-    /** 中文说明：测试局部值 { ctx, lead, teamFiber }，由紧邻初始化决定。 */
     const { ctx, lead, teamFiber } = await setup(['hang'])
-    /** 中文说明：测试局部值 started，由紧邻初始化决定。 */
     const started = await spawn(ctx, lead, 'dispose-worker')
     await waitRunning(ctx, started.member.id)
-    /** 中文说明：测试局部值 waiting，由紧邻初始化决定。 */
     const waiting = ctx.agentTeams.waitForChange(lead, 10_000, SIGNAL)
 
     await teamFiber.dispose()
@@ -1660,17 +1439,11 @@ describe('Team mailbox and waiting', () => {
   })
 
   it('closes creation admission and drains an in-flight spawn before unload completes', async () => {
-    /** 中文说明：测试局部值 { ctx, lead, teamFiber }，由紧邻初始化决定。 */
     const { ctx, lead, teamFiber } = await setup(['hang'])
-    /** 中文说明：测试局部值 service，由紧邻初始化决定。 */
     const service = ctx.agentTeams
-    /** 中文说明：测试局部值 start，由紧邻初始化决定。 */
     const start = ctx.subagents.startContinuable.bind(ctx.subagents)
-    /** 中文说明：测试局部值 entered，由紧邻初始化决定。 */
     const entered = Promise.withResolvers<undefined>()
-    /** 中文说明：测试局部值 release，由紧邻初始化决定。 */
     const release = Promise.withResolvers<undefined>()
-    /** 中文说明：测试局部值 解构结果，由紧邻初始化决定。 */
     let childId: SessionId | undefined
     vi.spyOn(ctx.subagents, 'startContinuable').mockImplementation(async (spec) => {
       childId = spec.childId
@@ -1678,13 +1451,10 @@ describe('Team mailbox and waiting', () => {
       await release.promise
       return start(spec)
     })
-    /** 中文说明：测试局部值 spawning，由紧邻初始化决定。 */
     const spawning = spawn(ctx, lead, 'disposing-worker')
-    /** 中文说明：测试局部值 rejected，由紧邻初始化决定。 */
     const rejected = expect(spawning).rejects.toMatchObject({ code: 'TEAM_DISPOSED' })
     await entered.promise
 
-    /** 中文说明：测试局部值 disposal，由紧邻初始化决定。 */
     const disposal = teamFiber.dispose()
     await Promise.resolve()
     await expect(service.waitForChange(lead, 3_600_000, SIGNAL)).resolves.toEqual({ timedOut: false })
@@ -1705,13 +1475,9 @@ describe('Team mailbox and waiting', () => {
   })
 
   it('retains an in-flight creation cleanup failure during disposal', async () => {
-    /** 中文说明：测试局部值 { ctx }，由紧邻初始化决定。 */
     const { ctx } = await setup([])
-    /** 中文说明：测试局部值 internal，由紧邻初始化决定。 */
     const internal = teamInternals(ctx)
-    /** 中文说明：测试局部值 cleanupFailure，由紧邻初始化决定。 */
     const cleanupFailure = new Error('creation cleanup failed')
-    /** 中文说明：测试局部值 rejected，由紧邻初始化决定。 */
     const rejected = Promise.reject(cleanupFailure)
     void rejected.catch(() => undefined)
     internal.roster.inFlightCreations.add(rejected)
@@ -1720,19 +1486,14 @@ describe('Team mailbox and waiting', () => {
   })
 
   it('recognizes wrapped and coded runtime cancellation during disposal settlement', async () => {
-    /** 中文说明：测试局部值 open，由紧邻初始化决定。 */
     const open = new TeamRuntimeLifecycle(100)
-    /** 中文说明：测试局部值 ordinaryFailure，由紧邻初始化决定。 */
     const ordinaryFailure = new Error('ordinary failure before disposal')
-    /** 中文说明：测试局部值 openFailures，由紧邻初始化决定。 */
     const openFailures: unknown[] = []
     await open.settle([Promise.reject(ordinaryFailure)], openFailures)
     expect(openFailures).toEqual([ordinaryFailure])
 
-    /** 中文说明：测试局部值 lifecycle，由紧邻初始化决定。 */
     const lifecycle = new TeamRuntimeLifecycle(100)
     lifecycle.close()
-    /** 中文说明：测试局部值 failures，由紧邻初始化决定。 */
     const failures: unknown[] = []
     await lifecycle.settle([
       Promise.reject(new Error('wrapped cancellation', { cause: lifecycle.reason })),
@@ -1740,7 +1501,6 @@ describe('Team mailbox and waiting', () => {
     ], failures)
     expect(failures).toEqual([])
 
-    /** 中文说明：测试局部值 cyclic，由紧邻初始化决定。 */
     const cyclic = new Error('unrelated cyclic failure')
     cyclic.cause = cyclic
     await lifecycle.settle([Promise.reject(cyclic)], failures)
@@ -1748,11 +1508,8 @@ describe('Team mailbox and waiting', () => {
   })
 
   it('disposes a live child even after its durable member edge becomes failed', async () => {
-    /** 中文说明：测试局部值 { ctx, lead }，由紧邻初始化决定。 */
     const { ctx, lead } = await setup(['hang'])
-    /** 中文说明：测试局部值 childId，由紧邻初始化决定。 */
     const childId = SessionId('failed-live-child')
-    /** 中文说明：测试局部值 member，由紧邻初始化决定。 */
     const member = {
       id: childId,
       name: 'failed-live-worker',
@@ -1786,23 +1543,17 @@ describe('Team mailbox and waiting', () => {
     await ctx.sessions.flush(lead.session)
     expect(ctx.agentTeams.listMembers(lead)[1]?.status).toBe('failed')
 
-    /** 中文说明：测试局部值 internal，由紧邻初始化决定。 */
     const internal = ctx.agentTeams as unknown as { disposeRuntime(): Promise<void> }
     await internal.disposeRuntime()
     expect(ctx.agents.get(childId)).toBeUndefined()
   })
 
   it('aborts and awaits an admitted cold mailbox dispatch during disposal', async () => {
-    /** 中文说明：测试局部值 { ctx, lead }，由紧邻初始化决定。 */
     const { ctx, lead } = await setup([textResponse('worker done')])
-    /** 中文说明：测试局部值 started，由紧邻初始化决定。 */
     const started = await spawn(ctx, lead, 'mailbox-worker')
     await waitNoAgent(ctx, started.member.id)
-    /** 中文说明：测试局部值 entered，由紧邻初始化决定。 */
     const entered = Promise.withResolvers<undefined>()
-    /** 中文说明：测试局部值 aborted，由紧邻初始化决定。 */
     const aborted = Promise.withResolvers<undefined>()
-    /** 中文说明：测试局部值 release，由紧邻初始化决定。 */
     const release = Promise.withResolvers<undefined>()
     vi.spyOn(ctx.subagents, 'followup').mockImplementation(async (_parent, _childId, _content, options) => {
       entered.resolve(undefined)
@@ -1810,7 +1561,6 @@ describe('Team mailbox and waiting', () => {
         options.signal.addEventListener('abort', () => {
           aborted.resolve(undefined)
           void release.promise.then(() => {
-            /** 中文说明：测试局部值 reason，由紧邻初始化决定。 */
             const reason: unknown = options.signal.reason
             reject(reason instanceof Error ? reason : new Error(String(reason)))
           })
@@ -1818,7 +1568,6 @@ describe('Team mailbox and waiting', () => {
       })
     })
 
-    /** 中文说明：测试局部值 sending，由紧邻初始化决定。 */
     const sending = ctx.agentTeams.sendMessage(lead, {
       target: 'mailbox-worker',
       content: content('resume during disposal'),
@@ -1826,11 +1575,8 @@ describe('Team mailbox and waiting', () => {
       signal: SIGNAL,
     })
     await entered.promise
-    /** 中文说明：测试局部值 internal，由紧邻初始化决定。 */
     const internal = ctx.agentTeams as unknown as { disposeRuntime(): Promise<void> }
-    /** 中文说明：测试局部值 disposed，由紧邻初始化决定。 */
     let disposed = false
-    /** 中文说明：测试局部值 disposal，由紧邻初始化决定。 */
     const disposal = internal.disposeRuntime().then(() => { disposed = true })
     await aborted.promise
     await Promise.resolve()
@@ -1844,9 +1590,7 @@ describe('Team mailbox and waiting', () => {
   })
 
   it('awaits an admitted asynchronous acknowledgement before disposal completes', async () => {
-    /** 中文说明：测试局部值 { ctx, lead }，由紧邻初始化决定。 */
     const { ctx, lead } = await setup([])
-    /** 中文说明：测试局部值 message，由紧邻初始化决定。 */
     const message: TeamMessageSnapshot = {
       id: TeamMessageId('dispose-ack-message'),
       senderId: SessionId('sender'),
@@ -1862,15 +1606,10 @@ describe('Team mailbox and waiting', () => {
     })
     await ctx.sessions.flush(lead.session)
 
-    /** 中文说明：测试局部值 entered，由紧邻初始化决定。 */
     const entered = Promise.withResolvers<undefined>()
-    /** 中文说明：测试局部值 release，由紧邻初始化决定。 */
     const release = Promise.withResolvers<undefined>()
-    /** 中文说明：测试局部值 flush，由紧邻初始化决定。 */
     const flush = ctx.sessions.flush.bind(ctx.sessions)
-    /** 中文说明：测试局部值 blockReceipt，由紧邻初始化决定。 */
     let blockReceipt = true
-    /** 中文说明：测试局部值 flushSpy，由紧邻初始化决定。 */
     const flushSpy = vi.spyOn(ctx.sessions, 'flush').mockImplementation(async (session) => {
       if (blockReceipt && session === lead.session) {
         blockReceipt = false
@@ -1890,15 +1629,11 @@ describe('Team mailbox and waiting', () => {
       },
     }), { surfaceOp: 'append' })
 
-    /** 中文说明：测试局部值 internal，由紧邻初始化决定。 */
     const internal = ctx.agentTeams as unknown as { disposeRuntime(): Promise<void> }
-    /** 中文说明：测试局部值 disposed，由紧邻初始化决定。 */
     let disposed = false
-    /** 中文说明：测试局部值 disposal，由紧邻初始化决定。 */
     const disposal = internal.disposeRuntime().then(() => { disposed = true })
     await entered.promise
     await Promise.resolve()
-    /** 中文说明：测试局部值 disposedBeforeRelease，由紧邻初始化决定。 */
     const disposedBeforeRelease = disposed
     release.resolve(undefined)
     await disposal
@@ -1910,16 +1645,12 @@ describe('Team mailbox and waiting', () => {
   })
 
   it('bounds Team runtime disposal when a continuation drain never settles', async () => {
-    /** 中文说明：测试局部值 { ctx, lead, teamFiber }，由紧邻初始化决定。 */
     const { ctx, lead, teamFiber } = await setup(['hang'], { disposalTimeoutMs: 25 })
-    /** 中文说明：测试局部值 started，由紧邻初始化决定。 */
     const started = await spawn(ctx, lead, 'stuck-worker')
     await waitRunning(ctx, started.member.id)
-    /** 中文说明：测试局部值 drain，由紧邻初始化决定。 */
     const drain = vi.spyOn(ctx.subagents, 'drainContinuableChildren')
       .mockImplementation(() => new Promise(() => {}))
 
-    /** 中文说明：测试局部值 outcome，由紧邻初始化决定。 */
     const outcome = await Promise.race([
       teamFiber.dispose().then(() => 'disposed'),
       new Promise<'hung'>((resolve) => { setTimeout(() => { resolve('hung') }, 1_000) }),
@@ -1930,9 +1661,7 @@ describe('Team mailbox and waiting', () => {
   })
 
   it('bounds disposal while an admitted creation ignores cancellation', async () => {
-    /** 中文说明：测试局部值 { ctx, lead }，由紧邻初始化决定。 */
     const { ctx, lead } = await setup([], { disposalTimeoutMs: 25 })
-    /** 中文说明：测试局部值 internal，由紧邻初始化决定。 */
     const internal = teamInternals(ctx)
     internal.roster.inFlightCreations.add(new Promise(() => {}))
 
@@ -1959,12 +1688,9 @@ describe('Team mailbox and waiting', () => {
   })
 
   it('contains recovery callback failures and ignores work scheduled after disposal', async () => {
-    /** 中文说明：测试局部值 { ctx, lead, teamFiber }，由紧邻初始化决定。 */
     const { ctx, lead, teamFiber } = await setup([])
-    /** 中文说明：测试局部值 warnings，由紧邻初始化决定。 */
     const warnings: string[] = []
     ctx.logger.warn = ((value: unknown) => { warnings.push(String(value)) }) as typeof ctx.logger.warn
-    /** 中文说明：测试局部值 internal，由紧邻初始化决定。 */
     const internal = teamInternals(ctx)
     internal.recoverFor = async () => { throw new Error('forced recovery failure') }
     internal.scheduleRecovery(lead)
@@ -1984,9 +1710,7 @@ describe('Team mailbox and waiting', () => {
     }), { surfaceOp: 'append' })
     await Promise.resolve()
 
-    /** 中文说明：测试局部值 entered，由紧邻初始化决定。 */
     const entered = Promise.withResolvers<undefined>()
-    /** 中文说明：测试局部值 release，由紧邻初始化决定。 */
     const release = Promise.withResolvers<undefined>()
     internal.recoverFor = async () => {
       entered.resolve(undefined)
@@ -2004,9 +1728,7 @@ describe('Team mailbox and waiting', () => {
   })
 
   it('reports contained teardown failures without retaining the Team service', async () => {
-    /** 中文说明：测试局部值 { ctx, lead, teamFiber }，由紧邻初始化决定。 */
     const { ctx, lead, teamFiber } = await setup(['hang'])
-    /** 中文说明：测试局部值 started，由紧邻初始化决定。 */
     const started = await spawn(ctx, lead, 'failing-drain')
     await waitRunning(ctx, started.member.id)
     vi.spyOn(ctx.subagents, 'drainContinuableDescendants').mockRejectedValueOnce(new Error('drain failure'))
@@ -2016,17 +1738,13 @@ describe('Team mailbox and waiting', () => {
   })
 
   it('reconciles mismatched persisted children and ignores a concurrently settled member', async () => {
-    /** 中文说明：测试局部值 first，由紧邻初始化决定。 */
     const first = await setup([])
-    /** 中文说明：测试局部值 liveId，由紧邻初始化决定。 */
     const liveId = SessionId('live-provisioning-child')
-    /** 中文说明：测试局部值 live，由紧邻初始化决定。 */
     const live = await first.ctx.agents.create({
       sessionId: liveId,
       meta: { parentSession: first.lead.id },
       agentOptions: { provider: 'mock', model: 'mock' },
     })
-    /** 中文说明：测试局部值 provisioning，由紧邻初始化决定。 */
     const provisioning = {
       id: liveId,
       name: 'mismatched-child',
@@ -2038,7 +1756,6 @@ describe('Team mailbox and waiting', () => {
     first.lead.session.append('team/member', {
       version: 1, teamId: TeamId(first.lead.id), member: provisioning,
     })
-    /** 中文说明：测试局部值 reconcileFirst，由紧邻初始化决定。 */
     const reconcileFirst = teamInternals(first.ctx).roster
     await reconcileFirst.reconcileProvisioning(first.lead, SIGNAL)
     expect(durable(first.lead).members[0]?.phase).toBe('provisioning')
@@ -2053,27 +1770,20 @@ describe('Team mailbox and waiting', () => {
       error: 'persisted child Session does not match the provisioned continuation',
     })
 
-    /** 中文说明：测试局部值 second，由紧邻初始化决定。 */
     const second = await setup([])
-    /** 中文说明：测试局部值 childId，由紧邻初始化决定。 */
     const childId = SessionId('concurrently-settled-child')
-    /** 中文说明：测试局部值 member，由紧邻初始化决定。 */
     const member = { ...provisioning, id: childId, name: 'concurrent-child' }
     second.lead.session.append('team/member', {
       version: 1, teamId: TeamId(second.lead.id), member,
     })
-    /** 中文说明：测试局部值 entered，由紧邻初始化决定。 */
     const entered = Promise.withResolvers<undefined>()
-    /** 中文说明：测试局部值 release，由紧邻初始化决定。 */
     const release = Promise.withResolvers<undefined>()
     vi.spyOn(second.ctx.sessionPersistence, 'inspect').mockImplementationOnce(async () => {
       entered.resolve(undefined)
       await release.promise
       throw new Error('late inspection failure')
     })
-    /** 中文说明：测试局部值 reconcileSecond，由紧邻初始化决定。 */
     const reconcileSecond = teamInternals(second.ctx).roster
-    /** 中文说明：测试局部值 reconciling，由紧邻初始化决定。 */
     const reconciling = reconcileSecond.reconcileProvisioning(second.lead, SIGNAL)
     await entered.promise
     second.lead.session.append('team/member', {

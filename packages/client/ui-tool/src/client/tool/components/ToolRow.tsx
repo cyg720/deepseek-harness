@@ -2,6 +2,7 @@ import { useMemo, useState, type KeyboardEvent, type MouseEvent, type ReactNode 
 import clsx from 'clsx'
 import {
   CodeBlock, DiffBlock, DisclosureRow, IconInspectOutline12, ReadBlock, SearchBlock, StateDot, TerminalBlock, WebBlock,
+  diffTotals,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { TranslateNS } from '@deepseek-ai/dsh-client-ui-slots'
 import { CHAT_DIFF_MAX_LINES, type DiffCardModel } from '../models/diff-card-model.ts'
@@ -14,12 +15,13 @@ import {
   diffBlockLabels, readBlockLabels, searchBlockLabels, webBlockLabels,
 } from '../models/primitive-labels.ts'
 import type { AskQuestionCardModel } from '../models/ask-question-card-model.ts'
-import type { ToolRowState, ToolRowVariant } from '../models/tool-call-model.ts'
+import {
+  formatToolBody, type ToolRowState, type ToolRowVariant,
+} from '../models/tool-call-model.ts'
 import type { WebCardModelProps } from '../models/web-card-model.ts'
 import { AskQuestionCard } from './AskQuestionCard.tsx'
 import css from './ToolRow.module.css'
 
-/** 中文说明：类型或类 ToolRowProps 约束工具或轨迹数据职责。 */
 export interface ToolRowProps {
   t: TranslateNS<'conversation'>
   variant: ToolRowVariant
@@ -36,8 +38,8 @@ export interface ToolRowProps {
    * error row, whose collapsed summary is the failure line instead.
    */
   summarySuffix?: string | null | undefined
-  /** Expanded-body input text; null = no input section. */
-  body: string | null
+  /** Original argument JSON formatted only while the row is expanded. */
+  bodyRaw?: string | null | undefined
   /** Flattened result text for the expanded Output section; null/absent = no output section. */
   output?: string | null | undefined
   /** Ask-user transcript card; card fields are mutually exclusive and replace text sections. */
@@ -77,7 +79,6 @@ function leadingFor(state: ToolRowState, icon: ReactNode): ReactNode {
  *  aria-hidden / colour-only, so assistive technology needs this text to know a
  *  row is running, failed, or interrupted. null in the ok state (the icon and
  *  summary already describe a settled row). */
-/* 中文说明：函数 stateStatus 的参数见签名，返回结果供展示流程使用；示例见本文件。 */
 function stateStatus(state: ToolRowState, t: TranslateNS<'conversation'>): string | null {
   switch (state) {
     case 'running': return t('row.running')
@@ -87,7 +88,6 @@ function stateStatus(state: ToolRowState, t: TranslateNS<'conversation'>): strin
   }
 }
 
-/** 中文说明：函数 ToolRow 的参数见签名，返回结果供展示流程使用；示例见本文件。 */
 export function ToolRow({
   t,
   variant,
@@ -96,7 +96,7 @@ export function ToolRow({
   title,
   summary,
   summarySuffix,
-  body,
+  bodyRaw,
   output,
   askQuestion,
   errorSummary,
@@ -110,7 +110,6 @@ export function ToolRow({
   onOpenFile,
   inspect,
 }: ToolRowProps) {
-  /** 中文说明：视图局部值 [expanded, setExpanded]，由紧邻初始化决定。 */
   const [expanded, setExpanded] = useState(false)
   const terminalLabels = useMemo(() => terminalBlockLabels(t), [t])
   const diffLabels = useMemo(() => diffBlockLabels(t), [t])
@@ -121,29 +120,35 @@ export function ToolRow({
     ? null
     : localizeTerminalCardModel(terminal, t)
   const diffBody = diff ?? null
-  /** 中文说明：视图局部值 readBody，由紧邻初始化决定。 */
   const readBody = read ?? null
-  /** 中文说明：视图局部值 searchBody，由紧邻初始化决定。 */
   const searchBody = search ?? null
-  /** 中文说明：视图局部值 webBody，由紧邻初始化决定。 */
   const webBody = web ?? null
   const askQuestionBody = askQuestion ?? null
   const outputText = output ?? null
   const card = askQuestionBody ?? terminalBody ?? diffBody ?? readBody ?? searchBody ?? webBody
-  const expandable = body !== null || outputText !== null || card !== null
-  /** 中文说明：视图局部值 open，由紧邻初始化决定。 */
+  const expandable = bodyRaw != null || outputText !== null || card !== null
   const open = expanded && expandable
+  const bodyText = useMemo(
+    () => open && card === null && bodyRaw != null ? formatToolBody(variant, bodyRaw) : null,
+    [bodyRaw, card, open, variant],
+  )
   const status = stateStatus(state, t)
   // A failure must replace, not supplement, the normal summary.
   const failureLine = state === 'error' ? errorSummary ?? null : null
   const summaryText = failureLine ?? terminalBody?.description ?? summary
-  const suffix = failureLine === null ? summarySuffix ?? null : null
+  // A diff row's collapsed line carries the card's +/- totals (the same
+  // numbers the expanded footer prints) so the change size reads without
+  // expanding; an explicit summarySuffix (none today on diff rows) wins.
+  const diffStat = useMemo(() => {
+    if (diffBody === null) return null
+    const { added, removed } = diffTotals(diffBody.card.diffs)
+    return `+${added} -${removed}`
+  }, [diffBody])
+  const suffix = failureLine === null ? summarySuffix ?? diffStat : null
   const fileLink = filePath !== undefined && onOpenFile !== undefined && failureLine === null
-  /** 中文说明：视图局部值 toggleExpand，由紧邻初始化决定。 */
   const toggleExpand = () => {
     setExpanded(v => !v)
   }
-  /** 中文说明：视图局部值 openFile，由紧邻初始化决定。 */
   const openFile = (event: MouseEvent<HTMLButtonElement>) => {
     event.stopPropagation()
     if (filePath !== undefined) onOpenFile?.(filePath)
@@ -152,14 +157,12 @@ export function ToolRow({
   // keydown handler, which would preventDefault() the key and toggle expand
   // instead of activating the link — the keyboard analogue of openFile's
   // stopPropagation. The native button still fires its own onClick from the key.
-  /** 中文说明：视图局部值 fileLinkKeyDown，由紧邻初始化决定。 */
   const fileLinkKeyDown = (event: KeyboardEvent<HTMLButtonElement>) => {
     if (event.key === 'Enter' || event.key === ' ') event.stopPropagation()
   }
   // The code variant's program renders through CodeBlock (shiki), so only its
   // output joins the IN/OUT card; every other variant's input does too.
-  /** 中文说明：视图局部值 cardBody，由紧邻初始化决定。 */
-  const cardBody = variant === 'code' ? null : body
+  const cardBody = variant === 'code' ? null : bodyText
   return (
     <div className={css.root} data-variant={variant} data-tool={toolName} data-state={state}>
       {status !== null && <span className={css.visuallyHidden}>{status}</span>}
@@ -196,7 +199,9 @@ export function ToolRow({
                 {summaryText}
               </span>
             )}
-            {suffix !== null && <span className={css.summarySuffix}>{suffix}</span>}
+            {suffix !== null && (
+              <span className={clsx(css.summarySuffix, suffix === diffStat && css.diffStat)}>{suffix}</span>
+            )}
           </>
         )}
       >
@@ -236,9 +241,9 @@ export function ToolRow({
                       ? <WebBlock {...webBody} labels={webLabels} className={css.webBody} />
                       : (
                         <>
-                          {variant === 'code' && body !== null && (
+                          {variant === 'code' && bodyText !== null && (
                             <div className={css.bodyScroll}>
-                              <CodeBlock code={body} lang="typescript" copyLabel={t('copy')} copiedLabel={t('copied')} className={css.codeBody} />
+                              <CodeBlock code={bodyText} lang="typescript" copyLabel={t('copy')} copiedLabel={t('copied')} className={css.codeBody} />
                             </div>
                           )}
                           {(cardBody !== null || outputText !== null) && (

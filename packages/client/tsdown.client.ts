@@ -8,14 +8,6 @@
  * exports compiled text for a plugin-owned lifecycle effect. The virtual
  * loaders register each real stylesheet as a watch dependency.
  */
-/*
- * 文件职责：集中生成客户端工作区的 tsdown 构建配置。
- * 技术维度：tsdown、ESM、React 转换、路径别名和产物清单。
- * 产品维度：让所有浏览器包以一致规则产出可发布模块。
- * 逻辑维度：发现入口并合并共享选项，再按包特性设置外部依赖。
- * 关键边界：配置运行于构建期；入口和 external 变化会影响所有客户端包。
- * 新手阅读建议：先看导出配置，再看入口发现与共享选项。
- */
 import { readFile } from 'node:fs/promises'
 import { existsSync, globSync, readFileSync } from 'node:fs'
 import { isBuiltin } from 'node:module'
@@ -32,26 +24,19 @@ import { clientBuildEnvironmentDefines } from '../../scripts/client-build-enviro
  * (which requires @tsdown/css). The suffix matters: tsdown's guard matches ids
  * ending in `.css`, so the virtual id must not.
  */
-/* 中文说明：当前处理步骤的局部值 CSS_VIRTUAL_PREFIX，取值由紧邻初始化决定，仅在当前作用域使用。 */
 const CSS_VIRTUAL_PREFIX = '\0dsh-css:'
-/** 中文说明：当前处理步骤的局部值 GLOBAL_CSS_VIRTUAL_PREFIX，取值由紧邻初始化决定，仅在当前作用域使用。 */
 const GLOBAL_CSS_VIRTUAL_PREFIX = '\0dsh-global-css:'
-/** 中文说明：当前处理步骤的局部值 INLINE_CSS_VIRTUAL_PREFIX，取值由紧邻初始化决定，仅在当前作用域使用。 */
 const INLINE_CSS_VIRTUAL_PREFIX = '\0dsh-inline-css:'
-/** 中文说明：当前处理步骤的局部值 CSS_VIRTUAL_SUFFIX，取值由紧邻初始化决定，仅在当前作用域使用。 */
 const CSS_VIRTUAL_SUFFIX = '.mjs'
-/** 中文说明：当前处理步骤的局部值 INLINE_CSS_QUERY，取值由紧邻初始化决定，仅在当前作用域使用。 */
 const INLINE_CSS_QUERY = '?inline'
 
 /** Emit one plugin-owned style injector and an optional CSS Modules export. */
-/* 中文说明：函数 styleInjectionModule 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 function styleInjectionModule(
   id: string,
   fileId: string,
   css: string,
   classMap?: Readonly<Record<string, string>>,
 ): string {
-  /** 中文说明：当前处理步骤的局部值 source，取值由紧邻初始化决定，仅在当前作用域使用。 */
   const source = [
     `const css = ${JSON.stringify(css)};`,
     `const tagId = ${JSON.stringify(`${id}/${basename(fileId)}`)};`,
@@ -73,7 +58,7 @@ function styleInjectionModule(
  * Everything else under @deepseek-ai/* is either a module-table entry
  * (external) or a leak the purity gate rejects.
  */
-export const INLINE_SAFE = /^(?:@deepseek-ai\/dsh-(?:file-reference|session|llm|tools|brand|util-crypto|util-workspace-path)(?:\/|$)|@deepseek-ai\/dsh-token-meter\/client$)/
+export const INLINE_SAFE = /^(?:@deepseek-ai\/dsh-(?:file-reference|session|llm|tools|brand|deque|typert-protocol|util-crypto|util-values|util-workspace-path)(?:\/|$)|@deepseek-ai\/dsh-token-meter\/client$|@deepseek-ai\/dsh-agent-presets\/display$)/
 
 /**
  * Vendored framework libraries: rescoped into @deepseek-ai, so the gate below
@@ -81,30 +66,23 @@ export const INLINE_SAFE = /^(?:@deepseek-ai\/dsh-(?:file-reference|session|llm|
  * identity to share — the framework itself is a requested module-table row
  * (external), while these are ordinary libraries a browser bundle inlines.
  */
-/* 中文说明：当前处理步骤的局部值 VENDORED_LIBRARY，取值由紧邻初始化决定，仅在当前作用域使用。 */
 const VENDORED_LIBRARY = /^@deepseek-ai\/(cosmokit|schemastery)(\/|$)/
 
 /** Generated descriptor/codec contribution with no shared runtime identity. */
-/* 中文说明：当前处理步骤的局部值 GENERATED_REMOTE，取值由紧邻初始化决定，仅在当前作用域使用。 */
 const GENERATED_REMOTE = /^@deepseek-ai\/dsh-[a-z0-9]+(?:-[a-z0-9]+)*\/remote$/
 
 /**
  * Workspace mode replaces an empty config array with the root defaults. A
  * falsey entry instead removes this package before entry resolution.
  */
-/* 中文说明：当前处理步骤的局部值 SKIP_WORKSPACE_BUILD，取值由紧邻初始化决定，仅在当前作用域使用。 */
 const SKIP_WORKSPACE_BUILD: UserConfig = { entry: '' }
 
-/** 中文说明：当前处理步骤的局部值 REPOSITORY_ROOT，取值由紧邻初始化决定，仅在当前作用域使用。 */
 const REPOSITORY_ROOT = fileURLToPath(new URL('../..', import.meta.url))
 
 /** Rebase a physical lib-relative source onto a browser URL that mirrors the repository directories. */
-/* 中文说明：函数 browserSourcePath 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 function browserSourcePath(source: string, sourcemapPath: string): string {
   if (!source.startsWith('.')) return source
-  /** 中文说明：当前处理步骤的局部值 physicalSource，取值由紧邻初始化决定，仅在当前作用域使用。 */
   const physicalSource = resolvePath(dirname(sourcemapPath), source)
-  /** 中文说明：当前处理步骤的局部值 repositoryPath，取值由紧邻初始化决定，仅在当前作用域使用。 */
   const repositoryPath = relative(REPOSITORY_ROOT, physicalSource).split(sep).join('/')
   return repositoryPath.startsWith('packages/') ? `../../../${repositoryPath}` : source
 }
@@ -126,22 +104,16 @@ function browserSourcePath(source: string, sourcemapPath: string): string {
  * @param options - phase placement, lib overrides, and companion Node configs.
  * @returns ENV-selected tsdown config for the current build face.
  */
-/* 中文说明：函数 clientBundle 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 export function clientBundle(
   id: string,
   libEntry: readonly string[],
   options: ClientBundleOptions = {},
 ): BuildFaceConfig {
-  /** 中文说明：当前处理步骤的局部值 lib，取值由紧邻初始化决定，仅在当前作用域使用。 */
   const lib = clientLibraryConfig(id, libEntry, options.lib)
   return ({ env }) => {
-    /** 中文说明：当前处理步骤的局部值 face，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const face = buildFace(env?.DSH_BUILD_FACE)
-    /** 中文说明：当前服务或测试对象 clientEntry，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const clientEntry = face === undefined ? 'src/client/index.ts' : 'lib/types/client/index.js'
-    /** 中文说明：当前服务或测试对象 client，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const client = clientConfig(id, clientEntry)
-    /** 中文说明：当前处理步骤的局部值 node，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const node = [lib, ...(options.companions ?? [])]
     if (face === 'host') return options.hostPhase === true ? node : [SKIP_WORKSPACE_BUILD]
     if (face === 'client') {
@@ -179,11 +151,9 @@ export function clientBundle(
  * the exact `files` list cannot publish.
  * @returns ENV-selected tsdown config for the Client build face.
  */
-/* 中文说明：函数 staticLinked 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 export function staticLinked(id: string, libEntry: readonly string[]): BuildFaceConfig {
   // Each entry names its own output file, so two entries with the same basename
   // would overwrite one artifact instead of emitting two.
-  /** 中文说明：当前处理步骤的局部值 names，取值由紧邻初始化决定，仅在当前作用域使用。 */
   const names = new Set(libEntry.map(entry => basename(entry, '.js')))
   if (names.size !== libEntry.length) {
     throw new Error(`tsdown: ${id} entries collide on an output name: ${libEntry.join(', ')}`)
@@ -198,7 +168,6 @@ export function staticLinked(id: string, libEntry: readonly string[]): BuildFace
  * @param configs - configs a package's build-face function returned.
  * @returns true when at least one config was built by {@link staticLinked}.
  */
-/* 中文说明：函数 isStaticLinkedConfig 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 export function isStaticLinkedConfig(configs: readonly UserConfig[]): boolean {
   return configs.some(config => (config.plugins as readonly { name?: string }[] | undefined ?? [])
     .some(plugin => plugin.name === STATIC_LINKED_PLUGIN))
@@ -210,9 +179,7 @@ export function isStaticLinkedConfig(configs: readonly UserConfig[]): boolean {
  * @param libEntry - Emitted JavaScript entries consumed from `lib/types`.
  * @returns ENV-selected tsdown config for the Client build face.
  */
-/* 中文说明：函数 clientLibrary 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 export function clientLibrary(id: string, libEntry: readonly string[]): BuildFaceConfig {
-  /** 中文说明：当前处理步骤的局部值 lib，取值由紧邻初始化决定，仅在当前作用域使用。 */
   const lib = clientLibraryConfig(id, libEntry)
   return clientOnly([lib])
 }
@@ -222,45 +189,35 @@ export function clientLibrary(id: string, libEntry: readonly string[]): BuildFac
  * @param configs - Node-side configs emitted after Client tsc.
  * @returns ENV-selected tsdown config for the Client build face.
  */
-/* 中文说明：函数 clientOnly 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 export function clientOnly(configs: readonly UserConfig[]): BuildFaceConfig {
   return ({ env }) => buildFace(env?.DSH_BUILD_FACE) === 'host'
     ? [SKIP_WORKSPACE_BUILD]
     : [...configs]
 }
 
-/** 中文说明：类型 ClientBundleOptions 约束本文件数据字段及允许取值。 */
 interface ClientBundleOptions {
   /** Emit the Node-side artifacts during the Host pass instead of the Client pass. */
-  /* 中文说明：成员 hostPhase 保存实例运行状态，取值由声明类型限定。 */
   readonly hostPhase?: boolean
   /** Additional Node-side configs emitted alongside the package library. */
-  /* 中文说明：成员 companions 保存实例运行状态，取值由声明类型限定。 */
   readonly companions?: readonly UserConfig[]
   /** Overrides for the package's primary Node-side library config. */
-  /* 中文说明：成员 lib 保存实例运行状态，取值由声明类型限定。 */
   readonly lib?: UserConfig
 }
 
-/** 中文说明：类型 BuildFace 约束本文件数据字段及允许取值。 */
 type BuildFace = 'host' | 'client' | undefined
 
-/** 中文说明：类型 BuildFaceConfig 约束本文件数据字段及允许取值。 */
 type BuildFaceConfig = (inlineConfig: Pick<UserConfig, 'env'>) => UserConfig[]
 
-/** 中文说明：函数 buildFace 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 function buildFace(value: unknown): BuildFace {
   if (value === undefined || value === 'host' || value === 'client') return value
   throw new Error(`tsdown: --env.DSH_BUILD_FACE must be host or client, received ${String(value)}`)
 }
 
-/** 中文说明：函数 clientLibraryConfig 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 function clientLibraryConfig(
   id: string,
   libEntry: readonly string[],
   overrides: UserConfig = {},
 ): UserConfig {
-  /** 中文说明：当前处理步骤的局部值 isProductionDependency，取值由紧邻初始化决定，仅在当前作用域使用。 */
   const isProductionDependency = (specifier: string): boolean =>
     matchesSpecifier(productionExternals(id), specifier)
   return {
@@ -287,9 +244,7 @@ function clientLibraryConfig(
 }
 
 /** The slice of the rolldown plugin context the stylesheet plugin uses. */
-/* 中文说明：类型 AssetEmitter 约束本文件数据字段及允许取值。 */
 interface AssetEmitter {
-  /** 中文说明：方法 emitFile 的参数见签名，返回值供调用方使用；示例见本文件调用处。 */
   emitFile(file: {
     type: 'asset'
     fileName: string
@@ -298,9 +253,7 @@ interface AssetEmitter {
   }): string
 }
 
-/** 中文说明：函数 staticLinkedConfig 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 function staticLinkedConfig(id: string, entry: string, outputName = basename(entry, '.js')): UserConfig {
-  /** 中文说明：当前处理步骤的局部值 emitted，取值由紧邻初始化决定，仅在当前作用域使用。 */
   const emitted = new Set<string>()
   return {
     name: id,
@@ -336,7 +289,6 @@ function staticLinkedConfig(id: string, entry: string, outputName = basename(ent
       name: 'dsh-css-asset',
       async resolveId(this: AssetEmitter, source: string, importer: string | undefined) {
         if (!source.endsWith('.css') || importer === undefined) return null
-        /** 中文说明：当前处理步骤的局部值 { file, fileName }，取值由紧邻初始化决定，仅在当前作用域使用。 */
         const { file, fileName } = stylesheetAsset(source, importer)
         if (!emitted.has(fileName)) {
           emitted.add(fileName)
@@ -353,7 +305,6 @@ function staticLinkedConfig(id: string, entry: string, outputName = basename(ent
 }
 
 /** Whether a specifier names a package rather than a file next to its importer. */
-/* 中文说明：函数 isBareSpecifier 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 function isBareSpecifier(specifier: string): boolean {
   return !specifier.startsWith('.') && !specifier.startsWith('\0') && !isAbsolute(specifier)
 }
@@ -364,37 +315,25 @@ function isBareSpecifier(specifier: string): boolean {
  * @param importer - absolute path of the importing module, emitted or source.
  * @returns the stylesheet on disk plus its `src`-relative name under `lib/`.
  */
-/* 中文说明：函数 stylesheetAsset 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 function stylesheetAsset(source: string, importer: string): { readonly file: string, readonly fileName: string } {
-  /** 中文说明：当前处理步骤的局部值 file，取值由紧邻初始化决定，仅在当前作用域使用。 */
   const file = sourceAssetPath(source, importer)
-  /** 中文说明：当前处理步骤的局部值 boundary，取值由紧邻初始化决定，仅在当前作用域使用。 */
   const boundary = file.lastIndexOf(SOURCE_MARKER)
   if (boundary < 0) throw new Error(`tsdown: stylesheet ${file} is outside the package sources`)
   return { file, fileName: file.slice(boundary + SOURCE_MARKER.length).split(sep).join('/') }
 }
 
 /** The manifest fields the build faces read to state their own module edges. */
-/* 中文说明：类型 WorkspaceManifest 约束本文件数据字段及允许取值。 */
 interface WorkspaceManifest {
-  /** 中文说明：成员 name 保存实例运行状态，取值由声明类型限定。 */
   readonly name?: string
   /** Sections a real install materializes on disk next to the built package. */
-  /* 中文说明：成员 dependencies 保存实例运行状态，取值由声明类型限定。 */
   readonly dependencies?: Record<string, string>
-  /** 中文说明：成员 peerDependencies 保存实例运行状态，取值由声明类型限定。 */
   readonly peerDependencies?: Record<string, string>
-  /** 中文说明：成员 optionalDependencies 保存实例运行状态，取值由声明类型限定。 */
   readonly optionalDependencies?: Record<string, string>
-  /** 中文说明：成员 dsh 保存实例运行状态，取值由声明类型限定。 */
   readonly dsh?: { readonly client?: { readonly external?: unknown } }
 }
 
-/** 中文说明：当前处理步骤的局部值 manifestCache，取值由紧邻初始化决定，仅在当前作用域使用。 */
 const manifestCache = new Map<string, WorkspaceManifest>()
-/** 中文说明：当前处理步骤的局部值 productionExternalCache，取值由紧邻初始化决定，仅在当前作用域使用。 */
 const productionExternalCache = new Map<string, readonly RegExp[]>()
-/** 中文说明：当前服务或测试对象 clientExternalCache，取值由紧邻初始化决定，仅在当前作用域使用。 */
 const clientExternalCache = new Map<string, ReadonlySet<string>>()
 
 /**
@@ -407,14 +346,10 @@ const clientExternalCache = new Map<string, ReadonlySet<string>>()
  * @returns the parsed manifest.
  * @throws {Error} when no workspace package declares that name.
  */
-/* 中文说明：函数 workspaceManifest 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 function workspaceManifest(id: string): WorkspaceManifest {
-  /** 中文说明：当前处理步骤的局部值 cached，取值由紧邻初始化决定，仅在当前作用域使用。 */
   const cached = manifestCache.get(id)
   if (cached !== undefined) return cached
-  /** 中文说明：当前处理步骤的局部值 manifestPath，取值由紧邻初始化决定，仅在当前作用域使用。 */
   for (const manifestPath of globSync('packages/*/*/package.json', { cwd: REPOSITORY_ROOT })) {
-    /** 中文说明：当前处理步骤的局部值 manifest，取值由紧邻初始化决定，仅在当前作用域使用。 */
     const manifest = JSON.parse(
       readFileSync(resolvePath(REPOSITORY_ROOT, manifestPath), 'utf8'),
     ) as WorkspaceManifest
@@ -431,20 +366,15 @@ function workspaceManifest(id: string): WorkspaceManifest {
  * @param id - package name, as spelled at the preset call site.
  * @returns one `^name(/|$)` pattern per production dependency, name-sorted.
  */
-/* 中文说明：函数 productionExternals 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 function productionExternals(id: string): readonly RegExp[] {
-  /** 中文说明：当前处理步骤的局部值 cached，取值由紧邻初始化决定，仅在当前作用域使用。 */
   const cached = productionExternalCache.get(id)
   if (cached !== undefined) return cached
-  /** 中文说明：当前处理步骤的局部值 manifest，取值由紧邻初始化决定，仅在当前作用域使用。 */
   const manifest = workspaceManifest(id)
-  /** 中文说明：当前处理步骤的局部值 names，取值由紧邻初始化决定，仅在当前作用域使用。 */
   const names = new Set([
     ...Object.keys(manifest.dependencies ?? {}),
     ...Object.keys(manifest.peerDependencies ?? {}),
     ...Object.keys(manifest.optionalDependencies ?? {}),
   ])
-  /** 中文说明：当前处理步骤的局部值 patterns，取值由紧邻初始化决定，仅在当前作用域使用。 */
   const patterns = [...names].sort().map(name => new RegExp(`^${escapeSpecifier(name)}(/|$)`))
   productionExternalCache.set(id, patterns)
   return patterns
@@ -459,7 +389,6 @@ function productionExternals(id: string): readonly RegExp[] {
  * @returns the requested specifiers, empty when the package declares none.
  * @throws {Error} when `external` is not a string array.
  */
-/* 中文说明：函数 requestedExternals 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 export function requestedExternals(
   subject: string,
   declaration: { readonly external?: unknown },
@@ -474,12 +403,9 @@ export function requestedExternals(
  * @param id - package name, as spelled at the preset call site.
  * @returns the baseline plus the package's explicit requests.
  */
-/* 中文说明：函数 clientExternals 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 function clientExternals(id: string): ReadonlySet<string> {
-  /** 中文说明：当前处理步骤的局部值 cached，取值由紧邻初始化决定，仅在当前作用域使用。 */
   const cached = clientExternalCache.get(id)
   if (cached !== undefined) return cached
-  /** 中文说明：当前处理步骤的局部值 externals，取值由紧邻初始化决定，仅在当前作用域使用。 */
   const externals = new Set([
     ...PLATFORM_MODULES,
     ...PRELOADED_CLIENT_EXTERNALS,
@@ -490,20 +416,16 @@ function clientExternals(id: string): ReadonlySet<string> {
 }
 
 /** Escape a package name for literal use inside a RegExp source. */
-/* 中文说明：函数 escapeSpecifier 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 function escapeSpecifier(name: string): string {
   return name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 }
 
 /** Whether an import specifier is the package a pattern names, or one of its subpaths. */
-/* 中文说明：函数 matchesSpecifier 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 function matchesSpecifier(patterns: readonly RegExp[], specifier: string): boolean {
   return patterns.some(pattern => pattern.test(specifier))
 }
 
-/** 中文说明：函数 clientConfig 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 function clientConfig(id: string, entry: string): UserConfig {
-  /** 中文说明：当前传输或投影数据 isRequested，取值由紧邻初始化决定，仅在当前作用域使用。 */
   const isRequested = (specifier: string): boolean => clientExternals(id).has(specifier)
   return {
     name: `${id}/client`,
@@ -580,31 +502,24 @@ function clientConfig(id: string, entry: string): UserConfig {
       name: 'dsh-css-modules-inline',
       resolveId(source: string, importer: string | undefined) {
         if (!source.endsWith('.module.css')) return null
-        /** 中文说明：当前处理步骤的局部值 abs，取值由紧邻初始化决定，仅在当前作用域使用。 */
         const abs = importer !== undefined ? sourceAssetPath(source, importer) : source
         return CSS_VIRTUAL_PREFIX + abs + CSS_VIRTUAL_SUFFIX
       },
       async load(virtualId: string) {
         if (!virtualId.startsWith(CSS_VIRTUAL_PREFIX)) return null
-        /** 中文说明：标识或顺序值 fileId，取值由紧邻初始化决定，仅在当前作用域使用。 */
         const fileId = virtualId.slice(CSS_VIRTUAL_PREFIX.length, -CSS_VIRTUAL_SUFFIX.length)
         // The virtual id otherwise hides the physical stylesheet from Rolldown's watch graph.
         this.addWatchFile(fileId)
-        /** 中文说明：当前处理步骤的局部值 source，取值由紧邻初始化决定，仅在当前作用域使用。 */
         const source = await readFile(fileId)
-        /** 中文说明：当前处理步骤的局部值 { code, exports，取值由紧邻初始化决定，仅在当前作用域使用。 */
         const { code, exports: cssExports } = transform({
           filename: fileId,
           code: source,
           cssModules: { pattern: '[hash]_[local]' },
           minify: true,
         })
-        /** 中文说明：当前处理步骤的局部值 classMap，取值由紧邻初始化决定，仅在当前作用域使用。 */
         const classMap: Record<string, string> = {}
-        /** 中文说明：按序保存的数据集合 exportEntries，取值由紧邻初始化决定，仅在当前作用域使用。 */
         const exportEntries = Object.entries(cssExports ?? {})
           .sort(([left], [right]) => (left < right ? -1 : left > right ? 1 : 0))
-        /** 中文说明：当前处理步骤的局部值 [local，取值由紧邻初始化决定，仅在当前作用域使用。 */
         for (const [local, exp] of exportEntries) classMap[local] = exp.name
         return styleInjectionModule(id, fileId, code.toString(), classMap)
       },
@@ -612,20 +527,15 @@ function clientConfig(id: string, entry: string): UserConfig {
       name: 'dsh-css-text-inline',
       resolveId(source: string, importer: string | undefined) {
         if (!source.endsWith(`.css${INLINE_CSS_QUERY}`)) return null
-        /** 中文说明：当前处理步骤的局部值 stylesheet，取值由紧邻初始化决定，仅在当前作用域使用。 */
         const stylesheet = source.slice(0, -INLINE_CSS_QUERY.length)
-        /** 中文说明：当前处理步骤的局部值 abs，取值由紧邻初始化决定，仅在当前作用域使用。 */
         const abs = importer !== undefined ? sourceAssetPath(stylesheet, importer) : stylesheet
         return INLINE_CSS_VIRTUAL_PREFIX + abs + CSS_VIRTUAL_SUFFIX
       },
       async load(virtualId: string) {
         if (!virtualId.startsWith(INLINE_CSS_VIRTUAL_PREFIX)) return null
-        /** 中文说明：标识或顺序值 fileId，取值由紧邻初始化决定，仅在当前作用域使用。 */
         const fileId = virtualId.slice(INLINE_CSS_VIRTUAL_PREFIX.length, -CSS_VIRTUAL_SUFFIX.length)
         this.addWatchFile(fileId)
-        /** 中文说明：当前处理步骤的局部值 source，取值由紧邻初始化决定，仅在当前作用域使用。 */
         const source = await readFile(fileId)
-        /** 中文说明：当前处理步骤的局部值 { code }，取值由紧邻初始化决定，仅在当前作用域使用。 */
         const { code } = transform({ filename: fileId, code: source, minify: true })
         return `export default ${JSON.stringify(code.toString())};`
       },
@@ -633,18 +543,14 @@ function clientConfig(id: string, entry: string): UserConfig {
       name: 'dsh-css-global-inline',
       resolveId(source: string, importer: string | undefined) {
         if (!source.endsWith('.css') || source.endsWith('.module.css')) return null
-        /** 中文说明：当前处理步骤的局部值 abs，取值由紧邻初始化决定，仅在当前作用域使用。 */
         const abs = importer !== undefined ? sourceAssetPath(source, importer) : source
         return GLOBAL_CSS_VIRTUAL_PREFIX + abs + CSS_VIRTUAL_SUFFIX
       },
       async load(virtualId: string) {
         if (!virtualId.startsWith(GLOBAL_CSS_VIRTUAL_PREFIX)) return null
-        /** 中文说明：标识或顺序值 fileId，取值由紧邻初始化决定，仅在当前作用域使用。 */
         const fileId = virtualId.slice(GLOBAL_CSS_VIRTUAL_PREFIX.length, -CSS_VIRTUAL_SUFFIX.length)
         this.addWatchFile(fileId)
-        /** 中文说明：当前处理步骤的局部值 source，取值由紧邻初始化决定，仅在当前作用域使用。 */
         const source = await readFile(fileId)
-        /** 中文说明：当前处理步骤的局部值 { code }，取值由紧邻初始化决定，仅在当前作用域使用。 */
         const { code } = transform({ filename: fileId, code: source, minify: true })
         return styleInjectionModule(id, fileId, code.toString())
       },
@@ -697,28 +603,21 @@ function tscSourceMapPlugin() {
 }
 
 /** Path segment separating a package's tsc output from the sources it was emitted from. */
-/* 中文说明：当前处理步骤的局部值 TYPES_MARKER，取值由紧邻初始化决定，仅在当前作用域使用。 */
 const TYPES_MARKER = `${sep}lib${sep}types${sep}`
 
 /** Plugin name carrying contract 1, and the marker that identifies a statically linked config. */
-/* 中文说明：当前处理步骤的局部值 STATIC_LINKED_PLUGIN，取值由紧邻初始化决定，仅在当前作用域使用。 */
 const STATIC_LINKED_PLUGIN = 'dsh-static-linked-external'
 
 /** Path segment a package's sources hang under, and the root emitted assets mirror. */
-/* 中文说明：当前处理步骤的局部值 SOURCE_MARKER，取值由紧邻初始化决定，仅在当前作用域使用。 */
 const SOURCE_MARKER = `${sep}src${sep}`
 
 /** Trailing sourcemap reference tsc appends to every emitted module. */
-/* 中文说明：当前处理步骤的局部值 SOURCEMAP_COMMENT，取值由紧邻初始化决定，仅在当前作用域使用。 */
 const SOURCEMAP_COMMENT = /\n\/\/# sourceMappingURL=.*\s*$/
 
 /** Resolve an emitted JS asset import against its source-tree counterpart. */
-/* 中文说明：函数 sourceAssetPath 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 function sourceAssetPath(source: string, importer: string): string {
-  /** 中文说明：当前处理步骤的局部值 emitted，取值由紧邻初始化决定，仅在当前作用域使用。 */
   const emitted = resolvePath(dirname(importer), source)
   if (existsSync(emitted)) return emitted
-  /** 中文说明：当前处理步骤的局部值 boundary，取值由紧邻初始化决定，仅在当前作用域使用。 */
   const boundary = emitted.indexOf(TYPES_MARKER)
   if (boundary < 0) return emitted
   return resolvePath(emitted.slice(0, boundary), 'src', emitted.slice(boundary + TYPES_MARKER.length))

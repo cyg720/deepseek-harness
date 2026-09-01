@@ -1,17 +1,7 @@
-/*
- * 文件职责：验证浏览器端连接插件装载、状态订阅、HTTP RPC 和 WebSocket 事件流行为。
- * 技术维度：Cordis 测试 Context、Vitest、FakeWebSocket、Fetch 模拟和异步迭代器。
- * 产品维度：保证浏览器启动、重连、取消和目标管理调用在真实组装入口下可用。
- * 逻辑维度：挂载插件，替换浏览器全局对象，驱动模拟响应或事件，再断言状态与清理结果。
- * 关键边界：全局 Fetch 与 WebSocket 必须在用例后恢复；异步流要显式关闭，避免测试泄漏。
- * 新手阅读建议：先读 FakeWebSocket 和 mount，再按连接生命周期、传输、RPC 三组场景阅读。
- */
 /**
  * Connection plugin browser-half apply: ctx.connection handle mounting, mode
  * selection off the page URL, and single-consumer connection-loop ownership.
  */
-// oxlint-disable-next-line @stylistic/max-len -- 中文文件说明需要在英文说明下方完整保留六个部分。
-/** 文件职责：验证浏览器连接插件装载与传输。技术维度：Cordis、Fetch 和 WebSocket。产品维度：保证浏览器可靠连接宿主。逻辑维度：挂载后驱动模拟事件并断言状态。关键边界：全局替身和异步流必须清理。新手阅读建议：先读 FakeWebSocket 与 mount。 */
 import { Context } from '@deepseek-ai/cordis'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
@@ -19,6 +9,7 @@ import {
   type ClientTransportHooks,
   type ConnectionGenerationSource,
   type ConnectionHandle,
+  type ConnectionState,
 } from '../src/client/index.ts'
 
 type Win = {
@@ -29,7 +20,18 @@ type Win = {
 afterEach(() => {
   delete (globalThis as Win).location
   delete (globalThis as Win).__DSH_TRANSPORT__
+  vi.unstubAllGlobals()
+  vi.useRealTimers()
 })
+
+class BrowserNetworkProbe extends EventTarget {
+  readonly navigator = { onLine: true }
+
+  setOnline(online: boolean): void {
+    this.navigator.onLine = online
+    this.dispatchEvent(new Event(online ? 'online' : 'offline'))
+  }
+}
 
 class GenerationProbe {
   private readonly active = new Set<() => void>()
@@ -61,10 +63,8 @@ function installGeneration(handle: ConnectionHandle): GenerationProbe {
 }
 
 async function mount(): Promise<ConnectionHandle> {
-  /** 中文说明：当前测试使用的 Cordis 上下文或所属运行环境；变量 `ctx` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
   const ctx = new Context()
   await ctx.plugin({ apply, inject: [] })
-  /** 中文说明：当前场景驱动的连接或 API 测试对象；变量 `handle` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
   const handle = ctx.get('connection') as ConnectionHandle | undefined
   if (handle === undefined) throw new Error('ctx.connection not provided')
   return handle
@@ -78,7 +78,6 @@ describe('connection client apply', () => {
 
   it('mounts ctx.connection and identifies a loopback page', async () => {
     ;(globalThis as Win).location = { hostname: 'localhost', search: '' }
-    /** 中文说明：当前场景驱动的连接或 API 测试对象；变量 `handle` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const handle = await mount()
     expect(handle.isLoopback).toBe(true)
   })
@@ -97,7 +96,6 @@ describe('connection client apply', () => {
 
   it('requires one generation source and ignores a stale source disposer', async () => {
     ;(globalThis as Win).location = { hostname: 'localhost', search: '?fixture' }
-    /** 中文说明：当前场景驱动的连接或 API 测试对象；变量 `handle` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const handle = await mount()
     const first = new GenerationProbe()
     const second = new GenerationProbe()
@@ -131,9 +129,7 @@ describe('connection client apply', () => {
     })
     expect(handle.generation.getSnapshot()).toBeUndefined()
     // config omitted: the `config ?? {}` default arm is part of the surface.
-    /** 中文说明：当前测试场景使用的局部状态或中间值；变量 `connected` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     let connected = 0
-    /** 中文说明：当前测试场景使用的局部状态或中间值；变量 `loop` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const loop = handle.start({ onConnected: () => { connected++ } })
     expect(() => handle.start({})).toThrow(/already owned by another consumer/)
     await vi.waitFor(() => {
@@ -149,9 +145,25 @@ describe('connection client apply', () => {
     errorSpy.mockRestore()
   })
 
+  it('does not notify state subscribers when a pre-ready loop stops', async () => {
+    ;(globalThis as Win).location = { hostname: 'localhost', search: '?fixture' }
+    const handle = await mount()
+    handle.registerGenerationSource(signal => new Promise<void>((resolve) => {
+      signal.addEventListener('abort', () => { resolve() }, { once: true })
+    }))
+    const listener = vi.fn()
+    const unsubscribe = handle.state.subscribe(listener)
+    const loop = handle.start({})
+
+    loop.stop()
+
+    expect(handle.state.getSnapshot()).toBeUndefined()
+    expect(listener).not.toHaveBeenCalled()
+    unsubscribe()
+  })
+
   it('allows a replacement owner and ignores the previous owner handle', async () => {
     ;(globalThis as Win).location = { hostname: 'localhost', search: '?fixture' }
-    /** 中文说明：当前场景驱动的连接或 API 测试对象；变量 `handle` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const handle = await mount()
     const generation = installGeneration(handle)
 
@@ -173,6 +185,94 @@ describe('connection client apply', () => {
     generation.end()
   })
 
+  it('lets the connection service force only its current owner to reconnect', async () => {
+    ;(globalThis as Win).location = { hostname: 'localhost', search: '?fixture' }
+    const handle = await mount()
+    installGeneration(handle)
+    const requested = vi.fn()
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined)
+    const loop = handle.start({ onReconnectRequested: requested }, {
+      backoffBaseMs: 60_000,
+      backoffFactor: 2,
+      backoffMaxMs: 120_000,
+      generationReadyTimeoutMs: 500,
+    })
+    try {
+      await vi.waitFor(() => { expect(handle.generation.getSnapshot()?.id).toBe(1) })
+      handle.reconnect()
+      await vi.waitFor(() => { expect(handle.generation.getSnapshot()?.id).toBe(2) })
+      expect(requested).toHaveBeenCalledOnce()
+      loop.stop()
+      handle.reconnect()
+      expect(requested).toHaveBeenCalledOnce()
+    } finally {
+      loop.stop()
+      warnSpy.mockRestore()
+    }
+  })
+
+  it('ignores a non-browser window shim without navigator state', async () => {
+    vi.stubGlobal('window', new EventTarget())
+    ;(globalThis as Win).location = { hostname: 'localhost', search: '?fixture' }
+    const handle = await mount()
+    installGeneration(handle)
+    const loop = handle.start({})
+    try {
+      await vi.waitFor(() => { expect(handle.state.getSnapshot()).toBe('connected') })
+    } finally {
+      loop.stop()
+    }
+  })
+
+  it('feeds browser offline and online events into the owned retry loop', async () => {
+    vi.useFakeTimers()
+    const randomSpy = vi.spyOn(Math, 'random').mockReturnValue(0)
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined)
+    const browser = new BrowserNetworkProbe()
+    vi.stubGlobal('window', browser)
+    ;(globalThis as Win).location = { hostname: 'localhost', search: '?fixture' }
+    const handle = await mount()
+    let calls = 0
+    const source: ConnectionGenerationSource = (signal, ready) => new Promise<void>((resolve) => {
+      calls++
+      ready({ home: '/h' })
+      signal.addEventListener('abort', () => { resolve() }, { once: true })
+    })
+    handle.registerGenerationSource(source)
+    const states: Array<ConnectionState | undefined> = []
+    const unsubscribe = handle.state.subscribe(() => { states.push(handle.state.getSnapshot()) })
+    const loop = handle.start({}, {
+      backoffBaseMs: 100,
+      backoffFactor: 2,
+      backoffMaxMs: 1_000,
+      generationReadyTimeoutMs: 500,
+    })
+    try {
+      await vi.advanceTimersByTimeAsync(0)
+      expect(handle.state.getSnapshot()).toBe('connected')
+      expect(calls).toBe(1)
+
+      browser.setOnline(false)
+      expect(handle.state.getSnapshot()).toBe('disconnected')
+      await vi.advanceTimersByTimeAsync(10_000)
+      expect(calls).toBe(1)
+
+      browser.setOnline(true)
+      expect(handle.state.getSnapshot()).toBe('connecting')
+      await vi.advanceTimersByTimeAsync(49)
+      expect(calls).toBe(1)
+      await vi.advanceTimersByTimeAsync(1)
+      expect(calls).toBe(2)
+      expect(handle.state.getSnapshot()).toBe('connected')
+      expect(states).toEqual(['connected', 'disconnected', 'connecting', 'connected'])
+    } finally {
+      unsubscribe()
+      loop.stop()
+      randomSpy.mockRestore()
+      warnSpy.mockRestore()
+    }
+  })
+
   it('does not announce a generation synchronously stopped by a generation subscriber', async () => {
     ;(globalThis as Win).location = { hostname: 'localhost', search: '?fixture' }
     const handle = await mount()
@@ -184,9 +284,7 @@ describe('connection client apply', () => {
       sawGeneration = true
       owner.loop?.stop()
     })
-    /** 中文说明：当前测试场景使用的局部状态或中间值；变量 `connected` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const connected = vi.fn()
-    /** 中文说明：当前测试场景使用的局部状态或中间值；变量 `loop` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const loop = handle.start({ onConnected: connected })
     owner.loop = loop
     try {
@@ -199,9 +297,8 @@ describe('connection client apply', () => {
     }
   })
 
-  it('retracts the generation while reconnecting and publishes the next generation', async () => {
+  it('retracts the generation while connecting and publishes the next generation', async () => {
     ;(globalThis as Win).location = { hostname: 'localhost', search: '?fixture' }
-    /** 中文说明：当前场景驱动的连接或 API 测试对象；变量 `handle` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const handle = await mount()
     const generation = installGeneration(handle)
     const generations: Array<string | undefined> = []
@@ -209,16 +306,14 @@ describe('connection client apply', () => {
     const stopGeneration = handle.generation.subscribe(() => {
       generations.push(handle.generation.getSnapshot()?.host.home)
     })
-    /** 中文说明：记录调用并隔离外部输出的 Vitest 测试替身；变量 `warnSpy` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined)
-    /** 中文说明：当前测试场景使用的局部状态或中间值；变量 `loop` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const loop = handle.start({
       onStateChange: (state) => {
-        if (state === 'reconnecting') {
+        if (state === 'connecting') {
           reconnectSnapshots.push(handle.generation.getSnapshot()?.host.home)
         }
       },
-    }, { backoffBaseMs: 10, backoffFactor: 1, backoffMaxMs: 10, generationReadyTimeoutMs: 500 })
+    }, { backoffBaseMs: 10, backoffFactor: 2, backoffMaxMs: 80, generationReadyTimeoutMs: 500 })
     try {
       await vi.waitFor(() => {
         expect(handle.generation.getSnapshot()?.host.home).toBe('/h')
@@ -235,7 +330,45 @@ describe('connection client apply', () => {
     }
   })
 
-  it('does not announce reconnecting after a generation subscriber stops the loop', async () => {
+  it('publishes connection state directly on the service and isolates subscribers', async () => {
+    ;(globalThis as Win).location = { hostname: 'localhost', search: '?fixture' }
+    const handle = await mount()
+    const generation = installGeneration(handle)
+    const snapshots: Array<ConnectionState | undefined> = []
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined)
+    const unsubscribe = handle.state.subscribe(() => { snapshots.push(handle.state.getSnapshot()) })
+    const stopThrowing = handle.state.subscribe(() => { throw new Error('state subscriber failed') })
+    expect(handle.state.getSnapshot()).toBeUndefined()
+
+    const loop = handle.start({}, {
+      backoffBaseMs: 10,
+      backoffFactor: 2,
+      backoffMaxMs: 80,
+      generationReadyTimeoutMs: 500,
+    })
+    try {
+      await vi.waitFor(() => { expect(handle.state.getSnapshot()).toBe('connected') })
+      const connected = handle.state.getSnapshot()
+      expect(handle.state.getSnapshot()).toBe(connected)
+      generation.end()
+      await vi.waitFor(() => {
+        expect(snapshots).toEqual([
+          'connected',
+          'connecting',
+          'connected',
+        ])
+      })
+      expect(errorSpy).toHaveBeenCalledWith('[connection] state listener threw:', expect.any(Error))
+    } finally {
+      unsubscribe()
+      stopThrowing()
+      loop.stop()
+      errorSpy.mockRestore()
+    }
+    expect(handle.state.getSnapshot()).toBeUndefined()
+  })
+
+  it('does not announce disconnection after a generation subscriber stops the loop', async () => {
     ;(globalThis as Win).location = { hostname: 'localhost', search: '?fixture' }
     const handle = await mount()
     const generation = installGeneration(handle)
@@ -246,11 +379,11 @@ describe('connection client apply', () => {
       stoppedOnRetraction = true
       owner.loop.stop()
     })
-    const states: string[] = []
+    const states: ConnectionState[] = []
     const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined)
     const loop = handle.start({
       onStateChange: (state) => { states.push(state) },
-    }, { backoffBaseMs: 10, backoffFactor: 1, backoffMaxMs: 10, generationReadyTimeoutMs: 500 })
+    }, { backoffBaseMs: 10, backoffFactor: 2, backoffMaxMs: 80, generationReadyTimeoutMs: 500 })
     owner.loop = loop
     try {
       await vi.waitFor(() => {
@@ -275,17 +408,12 @@ describe('connection client apply', () => {
         return bytes.fill(0)
       },
     })
-    /** 中文说明：当前场景驱动的连接或 API 测试对象；变量 `handle` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const handle = await mount()
-    /** 中文说明：测试前保存的原始全局值，用于结束后恢复；变量 `original` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const original = globalThis.fetch
-    /** 中文说明：按发生顺序收集观测值的数组或记录集合；变量 `seen` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const seen: { url: string; body: unknown }[] = []
     globalThis.fetch = async (input: URL | RequestInfo, init?: RequestInit) => {
-      /** 中文说明：当前请求或临时服务使用的地址信息；变量 `url` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
       const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
       if (typeof init?.body !== 'string') throw new TypeError('expected a JSON string request body')
-      /** 中文说明：当前场景输入、传输或校验的数据；变量 `body` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
       const body = JSON.parse(init.body) as { rpcId: string }
       seen.push({ url, body })
       return Response.json({
@@ -352,11 +480,8 @@ describe('connection client apply', () => {
     ;(globalThis as Win).location = {
       hostname: 'harness.example', search: '', origin: 'https://harness.example',
     }
-    /** 中文说明：当前场景驱动的连接或 API 测试对象；变量 `handle` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const handle = await mount()
-    /** 中文说明：测试前保存的原始全局值，用于结束后恢复；变量 `original` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const original = globalThis.fetch
-    /** 中文说明：控制或记录异步操作取消状态的对象；变量 `abort` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const abort = new AbortController()
     globalThis.fetch = vi.fn().mockResolvedValue(new Response('unavailable', { status: 503 }))
     try {
@@ -374,7 +499,6 @@ describe('connection client apply', () => {
         result: { ok: true, value: null },
       }))
       await expect(handle.rpc.call('/api', 'goals/create', {})).rejects.toThrow('rpcId mismatch')
-      /** 中文说明：当前测试场景使用的局部状态或中间值；变量 `fetch` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
       const fetch = vi.mocked(globalThis.fetch)
       expect(fetch.mock.calls[0]?.[0]).toEqual(new URL('http://dsh.internal/api/goals/create'))
       expect(fetch.mock.calls[0]?.[1]).not.toHaveProperty('signal')
@@ -427,7 +551,6 @@ describe('connection client apply', () => {
       globalThis.fetch = original
     }
 
-    /** 中文说明：当前请求或临时服务使用的地址信息；变量 `[channel` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     for (const [channel, endpoint] of [
       ['api2', 'goals/create'],
       ['/api/path', 'goals/create'],
@@ -443,34 +566,26 @@ describe('connection client apply', () => {
 
   it('carries Goal Remotes over the client-only fixture state', async () => {
     ;(globalThis as Win).location = { hostname: 'localhost', search: '?fixture' }
-    /** 中文说明：当前场景驱动的连接或 API 测试对象；变量 `handle` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const handle = await mount()
-    /** 中文说明：当前操作得到的响应或结果，供后续断言；变量 `created` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const created = await handle.rpc.call('/api', 'goals/create', {
       args: { agentId: 'fx-alpha', request: { objective: 'fixture remote' } },
     })
     expect(created).toMatchObject({ ok: true, value: { ref: { revision: 1 } } })
     if (!created.ok) throw new Error('fixture Goal create failed')
-    /** 中文说明：当前测试场景使用的局部状态或中间值；变量 `ref` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const ref = (created.value as { ref: { id: string; revision: number } }).ref
-    /** 中文说明：当前操作得到的响应或结果，供后续断言；变量 `edited` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const edited = await handle.rpc.call('/api', 'goals/edit', {
       args: { agentId: 'fx-alpha', ref, request: { objective: 'edited fixture remote' } },
     })
     expect(edited).toMatchObject({ ok: true, value: { objective: 'edited fixture remote', revision: 2 } })
-    /** 中文说明：当前操作得到的响应或结果，供后续断言；变量 `editedRef` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const editedRef = { id: ref.id, revision: 2 }
-    /** 中文说明：当前操作得到的响应或结果，供后续断言；变量 `paused` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const paused = await handle.rpc.call('/api', 'goals/pause', {
       args: { agentId: 'fx-alpha', ref: editedRef },
     })
     expect(paused).toMatchObject({ ok: true, value: { phase: 'paused', activation: 'disarmed', revision: 3 } })
-    /** 中文说明：当前操作得到的响应或结果，供后续断言；变量 `resumed` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const resumed = await handle.rpc.call('/api', 'goals/resume', {
       args: { agentId: 'fx-alpha', ref: { id: ref.id, revision: 3 } },
     })
     expect(resumed).toMatchObject({ ok: true, value: { phase: 'active', activation: 'armed', revision: 4 } })
-    /** 中文说明：当前操作得到的响应或结果，供后续断言；变量 `completed` 的取值由紧邻初始化或循环输入决定，仅在当前作用域使用。 */
     const completed = await handle.rpc.call('/api', 'goals/complete', {
       args: { agentId: 'fx-alpha', ref: { id: ref.id, revision: 4 } },
     })

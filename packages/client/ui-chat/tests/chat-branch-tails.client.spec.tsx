@@ -2,8 +2,7 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
-import { bindSnapshotSelector } from '@deepseek-ai/dsh-client-test-runtime'
-import { makeTranslate } from '@deepseek-ai/dsh-client-test-runtime'
+import { bindSnapshotSelector, makeTranslate } from '@deepseek-ai/dsh-client-test-runtime'
 import { zh as commonZh } from '@deepseek-ai/dsh-client-locale/src/locales/zh.ts'
 import type {
   ChatConversationViewNode, ConversationNode,
@@ -22,7 +21,6 @@ import { zh } from '../src/client/locale.ts'
 import { chatSnapshotFixture } from './chat-snapshot-fixture.client.ts'
 
 /** jsdom has no ResizeObserver; StatsLine watches its row for ellipsis truncation through one. */
-/* 中文说明：类型或类 ResizeObserverStub 约束本文件的数据或组件职责。 */
 class ResizeObserverStub {
   observe(): void {}
   unobserve(): void {}
@@ -37,12 +35,15 @@ afterEach(() => {
 })
 
 const t: ChatNodeViewProps['t'] = makeTranslate(zh, commonZh)
-/** 中文说明：当前数据 renderMessageImages，取值由紧邻初始化决定。 */
 const renderMessageImages: AssistantMarkdownProps['renderMessageImages'] = () => null
-/** 中文说明：测试局部值 RETRY_ID，取值由紧邻初始化决定。 */
 const RETRY_ID = 'retry-fixture' as Extract<ConversationNode, { kind: 'model-retry' }>['retryId']
 
-/** 中文说明：类型或类 MessageItemProps 约束本文件的数据或组件职责。 */
+// Recency scans the whole transcript; a detached fixture is its own latest row.
+const useDetachedChat: ChatNodeViewProps['useChat'] = bindSnapshotSelector({
+  subscribe: () => () => {},
+  getSnapshot: () => ({ order: [], nodes: new Map() }),
+} as never)
+
 interface MessageItemProps {
   readonly node: ConversationNode
   readonly t: ChatNodeViewProps['t']
@@ -50,11 +51,8 @@ interface MessageItemProps {
 }
 
 /** Legacy-node fixture adapter for the independently registered renderers. */
-/* 中文说明：函数 MessageItem 的参数见签名，返回结果供相邻流程使用；示例见本文件调用处。 */
 function MessageItem({ node, t: translate, referenceLabels }: MessageItemProps) {
-  /** 中文说明：测试局部值 kind，取值由紧邻初始化决定。 */
   const kind = node.kind === 'assistant' ? 'assistant-step' : node.kind
-  /** 中文说明：测试局部值 viewNode，取值由紧邻初始化决定。 */
   const viewNode: ChatConversationViewNode = {
     key: `fixture:${node.kind}:${node.seq}`,
     kind,
@@ -69,8 +67,7 @@ function MessageItem({ node, t: translate, referenceLabels }: MessageItemProps) 
         ? { ...node, referenceLabels }
         : node,
   }
-  /** 中文说明：测试局部值 props，取值由紧邻初始化决定。 */
-  const props = { node: viewNode, t: translate, renderMessageImages } as ChatNodeViewProps
+  const props = { node: viewNode, t: translate, renderMessageImages, useChat: useDetachedChat } as ChatNodeViewProps
   switch (node.kind) {
     case 'user':
     case 'steering':
@@ -90,7 +87,6 @@ function MessageItem({ node, t: translate, referenceLabels }: MessageItemProps) 
 
 describe('MessageItem arms', () => {
   it('renders an adjacent session mention as a chip even without trailing whitespace', () => {
-    /** 中文说明：测试局部值 view，取值由紧邻初始化决定。 */
     const view = render(
       <MessageItem
         t={t}
@@ -111,7 +107,6 @@ describe('MessageItem arms', () => {
   })
 
   it('renders the complete metadata-confirmed multi-word session label', () => {
-    /** 中文说明：测试局部值 view，取值由紧邻初始化决定。 */
     const view = render(
       <MessageItem
         t={t}
@@ -131,7 +126,6 @@ describe('MessageItem arms', () => {
   })
 
   it('renders no-extension paths as files and leaves sentence punctuation outside the reference', () => {
-    /** 中文说明：测试局部值 view，取值由紧邻初始化决定。 */
     const view = render(
       <MessageItem t={t} node={{
         kind: 'user',
@@ -141,7 +135,6 @@ describe('MessageItem arms', () => {
         source: null,
       }} />,
     )
-    /** 中文说明：测试局部值 files，取值由紧邻初始化决定。 */
     const files = [...view.container.querySelectorAll('[data-ref-chip="file"]')]
     expect(files.map(file => file.textContent)).toEqual(['Dockerfile', 'README.md'])
     expect(files.every(file => file.querySelector('svg') !== null)).toBe(true)
@@ -149,16 +142,13 @@ describe('MessageItem arms', () => {
   })
 
   it('user bubbles expose clock / copy and neither branch nor edit; copy writes the text', () => {
-    /** 中文说明：测试局部值 writeText，取值由紧邻初始化决定。 */
     const writeText = vi.fn().mockResolvedValue(undefined)
     Object.defineProperty(navigator, 'clipboard', {
       configurable: true,
       value: { writeText },
     })
     // Same-day clock: construct "today at 14:24" so the label stays `HH:mm`.
-    /** 中文说明：测试局部值 now，取值由紧邻初始化决定。 */
     const now = new Date()
-    /** 中文说明：测试局部值 time，取值由紧邻初始化决定。 */
     const time = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 14, 24).getTime()
     render(
       <MessageItem t={t} node={{
@@ -181,7 +171,6 @@ describe('MessageItem arms', () => {
       configurable: true,
       value: undefined,
     })
-    /** 中文说明：测试局部值 exec，取值由紧邻初始化决定。 */
     const exec = vi.fn().mockReturnValue(true)
     Object.defineProperty(document, 'execCommand', {
       configurable: true,
@@ -223,7 +212,6 @@ describe('MessageItem arms', () => {
 
   it('copy swaps to the check success chrome, gates re-clicks, and reverts after a second', async () => {
     vi.useFakeTimers()
-    /** 中文说明：测试局部值 writeText，取值由紧邻初始化决定。 */
     const writeText = vi.fn().mockResolvedValue(undefined)
     Object.defineProperty(navigator, 'clipboard', {
       configurable: true,
@@ -237,7 +225,6 @@ describe('MessageItem arms', () => {
       }}
       />,
     )
-    /** 中文说明：测试局部值 copy，取值由紧邻初始化决定。 */
     const copy = screen.getByRole('button', { name: '复制' })
     fireEvent.click(copy)
     fireEvent.click(copy)
@@ -248,7 +235,6 @@ describe('MessageItem arms', () => {
       await Promise.resolve()
       await Promise.resolve()
     })
-    /** 中文说明：测试局部值 done，取值由紧邻初始化决定。 */
     const done = screen.getByRole('button', { name: '复制成功' })
     fireEvent.click(done)
     expect(writeText).toHaveBeenCalledTimes(1)
@@ -258,15 +244,12 @@ describe('MessageItem arms', () => {
 
   it('clears copy feedback work when the message unmounts', async () => {
     vi.useFakeTimers()
-    /** 中文说明：测试局部值 finishWrite，取值由紧邻初始化决定。 */
     let finishWrite!: () => void
-    /** 中文说明：测试局部值 writeText，取值由紧邻初始化决定。 */
     const writeText = vi.fn(() => new Promise<void>((resolve) => { finishWrite = resolve }))
     Object.defineProperty(navigator, 'clipboard', {
       configurable: true,
       value: { writeText },
     })
-    /** 中文说明：测试局部值 view，取值由紧邻初始化决定。 */
     const view = render(
       <MessageItem t={t} node={{
         kind: 'user', seq: 1, time: 1_000,
@@ -284,7 +267,6 @@ describe('MessageItem arms', () => {
     })
     expect(vi.getTimerCount()).toBe(0)
 
-    /** 中文说明：测试局部值 mounted，取值由紧邻初始化决定。 */
     const mounted = render(
       <MessageItem t={t} node={{
         kind: 'user', seq: 2, time: 1_000,
@@ -308,13 +290,11 @@ describe('MessageItem arms', () => {
   })
 
   it('consumed steering renders as a plain user bubble and keeps copy without branch', () => {
-    /** 中文说明：测试局部值 writeText，取值由紧邻初始化决定。 */
     const writeText = vi.fn().mockResolvedValue(undefined)
     Object.defineProperty(navigator, 'clipboard', {
       configurable: true,
       value: { writeText },
     })
-    /** 中文说明：测试局部值 view，取值由紧邻初始化决定。 */
     const view = render(
       <MessageItem t={t} node={{
         kind: 'steering', messageId: 'steer-message', seq: 2, time: 1_000, turn: 1, source: null,
@@ -331,7 +311,6 @@ describe('MessageItem arms', () => {
   })
 
   it('context uses the Tool calls disclosure chrome and keeps its body collapsed by default', () => {
-    /** 中文说明：测试局部值 ctxView，取值由紧邻初始化决定。 */
     const ctxView = render(
       <MessageItem t={t} node={{
         kind: 'context',
@@ -343,7 +322,6 @@ describe('MessageItem arms', () => {
       } as never}
       />,
     )
-    /** 中文说明：测试局部值 disclosure，取值由紧邻初始化决定。 */
     const disclosure = ctxView.getByRole('button', { name: /^上下文注入\s*fixture$/ })
     expect(disclosure.getAttribute('aria-expanded')).toBe('false')
     expect(ctxView.container.querySelector('[data-context-injection-body]')).toBeNull()
@@ -357,7 +335,6 @@ describe('MessageItem arms', () => {
     // remaining source data follows it as fields.
     expect(ctxView.container.querySelector('[data-context-text]')?.textContent)
       .toBe('line one\n\nline two')
-    /** 中文说明：测试局部值 fields，取值由紧邻初始化决定。 */
     const fields = [...ctxView.container.querySelectorAll('[data-context-fields] dt')].map(node => node.textContent)
     expect(fields).toEqual(['plugin', 'empty', 'list'])
 
@@ -366,7 +343,6 @@ describe('MessageItem arms', () => {
   })
 
   it('the instructions form names the files it reconciled above their text', () => {
-    /** 中文说明：测试局部值 view，取值由紧邻初始化决定。 */
     const view = render(
       <MessageItem t={t} node={{
         kind: 'context',
@@ -388,7 +364,6 @@ describe('MessageItem arms', () => {
       />,
     )
     fireEvent.click(view.getByRole('button', { name: /^上下文注入\s*AGENTS\.md, sub\/AGENTS\.md$/ }))
-    /** 中文说明：测试局部值 files，取值由紧邻初始化决定。 */
     const files = [...view.container.querySelectorAll('[data-context-files] li')].map(node => node.textContent)
     expect(files).toEqual(['AGENTS.md已载入', 'sub/AGENTS.md已移除'])
     // The `<system-reminder>` framing is part of what the model read, so the
@@ -398,7 +373,6 @@ describe('MessageItem arms', () => {
   })
 
   it('a delta distinguishes a newly reconciled file from a rewritten one', () => {
-    /** 中文说明：测试局部值 view，取值由紧邻初始化决定。 */
     const view = render(
       <MessageItem t={t} node={{
         kind: 'context',
@@ -418,13 +392,11 @@ describe('MessageItem arms', () => {
       />,
     )
     fireEvent.click(view.getByRole('button', { name: /^上下文注入\s*new\/AGENTS\.md, old\/AGENTS\.md$/ }))
-    /** 中文说明：测试局部值 files，取值由紧邻初始化决定。 */
     const files = [...view.container.querySelectorAll('[data-context-files] li')].map(node => node.textContent)
     expect(files).toEqual(['new/AGENTS.md已新增', 'old/AGENTS.md已更新'])
   })
 
   it('keeps an interleaved unknown block in the order the model received it', () => {
-    /** 中文说明：测试局部值 view，取值由紧邻初始化决定。 */
     const view = render(
       <MessageItem t={t} node={{
         kind: 'context',
@@ -441,14 +413,12 @@ describe('MessageItem arms', () => {
       />,
     )
     fireEvent.click(view.getByRole('button', { name: '上下文注入' }))
-    /** 中文说明：测试局部值 texts，取值由紧邻初始化决定。 */
     const texts = [...view.container.querySelectorAll('[data-context-text]')].map(node => node.textContent)
     expect(texts).toEqual(['before', 'after'])
     expect(view.getByText(/未知内容块/)).toBeTruthy()
   })
 
   it('the catalog form lists its durable entries instead of the model-facing prose', () => {
-    /** 中文说明：测试局部值 view，取值由紧邻初始化决定。 */
     const view = render(
       <MessageItem t={t} node={{
         kind: 'context',
@@ -465,7 +435,6 @@ describe('MessageItem arms', () => {
       />,
     )
     fireEvent.click(view.getByRole('button', { name: /^上下文注入\s*skill-catalog$/ }))
-    /** 中文说明：有序集合 entries，取值由紧邻初始化决定。 */
     const entries = [...view.container.querySelectorAll('[data-context-entries] li')].map(node => node.textContent)
     expect(entries).toEqual(['a-skillDoes A', 'b-skillDoes B'])
     expect(view.container.querySelector('[data-context-text]')).toBeNull()
@@ -473,7 +442,6 @@ describe('MessageItem arms', () => {
   })
 
   it('a replacement catalog says so above its entries', () => {
-    /** 中文说明：测试局部值 view，取值由紧邻初始化决定。 */
     const view = render(
       <MessageItem t={t} node={{
         kind: 'context',
@@ -497,7 +465,6 @@ describe('MessageItem arms', () => {
   it('a partially unreadable catalog falls back whole rather than showing a short list', () => {
     // All-or-nothing: a body that replaces the model-facing text must not show
     // a confident, incomplete account of what the model read.
-    /** 中文说明：测试局部值 view，取值由紧邻初始化决定。 */
     const view = render(
       <MessageItem t={t} node={{
         kind: 'context',
@@ -522,7 +489,6 @@ describe('MessageItem arms', () => {
   })
 
   it('an unreadable instruction list falls back to the opaque body with its fields', () => {
-    /** 中文说明：测试局部值 view，取值由紧邻初始化决定。 */
     const view = render(
       <MessageItem t={t} node={{
         kind: 'context',
@@ -543,7 +509,6 @@ describe('MessageItem arms', () => {
   it('joins adjacent text blocks the way a provider adapter flattens them', () => {
     // No invented separator: showing a line break the model never saw would
     // misreport the request.
-    /** 中文说明：测试局部值 view，取值由紧邻初始化决定。 */
     const view = render(
       <MessageItem t={t} node={{
         kind: 'context',
@@ -560,7 +525,6 @@ describe('MessageItem arms', () => {
   })
 
   it('bounds an oversized source field, not only the model-facing text', () => {
-    /** 中文说明：测试局部值 view，取值由紧邻初始化决定。 */
     const view = render(
       <MessageItem t={t} node={{
         kind: 'context',
@@ -580,7 +544,6 @@ describe('MessageItem arms', () => {
   it('an empty replacement catalog stays a catalog: it retires every earlier name', () => {
     // `renderCatalogUpdate` legitimately publishes zero entries when the last
     // skill disappears; falling back would hide that the catalog was cleared.
-    /** 中文说明：测试局部值 view，取值由紧邻初始化决定。 */
     const view = render(
       <MessageItem t={t} node={{
         kind: 'context',
@@ -600,7 +563,6 @@ describe('MessageItem arms', () => {
   })
 
   it('a catalog whose entries are unreadable falls back to the opaque body', () => {
-    /** 中文说明：测试局部值 view，取值由紧邻初始化决定。 */
     const view = render(
       <MessageItem t={t} node={{
         kind: 'context',
@@ -618,9 +580,7 @@ describe('MessageItem arms', () => {
   })
 
   it('bounds a large catalog and says how many rows it withheld', () => {
-    /** 中文说明：有序集合 entries，取值由紧邻初始化决定。 */
     const entries = Array.from({ length: 205 }, (_, index) => ({ name: `s-${index}`, description: 'd' }))
-    /** 中文说明：测试局部值 view，取值由紧邻初始化决定。 */
     const view = render(
       <MessageItem t={t} node={{
         kind: 'context', seq: 3, content: [{ type: 'text', text: 'catalog prose' }],
@@ -636,7 +596,6 @@ describe('MessageItem arms', () => {
   })
 
   it('a catalog keeps a content block this version does not know', () => {
-    /** 中文说明：测试局部值 view，取值由紧邻初始化决定。 */
     const view = render(
       <MessageItem t={t} node={{
         kind: 'context',
@@ -655,7 +614,6 @@ describe('MessageItem arms', () => {
   it('an instruction change with an unrecognized action falls back whole', () => {
     // The action decides the word the row shows, so an unknown one cannot be
     // presented as loaded or updated.
-    /** 中文说明：测试局部值 view，取值由紧邻初始化决定。 */
     const view = render(
       <MessageItem t={t} node={{
         kind: 'context',
@@ -674,7 +632,6 @@ describe('MessageItem arms', () => {
 
   it('the opaque fallback keeps a form declaration this version cannot present', () => {
     // Otherwise a newer or foreign log's declared shape vanishes from the UI.
-    /** 中文说明：测试局部值 view，取值由紧邻初始化决定。 */
     const view = render(
       <MessageItem t={t} node={{
         kind: 'context', seq: 3, content: [{ type: 'text', text: 'x' }],
@@ -685,13 +642,11 @@ describe('MessageItem arms', () => {
       />,
     )
     fireEvent.click(view.getByRole('button', { name: /^上下文注入\s*later$/ }))
-    /** 中文说明：测试局部值 fields，取值由紧邻初始化决定。 */
     const fields = [...view.container.querySelectorAll('[data-context-fields] dt')].map(node => node.textContent)
     expect(fields).toEqual(['plugin', 'form'])
   })
 
   it('the snapshot form attributes each part to the subsystem that produced it', () => {
-    /** 中文说明：测试局部值 view，取值由紧邻初始化决定。 */
     const view = render(
       <MessageItem t={t} node={{
         kind: 'context',
@@ -709,14 +664,12 @@ describe('MessageItem arms', () => {
       />,
     )
     fireEvent.click(view.getByRole('button', { name: /^上下文注入\s*@deepseek-ai\/dsh-system-prompt$/ }))
-    /** 中文说明：当前数据 rows，取值由紧邻初始化决定。 */
     const rows = [...view.container.querySelectorAll('[data-context-sections] div')].map(node => node.textContent)
     expect(rows).toEqual(['sandbox:policyworkspace-write', 'workspace/repo'])
   })
 
   it('a notice puts its account on the collapsed row', () => {
     // The whole point of the form: readable without expanding.
-    /** 中文说明：测试局部值 view，取值由紧邻初始化决定。 */
     const view = render(
       <MessageItem t={t} node={{
         kind: 'context',
@@ -734,7 +687,6 @@ describe('MessageItem arms', () => {
   })
 
   it('a notice without its account falls back to the opaque body', () => {
-    /** 中文说明：测试局部值 view，取值由紧邻初始化决定。 */
     const view = render(
       <MessageItem t={t} node={{
         kind: 'context', seq: 3, content: [{ type: 'text', text: 'notice prose' }],
@@ -752,16 +704,13 @@ describe('MessageItem arms', () => {
   it('each form falls back to the opaque body when its required facts are unreadable', () => {
     // The fallback chain is the load-bearing wall: every dedicated form must
     // reach it, and the row marker must not claim a form that did not render.
-    /** 中文说明：测试局部值 cases，取值由紧邻初始化决定。 */
     const cases = [
       { form: 'snapshot', source: { kind: 'plugin', form: 'snapshot', sections: 'not-a-list' }, label: 'plugin' },
       { form: 'relay', source: { kind: 'subagent-report', form: 'relay' }, label: 'subagent-report' },
       { form: 'recall', source: { kind: 'session-reference', form: 'recall', references: [{ label: 'x' }] }, label: 'session-reference' },
     ] as const
-    /** 中文说明：测试局部值 {，取值由紧邻初始化决定。 */
     for (const { form, source, label } of cases) {
       cleanup()
-      /** 中文说明：测试局部值 view，取值由紧邻初始化决定。 */
       const view = render(
         <MessageItem t={t} node={{
           kind: 'context', seq: 3, content: [{ type: 'text', text: `${form} prose` }],
@@ -777,7 +726,6 @@ describe('MessageItem arms', () => {
   })
 
   it('a snapshot states the supersession its framing line carries', () => {
-    /** 中文说明：测试局部值 view，取值由紧邻初始化决定。 */
     const view = render(
       <MessageItem t={t} node={{
         kind: 'context', seq: 3, content: [{ type: 'text', text: 'Current runtime context.' }],
@@ -793,7 +741,6 @@ describe('MessageItem arms', () => {
   })
 
   it('a relay names the agent that sent it above what it said', () => {
-    /** 中文说明：测试局部值 view，取值由紧邻初始化决定。 */
     const view = render(
       <MessageItem t={t} node={{
         kind: 'context',
@@ -813,7 +760,6 @@ describe('MessageItem arms', () => {
   it('a recall reports how much of each source session survived the read', () => {
     // Recalled context is bounded on the way in, so hiding the omitted count
     // would overstate what the model received.
-    /** 中文说明：测试局部值 view，取值由紧邻初始化决定。 */
     const view = render(
       <MessageItem t={t} node={{
         kind: 'context',
@@ -835,14 +781,12 @@ describe('MessageItem arms', () => {
     )
     expect(view.container.querySelector('[data-context-recall-icon]')).not.toBeNull()
     fireEvent.click(view.getByRole('button', { name: /^跨会话召回\s*重构 loader, 修 CI$/ }))
-    /** 中文说明：当前数据 rows，取值由紧邻初始化决定。 */
     const rows = [...view.container.querySelectorAll('[data-context-recalls] li')].map(node => node.textContent)
     expect(rows).toEqual(['重构 loader保留 18 条 · 省略 42 条已截断', '修 CI保留 3 条 · 省略 0 条'])
     expect(view.container.querySelector('[data-context-text]')?.textContent).toBe('recalled material')
   })
 
   it('unknown nodes retain the generic JSON row', () => {
-    /** 中文说明：测试局部值 unknownView，取值由紧邻初始化决定。 */
     const unknownView = render(
       <MessageItem t={t} node={{ kind: 'unknown', seq: 4, type: 'surface/next', data: { x: 1 } } as never} />,
     )
@@ -850,7 +794,6 @@ describe('MessageItem arms', () => {
   })
 
   it('a compaction marker discloses its summary and never shows the framed checkpoint', () => {
-    /** 中文说明：测试局部值 view，取值由紧邻初始化决定。 */
     const view = render(
       <MessageItem t={t} node={{
         kind: 'compaction', seq: 5, time: 1_000,
@@ -861,7 +804,6 @@ describe('MessageItem arms', () => {
       }}
       />,
     )
-    /** 中文说明：当前数据 row，取值由紧邻初始化决定。 */
     const row = view.getByRole('button', { name: /上下文已压缩/ })
     expect(row.getAttribute('aria-expanded')).toBe('false')
     expect(view.getByText('已压缩 16 条历史记录（约 11309 tokens）')).toBeTruthy()
@@ -874,12 +816,10 @@ describe('MessageItem arms', () => {
   })
 
   it('a marker whose cited summary event fell outside the window is not expandable', () => {
-    /** 中文说明：测试局部值 view，取值由紧邻初始化决定。 */
     const view = render(<MessageItem t={t} node={{
       kind: 'compaction', seq: 6, time: 1_000, summary: null,
       summaryEventSeq: null, shadowedItemCount: null, shadowedTokenCount: null,
     }} />)
-    /** 中文说明：当前数据 row，取值由紧邻初始化决定。 */
     const row = view.getByRole('button', { name: /上下文已压缩/ })
     expect(row).toHaveProperty('disabled', true)
     expect(row.getAttribute('aria-expanded')).toBeNull()
@@ -891,7 +831,6 @@ describe('MessageItem arms', () => {
   it('collapses retry details behind the durable model retry status', () => {
     vi.useFakeTimers()
     vi.setSystemTime(10_000)
-    /** 中文说明：测试局部值 view，取值由紧邻初始化决定。 */
     const view = render(
       <MessageItem
         t={t}
@@ -913,9 +852,7 @@ describe('MessageItem arms', () => {
         }}
       />,
     )
-    /** 中文说明：测试局部值 details，取值由紧邻初始化决定。 */
     const details = view.container.querySelector('details')
-    /** 中文说明：测试局部值 summary，取值由紧邻初始化决定。 */
     const summary = view.container.querySelector('summary')
     expect(details?.open).toBe(false)
     expect(details?.dataset.active).toBe('true')
@@ -1022,7 +959,6 @@ describe('MessageItem arms', () => {
 })
 
 describe('formatMessageClock', () => {
-  /** 中文说明：测试局部值 now，取值由紧邻初始化决定。 */
   const now = new Date(2026, 6, 29, 10, 0).getTime()
 
   it('keeps HH:mm on the same calendar day', () => {
@@ -1038,7 +974,6 @@ describe('formatMessageClock', () => {
   })
 
   it('arms the next local midnight from an in-day instant', () => {
-    /** 中文说明：测试局部值 noon，取值由紧邻初始化决定。 */
     const noon = new Date(2026, 6, 29, 12, 0).getTime()
     expect(startOfLocalDay(noon)).toBe(new Date(2026, 6, 29).getTime())
     expect(msUntilNextLocalMidnight(noon)).toBe(12 * 3_600_000)
@@ -1054,10 +989,8 @@ describe('useCalendarDay boundary refresh', () => {
   })
 
   it('widens a same-day user clock after local midnight', () => {
-    /** 中文说明：测试局部值 dayStart，取值由紧邻初始化决定。 */
     const dayStart = new Date(2026, 6, 29, 23, 50).getTime()
     vi.setSystemTime(dayStart)
-    /** 中文说明：测试局部值 time，取值由紧邻初始化决定。 */
     const time = new Date(2026, 6, 29, 14, 24).getTime()
     render(
       <MessageItem t={t} node={{
@@ -1077,7 +1010,6 @@ describe('useCalendarDay boundary refresh', () => {
 
 describe('small branch tails', () => {
   it('AssistantMarkdown single-line reasoning summary skips the newline cut', () => {
-    /** 中文说明：测试局部值 view，取值由紧邻初始化决定。 */
     const view = render(
       <AssistantMarkdown
         t={t}
@@ -1092,13 +1024,11 @@ describe('small branch tails', () => {
   it('StatsLine omits the cache-hit segment when no input accounting exists at all', () => {
     // Cache hit is null only when all three prompt buckets are zero (pure
     // output accounting) — any billed input makes it a real 0%.
-    /** 中文说明：有序集合 nodes，取值由紧邻初始化决定。 */
     const nodes = [{
       kind: 'assistant', seq: 1, time: 1_000, turn: 1, step: 1, blocks: [], usage: { outputTokens: 10 },
     }] as const
     const snap = chatSnapshotFixture({ nodes })
     const source = { getSnapshot: () => snap, subscribe: () => () => {} }
-    /** 中文说明：测试局部值 view，取值由紧邻初始化决定。 */
     const view = render(
       <StatsLine
         t={t}

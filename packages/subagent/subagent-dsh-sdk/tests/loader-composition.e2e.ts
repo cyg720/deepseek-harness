@@ -1,18 +1,10 @@
 /**
  * Keyless REAL-composition coverage for dynamic child routing and parent cwd
- * inheritance across the SDK wire. A test-only cordis.yml boots through the
+ * inheritance across the SDK wire. A test-only patch boots through the
  * Loader, a scripted model selects provider/model/reasoning, tool config adds
  * maxTokens, and a COMPLETE second harness runtime echoes the effective route
  * and cwd. The same path also verifies model-visible child-failure diagnostics
  * remain separate from partial output.
- */
-/*
- * 文件职责：验证 loader-composition.e2e.ts 覆盖的子代理启动、协议、继承与生命周期行为。
- * 技术维度：使用 TypeScript、Vitest、Cordis 插件、进程协议或同进程代理驱动。
- * 产品维度：保障 Agent 能可靠委派任务、继承上下文并收集子代理结果。
- * 逻辑维度：准备代理配置，启动或连接子代理，转发事件，再处理结果、取消与清理。
- * 关键边界：异步状态不等于单次任务结果；外部输出不可信；清理必须等待子代理完全停止。
- * 新手阅读建议：先看公开配置和测试夹具，再读启动/事件流程，最后关注继承、取消与失败路径。
  */
 
 import { existsSync, realpathSync } from 'node:fs'
@@ -26,20 +18,14 @@ import { runLoaderSmoke } from '@deepseek-ai/dsh-loader-smoke'
 
 const fixtureDir = new URL('./fixtures/loader/', import.meta.url)
 const driver = fileURLToPath(new URL('driver.ts', fixtureDir))
-/** 中文说明：变量 configPath 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-const configPath = fileURLToPath(new URL('cordis.yml', fixtureDir))
-/** 中文说明：变量 childConfigPath 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-const childConfigPath = fileURLToPath(new URL('child.cordis.yml', fixtureDir))
+const configPath = fileURLToPath(new URL('dsh-sdk.patch.yml', fixtureDir))
+const childConfigPath = fileURLToPath(new URL('child.patch.yml', fixtureDir))
 const childMockPath = fileURLToPath(new URL('child-mock-llm.ts', fixtureDir))
 const repoTsconfig = fileURLToPath(new URL('../../../../tsconfig.json', import.meta.url))
 
-/** 中文说明：函数 jsonlFiles 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 async function jsonlFiles(dir: string): Promise<string[]> {
-  /** 中文说明：变量 entries 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const entries = await readdir(dir, { withFileTypes: true })
-  /** 中文说明：函数值 paths 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
   const paths = await Promise.all(entries.map(async (entry) => {
-    /** 中文说明：变量 path 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const path = join(dir, entry.name)
     if (entry.isDirectory()) return jsonlFiles(path)
     return entry.isFile() && entry.name.endsWith('.jsonl') ? [path] : []
@@ -47,9 +33,7 @@ async function jsonlFiles(dir: string): Promise<string[]> {
   return paths.flat()
 }
 
-/** 中文说明：函数 sessionEvents 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 async function sessionEvents(log: string): Promise<SessionEvent[]> {
-  /** 中文说明：变量 lines 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const lines = (await readFile(log, 'utf8')).trimEnd().split('\n')
   return lines.slice(1).map(line => JSON.parse(line) as SessionEvent)
 }
@@ -68,7 +52,7 @@ async function childLaunch(failure = false): Promise<{
   env: Record<string, string>
 }> {
   const childHome = await mkdtemp(join(tmpdir(), 'dsh-sdk-subagent-home-'))
-  const childPatch = join(childHome, 'child.cordis.yml')
+  const childPatch = join(childHome, 'child.patch.yml')
   await writeFile(childPatch, (await readFile(childConfigPath, 'utf8'))
     .replace("'./child-mock-llm.ts'", JSON.stringify(pathToFileURL(childMockPath).href)))
   return {
@@ -81,11 +65,10 @@ async function childLaunch(failure = false): Promise<{
   }
 }
 
-describe('SDK subagent routing and diagnostics through a real cordis.yml', () => {
+describe('SDK subagent routing and diagnostics through the production profile', () => {
   it('runs the selected child route in the parent session workspace', async () => {
     const child = await childLaunch()
     let events: SessionEvent[] = []
-    /** 中文说明：变量 childEvents 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     let childEvents: SessionEvent[] = []
     let parentResolvedRoutes: string[] = []
     let workspace = ''

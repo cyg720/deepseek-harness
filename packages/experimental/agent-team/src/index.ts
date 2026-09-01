@@ -1,21 +1,3 @@
-/*
- * ================================ 文件注释 ================================
- * 【文件职责】Agent Teams 服务门面（ctx.agentTeams）：把名册、邮箱、共享任务板与
- *   运行时生命周期四个子所有者组合成一个可调用的服务。
- * 【技术维度】Cordis Service；持久化状态以 log-only 会话事件存放在"精确活体 Lead
- *   会话日志"里（team/member、team/task、team/message/*），经 fold 严格回放。
- * 【产品维度】多代理团队协作原型：Lead 可创建持久队友、互相发消息、共享任务板、
- *   等待团队活动变化、中断队友回合。
- * 【逻辑维度】按代码顺序：默认限制常量 → TeamService（构造装配子所有者与监听、
- *   membership/listMembers/spawnTeammate/sendMessage/createTask/getTask/listTasks/
- *   updateTask/waitForChange/interrupt/tryMembership、私有恢复与拆解）。
- * 【关键边界】本包是 experimental 私有原型（@deepseek-ai/dsh-experimental-*），
- *   不放松工程/安全/文档要求；拆卸有 disposalTimeoutMs 期限。
- * 【新手阅读建议】先读 types.ts 的数据形状，再按 roster → mailbox → task-board
- *   的顺序看子所有者。
- * ==========================================================================
- */
-
 /** Agent Teams service façade over roster, mailbox, task, and runtime lifecycle owners. */
 
 import { Context } from '@deepseek-ai/cordis'
@@ -28,6 +10,7 @@ import { errorMessage, TeamError } from './error.ts'
 import { TeamJournal } from './journal.ts'
 import { TeamRuntimeLifecycle } from './lifecycle.ts'
 import { TeamMailbox } from './mailbox.ts'
+import { teamProjectionDefinition } from './projection.ts'
 import { TeamRoster } from './roster.ts'
 import type { TeamMembership } from './roster.ts'
 import { TeamTaskBoard } from './task-board.ts'
@@ -51,7 +34,6 @@ export type * from './types.ts'
 export type { TeamMembership } from './roster.ts'
 export { TeamId, TeamMessageId, TeamTaskId } from './types.ts'
 export { TeamError } from './error.ts'
-export { foldTeam } from './fold.ts'
 
 declare module '@deepseek-ai/cordis' {
   interface Context {
@@ -75,7 +57,7 @@ function positiveLimit(name: string, value: number): number {
 
 /** Agent Teams service backed by the exact live Lead Session log. */
 export class TeamService extends TypertRemoteService {
-  static inject = ['agents', 'sessions', 'sessionPersistence', 'subagents']
+  static inject = ['agents', 'sessions', 'sessionPersistence', 'sessionProjections', 'subagents']
 
   static Config: z<Config> = z.object({
     maxMembers: z.number().step(1).min(1).default(DEFAULT_MAX_MEMBERS),
@@ -131,7 +113,16 @@ export class TeamService extends TypertRemoteService {
       const membership = this.roster.tryMembership(agent)
       if (membership !== undefined) this.activity.notify(membership.id)
     })
-    ctx.effect(() => () => this.disposeRuntime(), 'agentTeams.runtimeLifecycle()')
+    ctx.effect(() => {
+      const disposeProjection = ctx.root.sessionProjections.register(teamProjectionDefinition)
+      return async () => {
+        try {
+          await this.disposeRuntime()
+        } finally {
+          disposeProjection()
+        }
+      }
+    }, 'agentTeams.runtimeLifecycle()')
     for (const agent of ctx.agents.list()) this.scheduleRecovery(agent)
   }
 

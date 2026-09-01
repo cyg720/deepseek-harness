@@ -1,24 +1,3 @@
-/*
- * ================================ 文件注释 ================================
- * 【文件职责】六个模型可见的持久化终端工具（terminal_open / terminal_send /
- * terminal_read / terminal_signal / terminal_close / terminal_list）：把模型参数翻译成
- * ctx.terminals 的操作，owner 身份来自精确的工具执行 Agent，后台 id 与收集归通用
- * ctx.jobs。
- * 【技术维度】defineTool 注册六个工具；finalizeContent 统一对完整结果做 UTF-8 字节
- * 上限；terminal_send 支持前台（等落定）与后台（job id）；输出 schema 与 render.ts
- * 的渲染函数配合；JobKindMap 声明 'pty-send' 种类。
- * 【产品维度】模型在需要持久终端状态或交互式 stdin 时使用终端会话：跨调用保持
- * shell 状态、发送文本/信号、分页读回、关闭与列表。
- * 【逻辑维度】apply 装配配置与 finalizeContent → 注册六个工具（各自 execute 调用
- * ctx.terminals 对应方法）→ 提示词指引"何时用终端而非 shell 工具"。
- * 【关键边界】sessionId 必须非空并转换为品牌类型；owner 必须存在；inferred_idle/
- * timeout 结果不证明前台命令已退出（提示词强调）；后台发送需 jobs 服务且受配置开关
- * 约束。
- * 【新手阅读建议】先看 terminal_open 与 terminal_send 的 execute（前后台分流），
- * 再看 finalizeContent 的预算封顶，最后对照 render.ts 的渲染格式。
- * ==========================================================================
- */
-
 /**
  * Six model-facing persistent terminal tools. Owner identity comes from the exact
  * tool execution Agent; generic `ctx.jobs` owns background ids and collection.
@@ -32,45 +11,35 @@ import type { ContentBlock } from '@deepseek-ai/dsh-llm'
 import { TerminalSessionId } from '@deepseek-ai/dsh-terminal'
 import type { TerminalSendResult, TerminalSessionId as TerminalSessionIdType, TerminalSignal } from '@deepseek-ai/dsh-terminal'
 import type {} from '@deepseek-ai/dsh-jobs'
-import { FIRST_PARTY_SECTION_ORDER } from '@deepseek-ai/dsh-system-prompt'
 import { defineTool } from '@deepseek-ai/dsh-tools'
 import type { ToolDefinition } from '@deepseek-ai/dsh-tools'
 import { boundTerminalText, renderList, renderRead, renderSend, renderSendRead, renderSpawn } from './render.ts'
 
 declare module '@deepseek-ai/dsh-jobs' {
-  // 声明 'pty-send' 为合法 job 种类（模块增强），后台发送登记时使用 kind: 'pty-send'。
   interface JobKindMap {
     'pty-send': 'pty-send'
   }
 }
 
 /** Cordis plugin name. */
-/* Cordis 插件名。 */
 export const name = 'tool-terminal'
 /** Required capability, registry, and prompt services. */
-/* 必需的能力、注册表与提示词服务。 */
 export const inject = ['terminals', 'tools', 'systemPrompt']
 
 /** Default cap for one complete model-facing terminal result. */
-/* 单条完整模型可见终端结果的默认上限。 */
 export const DEFAULT_MAX_RESULT_BYTES = 256 * 1024
 /** Smallest cap that preserves every counter-backed PTY and job id in its creation acknowledgement. */
-/* 能在创建确认中保留全部计数器型 PTY 与 job id 的最小上限。 */
 export const MIN_MAX_RESULT_BYTES = 64
 
 /** Model-facing terminal tool configuration. */
-/* 模型可见终端工具的配置。 */
 export interface Config {
   /** Expose `run_in_background` and accept background sends (default true). */
-  /* 是否暴露 run_in_background 并接受后台发送（默认 true）。 */
   enableRunInBackground?: boolean
   /** Maximum UTF-8 bytes in one complete terminal or task-output result. */
-  /* 单条完整终端或任务输出结果的 UTF-8 字节上限。 */
   maxResultBytes?: number
 }
 
 /** Schemastery configuration for the terminal tool consumer. */
-/* 终端工具消费者的 Schemastery 配置。 */
 export const Config: z<Config> = z.object({
   enableRunInBackground: z.boolean().default(true),
   maxResultBytes: z.number().step(1).min(MIN_MAX_RESULT_BYTES).max(Number.MAX_SAFE_INTEGER).default(DEFAULT_MAX_RESULT_BYTES),
@@ -174,7 +143,6 @@ function sendDetail(result: TerminalSendResult): string {
 }
 
 /** Register all terminal tools and the minimal usage guidance. */
-/* 注册全部终端工具与最小使用指引：装配配置、finalizeContent 与系统提示词段落。 */
 export function apply(ctx: Context, config: Config = {}): void {
   const enableRunInBackground = config.enableRunInBackground ?? true
   const maxResultBytes = config.maxResultBytes ?? DEFAULT_MAX_RESULT_BYTES
@@ -187,7 +155,7 @@ export function apply(ctx: Context, config: Config = {}): void {
   }
   ctx.systemPrompt.section({
     name: 'tool:pty',
-    order: FIRST_PARTY_SECTION_ORDER.TOOL_PTY,
+    order: ctx.systemPrompt.getSectionOrder('TOOL_PTY'),
     text: 'Use a terminal session only when work needs persistent terminal state or interactive stdin; prefer shell/read/write/edit for bounded one-shot operations. Track every terminal session id and close sessions that no longer matter. An inferred_idle or timeout result does not prove the foreground command exited.',
   })
 

@@ -1,29 +1,12 @@
-/*
- * ================================ 文件注释 ================================
- * 【文件职责】持久团队邮箱：入队准入、目标本地分发、接收确认与恢复重试。
- * 【技术维度】消息先以 team/message/queued 写入 Lead 日志再尝试即时投递；
- *   投递按目标串行化（dispatchTails）、同消息进程内去重（inFlightMessages）；
- *   目标记录（team-message 来源的 user/message）后回写 delivered 确认边；
- *   observeSessionEvent 观察目标侧持久收据。
- * 【产品维度】队友间"必达、有序、可恢复"的消息通道。
- * 【逻辑维度】TeamMailbox（send/observeSessionEvent/recoverFor/pendingDispatches +
- *   私有准入/串行化/单次投递/确认/内容框定/冷目标检查）。
- * 【关键边界】quiet 不唤醒闲置成员、wakeup 走 followup；目标不可达保持排队；
- *   每条消息在进程内同一时刻至多一次投递尝试。
- * 【新手阅读建议】先看 sendAdmitted 的入队，再看 tryDispatch→serializeDispatch→
- *   dispatchOnce 的投递与确认路径。
- * ==========================================================================
- */
-
 /** Durable Team mailbox admission, target-local dispatch, acknowledgement, and recovery. */
 
 import { randomUUID } from 'node:crypto'
 import type { Context } from '@deepseek-ai/cordis'
+import { brandString } from '@deepseek-ai/dsh-brand'
 import type { Agent } from '@deepseek-ai/dsh-agent'
 import { createUserMessage } from '@deepseek-ai/dsh-llm'
 import type { ContentBlock } from '@deepseek-ai/dsh-llm'
-import { SessionId } from '@deepseek-ai/dsh-session'
-import type { Session, SessionEvent } from '@deepseek-ai/dsh-session'
+import type { Session, SessionEvent, SessionId } from '@deepseek-ai/dsh-session'
 import { errorMessage, TeamError } from './error.ts'
 import type { TeamJournal } from './journal.ts'
 import type { TeamRuntimeLifecycle } from './lifecycle.ts'
@@ -85,7 +68,7 @@ export class TeamMailbox {
     if (this.lifecycle.disposed || event.type !== 'user/message' || event.data.source.kind !== 'team-message') return
     const source = event.data.source
     const acknowledgement = Promise.resolve().then(async () => {
-      const root = this.ctx.agents.get(SessionId(source.teamId))
+      const root = this.ctx.agents.get(brandString<SessionId>(source.teamId))
       if (root !== undefined) await this.checkpointDelivered(root, session, source.messageId)
     }).catch((error: unknown) => {
       this.ctx.logger.warn(`Team message "${source.messageId}" acknowledgement failed: ${errorMessage(error)}`)
@@ -103,8 +86,8 @@ export class TeamMailbox {
     const membership = this.roster.tryMembership(agent)
     if (membership === undefined) return
     const state = this.journal.state(membership.root)
-    const messages = [...state.messages.values()].filter(message =>
-      !state.delivered.has(message.id)
+    const messages = state.messages.filter(message =>
+      !state.delivered.includes(message.id)
       && (membership.role === 'lead' || message.targetId === agent.id))
     for (const message of messages) {
       signal.throwIfAborted()
@@ -136,8 +119,8 @@ export class TeamMailbox {
       const state = this.journal.state(root)
       const target = resolveActiveMember(root, state, request.target)
       if (target.id === caller.id) throw new TeamError('a Team member cannot message itself', 'TEAM_SELF_MESSAGE')
-      const pendingForTarget = [...state.messages.values()].filter(candidate =>
-        candidate.targetId === target.id && !state.delivered.has(candidate.id)).length
+      const pendingForTarget = state.messages.filter(candidate =>
+        candidate.targetId === target.id && !state.delivered.includes(candidate.id)).length
       if (pendingForTarget >= this.maxPendingMessagesPerMember) {
         throw new TeamError(
           `teammate "${target.name}" has ${pendingForTarget} pending messages`,
@@ -289,7 +272,7 @@ export class TeamMailbox {
 
   /** Whether `left` was durably queued before `right` in one Lead log. */
   private messagePrecedes(root: Agent, left: TeamMessageId, right: TeamMessageId): boolean {
-    const ids = [...this.journal.state(root).messages.keys()]
+    const ids = this.journal.state(root).messages.map(message => message.id)
     return ids.indexOf(left) < ids.indexOf(right)
   }
 
@@ -309,8 +292,8 @@ export class TeamMailbox {
   private async markDelivered(root: Agent, messageId: TeamMessageId, targetId: SessionId): Promise<void> {
     await this.journal.transact(root.id, async () => {
       const state = this.journal.state(root)
-      if (state.delivered.has(messageId)) return
-      const queued = state.messages.get(messageId)
+      if (state.delivered.includes(messageId)) return
+      const queued = state.messages.find(message => message.id === messageId)
       if (queued === undefined || queued.targetId !== targetId) return
       await this.journal.appendAndFlush(root, 'team/message/delivered', {
         version: 1,

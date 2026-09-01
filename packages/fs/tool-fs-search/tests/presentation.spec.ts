@@ -7,17 +7,9 @@
  * byte cap, and the malformed-metadata fallback a replayed or hand-edited log can
  * deliver.
  */
-/*
- * 文件职责：验证文件系统与工具的 presentation.spec.ts 行为与安全边界。
- * 技术维度：TypeScript、Cordis、会话事件、路径策略、判别联合和 Vitest。
- * 产品维度：保证文件系统与工具操作可预测、可审计并在失败时保持一致。
- * 逻辑维度：构造请求与状态，驱动服务并断言输出和清理。
- * 关键边界：文件路径必须经过策略检查；目标引用含版本，过期修改必须拒绝。
- * 新手阅读建议：先读类型与测试夹具，再按校验、执行、事件折叠和错误流程阅读。
- */
 
 import { describe, expect, it } from 'vitest'
-import type { JsonValue } from '@deepseek-ai/dsh-session'
+import type { JsonValue } from '@deepseek-ai/dsh-util-values'
 import {
   globSearchMeta,
   grepSearchMeta,
@@ -27,11 +19,9 @@ import {
 import type { GrepMatch } from '../src/search-core.ts'
 import { retainGlobPaths, retainGrepMatches } from '../src/search-core.ts'
 
-/** 中文说明：测试局部值 match，由紧邻初始化决定。 */
 const match = (path: string, lineNumber: number, line: string): GrepMatch => ({ path, lineNumber, line })
 
 /** A byte cap large enough that no test payload here is meta-capped. */
-/* 中文说明：测试局部值 WIDE，由紧邻初始化决定。 */
 const WIDE = 1_000_000
 
 describe('groupMatchesByFile', () => {
@@ -53,7 +43,6 @@ describe('groupMatchesByFile', () => {
 
 describe('grepSearchMeta', () => {
   it('projects grouped matches with total and a false truncation flag within the cap', () => {
-    /** 中文说明：测试局部值 meta，由紧邻初始化决定。 */
     const meta = grepSearchMeta(retainGrepMatches([match('a.ts', 1, 'one'), match('a.ts', 2, 'two')], 10, 2000), WIDE)
     expect(meta).toEqual({
       shape: 'matches',
@@ -64,7 +53,6 @@ describe('grepSearchMeta', () => {
   })
 
   it('reports the pre-cap total and truncation from the shared retention pass', () => {
-    /** 中文说明：测试局部值 meta，由紧邻初始化决定。 */
     const meta = grepSearchMeta(retainGrepMatches([match('a.ts', 1, 'one'), match('a.ts', 2, 'two'), match('b.ts', 3, 'three')], 2, 2000), WIDE)
     expect(meta).toEqual({
       shape: 'matches',
@@ -75,20 +63,17 @@ describe('grepSearchMeta', () => {
   })
 
   it('carries the per-line preview budget (UTF-8 boundary) the retention pass applied', () => {
-    /** 中文说明：测试局部值 meta，由紧邻初始化决定。 */
     const meta = grepSearchMeta(retainGrepMatches([match('a.txt', 1, 'aéaéaéaé')], 10, 7), WIDE)
     expect(meta).toMatchObject({ shape: 'matches', files: [{ path: 'a.txt', matches: [{ lineNumber: 1, line: 'aéaéa (line truncated)' }] }] })
   })
 
   it('drops trailing file groups until the serialized meta fits the byte cap, marking it truncated', () => {
-    /** 中文说明：测试局部值 retained，由紧邻初始化决定。 */
     const retained = retainGrepMatches(
       [match('a.ts', 1, 'x'.repeat(60)), match('b.ts', 2, 'y'.repeat(60)), match('c.ts', 3, 'z'.repeat(60))],
       10,
       2000,
     )
     // One 60-byte group serializes to ~110 bytes; a 260-byte cap holds two, not three.
-    /** 中文说明：测试局部值 meta，由紧邻初始化决定。 */
     const meta = grepSearchMeta(retained, 260)
     expect(meta.shape).toBe('matches')
     if (meta.shape !== 'matches') throw new Error('unreachable')
@@ -99,7 +84,6 @@ describe('grepSearchMeta', () => {
   })
 
   it('keeps a single oversized group rather than emit an empty card', () => {
-    /** 中文说明：测试局部值 meta，由紧邻初始化决定。 */
     const meta = grepSearchMeta(retainGrepMatches([match('a.ts', 1, 'x'.repeat(500))], 10, 2000), 50)
     expect(meta.shape).toBe('matches')
     if (meta.shape !== 'matches') throw new Error('unreachable')
@@ -118,9 +102,7 @@ describe('globSearchMeta', () => {
   })
 
   it('drops trailing paths until the serialized meta fits the byte cap, marking it truncated', () => {
-    /** 中文说明：测试局部值 retained，由紧邻初始化决定。 */
     const retained = retainGlobPaths([`${'a'.repeat(100)}.ts`, `${'b'.repeat(100)}.ts`, `${'c'.repeat(100)}.ts`], 10)
-    /** 中文说明：测试局部值 meta，由紧邻初始化决定。 */
     const meta = globSearchMeta(retained, 180)
     expect(meta.shape).toBe('paths')
     if (meta.shape !== 'paths') throw new Error('unreachable')
@@ -135,17 +117,14 @@ describe('searchViewFromMeta (defensive narrowing)', () => {
   // The narrowing accepts an opaque JsonValue; a malformed payload is not a
   // statically-valid JsonValue, so route every case through one cast helper that
   // mirrors how a hand-edited/older session log delivers arbitrary shapes.
-  /** 中文说明：测试局部值 m，由紧邻初始化决定。 */
   const m = (value: unknown): JsonValue | undefined => value as JsonValue | undefined
 
   it('narrows a well-formed matches payload into a matches view', () => {
-    /** 中文说明：测试局部值 meta，由紧邻初始化决定。 */
     const meta = { shape: 'matches', files: [{ path: 'a.ts', matches: [{ lineNumber: 1, line: 'x' }] }], truncated: true, total: 5 }
     expect(searchViewFromMeta(m(meta))).toEqual({ card: 'search', ...meta })
   })
 
   it('narrows a well-formed paths payload into a paths view', () => {
-    /** 中文说明：测试局部值 meta，由紧邻初始化决定。 */
     const meta = { shape: 'paths', paths: ['a.ts', 'b.ts'], truncated: false, total: 2 }
     expect(searchViewFromMeta(m(meta))).toEqual({ card: 'search', ...meta })
   })
@@ -177,7 +156,6 @@ describe('searchViewFromMeta (defensive narrowing)', () => {
   })
 
   it('rejects a matches payload with a malformed files array', () => {
-    /** 中文说明：测试局部值 base，由紧邻初始化决定。 */
     const base = { shape: 'matches', truncated: false, total: 1 }
     expect(searchViewFromMeta(m({ ...base, files: 'x' }))).toBeUndefined()
     expect(searchViewFromMeta(m({ ...base, files: [null] }))).toBeUndefined()
@@ -191,7 +169,6 @@ describe('searchViewFromMeta (defensive narrowing)', () => {
   })
 
   it('rejects a paths payload with a non-array or non-string-element paths field', () => {
-    /** 中文说明：测试局部值 base，由紧邻初始化决定。 */
     const base = { shape: 'paths', truncated: false, total: 1 }
     expect(searchViewFromMeta(m({ ...base, paths: 'x' }))).toBeUndefined()
     expect(searchViewFromMeta(m({ ...base, paths: [1] }))).toBeUndefined()

@@ -2,14 +2,6 @@
  * Assembled-app regression for persisted workspace-instruction resume state.
  * @module workspace-context-resume-snapshot
  */
-/*
- * 文件职责：验证会话恢复时能识别离线修改或优先级变化的工作区指令，并更新模型可见上下文。
- * 技术维度：使用 Vitest、加密哈希、SessionStore、JSONL 持久化、Loader smoke 和指令渲染配置。
- * 产品维度：确保 AGENTS.md 等项目规则在会话暂停期间变化后，恢复的智能体遵循最新有效说明。
- * 逻辑维度：种入旧指令与基线身份，离线修改文件或候选优先级，恢复后比较持久事件与模型请求。
- * 关键边界：基线哈希必须基于当时可见文件；候选顺序变化也算语义变化；刷新模式才更新预期文件。
- * 新手阅读建议：先读 SeedBaselineOptions 和 seedVisibleBaseline，再比较离线编辑与优先级变化两个场景。
- */
 
 import { createHash } from 'node:crypto'
 import { mkdir, readFile, readdir, writeFile } from 'node:fs/promises'
@@ -35,7 +27,7 @@ const replayFixture = join(fixtureDir, 'replay.jsonl')
 const replayOverride = join(fixtureDir, 'replay.override.json')
 const sessionExpected = join(fixtureDir, 'session.expected.jsonl')
 const precedenceExpected = join(dirname(fixtureDir), 'precedence-change/session.expected.jsonl')
-const configPath = fileURLToPath(new URL('../workspace-context-resume.cordis.snapshot.yml', import.meta.url))
+const configPath = fileURLToPath(new URL('../workspace-context-resume-snapshot.patch.yml', import.meta.url))
 const binScript = fileURLToPath(new URL('../../../../../../packages/test-support/loader-smoke/tests/fixtures/headless-driver.ts', import.meta.url))
 const tsconfigPath = fileURLToPath(new URL('../../../../../../tsconfig.json', import.meta.url))
 const sessionId = SessionId('workspace-context-resume')
@@ -43,19 +35,16 @@ const refreshing = process.env.DSH_SNAPSHOT === 'refresh'
 const oldInstruction = 'Old workspace instruction.'
 const newInstruction = 'New workspace instruction after offline edit.'
 
-/** 控制初始可见指令文件和候选优先顺序。 */
 interface SeedBaselineOptions {
   files?: Array<{ name: string; content: string }>
   instructionFileCandidates?: string[]
 }
 
-/** 在 root 中写入 cwd 当前指令基线并返回日志路径。 */
 async function seedVisibleBaseline(
   root: string,
   cwd: string,
   options: SeedBaselineOptions = {},
 ): Promise<string> {
-  /** 只挂载会话和 JSONL 持久化的最小 Cordis 上下文。 */
   const ctx = new Context()
   await ctx.plugin(SessionStore)
   await ctx.plugin(JsonlSessionPersistence, { root, compression: 'none' })

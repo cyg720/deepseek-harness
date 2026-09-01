@@ -1,21 +1,14 @@
-/*
- * ================================ 文件注释 ================================
- * 【文件职责】只读宿主插件清单包的浏览器侧入口：向 Web 设置贡献"插件清单"
- *             页签（只读列表）。
- * 【技术维度】Cordis 浏览器插件：惰性页签（list 回调按需调用生成的
- *             pluginInventory Remote）；注册进 settings.plugins.tab 槽位。
- * 【产品维度】设置页"插件"分区里的只读清单页签（部署组装了哪些插件）。
- * 【逻辑维度】1) 注册字典；2) 绑定 list 调用；3) 注册页签（id 'all'，顺序 10）。
- * 【关键边界】只读：不写入任何配置；页签名与文案走本包命名空间。
- * 【新手阅读建议】组件实现见 PluginInventorySettingsTab.tsx。
- * ==========================================================================
- */
 /** Read-only Host plugin inventory registered into Web Settings. */
 
 import type {} from '@deepseek-ai/dsh-client-locale/client'
 import type { Context as ClientContext } from '@deepseek-ai/cordis'
 import type {} from '@deepseek-ai/dsh-client-ui-settings/client'
 import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
+// Type-only: pulls the 'settings.agentPreset' LocaleNamespaceMap merge, whose
+// dictionaries the shipped-preset name resolution below reads.
+import type {} from '@deepseek-ai/dsh-client-ui-agent-preset/client'
+// Inline-safe shared fold: shipped ids map to dictionary keys in one home.
+import { presetDisplayText } from '@deepseek-ai/dsh-agent-presets/display'
 import { PluginInventorySettingsTab, type PluginInventorySettingsTabInjected } from './PluginInventorySettingsTab.tsx'
 import { en, zh, type PluginInventoryLocaleKey } from './locales.ts'
 
@@ -47,7 +40,12 @@ export function apply(ctx: ClientContext): void {
     }
     return result.value
   }
-  const injected = (): PluginInventorySettingsTabInjected => ({ list })
+  // Resolved per call over ui-agent-preset's dictionaries, so a language
+  // switch re-resolves shipped names; user-authored metadata passes through.
+  const agentPresetCopy = ctx.locale.bind('settings.agentPreset')
+  const presetName: PluginInventorySettingsTabInjected['presetName'] = preset =>
+    presetDisplayText(preset, agentPresetCopy).name
+  const injected = (): PluginInventorySettingsTabInjected => ({ list, presetName })
 
   ctx.slots.inject('settings.plugins.tab', () => ctx.slots.register({
     name: 'settings.plugins.tab',

@@ -1,12 +1,4 @@
 // @vitest-environment jsdom
-/*
- * 文件职责：验证会话输入的 queue-dock.client.spec.tsx 行为。
- * 技术维度：Vitest、React 渲染、事件模拟和服务替身。
- * 产品维度：防止会话输入用户流程回归。
- * 逻辑维度：构造状态，触发行为并断言结果和清理。
- * 关键边界：异步任务、全局替身和 DOM 必须在用例后恢复。
- * 新手阅读建议：先读辅助函数，再按场景顺序阅读。
- */
 /**
  * QueueDock rendering and operations: authoritative rows, inline editing,
  * collapse state, removal, strict steering, failure notices, and live retirement.
@@ -32,12 +24,9 @@ import { QueueDock, queueDockEntry, type QueueDockInjected, type QueueDockProps 
 
 afterEach(cleanup)
 
-/** 中文说明：测试局部值 SID，由紧邻初始化决定。 */
 const SID = 's1' as SessionId
-/** 中文说明：测试局部值 iid，由紧邻初始化决定。 */
 const iid = (id: string): QueueItemId => id as QueueItemId
 
-/** 中文说明：函数 row 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function row(id: string, text: string | null, preview = text ?? '[image]'): QueuedMessage {
   return {
     id: iid(id), messageId: `message-${id}` as never, placement: 'queued',
@@ -58,7 +47,6 @@ function snapshotWith(queue: QueuedMessage[]): SessionSnapshot {
 /** Minimal live source backing the useSession stub. */
 function liveSession(initial: SessionSnapshot) {
   let snapshot = initial
-  /** 中文说明：测试局部值 listeners，由紧邻初始化决定。 */
   const listeners = new Set<() => void>()
   const useSession: SnapshotSelectorHook<SessionSnapshot> = selector =>
     useSyncExternalStore(
@@ -72,7 +60,6 @@ function liveSession(initial: SessionSnapshot) {
     useSession,
     push(next: SessionSnapshot): void {
       snapshot = next
-      /** 中文说明：测试局部值 listener，由紧邻初始化决定。 */
       for (const listener of [...listeners]) listener()
     },
   }
@@ -101,45 +88,76 @@ function kitFor(snapshot: SessionSnapshot, injected: Partial<QueueDockInjected> 
     input: INPUT_STATE,
     updateQueue: vi.fn(() => Promise.resolve()),
     notify: vi.fn(),
+    loadImage: vi.fn(() => Promise.resolve('blob:unused')),
     ...injected,
+  }
+}
+
+/** One queued row carrying a durable image reference (plus optional leading text). */
+function imageRow(id: string, refId: string, text = ''): QueuedMessage {
+  return {
+    id: iid(id), messageId: `message-${id}` as never, placement: 'queued',
+    content: [
+      ...text === '' ? [] : [{ type: 'text' as const, text }],
+      {
+        type: 'image',
+        attachment: { attachmentId: refId, mediaType: 'image/png', bytes: 1, width: 1, height: 1 },
+      } as never,
+    ],
+    preview: text, text: null,
   }
 }
 
 describe('QueueDock', () => {
   it('renders null while the queue is empty', () => {
-    /** 中文说明：测试局部值 snap，由紧邻初始化决定。 */
     const snap = snapshotWith([])
-    /** 中文说明：测试局部值 source，由紧邻初始化决定。 */
     const source = liveSession(snap)
-    /** 中文说明：测试局部值 { container }，由紧邻初始化决定。 */
     const { container } = render(<QueueDock {...kitFor(snap)} useSession={source.useSession} />)
     expect(container.innerHTML).toBe('')
   })
 
+  it('renders a queued local echo in the dock and hands off by rpcId', () => {
+    const pending = {
+      ...snapshotWith([]),
+      pendingSubmissions: [{
+        requestId: 'req-local-queue' as never,
+        placement: 'queued' as const,
+        time: 1,
+        text: '等待上传',
+        images: [{ previewUrl: 'blob:queue-preview', name: 'queue.png' }],
+      }],
+    }
+    const source = liveSession(pending)
+    const view = render(<QueueDock {...kitFor(pending)} useSession={source.useSession} />)
+    expect(view.getByText('等待上传').closest('[data-submission-echo]')).not.toBeNull()
+    expect(view.getByRole('img', { name: '排队消息图片' }).getAttribute('src')).toBe('blob:queue-preview')
+
+    act(() => {
+      source.push({
+        ...pending,
+        queue: [{ ...row('accepted', '等待上传'), rpcId: 'req-local-queue' as never }],
+      })
+    })
+    expect(view.getAllByText('等待上传')).toHaveLength(1)
+    expect(view.container.querySelector('[data-submission-echo]')).toBeNull()
+  })
+
   it('leaves pending steering to the conversation flow', () => {
-    /** 中文说明：测试局部值 steering，由紧邻初始化决定。 */
     const steering = { ...row('s-1', 'interrupt'), placement: 'steering' as const }
-    /** 中文说明：测试局部值 snap，由紧邻初始化决定。 */
     const snap = snapshotWith([steering])
-    /** 中文说明：测试局部值 source，由紧邻初始化决定。 */
     const source = liveSession(snap)
-    /** 中文说明：测试局部值 { container }，由紧邻初始化决定。 */
     const { container } = render(<QueueDock {...kitFor(snap)} useSession={source.useSession} />)
     expect(container.innerHTML).toBe('')
   })
 
   it('renders one row directly and defaults multiple rows to a collapsible count header', () => {
-    /** 中文说明：测试局部值 single，由紧邻初始化决定。 */
     const single = snapshotWith([row('i-1', 'one')])
-    /** 中文说明：测试局部值 source，由紧邻初始化决定。 */
     const source = liveSession(single)
-    /** 中文说明：测试局部值 view，由紧邻初始化决定。 */
     const view = render(<QueueDock {...kitFor(single)} useSession={source.useSession} />)
     expect(view.queryByRole('button', { name: '1 条排队消息' })).toBeNull()
     expect(view.getByText('one')).toBeTruthy()
 
     act(() => { source.push(snapshotWith([row('i-1', 'one'), row('i-2', 'two')])) })
-    /** 中文说明：测试局部值 header，由紧邻初始化决定。 */
     const header = view.getByRole('button', { name: '2 条排队消息' })
     expect(header.getAttribute('aria-expanded')).toBe('false')
     expect(document.getElementById(header.getAttribute('aria-controls')!)).toBeTruthy()
@@ -157,11 +175,8 @@ describe('QueueDock', () => {
   })
 
   it('keeps an active single-row editor visible when another item arrives', () => {
-    /** 中文说明：测试局部值 single，由紧邻初始化决定。 */
     const single = snapshotWith([row('i-edit', 'before')])
-    /** 中文说明：测试局部值 source，由紧邻初始化决定。 */
     const source = liveSession(single)
-    /** 中文说明：测试局部值 view，由紧邻初始化决定。 */
     const view = render(<QueueDock {...kitFor(single)} useSession={source.useSession} />)
 
     fireEvent.click(view.getByLabelText('编辑排队消息'))
@@ -170,7 +185,6 @@ describe('QueueDock', () => {
       source.push(snapshotWith([row('i-edit', 'before'), row('i-2', 'second')]))
     })
 
-    /** 中文说明：测试局部值 header，由紧邻初始化决定。 */
     const header = view.getByRole('button', { name: '2 条排队消息' })
     expect(header).toHaveProperty('disabled', true)
     expect(header.getAttribute('aria-expanded')).toBe('true')
@@ -184,15 +198,10 @@ describe('QueueDock', () => {
   })
 
   it('keeps an in-flight row action visible when another item arrives', async () => {
-    /** 中文说明：测试局部值 single，由紧邻初始化决定。 */
     const single = snapshotWith([row('i-remove', 'remove me')])
-    /** 中文说明：测试局部值 source，由紧邻初始化决定。 */
     const source = liveSession(single)
-    /** 中文说明：测试局部值 finishUpdate，由紧邻初始化决定。 */
     let finishUpdate: (() => void) | undefined
-    /** 中文说明：测试局部值 updateQueue，由紧邻初始化决定。 */
     const updateQueue = vi.fn(() => new Promise<void>((resolve) => { finishUpdate = resolve }))
-    /** 中文说明：测试局部值 view，由紧邻初始化决定。 */
     const view = render(
       <QueueDock {...kitFor(single, { updateQueue })} useSession={source.useSession} />,
     )
@@ -202,7 +211,6 @@ describe('QueueDock', () => {
       source.push(snapshotWith([row('i-remove', 'remove me'), row('i-2', 'second')]))
     })
 
-    /** 中文说明：测试局部值 header，由紧邻初始化决定。 */
     const header = view.getByRole('button', { name: '2 条排队消息' })
     expect(header).toHaveProperty('disabled', true)
     expect(header.getAttribute('aria-expanded')).toBe('true')
@@ -221,11 +229,8 @@ describe('QueueDock', () => {
   })
 
   it('defaults a new multi-row queue to collapsed after the prior queue empties', () => {
-    /** 中文说明：测试局部值 first，由紧邻初始化决定。 */
     const first = snapshotWith([row('i-1', 'one'), row('i-2', 'two')])
-    /** 中文说明：测试局部值 source，由紧邻初始化决定。 */
     const source = liveSession(first)
-    /** 中文说明：测试局部值 view，由紧邻初始化决定。 */
     const view = render(<QueueDock {...kitFor(first)} useSession={source.useSession} />)
     fireEvent.click(view.getByRole('button', { name: '2 条排队消息' }))
     expect(view.getByText('one')).toBeTruthy()
@@ -236,21 +241,17 @@ describe('QueueDock', () => {
       source.push(snapshotWith([row('i-3', 'three'), row('i-4', 'four')]))
     })
 
-    /** 中文说明：测试局部值 header，由紧邻初始化决定。 */
     const header = view.getByRole('button', { name: '2 条排队消息' })
     expect(header.getAttribute('aria-expanded')).toBe('false')
     expect(view.queryByText('three')).toBeNull()
   })
 
   it('renders active actions and disables editing for mixed-content rows', () => {
-    /** 中文说明：测试局部值 snap，由紧邻初始化决定。 */
     const snap = snapshotWith([
       row('i-1', '第一条排队消息'),
       row('i-2', null, 'image [image]'),
     ])
-    /** 中文说明：测试局部值 source，由紧邻初始化决定。 */
     const source = liveSession(snap)
-    /** 中文说明：测试局部值 { container, getByRole }，由紧邻初始化决定。 */
     const { container, getByRole } = render(<QueueDock {...kitFor(snap)} useSession={source.useSession} />)
     fireEvent.click(getByRole('button', { name: '2 条排队消息' }))
     expect([...container.querySelectorAll('li')].map(item => item.textContent))
@@ -265,20 +266,61 @@ describe('QueueDock', () => {
       .toBe('包含非文本内容，暂不支持编辑')
   })
 
-  it('edits text inline with save and cancel controls, then saves with the same item identity', async () => {
-    /** 中文说明：测试局部值 snap，由紧邻初始化决定。 */
-    const snap = snapshotWith([row('i-edit', 'before')])
-    /** 中文说明：测试局部值 source，由紧邻初始化决定。 */
+  it('renders queued image thumbnails from durable references beside the text preview', async () => {
+    const loadImage = vi.fn(() => Promise.resolve('blob:thumb-1'))
+    const snap = snapshotWith([imageRow('i-img', 'att-9', '带图消息')])
     const source = liveSession(snap)
-    /** 中文说明：测试局部值 updateQueue，由紧邻初始化决定。 */
+    const { container } = render(
+      <QueueDock {...kitFor(snap, { loadImage })} useSession={source.useSession} />,
+    )
+
+    await waitFor(() => {
+      expect(container.querySelector('img')?.getAttribute('src')).toBe('blob:thumb-1')
+    })
+    expect(loadImage).toHaveBeenCalledWith(expect.objectContaining({ attachmentId: 'att-9' }))
+    expect(container.querySelector('img')?.getAttribute('alt')).toBe('排队消息图片')
+    expect(container.querySelector('li')?.textContent).toBe('带图消息')
+  })
+
+  it('keeps the empty thumbnail placeholder when the image read fails', async () => {
+    const loadImage = vi.fn(() => Promise.reject(new Error('read denied')))
+    const snap = snapshotWith([imageRow('i-broken', 'att-x')])
+    const source = liveSession(snap)
+    const { container } = render(
+      <QueueDock {...kitFor(snap, { loadImage })} useSession={source.useSession} />,
+    )
+
+    await act(async () => { await Promise.resolve() })
+    expect(loadImage).toHaveBeenCalled()
+    expect(container.querySelector('img')).toBeNull()
+  })
+
+  it('ignores a thumbnail resolution landing after unmount', async () => {
+    let resolveUrl: ((url: string) => void) | undefined
+    const loadImage = vi.fn(() => new Promise<string>((resolve) => { resolveUrl = resolve }))
+    const snap = snapshotWith([imageRow('i-late', 'att-late')])
+    const source = liveSession(snap)
+    const { unmount } = render(
+      <QueueDock {...kitFor(snap, { loadImage })} useSession={source.useSession} />,
+    )
+
+    unmount()
+    await act(async () => {
+      resolveUrl?.('blob:late')
+      await Promise.resolve()
+    })
+    expect(loadImage).toHaveBeenCalledTimes(1)
+  })
+
+  it('edits text inline with save and cancel controls, then saves with the same item identity', async () => {
+    const snap = snapshotWith([row('i-edit', 'before')])
+    const source = liveSession(snap)
     const updateQueue = vi.fn(() => Promise.resolve())
-    /** 中文说明：测试局部值 解构结果，由紧邻初始化决定。 */
     const { getByLabelText, queryByLabelText } = render(
       <QueueDock {...kitFor(snap, { updateQueue })} useSession={source.useSession} />,
     )
 
     fireEvent.click(getByLabelText('编辑排队消息'))
-    /** 中文说明：测试局部值 editor，由紧邻初始化决定。 */
     const editor = getByLabelText('编辑排队消息') as HTMLInputElement
     expect(getByLabelText('保存排队消息')).toBeTruthy()
     expect(getByLabelText('取消编辑')).toBeTruthy()
@@ -295,13 +337,9 @@ describe('QueueDock', () => {
   })
 
   it('cancels an edit by button or Escape without mutating the queue', () => {
-    /** 中文说明：测试局部值 snap，由紧邻初始化决定。 */
     const snap = snapshotWith([row('i-edit', 'before')])
-    /** 中文说明：测试局部值 source，由紧邻初始化决定。 */
     const source = liveSession(snap)
-    /** 中文说明：测试局部值 updateQueue，由紧邻初始化决定。 */
     const updateQueue = vi.fn(() => Promise.resolve())
-    /** 中文说明：测试局部值 解构结果，由紧邻初始化决定。 */
     const { getByLabelText, getByText } = render(
       <QueueDock {...kitFor(snap, { updateQueue })} useSession={source.useSession} />,
     )
@@ -318,19 +356,14 @@ describe('QueueDock', () => {
   })
 
   it('keeps editing during IME composition and disables a blank save', () => {
-    /** 中文说明：测试局部值 snap，由紧邻初始化决定。 */
     const snap = snapshotWith([row('i-edit', 'before')])
-    /** 中文说明：测试局部值 source，由紧邻初始化决定。 */
     const source = liveSession(snap)
-    /** 中文说明：测试局部值 updateQueue，由紧邻初始化决定。 */
     const updateQueue = vi.fn(() => Promise.resolve())
-    /** 中文说明：测试局部值 { getByLabelText }，由紧邻初始化决定。 */
     const { getByLabelText } = render(
       <QueueDock {...kitFor(snap, { updateQueue })} useSession={source.useSession} />,
     )
 
     fireEvent.click(getByLabelText('编辑排队消息'))
-    /** 中文说明：测试局部值 editor，由紧邻初始化决定。 */
     const editor = getByLabelText('编辑排队消息')
     fireEvent.change(editor, { target: { value: '   ' } })
     expect(getByLabelText('保存排队消息')).toHaveProperty('disabled', true)
@@ -341,13 +374,9 @@ describe('QueueDock', () => {
   })
 
   it('removes the addressed row', async () => {
-    /** 中文说明：测试局部值 snap，由紧邻初始化决定。 */
     const snap = snapshotWith([row('i-1', 'one'), row('i-2', 'two')])
-    /** 中文说明：测试局部值 source，由紧邻初始化决定。 */
     const source = liveSession(snap)
-    /** 中文说明：测试局部值 updateQueue，由紧邻初始化决定。 */
     const updateQueue = vi.fn(() => Promise.resolve())
-    /** 中文说明：测试局部值 解构结果，由紧邻初始化决定。 */
     const { getAllByLabelText, getByRole } = render(
       <QueueDock {...kitFor(snap, { updateQueue })} useSession={source.useSession} />,
     )
@@ -360,18 +389,13 @@ describe('QueueDock', () => {
   })
 
   it('strictly steers complete row content only while the agent is running', async () => {
-    /** 中文说明：测试局部值 running，由紧邻初始化决定。 */
     const running = snapshotWith([row('i-steer', null, 'image [image]')])
-    /** 中文说明：测试局部值 source，由紧邻初始化决定。 */
     const source = liveSession(running)
-    /** 中文说明：测试局部值 updateQueue，由紧邻初始化决定。 */
     const updateQueue = vi.fn(() => Promise.resolve())
-    /** 中文说明：测试局部值 rendered，由紧邻初始化决定。 */
     const rendered = render(
       <QueueDock {...kitFor(running, { updateQueue })} useSession={source.useSession} />,
     )
 
-    /** 中文说明：测试局部值 button，由紧邻初始化决定。 */
     const button = rendered.getByLabelText('插话发送')
     expect(button).toHaveProperty('disabled', false)
     fireEvent.click(button)
@@ -385,7 +409,6 @@ describe('QueueDock', () => {
   })
 
   it('renders a session-backed subagent Queue without unsupported actions', () => {
-    /** 中文说明：测试局部值 snap，由紧邻初始化决定。 */
     const snap = {
       ...snapshotWith([row('i-subagent', 'pending child follow-up')]),
       subagent: {
@@ -397,9 +420,7 @@ describe('QueueDock', () => {
         parentAvailable: true,
       },
     }
-    /** 中文说明：测试局部值 source，由紧邻初始化决定。 */
     const source = liveSession(snap)
-    /** 中文说明：测试局部值 view，由紧邻初始化决定。 */
     const view = render(
       <QueueDock {...kitFor(snap)} useSession={source.useSession} />,
     )
@@ -411,15 +432,10 @@ describe('QueueDock', () => {
   })
 
   it('keeps the row and reports a genuine steer failure', async () => {
-    /** 中文说明：测试局部值 snap，由紧邻初始化决定。 */
     const snap = snapshotWith([row('i-steer-race', 'pending steer')])
-    /** 中文说明：测试局部值 source，由紧邻初始化决定。 */
     const source = liveSession(snap)
-    /** 中文说明：测试局部值 notify，由紧邻初始化决定。 */
     const notify = vi.fn()
-    /** 中文说明：测试局部值 updateQueue，由紧邻初始化决定。 */
     const updateQueue = vi.fn(() => Promise.reject(new Error('transport failed')))
-    /** 中文说明：测试局部值 解构结果，由紧邻初始化决定。 */
     const { getByLabelText, getByText } = render(
       <QueueDock {...kitFor(snap, { updateQueue, notify })} useSession={source.useSession} />,
     )
@@ -435,15 +451,10 @@ describe('QueueDock', () => {
   })
 
   it('keeps the row and surfaces a notice when an operation loses the claim race', async () => {
-    /** 中文说明：测试局部值 snap，由紧邻初始化决定。 */
     const snap = snapshotWith([row('i-race', 'pending')])
-    /** 中文说明：测试局部值 source，由紧邻初始化决定。 */
     const source = liveSession(snap)
-    /** 中文说明：测试局部值 notify，由紧邻初始化决定。 */
     const notify = vi.fn()
-    /** 中文说明：测试局部值 updateQueue，由紧邻初始化决定。 */
     const updateQueue = vi.fn(() => Promise.reject(new Error('not found')))
-    /** 中文说明：测试局部值 解构结果，由紧邻初始化决定。 */
     const { getByLabelText, getByText } = render(
       <QueueDock {...kitFor(snap, { updateQueue, notify })} useSession={source.useSession} />,
     )
@@ -456,11 +467,8 @@ describe('QueueDock', () => {
   })
 
   it('follows authoritative retirement back to null', () => {
-    /** 中文说明：测试局部值 snap，由紧邻初始化决定。 */
     const snap = snapshotWith([row('i-1', '在场')])
-    /** 中文说明：测试局部值 source，由紧邻初始化决定。 */
     const source = liveSession(snap)
-    /** 中文说明：测试局部值 { container }，由紧邻初始化决定。 */
     const { container } = render(<QueueDock {...kitFor(snap)} useSession={source.useSession} />)
     expect(container.textContent).toContain('在场')
     act(() => { source.push(snapshotWith([])) })
@@ -469,10 +477,8 @@ describe('QueueDock', () => {
 
   it('registers as the terminal composer-context entry', () => {
     expect(queueDockEntry.name).toBe('conversation-queue-dock')
-    expect(queueDockEntry.inject).toEqual(['slots', 'conversation', 'sessions'])
-    /** 中文说明：测试局部值 register，由紧邻初始化决定。 */
+    expect(queueDockEntry.inject).toEqual(['slots', 'conversation', 'sessions', 'uiConversation'])
     const register = vi.fn(() => () => undefined)
-    /** 中文说明：测试局部值 inject，由紧邻初始化决定。 */
     const inject = vi.fn((_name: string, callback: () => () => void) => callback())
     queueDockEntry.apply({ slots: { inject, register } } as never)
     expect(inject).toHaveBeenCalledWith('conversation.input.dock', expect.any(Function))

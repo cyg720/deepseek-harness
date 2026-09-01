@@ -12,11 +12,8 @@ type ReadRowProps = ToolCallViewProps & PropsLocale<'conversation'>
 /**
  * Lets users expand a completed read result and open its reported path.
  */
-/* 中文说明：函数 ReadRow 的参数见签名，返回结果供展示流程使用；示例见本文件。 */
 export function ReadRow({ toolName, block, cwd, home, openFile, inspect, t }: ReadRowProps) {
-  /** 中文说明：视图局部值 model，由紧邻初始化决定。 */
   const model = toolRowModel(toolName, block, cwd, home)
-  /** 中文说明：视图局部值 read，由紧邻初始化决定。 */
   const read = readCardModel(block, cwd, home)
   return (
     <ToolRow
@@ -26,7 +23,6 @@ export function ReadRow({ toolName, block, cwd, home, openFile, inspect, t }: Re
       icon={<IconBrowseOutline16 size={14} />}
       title={t(model.titleKey)}
       summary={model.summary}
-      body={null}
       output={model.output}
       errorSummary={model.errorSummary}
       read={read}

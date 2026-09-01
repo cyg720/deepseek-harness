@@ -1,22 +1,8 @@
-/*
- * ================================ 文件注释 ================================
- * 【文件职责】ui-agent-preset 全部 UI 文案（英/简中双语）与预设显示文案的解析逻辑。
- * 【技术维度】导出 Record<AgentPresetSettingsKey, string> 字典供 locale 插件注册；
- *             内置预设的显示名/描述按 id 映射到本地化键，用户自定义预设则原样展示文件元数据。
- * 【产品维度】决定设置页、新会话芯片、会话头部、管理分区中所有可见文字；内置预设
- *             （标准/PTC/极简/创造模式）有官方双语文案。
- * 【逻辑维度】1) AgentPresetSettingsKey 枚举全部文案键；2) en/zh 两本字典；
- *             3) presetDisplayText() 依据 trust 是否为 system 选择内置文案或文件元数据。
- * 【关键边界】用户自建预设的 name/description 不做翻译，原样展示；内置预设按稳定 id 匹配。
- * 【新手阅读建议】先看 presetDisplayText() 的判定逻辑，再对照 en/zh 字典了解键的语义。
- * ==========================================================================
- */
-/** Locale bundles for the agent-preset settings row, hero chip, header label, and management section. */
+/** Locale bundles for the agent-preset hero chip, header label, and management section. */
 
 /** Locale keys these surfaces render. */
-// 本包所有文案键的联合类型：新增文案必须先在此登记，en/zh 两本字典才有对应条目。
 export type AgentPresetSettingsKey =
-  | 'title' | 'description' | 'loading' | 'error' | 'userTrust' | 'seatHint' | 'headerHint'
+  | 'error' | 'userTrust' | 'seatHint' | 'headerHint'
   | 'nav' | 'sectionIntro' | 'builtIn' | 'setDefault' | 'view'
   | 'presetStandardName' | 'presetStandardDescription'
   | 'presetPtcName' | 'presetPtcDescription'
@@ -33,11 +19,7 @@ export type AgentPresetSettingsKey =
   | 'deleteTitle' | 'deleteDescription' | 'deleteConfirm' | 'deleting'
 
 /** English copy. */
-// 英文字典：每个键对应一段英文界面文案，供 locale 插件在英文环境下选用。
 export const en: Record<AgentPresetSettingsKey, string> = {
-  title: 'Agent preset',
-  description: 'Applies to sessions you start from now on. Running sessions keep the preset they began with.',
-  loading: 'Loading presets…',
   error: 'Could not load agent presets.',
   userTrust: 'Custom',
   seatHint: 'Agent preset for the session you are about to start',
@@ -101,11 +83,7 @@ export const en: Record<AgentPresetSettingsKey, string> = {
 }
 
 /** Simplified Chinese copy. */
-// 简体中文字典：与 en 键一一对应，供 locale 插件在中文环境下选用。
 export const zh: Record<AgentPresetSettingsKey, string> = {
-  title: 'Agent 预设',
-  description: '对此后新建的会话生效。运行中的会话保持它开始时的预设。',
-  loading: '正在加载预设…',
   error: '无法加载 Agent 预设。',
   userTrust: '自定义',
   seatHint: '即将开始的这个会话所用的 Agent 预设',
@@ -159,57 +137,8 @@ export const zh: Record<AgentPresetSettingsKey, string> = {
   deleting: '正在删除…',
 }
 
-/** Preset roster fields needed to resolve Web display copy. */
-// 显示文案解析所需的清单行字段：只取 id、信任级别与可能存在的名/描述。
-export interface PresetDisplaySource {
-  /** Stable preset id. */
-  readonly id: string
-  /** Whether the deployment ships the preset or the user owns it. */
-  readonly trust: 'system' | 'user'
-  /** Unlocalized name published by the preset. */
-  readonly name?: string
-  /** Unlocalized description published by the preset. */
-  readonly description?: string
-}
-
-/** Display copy resolved for the active Web locale. */
-// 解析后的显示文案：要么来自内置预设的本地化键，要么来自预设文件元数据。
-export interface PresetDisplayText {
-  /** Localized built-in name or the preset's own fallback name. */
-  readonly name: string
-  /** Localized built-in description or the preset's own description. */
-  readonly description?: string
-}
-
-/** 内置预设的本地化键对：name 与 description 各指向一个文案键。 */
-interface PresetLocaleKeys {
-  readonly name: AgentPresetSettingsKey
-  readonly description: AgentPresetSettingsKey
-}
-
-/** 内置预设 id 到本地化键的映射：standard/code/minimal/cordis 各有名与描述键。 */
-const BUILT_IN_PRESET_KEYS: Readonly<Partial<Record<string, PresetLocaleKeys>>> = {
-  standard: { name: 'presetStandardName', description: 'presetStandardDescription' },
-  ptc: { name: 'presetPtcName', description: 'presetPtcDescription' },
-  minimal: { name: 'presetMinimalName', description: 'presetMinimalDescription' },
-  cordis: { name: 'presetCordisName', description: 'presetCordisDescription' },
-}
-
-/**
- * Resolve preset display copy without making user-authored metadata translatable.
- * @param preset - roster row whose copy is being rendered.
- * @param t - active Web locale lookup.
- * @returns localized copy for a known shipped preset, otherwise file metadata.
- */
-// 解析预设的显示文案：内置预设用官方本地化文案，用户自定义预设原样返回文件元数据。
-export function presetDisplayText(
-  preset: PresetDisplaySource,
-  t: (key: AgentPresetSettingsKey) => string,
-): PresetDisplayText {
-  const keys = preset.trust === 'system' ? BUILT_IN_PRESET_KEYS[preset.id] : undefined
-  if (keys !== undefined) return { name: t(keys.name), description: t(keys.description) }
-  return {
-    name: preset.name ?? preset.id,
-    ...preset.description === undefined ? {} : { description: preset.description },
-  }
-}
+// The resolution itself is the shared fold in `dsh-agent-presets/display`,
+// re-exported here so every surface in this plugin reads one path; the
+// Settings plugin list inlines the same fold over this plugin's dictionaries.
+export { presetDisplayText } from '@deepseek-ai/dsh-agent-presets/display'
+export type { PresetDisplaySource, PresetDisplayText } from '@deepseek-ai/dsh-agent-presets/display'

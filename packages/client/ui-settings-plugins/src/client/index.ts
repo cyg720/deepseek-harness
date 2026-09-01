@@ -1,19 +1,3 @@
-/*
- * ================================ 文件注释 ================================
- * 【文件职责】插件设置表面的浏览器侧入口：一个分区，其功能拥有的页签包含
- *             可配置的宿主插件卡片与只读清单。
- * 【技术维度】Cordis 浏览器插件：分区声明 settings.plugins.tab；configurable
- *             页签声明 settings.plugin.item 并渲染注册进来的卡片；三张内置卡片
- *             （bash/agent-loop/web-search）各经客户端设置作用域绑定自己的命名空间。
- * 【产品维度】设置页"插件"分区：可配置插件卡片（shell/agent-loop/web-search）
- *             与页签导航。
- * 【逻辑维度】1) 注册字典；2) 建三个卡片控制器与页签控制器；3) 订阅凭据失效与
- *             卡片账本；4) 注册分区、configurable 页签与三张卡片。
- * 【关键边界】各卡片互不知晓、与其他页签无关；凭据写走的信号经
- *             credentials/reference-updated 到达。
- * 【新手阅读建议】先读 card-form.ts，再看三个卡片控制器的不同接线。
- * ==========================================================================
- */
 /**
  * Plugins settings surface, browser half — one section whose feature-owned
  * tabs include configurable Host plugin cards and read-only inventory.
@@ -70,7 +54,7 @@ const NS = 'settings.plugins'
 
 /** Required services (cordis fiber inject). */
 export const inject = [
-  'slots', 'locale', 'connection', 'remote', 'remote.credentials', 'remote.session', 'settingsScope',
+  'slots', 'locale', 'remote', 'remote.credentials', 'remote.session', 'settingsScope',
 ]
 
 /**
@@ -84,10 +68,10 @@ export function apply(ctx: ClientContext): void {
   const bash = new BashCardController(ctx.settingsScope.bind({ namespace: SHELL_NS }))
   const agentLoop = new AgentLoopCardController(ctx.settingsScope.bind({ namespace: AGENT_LOOP_NS }))
   const webSearch = new WebSearchCardController(
-    ctx.settingsScope.bind({ namespace: WEB_SEARCH_NS }), ctx.remote.credentials)
+    ctx.settingsScope.bind({ namespace: WEB_SEARCH_NS }), ctx)
   const subagentModelSelection = new SubagentModelSelectionCardController(
     ctx.settingsScope.bind({ namespace: SUBAGENT_MODEL_SELECTION_NS }),
-    ctx.remote.session,
+    ctx,
   )
 
   // The credential a card reports is not part of any settings section, so its

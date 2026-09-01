@@ -1,13 +1,5 @@
 /* Figma .FileContainerText 1:791: the wrapper uses the shared dock inset
    inside the composer card around the inset panel. */
-/**
- * 文件职责：定义 QueueDock 的局部样式。
- * 技术维度：CSS Modules、主题变量和状态选择器。
- * 产品维度：保证会话聊天界面层级清楚并适配交互状态。
- * 逻辑维度：按容器、内容、操作与状态组织规则。
- * 关键边界：类名须与组件同步，颜色和尺寸优先复用设计变量。
- * 新手阅读建议：对照同名 TSX 按 DOM 层级阅读。
- */
 
 .dock {
   box-sizing: border-box;
@@ -40,9 +32,7 @@
   padding: 2px 0;
   border-radius: 12px 12px 0 0;
   background: var(--dsw-specific-tip);
-  /* 中文说明：自定义属性 --dsh-scrollbar-thumb 保存组件复用的样式值。 */
   --dsh-scrollbar-thumb: var(--dsw-alias-scrollbar-bg-l2);
-  /* 中文说明：自定义属性 --dsh-scrollbar-thumb-hover 保存组件复用的样式值。 */
   --dsh-scrollbar-thumb-hover: var(--dsw-alias-scrollbar-hover-l2);
 }
 
@@ -130,6 +120,21 @@
 
 .row + .row {
   box-shadow: inset 0 1px 0 var(--dsw-alias-border-l1);
+}
+
+.thumbs {
+  display: flex;
+  flex: none;
+  gap: 4px;
+}
+
+.thumb {
+  width: 24px;
+  height: 24px;
+  border: 1px solid var(--dsw-alias-border-l1);
+  border-radius: 4px;
+  background: var(--dsw-alias-bg-base);
+  object-fit: cover;
 }
 
 .preview,

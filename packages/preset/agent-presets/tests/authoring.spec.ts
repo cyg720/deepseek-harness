@@ -5,14 +5,6 @@
  * containment boundary rather than a style rule; the shipped `.system` set
  * stays read-only.
  */
-/*
- * 文件职责：验证 authoring.spec.ts 覆盖的Agent 预设行为与边界场景。
- * 技术维度：使用 TypeScript、Vitest、Cordis 插件、异步协议、进程资源或仓库文本分析。
- * 产品维度：保障 Agent 的Agent 预设能力稳定、可复现且可诊断。
- * 逻辑维度：准备输入和夹具，执行被测或验证流程，再核对结果、错误与资源清理。
- * 关键边界：中文测试字符串不是注释；外部数据不可信；异步资源必须完全释放。
- * 新手阅读建议：先看夹具和公开类型，再读正常流程，最后关注中文输入、失败与清理场景。
- */
 
 import { chmod, mkdtemp, mkdir, readFile, stat, writeFile } from 'node:fs/promises'
 import { existsSync } from 'node:fs'
@@ -22,23 +14,25 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 import { Context } from '@deepseek-ai/cordis'
 import Loader from '@deepseek-ai/cordis-plugin-loader'
 import Include from '@deepseek-ai/cordis-plugin-include'
+import SessionProjectionRegistry from '@deepseek-ai/dsh-session-projection'
 import { beforeEach, describe, expect, it } from 'vitest'
 import AgentPresets, {
-  COMPOSITION_FILE, copyComposition, METADATA_FILE,
+  COMPOSITION_FILE, copyComposition, METADATA_FILE, type Config,
 } from '@deepseek-ai/dsh-agent-presets'
 
-/** 中文说明：常量 FIXTURES 保存本测试共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const FIXTURES = join(dirname(fileURLToPath(import.meta.url)), 'fixtures')
-/** 中文说明：常量 VALID 保存本测试共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const VALID = '- id: tool-alpha\n  name: ../../plugins/contribute.js\n  config:\n    tool: alpha\n'
 
-/** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 let ctx: Context
-/** 中文说明：变量 userRoot 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 let userRoot: string
 
+/** Mount the required projection seam before the roster service. */
+async function mountAgentPresets(context: Context, config: Config): Promise<void> {
+  await context.plugin(SessionProjectionRegistry)
+  await context.plugin(AgentPresets, config)
+}
+
 /** Hand-craft a preset directory (tests cannot author text through the service). */
-/* 中文说明：函数 seedPreset 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 async function seedPreset(
   root: string, id: string, options: { composition?: string; metadata?: string; extras?: Record<string, string> } = {},
 ): Promise<void> {
@@ -47,7 +41,6 @@ async function seedPreset(
   if (options.metadata !== undefined) {
     await writeFile(join(root, id, METADATA_FILE), options.metadata)
   }
-  /** 中文说明：该循环依次处理输入或事件；循环变量仅在当前循环中有效。 */
   for (const [name, content] of Object.entries(options.extras ?? {})) {
     await mkdir(dirname(join(root, id, name)), { recursive: true })
     await writeFile(join(root, id, name), content)
@@ -60,7 +53,7 @@ beforeEach(async () => {
   ctx.baseUrl = pathToFileURL(FIXTURES).href + '/'
   await ctx.plugin(Loader)
   ctx.loader.builtins.include = Include
-  await ctx.plugin(AgentPresets, {
+  await mountAgentPresets(ctx, {
     default: 'standard',
     roots: [
       { path: join(FIXTURES, 'system'), trust: 'system' as const },
@@ -81,7 +74,6 @@ describe('copying a preset', () => {
 
     expect(await readFile(join(userRoot, 'mine', COMPOSITION_FILE), 'utf8'))
       .toBe(await ctx.agentPresets.read('standard'))
-    /** 中文说明：变量 listed 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const listed = await ctx.agentPresets.list()
     expect(listed.find(preset => preset.id === 'mine')?.trust).toBe('user')
   })
@@ -112,7 +104,6 @@ describe('copying a preset', () => {
 
     // Two rows presenting identically is how a roster stops being a chooser,
     // and the shipped set's declared order is not the copy's to claim.
-    /** 中文说明：变量 metadata 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const metadata = await readFile(join(userRoot, 'mine', METADATA_FILE), 'utf8')
     expect(metadata).toContain('description: 只做检索。')
     expect(metadata).not.toContain('name:')
@@ -141,7 +132,6 @@ describe('copying a preset', () => {
   })
 
   it('refuses an id that could escape the preset root', async () => {
-    /** 中文说明：该循环依次处理输入或事件；循环变量仅在当前循环中有效。 */
     for (const id of ['../escape', 'a/b', '/abs', '..', 'Upper']) {
       await expect(ctx.agentPresets.copy('standard', id)).rejects.toThrow(/must match/)
     }
@@ -173,7 +163,6 @@ describe('copying a preset', () => {
   })
 
   it('leaves nothing behind when the copy itself fails', async () => {
-    /** 中文说明：变量 source 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const source = {
       id: 'gone',
       trust: 'user' as const,
@@ -211,15 +200,13 @@ describe('deleting a preset', () => {
 
 describe('a deployment with more than one user root', () => {
   it('refuses to delete a preset the writable root does not own', async () => {
-    /** 中文说明：变量 second 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const second = await mkdtemp(join(tmpdir(), 'dsh-preset-second-'))
     await seedPreset(second, 'elsewhere')
-    /** 中文说明：变量 layered 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const layered = new Context()
     layered.baseUrl = pathToFileURL(FIXTURES).href + '/'
     await layered.plugin(Loader)
     layered.loader.builtins.include = Include
-    await layered.plugin(AgentPresets, {
+    await mountAgentPresets(layered, {
       default: 'standard',
       roots: [
         { path: userRoot, trust: 'user' as const },
@@ -240,12 +227,11 @@ describe('a deployment with more than one user root', () => {
 
 describe('a deployment with no writable root', () => {
   it('says authoring is unavailable rather than guessing a directory', async () => {
-    /** 中文说明：变量 readOnly 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const readOnly = new Context()
     readOnly.baseUrl = pathToFileURL(FIXTURES).href + '/'
     await readOnly.plugin(Loader)
     readOnly.loader.builtins.include = Include
-    await readOnly.plugin(AgentPresets, {
+    await mountAgentPresets(readOnly, {
       default: 'standard',
       roots: [{ path: join(FIXTURES, 'system'), trust: 'system' as const }],
       includeShippedRoot: false,
@@ -260,14 +246,12 @@ describe('a deployment with no writable root', () => {
 
 describe('a user root that does not exist yet', () => {
   it('is created by the first copy', async () => {
-    /** 中文说明：变量 absent 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const absent = join(await mkdtemp(join(tmpdir(), 'dsh-preset-absent-')), 'nested', 'preset')
-    /** 中文说明：变量 fresh 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const fresh = new Context()
     fresh.baseUrl = pathToFileURL(FIXTURES).href + '/'
     await fresh.plugin(Loader)
     fresh.loader.builtins.include = Include
-    await fresh.plugin(AgentPresets, {
+    await mountAgentPresets(fresh, {
       default: 'standard',
       roots: [
         { path: join(FIXTURES, 'system'), trust: 'system' as const },
@@ -290,7 +274,6 @@ describe('display metadata beside a composition', () => {
     await writeFile(join(userRoot, 'mine', METADATA_FILE), 'name: [unclosed\n')
 
     // Presentation is not capability: discovery still yields the preset.
-    /** 中文说明：函数值 listed 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const listed = (await ctx.agentPresets.list()).find(preset => preset.id === 'mine')
     expect(listed?.name).toBeUndefined()
     expect(await ctx.agentPresets.resolve('mine')).toMatchObject({ id: 'mine' })
@@ -303,7 +286,6 @@ describe('the on-disk occupancy backstop', () => {
     // is the race backstop: a directory appearing between the roster read and
     // the copy still gets the readable refusal, not a filesystem error code.
     await mkdir(join(userRoot, 'raced'), { recursive: true })
-    /** 中文说明：变量 source 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const source = await ctx.agentPresets.resolve('standard')
 
     await expect(copyComposition(
@@ -320,7 +302,6 @@ describe('a ghost directory under the user root', () => {
     await mkdir(join(userRoot, 'ghost'), { recursive: true })
     await writeFile(join(userRoot, 'ghost', 'README.txt'), 'composition deleted by hand\n')
 
-    /** 中文说明：函数值 ghost 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const ghost = (await ctx.agentPresets.list()).find(preset => preset.id === 'ghost')
     expect(ghost?.broken).toMatch(/agent\.cordis\.yml is missing/)
     await expect(ctx.agentPresets.copy('standard', 'ghost')).rejects.toThrow(/already exists/)

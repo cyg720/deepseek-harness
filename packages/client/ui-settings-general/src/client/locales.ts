@@ -1,13 +1,3 @@
-/*
- * ================================ 文件注释 ================================
- * 【文件职责】设置外壳铬与通用导航的双语文案字典（功能行各自拥有自己的文案）。
- * 【技术维度】zh 为键集基准，en 受 Record<SettingsKey, string> 约束。
- * 【产品维度】设置触发行、面板标题、关闭标签、打开配置文件与通用分区导航。
- * 【逻辑维度】zh 定义键，SettingsKey 推导，en 补齐。
- * 【关键边界】zh 是键的单一事实来源。
- * 【新手阅读建议】纯数据文件。
- * ==========================================================================
- */
 /** Shell chrome and General-nav dictionaries; feature rows own their copy. */
 
 /** Simplified Chinese dictionary (the key-set source of truth). */
@@ -18,6 +8,12 @@ export const zh = {
   'openDocument': '打开配置文件',
   'openDocument.error': '无法打开配置文件',
   'general.nav': '通用设置',
+  'connection.error': '连接异常',
+  'connection.retry': '立即重连',
+  'connection.connecting': '连接中',
+  'connection.connected': '连接成功',
+  'connection.reconnect': '连接异常，点击立即重连',
+  'connection.restart': '连接中，点击立即重连',
 } satisfies Record<string, string>
 
 /** The settings namespace key union. */
@@ -31,4 +27,10 @@ export const en = {
   'openDocument': 'Open configuration file',
   'openDocument.error': 'Could not open configuration file',
   'general.nav': 'General',
+  'connection.error': 'Disconnected',
+  'connection.retry': 'Reconnect now',
+  'connection.connecting': 'Connecting',
+  'connection.connected': 'Connected',
+  'connection.reconnect': 'Disconnected, reconnect now',
+  'connection.restart': 'Connecting, restart now',
 } satisfies Record<SettingsKey, string>

@@ -1,25 +1,3 @@
-/*
- * ================================ 文件注释 ================================
- * 【文件职责】terminal-bash 插件：注册一个本地 PTY 后端（BashTerminalBackend），把
- * 子进程终端原语（ctx.subprocess.spawnTerminal）包装为可注册的 TerminalBackend，
- * 支持 bash/pwsh 两种交互式方言，共享沙箱策略，并有"持久终端开着就不许改沙箱模式"
- * 的围栏。
- * 【技术维度】spawnArgv 按策略经 ctx.sandbox.confine 包装 argv（full-access 直通）；
- * childEnvironment 注入 TERM=dumb、受管 DSH_* 事实、bash 的 PS1/PROMPT_COMMAND
- * （每次提示符前发 OSC 133;D; 标记）或 pwsh 的 prompt 函数；startupSession 以
- * "首个受控提示符可见"为就绪契约（pwsh 版循环发送直到提示符出现）。
- * 【产品维度】持久化终端会话的默认后端：模型与用户的交互式 shell 状态跨调用保持，
- * 沙箱模式变更被围栏阻止以免会话被"偷偷"放宽/收紧。
- * 【逻辑维度】ensureSandboxModeFence 挂 owner 会话事件围栏 → childEnvironment 组装
- * 环境 → spawnArgv 生成 argv → BashTerminalBackend.spawn 创建并启动会话 →
- * apply 注册后端。
- * 【关键边界】bash 的 PROMPT_COMMAND 在每次提示符前重设 PS1（命令覆盖 PS1 不残留）；
- * 沙箱拒绝/运行器缺失在 spawn 时响亮失败；启动失败回滚关闭（TerminalBackendCleanupError）。
- * 【新手阅读建议】先看 childEnvironment 的 PS1/PROMPT_COMMAND 设计，再看
- * startupSession 的 pwsh 就绪循环，最后看 sandboxModeFences 的围栏逻辑。
- * ==========================================================================
- */
-
 /**
  * Persistent shell PTY backend over the subprocess terminal primitive, shared
  * sandbox policy, bounded output, and provider-owned session cleanup.
@@ -33,7 +11,8 @@ import { TerminalBackendCleanupError } from '@deepseek-ai/dsh-terminal'
 import type { TerminalBackend, TerminalBackendSpawnSpec, TerminalSendOperation } from '@deepseek-ai/dsh-terminal'
 import type { SubprocessTerminalHandle, SubprocessTerminalSpawnSpec } from '@deepseek-ai/dsh-subprocess'
 import type { SandboxExecutionPolicy } from '@deepseek-ai/dsh-sandbox'
-import { effectiveSandboxMode } from '@deepseek-ai/dsh-sandbox-policy'
+import type {} from '@deepseek-ai/dsh-sandbox-policy'
+import type {} from '@deepseek-ai/dsh-session-projection'
 import { ENCODING_PREAMBLE } from '@deepseek-ai/dsh-pwsh-local'
 import { type Config, type ResolvedConfig, resolveConfig, type ShellDialect, validateConfig } from './config.ts'
 import { LocalPtySession } from './session.ts'
@@ -44,12 +23,13 @@ export type { Config as TerminalLocalConfig } from './config.ts'
 
 /** Cordis plugin name. */
 export const name = 'terminal-bash'
-/** Required services: PTY registry, shared confinement policy, and process substrate. */
-export const inject = ['terminals', 'sandboxPolicy', 'subprocess']
+/** Required services: terminal registry, shared confinement policy, projection registry, and process substrate. */
+export const inject = ['terminals', 'sandboxPolicy', 'sessionProjections', 'subprocess']
 
 interface SandboxModeFenceState {
   pty: Context['terminals']
   sandboxPolicy: Context['sandboxPolicy']
+  sessionProjections: Context['sessionProjections']
 }
 
 const sandboxModeFences = new WeakMap<Agent, SandboxModeFenceState>()
@@ -59,15 +39,21 @@ function ensureSandboxModeFence(ctx: Context, owner: Agent): void {
   if (existing !== undefined) {
     existing.pty = ctx.terminals
     existing.sandboxPolicy = ctx.sandboxPolicy
+    existing.sessionProjections = ctx.sessionProjections
     return
   }
-  const state: SandboxModeFenceState = { pty: ctx.terminals, sandboxPolicy: ctx.sandboxPolicy }
+  const state: SandboxModeFenceState = {
+    pty: ctx.terminals,
+    sandboxPolicy: ctx.sandboxPolicy,
+    sessionProjections: ctx.sessionProjections,
+  }
   sandboxModeFences.set(owner, state)
   owner.ctx.on('internal/dispatch', (_mode, eventName, args) => {
     if (eventName !== 'session/event') return
     const [session, event] = args as [Session, SessionEvent]
     if (session !== owner.session || event.type !== 'sandbox/mode') return
-    const currentMode = effectiveSandboxMode(session.events) ?? state.sandboxPolicy.defaultMode
+    const folded = state.sessionProjections.stateOf(session, 'sandboxMode') ?? null
+    const currentMode = folded ?? state.sandboxPolicy.defaultMode
     if (event.data.mode === currentMode || !state.pty.hasOwnerActivity(owner)) return
     throw new Error(
       `cannot change sandbox mode from "${currentMode}" to "${event.data.mode}" while persistent terminal sessions are open or being created; wait for creation to settle and close them first`,

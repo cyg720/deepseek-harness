@@ -1,34 +1,15 @@
-/*
- * ================================ 文件注释 ================================
- * 【文件职责】ui-agent-preset 包在浏览器侧的插件入口：把"Agent 预设"的四个 UI 面
- *             （设置行、新会话页芯片、会话头部标签、管理分区）注册进对应槽位。
- * 【技术维度】Cordis 浏览器插件：ctx.effect() 注册副作用、ctx.slots.register() 挂载 UI、
- *             ctx.inject() 注入后续作用域，通过 remote 事件（settings/document-updated、
- *             agent-preset/selected）与宿主同步。
- * 【产品维度】一套预设是一份插件组合（工具、提示词、能力）。用户可设默认预设，
- *             新会话开场前在芯片上挑选预设，会话头部显示该会话实际使用的预设，
- *             设置页可复制/删除预设或进入其目录编辑。
- * 【逻辑维度】1) apply 建立设置行控制器并监听外部变更刷新；
- *             2) 注入会话作用域，建立"芯片+头部标签"共享控制器，监听会话列表变化
- *                以应用暂存的预设选择；
- *             3) 注册管理分区，暴露增删改查与打开目录等操作。
- * 【关键边界】运行中的会话保持开始时的预设，宿主拒绝中途换预设——这是"选择"与
- *             "显示"分离的原因；预设按 id 存于目录，删除/复制是文件级操作。
- * 【新手阅读建议】先读 settings-store / seat-store / section-store 三个控制器，
- *             再看本文件如何把它们挂到槽位上。
- * ==========================================================================
- */
 /**
- * Agent-preset surface plugin, browser half — four surfaces over one roster:
- * a General-settings row for the default preset, a chip on the new-session
- * screen for the session about to start, a read-only label in the session
- * header, and a settings section that manages the roster (copy, delete,
- * default, and the way into a preset's own files).
+ * Agent-preset surface plugin, browser half — three surfaces over one roster:
+ * a chip on the new-session screen for the session about to start, a
+ * read-only label in the session header, and a settings section that manages
+ * the roster (copy, delete, default, and the way into a preset's own files).
  *
  * A running session keeps the composition it began with (the host refuses to
  * adopt an existing session under a different preset). That is what splits
- * the choice from the display: the General row and the hero chip are both
- * before-the-fact, while the header only reports what a session already runs.
+ * the choice from the display: the hero chip is before-the-fact, while the
+ * header only reports what a session already runs. The default preset is
+ * edited where the roster is visible — the settings section's "make default"
+ * — so General settings carries no duplicate control for the same field.
  */
 
 // Type-only: pulls the Session Controller service merge (ctx.sessions).
@@ -46,19 +27,23 @@ import type {} from '@deepseek-ai/dsh-client-ui-workspace/client'
 import type { Context as ClientContext } from '@deepseek-ai/cordis'
 import { AgentPresetLabel } from './AgentPresetLabel.tsx'
 import type { AgentPresetLabelInjected } from './AgentPresetLabel.tsx'
-import { AgentPresetRow } from './AgentPresetRow.tsx'
-import type { AgentPresetRowInjected } from './AgentPresetRow.tsx'
 import { AgentPresetSeat } from './AgentPresetSeat.tsx'
 import type { AgentPresetSeatInjected } from './AgentPresetSeat.tsx'
 import { AgentPresetSection } from './AgentPresetSection.tsx'
 import type { AgentPresetSectionInjected } from './AgentPresetSection.tsx'
 import { AgentPresetSeatController } from './seat-store.ts'
 import { AgentPresetSectionController } from './section-store.ts'
-import { en, zh } from './locales.ts'
+import { en, zh, type AgentPresetSettingsKey } from './locales.ts'
 import { AGENT_PRESET_SETTINGS_NS, AgentPresetSettingsController } from './settings-store.ts'
 
+declare module '@deepseek-ai/dsh-client-ui-slots' {
+  interface LocaleNamespaceMap {
+    /** Agent-preset surface copy. */
+    'settings.agentPreset': AgentPresetSettingsKey
+  }
+}
+
 export type { AgentPresetLabelInjected, AgentPresetLabelProps } from './AgentPresetLabel.tsx'
-export type { AgentPresetRowInjected, AgentPresetRowProps } from './AgentPresetRow.tsx'
 export type { AgentPresetSeatInjected, AgentPresetSeatProps } from './AgentPresetSeat.tsx'
 export type { AgentPresetSectionInjected, AgentPresetSectionProps } from './AgentPresetSection.tsx'
 export type { AgentPresetSeatState } from './seat-store.ts'
@@ -70,34 +55,24 @@ export { AGENT_PRESET_SETTINGS_NS, writeDefaultPreset } from './settings-store.t
 
 /** Required services (cordis fiber inject). */
 export const inject = [
-  'slots', 'locale', 'remote', 'remote.agentPresets', 'remote.settings', 'settingsScope',
+  'slots', 'locale', 'remote', 'remote.agentPresets', 'remote.settings',
 ]
 
 /**
- * Mount the General-settings row.
+ * Mount the roster surfaces: hero chip, session-header label, settings section.
  * @param ctx - the browser plugin context.
  */
-// 浏览器侧插件入口：把四个"Agent 预设"表面（设置行、新会话芯片、会话头部标签、
-// 管理分区）注册进对应槽位，并连接它们与宿主之间的同步事件。
 export function apply(ctx: ClientContext): void {
-  const settingsWire = { settings: ctx.remote.settings }
-  const controller = new AgentPresetSettingsController(settingsWire, ctx.remote, ctx.settingsScope.describe())
-  // One roster, four surfaces. The chip is registered in a later scope, so it
+  const controller = new AgentPresetSettingsController(ctx)
+  // One roster, three surfaces. The chip is registered in a later scope, so it
   // subscribes here rather than being reached from this one.
-  // 共享清单刷新回调集合：任何表面改变预设目录（复制/删除）后都会通知所有订阅者重读。
   const rosterReaders = new Set<() => void>()
-  const section = new AgentPresetSectionController(ctx.remote, () => {
+  const section = new AgentPresetSectionController(ctx, () => {
     void controller.load()
     for (const read of rosterReaders) read()
   })
 
   ctx.effect(() => ctx.locale.register('settings.agentPreset', { zh, en }), 'ui-agent-preset: settings row dictionaries')
-
-  const injected = (): AgentPresetRowInjected => ({
-    hooks: { agentPreset: controller.store },
-    load: () => controller.load(),
-    select: (id: string) => controller.select(id),
-  })
 
   ctx.effect(() => {
     // The roster is a live directory and the default is a settings field, so
@@ -123,19 +98,16 @@ export function apply(ctx: ClientContext): void {
   // conversation scope below (the seat and the session flow live there) and
   // unbound with it, so the section's face reads the current binding per
   // render and simply hides the button while no flow exists.
-  // 设置分区里的"创作草稿"入口：暂存创造模式预设并启动一个新会话落到它上面。
-  // 该绑定在下面的会话作用域内创建与销毁，分区渲染时按当前绑定决定是否显示按钮。
   let creatorDraft: (() => void) | undefined
 
   // The new-session chip and the header label: one controller, because the
   // staged choice belongs to the flow rather than to any one session.
   ctx.inject(['slots', 'conversation', 'sessions', 'uiWorkspace'], (scope: ClientContext) => {
-    const seat = new AgentPresetSeatController(scope.remote, () => {
+    const seat = new AgentPresetSeatController(scope, () => {
       const state = scope.sessions.list.getSnapshot()
       return state.current === undefined ? undefined : state.byId[state.current]
     })
 
-    // 芯片注入面：把芯片的 store 与动作暴露给槽位渲染层。
     const seatInjected = (): AgentPresetSeatInjected => ({
       hooks: { agentPresetSeat: seat.store },
       load: () => seat.load(),
@@ -143,7 +115,6 @@ export function apply(ctx: ClientContext): void {
       introduced: () => { seat.introduced() },
     })
 
-    // 头部标签注入面：暴露控制器 store 与 load，标签据此显示当前会话的预设。
     const labelInjected = (): AgentPresetLabelInjected => ({
       hooks: { agentPresets: controller.store },
       load: () => controller.load(),
@@ -203,7 +174,6 @@ export function apply(ctx: ClientContext): void {
     }, 'ui-agent-preset: new-session chip and header label')
   })
 
-  // 管理分区注入面：把分区的 store 与全部操作暴露给渲染层。
   const sectionInjected = (): AgentPresetSectionInjected => ({
     hooks: { agentPresetSection: section.store },
     load: () => section.load(),
@@ -221,13 +191,6 @@ export function apply(ctx: ClientContext): void {
     makeDefault: (id: string) => section.makeDefault(id),
   })
 
-  ctx.slots.inject('settings.general.item', () => ctx.slots.register({
-    name: 'settings.general.item',
-    id: 'agent-preset',
-    order: -25,
-    locale: 'settings.agentPreset',
-    inject: injected,
-  }, AgentPresetRow))
   // Ordered after Models: choosing a model is routine, and composing an
   // agent is the deployment-shaping act behind it.
   ctx.slots.inject('settings.section', () => ctx.slots.register({

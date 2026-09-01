@@ -10,14 +10,13 @@ import * as SessionInvariant from '@deepseek-ai/dsh-session/invariant'
 import * as AgentInvariant from '@deepseek-ai/dsh-agent/invariant'
 import * as AgentLoopInvariant from '@deepseek-ai/dsh-agent-loop/invariant'
 import SubagentRuntime, { snapshotSubagentDescriptor } from '@deepseek-ai/dsh-subagent'
+import SessionProjectionRegistry from '@deepseek-ai/dsh-session-projection'
 import { defineContentToolFixture } from '@deepseek-ai/dsh-tools'
 import { maxTokensResponse, MockAdapter, textResponse, toolCallResponse } from '../../../core/agent-loop/tests/mock-adapter.ts'
 import { startInProcessRun } from '../src/index.ts'
 
-/** 中文说明：type Script 定义本测试所需的数据或行为，用于表达子代理场景。 */
 type Script = ConstructorParameters<typeof MockAdapter>[0]
 
-/** 中文说明：函数 mountInvariants 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 async function mountInvariants(ctx: Context): Promise<void> {
   await ctx.plugin(InvariantRegistry)
   await ctx.plugin(SessionInvariant)
@@ -25,23 +24,19 @@ async function mountInvariants(ctx: Context): Promise<void> {
   await ctx.plugin(AgentLoopInvariant)
 }
 
-/** 中文说明：函数 setup 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 async function setup(script: Script, parentOptions: Partial<AgentOptions> = {}) {
-  /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const ctx = new Context()
   await mountAgentLoopTestDependencies(ctx)
   await mountInvariants(ctx)
   await ctx.plugin(AgentLoop, { agents: [] })
+  await ctx.plugin(SessionProjectionRegistry)
   await ctx.plugin(SubagentRuntime)
-  /** 中文说明：变量 adapter 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const adapter = new MockAdapter(script)
   ctx.llm.registerAdapter(['mock'], adapter)
-  /** 中文说明：变量 parent 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const parent = ctx.agentLoop.create(SessionId('parent'), { provider: 'mock', model: 'mock', ...parentOptions })
   return { ctx, parent, adapter }
 }
 
-/** 中文说明：函数 request 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function request(parent: Agent, signal = new AbortController().signal) {
   return {
     label: 'child task',
@@ -56,7 +51,6 @@ function request(parent: Agent, signal = new AbortController().signal) {
   }
 }
 
-/** 中文说明：函数 text 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function text(blocks: readonly { type: string; text?: string }[]): string {
   return blocks.filter(block => block.type === 'text').map(block => block.text).join('')
 }
@@ -64,10 +58,8 @@ function text(blocks: readonly { type: string; text?: string }[]): string {
 describe('startInProcessRun', () => {
   it('returns only after publication, drives a fresh child, and disposes it', async () => {
     const { ctx, parent } = await setup([textResponse('driver answer')])
-    /** 中文说明：变量 run 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const run = await startInProcessRun(request(parent), {})
     expect(ctx.agents.get(run.id)).toBeDefined()
-    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await run.result
     expect(result.stopReason).toBe('completed')
     expect(text(result.output)).toBe('driver answer')
@@ -79,15 +71,12 @@ describe('startInProcessRun', () => {
 
   it('uses explicit child model selectors when the parent has none and preserves its cwd', async () => {
     const { ctx } = await setup([textResponse('driver answer')])
-    /** 中文说明：变量 parent 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const parent = ctx.agentLoop.create(SessionId('bare-parent'), {}, { cwd: '/workspace' })
-    /** 中文说明：变量 run 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const run = await startInProcessRun({
       ...request(parent),
       agentOptions: { provider: 'mock', model: 'mock' },
     }, {})
 
-    /** 中文说明：变量 child 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const child = ctx.agents.get(run.id)!
     expect(child.options).toMatchObject({ provider: 'mock', model: 'mock' })
     expect(child.session.header.cwd).toBe('/workspace')
@@ -104,7 +93,6 @@ describe('startInProcessRun', () => {
       return { kind: 'reject' as const }
     })
 
-    /** 中文说明：变量 run 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const run = await startInProcessRun(request(parent), {})
     await expect(run.result).resolves.toMatchObject({ stopReason: 'refusal' })
     await run.dispose()
@@ -112,7 +100,6 @@ describe('startInProcessRun', () => {
 
   it('does not add a final durability checkpoint to a foreground run', async () => {
     const { ctx, parent } = await setup([textResponse('driver answer')])
-    /** 中文说明：变量 flushes 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     let flushes = 0
     ctx.on('session/flush', (session) => {
       if (session.header.parentSession === undefined) return
@@ -120,7 +107,6 @@ describe('startInProcessRun', () => {
       throw new Error('disk full')
     })
 
-    /** 中文说明：变量 run 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const run = await startInProcessRun(request(parent), {})
     await expect(run.result).resolves.toMatchObject({ stopReason: 'completed' })
     expect(flushes).toBe(0)
@@ -129,15 +115,10 @@ describe('startInProcessRun', () => {
 
   it('keeps published run and handle disposal failures on separate channels', async () => {
     const { ctx, parent } = await setup([])
-    /** 中文说明：变量 runError 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const runError = new Error('published run failed')
-    /** 中文说明：变量 disposalError 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const disposalError = new Error('published handle disposal failed')
-    /** 中文说明：变量 beforeAgents 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const beforeAgents = ctx.agents.list().length
-    /** 中文说明：变量 beforeSessions 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const beforeSessions = ctx.sessions.list().length
-    /** 中文说明：变量 parentWithFailedDisposal 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const parentWithFailedDisposal = {
       options: parent.options,
       session: parent.session,
@@ -145,7 +126,6 @@ describe('startInProcessRun', () => {
         get: () => undefined,
         agents: {
           create: async (options: Parameters<typeof ctx.agents.create>[0]) => {
-            /** 中文说明：变量 handle 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
             const handle = await ctx.agents.create(options)
             handle.agent.followup = () => { throw runError }
             return {
@@ -160,7 +140,6 @@ describe('startInProcessRun', () => {
       },
     } as unknown as Agent
 
-    /** 中文说明：变量 run 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const run = await startInProcessRun(request(parentWithFailedDisposal), {})
     expect(ctx.agents.get(run.id)).toBeDefined()
     await expect(run.result).rejects.toBe(runError)
@@ -170,11 +149,9 @@ describe('startInProcessRun', () => {
   })
   it('reports the turn outcome when later metadata is appended during flush', async () => {
     const { ctx, parent } = await setup([maxTokensResponse('partial answer')])
-    /** 中文说明：变量 injected 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     let injected = false
     ctx.on('session/flush', (session) => {
       if (injected || session.header.parentSession === undefined) return
-      /** 中文说明：函数值 lastEnd 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
       const lastEnd = session.events.findLast(event => event.type === 'turn/end')
       if (lastEnd?.type !== 'turn/end' || lastEnd.data.reason.kind !== 'max-tokens') return
       injected = true
@@ -184,11 +161,8 @@ describe('startInProcessRun', () => {
       }), { surfaceOp: 'append' })
     })
 
-    /** 中文说明：变量 run 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const run = await startInProcessRun(request(parent), {})
-    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await run.result
-    /** 中文说明：变量 child 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const child = ctx.agents.get(run.id)!
 
     expect(injected).toBe(false)
@@ -211,14 +185,11 @@ describe('startInProcessRun', () => {
         { type: 'finish', reason: { kind: 'max-tokens' } },
       ],
     ])
-    /** 中文说明：变量 disposeNoop 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const disposeNoop = ctx.tools.register(defineContentToolFixture({
       name: 'noop', description: 'probe', parameters: {},
       execute() { return Promise.resolve([{ type: 'text', text: 'noop result' }]) },
     }))
-    /** 中文说明：变量 run 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const run = await startInProcessRun(request(parent), {})
-    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await run.result
     expect(result.stopReason).toBe('max-tokens')
     expect(text(result.output)).toBe('partial one')
@@ -230,14 +201,10 @@ describe('startInProcessRun', () => {
     const { ctx, parent } = await setup([textResponse('parent answer'), textResponse('child answer')])
     parent.followup(createUserMessage({ content: [{ type: 'text', text: 'parent question' }], source: { kind: 'user' } }))
     await parent.whenIdle()
-    /** 中文说明：变量 seed 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const seed = parent.session.events.slice()
-    /** 中文说明：变量 run 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const run = await startInProcessRun(request(parent), { seed })
-    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await run.result
     expect(text(result.output)).toBe('child answer')
-    /** 中文说明：变量 child 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const child = ctx.agents.get(run.id)!
     expect(child.session.header.seedLength).toBe(seed.length)
     expect(child.session.events.slice(0, seed.length)).toEqual(seed)
@@ -246,7 +213,6 @@ describe('startInProcessRun', () => {
 
   it('persists the child origin and depth in its session header', async () => {
     const { ctx, parent } = await setup([textResponse('child answer')])
-    /** 中文说明：变量 run 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const run = await startInProcessRun(request(parent), {})
     await run.result
     // The recursion budget is durable session data, not only runtime options —
@@ -263,14 +229,12 @@ describe('startInProcessRun', () => {
       [textResponse('inherited'), textResponse('overridden')],
       { maxTokens: 111 },
     )
-    /** 中文说明：变量 inherited 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const inherited = await startInProcessRun(request(parent), {})
     await inherited.result
     expect(adapter.requests[0]?.maxTokens).toBe(111)
     expect(ctx.agents.get(inherited.id)?.options.maxTokens).toBe(111)
     await inherited.dispose()
 
-    /** 中文说明：变量 overridden 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const overridden = await startInProcessRun({
       ...request(parent),
       agentOptions: { maxTokens: 222 },
@@ -285,7 +249,6 @@ describe('startInProcessRun', () => {
     // Resume rebuilds runtime options, so the durable header must keep this
     // depth-1 child from delegating as though it were top-level.
     const { ctx } = await setup([textResponse('unused')])
-    /** 中文说明：变量 resumed 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const resumed = (await ctx.agents.create({
       sessionId: SessionId('resumed-child'),
       meta: { parentSession: SessionId('root'), delegationDepth: 1 },
@@ -298,7 +261,6 @@ describe('startInProcessRun', () => {
 
   it('lets runtime options deepen but never lower the persisted depth', async () => {
     const { ctx } = await setup([textResponse('unused')])
-    /** 中文说明：变量 parent 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const parent = (await ctx.agents.create({
       sessionId: SessionId('deep-parent'),
       meta: { delegationDepth: 2 },
@@ -316,25 +278,19 @@ describe('startInProcessRun', () => {
       .rejects.toThrow('non-negative safe integer')
     await expect(startInProcessRun({ ...request(parent), maxDepth: 0 }, {}))
       .rejects.toMatchObject({ name: 'SubagentDepthError' })
-    /** 中文说明：该循环依次处理代理事件；循环变量仅在当前循环中有效。 */
     for (const value of [Number.NaN, 1.5, -1, -0, Number.MAX_SAFE_INTEGER + 1]) {
-      /** 中文说明：变量 malformed 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const malformed = { options: { subagentDepth: value }, session: { header: {} } } as unknown as Agent
       await expect(startInProcessRun(request(malformed), {}))
         .rejects.toThrow('agent subagentDepth must be a non-negative safe integer')
     }
-    /** 中文说明：变量 maxParent 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const maxParent = { options: { subagentDepth: Number.MAX_SAFE_INTEGER }, session: { header: {} } } as unknown as Agent
     await expect(startInProcessRun(request(maxParent), {})).rejects.toBeInstanceOf(RangeError)
   })
 
   it('rejects an already-aborted request without publishing a child', async () => {
     const { ctx, parent } = await setup([])
-    /** 中文说明：变量 beforeAgents 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const beforeAgents = ctx.agents.list().length
-    /** 中文说明：变量 beforeSessions 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const beforeSessions = ctx.sessions.list().length
-    /** 中文说明：变量 controller 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const controller = new AbortController()
     controller.abort('too late')
     await expect(startInProcessRun(request(parent, controller.signal), {}))
@@ -350,11 +306,8 @@ describe('startInProcessRun', () => {
     // no provider/model is fabricated, so the child's turn errors for want of a
     // route rather than silently adopting one.
     const { ctx } = await setup([])
-    /** 中文说明：变量 parent 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const parent = ctx.agentLoop.create(SessionId('routeless-parent'), {})
-    /** 中文说明：变量 run 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const run = await startInProcessRun(request(parent), {})
-    /** 中文说明：变量 child 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const child = ctx.agents.get(run.id)!
     expect(child.options).toEqual({ subagentDepth: 1 })
     await expect(run.result).resolves.toMatchObject({ stopReason: 'error' })
@@ -363,9 +316,7 @@ describe('startInProcessRun', () => {
 
   it('uses the request signal after publication and dispose as cancellation paths', async () => {
     const { parent, adapter } = await setup(['hang', 'hang'])
-    /** 中文说明：变量 controller 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const controller = new AbortController()
-    /** 中文说明：变量 signalled 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const signalled = await startInProcessRun(request(parent, controller.signal), {})
     await new Promise(resolve => setTimeout(resolve, 30))
     controller.abort('stop child')
@@ -376,14 +327,11 @@ describe('startInProcessRun', () => {
       stopReason: 'aborted',
     })
     expect(adapter.requests[0]?.signal?.reason).toEqual({ kind: 'parent' })
-    /** 中文说明：变量 child 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const child = parent.ctx.agents.get(signalled.id)
-    /** 中文说明：函数值 turnEnd 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const turnEnd = child?.session.events.findLast(event => event.type === 'turn/end')
     expect(turnEnd?.type === 'turn/end' && turnEnd.data.reason).toEqual({ kind: 'aborted', reason: { kind: 'parent' } })
     await signalled.dispose()
 
-    /** 中文说明：变量 disposed 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const disposed = await startInProcessRun(request(parent), {})
     await new Promise(resolve => setTimeout(resolve, 30))
     await disposed.dispose()
@@ -392,9 +340,7 @@ describe('startInProcessRun', () => {
 
   it('cleans a failed unpublished setup before rejecting', async () => {
     const { ctx, parent } = await setup([])
-    /** 中文说明：变量 beforeAgents 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const beforeAgents = ctx.agents.list().length
-    /** 中文说明：变量 beforeSessions 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const beforeSessions = ctx.sessions.list().length
     await expect(startInProcessRun({
       ...request(parent),
@@ -406,13 +352,9 @@ describe('startInProcessRun', () => {
 
   it('treats abort after factory publication as a cancelled run with an id', async () => {
     const { ctx, parent } = await setup([])
-    /** 中文说明：变量 controller 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const controller = new AbortController()
-    /** 中文说明：变量 beforeAgents 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const beforeAgents = ctx.agents.list().length
-    /** 中文说明：变量 beforeSessions 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const beforeSessions = ctx.sessions.list().length
-    /** 中文说明：变量 parentWithAbortAtHandoff 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const parentWithAbortAtHandoff = {
       options: parent.options,
       session: parent.session,
@@ -422,7 +364,6 @@ describe('startInProcessRun', () => {
         get: () => undefined,
         agents: {
           create: async (options: Parameters<typeof ctx.agents.create>[0]) => {
-            /** 中文说明：变量 handle 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
             const handle = await ctx.agents.create(options)
             // `create()` has detached its creation-only listener, but the
             // published run has not installed its live listener yet.
@@ -432,7 +373,6 @@ describe('startInProcessRun', () => {
         },
       },
     } as unknown as Agent
-    /** 中文说明：变量 run 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const run = await startInProcessRun(request(parentWithAbortAtHandoff, controller.signal), {})
     expect(ctx.agents.get(run.id)).toBeDefined()
     await expect(run.result).resolves.toEqual({ output: [], stopReason: 'aborted' })

@@ -1,16 +1,9 @@
 /**
  * The `read_image` tool over the REAL local filesystem and attachment store:
- * extension routing, the strict image-modality gate (every refusal arm),
- * durable commit + image-block rendering, attachment admission failures, and
- * the regression that `read` keeps its text-only contract.
- */
-/*
- * 文件职责：验证文件系统与工具的 read-image.spec.ts 行为与安全边界。
- * 技术维度：TypeScript、Cordis、会话事件、路径策略、判别联合和 Vitest。
- * 产品维度：保证文件系统与工具操作可预测、可审计并在失败时保持一致。
- * 逻辑维度：构造请求与状态，驱动服务并断言输出和清理。
- * 关键边界：文件路径必须经过策略检查；目标引用含版本，过期修改必须拒绝。
- * 新手阅读建议：先读类型与测试夹具，再按校验、执行、事件折叠和错误流程阅读。
+ * extension routing, extension-less content sniffing (attachment object paths
+ * included), the strict image-modality gate (every refusal arm), durable
+ * commit + image-block rendering, attachment admission failures, and the
+ * regression that `read` keeps its text-only contract.
  */
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
@@ -36,20 +29,17 @@ import {
   formatImageReadOutput,
   imageMediaTypeForPath,
   imageRefFromValue,
+  sniffImageMediaType,
 } from '../src/read-image.ts'
 
 /** 1x1 red PNG (valid signature, IHDR, IDAT). */
-/* 中文说明：测试局部值 PNG_1X1，由紧邻初始化决定。 */
 const PNG_1X1 = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4z8AAAAMBAQDJ/pLvAAAAAElFTkSuQmCC', 'base64')
 /** 3x3 red PNG used to trip a tiny configured pixel limit. */
-/* 中文说明：测试局部值 PNG_3X3，由紧邻初始化决定。 */
 const PNG_3X3 = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAMAAAADCAIAAADZSiLoAAAAEElEQVR4nGP4z8AAQQxYWACPjgj4kWPEuQAAAABJRU5ErkJggg==', 'base64')
 
-/** 中文说明：测试局部值 testToolSignal，由紧邻初始化决定。 */
 const testToolSignal = new AbortController().signal
 
 /** Exact-route fake adapter; `stream` is unreachable in these tests. */
-/* 中文说明：类型或类 CatalogAdapter 约束文件或目标数据职责。 */
 class CatalogAdapter extends LlmAdapter {
   constructor(
     private readonly models: LlmModelInfo[],
@@ -63,7 +53,6 @@ class CatalogAdapter extends LlmAdapter {
   }
 
   override resolveModel(provider: string, model: string): Promise<LlmResolvedModelInfo> {
-    /** 中文说明：测试局部值 resolved，由紧邻初始化决定。 */
     const resolved = this.resolvedModels.find(candidate => candidate.id === model)
     return Promise.resolve({
       provider,
@@ -89,9 +78,7 @@ class FakeRuntime extends CodeRuntime {
   }
 }
 
-/** 中文说明：测试局部值 dir: string，由紧邻初始化决定。 */
 let dir: string
-/** 中文说明：测试局部值 home: string，由紧邻初始化决定。 */
 let home: string
 
 beforeEach(async () => {
@@ -103,7 +90,6 @@ afterEach(async () => {
   await rm(home, { recursive: true, force: true })
 })
 
-/** 中文说明：类型或类 SetupOptions 约束文件或目标数据职责。 */
 interface SetupOptions {
   models?: LlmModelInfo[]
   resolvedModels?: LlmModelInfo[]
@@ -113,9 +99,7 @@ interface SetupOptions {
   toolMode?: ToolConfig['mode']
 }
 
-/** 中文说明：函数 setup 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 async function setup(options: SetupOptions = {}) {
-  /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
   const ctx = new Context()
   await ctx.plugin(SystemPrompt)
   await ctx.plugin(ToolRuntime, { mode: options.toolMode ?? 'native' })
@@ -140,7 +124,6 @@ async function setup(options: SetupOptions = {}) {
 }
 
 /** A fake calling agent pinned to one routed provider/model. */
-/* 中文说明：函数 agentOn 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function agentOn(model: string | undefined, provider = 'visual', messages: readonly Message[] = []): object {
   return {
     options: {},
@@ -153,9 +136,7 @@ function agentOn(model: string | undefined, provider = 'visual', messages: reado
   }
 }
 
-/** 中文说明：测试局部值 callCounter，由紧邻初始化决定。 */
 let callCounter = 0
-/** 中文说明：函数 call 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function call(ctx: Context, name: string, args: unknown, agent?: object) {
   return ctx.tools.execute({
     signal: testToolSignal,
@@ -166,12 +147,10 @@ function call(ctx: Context, name: string, args: unknown, agent?: object) {
   })
 }
 
-/** 中文说明：函数 readImage 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function readImage(ctx: Context, args: unknown, agent?: object) {
   return call(ctx, 'read_image', args, agent)
 }
 
-/** 中文说明：函数 text 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function text(result: { content: { type: string; text?: string }[] }): string {
   return result.content.filter(b => b.type === 'text').map(b => b.text).join('')
 }
@@ -188,9 +167,32 @@ describe('imageMediaTypeForPath', () => {
   })
 })
 
+function ascii(value: string): Uint8Array {
+  return new TextEncoder().encode(value)
+}
+
+describe('sniffImageMediaType', () => {
+  it('identifies each supported container from its complete signature', () => {
+    expect(sniffImageMediaType(Uint8Array.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00]))).toBe('image/png')
+    expect(sniffImageMediaType(Uint8Array.from([0xff, 0xd8, 0xff, 0xe0]))).toBe('image/jpeg')
+    expect(sniffImageMediaType(ascii('GIF87a...'))).toBe('image/gif')
+    expect(sniffImageMediaType(ascii('GIF89a...'))).toBe('image/gif')
+    expect(sniffImageMediaType(ascii('RIFF\0\0\0\0WEBPVP8 '))).toBe('image/webp')
+  })
+
+  it('returns undefined for other bytes, incomplete signatures, and non-WebP RIFF containers', () => {
+    expect(sniffImageMediaType(new Uint8Array())).toBeUndefined()
+    expect(sniffImageMediaType(ascii('plain text'))).toBeUndefined()
+    expect(sniffImageMediaType(Uint8Array.from([0x89, 0x50, 0x4e]))).toBeUndefined()
+    expect(sniffImageMediaType(Uint8Array.from([0xff, 0xd8]))).toBeUndefined()
+    expect(sniffImageMediaType(ascii('GIF90a'))).toBeUndefined()
+    expect(sniffImageMediaType(ascii('RIFF\0\0\0\0WAVE'))).toBeUndefined()
+    expect(sniffImageMediaType(ascii('RIFF\0\0\0'))).toBeUndefined()
+  })
+})
+
 describe('imageRefFromValue', () => {
   it('re-brands with and without the optional display name', () => {
-    /** 中文说明：测试局部值 base，由紧邻初始化决定。 */
     const base = { attachmentId: 'sha256:00', mediaType: 'image/png' as const, bytes: 1, width: 1, height: 1 }
     expect(imageRefFromValue(base)).toEqual(base)
     expect(imageRefFromValue({ ...base, name: 'a.png' })).toEqual({ ...base, name: 'a.png' })
@@ -202,14 +204,11 @@ describe('imageRefFromValue', () => {
 describe('read_image happy path', () => {
   it('commits the bytes durably and renders the envelope beside an image block', async () => {
     await writeFile(join(dir, 'red.png'), PNG_1X1)
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await setup()
-    /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
     const result = await readImage(ctx, { file_path: 'red.png' }, agentOn('vision-model'))
 
     expect(result.isError).toBe(false)
     expect(result.content).toHaveLength(2)
-    /** 中文说明：测试局部值 image，由紧邻初始化决定。 */
     const image = result.content[1] as { type: string; attachment: ImageAttachmentRef }
     expect(image.type).toBe('image')
     expect(image.attachment.mediaType).toBe('image/png')
@@ -227,19 +226,15 @@ describe('read_image happy path', () => {
     }))
 
     // The committed object must read back verbatim through the store.
-    /** 中文说明：测试局部值 attachments，由紧邻初始化决定。 */
     const attachments = ctx.get('attachments')
     if (attachments === undefined) throw new Error('expected the attachment service')
-    /** 中文说明：测试局部值 stored，由紧邻初始化决定。 */
     const stored = await attachments.readImage(image.attachment)
     expect(Buffer.from(stored.data)).toEqual(PNG_1X1)
   })
 
   it('emits fs/observed for the read image', async () => {
     await writeFile(join(dir, 'red.png'), PNG_1X1)
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await setup()
-    /** 中文说明：测试局部值 observed，由紧邻初始化决定。 */
     const observed: string[] = []
     ctx.on('fs/observed', target => void observed.push(target.displayPath))
     await readImage(ctx, { file_path: 'red.png' }, agentOn('vision-model'))
@@ -248,14 +243,11 @@ describe('read_image happy path', () => {
 
   it('falls back to agent options when no request header exists yet', async () => {
     await writeFile(join(dir, 'red.png'), PNG_1X1)
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await setup()
-    /** 中文说明：测试局部值 agent，由紧邻初始化决定。 */
     const agent = {
       options: { provider: 'visual', model: 'vision-model' },
       session: { header: { cwd: dir }, requestHeader: () => undefined },
     }
-    /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
     const result = await readImage(ctx, { file_path: 'red.png' }, agent)
     expect(result.isError).toBe(false)
   })
@@ -265,12 +257,10 @@ describe('read_image happy path', () => {
     const ctx = await setup({ toolMode: 'ptc' })
     const runtime = ctx.codeRuntime as FakeRuntime
     runtime.behavior = async (request) => {
-      /** 中文说明：测试局部值 value，由紧邻初始化决定。 */
       const value = await request.bindings[0]!.functions.read_image!({ file_path: 'red.png' })
       return { logs: [], value }
     }
 
-    /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
     const result = await call(ctx, RUN_CODE_NAME, {
       code: 'return await tools.read_image({ file_path: "red.png" })',
       description: 'Read the image through PTC mode',
@@ -279,7 +269,6 @@ describe('read_image happy path', () => {
     expect(result.isError).toBe(false)
     expect(result.content.every(block => block.type === 'text')).toBe(true)
     expect(result.additionalContexts).toHaveLength(1)
-    /** 中文说明：测试局部值 forwarded，由紧邻初始化决定。 */
     const forwarded = result.additionalContexts?.[0]?.content
     expect(forwarded).toHaveLength(2)
     expect(forwarded?.[0]?.type).toBe('text')
@@ -291,17 +280,152 @@ describe('read_image happy path', () => {
   })
 })
 
+/** The mounted attachment service, asserted present for direct store calls. */
+function mountedStore(ctx: Context): AttachmentStore {
+  const attachments = ctx.get('attachments')
+  if (attachments === undefined) throw new Error('expected the attachment service')
+  return attachments
+}
+
+/** The host object path behind a reference, asserted present for the local store. */
+function objectPathOf(attachments: AttachmentStore, ref: ImageAttachmentRef): string {
+  const hostPath = attachments.imageHostPath(ref)
+  if (hostPath === undefined) throw new Error('expected a host-file-backed store')
+  return hostPath
+}
+
+describe('extension-less paths', () => {
+  it('reads a normalized attachment object path directly and dedups to the stored reference', async () => {
+    await writeFile(join(dir, 'red.png'), PNG_1X1)
+    const ctx = await setup()
+    const first = await readImage(ctx, { file_path: 'red.png' }, agentOn('vision-model'))
+    expect(first.isError).toBe(false)
+    const ref = (first.content[1] as { attachment: ImageAttachmentRef }).attachment
+    const attachments = mountedStore(ctx)
+    const objectPath = objectPathOf(attachments, ref)
+
+    const second = await readImage(ctx, { file_path: objectPath }, agentOn('vision-model'))
+    expect(second.isError).toBe(false)
+    const reread = (second.content[1] as { attachment: ImageAttachmentRef }).attachment
+    expect(reread.attachmentId).toBe(ref.attachmentId)
+    expect(reread.mediaType).toBe('image/png')
+    expect(text(second)).toContain(`<path>${objectPath}</path>`)
+  })
+
+  it('reads an ordinary extension-less image file by sniffing its content', async () => {
+    await writeFile(join(dir, 'avatar'), PNG_1X1)
+    const ctx = await setup()
+    const result = await readImage(ctx, { file_path: 'avatar' }, agentOn('vision-model'))
+    expect(result.isError).toBe(false)
+    const image = result.content[1] as { attachment: ImageAttachmentRef }
+    expect(image.attachment.mediaType).toBe('image/png')
+    expect(image.attachment.name).toBe('avatar')
+  })
+
+  it('pins the trailing-dot refusal and reads a dotfile through sniffing', async () => {
+    await writeFile(join(dir, '.hidden'), PNG_1X1)
+    const ctx = await setup()
+    const trailingDot = await readImage(ctx, { file_path: 'foo.' }, agentOn('vision-model'))
+    expect(trailingDot.isError).toBe(true)
+    expect(text(trailingDot)).toContain('cannot read "foo.": the . extension does not declare a supported image format')
+
+    const dotfile = await readImage(ctx, { file_path: '.hidden' }, agentOn('vision-model'))
+    expect(dotfile.isError).toBe(false)
+    const image = dotfile.content[1] as { attachment: ImageAttachmentRef }
+    expect(image.attachment.mediaType).toBe('image/png')
+    expect(image.attachment.name).toBe('.hidden')
+  })
+
+  it('refuses extension-less bytes that are not a supported image', async () => {
+    await writeFile(join(dir, 'notes'), 'plain text, not an image')
+    const ctx = await setup()
+    const result = await readImage(ctx, { file_path: 'notes' }, agentOn('vision-model'))
+    expect(result.isError).toBe(true)
+    expect(text(result)).toContain(`cannot read "${join(dir, 'notes')}": the file content is not a supported image format`)
+  })
+
+  it('explains extension-less bytes that sniff as an image but do not decode', async () => {
+    await writeFile(join(dir, 'broken'), PNG_1X1.subarray(0, 16))
+    const ctx = await setup()
+    const result = await readImage(ctx, { file_path: 'broken' }, agentOn('vision-model'))
+    expect(result.isError).toBe(true)
+    expect(text(result)).toContain('do not decode as a supported PNG/JPEG/WebP/GIF image')
+  })
+
+  it('applies the deployment media-type policy to the sniffed format', async () => {
+    /** Store whose deployment accepts JPEG only; sniffed PNG bytes must refuse before any save. */
+    class JpegOnlySniffStore extends AttachmentStore {
+      readonly imageLimits: ImageAttachmentLimits = Object.freeze({
+        maxImageBytes: 1024,
+        maxImagesPerMessage: 1,
+        maxMessageImageBytes: 1024,
+        maxImagePixels: 100,
+        maxImageDimension: 2000,
+        mediaTypes: Object.freeze(['image/jpeg'] as const),
+      })
+
+      validateImage(_input: SaveImageAttachment): Promise<void> {
+        throw new Error('unreachable: the sniffed-format policy refuses before validation')
+      }
+
+      saveImage(_input: SaveImageAttachment): Promise<ImageAttachmentRef> {
+        throw new Error('unreachable: the sniffed-format policy refuses before save')
+      }
+
+      readImage(_ref: ImageAttachmentRef): Promise<StoredImageAttachment> {
+        throw new Error('unreachable in this test')
+      }
+    }
+    await writeFile(join(dir, 'avatar'), PNG_1X1)
+    const ctx = await setup({ attachments: false })
+    await ctx.plugin(JpegOnlySniffStore)
+    const result = await readImage(ctx, { file_path: 'avatar' }, agentOn('vision-model'))
+    expect(result.isError).toBe(true)
+    expect(text(result)).toContain('image/png images are not accepted by this deployment')
+  })
+
+  it('names a signature/decoded-format disagreement on an extension-less path', async () => {
+    /** Store whose admission reports a media-type mismatch; the tool cannot blame an extension. */
+    class MismatchStore extends AttachmentStore {
+      readonly imageLimits: ImageAttachmentLimits = Object.freeze({
+        maxImageBytes: 1024,
+        maxImagesPerMessage: 1,
+        maxMessageImageBytes: 1024,
+        maxImagePixels: 100,
+        maxImageDimension: 2000,
+        mediaTypes: Object.freeze(['image/png'] as const),
+      })
+
+      validateImage(_input: SaveImageAttachment): Promise<void> {
+        return Promise.resolve()
+      }
+
+      saveImage(_input: SaveImageAttachment): Promise<ImageAttachmentRef> {
+        throw new AttachmentError('Declared image type does not match its bytes.', 'IMAGE_TYPE_MISMATCH')
+      }
+
+      readImage(_ref: ImageAttachmentRef): Promise<StoredImageAttachment> {
+        throw new Error('unreachable in this test')
+      }
+    }
+    await writeFile(join(dir, 'sniffed'), PNG_1X1)
+    const ctx = await setup({ attachments: false })
+    await ctx.plugin(MismatchStore)
+    const result = await readImage(ctx, { file_path: 'sniffed' }, agentOn('vision-model'))
+    expect(result.isError).toBe(true)
+    expect(text(result)).toContain('the file signature claims image/png, but the bytes decode as a different image format')
+  })
+})
+
 describe('strict image-modality gate', () => {
   it('accepts an exact visual route even when the advisory model catalog omits it', async () => {
     await writeFile(join(dir, 'red.png'), PNG_1X1)
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await setup({
       models: [],
       resolvedModels: [
         { provider: 'visual', id: 'hidden-vision', name: 'Hidden Vision', inputModalities: ['text', 'image'] },
       ],
     })
-    /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
     const result = await readImage(ctx, { file_path: 'red.png' }, agentOn('hidden-vision'))
     expect(result.isError).toBe(false)
   })
@@ -312,9 +436,7 @@ describe('strict image-modality gate', () => {
     ['a model absent from the catalog', 'unknown-model'],
   ])('refuses on %s', async (_label, model) => {
     await writeFile(join(dir, 'red.png'), PNG_1X1)
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await setup()
-    /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
     const result = await readImage(ctx, { file_path: 'red.png' }, agentOn(model))
     expect(result.isError).toBe(true)
     expect(text(result)).toContain('does not declare image input')
@@ -322,14 +444,11 @@ describe('strict image-modality gate', () => {
 
   it('refuses when the route cannot be resolved (no agent, or no header and no options)', async () => {
     await writeFile(join(dir, 'red.png'), PNG_1X1)
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await setup()
-    /** 中文说明：测试局部值 noAgent，由紧邻初始化决定。 */
     const noAgent = await readImage(ctx, { file_path: 'red.png' })
     expect(noAgent.isError).toBe(true)
     expect(text(noAgent)).toContain('route could not be resolved')
 
-    /** 中文说明：测试局部值 noRoute，由紧邻初始化决定。 */
     const noRoute = await readImage(ctx, { file_path: 'red.png' }, agentOn(undefined))
     expect(noRoute.isError).toBe(true)
     expect(text(noRoute)).toContain('route could not be resolved')
@@ -337,9 +456,7 @@ describe('strict image-modality gate', () => {
 
   it('refuses when no llm service is mounted', async () => {
     await writeFile(join(dir, 'red.png'), PNG_1X1)
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await setup({ llm: false })
-    /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
     const result = await readImage(ctx, { file_path: 'red.png' }, agentOn('vision-model'))
     expect(result.isError).toBe(true)
     expect(text(result)).toContain('route could not be resolved')
@@ -348,26 +465,21 @@ describe('strict image-modality gate', () => {
 
 describe('argument and service preconditions', () => {
   it('rejects an empty path and a non-image extension', async () => {
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await setup()
-    /** 中文说明：测试局部值 empty，由紧邻初始化决定。 */
     const empty = await readImage(ctx, { file_path: '   ' }, agentOn('vision-model'))
     expect(empty.isError).toBe(true)
     expect(text(empty)).toContain('non-empty')
 
-    /** 中文说明：测试局部值 nonImage，由紧邻初始化决定。 */
     const nonImage = await readImage(ctx, { file_path: 'notes.txt' }, agentOn('vision-model'))
     expect(nonImage.isError).toBe(true)
-    expect(text(nonImage)).toContain('only accepts PNG/JPEG/WebP/GIF paths')
+    expect(text(nonImage)).toContain('the .txt extension does not declare a supported image format')
   })
 
   it('refuses when no attachment service is mounted', async () => {
     await writeFile(join(dir, 'red.png'), PNG_1X1)
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await setup({ attachments: false })
     expect(ctx.tools.get('read_image')).toBeUndefined()
     expect(ctx.tools.schemas().map(schema => schema.name)).not.toContain('read_image')
-    /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
     const result = await readImage(ctx, { file_path: 'red.png' }, agentOn('vision-model'))
     expect(result.isError).toBe(true)
     expect(text(result)).toContain('unknown tool "read_image"')
@@ -375,10 +487,8 @@ describe('argument and service preconditions', () => {
 
   it('defensively refuses execution without an attachment service', async () => {
     await writeFile(join(dir, 'red.png'), PNG_1X1)
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await setup({ attachments: false })
     applyReadImageTool(ctx)
-    /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
     const result = await readImage(ctx, { file_path: 'red.png' }, agentOn('vision-model'))
     expect(result.isError).toBe(true)
     expect(text(result)).toContain('no attachment service is mounted')
@@ -386,7 +496,6 @@ describe('argument and service preconditions', () => {
 
   it('refuses a media type the deployment does not accept', async () => {
     /** Store whose deployment accepts JPEG only. */
-    /* 中文说明：类型或类 JpegOnlyStore 约束文件或目标数据职责。 */
     class JpegOnlyStore extends AttachmentStore {
       readonly imageLimits: ImageAttachmentLimits = Object.freeze({
         maxImageBytes: 1024,
@@ -409,10 +518,8 @@ describe('argument and service preconditions', () => {
         throw new Error('unreachable in this test')
       }
     }
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await setup({ attachments: false })
     await ctx.plugin(JpegOnlyStore)
-    /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
     const result = await readImage(ctx, { file_path: 'red.png' }, agentOn('vision-model'))
     expect(result.isError).toBe(true)
     expect(text(result)).toContain('image/png images are not accepted by this deployment')
@@ -422,30 +529,24 @@ describe('argument and service preconditions', () => {
 describe('image admission failures', () => {
   it('explains how to repair a declared/actual media-type mismatch', async () => {
     await writeFile(join(dir, 'wrong.jpg'), PNG_1X1)
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await setup()
-    /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
     const result = await readImage(ctx, { file_path: 'wrong.jpg' }, agentOn('vision-model'))
     expect(result.isError).toBe(true)
     expect(text(result)).toContain('the .jpg extension declares image/jpeg')
     expect(text(result)).toContain('rename the file to match its actual format if it is PNG/JPEG/WebP/GIF, or convert it to one of those formats')
   })
 
-  it('fails with FS_TOO_LARGE before reading a file past maxImageBytes', async () => {
-    await writeFile(join(dir, 'red.png'), PNG_1X1)
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
+  it('caps an extension-less read at maxImageBytes before format detection', async () => {
+    await writeFile(join(dir, 'red'), PNG_1X1)
     const ctx = await setup({ storeConfig: { maxImageBytes: PNG_1X1.length - 1 } })
-    /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
-    const result = await readImage(ctx, { file_path: 'red.png' }, agentOn('vision-model'))
+    const result = await readImage(ctx, { file_path: 'red' }, agentOn('vision-model'))
     expect(result.isError).toBe(true)
     expect(text(result)).toContain('exceeds')
   })
 
   it('honors the tighter per-message aggregate byte bound', async () => {
     await writeFile(join(dir, 'red.png'), PNG_1X1)
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await setup({ storeConfig: { maxMessageImageBytes: PNG_1X1.length - 1 } })
-    /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
     const result = await readImage(ctx, { file_path: 'red.png' }, agentOn('vision-model'))
     expect(result.isError).toBe(true)
     expect(text(result)).toContain('exceeds')
@@ -453,9 +554,7 @@ describe('image admission failures', () => {
 
   it('surfaces the pixel limit from the attachment admission', async () => {
     await writeFile(join(dir, 'big.png'), PNG_3X3)
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await setup({ storeConfig: { maxImagePixels: 4 } })
-    /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
     const result = await readImage(ctx, { file_path: 'big.png' }, agentOn('vision-model'))
     expect(result.isError).toBe(true)
     expect(text(result)).toContain('exceeds the 4-pixel decoded-size limit')
@@ -464,9 +563,7 @@ describe('image admission failures', () => {
 
   it('surfaces the per-side limit from attachment admission', async () => {
     await writeFile(join(dir, 'wide.png'), PNG_3X3)
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await setup({ storeConfig: { maxImageDimension: 2 } })
-    /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
     const result = await readImage(ctx, { file_path: 'wide.png' }, agentOn('vision-model'))
     expect(result.isError).toBe(true)
     expect(text(result)).toContain('at least one image side exceeds the 2px limit')
@@ -475,7 +572,6 @@ describe('image admission failures', () => {
 
   it('passes storage faults and non-attachment failures through unchanged', async () => {
     /** Store whose commit fails with a configurable error; admission itself passes. */
-    /* 中文说明：类型或类 FailingStore 约束文件或目标数据职责。 */
     class FailingStore extends AttachmentStore {
       static failure: unknown
       readonly imageLimits: ImageAttachmentLimits = Object.freeze({
@@ -500,12 +596,10 @@ describe('image admission failures', () => {
       }
     }
     await writeFile(join(dir, 'red.png'), PNG_1X1)
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await setup({ attachments: false })
     await ctx.plugin(FailingStore)
 
     FailingStore.failure = new AttachmentError('Unable to persist image attachment.', 'ATTACHMENT_WRITE_FAILED')
-    /** 中文说明：测试局部值 storageFault，由紧邻初始化决定。 */
     const storageFault = await readImage(ctx, { file_path: 'red.png' }, agentOn('vision-model'))
     expect(storageFault.isError).toBe(true)
     expect(text(storageFault)).toContain('Unable to persist image attachment.')
@@ -514,20 +608,17 @@ describe('image admission failures', () => {
       'The 16-bit PNG could not be converted to the normalized 8-bit sRGB form.',
       'ATTACHMENT_WRITE_FAILED',
     )
-    /** 中文说明：测试局部值 sixteenBit，由紧邻初始化决定。 */
     const sixteenBit = await readImage(ctx, { file_path: 'red.png' }, agentOn('vision-model'))
     expect(text(sixteenBit)).toContain(
       `cannot read "${join(dir, 'red.png')}": the 16-bit PNG could not be converted to the normalized 8-bit sRGB form; convert it to an 8-bit PNG/JPEG/WebP and retry`,
     )
 
     FailingStore.failure = new AttachmentError('Image cannot be encoded within the configured normalized-image byte cap.', 'IMAGE_TOO_LARGE')
-    /** 中文说明：测试局部值 overBudget，由紧邻初始化决定。 */
     const overBudget = await readImage(ctx, { file_path: 'red.png' }, agentOn('vision-model'))
     expect(overBudget.isError).toBe(true)
     expect(text(overBudget)).toContain('cannot be stored within the deployment\'s byte limits; downscale the image and read the smaller copy')
 
     FailingStore.failure = new Error('unrelated infrastructure failure')
-    /** 中文说明：测试局部值 unrelated，由紧邻初始化决定。 */
     const unrelated = await readImage(ctx, { file_path: 'red.png' }, agentOn('vision-model'))
     expect(unrelated.isError).toBe(true)
     expect(text(unrelated)).toContain('unrelated infrastructure failure')
@@ -535,18 +626,14 @@ describe('image admission failures', () => {
 
   it('reports a missing image file and a directory target through the fs vocabulary', async () => {
     await mkdir(join(dir, 'folder.png'))
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await setup()
-    /** 中文说明：测试局部值 observed，由紧邻初始化决定。 */
     const observed: { path: string; kind: string }[] = []
     ctx.on('fs/observed', (target, observation) => void observed.push({ path: target.displayPath, kind: observation.kind }))
-    /** 中文说明：测试局部值 missing，由紧邻初始化决定。 */
     const missing = await readImage(ctx, { file_path: 'absent.png' }, agentOn('vision-model'))
     expect(missing.isError).toBe(true)
     expect(text(missing)).toContain('not found')
     expect(observed).toEqual([{ path: join(dir, 'absent.png'), kind: 'absent' }])
 
-    /** 中文说明：测试局部值 directory，由紧邻初始化决定。 */
     const directory = await readImage(ctx, { file_path: 'folder.png' }, agentOn('vision-model'))
     expect(directory.isError).toBe(true)
     expect(text(directory)).toContain('not a regular file')
@@ -554,7 +641,6 @@ describe('image admission failures', () => {
 
   it('omits the display name when the store returns a reference without one', async () => {
     /** Store echoing a fixed nameless reference; deployments may strip names entirely. */
-    /* 中文说明：类型或类 NamelessStore 约束文件或目标数据职责。 */
     class NamelessStore extends AttachmentStore {
       readonly imageLimits: ImageAttachmentLimits = Object.freeze({
         maxImageBytes: 1024,
@@ -578,20 +664,16 @@ describe('image admission failures', () => {
       }
     }
     await writeFile(join(dir, 'red.png'), PNG_1X1)
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await setup({ attachments: false })
     await ctx.plugin(NamelessStore)
-    /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
     const result = await readImage(ctx, { file_path: 'red.png' }, agentOn('vision-model'))
     expect(result.isError).toBe(false)
-    /** 中文说明：测试局部值 image，由紧邻初始化决定。 */
     const image = result.content[1] as { attachment: ImageAttachmentRef }
     expect(image.attachment.name).toBeUndefined()
   })
 
   it('names the on-disk dimensions and coordinate multiplier when storage downscales', async () => {
     /** Store whose normalized image halves the input on both sides. */
-    /* 中文说明：类型或类 DownscalingStore 约束文件或目标数据职责。 */
     class DownscalingStore extends AttachmentStore {
       readonly imageLimits: ImageAttachmentLimits = Object.freeze({
         maxImageBytes: 1024,
@@ -622,17 +704,14 @@ describe('image admission failures', () => {
       }
     }
     await writeFile(join(dir, 'red.png'), PNG_1X1)
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await setup({ attachments: false })
     await ctx.plugin(DownscalingStore)
-    /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
     const result = await readImage(ctx, { file_path: 'red.png' }, agentOn('vision-model'))
     expect(result.isError).toBe(false)
     expect(text(result)).toContain('image/png image, 2x1 px, 7 bytes (downscaled from 4x2 px; multiply coordinates by 2.00 to locate features in the original file)')
   })
 
   it('names per-axis multipliers when integer rounding makes the ratios differ', () => {
-    /** 中文说明：测试局部值 envelope，由紧邻初始化决定。 */
     const envelope = formatImageReadOutput('/img/photo.jpg', {
       attachmentId: 'sha256:feed', mediaType: 'image/jpeg', bytes: 9, width: 2, height: 1,
       originalDimensions: { width: 5, height: 2 },
@@ -643,17 +722,13 @@ describe('image admission failures', () => {
 
 describe('registration surface', () => {
   it('withdraws read_image when the tool-fs fiber or the attachment store is disposed (HMR safety)', async () => {
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = new Context()
     await ctx.plugin(SystemPrompt)
     await ctx.plugin(ToolRuntime, { mode: 'native' })
     await ctx.plugin(LocalFileSystem, { cwd: dir })
     await ctx.plugin(FsPolicy)
-    /** 中文说明：测试局部值 attachmentsFiber，由紧邻初始化决定。 */
     const attachmentsFiber = await ctx.plugin(LocalAttachmentStore, { dshHome: home })
-    /** 中文说明：测试局部值 toolFsFiber，由紧邻初始化决定。 */
     const toolFsFiber = await ctx.plugin(ToolFs)
-    /** 中文说明：测试局部值 names，由紧邻初始化决定。 */
     const names = () => ctx.tools.schemas().map(schema => schema.name).sort()
     expect(names()).toEqual(['edit', 'read', 'read_image', 'write'])
 
@@ -663,7 +738,6 @@ describe('registration surface', () => {
     expect(names()).toEqual(['edit', 'read', 'write'])
 
     // Remounting the store restores the conditional registration.
-    /** 中文说明：测试局部值 remounted，由紧邻初始化决定。 */
     const remounted = await ctx.plugin(LocalAttachmentStore, { dshHome: home })
     expect(names()).toEqual(['edit', 'read', 'read_image', 'write'])
 
@@ -674,7 +748,6 @@ describe('registration surface', () => {
   })
 
   it('declares read_image parallel-safe and presents a read-family card', async () => {
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await setup()
     expect(ctx.tools.executionMode({
       signal: testToolSignal, callId: ToolCallId('img-parallel'), name: 'read_image', arguments: { file_path: 'a.png' },
@@ -692,15 +765,12 @@ describe('read keeps its text-only contract', () => {
   it('still refuses a PNG as a binary file and line-numbers text', async () => {
     await writeFile(join(dir, 'red.png'), PNG_1X1)
     await writeFile(join(dir, 'note.txt'), 'hello\nworld')
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await setup()
 
-    /** 中文说明：测试局部值 png，由紧邻初始化决定。 */
     const png = await call(ctx, 'read', { file_path: 'red.png' }, agentOn('vision-model'))
     expect(png.isError).toBe(true)
     expect(text(png)).toContain('binary file')
 
-    /** 中文说明：测试局部值 txt，由紧邻初始化决定。 */
     const txt = await call(ctx, 'read', { file_path: 'note.txt' }, agentOn('text-model'))
     expect(txt.isError).toBe(false)
     expect(text(txt)).toContain('1: hello')

@@ -1,14 +1,3 @@
-/*
- * ================================ 文件注释 ================================
- * 【文件职责】权限相关的双语文案：设置行命名空间（settings.permission）与
- *             当前会话弹窗风险门命名空间（permission.access）两组字典。
- * 【技术维度】zh/accessZh 分别为两组键集基准，en/accessEn 受对应键联合约束。
- * 【产品维度】设置页权限行文案与 Full access 风险确认弹窗文案。
- * 【逻辑维度】zh/en 一组（设置行），accessZh/accessEn 一组（弹窗门）。
- * 【关键边界】两组键集各自独立；zh 是各自键的单一事实来源。
- * 【新手阅读建议】纯数据文件。
- * ==========================================================================
- */
 /** `settings.permission` namespace dictionaries (the Permission row's copy). */
 
 /** Simplified Chinese dictionary (the key-set source of truth). */
@@ -17,11 +6,14 @@ export const zh = {
   'description': '选择新会话的默认权限模式',
   'loading': '加载中',
   'unavailable': '不可用',
-  'confirm.title': '确认启用 Full access？',
-  'confirm.description': '启用 Full access 后，新会话将减少确认步骤，并且可以直接执行更多操作，包括敏感操作、文件修改或外部命令。仅建议在你信任后续任务时使用。',
+  'preset.readOnly': '仅可查看',
+  'preset.workspaceWrite': '工作区内修改',
+  'preset.fullAccess': '完全权限',
+  'confirm.title': '确认启用完全权限？',
+  'confirm.description': '启用完全权限后，新会话将减少确认步骤，并且可以直接执行更多操作，包括敏感操作、文件修改或外部命令。仅建议在你信任后续任务时使用。',
   'confirm.acknowledge': '我已了解风险，并愿意继续',
   'confirm.cancel': '取消',
-  'confirm.enable': '启用 Full access',
+  'confirm.enable': '启用完全权限',
 } satisfies Record<string, string>
 
 /** The settings.permission namespace key union. */
@@ -33,6 +25,9 @@ export const en = {
   'description': 'Choose the default permission mode for new sessions',
   'loading': 'Loading',
   'unavailable': 'Unavailable',
+  'preset.readOnly': 'Read Only',
+  'preset.workspaceWrite': 'Workspace Write',
+  'preset.fullAccess': 'Full access',
   'confirm.title': 'Enable Full access?',
   'confirm.description': 'Full access lets new sessions reduce confirmation steps and perform more actions directly, including sensitive operations, file changes, or external commands. Only use it when you trust subsequent tasks.',
   'confirm.acknowledge': 'I understand the risks and want to continue',
@@ -42,11 +37,14 @@ export const en = {
 
 /** Simplified Chinese dictionary for the current-session popup gate. */
 export const accessZh = {
-  'confirm.title': '确认启用 Full access？',
-  'confirm.description': '启用 Full access 后，agent 将减少确认步骤，并且可以直接执行更多操作，包括敏感操作、文件修改或外部命令。仅建议在你信任当前任务时使用。',
+  'preset.readOnly': '仅可查看',
+  'preset.workspaceWrite': '工作区内修改',
+  'preset.fullAccess': '完全权限',
+  'confirm.title': '确认启用完全权限？',
+  'confirm.description': '启用完全权限后，智能体将减少确认步骤，并且可以直接执行更多操作，包括敏感操作、文件修改或外部命令。仅建议在你信任当前任务时使用。',
   'confirm.acknowledge': '我已了解风险，并愿意继续',
   'confirm.cancel': '取消',
-  'confirm.enable': '启用 Full access',
+  'confirm.enable': '启用完全权限',
 } satisfies Record<string, string>
 
 /** Current-session popup-gate key union. */
@@ -54,6 +52,9 @@ export type PermissionAccessKey = keyof typeof accessZh
 
 /** English dictionary for the current-session popup gate. */
 export const accessEn = {
+  'preset.readOnly': 'Read Only',
+  'preset.workspaceWrite': 'Workspace Write',
+  'preset.fullAccess': 'Full access',
   'confirm.title': 'Enable Full access?',
   'confirm.description': 'Full access reduces confirmation steps and lets the agent perform more actions directly, including sensitive operations, file changes, or external commands. Only use it when you trust the current task.',
   'confirm.acknowledge': 'I understand the risks and want to continue',

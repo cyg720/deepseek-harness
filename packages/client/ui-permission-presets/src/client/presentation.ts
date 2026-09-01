@@ -1,18 +1,25 @@
-/*
- * ================================ 文件注释 ================================
- * 【文件职责】权限预设的展示转换：机器值 → 用户可见名称；Full access 预设带
- *             产品标签与 GUI 风险门。
- * 【技术维度】纯函数：kebab-case 转标题大小写；风险预设用固定产品名。
- * 【产品维度】权限预设下拉/弹窗中的显示名（含 Full access 特殊标签）。
- * 【逻辑维度】displayPresetName 做 kebab 转换（非 kebab 原样返回）→
- *             displayPermissionPreset 对风险预设返回产品标签。
- * 【关键边界】FULL_ACCESS_PRESET 是要求显式风险门的机器值。
- * 【新手阅读建议】纯函数文件，可直接理解。
- * ==========================================================================
- */
+import { en } from './locales.ts'
+
 /** Machine value of the preset that requires an explicit GUI risk gate. */
-// 需要显式 GUI 风险确认门的预设机器值。
 export const FULL_ACCESS_PRESET = 'danger-full-access'
+
+/** Locale dictionary key for a built-in permission preset label. */
+export type PermissionPresetLabelKey =
+  | 'preset.readOnly'
+  | 'preset.workspaceWrite'
+  | 'preset.fullAccess'
+
+const PRESET_LABEL_KEYS = new Map<string, PermissionPresetLabelKey>([
+  ['read-only', 'preset.readOnly'],
+  ['workspace-write', 'preset.workspaceWrite'],
+  [FULL_ACCESS_PRESET, 'preset.fullAccess'],
+])
+
+const DEFAULT_PRESET_LABELS: Record<PermissionPresetLabelKey, string> = {
+  'preset.readOnly': en['preset.readOnly'],
+  'preset.workspaceWrite': en['preset.workspaceWrite'],
+  'preset.fullAccess': en['preset.fullAccess'],
+}
 
 /**
  * Convert conventional kebab-case preset names into user-facing title case.
@@ -28,8 +35,17 @@ export function displayPresetName(name: string): string {
  * Render a permission preset under its product label.
  * @param value - preset machine value.
  * @param name - host-supplied preset name.
- * @returns the Full access product label or the conventional display name.
+ * @param t - optional locale dictionary lookup for built-in product labels.
+ * @returns the built-in product label or the conventional display name.
  */
-export function displayPermissionPreset(value: string, name: string): string {
-  return value === FULL_ACCESS_PRESET ? 'Full access' : displayPresetName(name)
+export function displayPermissionPreset(
+  value: string,
+  name: string,
+  t?: (key: PermissionPresetLabelKey) => string,
+): string {
+  const key = PRESET_LABEL_KEYS.get(value)
+  if (key !== undefined && (name === value || name === DEFAULT_PRESET_LABELS[key])) {
+    return t?.(key) ?? DEFAULT_PRESET_LABELS[key]
+  }
+  return displayPresetName(name)
 }

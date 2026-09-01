@@ -1,11 +1,3 @@
-/**
- * 文件职责：验证构建后的 Remote API 产物可被普通 Node.js 正确加载和调用（built-lib.e2e.ts）。
- * 技术维度：TypeScript、Vitest、Node.js 子进程与 HTTP。
- * 产品维度：防止发布包在真实安装环境中无法启动。
- * 逻辑维度：定位构建产物，启动服务并跨 HTTP 路由断言结果。
- * 关键边界：依赖预先构建的 lib 产物，缺失时应明确跳过。
- * 新手阅读建议：先看产物路径，再看启动参数和最终断言。
- */
 import { execFile } from 'node:child_process'
 import { existsSync } from 'node:fs'
 import { join, resolve } from 'node:path'
@@ -17,16 +9,11 @@ import { describe, expect, it } from 'vitest'
  * Host and Browser bundle handoffs, then crosses the shared `/api` HTTP route.
  */
 
-/* 中文说明：变量 packageDir 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const packageDir = fileURLToPath(new URL('..', import.meta.url))
-/** 中文说明：变量 root 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const root = resolve(packageDir, '../../..')
-/** 中文说明：函数值 artifact 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
 const artifact = (path: string): string => join(root, path)
-/** 中文说明：函数值 artifactUrl 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
 const artifactUrl = (path: string): string => pathToFileURL(artifact(path)).href
 
-/** 中文说明：变量 requiredArtifacts 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const requiredArtifacts = [
   'packages/client/connection/lib/client.js',
   'packages/client/connection/lib/index.js',
@@ -39,11 +26,11 @@ const requiredArtifacts = [
   'packages/api/gateway/lib/index.js',
   'packages/typert/registry/lib/client.js',
   'packages/typert/registry/lib/index.js',
+  'packages/session/session-projection/lib/index.js',
 ].every(path => existsSync(artifact(path)))
 
 describe.skipIf(!requiredArtifacts)('Goal Remote built LIB chain', () => {
   it('runs root and Agent-scoped calls through generated bundles and real HTTP', async () => {
-    /** 中文说明：变量 urls 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const urls = Object.fromEntries(Object.entries({
       agent: 'packages/core/agent/lib/index.js',
       apiGatewayClient: 'packages/api/gateway/lib/client.js',
@@ -56,8 +43,8 @@ describe.skipIf(!requiredArtifacts)('Goal Remote built LIB chain', () => {
       registryHost: 'packages/typert/registry/lib/index.js',
       remotesClient: 'packages/api/remotes/lib/client.js',
       session: 'packages/core/session/lib/index.js',
+      sessionProjections: 'packages/session/session-projection/lib/index.js',
     }).map(([key, path]) => [key, artifactUrl(path)]))
-    /** 中文说明：变量 script 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const script = `
       import { createServer } from 'node:http'
       import * as cordis from '@deepseek-ai/cordis'
@@ -68,6 +55,7 @@ describe.skipIf(!requiredArtifacts)('Goal Remote built LIB chain', () => {
       const connectionHost = await import(urls.connectionHost)
       const { default: TypertRemoteService } = await import(urls.apiGatewayHost)
       const { default: GoalService } = await import(urls.goal)
+      const { default: SessionProjectionRegistry } = await import(urls.sessionProjections)
       const { TYPERT } = await import(urls.goalTypert)
       const { default: TypertRegistry } = await import(urls.registryHost)
       const { Session, SessionId } = await import(urls.session)
@@ -96,6 +84,7 @@ describe.skipIf(!requiredArtifacts)('Goal Remote built LIB chain', () => {
       await host.plugin(TypertRegistry)
       await host.plugin(AgentRegistry)
       await host.plugin(TypertRemoteService)
+      await host.plugin(SessionProjectionRegistry)
       await host.plugin(GoalService)
       host.typert.register(TYPERT)
 
@@ -221,10 +210,8 @@ describe.skipIf(!requiredArtifacts)('Goal Remote built LIB chain', () => {
       console.log(JSON.stringify(result))
     `
 
-    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await runPlainNode(script)
     expect(result.exitCode, `stderr:\n${result.stderr}`).toBe(0)
-    /** 中文说明：变量 output 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const output = JSON.parse(result.stdout.trim().split('\n').at(-1) ?? '{}') as {
       invalidRejected: boolean
       rootResult: { ref: { id: string; revision: number } }
@@ -251,7 +238,6 @@ describe.skipIf(!requiredArtifacts)('Goal Remote built LIB chain', () => {
 })
 
 /** Execute one ESM script without tsx or a TypeScript loader. */
-/* 中文说明：函数 runPlainNode 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function runPlainNode(script: string): Promise<{
   readonly exitCode: number | null
   readonly stdout: string

@@ -35,21 +35,16 @@ export interface ComposerAttachment {
 }
 
 /** Input state handed to the optional attachment presentation plugin. */
-// 交给可选附件展示插件的输入状态（草稿图片与拖放能力）。
 export interface ComposerAttachmentsOwnerProps {
   /** Browser-owned draft images in input order. */
-  // 按输入顺序排列的浏览器自有草稿图片。
   attachments: readonly ComposerAttachment[]
   /** Whether a document-level file drop may add images now. */
-  // 当前是否允许文档级拖放添加图片。
   canAcceptDrop: boolean
   /** Add one dropped batch through the composer's validation path. */
-  // 通过输入框校验路径添加一批拖放的文件。
   onAddImages: (files: readonly File[]) => void
   /** Remove one draft image through the Conversation service. */
   onRemoveImage: (id: DraftAttachmentId) => void
   /** Display-ready limits for the drop invitation. */
-  // 拖放邀请展示用的限额（数量与大小文案）。
   dropLimits?: { readonly count: number; readonly size: string } | undefined
 }
 
@@ -231,6 +226,8 @@ export interface ConversationSessionInjected {
   readonly hooks: { readonly conversationViews: ObservableSnapshot<readonly ViewTab[]> }
   /** Bind input draft persistence to the Session-owned store instance. */
   bindDraftMirror: (write: (text: string) => void) => () => void
+  /** Select and activate one View while addressing an opaque focus request to it. */
+  openView: (view: string, focus: string) => void
 }
 
 /** Business callbacks injected into the strict Session header. */
@@ -239,6 +236,8 @@ export interface ConversationSessionHeaderInjected {
   readonly hooks: { readonly conversationViews: ObservableSnapshot<readonly ViewTab[]> }
   /** Select a Session through the Session Controller. */
   open: (sessionId: SessionId) => void
+  /** Select and activate one registered Conversation View. */
+  selectView: (view: string) => void
 }
 
 /** Owner share of the resident composer bar. */

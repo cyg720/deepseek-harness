@@ -1,12 +1,4 @@
 /** Frame-wide dynamic Plugin inventory, approvals, versions, and lifecycle actions. */
-/*
- * 文件职责：实现Cordis 扩展界面的 CordisPanel.tsx 模块。
- * 技术维度：TypeScript、Cordis Context、插件生命周期、React 和 Vitest。
- * 产品维度：保证Cordis 扩展界面在配置、运行、失败和清理场景中可理解且可靠。
- * 逻辑维度：注册服务或命令，转换请求并记录结果。
- * 关键边界：沙箱与宿主 Context 不可混用；反馈追加新记录，不改写既有会话历史。
- * 新手阅读建议：先读类型和夹具，再按注册、执行、错误与卸载流程阅读。
- */
 
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import type { ButtonHTMLAttributes, ReactNode } from 'react'
@@ -17,7 +9,7 @@ import {
 import type { InjectFace, PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import type {} from '@deepseek-ai/dsh-client-ui-sidebar/client'
 import type { CordisRunActivity } from '@deepseek-ai/dsh-cordis-client-runner/client'
-import type { SessionId } from '@deepseek-ai/dsh-client-connection/client'
+import type { SessionId } from '@deepseek-ai/dsh-api-remotes/client'
 import type { CordisInventoryRow } from './dynamic-port.ts'
 import type { CordisPanelFace } from './slots.ts'
 import type { CordisKey } from './locales.ts'
@@ -28,14 +20,11 @@ import { cordisVisibleStatus, packageOf, type CordisVisibleStatus } from './stat
 import css from './CordisPanel.module.css'
 
 /** Full panel props composed by the sidebar footer-action slot. */
-/* 中文说明：类型或类 CordisPanelProps 约束扩展或反馈数据职责。 */
 export type CordisPanelProps =
   PropsRuntime<'sidebar.footer.action'> & InjectFace<CordisPanelFace> & PropsLocale<'cordis'>
 
-/** 中文说明：类型或类 PanelStatus 约束扩展或反馈数据职责。 */
 type PanelStatus = CordisVisibleStatus | 'awaiting-approval' | 'failed'
 
-/** 中文说明：模块局部值 STATUS_LABELS，由紧邻初始化决定。 */
 const STATUS_LABELS = {
   idle: 'status.idle',
   'awaiting-approval': 'status.awaitingApproval',
@@ -44,13 +33,11 @@ const STATUS_LABELS = {
   failed: 'status.failed',
 } as const satisfies Record<PanelStatus, CordisKey>
 
-/** 中文说明：模块局部值 RENDER_FAILURE_LABELS，由紧邻初始化决定。 */
 const RENDER_FAILURE_LABELS = {
   abdicated: 'render.failedAbdicated',
   held: 'render.failedHeld',
 } as const satisfies Record<'abdicated' | 'held', CordisKey>
 
-/** 中文说明：类型或类 RowView 约束扩展或反馈数据职责。 */
 interface RowView {
   readonly pluginId: CordisDynamicPluginId
   readonly agentId: SessionId
@@ -58,12 +45,10 @@ interface RowView {
   readonly activity?: CordisRunActivity
 }
 
-/** 中文说明：函数 selectedPackageIdOf 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function selectedPackageIdOf(
   { pluginId, listed, activity }: RowView,
   selected: Readonly<Record<string, CordisDynamicPackageId>>,
 ): CordisDynamicPackageId | undefined {
-  /** 中文说明：模块局部值 selectedPackageId，由紧邻初始化决定。 */
   const selectedPackageId = selected[pluginId]
   if (selectedPackageId !== undefined
     && listed?.packages.some(pkg => pkg.packageId === selectedPackageId)) return selectedPackageId
@@ -73,15 +58,12 @@ function selectedPackageIdOf(
     ?? activity?.packageId
 }
 
-/** 中文说明：函数 visiblePanelStatus 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function visiblePanelStatus(
   view: RowView,
   selectedPackageId: CordisDynamicPackageId | undefined,
   loaded: Parameters<typeof cordisVisibleStatus>[2],
 ): PanelStatus {
-  /** 中文说明：模块局部值 { listed, activity }，由紧邻初始化决定。 */
   const { listed, activity } = view
-  /** 中文说明：模块局部值 latest，由紧邻初始化决定。 */
   const latest = listed?.latestRun
   if (activity?.phase === 'awaiting-approval' || latest?.status === 'awaiting-approval') {
     return 'awaiting-approval'
@@ -91,7 +73,6 @@ function visiblePanelStatus(
   return cordisVisibleStatus(listed, listed.activeRun.packageId, loaded)
 }
 
-/** 中文说明：函数 blockingFirst 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function blockingFirst(rows: readonly RowView[]): readonly RowView[] {
   return [
     ...rows.filter(row => row.activity?.phase === 'awaiting-approval'),
@@ -99,7 +80,6 @@ function blockingFirst(rows: readonly RowView[]): readonly RowView[] {
   ]
 }
 
-/** 中文说明：函数 RowAction 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function RowAction({ label, children, ...props }: {
   label: string
   children: ReactNode
@@ -113,7 +93,6 @@ function RowAction({ label, children, ...props }: {
   )
 }
 
-/** 中文说明：函数 DoubleCheckIcon 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function DoubleCheckIcon() {
   return (
     <span className={css.doubleCheck} aria-hidden>
@@ -124,46 +103,30 @@ function DoubleCheckIcon() {
 }
 
 /** Render the inventory panel and its unified footer action. */
-/* 中文说明：函数 CordisPanel 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 export function CordisPanel({
   wide,
   useSessions, useInventory, useActiveRuns, useRunErrors, useLoaded, useRenderFailures,
   onApprove, onDecline, onRun, onStop, onRemove, onRefresh, t,
 }: CordisPanelProps) {
-  /** 中文说明：模块局部值 inventory，由紧邻初始化决定。 */
   const inventory = useInventory(snapshot => snapshot)
-  /** 中文说明：模块局部值 activeRuns，由紧邻初始化决定。 */
   const activeRuns = useActiveRuns(snapshot => snapshot)
-  /** 中文说明：模块局部值 errors，由紧邻初始化决定。 */
   const errors = useRunErrors(snapshot => snapshot)
-  /** 中文说明：模块局部值 loaded，由紧邻初始化决定。 */
   const loaded = useLoaded(snapshot => snapshot)
-  /** 中文说明：模块局部值 renderFailures，由紧邻初始化决定。 */
   const renderFailures = useRenderFailures(snapshot => snapshot)
-  /** 中文说明：模块局部值 current，由紧邻初始化决定。 */
   const current = useSessions(state => state.current)
-  /** 中文说明：模块局部值 [open, setOpen]，由紧邻初始化决定。 */
   const [open, setOpen] = useState(false)
-  /** 中文说明：模块局部值 [selected, setSelected]，由紧邻初始化决定。 */
   const [selected, setSelected] = useState<Record<string, CordisDynamicPackageId>>({})
-  /** 中文说明：模块局部值 [pending, setPending]，由紧邻初始化决定。 */
   const [pending, setPending] = useState<ReadonlySet<CordisDynamicPluginId>>(new Set())
-  /** 中文说明：模块局部值 解构结果，由紧邻初始化决定。 */
   const [actionErrors, setActionErrors] = useState<ReadonlyMap<CordisDynamicPluginId, string>>(new Map())
-  /** 中文说明：模块局部值 visibleRequests，由紧邻初始化决定。 */
   const visibleRequests = useRef<Set<ApprovalRequestId>>(new Set())
-  /** 中文说明：模块局部值 rootRef，由紧邻初始化决定。 */
   const rootRef = useRef<HTMLDivElement>(null)
-  /** 中文说明：模块局部值 [anchor, setAnchor]，由紧邻初始化决定。 */
   const [anchor, setAnchor] = useState<{ left: number; bottom: number }>()
 
   // The panel is position: fixed (the sidebar clips overflow), so it hugs the
   // trigger through a measured offset instead of document flow.
   useLayoutEffect(() => {
     if (!open) return
-    /** 中文说明：模块局部值 place，由紧邻初始化决定。 */
     const place = (): void => {
-      /** 中文说明：模块局部值 rect，由紧邻初始化决定。 */
       const rect = rootRef.current?.getBoundingClientRect()
       if (rect !== undefined) {
         setAnchor({ left: rect.left, bottom: window.innerHeight - rect.top + 8 })
@@ -177,13 +140,10 @@ export function CordisPanel({
   useDismissOnOutsidePointer(rootRef, open, setOpen)
 
   useEffect(() => {
-    /** 中文说明：模块局部值 now，由紧邻初始化决定。 */
     const now = new Set<ApprovalRequestId>()
-    /** 中文说明：模块局部值 activity，由紧邻初始化决定。 */
     for (const activity of activeRuns.values()) {
       if (activity.phase === 'awaiting-approval') now.add(activity.requestId)
     }
-    /** 中文说明：模块局部值 discovered，由紧邻初始化决定。 */
     const discovered = [...now].some(requestId => !visibleRequests.current.has(requestId))
     visibleRequests.current = now
     if (discovered) setOpen(true)
@@ -192,11 +152,8 @@ export function CordisPanel({
   useEffect(() => { onRefresh() }, [onRefresh])
   useEffect(() => { if (open) onRefresh() }, [onRefresh, open])
 
-  /** 中文说明：模块局部值 byPlugin，由紧邻初始化决定。 */
   const byPlugin = new Map<CordisDynamicPluginId, RowView>()
-  /** 中文说明：模块局部值 listed，由紧邻初始化决定。 */
   for (const listed of inventory.rows) {
-    /** 中文说明：模块局部值 activity，由紧邻初始化决定。 */
     const activity = activeRuns.get(listed.pluginId)
     byPlugin.set(listed.pluginId, {
       pluginId: listed.pluginId,
@@ -205,20 +162,14 @@ export function CordisPanel({
       ...activity === undefined ? {} : { activity },
     })
   }
-  /** 中文说明：模块局部值 [pluginId，由紧邻初始化决定。 */
   for (const [pluginId, activity] of activeRuns) {
     if (byPlugin.has(pluginId)) continue
     byPlugin.set(pluginId, { pluginId, agentId: activity.agentId, activity })
   }
-  /** 中文说明：模块局部值 all，由紧邻初始化决定。 */
   const all = [...byPlugin.values()]
-  /** 中文说明：模块局部值 mine，由紧邻初始化决定。 */
   const mine = blockingFirst(all.filter(row => current !== undefined && row.agentId === current))
-  /** 中文说明：模块局部值 theirs，由紧邻初始化决定。 */
   const theirs = blockingFirst(all.filter(row => current === undefined || row.agentId !== current))
-  /** 中文说明：模块局部值 approvals，由紧邻初始化决定。 */
   const approvals = [...activeRuns.values()].filter(activity => activity.phase === 'awaiting-approval').length
-  /** 中文说明：模块局部值 running，由紧邻初始化决定。 */
   const running = all.filter(view => visiblePanelStatus(
     view,
     selectedPackageIdOf(view, selected),
@@ -227,18 +178,15 @@ export function CordisPanel({
 
   if (all.length === 0) return null
 
-  /** 中文说明：模块局部值 runAction，由紧邻初始化决定。 */
   const runAction = async (pluginId: CordisDynamicPluginId, action: () => Promise<void | { ok: boolean; message?: string }>) => {
     if (pending.has(pluginId)) return
     setPending(currentPending => new Set(currentPending).add(pluginId))
     setActionErrors((currentErrors) => {
-      /** 中文说明：模块局部值 next，由紧邻初始化决定。 */
       const next = new Map(currentErrors)
       next.delete(pluginId)
       return next
     })
     try {
-      /** 中文说明：模块局部值 result，由紧邻初始化决定。 */
       const result = await action()
       if (result !== undefined && !result.ok) {
         setActionErrors(currentErrors => new Map(currentErrors).set(pluginId, result.message ?? 'operation failed'))
@@ -250,7 +198,6 @@ export function CordisPanel({
       ))
     } finally {
       setPending((currentPending) => {
-        /** 中文说明：模块局部值 next，由紧邻初始化决定。 */
         const next = new Set(currentPending)
         next.delete(pluginId)
         return next
@@ -259,50 +206,32 @@ export function CordisPanel({
     }
   }
 
-  /** 中文说明：模块局部值 renderRow，由紧邻初始化决定。 */
   const renderRow = (view: RowView) => {
-    /** 中文说明：模块局部值 解构结果，由紧邻初始化决定。 */
     const { pluginId, listed, activity } = view
-    /** 中文说明：模块局部值 selectedPackageId，由紧邻初始化决定。 */
     const selectedPackageId = selectedPackageIdOf(view, selected)
-    /** 中文说明：模块局部值 selectedPackage，由紧邻初始化决定。 */
     const selectedPackage = listed !== undefined && selectedPackageId !== undefined
       ? packageOf(listed, selectedPackageId)
       : undefined
-    /** 中文说明：模块局部值 activePackage，由紧邻初始化决定。 */
     const activePackage = listed?.activeRun === undefined
       ? undefined
       : packageOf(listed, listed.activeRun.packageId)
-    /** 中文说明：模块局部值 name，由紧邻初始化决定。 */
     const name = selectedPackage?.name
       ?? (activity?.phase === 'awaiting-approval' ? activity.name : pluginId)
-    /** 中文说明：模块局部值 purpose，由紧邻初始化决定。 */
     const purpose = selectedPackage?.purpose
       ?? (activity?.phase === 'awaiting-approval' ? activity.purpose : '')
-    /** 中文说明：模块局部值 latest，由紧邻初始化决定。 */
     const latest = listed?.latestRun
-    /** 中文说明：模块局部值 awaiting，由紧邻初始化决定。 */
     const awaiting = activity?.phase === 'awaiting-approval'
       ? activity.requestId
       : latest?.status === 'awaiting-approval' ? latest.approvalRequestId : undefined
-    /** 中文说明：模块局部值 status，由紧邻初始化决定。 */
     const status = visiblePanelStatus(view, selectedPackageId, loaded)
-    /** 中文说明：模块局部值 busy，由紧邻初始化决定。 */
     const busy = pending.has(pluginId) || activity?.phase === 'orchestrating'
-    /** 中文说明：模块局部值 failure，由紧邻初始化决定。 */
     const failure = errors.get(pluginId)
-    /** 中文说明：模块局部值 hostFailure，由紧邻初始化决定。 */
     const hostFailure = latest?.status === 'failed' ? latest.error : undefined
-    /** 中文说明：模块局部值 renderFailure，由紧邻初始化决定。 */
     const renderFailure = renderFailures.get(pluginId)
-    /** 中文说明：模块局部值 actionError，由紧邻初始化决定。 */
     const actionError = actionErrors.get(pluginId)
-    /** 中文说明：模块局部值 nextPackageId，由紧邻初始化决定。 */
     const nextPackageId = listed?.nextPackageId !== undefined
       && listed.nextPackageId !== listed.currentPackageId ? listed.nextPackageId : undefined
-    /** 中文说明：模块局部值 currentPackageId，由紧邻初始化决定。 */
     const currentPackageId = listed?.currentPackageId
-    /** 中文说明：模块局部值 runMode，由紧邻初始化决定。 */
     const runMode = listed?.currentPackageId !== undefined
       && selectedPackageId !== listed.currentPackageId ? 'update' as const : 'run' as const
 

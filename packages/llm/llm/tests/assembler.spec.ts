@@ -1,17 +1,8 @@
-/**
- * 文件职责：验证 assembler.spec.ts 覆盖的 LLM 配置、调用与事件处理行为。
- * 技术维度：使用 TypeScript、Vitest、Cordis 插件上下文和可控测试替身验证运行时协作。
- * 产品维度：保障模型接入在配置变化、认证、重试与异常场景下仍能给 Agent 稳定反馈。
- * 逻辑维度：准备上下文与测试数据，触发被测流程，再核对请求、事件、结果和清理行为。
- * 关键边界：测试替身必须保持确定性；敏感凭据不可写入日志；异步资源必须在用例结束时释放。
- * 新手阅读建议：先看测试数据和辅助函数，再按 describe/it 场景阅读，最后对照被测插件实现。
- */
 import { describe, expect, it } from 'vitest'
 import { BlockAssembler, ToolCallId, type StreamChunk } from '@deepseek-ai/dsh-llm'
 
 describe('BlockAssembler', () => {
   it('assembles interleaved text, reasoning, and tool-call deltas', () => {
-    /** 中文说明：变量 chunks 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const chunks: StreamChunk[] = [
       { type: 'block-start', index: 0, blockType: 'reasoning' },
       { type: 'reasoning-delta', index: 0, text: 'thinking…' },
@@ -25,9 +16,7 @@ describe('BlockAssembler', () => {
       { type: 'usage', usage: { inputTokens: 10, outputTokens: 5 } },
       { type: 'finish', reason: { kind: 'tool-calls' } },
     ]
-    /** 中文说明：变量 assembler 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const assembler = new BlockAssembler()
-    /** 中文说明：该循环依次处理场景数据；循环变量仅在当前循环中有效。 */
     for (const chunk of chunks) assembler.push(chunk)
 
     expect(assembler.blocks()).toEqual([
@@ -41,7 +30,6 @@ describe('BlockAssembler', () => {
   })
 
   it('records the completed block from block-end', () => {
-    /** 中文说明：变量 assembler 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const assembler = new BlockAssembler()
     assembler.push({ type: 'block-start', index: 0, blockType: 'text' })
     assembler.push({ type: 'text-delta', index: 0, text: 'hi' })
@@ -50,7 +38,6 @@ describe('BlockAssembler', () => {
   })
 
   it('tolerates deltas without explicit block-start/end', () => {
-    /** 中文说明：变量 assembler 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const assembler = new BlockAssembler()
     assembler.push({ type: 'text-delta', index: 0, text: 'implicit' })
     expect(assembler.blocks()).toEqual([{ type: 'text', text: 'implicit' }])
@@ -58,14 +45,12 @@ describe('BlockAssembler', () => {
   })
 
   it('returns undefined usage when no usage chunk was received', () => {
-    /** 中文说明：变量 assembler 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const assembler = new BlockAssembler()
     assembler.push({ type: 'text-delta', index: 0, text: 'no usage' })
     expect(assembler.usage).toBeUndefined()
   })
 
   it('reuses an existing partial when ensure() is called with a tracked index', () => {
-    /** 中文说明：变量 assembler 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const assembler = new BlockAssembler()
     // block-start creates the partial; block-end calls ensure() on the same index
     assembler.push({ type: 'block-start', index: 0, blockType: 'text' })
@@ -77,7 +62,6 @@ describe('BlockAssembler', () => {
   })
 
   it('throws from assemble() when a partial has an unhandled blockType', () => {
-    /** 中文说明：变量 assembler 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const assembler = new BlockAssembler()
     // Unknown declaration-merged block types cannot be assembled from partial deltas. Opening a
     // plugin-added `video` block without its required `block-end` exercises that failure.
@@ -86,11 +70,9 @@ describe('BlockAssembler', () => {
   })
 
   it('mustGet throws when an index is missing from the partials map (invariant violation)', () => {
-    /** 中文说明：变量 assembler 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const assembler = new BlockAssembler()
     // Force the invariant violation: manually corrupt the data structures.
     /* oxlint-disable */
-    /** 中文说明：变量 hack 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const hack = assembler as any
     hack.order.push(99)
     /* oxlint-enable */
@@ -98,7 +80,6 @@ describe('BlockAssembler', () => {
   })
 
   it('ignores duplicate block-start for the same index', () => {
-    /** 中文说明：变量 assembler 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const assembler = new BlockAssembler()
     assembler.push({ type: 'block-start', index: 0, blockType: 'text' })
     assembler.push({ type: 'text-delta', index: 0, text: 'one' })
@@ -110,7 +91,6 @@ describe('BlockAssembler', () => {
   })
 
   it('ignores tool-call-delta stragglers after block-end', () => {
-    /** 中文说明：变量 assembler 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const assembler = new BlockAssembler()
     assembler.push({ type: 'block-start', index: 0, blockType: 'tool-call' })
     assembler.push({ type: 'tool-call-delta', index: 0, id: ToolCallId('c1'), name: 'echo', argumentsDelta: '{}' })
@@ -121,11 +101,9 @@ describe('BlockAssembler', () => {
   })
 
   it('assembles tool-call with generated id fallback when no id provided', () => {
-    /** 中文说明：变量 assembler 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const assembler = new BlockAssembler()
     assembler.push({ type: 'tool-call-delta', index: 0, argumentsDelta: '{}' } as StreamChunk)
     // No id and no name provided — uses fallback id `call-{index}` and empty name
-    /** 中文说明：变量 blocks 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const blocks = assembler.blocks()
     expect(blocks).toEqual([
       { type: 'tool-call', id: ToolCallId('call-0'), name: '', arguments: '{}' },
@@ -133,7 +111,6 @@ describe('BlockAssembler', () => {
   })
 
   it('exposes usage via the getter when a usage chunk was received', () => {
-    /** 中文说明：变量 assembler 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const assembler = new BlockAssembler()
     assembler.push({ type: 'text-delta', index: 0, text: 'msg' })
     assembler.push({ type: 'usage', usage: { inputTokens: 5, outputTokens: 3 } })
@@ -142,11 +119,9 @@ describe('BlockAssembler', () => {
 })
 
 describe('BlockAssembler replay metadata', () => {
-  /** 中文说明：变量 response 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const response = { responseId: 'resp-1' }
 
   it('prunes per-block replay entries with the tool calls a max-tokens finish drops', () => {
-    /** 中文说明：变量 assembler 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const assembler = new BlockAssembler()
     assembler.push({ type: 'block-end', index: 0, block: { type: 'text', text: 'lead' } })
     assembler.push({
@@ -169,7 +144,6 @@ describe('BlockAssembler replay metadata', () => {
   })
 
   it('omits replay metadata whose per-block entries misalign with the emitted blocks', () => {
-    /** 中文说明：变量 assembler 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const assembler = new BlockAssembler()
     assembler.push({ type: 'block-end', index: 0, block: { type: 'text', text: 'one' } })
     assembler.push({ type: 'block-end', index: 1, block: { type: 'text', text: 'two' } })
@@ -184,9 +158,7 @@ describe('BlockAssembler replay metadata', () => {
   })
 
   it('passes replay metadata through unchanged when assembly drops nothing', () => {
-    /** 中文说明：变量 replayState 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const replayState = { response, blocks: ['meta-0', 'meta-1'] }
-    /** 中文说明：变量 assembler 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const assembler = new BlockAssembler()
     assembler.push({ type: 'block-end', index: 0, block: { type: 'text', text: 'partial' } })
     assembler.push({
@@ -200,9 +172,7 @@ describe('BlockAssembler replay metadata', () => {
   })
 
   it('keeps a max-tokens replay state with no per-block entries across a tool-call drop', () => {
-    /** 中文说明：变量 replayState 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const replayState = { response }
-    /** 中文说明：变量 assembler 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const assembler = new BlockAssembler()
     assembler.push({ type: 'block-end', index: 0, block: { type: 'text', text: 'partial' } })
     assembler.push({
@@ -217,9 +187,7 @@ describe('BlockAssembler replay metadata', () => {
   })
 
   it('keeps a text-only max-tokens response and its replay metadata intact', () => {
-    /** 中文说明：变量 replayState 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const replayState = { response, blocks: ['meta-0'] }
-    /** 中文说明：变量 assembler 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const assembler = new BlockAssembler()
     assembler.push({ type: 'block-end', index: 0, block: { type: 'text', text: 'partial' } })
     assembler.push({ type: 'finish', reason: { kind: 'max-tokens' }, replayState })
@@ -231,14 +199,13 @@ describe('BlockAssembler replay metadata', () => {
 
 describe('assertNever', () => {
   it('throws with diagnostics when a value escapes a closed union at runtime', async () => {
-    const { assertNever } = await import('@deepseek-ai/dsh-llm')
+    const { assertNever } = await import('@deepseek-ai/dsh-util-values')
     expect(() => assertNever({ type: 'rogue' } as never, 'test-context'))
       .toThrow('unreachable variant in test-context: {"type":"rogue"}')
     expect(() => assertNever(undefined as never)).toThrow('unreachable variant: undefined')
   })
 
   it('BlockAssembler.push rejects chunks outside the closed StreamChunk union', () => {
-    /** 中文说明：变量 assembler 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const assembler = new BlockAssembler()
     expect(() => { assembler.push({ type: 'rogue-chunk' } as unknown as StreamChunk) })
       .toThrow('unreachable variant in BlockAssembler.push')
@@ -248,14 +215,11 @@ describe('assertNever', () => {
 describe('BlockAssembler duplicate-close contract', () => {
   it('first block-end wins: a duplicate block-end for a closed index is ignored', () => {
     // The first close wins so streamed and final output cannot disagree.
-    /** 中文说明：变量 chunks 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const chunks: StreamChunk[] = [
       { type: 'block-end', index: 0, block: { type: 'reasoning', text: 'first' } },
       { type: 'block-end', index: 0, block: { type: 'text', text: 'second' } },
     ]
-    /** 中文说明：变量 assembler 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const assembler = new BlockAssembler()
-    /** 中文说明：该循环依次处理场景数据；循环变量仅在当前循环中有效。 */
     for (const chunk of chunks) assembler.push(chunk)
     expect(assembler.blocks()).toEqual([{ type: 'reasoning', text: 'first' }])
   })
@@ -263,7 +227,6 @@ describe('BlockAssembler duplicate-close contract', () => {
 
 describe('BlockAssembler.interruptedBlocks', () => {
   it('keeps closed and open text/reasoning blocks with streamed content, in order', () => {
-    /** 中文说明：变量 assembler 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const assembler = new BlockAssembler()
     assembler.push({ type: 'block-start', index: 0, blockType: 'reasoning' })
     assembler.push({ type: 'reasoning-delta', index: 0, text: 'planning' })
@@ -277,7 +240,6 @@ describe('BlockAssembler.interruptedBlocks', () => {
   })
 
   it('drops tool calls whether open or closed — interruption precedes dispatch', () => {
-    /** 中文说明：变量 assembler 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const assembler = new BlockAssembler()
     assembler.push({ type: 'block-start', index: 0, blockType: 'text' })
     assembler.push({ type: 'text-delta', index: 0, text: 'calling' })
@@ -291,7 +253,6 @@ describe('BlockAssembler.interruptedBlocks', () => {
   })
 
   it('drops empty and whitespace-only text/reasoning blocks and unknown open block types', () => {
-    /** 中文说明：变量 assembler 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const assembler = new BlockAssembler()
     assembler.push({ type: 'block-start', index: 0, blockType: 'text' })
     assembler.push({ type: 'text-delta', index: 0, text: '  \n' })

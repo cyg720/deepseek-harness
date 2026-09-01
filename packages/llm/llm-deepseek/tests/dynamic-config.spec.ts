@@ -1,11 +1,3 @@
-/**
- * 文件职责：验证DeepSeek LLM的 dynamic-config.spec.ts 行为与网络边界。
- * 技术维度：TypeScript、Fetch、SSE、OAuth/密钥认证、模型目录和运行时模式校验。
- * 产品维度：让 Agent 能稳定调用供应商模型、发现能力并接收流式结果。
- * 逻辑维度：构造请求或模拟服务器，驱动适配器并断言事件与错误。
- * 关键边界：网络响应属于不可信输入；密钥和令牌不得记录；取消必须终止请求与流。
- * 新手阅读建议：先读 config/auth/catalog，再看 adapter/stream，最后阅读错误和重放测试。
- */
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { Context, Service } from '@deepseek-ai/cordis'
 import { access, mkdtemp, rm, writeFile } from 'node:fs/promises'
@@ -23,17 +15,13 @@ import type {
 } from '@deepseek-ai/dsh-attachment'
 import { credentialRef } from '@deepseek-ai/dsh-credentials'
 import { LocalCredentialProvider } from '@deepseek-ai/dsh-credentials-local'
-import { settingsNamespace } from '@deepseek-ai/dsh-settings'
 import { FileSettingsProvider } from '@deepseek-ai/dsh-settings-file'
 import * as LlmDeepSeek from '@deepseek-ai/dsh-llm-deepseek'
 import { assemble } from './assemble.ts'
 import { closeMockServers, mockServer, textEvents } from './mock-server.ts'
 
-/** 中文说明：测试局部值 NS，由紧邻初始化决定。 */
-const NS = settingsNamespace('llm-deepseek')
-/** 中文说明：测试局部值 KEY_REF，由紧邻初始化决定。 */
+const NS = 'llm-deepseek'
 const KEY_REF = credentialRef('DEEPSEEK_API_KEY')
-/** 中文说明：测试局部值 IMAGE_REF，由紧邻初始化决定。 */
 const IMAGE_REF: ImageAttachmentRef = {
   attachmentId: AttachmentId(`sha256:${'a'.repeat(64)}`),
   mediaType: 'image/png',
@@ -54,7 +42,6 @@ class MappedFileSystem extends Service {
   }
 }
 
-/** 中文说明：类型或类 StaticAttachmentStore 约束模型请求、认证或流事件职责。 */
 class StaticAttachmentStore extends AttachmentStore {
   readonly imageLimits: ImageAttachmentLimits = {
     maxImageBytes: 16,
@@ -101,7 +88,6 @@ class StaticAttachmentStore extends AttachmentStore {
   }
 }
 
-/** 中文说明：测试局部值 cleanups，由紧邻初始化决定。 */
 const cleanups: Array<() => Promise<void>> = []
 
 afterEach(async () => {
@@ -110,15 +96,12 @@ afterEach(async () => {
   vi.unstubAllEnvs()
 })
 
-/** 中文说明：函数 home 的参数见签名，返回结果供模型流程使用；示例见本文件。 */
 async function home(): Promise<string> {
-  /** 中文说明：测试局部值 dir，由紧邻初始化决定。 */
   const dir = await mkdtemp(join(tmpdir(), 'dsh-llm-dynamic-'))
   cleanups.push(() => rm(dir, { recursive: true, force: true }))
   return dir
 }
 
-/** 中文说明：类型或类 Harness 约束模型请求、认证或流事件职责。 */
 interface Harness {
   ctx: Context
   settingsFiber: { dispose(): Promise<void> }
@@ -130,17 +113,14 @@ interface Harness {
  * flowing through the in-process write path, which is deterministic; external
  * file watching is the providers' own covered concern.
  */
-/* 中文说明：函数 boot 的参数见签名，返回结果供模型流程使用；示例见本文件。 */
 async function boot(dir: string, config: object): Promise<Harness> {
   vi.stubEnv('DSH_HOME', dir)
-  /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
   const ctx = new Context()
   cleanups.push(async () => {
     await ctx.fiber.dispose()
   })
   await ctx.plugin(LlmRuntime)
   await ctx.plugin(StaticAttachmentStore)
-  /** 中文说明：测试局部值 settingsFiber，由紧邻初始化决定。 */
   const settingsFiber = ctx.plugin(FileSettingsProvider, { path: join(dir, 'settings.yaml'), watch: false })
   await settingsFiber
   await ctx.plugin(LocalCredentialProvider, { path: join(dir, '.credentials.yaml'), watch: false })
@@ -148,7 +128,6 @@ async function boot(dir: string, config: object): Promise<Harness> {
   return { ctx, settingsFiber }
 }
 
-/** 中文说明：函数 prompt 的参数见签名，返回结果供模型流程使用；示例见本文件。 */
 function prompt(ctx: Context) {
   return assemble(ctx, { model: 'deepseek-v4-flash', messages: [] })
 }
@@ -156,14 +135,10 @@ function prompt(ctx: Context) {
 describe('request-level dynamic configuration', () => {
   it('routes the next request with the freshly resolved base URL and credential', async () => {
     vi.stubEnv('DEEPSEEK_API_KEY', '')
-    /** 中文说明：测试局部值 dir，由紧邻初始化决定。 */
     const dir = await home()
     await writeFile(join(dir, '.credentials.yaml'), 'version: 1\nrefs:\n  DEEPSEEK_API_KEY: first-key\n', { mode: 0o600 })
-    /** 中文说明：测试局部值 serverA，由紧邻初始化决定。 */
     const serverA = await mockServer([{ kind: 'sse', events: textEvents }])
-    /** 中文说明：测试局部值 serverB，由紧邻初始化决定。 */
     const serverB = await mockServer([{ kind: 'sse', events: textEvents }])
-    /** 中文说明：测试局部值 { ctx }，由紧邻初始化决定。 */
     const { ctx } = await boot(dir, { baseURL: serverA.url })
 
     await prompt(ctx)
@@ -180,14 +155,10 @@ describe('request-level dynamic configuration', () => {
 
   it('starts keyless and serves the next request once the key arrives', async () => {
     vi.stubEnv('DEEPSEEK_API_KEY', '')
-    /** 中文说明：测试局部值 dir，由紧邻初始化决定。 */
     const dir = await home()
-    /** 中文说明：测试局部值 server，由紧邻初始化决定。 */
     const server = await mockServer([{ kind: 'sse', events: textEvents }])
-    /** 中文说明：测试局部值 { ctx }，由紧邻初始化决定。 */
     const { ctx } = await boot(dir, { baseURL: server.url })
 
-    /** 中文说明：测试局部值 keyless，由紧邻初始化决定。 */
     const keyless = await prompt(ctx)
     expect(keyless.finish).toMatchObject({ kind: 'error', failure: { code: 'MISSING_CREDENTIAL' } })
     await expect(access(join(dir, '.anonymous-user-id'))).rejects.toMatchObject({ code: 'ENOENT' })
@@ -199,11 +170,8 @@ describe('request-level dynamic configuration', () => {
 
   it('rejects a stored credential no header can carry, never echoing it in the failure', async () => {
     vi.stubEnv('DEEPSEEK_API_KEY', '')
-    /** 中文说明：测试局部值 dir，由紧邻初始化决定。 */
     const dir = await home()
-    /** 中文说明：测试局部值 { ctx }，由紧邻初始化决定。 */
     const { ctx } = await boot(dir, { baseURL: 'http://127.0.0.1:1' })
-    /** 中文说明：测试局部值 secret，由紧邻初始化决定。 */
     const secret = 'sk-\u{1F600}supersecret'
 
     // The real credentials seam (the path the web Models page writes through),
@@ -211,7 +179,6 @@ describe('request-level dynamic configuration', () => {
     // boots one, and round-tripping the value through its actual store/read
     // path is stronger evidence than a canned in-memory return would be.
     await ctx.credentials.set(KEY_REF, secret)
-    /** 中文说明：测试局部值 result，由紧邻初始化决定。 */
     const result = await prompt(ctx)
     expect(result.finish).toMatchObject({ kind: 'error', failure: { code: INVALID_CREDENTIAL_CODE } })
     if (result.finish.kind !== 'error') throw new Error('expected an error finish')
@@ -221,9 +188,7 @@ describe('request-level dynamic configuration', () => {
   })
 
   it('advertises a live settings catalog without re-registration', async () => {
-    /** 中文说明：测试局部值 dir，由紧邻初始化决定。 */
     const dir = await home()
-    /** 中文说明：测试局部值 { ctx }，由紧邻初始化决定。 */
     const { ctx } = await boot(dir, { baseURL: 'http://127.0.0.1:1' })
 
     await expect(ctx.llm.listModels('deepseek-official')).resolves.toHaveLength(3)
@@ -237,14 +202,11 @@ describe('request-level dynamic configuration', () => {
 
   it('applies changed request file limits to the next request', async () => {
     vi.stubEnv('DEEPSEEK_API_KEY', 'test-key')
-    /** 中文说明：测试局部值 dir，由紧邻初始化决定。 */
     const dir = await home()
-    /** 中文说明：测试局部值 server，由紧邻初始化决定。 */
     const server = await mockServer([
       { kind: 'sse', events: textEvents },
       { kind: 'sse', events: textEvents },
     ])
-    /** 中文说明：测试局部值 { ctx }，由紧邻初始化决定。 */
     const { ctx } = await boot(dir, { baseURL: server.url })
     await ctx.plugin(MappedFileSystem)
     const messages = [createUserMessage({
@@ -259,9 +221,7 @@ describe('request-level dynamic configuration', () => {
     await ctx.settings.update(NS, { maxRequestFilesBytes: 4, imageOffloadByteQuantum: 2 })
     await assemble(ctx, { model: 'deepseek-v4-flash-vision-exp', messages })
 
-    /** 中文说明：测试局部值 first，由紧邻初始化决定。 */
     const first = (server.requests[0] as { messages: Array<{ content: unknown }> }).messages[0]?.content
-    /** 中文说明：测试局部值 second，由紧邻初始化决定。 */
     const second = (server.requests[1] as { messages: Array<{ content: unknown }> }).messages[0]?.content
     expect(JSON.stringify(first).match(/"type":"file"/g)).toHaveLength(2)
     expect(JSON.stringify(second)).toContain('[image omitted to fit request image limits')
@@ -270,15 +230,12 @@ describe('request-level dynamic configuration', () => {
   })
 
   it('re-registers the route in place when the captured retry policy changes, without an empty-registry window', async () => {
-    /** 中文说明：测试局部值 dir，由紧邻初始化决定。 */
     const dir = await home()
-    /** 中文说明：测试局部值 { ctx }，由紧邻初始化决定。 */
     const { ctx } = await boot(dir, { baseURL: 'http://127.0.0.1:1' })
 
     // Observing the topology event, not just the end state: disposing and
     // re-registering also lands on the right final registry, but publishes an
     // empty route set in between, so an observer sees the provider disappear.
-    /** 中文说明：测试局部值 observed，由紧邻初始化决定。 */
     const observed: string[][] = []
     ctx.on('llm/adapters-updated', () => {
       observed.push(ctx.llm.listProviders().map(provider => provider.id))
@@ -298,9 +255,7 @@ describe('request-level dynamic configuration', () => {
   })
 
   it('keeps the last good options when a settings snapshot fails beyond-schema validation', async () => {
-    /** 中文说明：测试局部值 dir，由紧邻初始化决定。 */
     const dir = await home()
-    /** 中文说明：测试局部值 { ctx }，由紧邻初始化决定。 */
     const { ctx } = await boot(dir, { baseURL: 'http://127.0.0.1:1' })
 
     // Schema-valid but resolver-invalid: duplicate catalog ids pass the array
@@ -314,14 +269,10 @@ describe('request-level dynamic configuration', () => {
   })
 
   it('keeps the whole last-good snapshot when a rejected one changed the URL', async () => {
-    /** 中文说明：测试局部值 dir，由紧邻初始化决定。 */
     const dir = await home()
-    /** 中文说明：测试局部值 good，由紧邻初始化决定。 */
     const good = await mockServer([{ kind: 'sse', events: textEvents }])
-    /** 中文说明：测试局部值 rejected，由紧邻初始化决定。 */
     const rejected = await mockServer([{ kind: 'sse', events: textEvents }])
     vi.stubEnv('DEEPSEEK_API_KEY', 'good-key')
-    /** 中文说明：测试局部值 { ctx }，由紧邻初始化决定。 */
     const { ctx } = await boot(dir, { baseURL: good.url })
 
     // One snapshot moves the endpoint and fails the resolve step beyond the
@@ -341,14 +292,10 @@ describe('request-level dynamic configuration', () => {
 
   it('falls back to the composition entry when settings detach', async () => {
     vi.stubEnv('DEEPSEEK_API_KEY', '')
-    /** 中文说明：测试局部值 dir，由紧邻初始化决定。 */
     const dir = await home()
     await writeFile(join(dir, '.credentials.yaml'), 'version: 1\nrefs:\n  DEEPSEEK_API_KEY: steady-key\n', { mode: 0o600 })
-    /** 中文说明：测试局部值 serverA，由紧邻初始化决定。 */
     const serverA = await mockServer([{ kind: 'sse', events: textEvents }])
-    /** 中文说明：测试局部值 serverB，由紧邻初始化决定。 */
     const serverB = await mockServer([{ kind: 'sse', events: textEvents }])
-    /** 中文说明：测试局部值 { ctx, settingsFiber }，由紧邻初始化决定。 */
     const { ctx, settingsFiber } = await boot(dir, { baseURL: serverA.url })
 
     await ctx.settings.update(NS, { baseURL: serverB.url })

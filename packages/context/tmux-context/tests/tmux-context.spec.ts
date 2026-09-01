@@ -1,26 +1,17 @@
-/**
- * 文件职责：验证tmux 上下文的 tmux-context.spec.ts 行为。
- * 技术维度：Vitest、会话事件、模型请求夹具和 Cordis 组装。
- * 产品维度：防止tmux 上下文改变模型可见内容或生命周期语义。
- * 逻辑维度：构造日志与配置，运行插件并断言事件、请求和清理。
- * 关键边界：模型可见内容必须可重建；工具调用和结果必须保持配对。
- * 新手阅读建议：先读事件夹具，再按正常、边界和失败场景阅读。
- */
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
 import { Session, SessionId } from '@deepseek-ai/dsh-session'
 import AgentRegistry, { agentEvents, Inbox, type Agent } from '@deepseek-ai/dsh-agent'
+import SessionProjectionRegistry from '@deepseek-ai/dsh-session-projection'
 import { createUserMessage } from '@deepseek-ai/dsh-llm'
 import { ShellExecutor } from '@deepseek-ai/dsh-shell'
 import type { ShellExecRequest, ShellExecSpec, ShellProcess, ShellRunResult } from '@deepseek-ai/dsh-shell'
 import * as tmuxContext from '@deepseek-ai/dsh-tmux-context'
 import type { Config } from '@deepseek-ai/dsh-tmux-context'
 
-/** 中文说明：测试局部值 SIGNAL，由紧邻初始化决定。 */
 const SIGNAL = new AbortController().signal
 
 /** One `#{...}`-joined tmux reading line for the eight queried fields. */
-/* 中文说明：函数 tmuxLine 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function tmuxLine(fields: {
   sessionName?: string
   windowIndex?: string
@@ -43,7 +34,6 @@ function tmuxLine(fields: {
   ].join('\\t')
 }
 
-/** 中文说明：函数 runResult 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function runResult(stdout: string, overrides: Partial<ShellRunResult> = {}): ShellRunResult {
   return {
     exitCode: 0,
@@ -58,7 +48,6 @@ function runResult(stdout: string, overrides: Partial<ShellRunResult> = {}): She
 }
 
 /** A scriptable fake `ctx.shell` recording the command it was asked to run. */
-/* 中文说明：类型或类 FakeBash 约束上下文或压缩数据职责。 */
 class FakeBash extends ShellExecutor {
   commands: string[] = []
   result: ShellRunResult = runResult(`${tmuxLine()}\n`)
@@ -86,19 +75,15 @@ class FakeBash extends ShellExecutor {
   }
 }
 
-/** 中文说明：函数 mount 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 async function mount(config: Config, withBash: true): Promise<{ ctx: Context; bash: FakeBash }>
-/** 中文说明：函数 mount 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 async function mount(config?: Config, withBash?: boolean): Promise<{ ctx: Context; bash: FakeBash | undefined }>
-/** 中文说明：函数 mount 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 async function mount(
   config: Config = {},
   withBash = false,
 ): Promise<{ ctx: Context; bash: FakeBash | undefined }> {
-  /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
   const ctx = new Context()
   await ctx.plugin(AgentRegistry)
-  /** 中文说明：测试局部值 解构结果，由紧邻初始化决定。 */
+  await ctx.plugin(SessionProjectionRegistry)
   let bash: FakeBash | undefined
   if (withBash) {
     await ctx.plugin(FakeBash)
@@ -108,7 +93,6 @@ async function mount(
   return { ctx, bash }
 }
 
-/** 中文说明：函数 sessionAgent 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function sessionAgent(session: Session, id = 'agent'): Agent {
   return {
     id: SessionId(id),
@@ -127,7 +111,6 @@ function sessionAgent(session: Session, id = 'agent'): Agent {
   }
 }
 
-/** 中文说明：函数 openMessageTurn 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function openMessageTurn(session: Session, turn: number): void {
   session.append('turn/start', { turn })
   session.append('user/message', createUserMessage({
@@ -136,11 +119,8 @@ function openMessageTurn(session: Session, turn: number): void {
   }), { surfaceOp: 'append' })
 }
 
-/** 中文说明：函数 contextTexts 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function contextTexts(session: Session): string[] {
-  /** 中文说明：测试局部值 texts，由紧邻初始化决定。 */
   const texts: string[] = []
-  /** 中文说明：测试局部值 event，由紧邻初始化决定。 */
   for (const event of session.events) {
     if (event.type === 'user/message'
       && event.data.source.kind === 'plugin'
@@ -151,7 +131,6 @@ function contextTexts(session: Session): string[] {
   return texts
 }
 
-/** 中文说明：函数 fire 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 async function fire(
   ctx: Context,
   agent: Agent,
@@ -159,14 +138,12 @@ async function fire(
   step: number,
   signal: AbortSignal = SIGNAL,
 ): Promise<void> {
-  /** 中文说明：测试局部值 decision，由紧邻初始化决定。 */
   const decision = await agentEvents(ctx, agent).waterfall(
     'agent/pre-step',
     { messages: [], turn, step, signal },
     () => Promise.resolve({ kind: 'enter' as const, messages: [] }),
   )
   if (decision.kind === 'enter') {
-    /** 中文说明：测试局部值 message，由紧邻初始化决定。 */
     for (const message of decision.messages) {
       agent.session.append('user/message', message, { surfaceOp: 'append' })
     }
@@ -180,9 +157,7 @@ afterEach(() => {
 
 describe('tmux-context injection', () => {
   it('injects the tmux location on the first step of a turn', async () => {
-    /** 中文说明：测试局部值 { ctx }，由紧邻初始化决定。 */
     const { ctx } = await mount({}, true)
-    /** 中文说明：测试局部值 session，由紧邻初始化决定。 */
     const session = Session.create(SessionId('first'))
     openMessageTurn(session, 1)
 
@@ -194,7 +169,6 @@ describe('tmux-context injection', () => {
       + 'window active=1, pane active=0, '
       + 'layout d517,270x71,0,0{135x71,0,0,87,134x71,136,0[134x35,136,0,90,134x35,136,36,93]}',
     ])
-    /** 中文说明：测试局部值 event，由紧邻初始化决定。 */
     const event = session.events.at(-1)
     if (event?.type !== 'user/message') throw new Error('missing tmux context')
     // `snapshot` form: one named contribution carrying exactly the reading the
@@ -209,16 +183,13 @@ describe('tmux-context injection', () => {
   })
 
   it('queries the pane this process runs in and matches its controlling tty', async () => {
-    /** 中文说明：测试局部值 { ctx, bash }，由紧邻初始化决定。 */
     const { ctx, bash } = await mount({}, true)
-    /** 中文说明：测试局部值 session，由紧邻初始化决定。 */
     const session = Session.create(SessionId('command'))
     openMessageTurn(session, 1)
 
     await fire(ctx, sessionAgent(session), 1, 1)
 
     expect(bash.commands).toHaveLength(1)
-    /** 中文说明：测试局部值 command，由紧邻初始化决定。 */
     const command = bash.commands[0]!
     expect(command).toContain('[ -n "$TMUX_PANE" ]')
     expect(command).toContain('tmux display-message -t "$TMUX_PANE" -p')
@@ -230,9 +201,7 @@ describe('tmux-context injection', () => {
   })
 
   it('does not run on later steps of a turn', async () => {
-    /** 中文说明：测试局部值 { ctx, bash }，由紧邻初始化决定。 */
     const { ctx, bash } = await mount({}, true)
-    /** 中文说明：测试局部值 session，由紧邻初始化决定。 */
     const session = Session.create(SessionId('later-step'))
     openMessageTurn(session, 1)
 
@@ -243,11 +212,8 @@ describe('tmux-context injection', () => {
   })
 
   it('re-injects a new turn only when tmux state changed', async () => {
-    /** 中文说明：测试局部值 { ctx, bash }，由紧邻初始化决定。 */
     const { ctx, bash } = await mount({}, true)
-    /** 中文说明：测试局部值 session，由紧邻初始化决定。 */
     const session = Session.create(SessionId('change'))
-    /** 中文说明：测试局部值 agent，由紧邻初始化决定。 */
     const agent = sessionAgent(session)
 
     openMessageTurn(session, 1)
@@ -265,7 +231,6 @@ describe('tmux-context injection', () => {
     openMessageTurn(session, 3)
     await fire(ctx, agent, 3, 1)
 
-    /** 中文说明：测试局部值 texts，由紧邻初始化决定。 */
     const texts = contextTexts(session)
     expect(texts).toHaveLength(2)
     expect(texts[1]).toContain('tmux location (turn 3):')
@@ -275,11 +240,8 @@ describe('tmux-context injection', () => {
   it('honors a positive refresh interval between injections', async () => {
     vi.useFakeTimers()
     vi.setSystemTime(1_000)
-    /** 中文说明：测试局部值 { ctx, bash }，由紧邻初始化决定。 */
     const { ctx, bash } = await mount({ refreshIntervalMs: 10_000 }, true)
-    /** 中文说明：测试局部值 session，由紧邻初始化决定。 */
     const session = Session.create(SessionId('interval'))
-    /** 中文说明：测试局部值 agent，由紧邻初始化决定。 */
     const agent = sessionAgent(session)
 
     openMessageTurn(session, 1)
@@ -305,11 +267,8 @@ describe('tmux-context injection', () => {
 
 describe('tmux-context prior-reading resilience', () => {
   it('treats a prior non-text plugin reading as absent and injects afresh', async () => {
-    /** 中文说明：测试局部值 { ctx, bash }，由紧邻初始化决定。 */
     const { ctx, bash } = await mount({}, true)
-    /** 中文说明：测试局部值 session，由紧邻初始化决定。 */
     const session = Session.create(SessionId('prior-non-text'))
-    /** 中文说明：测试局部值 agent，由紧邻初始化决定。 */
     const agent = sessionAgent(session)
     openMessageTurn(session, 1)
     session.append('user/message', createUserMessage({
@@ -324,11 +283,8 @@ describe('tmux-context prior-reading resilience', () => {
   })
 
   it('treats a prior single-line plugin reading (no newline) as empty state', async () => {
-    /** 中文说明：测试局部值 { ctx, bash }，由紧邻初始化决定。 */
     const { ctx, bash } = await mount({}, true)
-    /** 中文说明：测试局部值 session，由紧邻初始化决定。 */
     const session = Session.create(SessionId('prior-single-line'))
-    /** 中文说明：测试局部值 agent，由紧邻初始化决定。 */
     const agent = sessionAgent(session)
     openMessageTurn(session, 1)
     session.append('user/message', createUserMessage({
@@ -346,9 +302,7 @@ describe('tmux-context prior-reading resilience', () => {
 
 describe('tmux-context no-op paths', () => {
   it('is a no-op when no bash executor is mounted', async () => {
-    /** 中文说明：测试局部值 { ctx }，由紧邻初始化决定。 */
     const { ctx } = await mount()
-    /** 中文说明：测试局部值 session，由紧邻初始化决定。 */
     const session = Session.create(SessionId('no-bash'))
     openMessageTurn(session, 1)
 
@@ -358,10 +312,8 @@ describe('tmux-context no-op paths', () => {
   })
 
   it('is a no-op when the tmux query exits nonzero (outside tmux, or an inherited env whose tty does not match the pane)', async () => {
-    /** 中文说明：测试局部值 { ctx, bash }，由紧邻初始化决定。 */
     const { ctx, bash } = await mount({}, true)
     bash.result = runResult('', { exitCode: 1 })
-    /** 中文说明：测试局部值 session，由紧邻初始化决定。 */
     const session = Session.create(SessionId('outside-tmux'))
     openMessageTurn(session, 1)
 
@@ -371,10 +323,8 @@ describe('tmux-context no-op paths', () => {
   })
 
   it('is a no-op when the reading has the wrong field count', async () => {
-    /** 中文说明：测试局部值 { ctx, bash }，由紧邻初始化决定。 */
     const { ctx, bash } = await mount({}, true)
     bash.result = runResult('0\\t1\\tnode\n')
-    /** 中文说明：测试局部值 session，由紧邻初始化决定。 */
     const session = Session.create(SessionId('malformed'))
     openMessageTurn(session, 1)
 
@@ -384,10 +334,8 @@ describe('tmux-context no-op paths', () => {
   })
 
   it('is a no-op when the pane id is empty', async () => {
-    /** 中文说明：测试局部值 { ctx, bash }，由紧邻初始化决定。 */
     const { ctx, bash } = await mount({}, true)
     bash.result = runResult(`${tmuxLine({ paneId: '' })}\n`)
-    /** 中文说明：测试局部值 session，由紧邻初始化决定。 */
     const session = Session.create(SessionId('empty-pane'))
     openMessageTurn(session, 1)
 
@@ -397,12 +345,9 @@ describe('tmux-context no-op paths', () => {
   })
 
   it('warns and injects nothing when the executor rejects the run', async () => {
-    /** 中文说明：测试局部值 { ctx, bash }，由紧邻初始化决定。 */
     const { ctx, bash } = await mount({}, true)
     bash.runError = new Error('bash executor unavailable')
-    /** 中文说明：测试局部值 warn，由紧邻初始化决定。 */
     const warn = vi.spyOn(ctx.logger, 'warn')
-    /** 中文说明：测试局部值 session，由紧邻初始化决定。 */
     const session = Session.create(SessionId('run-rejected'))
     openMessageTurn(session, 1)
 
@@ -413,12 +358,9 @@ describe('tmux-context no-op paths', () => {
   })
 
   it('warns and injects nothing when the executor rejects the command at resolve', async () => {
-    /** 中文说明：测试局部值 { ctx, bash }，由紧邻初始化决定。 */
     const { ctx, bash } = await mount({}, true)
     bash.resolveError = new Error('command denied by policy')
-    /** 中文说明：测试局部值 warn，由紧邻初始化决定。 */
     const warn = vi.spyOn(ctx.logger, 'warn')
-    /** 中文说明：测试局部值 session，由紧邻初始化决定。 */
     const session = Session.create(SessionId('resolve-rejected'))
     openMessageTurn(session, 1)
 
@@ -429,13 +371,10 @@ describe('tmux-context no-op paths', () => {
   })
 
   it('reports a non-Error rejection in the warning', async () => {
-    /** 中文说明：测试局部值 { ctx, bash }，由紧邻初始化决定。 */
     const { ctx, bash } = await mount({}, true)
     // Non-Error throw: the executor seam is typed, but a bad impl can reject with anything.
     bash.runError = 'spawn refused' as unknown as Error
-    /** 中文说明：测试局部值 warn，由紧邻初始化决定。 */
     const warn = vi.spyOn(ctx.logger, 'warn')
-    /** 中文说明：测试局部值 session，由紧邻初始化决定。 */
     const session = Session.create(SessionId('non-error-rejection'))
     openMessageTurn(session, 1)
 
@@ -446,15 +385,11 @@ describe('tmux-context no-op paths', () => {
   })
 
   it('skips an already-aborted prompt submission', async () => {
-    /** 中文说明：测试局部值 { ctx }，由紧邻初始化决定。 */
     const { ctx } = await mount({}, true)
-    /** 中文说明：测试局部值 session，由紧邻初始化决定。 */
     const session = Session.create(SessionId('ordering'))
-    /** 中文说明：测试局部值 agent，由紧邻初始化决定。 */
     const agent = sessionAgent(session)
     openMessageTurn(session, 1)
 
-    /** 中文说明：测试局部值 abort，由紧邻初始化决定。 */
     const abort = new AbortController()
     abort.abort()
     await fire(ctx, agent, 1, 1, abort.signal)

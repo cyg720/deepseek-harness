@@ -1,11 +1,3 @@
-/**
- * 文件职责：验证文件系统与工具的 tools.spec.ts 行为与安全边界。
- * 技术维度：TypeScript、Cordis、会话事件、路径策略、判别联合和 Vitest。
- * 产品维度：保证文件系统与工具操作可预测、可审计并在失败时保持一致。
- * 逻辑维度：构造请求与状态，驱动服务并断言输出和清理。
- * 关键边界：文件路径必须经过策略检查；目标引用含版本，过期修改必须拒绝。
- * 新手阅读建议：先读类型与测试夹具，再按校验、执行、事件折叠和错误流程阅读。
- */
 import { mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -20,33 +12,24 @@ import LocalFileSystem from '@deepseek-ai/dsh-fs-local'
 import * as FsPolicy from '@deepseek-ai/dsh-fs-observation-policy'
 import SandboxedFileSystem from '@deepseek-ai/dsh-fs-sandbox'
 import SandboxPolicy from '@deepseek-ai/dsh-sandbox-policy'
+import SessionProjectionRegistry from '@deepseek-ai/dsh-session-projection'
 import SystemPrompt from '@deepseek-ai/dsh-system-prompt'
 import ToolRuntime from '@deepseek-ai/dsh-tools'
 import * as ToolStrReplaceEditor from '@deepseek-ai/dsh-tool-str-replace-editor'
 
-/** 中文说明：测试局部值 contexts，由紧邻初始化决定。 */
 const contexts: Context[] = []
-/** 中文说明：测试局部值 roots，由紧邻初始化决定。 */
 const roots: string[] = []
-/** 中文说明：测试局部值 callNumber，由紧邻初始化决定。 */
 let callNumber = 0
 
 afterEach(async () => {
-  /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
   for (const ctx of contexts.splice(0)) await ctx.fiber.dispose()
-  /** 中文说明：测试局部值 root，由紧邻初始化决定。 */
   for (const root of roots.splice(0)) await rm(root, { recursive: true, force: true })
 })
 
-/** 中文说明：函数 agent 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function agent(ctx: Context, cwd: string): Agent {
-  /** 中文说明：测试局部值 id，由紧邻初始化决定。 */
   const id = SessionId(`str-replace-editor-owner-${callNumber}`)
-  /** 中文说明：测试局部值 scope，由紧邻初始化决定。 */
   const scope = ctx.plugin(() => {})
-  /** 中文说明：测试局部值 session，由紧邻初始化决定。 */
   const session = Session.create(id, [], { version: 0, id, createdAt: 0, cwd })
-  /** 中文说明：测试局部值 value，由紧邻初始化决定。 */
   const value: Agent = {
     id,
     options: {},
@@ -66,12 +49,10 @@ function agent(ctx: Context, cwd: string): Agent {
   return value
 }
 
-/** 中文说明：函数 text 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function text(result: { content: { type: string; text?: string }[] }): string {
   return result.content.filter(block => block.type === 'text').map(block => block.text).join('')
 }
 
-/** 中文说明：函数 call 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function call(ctx: Context, owner: Agent | undefined, args: unknown) {
   return ctx.tools.execute({
     signal: new AbortController().signal,
@@ -82,15 +63,12 @@ function call(ctx: Context, owner: Agent | undefined, args: unknown) {
   })
 }
 
-/** 中文说明：函数 setup 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 async function setup(
   config: ToolStrReplaceEditor.Config = {},
   options: { fsPolicy?: boolean; sandboxMode?: 'read-only' | 'workspace-write' | 'danger-full-access' } = {},
 ) {
-  /** 中文说明：测试局部值 root，由紧邻初始化决定。 */
   const root = await mkdtemp(join(tmpdir(), 'dsh-tool-str-replace-editor-'))
   roots.push(root)
-  /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
   const ctx = new Context()
   contexts.push(ctx)
   await ctx.plugin(SystemPrompt)
@@ -99,24 +77,23 @@ async function setup(
   if (options.sandboxMode === undefined) {
     await ctx.plugin(LocalFileSystem, { cwd: root })
   } else {
+    // SandboxPolicy declares the registry as a required injection; mount it
+    // before the policy activates.
+    await ctx.plugin(SessionProjectionRegistry)
     await ctx.plugin(SandboxPolicy, { mode: options.sandboxMode, workspaceRoot: root })
     await ctx.plugin(SandboxedFileSystem, { cwd: root })
   }
   if (options.fsPolicy === true) await ctx.plugin(FsPolicy)
-  /** 中文说明：测试局部值 fiber，由紧邻初始化决定。 */
   const fiber = await ctx.plugin(ToolStrReplaceEditor, config)
   return { ctx, root, fiber, owner: agent(ctx, root) }
 }
 
 describe('tool-str-replace-editor', () => {
   it('registers the standalone schema and configurable description', async () => {
-    /** 中文说明：测试局部值 { ctx, fiber }，由紧邻初始化决定。 */
     const { ctx, fiber } = await setup({ description: 'custom editor description' })
-    /** 中文说明：测试局部值 schema，由紧邻初始化决定。 */
     const schema = ctx.tools.schemas()[0]
     expect(ctx.tools.schemas().map(item => item.name)).toEqual(['str_replace_editor'])
     expect(schema?.description).toBe('custom editor description')
-    /** 中文说明：测试局部值 properties，由紧邻初始化决定。 */
     const properties = (schema?.parameters as {
       properties: Record<string, {
         type?: string
@@ -216,9 +193,7 @@ describe('tool-str-replace-editor', () => {
   })
 
   it('creates, views, replaces, and inserts with the canonical model-facing output', async () => {
-    /** 中文说明：测试局部值 { ctx, root, owner }，由紧邻初始化决定。 */
     const { ctx, root, owner } = await setup()
-    /** 中文说明：测试局部值 sample，由紧邻初始化决定。 */
     const sample = join(root, 'sample.txt')
     expect(text(await call(ctx, owner, {
       command: 'create',
@@ -279,20 +254,16 @@ describe('tool-str-replace-editor', () => {
   })
 
   it('a failed view records absence so create can recover after external deletion', async () => {
-    /** 中文说明：测试局部值 { ctx, root, owner }，由紧邻初始化决定。 */
     const { ctx, root, owner } = await setup({}, { fsPolicy: true })
-    /** 中文说明：测试局部值 sample，由紧邻初始化决定。 */
     const sample = join(root, 'deleted.txt')
     await writeFile(sample, 'original')
     expect((await call(ctx, owner, { command: 'view', path: sample })).isError).toBe(false)
     await rm(sample)
 
-    /** 中文说明：测试局部值 missing，由紧邻初始化决定。 */
     const missing = await call(ctx, owner, { command: 'view', path: sample })
     expect(missing.isError).toBe(true)
     expect(missing.error).toMatchObject({ info: { code: 'FS_NOT_FOUND' } })
 
-    /** 中文说明：测试局部值 edit，由紧邻初始化决定。 */
     const edit = await call(ctx, owner, {
       command: 'str_replace',
       path: sample,
@@ -302,7 +273,6 @@ describe('tool-str-replace-editor', () => {
     expect(edit.isError).toBe(true)
     expect(edit.error).toMatchObject({ info: { code: 'FS_NOT_FOUND' } })
 
-    /** 中文说明：测试局部值 created，由紧邻初始化决定。 */
     const created = await call(ctx, owner, {
       command: 'create',
       path: sample,
@@ -313,11 +283,8 @@ describe('tool-str-replace-editor', () => {
   })
 
   it('writes replacement text literally', async () => {
-    /** 中文说明：测试局部值 { ctx, root, owner }，由紧邻初始化决定。 */
     const { ctx, root, owner } = await setup()
-    /** 中文说明：测试局部值 sample，由紧邻初始化决定。 */
     const sample = join(root, 'literal.txt')
-    /** 中文说明：测试局部值 replacement，由紧邻初始化决定。 */
     const replacement = "$&|$`|$'|$$"
     await writeFile(sample, 'before OLD after')
 

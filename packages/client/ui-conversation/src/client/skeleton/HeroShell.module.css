@@ -1,14 +1,6 @@
 /* NEW SESSION hero (figma Input_Bottom 75:8208): fish + title, workspace chip
    above the shared InputBar card. The input itself is InputBar — only stack
    geometry and the chip live here. */
-/**
- * 文件职责：定义 HeroShell 的局部样式。
- * 技术维度：CSS Modules、主题变量、响应式布局和状态选择器。
- * 产品维度：让会话骨架在不同状态和窗口尺寸下保持清晰。
- * 逻辑维度：按容器、内容、操作与状态类组织规则。
- * 关键边界：类名必须与 TSX 同步，尺寸和颜色优先复用设计变量。
- * 新手阅读建议：对照同名组件，按 DOM 层级阅读类名。
- */
 
 .root {
   display: flex;
@@ -69,7 +61,8 @@
   white-space: nowrap;
 }
 
-/* Keep hover detection on a stationary box while the mark moves within it. */
+/* Keep hover detection on a stationary box while the mark moves within it;
+   hover rules target the hitbox so a slot-occupant mark swims too. */
 .fishHitbox {
   grid-row: 1;
   grid-column: 1;
@@ -78,35 +71,42 @@
   justify-content: center;
 }
 
-/* Keep the hero mark in the same primary ink as its headline. */
+/* The swim morph's curves poke slightly past the viewBox edges, so clipping
+   would slice the tail mid-wag. The hero mark stays in the same primary ink
+   as its headline. */
 .fish {
-  color: var(--dsw-alias-label-primary);
+  display: block;
+  overflow: visible;
   transform-origin: 50% 60%;
+  color: var(--dsw-alias-label-primary);
 }
 
+/* Hover swim: a slow continuous sway about the body center — the head
+   (left) lifts as the whale rises, then settles back with a small
+   counter-tilt, like treading water. Negative rotation = head up (the head
+   is the left half; origin 50% 60%). */
 @keyframes hero-fish-swim {
-  0%, 100% {
-    transform: translate(0, 0) rotate(0deg);
+  0%,
+  100% {
+    transform: none;
   }
 
   35% {
-    transform: translate(-1px, -1px) rotate(-5deg);
+    transform: rotate(-4deg) translate(-0.4px, -0.9px);
   }
 
   70% {
-    transform: translate(1px, 0) rotate(3deg);
+    transform: rotate(1.6deg) translate(0.3px, 0.2px);
   }
 }
 
 @media (hover: hover) and (prefers-reduced-motion: no-preference) {
   .fishHitbox:hover .fish {
-    animation: hero-fish-swim var(--ds-transition-duration-slow) var(--ds-ease-in-out);
+    animation: hero-fish-swim 1.6s ease-in-out infinite;
   }
 }
 
-/* Workspace row sits 12px above the input card (figma y80 → y112). The blue
-   glow lives with the owner (ConversationRoot .heroGlow) so it can center on
-   the input card. */
+/* Workspace row sits 12px above the input card (figma y80 → y112). */
 .body {
   position: relative;
   display: flex;

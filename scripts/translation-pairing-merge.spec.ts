@@ -1,12 +1,4 @@
 /** Integration coverage for automatic and explicit pairing-record conflict resolution. */
-/*
- * 文件职责：验证 translation-pairing-merge.spec.ts 覆盖的Agent 预设行为与边界场景。
- * 技术维度：使用 TypeScript、Vitest、Cordis 插件、异步协议、进程资源或仓库文本分析。
- * 产品维度：保障 Agent 的Agent 预设能力稳定、可复现且可诊断。
- * 逻辑维度：准备输入和夹具，执行被测或验证流程，再核对结果、错误与资源清理。
- * 关键边界：中文测试字符串不是注释；外部数据不可信；异步资源必须完全释放。
- * 新手阅读建议：先看夹具和公开类型，再读正常流程，最后关注中文输入、失败与清理场景。
- */
 
 import { execFileSync, spawnSync } from 'node:child_process'
 import {
@@ -33,24 +25,17 @@ import {
 } from './translation-pairing-record.ts'
 import { removeFixtureSafely } from './test-fixture-cleanup.ts'
 
-/** 中文说明：变量 driver 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const driver = fileURLToPath(new URL('./merge-translation-pairing.ts', import.meta.url))
-/** 中文说明：变量 driverLauncher 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const driverLauncher = fileURLToPath(new URL('./merge-translation-pairing-driver.sh', import.meta.url))
-/** 中文说明：变量 workspaceRoot 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const workspaceRoot = fileURLToPath(new URL('../', import.meta.url))
-/** 中文说明：变量 tsxLoader 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const tsxLoader = import.meta.resolve('tsx/esm')
-/** 中文说明：变量 fixtures 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const fixtures: string[] = []
 
-/** 中文说明：interface Fixture 定义本测试所需的数据或行为，用于表达Agent 预设场景。 */
 interface Fixture {
   env: NodeJS.ProcessEnv
   root: string
 }
 
-/** 中文说明：函数 mergeTranslationPairingRecords 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function mergeTranslationPairingRecords(
   root: string,
   metaPath: string,
@@ -68,17 +53,14 @@ function mergeTranslationPairingRecords(
   )
 }
 
-/** 中文说明：函数 resolveTranslationPairingConflicts 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function resolveTranslationPairingConflicts(root: string): string[] {
   return resolveTranslationPairingConflictsWithScope(root, () => true)
 }
 
 afterEach(() => {
-  /** 中文说明：该循环依次处理输入或事件；循环变量仅在当前循环中有效。 */
   for (const fixture of fixtures.splice(0)) removeFixtureSafely(fixture)
 })
 
-/** 中文说明：函数 git 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function git(fixture: Fixture, args: string[]): string {
   return execFileSync('git', ['-C', fixture.root, ...args], {
     encoding: 'utf8',
@@ -86,15 +68,12 @@ function git(fixture: Fixture, args: string[]): string {
   }).trim()
 }
 
-/** 中文说明：函数 write 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function write(root: string, path: string, content: string): void {
-  /** 中文说明：变量 absolute 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const absolute = join(root, path)
   mkdirSync(dirname(absolute), { recursive: true })
   writeFileSync(absolute, content)
 }
 
-/** 中文说明：函数 shellQuote 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function shellQuote(value: string): string {
   return `"${value.replace(/["\\$`]/g, '\\$&')}"`
 }
@@ -282,7 +261,15 @@ function expectMergedPair(fixture: Fixture): void {
   )
 }
 
-describe('translation pairing merge composition', { timeout: 15_000 }, () => {
+// Every case in this suite drives real `git` invocations against a scratch
+// repository, so it is bound by process creation rather than by its assertions.
+// The value matches DSH_COVERAGE_TEST_TIMEOUT_MS, which the Windows coverage
+// lane passes as --testTimeout: a describe value overrides that flag rather than
+// yielding to it, so a smaller one here lowers what the lane grants every case
+// in this file, none of which carries an allowance of its own. Measurements and
+// the rejected alternatives are in
+// .agents/notes/implemented/testing/2026-08-27-translation-pairing-merge-budget.md.
+describe('translation pairing merge composition', { timeout: 90_000 }, () => {
   it('rejects a pairing-record path outside the repository', () => {
     const fixture = createFixture(false)
 

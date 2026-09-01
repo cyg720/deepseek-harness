@@ -1,11 +1,3 @@
-/**
- * 文件职责：验证 tool-subagent.spec.ts 覆盖的子代理工具行为与生命周期。
- * 技术维度：使用 TypeScript、Vitest、Cordis 插件、进程流、终端会话或快照规范化。
- * 产品维度：保障 Agent 的子代理工具能力稳定、可复现且可诊断。
- * 逻辑维度：准备输入和资源，执行核心流程，收集事件或输出，再处理错误与清理。
- * 关键边界：进程退出与取消可能竞态；外部输出不可信；清理必须等待子资源完全停止。
- * 新手阅读建议：先看类型和夹具，再读启动/收集主流程，最后关注平台差异、规范化和清理。
- */
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
@@ -20,6 +12,7 @@ import AgentRegistry from '@deepseek-ai/dsh-agent'
 import AgentLoop from '@deepseek-ai/dsh-agent-loop'
 import { mountAgentLoopTestDependencies } from '@deepseek-ai/dsh-agent-loop-testkit'
 import JsonlSessionPersistence from '@deepseek-ai/dsh-session-persistence-jsonl'
+import SessionProjectionRegistry from '@deepseek-ai/dsh-session-projection'
 import SubagentRuntime from '@deepseek-ai/dsh-subagent'
 import type { SubagentStartRequest } from '@deepseek-ai/dsh-subagent'
 import LocalJobRegistry from '@deepseek-ai/dsh-jobs-local'
@@ -39,6 +32,13 @@ import {
   text,
 } from './harness.ts'
 
+/** Create a package-test context with the tool's required projection seam. */
+async function projectedContext(): Promise<Context> {
+  const ctx = new Context()
+  await ctx.plugin(SessionProjectionRegistry)
+  return ctx
+}
+
 /**
  * Drives the REAL plugin body: mounts `dsh-tool-subagent` on a real
  * `ToolRuntime` + `SubagentRuntime`, with a package-local scripted child
@@ -50,7 +50,6 @@ import {
 
 describe('dsh-tool-subagent', () => {
   it('rejects continuable background policy when the provider cannot prepare continuable children', async () => {
-    /** 中文说明：变量 failure 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     let failure: unknown
     try {
       await setup({
@@ -73,9 +72,7 @@ describe('dsh-tool-subagent', () => {
   })
 
   it('registers a `subagent` tool that delegates to the configured provider and returns its output', async () => {
-    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await setup({ provider: 'mock' }, { reply: 'child says hi' })
-    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await callSubagent(ctx, {
       description: 'do a thing',
       prompt: 'go research X',
@@ -92,11 +89,8 @@ describe('dsh-tool-subagent', () => {
   })
 
   it('omits run_in_background entirely when the instance disables it (schema and capability never disagree)', async () => {
-    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await setup({ provider: 'mock', enableRunInBackground: false })
-    /** 中文说明：函数值 schema 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const schema = ctx.tools.schemas().find(s => s.name === 'subagent')
-    /** 中文说明：变量 props 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const props = (schema!.parameters as { properties?: Record<string, unknown> }).properties ?? {}
     expect(Object.keys(props).sort()).toEqual([
       'description',
@@ -108,7 +102,6 @@ describe('dsh-tool-subagent', () => {
   it('refuses a forced run_in_background at execution time when the instance disables it', async () => {
     // Schema omission is advertising, not enforcement: the arg validator
     // allows undeclared keys, so the opt-out must also hold in execute().
-    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await setup({ provider: 'mock', enableRunInBackground: false })
     const parentId = SessionId('sess-off')
     const parent = {
@@ -118,19 +111,16 @@ describe('dsh-tool-subagent', () => {
       session: Session.create(parentId),
     } as unknown as Agent
 
-    /** 中文说明：变量 forced 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const forced = await callSubagent(ctx, { description: 'd', prompt: 'p', run_in_background: true }, { agent: parent })
     expect(forced.isError).toBe(true)
     expect(text(forced)).toContain('run_in_background is disabled for this tool instance')
     // The provider was never asked to start a child.
     expect(ctx.subagents.getProvider('mock')).toBeDefined()
-    /** 中文说明：变量 foreground 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const foreground = await callSubagent(ctx, { description: 'd', prompt: 'p' }, { agent: parent })
     expect(foreground.isError).toBe(false)
   })
 
   it('classifies foreground and background calls concurrency-safe (sibling delegations overlap)', async () => {
-    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await setup({ provider: 'mock' })
     expect(ctx.tools.executionMode({
       signal: testToolSignal,
@@ -150,13 +140,9 @@ describe('dsh-tool-subagent', () => {
     // Two children each block until both have started: hidden serialization
     // in the tool body, registry pipeline, or provider start path would
     // deadlock here instead of passing silently.
-    /** 中文说明：变量 started 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const started: string[] = []
-    /** 中文说明：函数值 releaseBoth 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     let releaseBoth!: () => void
-    /** 中文说明：函数值 bothStarted 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const bothStarted = new Promise<void>((resolve) => { releaseBoth = resolve })
-    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await setup({ provider: 'mock', enableRunInBackground: false }, {
       onStart: (request: SubagentStartRequest) => {
         started.push(request.label ?? '(unlabeled)')
@@ -164,13 +150,11 @@ describe('dsh-tool-subagent', () => {
         return bothStarted
       },
     })
-    /** 中文说明：变量 results 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const results = await Promise.all([
       callSubagent(ctx, { description: 'first', prompt: 'p1' }),
       callSubagent(ctx, { description: 'second', prompt: 'p2' }),
     ])
     expect(started.sort()).toEqual(['first', 'second'])
-    /** 中文说明：该循环依次处理事件或输出；循环变量仅在当前循环中有效。 */
     for (const result of results) expect(result.isError).toBe(false)
   })
 
@@ -180,9 +164,7 @@ describe('dsh-tool-subagent', () => {
     { stopReason: 'max-tokens' as const, fragment: 'token limit' },
     { stopReason: 'refusal' as const, fragment: 'declined' },
   ])('maps stop reason $stopReason to an isError result (not partial success)', async ({ stopReason, fragment }) => {
-    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await setup({ provider: 'mock' }, { stopReason })
-    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await callSubagent(ctx, { description: 'd', prompt: 'p' })
     expect(result.isError).toBe(true)
     expect(text(result)).toContain(fragment)
@@ -192,14 +174,12 @@ describe('dsh-tool-subagent', () => {
   })
 
   it('renders provider diagnostics before preserved partial assistant output', async () => {
-    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await setup({ provider: 'mock' }, {
       reply: 'partial assistant text',
       diagnostic: 'Claude Code denied a tool request',
       stopReason: 'error',
     })
 
-    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await callSubagent(ctx, { description: 'd', prompt: 'p' })
     expect(result.isError).toBe(true)
     expect(text(result)).toBe(
@@ -213,8 +193,7 @@ describe('dsh-tool-subagent', () => {
     // The defining multi-provider use case: two loads, two distinct tool names,
     // each bound to a different provider — the tool registry rejects duplicate
     // names, so a configurable name is what makes this work.
-    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-    const ctx = new Context()
+    const ctx = await projectedContext()
     await ctx.plugin(SystemPrompt)
     await ctx.plugin(ToolRuntime)
     await ctx.plugin(SubagentRuntime)
@@ -223,7 +202,6 @@ describe('dsh-tool-subagent', () => {
     await ctx.plugin(tool, { provider: 'spawn', toolName: 'subagent' })
     await ctx.plugin(tool, { provider: 'acp', toolName: 'subagent_acp' })
 
-    /** 中文说明：函数值 names 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const names = ctx.tools.schemas().map(s => s.name).filter(n => n.startsWith('subagent')).sort()
     expect(names).toEqual(['subagent', 'subagent_acp'])
 
@@ -236,8 +214,7 @@ describe('dsh-tool-subagent', () => {
   it('treats an unknown (plugin-added) stop reason as an isError result', async () => {
     // SubagentStopReason is merge-extensible; the tool's stopReasonError default
     // arm must treat an unrecognized terminal reason as a failure, not success.
-    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-    const ctx = new Context()
+    const ctx = await projectedContext()
     await ctx.plugin(SystemPrompt)
     await ctx.plugin(ToolRuntime)
     await ctx.plugin(SubagentRuntime)
@@ -254,7 +231,6 @@ describe('dsh-tool-subagent', () => {
     })
     await ctx.plugin(tool, { provider: 'weird', maxDepth: 'provider-managed' })
 
-    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await callSubagent(ctx, { description: 'd', prompt: 'p' })
     expect(result.isError).toBe(true)
     expect(text(result)).toContain('abnormally')
@@ -326,10 +302,8 @@ describe('dsh-tool-subagent', () => {
     // agentOptions object→{}), so the runtime `?? 'subagent'` fallback and the
     // no-agentOptions branch are only reachable via a direct apply() that
     // bypasses schemastery — the same pattern acp-agent uses for its defaults.
-    /** 中文说明：变量 seen 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     let seen: { agentOptions?: unknown } | undefined
-    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-    const ctx = new Context()
+    const ctx = await projectedContext()
     await ctx.plugin(SystemPrompt)
     await ctx.plugin(ToolRuntime)
     await ctx.plugin(SubagentRuntime)
@@ -357,17 +331,14 @@ describe('dsh-tool-subagent', () => {
   })
 
   it('fails loud when invoked without a calling agent', async () => {
-    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await setup({ provider: 'mock' })
-    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await callSubagent(ctx, { description: 'd', prompt: 'p' }, { agent: undefined })
     expect(result.isError).toBe(true)
     expect(text(result)).toContain('requires a calling agent')
   })
 
   it('registers when the provider appears LATER — no load-order requirement (Loader starts siblings concurrently)', async () => {
-    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-    const ctx = new Context()
+    const ctx = await projectedContext()
     await ctx.plugin(SystemPrompt)
     await ctx.plugin(ToolRuntime)
     await ctx.plugin(SubagentRuntime)
@@ -379,14 +350,12 @@ describe('dsh-tool-subagent', () => {
     // Backend arrives (as a delayed sibling fiber would): the tool appears.
     await mock.mountScriptedProvider(ctx, { name: 'mock', reply: 'late but fine' })
     expect(ctx.tools.schemas().some(s => s.name === 'subagent')).toBe(true)
-    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await callSubagent(ctx, { description: 'd', prompt: 'p' })
     expect(text(result)).toBe('late but fine')
   })
 
   it('keeps continuable guidance empty while its provider is absent', async () => {
-    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-    const ctx = new Context()
+    const ctx = await projectedContext()
     await ctx.plugin(SystemPrompt)
     await ctx.plugin(ToolRuntime)
     await ctx.plugin(SubagentRuntime)
@@ -396,19 +365,16 @@ describe('dsh-tool-subagent', () => {
       maxDepth: 'provider-managed',
     })
 
-    /** 中文说明：变量 assembly 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const assembly = await ctx.systemPrompt.assemble()
     expect(assembly.sections.find(section => section.name === 'tool:subagent')?.text).toBe('')
     expect(ctx.tools.schemas().some(schema => schema.name === 'subagent')).toBe(false)
   })
 
   it('mirrors the provider lifecycle: gone on backend dispose, re-derived wording on re-registration', async () => {
-    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-    const ctx = new Context()
+    const ctx = await projectedContext()
     await ctx.plugin(SystemPrompt)
     await ctx.plugin(ToolRuntime)
     await ctx.plugin(SubagentRuntime)
-    /** 中文说明：变量 backend 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const backend = await mock.mountScriptedProvider(ctx, { name: 'mock' }) // fresh conversation (descriptor: false)
     await ctx.plugin(tool, { provider: 'mock' })
     expect(ctx.tools.schemas().find(s => s.name === 'subagent')!.description).toContain('does not see this conversation')
@@ -424,8 +390,7 @@ describe('dsh-tool-subagent', () => {
   })
 
   it('the tool PLUGIN fiber owns its lifecycle listeners: disposal unmounts, and a disposed fiber never zombie-mounts', async () => {
-    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-    const ctx = new Context()
+    const ctx = await projectedContext()
     await ctx.plugin(SystemPrompt)
     await ctx.plugin(ToolRuntime)
     await ctx.plugin(SubagentRuntime)
@@ -439,7 +404,6 @@ describe('dsh-tool-subagent', () => {
       start: async () => { throw new Error('lifecycle test does not start a child') },
       prepareContinuable: async () => ({}),
     })
-    /** 中文说明：变量 mounted 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const mounted = await ctx.plugin(tool, {
       provider: 'continuable',
       backgroundMode: 'continuable',
@@ -455,7 +419,6 @@ describe('dsh-tool-subagent', () => {
     // Arm 2: a fiber disposed while WAITING must not react to the provider
     // arriving later — a surviving listener would re-register a tool that no
     // live plugin owns (the zombie mount).
-    /** 中文说明：变量 waiting 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const waiting = await ctx.plugin(tool, { provider: 'later', toolName: 'subagent_later' })
     await waiting.dispose()
     await mock.mountScriptedProvider(ctx, { name: 'later' })
@@ -463,8 +426,7 @@ describe('dsh-tool-subagent', () => {
   })
 
   it('ignores lifecycle events for OTHER providers', async () => {
-    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-    const ctx = new Context()
+    const ctx = await projectedContext()
     await ctx.plugin(SystemPrompt)
     await ctx.plugin(ToolRuntime)
     await ctx.plugin(SubagentRuntime)
@@ -472,7 +434,6 @@ describe('dsh-tool-subagent', () => {
     await ctx.plugin(tool, { provider: 'mock' })
     // An unrelated provider registering (added-event with another name) and
     // unregistering (removed-event with another name) must not touch the tool.
-    /** 中文说明：变量 other 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const other = await mock.mountScriptedProvider(ctx, { name: 'other', inheritsParentContext: true })
     expect(ctx.tools.schemas().filter(s => s.name === 'subagent')).toHaveLength(1)
     expect(ctx.tools.schemas().find(s => s.name === 'subagent')!.description).toContain('does not see this conversation')
@@ -481,12 +442,9 @@ describe('dsh-tool-subagent', () => {
   })
 
   it('derives spawn-shaped wording from a fresh-conversation provider (default mock)', async () => {
-    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await setup({ provider: 'mock' })
-    /** 中文说明：函数值 schema 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const schema = ctx.tools.schemas().find(s => s.name === 'subagent')!
     expect(schema.description).toContain('does not see this conversation')
-    /** 中文说明：变量 props 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const props = (schema.parameters as { properties: Record<string, { description: string }> }).properties
     expect(props['prompt']!.description).toContain('include everything it needs')
   })
@@ -507,10 +465,8 @@ describe('dsh-tool-subagent', () => {
   it('disposes the run on the success path (no leaked child)', async () => {
     // Spy on the provider's run.dispose via a wrapping provider registered
     // directly on the service, then point the tool at it.
-    /** 中文说明：变量 disposed 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const disposed = vi.fn()
-    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-    const ctx = new Context()
+    const ctx = await projectedContext()
     await ctx.plugin(SystemPrompt)
     await ctx.plugin(ToolRuntime)
     await ctx.plugin(SubagentRuntime)
@@ -532,10 +488,8 @@ describe('dsh-tool-subagent', () => {
   })
 
   it('disposes the run on the error path too', async () => {
-    /** 中文说明：变量 disposed 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const disposed = vi.fn()
-    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-    const ctx = new Context()
+    const ctx = await projectedContext()
     await ctx.plugin(SystemPrompt)
     await ctx.plugin(ToolRuntime)
     await ctx.plugin(SubagentRuntime)
@@ -552,17 +506,14 @@ describe('dsh-tool-subagent', () => {
     })
     await ctx.plugin(tool, { provider: 'spy', maxDepth: 'provider-managed' })
 
-    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await callSubagent(ctx, { description: 'd', prompt: 'p' })
     expect(result.isError).toBe(true)
     expect(disposed).toHaveBeenCalledTimes(1)
   })
 
   it('preserves independent foreground result and disposal failures', async () => {
-    /** 中文说明：变量 disposed 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const disposed = vi.fn()
-    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-    const ctx = new Context()
+    const ctx = await projectedContext()
     await ctx.plugin(SystemPrompt)
     await ctx.plugin(ToolRuntime)
     await ctx.plugin(SubagentRuntime)
@@ -582,7 +533,6 @@ describe('dsh-tool-subagent', () => {
     })
     await ctx.plugin(tool, { provider: 'spy', maxDepth: 'provider-managed' })
 
-    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await callSubagent(ctx, { description: 'd', prompt: 'p' })
     expect(result.isError).toBe(true)
     expect(text(result)).toContain('published run failed')
@@ -591,8 +541,7 @@ describe('dsh-tool-subagent', () => {
   })
 
   it('reports a foreground disposal failure after a completed result', async () => {
-    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-    const ctx = new Context()
+    const ctx = await projectedContext()
     await ctx.plugin(SystemPrompt)
     await ctx.plugin(ToolRuntime)
     await ctx.plugin(SubagentRuntime)
@@ -612,17 +561,14 @@ describe('dsh-tool-subagent', () => {
     })
     await ctx.plugin(tool, { provider: 'spy', maxDepth: 'provider-managed' })
 
-    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await callSubagent(ctx, { description: 'd', prompt: 'p' })
     expect(result.isError).toBe(true)
     expect(text(result)).toContain('published handle disposal failed')
   })
 
   it('passes the tool abort signal as the provider cancellation channel', async () => {
-    /** 中文说明：变量 cancelled 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const cancelled = vi.fn()
-    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-    const ctx = new Context()
+    const ctx = await projectedContext()
     await ctx.plugin(SystemPrompt)
     await ctx.plugin(ToolRuntime)
     await ctx.plugin(SubagentRuntime)
@@ -632,9 +578,7 @@ describe('dsh-tool-subagent', () => {
       inheritsParentContext: false,
       start: async (request) => {
         if (request.signal.aborted) throw new Error('start aborted')
-        /** 中文说明：函数值 resolveResult 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
         let resolveResult: (r: { output: never[]; stopReason: 'aborted' }) => void
-        /** 中文说明：函数值 result 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
         const result = new Promise<{ output: never[]; stopReason: 'aborted' }>((res) => { resolveResult = res })
         request.signal.addEventListener('abort', () => {
           cancelled()
@@ -650,25 +594,20 @@ describe('dsh-tool-subagent', () => {
     })
     await ctx.plugin(tool, { provider: 'spy', maxDepth: 'provider-managed' })
 
-    /** 中文说明：变量 controller 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const controller = new AbortController()
-    /** 中文说明：变量 pending 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const pending = callSubagent(ctx, { description: 'd', prompt: 'p' }, { signal: controller.signal })
     // Let provider.start install its listener before aborting.
     await Promise.resolve()
     await Promise.resolve()
     controller.abort()
-    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await pending
     expect(cancelled).toHaveBeenCalledTimes(1)
     expect(result.isError).toBe(true)
   })
 
   it('skips provider startup for an already-aborted signal', async () => {
-    /** 中文说明：变量 sawAborted 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const sawAborted = vi.fn()
-    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-    const ctx = new Context()
+    const ctx = await projectedContext()
     await ctx.plugin(SystemPrompt)
     await ctx.plugin(ToolRuntime)
     await ctx.plugin(SubagentRuntime)
@@ -683,10 +622,8 @@ describe('dsh-tool-subagent', () => {
     })
     await ctx.plugin(tool, { provider: 'spy', maxDepth: 'provider-managed' })
 
-    /** 中文说明：变量 controller 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const controller = new AbortController()
     controller.abort() // already aborted BEFORE the tool runs
-    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await callSubagent(ctx, { description: 'd', prompt: 'p' }, { signal: controller.signal })
     expect(sawAborted).not.toHaveBeenCalled()
     expect(result.isError).toBe(true)
@@ -697,13 +634,11 @@ describe('dsh-tool-subagent', () => {
   })
 
   it('tools depend on the service: no `subagent` tool without ctx.subagents', async () => {
-    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-    const ctx = new Context()
+    const ctx = await projectedContext()
     await ctx.plugin(SystemPrompt)
     await ctx.plugin(ToolRuntime)
-    // No SubagentRuntime mounted. The tool injects its three required services so its
+    // No SubagentRuntime mounted. The tool injects its required services so its
     // apply never runs; the tool is absent rather than half-registered.
-    /** 中文说明：变量 booted 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     let booted = true
     try {
       await ctx.plugin(tool, { provider: 'mock' })
@@ -712,7 +647,6 @@ describe('dsh-tool-subagent', () => {
       booted = false
     }
     // Either it never booted, or it booted but registered no tool.
-    /** 中文说明：函数值 present 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const present = ctx.get('tools')?.schemas().some(s => s.name === 'subagent') ?? false
     expect(booted && present).toBe(false)
   })
@@ -724,24 +658,20 @@ describe('dsh-tool-subagent', () => {
     // load with "cannot get property … without inject". Guard the shape directly.
     expect('default' in tool).toBe(false)
     expect(tool.name).toBe('tool-subagent')
-    expect(tool.inject).toEqual(['tools', 'subagents', 'systemPrompt'])
+    expect(tool.inject).toEqual(['tools', 'subagents', 'systemPrompt', 'sessionProjections'])
 
-    /** 中文说明：变量 loader 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const loader = Object.create(Loader.prototype) as Loader
-    /** 中文说明：变量 unwrapped 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const unwrapped = loader.unwrapExports(tool) as Record<string, unknown>
     expect(unwrapped).toBe(tool)
     expect(unwrapped.name).toBe('tool-subagent')
-    expect(unwrapped.inject).toEqual(['tools', 'subagents', 'systemPrompt'])
+    expect(unwrapped.inject).toEqual(['tools', 'subagents', 'systemPrompt', 'sessionProjections'])
     expect(typeof unwrapped.apply).toBe('function')
     expect(unwrapped.Config).toBeDefined()
   })
 
   it('passes persona/toolFilter/maxDepth config through to the start request', async () => {
-    /** 中文说明：变量 seen 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     let seen: { persona?: string; toolFilter?: unknown; maxDepth?: number } | undefined
-    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-    const ctx = new Context()
+    const ctx = await projectedContext()
     await ctx.plugin(SystemPrompt)
     await ctx.plugin(ToolRuntime)
     await ctx.plugin(SubagentRuntime)
@@ -786,9 +716,8 @@ describe('dsh-tool-subagent', () => {
       .rejects.toThrow()
   })
 
-  it('validates maxDepth when apply() is invoked directly without Schemastery', () => {
-    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-    const ctx = new Context()
+  it('validates maxDepth when apply() is invoked directly without Schemastery', async () => {
+    const ctx = await projectedContext()
     expect(() => {
       tool.apply(ctx, {
         provider: 'unused',
@@ -798,10 +727,8 @@ describe('dsh-tool-subagent', () => {
   })
 
   it('a partial toolFilter (deny only) does not materialize an empty allow-list (deny-all trap)', async () => {
-    /** 中文说明：变量 seen 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     let seen: { toolFilter?: { readonly allow?: readonly string[]; readonly deny?: readonly string[] } } | undefined
-    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-    const ctx = new Context()
+    const ctx = await projectedContext()
     await ctx.plugin(SystemPrompt)
     await ctx.plugin(ToolRuntime)
     await ctx.plugin(SubagentRuntime)
@@ -830,10 +757,8 @@ describe('dsh-tool-subagent', () => {
     // `agentOptions` config key materializes `{}` without the forced default,
     // which reads as present and puts a dishonest `agentOptions: {}` on every
     // start request.
-    /** 中文说明：变量 seen 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     let seen: { agentOptions?: unknown } | undefined
-    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-    const ctx = new Context()
+    const ctx = await projectedContext()
     await ctx.plugin(SystemPrompt)
     await ctx.plugin(ToolRuntime)
     await ctx.plugin(SubagentRuntime)
@@ -858,8 +783,7 @@ describe('dsh-tool-subagent', () => {
   })
 
   it('an explicit empty toolFilter fails at plugin load, not at first delegation', async () => {
-    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-    const ctx = new Context()
+    const ctx = await projectedContext()
     await ctx.plugin(SystemPrompt)
     await ctx.plugin(ToolRuntime)
     await ctx.plugin(SubagentRuntime)
@@ -869,7 +793,6 @@ describe('dsh-tool-subagent', () => {
       inheritsParentContext: false,
       start: () => { throw new Error('unreachable') },
     })
-    /** 中文说明：变量 fiber 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const fiber = ctx.plugin(tool, { provider: 'p', toolFilter: {} })
     await expect(fiber).rejects.toThrow(/names neither `allow` nor `deny`/)
   })
@@ -877,13 +800,9 @@ describe('dsh-tool-subagent', () => {
 
 describe('dsh-tool-subagent background mode', () => {
   /** A live parent with a dedicated scope fiber for structural task cleanup. */
-  /* 中文说明：函数 ownerAgent 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
   function ownerAgent(ctx: Context, sessionId: string, inject: (...args: unknown[]) => void = () => {}): Agent {
-    /** 中文说明：函数值 scopeFiber 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const scopeFiber = ctx.plugin(() => {})
-    /** 中文说明：变量 id 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const id = SessionId(sessionId)
-    /** 中文说明：变量 agent 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const agent = {
       id,
       ctx: scopeFiber.ctx,
@@ -895,9 +814,7 @@ describe('dsh-tool-subagent background mode', () => {
     return agent
   }
 
-  /** 中文说明：函数 backgroundSetup 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
   async function backgroundSetup(toolConfig: tool.Config, mockConfig: Partial<mock.Config> = {}) {
-    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await setup(toolConfig, mockConfig)
     await ctx.plugin(AgentRegistry)
     await ctx.plugin(LocalJobRegistry)
@@ -906,11 +823,8 @@ describe('dsh-tool-subagent background mode', () => {
   }
 
   it('keeps a continuable-capable provider one-shot when backgroundMode selects one-shot', async () => {
-    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await backgroundSetup({ provider: 'mock' })
-    /** 中文说明：变量 parent 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const parent = ownerAgent(ctx, 'sess-parent')
-    /** 中文说明：变量 prepareCalls 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     let prepareCalls = 0
     ctx.subagents.registerProvider({
       name: 'resumable',
@@ -937,7 +851,6 @@ describe('dsh-tool-subagent background mode', () => {
       maxDepth: 'provider-managed',
     })
 
-    /** 中文说明：变量 started 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const started = await ctx.tools.execute({
       signal: testToolSignal,
       callId: ToolCallId('resumable-one-shot'),
@@ -954,14 +867,12 @@ describe('dsh-tool-subagent background mode', () => {
     const ctx = await backgroundSetup({ provider: 'mock' }, { reply: 'background answer' })
     const parent = ownerAgent(ctx, 'sess-parent')
 
-    /** 中文说明：变量 start 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const start = await callSubagent(ctx, { description: 'deep research', prompt: 'dig in', run_in_background: true }, { agent: parent })
     expect(start.isError).toBe(false)
     if (start.isError) throw new Error('expected background subagent success')
     expect(start.value).toEqual({ kind: 'background', jobId: 'subagent-1' })
     expect(text(start)).toBe('started background subagent job subagent-1')
 
-    /** 中文说明：变量 collected 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const collected = await ctx.tools.execute({
       signal: testToolSignal,
       callId: ToolCallId('collect-1'),
@@ -972,7 +883,6 @@ describe('dsh-tool-subagent background mode', () => {
     expect(text(collected)).toBe('background answer\n[status: completed]')
 
     // Final-output reads are idempotent (not consumed).
-    /** 中文说明：变量 again 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const again = await ctx.tools.execute({
       signal: testToolSignal,
       callId: ToolCallId('collect-2'),
@@ -984,16 +894,13 @@ describe('dsh-tool-subagent background mode', () => {
   })
 
   it('preserves provider diagnostics in one-shot background failure detail', async () => {
-    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await backgroundSetup({ provider: 'mock' }, {
       reply: 'not background output',
       diagnostic: 'Claude Code cancelled an unattended dialog',
       stopReason: 'error',
     })
-    /** 中文说明：变量 parent 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const parent = ownerAgent(ctx, 'sess-parent')
 
-    /** 中文说明：变量 started 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const started = await ctx.tools.execute({
       signal: testToolSignal,
       callId: ToolCallId('diagnostic-background-start'),
@@ -1003,7 +910,6 @@ describe('dsh-tool-subagent background mode', () => {
     })
     expect(text(started)).toBe('started background subagent job subagent-1')
 
-    /** 中文说明：变量 output 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const output = await ctx.tools.execute({
       signal: testToolSignal,
       callId: ToolCallId('diagnostic-background-output'),
@@ -1018,23 +924,17 @@ describe('dsh-tool-subagent background mode', () => {
   })
 
   it('fails loud when the tasks runtime is not loaded', async () => {
-    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await setup({ provider: 'mock' })
-    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await callSubagent(ctx, { description: 'd', prompt: 'p', run_in_background: true })
     expect(result.isError).toBe(true)
     expect(text(result)).toContain('background jobs unavailable: load @deepseek-ai/dsh-jobs')
   })
 
   it('skips background startup when the tool signal is already aborted', async () => {
-    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await backgroundSetup({ provider: 'mock' })
-    /** 中文说明：变量 parent 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const parent = ownerAgent(ctx, 'sess-parent')
-    /** 中文说明：变量 controller 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const controller = new AbortController()
     controller.abort()
-    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await callSubagent(ctx, { description: 'd', prompt: 'p', run_in_background: true }, { agent: parent, signal: controller.signal })
     expect(result.isError).toBe(true)
     expect(result.error).toEqual({
@@ -1119,9 +1019,7 @@ describe('dsh-tool-subagent background mode', () => {
   })
 
   it('settles an asynchronous provider-start failure as a failed task', async () => {
-    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await backgroundSetup({ provider: 'mock' })
-    /** 中文说明：变量 parent 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const parent = ownerAgent(ctx, 'sess-parent')
     ctx.subagents.registerProvider({
       name: 'broken-start',
@@ -1131,7 +1029,6 @@ describe('dsh-tool-subagent background mode', () => {
     })
     tool.apply(ctx, { provider: 'broken-start', toolName: 'subagent_broken' })
 
-    /** 中文说明：变量 started 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const started = await ctx.tools.execute({
       signal: testToolSignal,
       callId: ToolCallId('broken-start'),
@@ -1140,7 +1037,6 @@ describe('dsh-tool-subagent background mode', () => {
       agent: parent,
     })
     expect(text(started)).toBe('started background subagent job subagent-1')
-    /** 中文说明：变量 output 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const output = await ctx.tools.execute({
       signal: testToolSignal,
       callId: ToolCallId('broken-output'),
@@ -1152,9 +1048,7 @@ describe('dsh-tool-subagent background mode', () => {
   })
 
   it('kills a subagent task while provider readiness is still pending', async () => {
-    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await backgroundSetup({ provider: 'mock' })
-    /** 中文说明：变量 parent 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const parent = ownerAgent(ctx, 'sess-parent')
     ctx.subagents.registerProvider({
       name: 'pending-start',
@@ -1180,7 +1074,6 @@ describe('dsh-tool-subagent background mode', () => {
       arguments: { job_id: 'subagent-1', reason: 'no longer needed' },
       agent: parent,
     })
-    /** 中文说明：变量 output 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const output = await ctx.tools.execute({
       signal: testToolSignal,
       callId: ToolCallId('pending-output'),
@@ -1192,9 +1085,7 @@ describe('dsh-tool-subagent background mode', () => {
   })
 
   it('reports startup rollback failure after cancellation as a failed job', async () => {
-    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await backgroundSetup({ provider: 'mock' })
-    /** 中文说明：变量 parent 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const parent = ownerAgent(ctx, 'sess-parent')
     ctx.subagents.registerProvider({
       name: 'broken-start-rollback',
@@ -1225,7 +1116,6 @@ describe('dsh-tool-subagent background mode', () => {
       arguments: { job_id: 'subagent-1' },
       agent: parent,
     })
-    /** 中文说明：变量 output 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const output = await ctx.tools.execute({
       signal: testToolSignal,
       callId: ToolCallId('broken-rollback-output'),
@@ -1238,24 +1128,17 @@ describe('dsh-tool-subagent background mode', () => {
 
   it('forwards job_kill reasons through the run signal (and defaults one when absent)', async () => {
     // Use a provider that remains live until its signal is aborted.
-    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await backgroundSetup({ provider: 'mock', agentOptions: { model: 'child-model' } })
-    /** 中文说明：变量 parent 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const parent = ownerAgent(ctx, 'sess-parent')
-    /** 中文说明：变量 cancels 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const cancels: (string | undefined)[] = []
-    /** 中文说明：变量 starts 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     let starts = 0
     ctx.subagents.registerProvider({
       name: 'hanging',
       capabilities: { agentOptions: false, outputSchema: false, depthLimit: false, toolFilter: false, persona: false },
       inheritsParentContext: false,
       start: async (request) => {
-        /** 中文说明：函数值 settle 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
         let settle!: (value: { output: { type: 'text'; text: string }[]; stopReason: 'aborted' }) => void
-        /** 中文说明：变量 id 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
         const id = SessionId(`hang-${++starts}`)
-        /** 中文说明：函数值 result 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
         const result = new Promise<{ output: { type: 'text'; text: string }[]; stopReason: 'aborted' }>((res) => { settle = res })
         request.signal.addEventListener('abort', () => {
           cancels.push(typeof request.signal.reason === 'string' ? request.signal.reason : undefined)
@@ -1291,20 +1174,15 @@ describe('dsh-tool-subagent background mode', () => {
 })
 
 describe('dsh-tool-subagent continuable background mode', () => {
-  /** 中文说明：变量 roots 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const roots: string[] = []
   afterEach(() => {
-    /** 中文说明：该循环依次处理事件或输出；循环变量仅在当前循环中有效。 */
     for (const root of roots.splice(0)) rmSync(root, { recursive: true, force: true })
   })
 
   /** Boot the real continuable stack without any model-facing follow-up adapter. */
-  /* 中文说明：函数 continuableSetup 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
   async function continuableSetup() {
-    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-    const ctx = new Context()
+    const ctx = await projectedContext()
     await mountAgentLoopTestDependencies(ctx)
-    /** 中文说明：变量 root 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const root = mkdtempSync(path.join(tmpdir(), 'dsh-tool-subagent-continuable-'))
     roots.push(root)
     await ctx.plugin(JsonlSessionPersistence, { root })
@@ -1317,7 +1195,6 @@ describe('dsh-tool-subagent continuable background mode', () => {
     ctx.llm.registerAdapter(['mock'], new MockAdapter([
       textResponse('continuable answer'),
     ]))
-    /** 中文说明：变量 parent 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const parent = ctx.agentLoop.create(SessionId('parent'), { provider: 'mock', model: 'mock' })
     return { ctx, parent }
   }
@@ -1334,7 +1211,6 @@ describe('dsh-tool-subagent continuable background mode', () => {
 
   it('defaults continuable delegation to background and returns only its durable id', async () => {
     const { ctx, parent } = await continuableSetup()
-    /** 中文说明：函数值 schema 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const schema = ctx.tools.schemas().find(s => s.name === 'subagent')!
     // Continuable delegation has no Task, so the schema promises no collection.
     expect(schema.description).not.toContain('job_output')
@@ -1342,26 +1218,21 @@ describe('dsh-tool-subagent continuable background mode', () => {
     expect(schema.description).toContain('send_message')
     expect(schema.description).toContain('runs in the background by default')
     expect(schema.description).not.toContain('never poll or wait on it')
-    /** 中文说明：变量 properties 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const properties = (schema.parameters as {
       properties: Record<string, { description?: string }>
     }).properties
     expect(properties.run_in_background?.description).toContain('Defaults to true')
-    /** 中文说明：变量 assembly 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const assembly = await ctx.systemPrompt.assemble(assembleContextFor(parent))
-    /** 中文说明：函数值 guidance 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const guidance = assembly.sections.find(section => section.name === 'tool:subagent')
     expect(guidance?.text).toContain('Use subagent in the background by default')
     expect(guidance?.text).toContain('runtime sends you a notice containing its outcome')
 
-    /** 中文说明：变量 started 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const started = await callSubagent(
       ctx,
       { description: 'continuable work', prompt: 'dig in' },
       { agent: parent },
     )
     expect(started.isError).toBe(false)
-    /** 中文说明：变量 match 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const match = /^started subagent (\S+)$/.exec(text(started))
     expect(match).not.toBeNull()
     const [, childId] = match!
@@ -1372,7 +1243,6 @@ describe('dsh-tool-subagent continuable background mode', () => {
       expect(ctx.agents.get(SessionId(childId!))).toBeUndefined()
     }, { timeout: 5_000 })
     // The child id names a durable session carrying its continuation descriptor.
-    /** 中文说明：变量 loaded 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const loaded = await ctx.sessionPersistence.load(SessionId(childId!))
     expect(loaded.events.some(event => event.type === 'subagent/descriptor')).toBe(true)
     expect(loaded.events.some(event => event.type === 'assistant/message')).toBe(true)
@@ -1383,14 +1253,12 @@ describe('dsh-tool-subagent continuable background mode', () => {
     parent.ctx.tools.restrict({ deny: ['subagent'] })
 
     expect(ctx.tools.get('subagent', parent)).toBeUndefined()
-    /** 中文说明：变量 assembly 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const assembly = await ctx.systemPrompt.assemble(assembleContextFor(parent))
     expect(assembly.sections.find(section => section.name === 'tool:subagent')?.text).toBe('')
   })
 
   it('waits for a continuable provider only when run_in_background is explicitly false', async () => {
     const { ctx, parent } = await continuableSetup()
-    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await callSubagent(
       ctx,
       { description: 'blocking work', prompt: 'dig in', run_in_background: false },
@@ -1405,17 +1273,11 @@ describe('dsh-tool-subagent continuable background mode', () => {
 
   it('isolates a cancelled continuable preparation from a concurrent sibling', async () => {
     const { ctx, parent } = await continuableSetup()
-    /** 中文说明：变量 bothPreparing 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const bothPreparing = Promise.withResolvers<undefined>()
-    /** 中文说明：变量 releasePreparations 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const releasePreparations = Promise.withResolvers<undefined>()
-    /** 中文说明：变量 cancelled 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const cancelled = new AbortController()
-    /** 中文说明：变量 preparationCount 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     let preparationCount = 0
-    /** 中文说明：变量 cancelledChildId 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     let cancelledChildId: ReturnType<typeof SessionId> | undefined
-    /** 中文说明：变量 survivingChildId 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     let survivingChildId: ReturnType<typeof SessionId> | undefined
     ctx.subagents.registerProvider({
       name: 'gated',
@@ -1438,7 +1300,6 @@ describe('dsh-tool-subagent continuable background mode', () => {
       maxDepth: 3,
     })
 
-    /** 中文说明：函数值 execute 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const execute = (callId: string, description: string, signal: AbortSignal) => ctx.tools.execute({
       signal,
       callId: ToolCallId(callId),
@@ -1446,9 +1307,7 @@ describe('dsh-tool-subagent continuable background mode', () => {
       arguments: { description, prompt: 'work', run_in_background: true },
       agent: parent,
     })
-    /** 中文说明：变量 cancelledResult 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const cancelledResult = execute('continuable-cancelled', 'cancelled sibling', cancelled.signal)
-    /** 中文说明：变量 survivingResult 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const survivingResult = execute('continuable-surviving', 'surviving sibling', testToolSignal)
     await bothPreparing.promise
     cancelled.abort()
@@ -1470,7 +1329,6 @@ describe('dsh-tool-subagent continuable background mode', () => {
     await vi.waitFor(() => {
       expect(ctx.agents.get(survivingChildId!)).toBeUndefined()
     }, { timeout: 5_000 })
-    /** 中文说明：变量 loaded 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const loaded = await ctx.sessionPersistence.load(survivingChildId!)
     expect(loaded.events.some(event => event.type === 'subagent/descriptor')).toBe(true)
     expect(loaded.events.some(event => event.type === 'assistant/message')).toBe(true)
@@ -1481,15 +1339,11 @@ describe('dsh-tool-subagent continuable background mode', () => {
 describe('background preflight failure (no orphaned child, by construction)', () => {
   it('never starts the child when tasks.start preflight throws', async () => {
     // With no job controller, preflight fails before the provider can spawn.
-    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await setup({ provider: 'mock' })
     await ctx.plugin(AgentRegistry)
     await ctx.plugin(LocalJobRegistry)
-    /** 中文说明：函数值 scopeFiber 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const scopeFiber = ctx.plugin(() => {})
-    /** 中文说明：变量 id 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const id = SessionId('sess-p')
-    /** 中文说明：变量 parent 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const parent = {
       id,
       ctx: scopeFiber.ctx,
@@ -1499,7 +1353,6 @@ describe('background preflight failure (no orphaned child, by construction)', ()
     } as unknown as Agent
     ctx.agents.register(parent)
 
-    /** 中文说明：变量 starts 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     let starts = 0
     ctx.subagents.registerProvider({
       name: 'probe',
@@ -1517,7 +1370,6 @@ describe('background preflight failure (no orphaned child, by construction)', ()
     })
     tool.apply(ctx, { provider: 'probe', toolName: 'subagent_probe' })
 
-    /** 中文说明：变量 result 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const result = await ctx.tools.execute({
       signal: testToolSignal,
       callId: ToolCallId('probe-1'),
@@ -1534,12 +1386,9 @@ describe('background preflight failure (no orphaned child, by construction)', ()
 
 describe('depth budget configuration', () => {
   /** Mount the tool over a request-capturing provider with full capabilities. */
-  /* 中文说明：函数 captureSetup 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
   async function captureSetup(config: Omit<tool.Config, 'provider'> = {}) {
-    /** 中文说明：变量 requests 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const requests: SubagentStartRequest[] = []
-    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-    const ctx = new Context()
+    const ctx = await projectedContext()
     await ctx.plugin(SystemPrompt)
     await ctx.plugin(ToolRuntime)
     await ctx.plugin(SubagentRuntime)
@@ -1577,8 +1426,7 @@ describe('depth budget configuration', () => {
   })
 
   it('rejects a numeric maxDepth on a provider without the depthLimit capability at mount', async () => {
-    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-    const ctx = new Context()
+    const ctx = await projectedContext()
     await ctx.plugin(SystemPrompt)
     await ctx.plugin(ToolRuntime)
     await ctx.plugin(SubagentRuntime)
@@ -1593,10 +1441,8 @@ describe('depth budget configuration', () => {
   })
 
   it("'provider-managed' omits the cap so a capability-less provider mounts and starts", async () => {
-    /** 中文说明：变量 requests 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const requests: SubagentStartRequest[] = []
-    /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-    const ctx = new Context()
+    const ctx = await projectedContext()
     await ctx.plugin(SystemPrompt)
     await ctx.plugin(ToolRuntime)
     await ctx.plugin(SubagentRuntime)

@@ -4,38 +4,21 @@
  * text blocks, generated-catalog links, and final-section order. See the
  * [Model Experience Agent Note](../.agents/notes/implemented/process/2026-07-12-package-model-experience-contract.md).
  */
-/*
- * 文件职责：实现 verify-package-readme-model-experience.ts 覆盖的仓库规范、文档、包或运行时门禁职责。
- * 技术维度：使用 TypeScript、JavaScript、Vitest、Node.js 文件系统、AST、Git 或依赖图分析。
- * 产品维度：保障源码、配置、文档和发布包满足项目约定，阻止不完整变更进入主分支。
- * 逻辑维度：扫描仓库输入，构建检查模型，收集违规项，再输出诊断并设置退出状态。
- * 关键边界：被检查文本与路径不可信；门禁结果必须确定；任何违规都应显式失败。
- * 新手阅读建议：先看规则入口和扫描范围，再读违规收集，最后关注例外、诊断和退出码。
- */
 
 import { existsSync, globSync, readFileSync } from 'node:fs'
 import { relative, resolve, sep } from 'node:path'
 import { markdownHeadingLines, markdownProseLines, type MarkdownProseLine } from './markdown.ts'
 
-/** 中文说明：变量 root 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const root = resolve(import.meta.dirname, '..')
-/** 中文说明：常量 HEADING 保存本脚本共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const HEADING = '## Model Experience'
-/** 中文说明：常量 LIMITATIONS_HEADING 保存本脚本共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const LIMITATIONS_HEADING = '## Known Limitations and Deferred Work'
-/** 中文说明：常量 MODEL_VIEW_HEADING 保存本脚本共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const MODEL_VIEW_HEADING = '#### What the model sees'
-/** 中文说明：常量 TOKEN_EFFECT_HEADING 保存本脚本共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const TOKEN_EFFECT_HEADING = '#### Token effect'
-/** 中文说明：常量 KV_CACHE_EFFECT_HEADING 保存本脚本共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const KV_CACHE_EFFECT_HEADING = '#### KV Cache effect'
-/** 中文说明：常量 FIELD_HEADINGS 保存本脚本共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const FIELD_HEADINGS = [MODEL_VIEW_HEADING, TOKEN_EFFECT_HEADING, KV_CACHE_EFFECT_HEADING] as const
 
-/** 中文说明：type SentenceKind 定义本脚本所需的数据或行为，用于表达仓库门禁场景。 */
 type SentenceKind = 'none' | 'indirect'
 
-/** 中文说明：interface SentenceContract 定义本脚本所需的数据或行为，用于表达仓库门禁场景。 */
 interface SentenceContract {
   kind: SentenceKind
   reason: string
@@ -46,13 +29,13 @@ interface SentenceContract {
  * Model Experience entirely; the reason stays here as reviewable audit evidence
  * so an absent section cannot be mistaken for forgotten documentation.
  */
-/* 中文说明：常量 NO_MODEL_EXPERIENCE_SECTION 保存本脚本共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const NO_MODEL_EXPERIENCE_SECTION: Readonly<Record<string, string>> = {
   'packages/core/scope': 'The package is a model-agnostic registration and lifecycle primitive; model-facing consumers own any context selection.',
-  'packages/util/brand': 'The package is a type-only primitive erased at compile time.',
+  'packages/util/brand': 'The package only constructs plain string values and registers nothing model-facing.',
   'packages/util/home-paths': 'The package only resolves harness-owned host paths; model-facing consumers own any rendered use.',
   'packages/util/launch-environment': 'The package only resolves host environment values; model-facing consumers own any rendered use.',
   'packages/util/workspace-path': 'The package only formats Workspace paths for browser UI; it never constructs model input.',
+  'packages/util/values': 'The package only validates, snapshots, compares, freezes, or rejects caller-owned values; consumers own every model-facing use.',
 }
 
 /**
@@ -60,7 +43,6 @@ const NO_MODEL_EXPERIENCE_SECTION: Readonly<Record<string, string>> = {
  * a KV-cache field. Every other package must carry canonical model-context
  * blocks. A package moves on or off this list with its context behavior.
  */
-/* 中文说明：常量 SENTENCE_MODEL_EXPERIENCE 保存本脚本共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const SENTENCE_MODEL_EXPERIENCE: Readonly<Record<string, SentenceContract>> = {
   'packages/attachment/attachment': { kind: 'indirect', reason: 'The storage seam delegates model request rendering to provider adapters.' },
   'packages/attachment/attachment-local': { kind: 'indirect', reason: 'The local backend delegates model request rendering to provider adapters.' },
@@ -74,6 +56,8 @@ const SENTENCE_MODEL_EXPERIENCE: Readonly<Record<string, SentenceContract>> = {
   'packages/code-runtime/code-runtime-python': { kind: 'indirect', reason: 'The CPython subprocess backend delegates model rendering to PTC mode in dsh-tools.' },
   'packages/client/ui-agent-preset': { kind: 'indirect', reason: 'Browser-side settings row; the preset it selects owns every model-facing effect.' },
   'packages/util/crypto': { kind: 'indirect', reason: 'Pure identifier minting; the ids consumers mint with it never enter prompts as semantic content.' },
+  'packages/util/deque': { kind: 'none', reason: 'In-process collection primitive; registers nothing model-facing.' },
+  'packages/util/time': { kind: 'indirect', reason: 'Pure zone validation; the consumer that records a canonical zone owns the model-visible line derived from it.' },
   'packages/core/agent-default-model': { kind: 'indirect', reason: 'The service supplies a ModelSelection; request assembly and adapters own the model-visible request.' },
   'packages/llm/deepseek-llm-api-extensions': { kind: 'indirect', reason: 'The registry contributes model-hidden provider fields; dsh-llm-deepseek owns their wire placement.' },
   'packages/preset/agent-presets': { kind: 'indirect', reason: 'The mount installs a preset\'s own plugins, which own every model-facing registration it makes visible.' },
@@ -105,6 +89,7 @@ const SENTENCE_MODEL_EXPERIENCE: Readonly<Record<string, SentenceContract>> = {
   'packages/client/ui-message-feedback': { kind: 'none', reason: 'Browser-side controls over the message-feedback sidecar; ratings and notes never enter the Session log, model context, or telemetry.' },
   'packages/client/ui-tool': { kind: 'none', reason: 'Browser-side Tool presentation layer; renders logged calls without changing model context.' },
   'packages/client/ui-jobs': { kind: 'none', reason: 'Browser-side read-only projection of ctx.jobs records; dsh-tool-jobs owns the model-facing behavior.' },
+  'packages/client/ui-schedule': { kind: 'none', reason: 'Browser-side read-only projection of active Schedule records; dsh-schedule owns the model-facing tools and delivery.' },
   'packages/client/ui-workflow-run': { kind: 'none', reason: 'Browser-side UI plugin layer; renders durable workflow records without changing model context.' },
   'packages/client/ui-input-trigger': { kind: 'none', reason: 'Browser-side UI plugin layer; registers nothing model-facing.' },
   'packages/client/ui-reference': { kind: 'indirect', reason: 'Browser-side reference selection delegates file guidance and session snapshot preparation to Host-owned providers.' },
@@ -127,7 +112,6 @@ const SENTENCE_MODEL_EXPERIENCE: Readonly<Record<string, SentenceContract>> = {
   'packages/client/ui-settings-plugin-inventory': { kind: 'none', reason: 'Browser-side inventory projection; registers nothing model-facing.' },
   'packages/client/locale': { kind: 'none', reason: 'Browser-side UI plugin layer; registers nothing model-facing.' },
   'packages/client/web': { kind: 'none', reason: 'Browser-side UI plugin layer; registers nothing model-facing.' },
-  'packages/examples/agent-spine-demo': { kind: 'indirect', reason: 'The bundle only mounts model-facing child plugins.' },
   'packages/context/file-reference': { kind: 'indirect', reason: 'The discovery seam and grammar delegate model guidance to the composed provider.' },
   'packages/fs/fs': { kind: 'indirect', reason: 'The service interface delegates model rendering to dsh-tool-fs.' },
   'packages/e2b/fs-e2b': { kind: 'indirect', reason: 'The provider backend delegates model rendering to dsh-tool-fs.' },
@@ -157,6 +141,7 @@ const SENTENCE_MODEL_EXPERIENCE: Readonly<Record<string, SentenceContract>> = {
   'packages/session/session-projection': { kind: 'none', reason: 'The projection registry serves client-facing read models of already-logged session state and registers nothing model-facing.' },
   'packages/session/session-projection-cache': { kind: 'none', reason: 'The persisted cache accelerates host-side cold reads of projection state and registers nothing model-facing.' },
   'packages/session/session-stats': { kind: 'none', reason: 'The sessionStats unit folds already-logged step boundaries into a client-facing read model and registers nothing model-facing.' },
+  'packages/session/session-turn-outline': { kind: 'none', reason: 'The turnOutline unit folds already-logged turn boundaries into a client-facing read model and registers nothing model-facing.' },
   'packages/session-query/session-query': { kind: 'none', reason: 'The trusted query service exposes cloned records only to callers and registers nothing model-facing.' },
   'packages/session-query/session-query-sqlite': { kind: 'none', reason: 'The search backend returns hits only to callers and registers nothing model-facing.' },
   'packages/settings/settings': { kind: 'indirect', reason: 'The seam stores and resolves user settings; consumer plugins own any model-facing content fed by a value.' },
@@ -200,16 +185,13 @@ const SENTENCE_MODEL_EXPERIENCE: Readonly<Record<string, SentenceContract>> = {
   'packages/workflow/workflow': { kind: 'indirect', reason: 'The service delegates parent and child model rendering to its consumer and engine.' },
 }
 
-/** 中文说明：interface Failure 定义本脚本所需的数据或行为，用于表达仓库门禁场景。 */
 interface Failure {
   path: string
   message: string
 }
 
-/** 中文说明：type Line 定义本脚本所需的数据或行为，用于表达仓库门禁场景。 */
 type Line = MarkdownProseLine
 
-/** 中文说明：interface ModelExperienceEntry 定义本脚本所需的数据或行为，用于表达仓库门禁场景。 */
 interface ModelExperienceEntry {
   heading: Line
   modelView: Line
@@ -220,21 +202,17 @@ interface ModelExperienceEntry {
   verbatimBlocks: number
 }
 
-/** 中文说明：interface ParsedField 定义本脚本所需的数据或行为，用于表达仓库门禁场景。 */
 interface ParsedField {
   value: Line
   verbatimBlocks: number
 }
 
 /** Validate H5-plus-markdown literals nested under one Model Experience field. */
-/* 中文说明：函数 validateNestedVerbatim 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function validateNestedVerbatim(raw: readonly string[], fragments: Set<string>): { blocks: number; error?: string } {
-  /** 中文说明：变量 cursor 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   let cursor = 0
   while (raw[cursor]?.trim().length === 0) cursor += 1
   if (cursor === raw.length) return { blocks: 0 }
 
-  /** 中文说明：变量 blocks 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   let blocks = 0
   while (true) {
     while (raw[cursor]?.trim().length === 0) cursor += 1
@@ -242,9 +220,7 @@ function validateNestedVerbatim(raw: readonly string[], fragments: Set<string>):
     if (!/^##### \S/.test(raw[cursor] ?? '')) {
       return { blocks, error: 'content after a field paragraph must be a titled H5 verbatim block' }
     }
-    /** 中文说明：变量 title 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const title = (raw[cursor] as string).slice('##### '.length)
-    /** 中文说明：变量 fragment 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const fragment = headingFragment(title)
     if (fragment.length === 0) return { blocks, error: 'verbatim H5 title must be non-empty' }
     if (fragments.has(fragment)) {
@@ -257,7 +233,6 @@ function validateNestedVerbatim(raw: readonly string[], fragments: Set<string>):
       return { blocks, error: 'each nested verbatim H5 requires an exact ```markdown fence' }
     }
     cursor += 1
-    /** 中文说明：变量 contentStart 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const contentStart = cursor
     while (cursor < raw.length && raw[cursor] !== '```') cursor += 1
     if (cursor === raw.length) return { blocks, error: 'unterminated nested ```markdown fence' }
@@ -274,53 +249,35 @@ function headingFragment(title: string): string {
 }
 
 /** A direct stable system-prompt contribution, as named by the README rules. */
-/* 中文说明：函数 isDirectSystemPromptEntry 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function isDirectSystemPromptEntry(title: string): boolean {
   return /\bsystem prompt\b/i.test(title)
 }
 
 /** Anchored generated-catalog links in one model-view field. */
-/* 中文说明：函数 toolCatalogLinkFragments 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function toolCatalogLinkFragments(text: string): string[] {
   return [...text.matchAll(/\]\(\.\.\/\.\.\/\.\.\/docs\/tool-catalog\.md#([a-z0-9_-]+)\)/g)]
     .map(match => match[1] as string)
 }
 
-/** 中文说明：变量 toolCatalogFragments 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const toolCatalogFragments = new Set<string>()
-/** 中文说明：该循环依次处理仓库文件或违规项；循环变量仅在当前循环中有效。 */
 for (const line of readFileSync(resolve(root, 'docs/tool-catalog.md'), 'utf8').split('\n')) {
-  /** 中文说明：变量 title 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const title = /^## (.+)$/.exec(line)?.[1]
   if (title !== undefined) toolCatalogFragments.add(headingFragment(title))
 }
 
-/** 中文说明：变量 failures 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const failures: Failure[] = []
-/** 中文说明：函数值 packageJsons 封装本脚本的局部步骤；参数和返回值由右侧签名约束；示例见本脚本调用。 */
 const packageJsons = globSync('packages/*/*/package.json', { cwd: root }).map(path => path.split(sep).join('/')).sort()
-/** 中文说明：函数值 scannedPackages 封装本脚本的局部步骤；参数和返回值由右侧签名约束；示例见本脚本调用。 */
 const scannedPackages = new Set(packageJsons.map(path => path.slice(0, -'/package.json'.length)))
-/** 中文说明：变量 structuredCount 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 let structuredCount = 0
-/** 中文说明：变量 modelContextEntryCount 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 let modelContextEntryCount = 0
-/** 中文说明：变量 omittedSectionCount 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 let omittedSectionCount = 0
-/** 中文说明：变量 explainedNoneCount 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 let explainedNoneCount = 0
-/** 中文说明：变量 indirectCount 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 let indirectCount = 0
-/** 中文说明：变量 verbatimBlockCount 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 let verbatimBlockCount = 0
-/** 中文说明：变量 systemPromptEntryCount 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 let systemPromptEntryCount = 0
-/** 中文说明：变量 toolSchemaEntryCount 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 let toolSchemaEntryCount = 0
-/** 中文说明：变量 kvCacheEffectCount 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 let kvCacheEffectCount = 0
 
-/** 中文说明：该循环依次处理仓库文件或违规项；循环变量仅在当前循环中有效。 */
 for (const [pkg, reason] of Object.entries(NO_MODEL_EXPERIENCE_SECTION)) {
   if (!scannedPackages.has(pkg)) {
     failures.push({ path: `${pkg}/README.md`, message: 'no-section allowlist entry does not name a scanned package' })
@@ -333,7 +290,6 @@ for (const [pkg, reason] of Object.entries(NO_MODEL_EXPERIENCE_SECTION)) {
   }
 }
 
-/** 中文说明：该循环依次处理仓库文件或违规项；循环变量仅在当前循环中有效。 */
 for (const [pkg, contract] of Object.entries(SENTENCE_MODEL_EXPERIENCE)) {
   if (!scannedPackages.has(pkg)) {
     failures.push({ path: `${pkg}/README.md`, message: 'sentence allowlist entry does not name a scanned package' })
@@ -343,37 +299,25 @@ for (const [pkg, contract] of Object.entries(SENTENCE_MODEL_EXPERIENCE)) {
   }
 }
 
-/** 中文说明：该循环依次处理仓库文件或违规项；循环变量仅在当前循环中有效。 */
 for (const packageJson of packageJsons) {
-  /** 中文说明：变量 pkg 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const pkg = packageJson.slice(0, -'/package.json'.length)
-  /** 中文说明：变量 readme 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const readme = packageJson.replace(/package\.json$/, 'README.md')
-  /** 中文说明：变量 abs 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const abs = resolve(root, readme)
   if (!existsSync(abs)) {
     failures.push({ path: readme, message: 'missing package README' })
     continue
   }
 
-  /** 中文说明：变量 text 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const text = readFileSync(abs, 'utf8')
-  /** 中文说明：变量 rawLines 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const rawLines = text.split('\n')
-  /** 中文说明：变量 lines 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const lines = markdownProseLines(text)
-  /** 中文说明：变量 headings 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const headings = markdownHeadingLines(text)
-  /** 中文说明：函数值 h2Headings 封装本脚本的局部步骤；参数和返回值由右侧签名约束；示例见本脚本调用。 */
   const h2Headings = headings.filter(heading => heading.depth === 2)
-  /** 中文说明：函数值 modelExperienceHeadings 封装本脚本的局部步骤；参数和返回值由右侧签名约束；示例见本脚本调用。 */
   const modelExperienceHeadings = headings.filter(heading => heading.text
     .trim().replaceAll(/\s+/g, ' ').toLowerCase() === 'model experience')
-  /** 中文说明：函数值 modelHeadings 封装本脚本的局部步骤；参数和返回值由右侧签名约束；示例见本脚本调用。 */
   const modelHeadings = modelExperienceHeadings.filter(heading => heading.depth === 2 && heading.raw === HEADING)
   if (NO_MODEL_EXPERIENCE_SECTION[pkg] !== undefined) {
     if (modelExperienceHeadings.length !== 0) {
-      /** 中文说明：该循环依次处理仓库文件或违规项；循环变量仅在当前循环中有效。 */
       for (const heading of modelExperienceHeadings) {
         failures.push({ path: readme, message: `line ${heading.index}: audited model-agnostic package must omit every Model Experience heading; found ${JSON.stringify(heading.raw)}` })
       }
@@ -382,13 +326,11 @@ for (const packageJson of packageJsons) {
     }
     continue
   }
-  /** 中文说明：函数值 nonCanonicalModelHeading 封装本脚本的局部步骤；参数和返回值由右侧签名约束；示例见本脚本调用。 */
   const nonCanonicalModelHeading = modelExperienceHeadings.find(heading => heading.depth !== 2 || heading.raw !== HEADING)
   if (nonCanonicalModelHeading !== undefined) {
     failures.push({ path: readme, message: `line ${nonCanonicalModelHeading.index}: non-canonical Model Experience heading ${JSON.stringify(nonCanonicalModelHeading.raw)}; use exactly ${JSON.stringify(HEADING)}` })
     continue
   }
-  /** 中文说明：变量 modelHeading 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const modelHeading = modelHeadings.at(0)
   if (modelHeading === undefined) {
     failures.push({
@@ -401,9 +343,7 @@ for (const packageJson of packageJsons) {
     failures.push({ path: readme, message: `contains ${modelHeadings.length} copies of ${HEADING}` })
     continue
   }
-  /** 中文说明：变量 modelH2Index 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const modelH2Index = h2Headings.indexOf(modelHeading)
-  /** 中文说明：函数值 limitationsH2Index 封装本脚本的局部步骤；参数和返回值由右侧签名约束；示例见本脚本调用。 */
   const limitationsH2Index = h2Headings.findIndex(heading => heading.depth === 2 && heading.raw === LIMITATIONS_HEADING)
   if (limitationsH2Index >= 0) {
     if (modelH2Index !== h2Headings.length - 2 || limitationsH2Index !== h2Headings.length - 1) {
@@ -418,37 +358,22 @@ for (const packageJson of packageJsons) {
     continue
   }
 
-  /** 中文说明：函数值 modelHeadingAt 封装本脚本的局部步骤；参数和返回值由右侧签名约束；示例见本脚本调用。 */
   const modelHeadingAt = lines.findIndex(line => line.index === modelHeading.index)
-  /** 中文说明：变量 body 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const body = lines.slice(modelHeadingAt + 1)
-  /** 中文说明：函数值 h2Lines 封装本脚本的局部步骤；参数和返回值由右侧签名约束；示例见本脚本调用。 */
   const h2Lines = new Set(h2Headings.map(heading => heading.index))
-  /** 中文说明：函数值 nextH2 封装本脚本的局部步骤；参数和返回值由右侧签名约束；示例见本脚本调用。 */
   const nextH2 = body.findIndex(line => h2Lines.has(line.index))
-  /** 中文说明：变量 section 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const section = nextH2 < 0 ? body : body.slice(0, nextH2)
-  /** 中文说明：变量 nextH2Line 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const nextH2Line = nextH2 < 0 ? rawLines.length + 1 : (body[nextH2] as Line).index
-  /** 中文说明：变量 rawSection 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const rawSection = rawLines.slice(modelHeading.index, nextH2Line - 1)
-  /** 中文说明：函数值 content 封装本脚本的局部步骤；参数和返回值由右侧签名约束；示例见本脚本调用。 */
   const content = section.filter(line => line.raw.trim().length > 0)
-  /** 中文说明：变量 sentenceContract 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const sentenceContract = SENTENCE_MODEL_EXPERIENCE[pkg]
   if (sentenceContract !== undefined) {
-    /** 中文说明：变量 pattern 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const pattern = sentenceContract.kind === 'none' ? /^None, as .+\.$/ : /^Indirectly, through .+\.$/
-    /** 中文说明：函数值 rawContent 封装本脚本的局部步骤；参数和返回值由右侧签名约束；示例见本脚本调用。 */
     const rawContent = rawSection.filter(line => line.trim().length > 0)
-    /** 中文说明：变量 sentence 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const sentence = content[0]
-    /** 中文说明：变量 kvCacheHeading 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const kvCacheHeading = content[1]
-    /** 中文说明：变量 kvCacheEffect 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const kvCacheEffect = content[2]
     if (content.length !== 3 || rawContent.length !== 3 || !pattern.test(sentence?.raw ?? '')) {
-      /** 中文说明：变量 prefix 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const prefix = sentenceContract.kind === 'none' ? 'None, as ' : 'Indirectly, through '
       failures.push({ path: readme, message: `must contain exactly one sentence beginning ${JSON.stringify(prefix)} and ending with a period, followed by ${KV_CACHE_EFFECT_HEADING} and one non-empty paragraph` })
       continue
@@ -473,14 +398,12 @@ for (const packageJson of packageJsons) {
     continue
   }
 
-  /** 中文说明：函数值 shortSentence 封装本脚本的局部步骤；参数和返回值由右侧签名约束；示例见本脚本调用。 */
   const shortSentence = content.find(line => line.raw === 'None.' || /^None, as |^Indirectly, through /.test(line.raw))
   if (shortSentence !== undefined) {
     failures.push({ path: readme, message: `line ${shortSentence.index}: short Model Experience form requires an audited entry in SENTENCE_MODEL_EXPERIENCE` })
     continue
   }
 
-  /** 中文说明：变量 entryStarts 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const entryStarts = content
     .map((line, index) => ({ line, index }))
     .filter(entry => /^### \S/.test(entry.line.raw))
@@ -489,25 +412,15 @@ for (const packageJson of packageJsons) {
     continue
   }
 
-  /** 中文说明：变量 modelContextEntries 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const modelContextEntries: ModelExperienceEntry[] = []
-  /** 中文说明：变量 entryFragments 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const entryFragments = new Set<string>()
-  /** 中文说明：变量 entryError 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   let entryError = false
-  /** 中文说明：该循环依次处理仓库文件或违规项；循环变量仅在当前循环中有效。 */
   for (let entryIndex = 0; entryIndex < entryStarts.length; entryIndex += 1) {
-    /** 中文说明：变量 start 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const start = entryStarts[entryIndex] as { line: Line; index: number }
-    /** 中文说明：变量 end 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const end = entryStarts[entryIndex + 1]?.index ?? content.length
-    /** 中文说明：变量 entries 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const entries = content.slice(start.index, end)
-    /** 中文说明：变量 heading 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const heading = entries[0] as Line
-    /** 中文说明：变量 title 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const title = heading.raw.slice('### '.length)
-    /** 中文说明：变量 fragment 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const fragment = headingFragment(title)
     if (fragment.length === 0) {
       failures.push({ path: readme, message: `line ${heading.index}: each model-context entry requires a non-empty H3 heading` })
@@ -519,7 +432,6 @@ for (const packageJson of packageJsons) {
       entryError = true
       break
     }
-    /** 中文说明：变量 fieldStarts 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const fieldStarts = entries
       .map((line, index) => ({ line, index }))
       .filter(entry => /^#### \S/.test(entry.line.raw))
@@ -535,26 +447,18 @@ for (const packageJson of packageJsons) {
       entryError = true
       break
     }
-    /** 中文说明：变量 parsedFields 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const parsedFields: ParsedField[] = []
-    /** 中文说明：变量 verbatimFragments 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const verbatimFragments = new Set<string>()
-    /** 中文说明：该循环依次处理仓库文件或违规项；循环变量仅在当前循环中有效。 */
     for (let fieldIndex = 0; fieldIndex < FIELD_HEADINGS.length; fieldIndex += 1) {
-      /** 中文说明：变量 fieldStart 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const fieldStart = fieldStarts[fieldIndex] as { line: Line; index: number }
-      /** 中文说明：变量 expectedHeading 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const expectedHeading = FIELD_HEADINGS[fieldIndex] as string
       if (fieldStart.line.raw !== expectedHeading) {
         failures.push({ path: readme, message: `line ${fieldStart.line.index}: expected exact field heading ${JSON.stringify(expectedHeading)}, found ${JSON.stringify(fieldStart.line.raw)}` })
         entryError = true
         break
       }
-      /** 中文说明：变量 fieldEnd 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const fieldEnd = fieldStarts[fieldIndex + 1]?.index ?? entries.length
-      /** 中文说明：变量 fieldEntries 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const fieldEntries = entries.slice(fieldStart.index, fieldEnd)
-      /** 中文说明：变量 value 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const value = fieldEntries[1]
       if (value === undefined || /^#{1,6} /.test(value.raw) || value.raw.trim().length === 0) {
         failures.push({ path: readme, message: `line ${fieldStart.line.index}: ${expectedHeading} requires one non-empty paragraph` })
@@ -566,14 +470,12 @@ for (const packageJson of packageJsons) {
         entryError = true
         break
       }
-      /** 中文说明：函数值 unexpected 封装本脚本的局部步骤；参数和返回值由右侧签名约束；示例见本脚本调用。 */
       const unexpected = fieldEntries.slice(2).find(line => !/^##### \S/.test(line.raw))
       if (unexpected !== undefined) {
         failures.push({ path: readme, message: `line ${unexpected.index}: content after ${expectedHeading} paragraph must be a titled H5 plus \`markdown\` fence owned by that field` })
         entryError = true
         break
       }
-      /** 中文说明：变量 nextHeadingLine 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const nextHeadingLine = fieldStarts[fieldIndex + 1]?.line.index
         ?? entryStarts[entryIndex + 1]?.line.index
         ?? nextH2Line
@@ -582,7 +484,6 @@ for (const packageJson of packageJsons) {
         entryError = true
         break
       }
-      /** 中文说明：变量 verbatim 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const verbatim = validateNestedVerbatim(rawLines.slice(value.index, nextHeadingLine - 1), verbatimFragments)
       if (verbatim.error !== undefined) {
         failures.push({ path: readme, message: `line ${value.index}: ${verbatim.error}` })
@@ -597,17 +498,11 @@ for (const packageJson of packageJsons) {
       parsedFields.push({ value, verbatimBlocks: verbatim.blocks })
     }
     if (entryError) break
-    /** 中文说明：变量 modelViewField 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const modelViewField = parsedFields[0] as ParsedField
-    /** 中文说明：变量 tokenEffectField 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const tokenEffectField = parsedFields[1] as ParsedField
-    /** 中文说明：变量 kvCacheEffectField 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const kvCacheEffectField = parsedFields[2] as ParsedField
-    /** 中文说明：变量 modelView 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const modelView = modelViewField.value
-    /** 中文说明：变量 tokenEffect 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const tokenEffect = tokenEffectField.value
-    /** 中文说明：变量 kvCacheEffect 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const kvCacheEffect = kvCacheEffectField.value
     if (/\]\(#[^)]+\)/.test(modelView.raw) || /\]\(#[^)]+\)/.test(tokenEffect.raw) || /\]\(#[^)]+\)/.test(kvCacheEffect.raw)) {
       failures.push({ path: readme, message: `line ${heading.index}: Model Experience fields must not link between local subsections; nest the H5 in its owning H4 field` })
@@ -627,14 +522,12 @@ for (const packageJson of packageJsons) {
   }
   if (entryError) continue
 
-  /** 中文说明：函数值 promptWithoutVerbatim 封装本脚本的局部步骤；参数和返回值由右侧签名约束；示例见本脚本调用。 */
   const promptWithoutVerbatim = modelContextEntries.find(entry => isDirectSystemPromptEntry(entry.title)
     && entry.modelViewVerbatimBlocks === 0)
   if (promptWithoutVerbatim !== undefined) {
     failures.push({ path: readme, message: `line ${promptWithoutVerbatim.heading.index}: system-prompt entry must contain a titled H5 plus verbatim \`markdown\` block under ${MODEL_VIEW_HEADING}` })
     continue
   }
-  /** 中文说明：函数值 hasConcreteLiteral 封装本脚本的局部步骤；参数和返回值由右侧签名约束；示例见本脚本调用。 */
   const hasConcreteLiteral = modelContextEntries.some(entry => entry.verbatimBlocks > 0
     || entry.modelView.raw.includes('`')
     || entry.tokenEffect.raw.includes('`')
@@ -643,19 +536,15 @@ for (const packageJson of packageJsons) {
     failures.push({ path: readme, message: 'structured Model Experience must ground at least one entry with inline code, a nested `markdown` block, or an anchored tool-catalog link' })
     continue
   }
-  /** 中文说明：变量 catalogError 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   let catalogError = false
-  /** 中文说明：该循环依次处理仓库文件或违规项；循环变量仅在当前循环中有效。 */
   for (const entry of modelContextEntries) {
     if (!/\bschemas?\b/i.test(entry.title)) continue
-    /** 中文说明：变量 fragments 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const fragments = toolCatalogLinkFragments(entry.modelView.raw)
     if (fragments.length === 0) {
       failures.push({ path: readme, message: `line ${entry.heading.index}: tool-schema entry must link an anchored section of ../../../docs/tool-catalog.md` })
       catalogError = true
       break
     }
-    /** 中文说明：函数值 invalid 封装本脚本的局部步骤；参数和返回值由右侧签名约束；示例见本脚本调用。 */
     const invalid = fragments.find(fragment => !toolCatalogFragments.has(fragment))
     if (invalid !== undefined) {
       failures.push({ path: readme, message: `line ${entry.modelView.index}: tool-catalog link fragment ${JSON.stringify(invalid)} does not name an H2 section` })
@@ -678,7 +567,6 @@ if (failures.length === 0) {
 }
 
 console.error('verify-package-readme-model-experience failed:')
-/** 中文说明：该循环依次处理仓库文件或违规项；循环变量仅在当前循环中有效。 */
 for (const failure of failures) {
   console.error(`  ${relative(root, resolve(root, failure.path))}: ${failure.message}`)
 }
