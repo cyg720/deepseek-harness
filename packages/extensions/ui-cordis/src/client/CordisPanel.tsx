@@ -1,5 +1,14 @@
 /** Frame-wide dynamic Plugin inventory, approvals, versions, and lifecycle actions. */
 
+/*
+ * 文件职责：实现Cordis 扩展界面的 CordisPanel.tsx 模块。
+ * 技术维度：TypeScript、Cordis Context、插件生命周期、React 和 Vitest。
+ * 产品维度：保证Cordis 扩展界面在配置、运行、失败和清理场景中可理解且可靠。
+ * 逻辑维度：注册服务或命令，转换请求并记录结果。
+ * 关键边界：沙箱与宿主 Context 不可混用；反馈追加新记录，不改写既有会话历史。
+ * 新手阅读建议：先读类型和夹具，再按注册、执行、错误与卸载流程阅读。
+ */
+
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import type { ButtonHTMLAttributes, ReactNode } from 'react'
 import {

@@ -4,6 +4,22 @@
  * @module @deepseek-ai/dsh-tool-session-query
  */
 
+/*
+ * ================================ 文件注释 ================================
+ * 【文件职责】模型面、工作区授权的会话历史搜索与读取工具：注册五个工具
+ *   （session_search/session_event_search/session_trace/session_event_trace/
+ *   session_event_read）并注入共享模型引导提示。
+ * 【技术维度】defineTool 注册 + 共享 TEXT_OUTPUT 渲染 + 可配超时/结果上限；
+ *   参数 schema 在 input.ts、执行在 operations.ts、展示在 presentation.ts。
+ * 【产品维度】让模型能检索/追踪/精读历史会话，全部限定在调用者工作区内。
+ * 【逻辑维度】name/inject → 常量与 Config → apply（系统提示段 + 五个工具注册）→
+ *   resolveConfig。
+ * 【关键边界】searchTimeoutMs 上限受 MAX_TIMER_DELAY_MS 约束；
+ *   并发安全工具（trace/read）声明 isConcurrencySafe。
+ * 【新手阅读建议】对照 input/operations/presentation 三文件读 apply 的注册清单。
+ * ==========================================================================
+ */
+
 import type { Context } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
 import { MAX_TIMER_DELAY_MS } from '@deepseek-ai/dsh-timeout'

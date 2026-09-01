@@ -12,6 +12,15 @@
  * @module
  */
 
+/*
+ * 文件职责：实现 tools.ts 承担的MCP 客户端连接、工具映射与生命周期职责。
+ * 技术维度：使用 TypeScript、Cordis 插件、MCP/JSON-RPC 协议和异步资源管理。
+ * 产品维度：让 Agent 能发现并调用外部 MCP 服务器提供的工具。
+ * 逻辑维度：建立连接，协商能力，映射远端工具，并将调用结果转换为 Harness 数据。
+ * 关键边界：远端数据必须在协议入口校验；断线、取消和关闭必须释放资源。
+ * 新手阅读建议：先看公开类型与配置，再读连接建立和工具映射，最后关注重连与清理。
+ */
+
 import { createHash } from 'node:crypto'
 import { isDeepStrictEqual } from 'node:util'
 import type { Client } from '@modelcontextprotocol/sdk/client/index.js'

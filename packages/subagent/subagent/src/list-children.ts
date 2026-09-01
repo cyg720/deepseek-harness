@@ -16,6 +16,26 @@
  * @module @deepseek-ai/dsh-subagent
  */
 
+/*
+ * ================================ 文件注释 ================================
+ * 【文件职责】只读枚举持久化的子代理与后代树：直接读会话存储与可选持久化，不依赖查询服务；
+ *   每个子代理的模式/标签来自 subagent 投影单元的"三级梯子"解析。
+ * 【技术维度】live 优先合并语料（sessions + persistence）；身份解析三梯子：注册表 watermark
+ *   快照 → 投影缓存行（seq 门槛证明来自自己日志后缀）→ 持久化 inspect 再经投影折叠；
+ *   冷读取有并发上限（COLD_READ_CONCURRENCY = 4）。
+ * 【产品维度】模型工具/API 需要列出"有哪些子代理、什么状态、能否续聊"时使用，不加载或
+ *   恢复任何 Agent，也不咨询 Activation/提供者状态。
+ * 【逻辑维度】按代码顺序：类型（SubagentListEntry 等）→ 内部运行时类型 → listChildren →
+ *   listDescendants → prepareListing → resolveCandidateRows → descendantCandidates →
+ *   compareCorpusRecords → resolveColdIdentity → childRow → sameLifecycle →
+ *   assertListingNotCancelled。
+ * 【关键边界】每个候选错误被隔离为单条 diagnostic，不影响整个列表；
+ *   取消（signal）在每次持久化读前后检查，取消后变成稳定的 CANCELLED 错误。
+ * 【新手阅读建议】先读 SubagentListEntry 的 union（child vs diagnostic），再追
+ *   resolveColdIdentity 的三梯子逻辑。
+ * ==========================================================================
+ */
+
 import type { Context } from '@deepseek-ai/cordis'
 import type { Session, SessionHeader, SessionId } from '@deepseek-ai/dsh-session'
 import type { SessionProjectionRegistry } from '@deepseek-ai/dsh-session-projection'

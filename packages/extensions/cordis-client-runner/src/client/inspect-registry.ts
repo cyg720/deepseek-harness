@@ -1,5 +1,22 @@
 /** Browser registry for read-only Cordis capability providers. */
 
+/*
+ * ================================ 文件注释 ================================
+ * 【文件职责】浏览器侧"只读 Cordis 能力查询"注册表：登记 Client 提供者、向 Host
+ *             发布完整清单镜像，并分派 Host 广播来的实时查询（首个本地结果回送）。
+ * 【技术维度】ClientCordisInspectHost 是折叠传输的远端接缝；publish 用
+ *             queueMicrotask + 链式同步合并突发注册；query 用 AbortController 支持
+ *             取消；close 取消已被其他页面应答的查询。
+ * 【产品维度】模型在写插件前可对 Client 侧提问（槽位/主题/服务），本页有能力就
+ *             实时回答，且"先到先得"由 Host 裁决。
+ * 【逻辑维度】类型（QueryContext/Registration/Host）→ 注册表类：register/publish
+ *             → query（执行 + 应答）→ close（取消）→ 服务提供函数。
+ * 【关键边界】应答只在"仍可应答"时发送（已取消不发送）；注册 ID 与方法名唯一；
+ *             提供者错误折叠为结构化 reason 而非裸异常。
+ * 【新手阅读建议】先看 register/publish 的发布流程，再看 query 的执行与取消分支。
+ * ==========================================================================
+ */
+
 import type { Context } from '@deepseek-ai/cordis'
 import type {
   CordisInspectProviderManifest, CordisInspectQueryRequest, CordisInspectQueryResolution,

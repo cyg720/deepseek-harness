@@ -6,6 +6,15 @@
  * @module @deepseek-ai/dsh-code-runtime-worker-thread
  */
 
+/*
+ * 文件职责：实现代码运行时的 index 模块。
+ * 技术维度：TypeScript、Cordis 插件、Worker/JSON 协议和严格类型。
+ * 产品维度：为产品提供代码运行时能力。
+ * 逻辑维度：解析配置或协议，执行核心流程并返回结构化结果。
+ * 关键边界：跨线程和模型输入属于不可信边界；资源与事件注册必须清理。
+ * 新手阅读建议：先读导出类型与配置，再跟踪入口和错误分支。
+ */
+
 import { Worker } from 'node:worker_threads'
 import { stripTypeScriptTypes } from 'node:module'
 import type { Readable } from 'node:stream'

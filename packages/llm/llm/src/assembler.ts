@@ -6,6 +6,27 @@
  * @module @deepseek-ai/dsh-llm/assembler
  */
 
+/*
+ * ================================ 文件注释 ================================
+ * 【文件职责】实现"增量块组装器"BlockAssembler：把原始 StreamChunk 流逐步
+ * 组装成完整内容块与最终的助手消息，是 agent loop 构建助手消息的唯一规范
+ * 算法（同时以原始 chunk 记日志保证回放保真）。
+ * 【技术维度】用 Map<index, PartialBlock> 维护各块索引的"未完成部分"，用
+ * order 数组记录首次出现顺序；兼容纯 delta 协议（无 block-start/end）；对
+ * block-end 已关闭的索引再来的 delta 直接忽略（畸形流防御，防止内存膨胀或
+ * 破坏已完成块）。
+ * 【产品维度】流式输出的每个增量都要被正确拼装、支持中断时的安全收尾
+ * （interruptedBlocks），并保证 max-token 截断时"工具调用不可安全执行"的
+ * 丢弃决策在内容与回放元数据间一致。
+ * 【逻辑维度】PartialBlock 内部结构 → push 按 chunk 类型分发 → ensure/assemble/
+ * mustGet 三个私有辅助 → assembled 统一"保留/丢弃"决策 → 五个对外访问器。
+ * 【关键边界】同一个索引先到先关闭（First close wins）；max-tokens 结束时
+ * 丢弃所有 tool-call 块；未知块类型且从未被 block-end 关闭时抛错。
+ * 【新手阅读建议】先看 PartialBlock 字段与 push 的 switch，再读 assembled
+ * 理解 keep/drop 决策如何同时驱动 blocks 与 replayState。
+ * ==========================================================================
+ */
+
 import { brandString } from '@deepseek-ai/dsh-brand'
 import { assertNever } from '@deepseek-ai/dsh-util-values'
 import type { ToolCallId } from './brand.ts'

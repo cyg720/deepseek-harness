@@ -5,6 +5,28 @@
  * @module @deepseek-ai/dsh-time-context
  */
 
+/**
+ * ================================ 文件注释 ================================
+ * 【文件职责】可选的请求时钟上下文插件：符合条件的模型步骤向请求历史追加
+ *             一条持久的、带来源归属的时间读取消息，让模型知道"现在几点、
+ *             距上一条消息过了多久"。
+ * 【技术维度】prepend 的 agent/pre-step 瀑布监听（在其它监听之前改写消息）；
+ *             Intl.DateTimeFormat 格式化时间戳；浏览器时区优先、进程时区兜底；
+ *             refreshIntervalMs 节流避免每条消息都注入。
+ * 【产品维度】用户说"十分钟前那个文件"时，模型需要真实的时间参考；时间读取
+ *             消息是模型可见内容，会持久化进会话日志以便回放校验。
+ * 【逻辑维度】1) 配置（timeZone 兜底时区 + refreshIntervalMs 注入间隔）；
+ *             2) 计时基线查找（precedingMessageTime / precedingStepContextTime /
+ *             latestInjectionTime）；3) apply：pre-step 时按节流条件决定是否
+ *             注入，拼装时间读取文本并追加为 plugin 来源用户消息。
+ * 【关键边界】步骤 1 以"上一条模型可见消息"为流逝基线，其余步骤以上一步
+ *             上下文为基线；浏览器时区唯一时用它展示时间戳，否则用进程时区；
+ *             注入内容必须与 invariant.ts 的格式约定一致。
+ * 【新手阅读建议】先读 Config 与 apply 的主流程，再读三个"找时间点"函数
+ *                 理解基线选择，最后看 renderText 的文本拼装。
+ * ==========================================================================
+ */
+
 import type { Context } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
 import { z as zod } from 'zod'

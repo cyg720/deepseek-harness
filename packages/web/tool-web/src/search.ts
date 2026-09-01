@@ -5,6 +5,23 @@
  * never provider selection or network access.
  */
 
+/*
+ * ================================ 文件注释 ================================
+ * 【文件职责】本文件是面向模型的 web_search 工具：发现最新网络信息。执行经 ctx.web 完成，
+ *             本模块只拥有面向模型的 schema、参数校验、结果条数上限与结果格式化。
+ * 【技术维度】defineTool 定义工具；多查询并发执行并在结果合并时去重、轮转、截断；
+ *             render 与 presentationMeta 双通道：渲染文本给模型，结构化 meta 供卡片展示。
+ * 【产品维度】模型通过"问问题"的方式获取最新信息；返回上限由产品控制（searchMaxResults），
+ *             而不是由模型或提供者决定，防止上下文被无界结果撑爆。
+ * 【逻辑维度】默认常量 → 参数校验 → 格式化/展示辅助 → meta 投影与回读 → 并发执行与合并
+ *             → applyWebSearchTool 注册工具与提示词。
+ * 【关键边界】查询数受 maxQueries 限制、每词非空；多查询时任一失败会中止同伴并重抛首个
+ *             错误；合并结果按 URL 去重、轮转填充、最后截断到 maxResults。
+ * 【新手阅读建议】先读 parseSearchArgs 与 formatSearchOutput（纯函数），再读
+ *             runSearchQueries / mergeSearchResults 看多查询合并，最后看注册逻辑。
+ * ==========================================================================
+ */
+
 import type { Context } from '@deepseek-ai/cordis'
 import { defineTool } from '@deepseek-ai/dsh-tools'
 import type { GenericCallView, ToolResult, WebSearchResultView, WebSource } from '@deepseek-ai/dsh-tools'

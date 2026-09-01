@@ -11,6 +11,15 @@
  * @module @deepseek-ai/dsh-web-app
  */
 
+/*
+ * 文件职责：实现Web Bundle的运行时胶水，挂载前端静态文件、信任信息、模型可见表面说明、URL公告和浏览器交接。
+ * 技术维度：使用Cordis注入、WebServer、系统提示与Shell环境贡献，并以隔离子进程调用操作系统默认浏览器。
+ * 产品维度：启动可交互Web GUI，向用户显示本地/LAN地址，并让模型知道当前页面和可用Web URL。
+ * 逻辑维度：解析绑定地址的信任快照，注册静态站点和上下文贡献，等待Loader完整后打印URL并按条件打开浏览器。
+ * 关键边界：SSH启动抑制自动开浏览器；浏览器子进程不继承Harness凭据；就绪信号必须等待全部Loader条目挂载。
+ * 新手阅读建议：先看Config和WebRuntimeValues，再读resolveLanTrust，最后跟踪apply中的静态站点、提示和就绪分支。
+ */
+
 import { spawn, type ChildProcess } from 'node:child_process'
 import { createRequire } from 'node:module'
 import { dirname, join } from 'node:path'

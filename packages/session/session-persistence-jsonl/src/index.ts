@@ -6,6 +6,31 @@
  * @module @deepseek-ai/dsh-session-persistence-jsonl
  */
 
+/*
+ * ================================ 文件注释 ================================
+ * 【文件职责】JSONL 持久化后端：把每个会话存成磁盘上"一个目录 + 一个追加式文件"，
+ *   文件第一行是头记录、其后是逐条事件行；实现 SessionPersistence 服务接口并实现
+ *   PersistenceBackend 存储原语，读写编排全部委托给 PersistenceCoordinator。
+ * 【技术维度】每会话一个 JSONL 工件；物理编码可选 zstd 帧（默认，带校验和）或明文；
+ *   原子物化 = 临时文件 fsync + link/MoveFileEx 发布（POSIX 用 link 防 EEXIST 竞态，
+ *   Windows 用写透移动）；stat(dev,ino,size,mtimeNs,ctimeNs) 派生修订号；残尾帧
+ *   可截断修复并抢救出已完整的事件。
+ * 【产品维度】会话历史以人类可导航的 目录结构 落盘（按项目分组），崩溃后可无损
+ *   恢复；zstd 压缩显著减小长会话日志体积。
+ * 【逻辑维度】按代码顺序：①配置 Schema 与压缩选择；②修订号/ENOENT 小助手；
+ *   ③JsonlSessionPersistence 类——服务方法转发、后端钩子（loadStored/
+ *   readStoredRevision/readRaw/appendBatch/commitRepair/list/listSnapshots）、
+ *   物化与追加的文件力学（materialize*、appendLines、rollbackAppend、repair）、
+ *   发现助手（findLog/首行读取/编码一致性检查）。
+ * 【关键边界】root 必填且解析一次（cwd 变化不漂移）；同一 root 内两种物理编码
+ *   不允许混存（发现即报错）；append 部分写入失败要回滚到原尺寸防重复 seq；
+ *   列举只读头信息，成本与会话数而非日志长度相关。
+ * 【新手阅读建议】先读类注释与 Config，再顺着 loadStored→readPrefix→readZstdPrefix
+ *   看读路径、materialize→appendLines→commitRepair 看写路径；format.ts 与 zstd.ts
+ *   是被本文件调用的底层工具。
+ * ==========================================================================
+ */
+
 import { Context } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
 import { readdirSync } from 'node:fs'

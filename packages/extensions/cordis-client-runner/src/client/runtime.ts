@@ -14,6 +14,26 @@
  * serialization keeps a second request from interleaving with one in flight.
  */
 
+/**
+ * ================================ 文件注释 ================================
+ * 【文件职责】动态包在浏览器内的"按包生命周期"引擎：闭包求值 → 守卫门面包裹 →
+ *             模块表座入 → loader 条目创建；卸载 = 移除条目 + 工厂失效 + 样式清理。
+ *             同时维护本页"已加载集合"与渲染崩溃归属索引。
+ * 【技术维度】复用客户端 loader 的全部机制（inject 激活门控、Fiber 效果清理、
+ *             状态投影）；按运行 ID 收敛加载（重复加载幂等、换激活替换、收回后
+ *             重载）；按插件串行排队防止慢加载交错；WeakMap 以组件身份归属崩溃。
+ * 【产品维度】让动态插件的浏览器半部享受与静态插件一致的生命周期语义，同时页面
+ *             刷新后按需重新加载；渲染崩溃可归因到作者并给出修复指引。
+ * 【逻辑维度】类型与记账结构 → 引擎类：构造（接入崩溃监督）→ subscribe/isLoaded/
+ *             getSnapshot → load/retract/dispose → mount（求值→守卫→模块表→loader
+ *             →Fiber 等待→记账）→ guardedSurface/teardown → 底部纯函数。
+ * 【关键边界】parked（服务暂缺）是成功而非失败；每个插件最多一个活动条目；
+ *             同一组件对象不可能跨包（每包独立闭包）；错误字段不得编造堆栈。
+ * 【新手阅读建议】先读文件头英文注释理解收敛/串行语义，再看 load→mount→teardown
+ *             的主干流程，最后看 owners WeakMap 的归属论证。
+ * ==========================================================================
+ */
+
 import type { Context } from '@deepseek-ai/cordis'
 import type { Loader } from '@deepseek-ai/cordis-plugin-loader'
 import type {

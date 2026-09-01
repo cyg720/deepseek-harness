@@ -1,5 +1,14 @@
 /** Durable attachment vocabulary. @module @deepseek-ai/dsh-attachment/types */
 
+/*
+ * 文件职责：集中定义持久图片附件、上传输入、存储结果、部署限制和模型请求变体的数据类型。
+ * 技术维度：使用TypeScript接口、字面量联合和品牌标识表达可序列化且不可混淆的附件数据。
+ * 产品维度：让会话日志、附件后端和模型提供方共享同一套图片事实，避免传递主机路径或临时URL。
+ * 逻辑维度：先定义媒体类型与持久引用，再定义准入限制和输入，最后定义请求图片策略与缓存版本。
+ * 关键边界：attachmentId和variantId均为不透明品牌值；名称只用于显示；所有尺寸与字节必须来自已验证数据。
+ * 新手阅读建议：先看ImageAttachmentRef理解会话保存什么，再看Save/Stored差异，最后读RequestImageAttachment派生字段。
+ */
+
 import type { AttachmentId, ImageVariantId } from './brand.ts'
 
 export type { AttachmentId } from './brand.ts'

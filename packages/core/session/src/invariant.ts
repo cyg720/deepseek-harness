@@ -5,6 +5,28 @@
  * @module @deepseek-ai/dsh-session/invariant
  */
 
+/*
+ * ================================ 文件注释 ================================
+ * 【文件职责】session 包的关系不变量伴随插件：对会话事件日志执行跨事件的关系校验——seq 严格递增、
+ *           turn/step 编号连续且正确嵌套、tool/result 必须有同步骤内先行的 tool/call（除非是崩溃
+ *           修复的合成结果）、核心执行事件必须被轮次包围等。
+ * 【技术维度】“预校验—暂存—提交后套用”的两阶段设计：internal/dispatch 阶段做纯校验并暂存过渡，
+ *            session/event 发布阶段才真正改动 trace；WeakMap 按会话/事件弱关联状态（会话销毁即回收）；
+ *            判别联合 switch + assertNever 兜底；可合并扩展事件类型走放行的 default 分支。
+ * 【产品维度】日志是权威事实来源：一旦写入违反关系的垃圾事件，重放、fork、持久化都会被污染。
+ *            此插件把不变量违例变成即时、明确的失败报告，而不是日后难以排查的静默损坏。
+ * 【逻辑维度】SessionTrace 记录每个会话的游标状态；validateEvent 纯校验并产出
+ *            SessionTraceTransition；applyTransition 在事件提交后套用；install 对存量会话全量补
+ *            种子，监听 session/created 建新 trace、internal/dispatch 暂存校验、session/event 消费暂存；
+ *            apply 完成注册。
+ * 【关键边界】需同时具备 invariants 与 sessions 服务；session/event 若找不到匹配的预校验暂存会直接
+ *            fail（说明发布未经校验路径）；session/end-seed 不受轮次约束（不平衡的种子可合法停在开轮次内）；
+ *            插件自有事件的关系归插件自己管。
+ * 【新手阅读建议】先读 SessionTrace/SessionTraceTransition 两个结构体理解“校验不改状态”的拆分，
+ *            再通读 validateEvent 的 switch 看每类事件的关系规则，最后看 install 的几个挂点如何协作。
+ * ==========================================================================
+ */
+
 import type { Context } from '@deepseek-ai/cordis'
 import type { ToolCallId } from '@deepseek-ai/dsh-llm'
 import type { InvariantFailure, InvariantInstaller } from '@deepseek-ai/dsh-invariants'

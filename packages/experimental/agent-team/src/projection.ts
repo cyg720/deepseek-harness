@@ -1,5 +1,9 @@
 /** Host-only Team state projected incrementally from committed Session events. */
 
+/*
+ * 中文导读：本模块从已提交的会话事件增量投影 Host 侧团队状态。
+ */
+
 import { z } from 'zod'
 import { brandString } from '@deepseek-ai/dsh-brand'
 import type { ContentBlock } from '@deepseek-ai/dsh-llm'

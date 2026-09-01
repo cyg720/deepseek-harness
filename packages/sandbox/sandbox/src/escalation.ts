@@ -16,6 +16,15 @@
  * @module dsh-sandbox/escalation
  */
 
+/*
+ * 文件职责：实现 escalation.ts 承担的沙箱安全与权限隔离配置、协议与生命周期职责。
+ * 技术维度：使用 TypeScript、Cordis 插件、配置校验、事件日志与异步资源管理。
+ * 产品维度：为 Agent 提供可靠的沙箱安全与权限隔离能力。
+ * 逻辑维度：解析输入，注册能力，执行核心操作，并在结束时释放所拥有的资源。
+ * 关键边界：权限和配置失败必须显式；模型可见状态必须记录；清理必须达到静止状态。
+ * 新手阅读建议：先看导出类型和常量，再读主流程，最后关注平台限制、恢复和清理。
+ */
+
 import { assertNever } from '@deepseek-ai/dsh-util-values'
 import type { SandboxMode } from './index.ts'
 

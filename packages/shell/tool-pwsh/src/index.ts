@@ -19,6 +19,25 @@
  * @module @deepseek-ai/dsh-tool-pwsh
  */
 
+/**
+ * ================================ 文件注释 ================================
+ * 【文件职责】实现 pwsh 工具的模型侧消费者（Consumer）：面向 Windows 组合体（ctx.shell 由
+ * PowerShell 执行器支撑），注册名为 `pwsh` 的工具，行为逐调用镜像 dsh-tool-bash——
+ * 前台/后台执行、受管 DSH_* 环境、按调用沙箱策略、拒绝渲染与同轮升级审批、标记/截断渲染。
+ * 【技术维度】defineTool + ctx.tools.register；execute 先审批后执行（approveEscalation）；
+ * 后台经 ctx.jobs.start 登记（JobKindMap 声明 pwsh 种类）；输出 schema 与 bash 版按契约对称
+ * （一方消费者必须能接受另一方）；多个实现段因刻意镜像而分块包在 jscpd:ignore 内。
+ * 【产品维度】Windows 上模型执行 PowerShell 命令的入口：原生 C:\... 路径与 $env:NAME 变量；
+ * 前台完成调用展示为带退出状态徽章的 terminal 卡片；沙箱拒绝时引导同轮升级审批。
+ * 【逻辑维度】validatePwshArgs 校验 → resolveSandboxPolicy 取策略 → 可选审批升级 →
+ * resolveWorkdir 解析工作目录 → 前台/后台分流 → canonicalPwshResult / renderPwshResult 规范化。
+ * 【关键边界】Windows 受限令牌沙箱下语言模式/命名管道行为的描述仅适用于 win32 组合体
+ * （见函数内注释）；未宣传沙箱能力时 sandbox_permissions 仍可能到达 execute，须守卫。
+ * 【新手阅读建议】先对照 dsh-tool-bash/index.ts 找共性，再重点看差异：declare module 的
+ * job 种类、pwshDescription 的 Windows 专属段落、canonicalPwshResult 的形状。
+ * ==========================================================================
+ */
+
 import { isAbsolute, resolve as resolvePath } from 'node:path'
 import type { Context } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'

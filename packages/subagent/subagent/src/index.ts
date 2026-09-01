@@ -29,6 +29,25 @@
  * @module @deepseek-ai/dsh-subagent
  */
 
+/*
+ * ================================ 文件注释 ================================
+ * 【文件职责】subagent 能力缝的 Service Definition 主体：维护子代理提供者（provider）注册表，
+ *   对外暴露一次性子代理启动、可续聊子代理（continuable）的建立/追问/中断/上报等操作，
+ *   并在包内组装生命周期事件、投影、子代理枚举等辅助模块。
+ * 【技术维度】基于 Cordis 的 Service 子类 + 声明合并扩展 Context.events 事件表；
+ *   一次性与续聊两类子代理共享同一套 start/end 生命周期事件；
+ *   续聊能力委托给 SubagentContinuationManager，本文件只保留入口与提供者注册表。
+ * 【产品维度】主代理通过工具把任务委托给子代理执行；续聊子代理可作为后台会话持续接收新指令，
+ *   本文件保证委托过程可观察（事件）、可枚举（listChildren/listDescendants）、可恢复（续聊）。
+ * 【逻辑维度】按代码顺序：类型导出与事件声明合并 → SubagentRuntime 类（提供者注册表、
+ *   一次性 start 校验与委托、续聊相关入口、listChildren/listDescendants、依赖注入挂载）。
+ * 【关键边界】续聊路径必须同时注入 agents 与 sessionProjections 服务；提供者能力由
+ *   assertCapabilities 在委托前校验，缺能力即报错而不是静默降级；提供者名唯一，重复注册抛错。
+ * 【新手阅读建议】先读 types.ts 了解请求/结果/提供者契约，再看本文件的 SubagentRuntime 类，
+ *   关注 start（一次性）与 startContinuable（续聊）两条主路径；后续可深入 continuation.ts 与 lifecycle.ts。
+ * ==========================================================================
+ */
+
 import { Context } from '@deepseek-ai/cordis'
 import { admitPromptContent } from '@deepseek-ai/dsh-attachment'
 import { scopeTarget } from '@deepseek-ai/dsh-scope'

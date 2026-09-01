@@ -10,6 +10,15 @@
  * @module @deepseek-ai/dsh-subagent-dsh-sdk/run
  */
 
+/*
+ * 文件职责：实现 run.ts 覆盖的子代理启动、协议、继承与生命周期行为。
+ * 技术维度：使用 TypeScript、Vitest、Cordis 插件、进程协议或同进程代理驱动。
+ * 产品维度：保障 Agent 能可靠委派任务、继承上下文并收集子代理结果。
+ * 逻辑维度：准备代理配置，启动或连接子代理，转发事件，再处理结果、取消与清理。
+ * 关键边界：异步状态不等于单次任务结果；外部输出不可信；清理必须等待子代理完全停止。
+ * 新手阅读建议：先看公开配置和测试夹具，再读启动/事件流程，最后关注继承、取消与失败路径。
+ */
+
 import { randomUUID } from 'node:crypto'
 import { brandString } from '@deepseek-ai/dsh-brand'
 import {

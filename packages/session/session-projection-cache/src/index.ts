@@ -16,6 +16,24 @@
  * @module @deepseek-ai/dsh-session-projection-cache
  */
 
+/*
+ * ================================ 文件注释 ================================
+ * 【文件职责】持久化投影缓存服务（ctx.sessionProjectionCache）：把每个客户端可见或显式
+ *   持久化投影单元的状态按会话写入耐用存储（session_projcache 域），并提供冷读梯子。
+ * 【技术维度】Cordis Service + storage-domain 的 KvTable；写后置（write-behind）节流
+ *   （count/interval 两触发器）+ 两个强制写点（turn/end、会话 detach）；冷读走
+ *   "缓存行 → 持久化 readFrom 尾 → 注册表 restore → 写回"的梯子。
+ * 【产品维度】让"离线/冷"会话的投影无需全日志加载即可读取：行可能过期但绝不错误
+ *   （seq 说明过期程度，ver 不匹配直接废弃而非迁移）。
+ * 【逻辑维度】按代码顺序：Config → DirtyState → SessionProjectionCache（init/recordFor/
+ *   cachedSnapshot/write/coldSnapshot/installWritePath/flushSoft/markClean/put/putSoft）→
+ *   identityOf/identityMatches。
+ * 【关键边界】所有耐用写都是 fail-soft（丢失只导致下次冷读更长尾回放）；记录绑定日志身份
+ *   （createdAt+cwd），同 ID 不同生命周期不串味。
+ * 【新手阅读建议】先看 write 的"先 flush 后落行"耐久屏障，再看 coldSnapshot 的梯子与回退。
+ * ==========================================================================
+ */
+
 import { Context, Service } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
 import { snapshotJsonValue } from '@deepseek-ai/dsh-util-values'

@@ -8,6 +8,15 @@
  * @module @deepseek-ai/dsh-plan-mode/types
  */
 
+/*
+ * 文件职责：定义计划模式投影的纯类型，并扩展会话投影键映射。
+ * 技术维度：使用 TypeScript 接口与模块声明合并，在不引入宿主运行时代码的前提下共享类型。
+ * 产品维度：让客户端和宿主都能一致展示当前计划模式及尚未落实的切换请求。
+ * 逻辑维度：先定义 PlanProjection 的两个布尔字段，再把 plan 键登记到 SessionProjectionMap。
+ * 关键边界：能力未装配时 plan 键应缺失，不能用两个 false 冒充能力存在。
+ * 新手阅读建议：先分清 active 与 pending 的时间含义，再学习 declare module 如何扩展外部接口。
+ */
+
 import type { CommandId } from '@deepseek-ai/dsh-commands/brand'
 
 /**

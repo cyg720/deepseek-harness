@@ -4,6 +4,21 @@
  * @module @deepseek-ai/dsh-tool-session-query/workspace-access
  */
 
+/*
+ * ================================ 文件注释 ================================
+ * 【文件职责】调用者身份、工作区授权与可见血缘投影：所有会话查询工具的核心授权层。
+ * 【技术维度】授权规则 = 同 cwd（工作区）或调用者自身；目标/批量 ID/观察头都经
+ *   授权检查；血缘树投影成"授权保留 + 越界 null 占位"的稀疏结构（显式栈无递归）。
+ * 【产品维度】保证模型只能读到自己工作区内的会话历史。
+ * 【逻辑维度】Caller/标题/后代投影类型 → 授权函数族（callerOf/targetId/
+ *   authorizeTarget/recordAuthorized/authorizeSessionIds/readTitles）→ 后代投影
+ *   （authorizeDescendants/visitDescendants/descendantIds）→ workspaceAccess 聚合导出。
+ * 【关键边界】标题不可用时以 untitled + unavailableCode 呈现（UNAUTHORIZED 透传）；
+ *   授权失败抛 SESSION_QUERY_TOOL_UNAUTHORIZED。
+ * 【新手阅读建议】先读 headerAuthorized 的"同 cwd"规则，再看 authorizeDescendants。
+ * ==========================================================================
+ */
+
 import type { Context } from '@deepseek-ai/cordis'
 import { brandString } from '@deepseek-ai/dsh-brand'
 import { HarnessError } from '@deepseek-ai/dsh-llm'

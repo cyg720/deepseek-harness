@@ -1,3 +1,26 @@
+/*
+ * ================================ 文件注释 ================================
+ * 【文件职责】定义会话（Session）子系统的全部核心数据类型：会话身份（SessionId）、磁盘格式版本常量、
+ *           会话头（SessionHeader）及其创建/恢复选项、轮次结束原因、待办条目（TodoItem）、请求头快照
+ *           （EpochHeader）、路由元数据（RequestContext），以及最核心的事件词汇表 SessionEventMap 与
+ *           单条事件信封 SessionEvent，另有“表面（surface）”相关类型（SurfaceEventType/SurfaceOp 等）。
+ * 【技术维度】TypeScript 类型体操：品牌化类型（Branded<T>，给裸 string 加编译期标记防止不同 id 混用）、
+ *            声明合并的可扩展映射（插件可通过 interface 合并向 SessionEventMap 追加自己的事件类型）、
+ *            映射类型 + 条件类型（SessionEvent 用 [K in SessionEventType] 加条件分支生成判别联合）。
+ * 【产品维度】本项目的会话日志是权威事件流：模型看到的每一条输入都必须能从这份日志重建出来。
+ *            这里定义的类型就是日志的“词汇表”，持久化后端、UI 回放、SDK 导出全都围绕它工作。
+ * 【逻辑维度】按代码出现顺序：JsonValue 的客户端安全再导出与会话身份；格式版本常量与会话头；
+ *            创建/恢复选项与取消原因、轮次结束原因映射、待办条目；请求头快照与路由元数据；
+ *            最后是 SessionEventMap 中逐个事件的语义说明与事件信封 SessionEvent 的字段推导。
+ * 【关键边界】SESSION_FORMAT_VERSION 当前恒为 0：结构不兼容直接拒绝加载、无迁移；只有 user/message、
+ *            assistant/message、tool/result 三类“表面事件”允许携带 surfaceOp/sourceEventSeqs，
+ *            其余事件携带会被编译器拒绝；事件缺省视为必需，读取端遇到不认识的必需类型必须拒绝重建。
+ * 【新手阅读建议】先通读 SessionEventMap 里每种事件的形状与语义注释，建立“一次 agent 对话在日志里
+ *            长什么样”的整体印象；再读 SessionEvent 信封理解 seq/time/ignorable 与表面字段的来历；
+ *            最后回头看 SESSION_FORMAT_VERSION 与 SurfaceOp 的长注释，理解版本判据与替换式表面节点机制。
+ * ==========================================================================
+ */
+
 import { brandString, type Branded } from '@deepseek-ai/dsh-brand'
 import type {
   AssistantMessage,

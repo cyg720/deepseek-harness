@@ -11,6 +11,26 @@
  * @module @deepseek-ai/dsh-llm-deepseek
  */
 
+/*
+ * ================================ 文件注释 ================================
+ * 【文件职责】dsh-llm-deepseek 包的入口插件：把 DeepSeekAdapter 注册到
+ * ctx.llm 的 deepseek-official 路由上，负责把插件配置/用户设置/凭据解析成
+ * 每个请求的连接事实（连接信息按请求解析，而非加载时冻结）。
+ * 【技术维度】配置经 schemastery schema 校验并兼作 llm-deepseek 设置段形状；
+ * 通过 ctx.credentials 凭据缝合层解析 API key；连接事实快照一旦被拒绝就整体
+ * 保留上一世代，杜绝"新 key 配旧端点"的组合；重试策略是唯一注册时捕获的
+ * 事实，变化时用 replace 原地重注册路由。
+ * 【产品维度】DeepSeek 官方入口：改 baseURL、模型目录或 key 后无需重启，
+ * 下一个请求即生效；进行中的流保持其开始时的连接事实。
+ * 【逻辑维度】再导出 → 常量（NS/环境变量/默认模型）→ Config 接口与 schema
+ * → resolveAdapterOptions（配置→连接事实）→ apply（设置段挂接 + 注册）。
+ * 【关键边界】请求无 key 时抛 MISSING_CREDENTIAL 而非加载时失败；thinking
+ * 禁用时只允许 reasoningEffort 为 off；图片/文件配额、量化步长等成对校验。
+ * 【新手阅读建议】先读 Config 接口（含各字段默认值），再读 resolveAdapterOptions
+ * 理解"配置如何变成每请求连接事实"，最后读 apply 的注册与设置联动。
+ * ==========================================================================
+ */
+
 import type { Context } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
 import { assertUsableApiKey, LlmError, resolveImageAttachmentAccess, resolveRetryPolicy, RetryPolicySchema } from '@deepseek-ai/dsh-llm'

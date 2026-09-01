@@ -7,6 +7,24 @@
  * must stub); implementation-internal entry points (history staging, wire-frame
  * dispatch) stay on the class, invisible out here.
  */
+/*
+ * ================================ 文件注释 ================================
+ * 【文件职责】定义会话对外的"脸"（face）：功能包通过本接口使用会话，
+ *   不直接接触具体 Session 类——读侧用 useSession（可观察快照），
+ *   写侧只允许调用本文件列出的行为动词。
+ * 【技术维度】纯类型模块：ISession 是行为接口，SessionFace 是行为 + 快照
+ *   读侧的复合类型；实现类（SessionRuntime）以结构化类型满足它。
+ * 【产品维度】把"功能包能对会话做什么"收敛成显式清单：新增能力必须
+ *   显式拓宽本接口，同时每个测试夹具都必须 stub 它，防止隐式越权。
+ * 【逻辑维度】ProjectionsFace 提供按键投影读取；ISession 提供
+ *   prompt/readAttachment/updateQueue/cancel/rename/loadOlder/command；
+ *   SessionFace 合并会话快照读侧。
+ * 【关键边界】运行时内部入口（历史 staging、wire-frame 分发）留在类上，
+ *   不暴露在接口外；prompt 的 mode 只允许 'queue'/'steer' 两值。
+ * 【新手阅读建议】从 SessionFace 入手理解读/写两侧的划分。
+ * ==========================================================================
+ */
+
 import type { AttachmentIdType, ImageAttachmentRef } from '@deepseek-ai/dsh-attachment'
 import type { MessageId } from '@deepseek-ai/dsh-llm/brand'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'

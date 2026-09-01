@@ -13,6 +13,15 @@
  * @module @deepseek-ai/dsh-persona
  */
 
+/*
+ * 文件职责：实现 index.ts 承担的Agent Persona配置、注册与生命周期职责。
+ * 技术维度：使用 TypeScript、Cordis 插件、配置校验和系统资源管理。
+ * 产品维度：为 Agent 提供可靠的Agent Persona能力。
+ * 逻辑维度：解析配置，注册能力，执行核心操作，并在卸载时等待资源停止。
+ * 关键边界：安全配置应尽早失败；不得泄露环境凭据；清理必须达到静止状态。
+ * 新手阅读建议：先看导出类型与配置，再读主流程，最后关注平台限制和清理。
+ */
+
 import type { Context } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
 import type {} from '@deepseek-ai/dsh-system-prompt'

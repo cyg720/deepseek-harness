@@ -18,6 +18,26 @@
  * @module @deepseek-ai/dsh-tmux-context
  */
 
+/*
+ * ================================ 文件注释 ================================
+ * 【文件职责】可选的请求准备期 tmux 位置上下文插件：向合格步骤追加一条持久化、
+ *             带来源归属的上下文，命名本 agent 进程所在的 tmux 会话/窗口/窗格
+ *             以及窗格的窗格树布局。
+ * 【技术维度】每回合只拉取一次状态（step === 1），通过 ctx.shell 执行器跑
+ *             tmux display-message；用 pane_tty 与进程控制终端比对来确认
+ *             "真的在 tmux 里"；状态变化才重新注入，refreshIntervalMs 做下限节流。
+ * 【产品维度】用户在 tmux 里跑多个任务窗格时，模型需要知道"自己在哪个窗格"，
+ *             才能正确理解窗口标题、布局等与位置相关的用户话语。
+ * 【逻辑维度】1) 配置与 tmux 字段常量；2) queryTmuxLocation：拼装只读 shell
+ *             脚本查询位置（含 tty 校验）；3) 状态渲染与变更抑制；4) apply：
+ *             pre-step 时查位置，状态或节流条件满足才注入。
+ * 【关键边界】缺失 tmux 环境、仅继承的环境、缺 ctx.shell 或查询失败都是
+ *             静默无操作而非错误；执行器拒绝被捕获并记录为警告，回合继续。
+ * 【新手阅读建议】先读英文模块注释理解设计动机（尤其 tty 校验），再读
+ *                 queryTmuxLocation 的 shell 脚本，最后看 apply 的注入条件。
+ * ==========================================================================
+ */
+
 import type { Context, LoggerService } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
 import { z as zod } from 'zod'

@@ -138,6 +138,12 @@ Host Remote adapter over the composed file-reference provider.
  * @param query - path text following `@` or `@"`.
  * @param signal - caller cancellation.
  * @returns deterministic path-only candidates from the composed provider.
+ * @remarks 中文说明：功能说明：列出 list 相关流程；使用场景由所在模块及调用位置决定。；
+ * 参数说明：agent（Agent）：提供本次调用所需的数据；必须满足声明的类型及调用时序要求。；
+ * 参数说明：query（string）：提供本次调用所需的数据；必须满足声明的类型及调用时序要求。；
+ * 参数说明：signal（AbortSignal）：传递取消或终止信号；必须满足声明的类型及调用时序要求。；
+ * 返回值：Promise<FileReferenceCandidate[]>；调用方应按声明类型处理，不应假定未声明的附加状态。；
+ * 使用示例：典型用法：在完成前置校验后调用 list(agent, query, signal)，并按返回类型处理结果。
  */
 @Remote list( agent: Agent, query: string, signal: AbortSignal, ): Promise<FileReferenceCandidate[]>
 ```

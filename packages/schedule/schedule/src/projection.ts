@@ -3,6 +3,10 @@
  * @module @deepseek-ai/dsh-schedule/projection
  */
 
+/*
+ * 中文导读：本模块把计划领域的活动提醒严格投影到会话状态。
+ */
+
 import { z } from 'zod'
 import type { ProjectionDefinition } from '@deepseek-ai/dsh-session-projection'
 import { applyScheduleChanges, decodeScheduleChange } from './domain.ts'

@@ -1,5 +1,25 @@
 /** Built-in Client inspect providers over live Client-owned services. */
 
+/*
+ * ================================ 文件注释 ================================
+ * 【文件职责】由 cordis-client-runner 注册的"第一方 Client inspect 提供者"：把
+ *             客户端能力目录（Service/Event）、闭包符号、实时槽位树与主题 token
+ *             暴露为模型可查询的只读提供者（client 平台）。
+ * 【技术维度】ClientCordisInspectProviderRegistration 注册项 + registration 工厂；
+ *             Service/Event 目录来自 api-catalog.ts 生成数据；Slots 提供者实时读
+ *             ctx.slots.snapshot，并把生成目录（slot-catalog.ts）与守卫钉死的
+ *             tool.view.cordis 键域合并进结果。
+ * 【产品维度】让模型在写 Client UI 前"查槽位/查 token/查服务"：确认该往哪个槽位
+ *             注册、key 域是什么、主题变量怎么覆盖，避免瞎写导致注册失败。
+ * 【逻辑维度】常量 schema 与闭包符号 → clientInspectProviders 组装五个提供者 →
+ *             registration/exactInput/readExact 工具 → 槽位树/精确契约渲染。
+ * 【关键边界】全部只读；Slots 查询依赖 slots 服务运行；GUARDED_SLOT_KEYS 描述
+ *             守卫固定的键域（tool.view.cordis 只接受 self）。
+ * 【新手阅读建议】先看 clientInspectProviders 的组装，再看 Slots 提供者的
+ *             compactSlotTree/inspectLiveSlot 两个渲染函数。
+ * ==========================================================================
+ */
+
 import type { Context } from '@deepseek-ai/cordis'
 import type { JsonValue } from '@deepseek-ai/dsh-util-values'
 import type { SlotRegistry } from '@deepseek-ai/dsh-client-ui-renderer/client'

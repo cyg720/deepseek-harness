@@ -5,6 +5,34 @@
  * @module @deepseek-ai/dsh-typert-generator/analyzer
  */
 
+/*
+ * ================================ 文件注释 ================================
+ * 【文件职责】typert 的 TypeScript 项目分析器：用 TypeScript 编译器 API（program /
+ *             checker / AST）扫描工作区，提取"编译器无关"的 Typert 模型。
+ *             Program、符号、语法节点都只是提取时的实现细节，调用方只拿到
+ *             model.ts 里声明的模型。
+ * 【技术维度】基于 typescript 编译器宿主（CompilerHost）与 Program；核心类
+ *             WorkspaceAnalyzer（工作区级：注册发现、分批分析、诊断检查）与
+ *             FaceAnalyzer（单编译面级：导出收集、服务 / 事件 / 远程调用提取、
+ *             类型节点转换）。大量使用 checker 的符号解析与类型判断。
+ * 【产品维度】这是"从源码到类型图"的第一步：把 TS 源码的公开 API 面（导出、服务、
+ *             事件、对象、schema、远程方法）结构化，供 emitter 生成产物、供
+ *             cordis-catalog 生成文档。write 模式还能自动补写缺失的类型标注。
+ * 【逻辑维度】按代码顺序：① 错误类与配置类型；② WorkspaceCaches（跨分析器共享
+ *             tsconfig / 编译宿主 / 源码文件缓存）；③ WorkspaceAnalyzer（analyze /
+ *             analyzeInBatches / discoverPackages / indexSourceDeclarations 等）；
+ *             ④ FaceAnalyzer（analyzePackage / collectServices / collectEvents /
+ *             collectInvocations / 类型节点转换 convertType / 远程边界校验等）；
+ *             ⑤ 模块级工具（manifest 解析、导出路径换算、文本工具、符号判断等）。
+ * 【关键边界】分析是"失败即抛"（fail-closed）：缺类型标注、非法远程签名、跨包未声明
+ *             引用等都抛 TypertAnalysisError；远程边界类型必须可投影为 JSON / Zod。
+ *             caches 只对"不可变工作区快照"有效，写文件后必须 invalidate。
+ * 【新手阅读建议】先读 WorkspaceAnalyzer.analyze 看整体流程，再读 FaceAnalyzer.
+ *             analyzePackage 看一个包的提取内容，最后看 convertType 理解"AST 类型
+ *             节点 → 类型图节点"的转换，以及 invocationModel 的远程调用校验。
+ * ==========================================================================
+ */
+
 import { existsSync, readFileSync, realpathSync, writeFileSync } from 'node:fs'
 import { dirname, extname, join, relative, resolve, sep } from 'node:path'
 import ts from 'typescript'

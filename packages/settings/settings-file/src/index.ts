@@ -7,6 +7,23 @@
  * @module @deepseek-ai/dsh-settings-file
  */
 
+/*
+ * ================================ 文件注释 ================================
+ * 【文件职责】实现"文件型设置提供者"（FileSettingsProvider）：把用户设置以单个 YAML/JSON 文档存
+ *   在 harness 主目录下，充当 dsh-settings 能力缝的 Provider 角色，负责读取、持久化与热更新。
+ * 【技术维度】基于 Cordis 的 Service 生命周期；chokidar 文件监听 + 去抖；跨进程写锁 + 原子写；
+ *   YAML 以"叶级 diff"方式局部修补，保留文件里的注释、锚点与排版。
+ * 【产品维度】配置界面与用户需要一处可手工编辑、被外部改动后立即生效的设置来源，即 settings.yaml
+ *   /settings.json 文档；本包承担"持久化 + 外部编辑热发布"。
+ * 【逻辑维度】resolveSpec 解析配置 → load 读盘 → persist 排队写盘 → refresh/reconcileFromDisk
+ *   把磁盘变化经 publish 推入设置缝 → renderYaml/renderJson 生成下次写入文本 → init 建立 watcher。
+ * 【关键边界】所有写操作串行排队避免互相覆盖；写前必须重新读盘以免覆盖外部编辑；启动期解析失败
+ *   loud fail（显式报错），热更新期失败则保留最后好值；文件权限 0600/0700 保护隐私。
+ * 【新手阅读建议】先读 packages/settings/settings/src/index.ts 理解"设置缝"整体模型，再按
+ *   resolveSpec → load/persist → refresh 的顺序读本文件，最后细看 renderYaml 体会注释保留 diff。
+ * ==========================================================================
+ */
+
 import { Context, Service } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
 import { watch as chokidarWatch } from 'chokidar'

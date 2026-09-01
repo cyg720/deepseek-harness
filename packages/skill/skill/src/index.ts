@@ -10,6 +10,26 @@
  * @module @deepseek-ai/dsh-skill
  */
 
+/*
+ * ================================ 文件注释 ================================
+ * 【文件职责】本文件是"代理技能"能力 seam 的 Service Definition：ctx.skills 技能注册表。
+ *             它合并各提供方（如 skill-filesystem）的目录、按名字选出获胜技能、并向消费方
+ *             暴露排序后的摘要与按需加载的完整技能定义。
+ * 【技术维度】继承 Cordis Service；按 scope 分层（ScopedLayers）管理提供者与运行时技能；
+ *             rank 决定层内同名技能的优先级；目录收集带版本号缓存与并发修订重试；
+ *             加载结果与提供者输入都做严格校验。
+ * 【产品维度】模型或用户在任何时候都能列出/加载"当前可用技能"；提供方可插拔，
+ *             同名技能按优先级收敛出唯一获胜者，保证行为可预期。
+ * 【逻辑维度】常量与类型词汇 → 渲染/转义辅助 → 提供者接口与控制 → SkillLayer 层类 →
+ *             SkillRegistry 注册表类（注册/列出/快照/加载/收集/失效）→ 校验与排序辅助函数。
+ * 【关键边界】同名技能在同一层内由 rank（数值越小越优先）决定，跨层由"最近层获胜"；
+ *             收集期间发生并发修订时最多重试 MAX_COLLECT_ATTEMPTS 次，否则标记不完整；
+ *             不完整观测绝不缓存，消费方可保留上次良好状态并在下个请求边界重试。
+ * 【新手阅读建议】先读 SkillRegistry 的 register/list/get 三个公开方法，再读 collect 系列
+ *             私有方法理解缓存与分层，最后看 renderSkillContent 了解技能呈现。
+ * ==========================================================================
+ */
+
 import { Context, Service } from '@deepseek-ai/cordis'
 import type {} from '@deepseek-ai/dsh-llm'
 import { assertNever } from '@deepseek-ai/dsh-util-values'

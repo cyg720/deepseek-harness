@@ -8,6 +8,25 @@
  * @module @deepseek-ai/dsh-credentials
  */
 
+/*
+ * ================================ 文件注释 ================================
+ * 【文件职责】凭据引用能力缝（ctx.credentials）的服务定义：定义两种互不相交的键空间——
+ *   CredentialRef（环境变量名式引用，回答"这个引用背后是什么值"）与 CredentialKey
+ *   （<scope>/<id> 记录地址，回答"某插件为某 id 持有什么凭据记录"）；抽象出 Provider 契约。
+ * 【技术维度】Cordis Service 抽象类；品牌类型区分两种键空间；抽象方法声明解析/存储/枚举/
+ *   串行改写的完整契约；notifyUpdated 做"包含式"事件分发（监听失败不阻断提交结果）。
+ * 【产品维度】设置与合成文件只存"引用"而非秘密本身；每次操作重新解析引用，凭据变更无需重启
+ *   即生效；配置界面可描述凭据的存在性/可写性而不接触其值。
+ * 【逻辑维度】品牌构造与校验函数（credentialRef/credentialKey 等）→ 信息型接口
+ *   （ResolvedCredential/CredentialInfo/CredentialRecordInfo）→ 抽象 Provider
+ *   （引用半区 + 记录半区）→ 两个通知事件与包含式分发 fanOut。
+ * 【关键边界】空存储值视为"处处不存在"，绝不伪装成已配置；记录半区只允许 modifyRecord 串行
+ *   读改写（保证 token 刷新在跨进程下安全）；监听失败被包含并记日志，INVARIANT 类失败重抛。
+ * 【新手阅读建议】先读 types.ts 弄清两种键空间与记录联合类型，再对照本文件的抽象方法与事件
+ *   契约，最后看 credentials-local 包的实现体会"Provider 如何落地"。
+ * ==========================================================================
+ */
+
 import { Context, Service } from '@deepseek-ai/cordis'
 import { brandString } from '@deepseek-ai/dsh-brand'
 import type { CredentialInfo, CredentialKey, CredentialRecord, CredentialRef } from './types.ts'

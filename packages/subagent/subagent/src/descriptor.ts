@@ -21,6 +21,22 @@
  * @module @deepseek-ai/dsh-subagent/descriptor
  */
 
+/*
+ * ================================ 文件注释 ================================
+ * 【文件职责】可持久化的子代理描述符：版本化、模型不可见的 subagent/descriptor 会话事件，
+ *   标识每个有会话备份的子代理并记录其一次性/续聊模式；续聊描述符额外保存冷恢复所需的组成。
+ * 【技术维度】显式快照字段而非整个 AgentOptions（避免不可 JSON 化的扩展值破坏续聊）；
+ *   提供 snapshot（构造）/fold（从日志恢复）/parse（校验持久化载荷）三组操作。
+ * 【产品维度】子代理列表（listChildren/listDescendants）与冷恢复都依赖描述符判断
+ *   一个子代理是什么、能不能恢复，而不必重放父代理的工具结果。
+ * 【逻辑维度】按代码顺序：事件声明合并 → 版本常量 → Data 接口族 → Input 接口族 →
+ *   键集合常量与解析辅助 → snapshotSubagentDescriptor（重载）→ foldSubagentDescriptor。
+ * 【关键边界】当前版本为 2，识别不了未知版本时 fold 返回 undefined（不抛错）；
+ *   日志中第一条描述符事件权威，后到的同类型事件不会改写声明。
+ * 【新手阅读建议】先看 Data 接口族（one-shot vs continuable），再读 snapshot 与 fold 两个入口。
+ * ==========================================================================
+ */
+
 import { snapshotJsonValue } from '@deepseek-ai/dsh-util-values'
 import type { SessionEvent } from '@deepseek-ai/dsh-session'
 import type { ReasoningEffortId } from '@deepseek-ai/dsh-llm'

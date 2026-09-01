@@ -4,6 +4,27 @@
  * @module @deepseek-ai/dsh-file-reference-local
  */
 
+/*
+ * ================================ 文件注释 ================================
+ * 【文件职责】ctx.fileReferences 服务的本地文件系统实现：在 Host 进程中扫描
+ *             agent 的工作目录，为 @ 文件补全提供候选。这是 file-reference
+ *             能力缝（Service Definition）在本地的具体 Provider。
+ * 【技术维度】继承 FileReferenceService（远程服务基类），内部用 WorkspaceFileSearch
+ *             维护每个 agent 的模糊搜索索引；通过 schemastary 校验配置；
+ *             在 agent 生命周期事件与工具结果事件上做索引的建立/失效/销毁。
+ * 【产品维度】用户在终端/Web 编辑器输入 @ 时弹出的文件补全列表，就是本服务
+ *             实时扫盘并排序的结果。
+ * 【逻辑维度】1) 定义可配置项 Config（结果数/索引条目数/排除目录）；2) 服务类
+ *             为每个 agent 懒创建搜索索引；3) 注入系统提示词（仅当 read 工具
+ *             存在时）；4) 监听 agent/created、agent/disposed、session/event
+ *             维护索引与提示词的生命周期。
+ * 【关键边界】索引只含路径不含内容，文件内容仍由模型侧的 read 工具读取；
+ *             工具结果事件触发索引失效，保证补全反映最新文件树。
+ * 【新手阅读建议】先看 Config 与类成员变量，再看构造函数里的生命周期接线，
+ *                 最后看 list 的懒加载逻辑与 search.ts 中的实际扫描实现。
+ * ==========================================================================
+ */
+
 import { Context } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
 import type { Agent } from '@deepseek-ai/dsh-agent'

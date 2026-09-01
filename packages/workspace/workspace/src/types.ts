@@ -5,6 +5,15 @@
  * @module @deepseek-ai/dsh-workspace/src/types
  */
 
+/*
+ * 文件职责：实现 types.ts 覆盖的工作区类型与行为职责。
+ * 技术维度：使用 TypeScript、JavaScript、Vitest、Node.js 文件系统或构建工具。
+ * 产品维度：通过工作区类型与行为保障项目开发、发布和 Agent 工作区行为一致。
+ * 逻辑维度：解析参数和文件，执行检查或转换，再输出结果并处理错误。
+ * 关键边界：脚本可能修改构建产物；路径和子进程输出不可信；失败必须以非零状态显式报告。
+ * 新手阅读建议：先看命令入口和参数，再读文件遍历或转换，最后关注错误码和平台差异。
+ */
+
 import type { Branded } from '@deepseek-ai/dsh-brand'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import type {} from '@deepseek-ai/dsh-typert-protocol'

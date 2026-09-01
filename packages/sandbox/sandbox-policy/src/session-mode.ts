@@ -18,6 +18,15 @@
  * @module dsh-sandbox-policy/session-mode
  */
 
+/**
+ * 文件职责：实现 session-mode.ts 承担的沙箱策略或 Windows ACL 隔离职责。
+ * 技术维度：使用 TypeScript、Windows 原生接口、访问控制列表和进程生命周期管理。
+ * 产品维度：限制 Agent 子进程可访问的系统资源，降低误操作和凭据泄露风险。
+ * 逻辑维度：解析策略，构造权限或原生调用，启动受限进程，并等待退出后清理。
+ * 关键边界：原生句柄和权限失败必须显式处理；环境变量需净化；清理必须达到静止状态。
+ * 新手阅读建议：先看公开配置和 Win32 类型，再读权限授予与启动，最后关注错误和清理。
+ */
+
 import type { Session } from '@deepseek-ai/dsh-session'
 import type { SandboxMode } from '@deepseek-ai/dsh-sandbox'
 

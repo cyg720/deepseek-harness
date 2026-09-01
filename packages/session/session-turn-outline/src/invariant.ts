@@ -4,6 +4,10 @@
  */
 
 /* jscpd:ignore-start */
+/*
+ * 中文导读：本模块校验 turnOutline 投影定义已注册，并由包自身拥有该运行时不变量。
+ */
+
 import type { Context } from '@deepseek-ai/cordis'
 import type { InvariantInstaller } from '@deepseek-ai/dsh-invariants'
 

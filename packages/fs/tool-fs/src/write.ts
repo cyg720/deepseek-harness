@@ -5,6 +5,28 @@
  * @module @deepseek-ai/dsh-tool-fs/src/write
  */
 
+/*
+ * ================================ 文件注释 ================================
+ * 【文件职责】面向模型的"整文件写"工具。它从单策略槽取可选意图，调用
+ * ctx.fs.writeText（不做 stat），然后记录结果版本；没有策略时是无条件原子
+ * 创建或覆盖。
+ * 【技术维度】defineTool 注册：schema 校验 file_path/content（+可选升级字段）；
+ * execute 流程 = 解析策略 → 解析目标 → waterfall 取写意图 → writeText（带信号与
+ * 策略）→ 发 observed 事件 → 返回 { path, operation, before, after }；错误经
+ * sandbox.mapError + remediateFsError 双层处理；展示层 presentCall/presentResult
+ * 负责 diff 卡片。
+ * 【产品维度】模型创建/整体替换文件的标准工具：输出带 before/after 供上下文 diff，
+ * 系统提示指导"覆盖前先读、目标改动用 edit"。
+ * 【逻辑维度】按出现顺序：parseWriteArgs（校验）→ formatWriteOutput（结果信封）→
+ * WriteToolArgs（含升级字段的参数类型）→ applyWriteTool（注册工具 + 指南 + 展示）。
+ * 【关键边界】空 content 合法（写空文件），只有 file_path 必须非空白；写意图槽
+ * 决策失败（如未读先写）由策略插件抛 FS_NOT_OBSERVED；升级调用在任何非批准结果
+ * 上都抛专属文本。
+ * 【新手阅读建议】先看 execute 的调用链（策略 → 意图 → 写 → 观察），再看
+ * presentCall/presentResult 理解调用时与结果时的 diff 展示差异。
+ * ==========================================================================
+ */
+
 import type { Context } from '@deepseek-ai/cordis'
 import { defineTool } from '@deepseek-ai/dsh-tools'
 import type { DiffCallView, DiffResultView, ToolResult } from '@deepseek-ai/dsh-tools'

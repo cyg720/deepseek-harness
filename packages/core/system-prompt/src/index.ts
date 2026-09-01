@@ -4,6 +4,30 @@
  * @module @deepseek-ai/dsh-system-prompt
  */
 
+/*
+ * ================================ 文件注释 ================================
+ * 【文件职责】系统提示词装配注册表：集中管理有序的系统段落（sections）、动态上下文（contexts）、
+ *           工具 schema（tools）与提示词变量（variables），并在每次模型步骤前把它们装配成
+ *           PromptAssembly；另附渲染函数（renderPrompt/renderContextSnapshot 等）完成 {{变量}} 插值。
+ * 【技术维度】Cordis Service 与瀑布事件（system-prompt/assemble，返回值即权威结果）；dsh-scope 的
+ *            分层注册（全局层 + 各 agent 作用域层，scoped 同名条目遮蔽全局）；NamedEntries/
+ *            AnonymousEntries 管理具名/匿名注册并处理重复冲突；schemastery 声明插件 Config；
+ *            手写的严格模板变量扫描器。
+ * 【产品维度】决定模型“是谁、知道什么、能用什么”：harness 身份、部署人设 persona、各能力注入的
+ *           使用指引与动态运行时上下文都从这里汇入系统提示；toolOrder 让部署方控制工具呈现顺序；
+ *           complete section 允许某个组合整体接管系统提示。
+ * 【逻辑维度】按代码顺序：Cordis 事件声明 → 装配上下文与输入/输出类型 → 常量（persona 槽位、变量名
+ *           正则、toolOrder 保留标记）→ toolOrder 校验与排序 → 渲染与插值函数 → PromptLayer 层存储
+ *           → SystemPrompt 服务（构造时装身份/persona，五个注册方法，assemble 总装）。
+ * 【关键边界】同名注册在同层抛错（全局层的报错会提示改用 agent.ctx 做按 agent 覆盖）；order 必须是
+ *           有限数；{{变量}} 引用严格：名字不合正则、未注册或值为 undefined 都抛错，孤立的 '{{'
+ *           （其后再无 '}}'）视为普通文字；替换值不二次扫描；多个 complete section 同时激活即失败。
+ * 【新手阅读建议】先读 PromptSection/PromptContext/PromptAssembly 理解输入输出模型，再读 assemble
+ *           方法看装配全流程（变量求值 → 段落排序 → 工具收集排序 → 瀑布 → complete 恢复），
+ *           最后读 interpolate 理解严格插值规则。
+ * ==========================================================================
+ */
+
 import { Context, Service } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
 import { AnonymousEntries, NamedEntries, ScopedLayers, scopeTarget } from '@deepseek-ai/dsh-scope'

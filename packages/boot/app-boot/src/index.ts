@@ -6,6 +6,15 @@
  * @module @deepseek-ai/dsh-app-boot
  */
 
+/*
+ * 文件职责：为dsh系列入口统一装配环境变量、配置路径、用户补丁、Loader根树、失败处理和启动完成校验。
+ * 技术维度：使用Cordis Loader/Include/HMR、js-yaml、Node.js环境与路径API驱动插件树生命周期。
+ * 产品维度：让CLI、ACP等入口以一致规则启动配置，并在配置错误或插件激活失败时快速给出明确诊断。
+ * 逻辑维度：分层读取环境，解析补丁与配置转储，挂载根Include，安装未处理拒绝守卫，最后执行boot和激活检查。
+ * 关键边界：启动专用环境变量不能由磁盘.env覆盖；用户补丁必须是数组；任何启用条目缺失或失败都终止启动。
+ * 新手阅读建议：先看resolveConfigPath和loadLayeredEnv，再看mountRootInclude，最后沿boot中的stage变量理解启动阶段。
+ */
+
 import { pathToFileURL } from 'node:url'
 import { readFileSync } from 'node:fs'
 import { parseEnv } from 'node:util'

@@ -1,5 +1,22 @@
 /** Team membership, continuable-child provisioning, and roster-owned teardown. */
 
+/*
+ * ================================ 文件注释 ================================
+ * 【文件职责】团队成员身份、续聊子代理供给与名册自有的拆解：解析成员关系、
+ *   创建/恢复持久队友、中断队友、按根分组并在拆卸时释放。
+ * 【技术维度】通过 ctx.subagents.startContinuable 创建队友（fresh/fork）；
+ *   供给先写 provisioning 事件再物化，成功后置 active、失败置 failed；
+ *   恢复（reconcileProvisioning）从独立持久的子会话判定最终相位。
+ * 【产品维度】决定"谁能当 Lead、队友怎么建、怎么停"的团队身份规则。
+ * 【逻辑维度】MEMBER_NAME → TeamMembership/resolveActiveMember → TeamRoster
+ *   （membership/tryMembership/list/spawn/pendingCreations/recoverFor/interrupt/
+ *   liveChildrenByRoot/stopTeammates + 私有供给与恢复）。
+ * 【关键边界】队友名小写 kebab-case 且不可复用；仅 Lead 可建/中断队友；
+ *   供给冲突（恢复判定为 failed 但创建成功）抛 TEAM_PROVISIONING_CONFLICT。
+ * 【新手阅读建议】先读 tryMembership 的身份解析，再看 spawnAdmitted 的供给状态机。
+ * ==========================================================================
+ */
+
 import { randomUUID } from 'node:crypto'
 import type { Context } from '@deepseek-ai/cordis'
 import { brandString } from '@deepseek-ai/dsh-brand'

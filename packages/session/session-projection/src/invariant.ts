@@ -4,6 +4,19 @@
  */
 
 /* jscpd:ignore-start */
+/*
+ * ================================ 文件注释 ================================
+ * 【文件职责】session-projection 包的 invariant 伴生插件：本包刻意"无运行时不变量"，
+ *   注册一个空安装器说明原因（契约由服务内部同步强制 + spec 证明 + 载体线路上断言）。
+ * 【技术维度】标准 invariants 插件形态（name/inject/apply），install 为空函数；
+ *   文件整体被 jscpd:ignore 包裹（防重复代码检测）。
+ * 【产品维度】占位说明：哪些关系为什么不在伴生插件里重复检查。
+ * 【逻辑维度】按代码顺序：name/inject → 空 install（附详细论证注释）→ apply。
+ * 【关键边界】jscpd pragma 与 install 定义保持原样。
+ * 【新手阅读建议】读 install 上方的大段英文注释，理解"为何没有运行时不变量"。
+ * ==========================================================================
+ */
+
 import type { Context } from '@deepseek-ai/cordis'
 import type { InvariantInstaller } from '@deepseek-ai/dsh-invariants'
 

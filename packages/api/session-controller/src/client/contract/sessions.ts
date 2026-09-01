@@ -4,6 +4,23 @@
  * the concrete class. Widening this interface is the
  * explicit act of widening what features may do to the sessions domain.
  */
+/**
+ * ================================ 文件注释 ================================
+ * 【文件职责】会话服务（sessions-service）的对外接口面：ctx.sessions 暴露
+ *   给功能包与渲染宿主的能力清单，测试运行时的会话替身必须实现它。
+ * 【技术维度】纯类型接口；wire 泵入口（handleMuxEnvelope/handleConnected/
+ *   refresh）与运行时内部留在具体类上；跨域消费方用更窄的 SessionsPort。
+ * 【产品维度】会话是核心交互域：选中、子代理目录、搜索、fork、标准属性
+ *   提供者、Agent 作用域解析都从这里发起。
+ * 【逻辑维度】list/currentProvideInfo 是标准源；open/openSubagent/clear
+ *   管选中；setSubagentCatalogOpen/refreshSubagents 管子代理目录；
+ *   search/fork 管操作；provide/scope/scopeOf/sessionOf/binding 管扩展缝。
+ * 【关键边界】拓宽本接口即显式拓宽功能包可对会话域做的事情；unknown id
+ *   的 open 会 fail-loud。
+ * 【新手阅读建议】对照 sessions/service.ts 看实现，对照 session.ts 看细粒度面。
+ * ==========================================================================
+ */
+
 import type { Context } from '@deepseek-ai/cordis'
 import type { SubagentAddress } from '@deepseek-ai/dsh-subagent/client'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'

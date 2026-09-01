@@ -4,6 +4,17 @@
  * @module @deepseek-ai/dsh-agent-default-model
  */
 
+/*
+ * ================================ 文件注释 ================================
+ * 【文件职责】默认模型选择服务（ctx.agentDefaultModel）：为没有显式指定模型的 agent 提供 provider/model/reasoningEffort 默认值，并支持通过 settings 动态读写。
+ * 【技术维度】Cordis Service + schemastery 配置校验；settings 提供者可选（没挂载时退回组合配置项）；所有读取都经 currentSelection() 实时投影。
+ * 【产品维度】部署方在配置里定默认模型，用户可在运行期用设置命令切换默认模型，后续新建的 agent 自动生效。
+ * 【逻辑维度】类型与 schema（Settings/Config/常量）→ selection 投影函数 → AgentDefaultModelConfig 服务（构造注册 settings 段 → currentSelection/saveSelection）。
+ * 【关键边界】saveSelection 依赖可选 settings 提供者（无则静默跳过写入）；reasoningEffort 为空时保持 provider 默认行为。
+ * 【新手阅读建议】先读 currentSelection/saveSelection 两个方法，再看构造函数的 installSettingsSection 注册方式。
+ * ==========================================================================
+ */
+
 import { Context, Service } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
 import type { ModelSelection } from '@deepseek-ai/dsh-agent'

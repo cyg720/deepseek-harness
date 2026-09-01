@@ -3,6 +3,28 @@
  * @module @deepseek-ai/dsh-cordis-host-runner/types
  */
 
+/**
+ * ================================ 文件注释 ================================
+ * 【文件职责】定义 cordis-host-runner 全部跨端（Host/浏览器 Client/会话）共享的
+ *             "线缆词汇表"：动态插件的各类 ID、运行状态、请求/响应结构与事件负载
+ *             类型。本文件只含类型，不含任何运行逻辑。
+ * 【技术维度】品牌类型（Branded）用于给 ID 打上编译期标记；联合类型表达"判别式
+ *             结果"（ok: true/false + reason）；通过 declare module 声明合并扩展
+ *             Cordis 的事件映射（Events），事件要求 @mode 与负载 @param 文档。
+ * 【产品维度】这些类型是"AI 现场编写 Cordis 插件"功能的契约层：面板、模型工具、
+ *             Client 运行器两侧按同一套结构对话，保证状态可展示、可持久化。
+ * 【逻辑维度】按概念分组：各类 ID 与平台标记 → inspect 查询的清单/请求/结算类型 →
+ *             激活尝试的状态机类型（CordisRunStatus/CordisHalfState/Attempt）→
+ *             面板展示类型（Package/RunRequest/Inventory）→ 各动词的响应类型
+ *             （RunResponse/StopResponse/HalfResult/InvokeResult）→ 事件映射。
+ * 【关键边界】所有类型必须可 JSON 序列化（不能含函数/类实例）；事件注释按协议
+ *             要求标注 @mode 与 @param；新增事件键需同步 Client 侧类型。
+ * 【新手阅读建议】先浏览第 1–2 组 ID 类型理解"品牌"用法，再看 CordisRunStatus
+ *             与 DynamicCordisRunAttempt 掌握状态机，最后对照 index.ts 各方法
+ *             的返回类型阅读响应联合类型。
+ * ==========================================================================
+ */
+
 import type { Branded } from '@deepseek-ai/dsh-brand'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import type { JsonValue } from '@deepseek-ai/dsh-util-values'

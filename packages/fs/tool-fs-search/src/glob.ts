@@ -9,6 +9,34 @@
  * @module @deepseek-ai/dsh-tool-fs-search/glob
  */
 
+/**
+ * ================================ 文件注释 ================================
+ * 【文件职责】面向模型的 glob 工具：发现路径匹配 glob 模式的文件，按修改时间排序。
+ * 执行时通过子进程接缝、用普通 argv 向量直接启动打包的 ripgrep 二进制
+ * （@vscode/ripgrep）；本模块拥有模型侧 schema、参数校验、argv 构造、结果解析、
+ * 内联采样与格式化；进程关注点（spawn 执行、进程树终止、环境清理、输出捕获）留在
+ * ctx.subprocess。
+ * 【技术维度】buildGlobCommand 生成固定 rg --files argv（--sort=modified 按修改时间、
+ * --no-ignore --hidden 搜索被忽略与隐藏文件、每 VCS 名两条取反 glob 排除 VCS 元数据）；
+ * 超限结果按部署开关决定"取修改时间头"还是"跨顶级条目轮询采样"（sampleAcrossTopLevel）；
+ * 展示与卡片共用同一份采样/头部，保证文本与卡片一致；超限的完整结果经
+ * trySaveFormattedResult 存成 spill 文件。
+ * 【产品维度】让模型按路径模式发现文件（替代 shell find）：结果只含文件（绝不目录）、
+ * 含隐藏与被忽略文件（排除 VCS 目录）、内联有界、完整排序结果可 spill 恢复。
+ * 【逻辑维度】按出现顺序：GLOB_MAX_RESULTS/GLOB_VCS_EXCLUDES（默认常量）→
+ * GlobToolCaps/GlobInput（类型）→ parseGlobArgs（校验）→ buildGlobCommand（argv）→
+ * GlobSample/relativeToSearchRoot/stripLeadingSeparators/topLevelSegment →
+ * sampleAcrossTopLevel（跨顶级采样）→ formatGlobOutput/formatGlobPage/renderGlobPaths/
+ * globCardPage（展示）→ presentGlobCall/presentGlobResult（卡片）→ applyGlobTool（注册）。
+ * 【关键边界】每个模型控制值都是普通 argv 元素（无 shell 层，无引号问题），搜索根
+ * 跟在 -- 后（前导横线路径不会被解析成旗标）；每个 VCS 名用两条取反 glob（裸形式
+ * 在遍历中剪枝目录，/** 形式在搜索根位于该目录内/上时仍排除其内部）；结果路径相对
+ * 工作目录展示（共址部署要求）。
+ * 【新手阅读建议】先看 buildGlobCommand 理解 argv 模板，再看 sampleAcrossTopLevel
+ * 的轮询采样，最后看 applyGlobTool 的注册与超限 spill 交接。
+ * ==========================================================================
+ */
+
 import type { Context } from '@deepseek-ai/cordis'
 import { sep } from 'node:path'
 import { defineTool } from '@deepseek-ai/dsh-tools'

@@ -1,3 +1,7 @@
+/*
+ * 中文导读：本模块实现零依赖环形双端队列，适合在异步工作期间持续保留和排空条目。
+ */
+
 /**
  * Zero-dependency circular deque for queues that retain entries across asynchronous work.
  * @module @deepseek-ai/dsh-deque

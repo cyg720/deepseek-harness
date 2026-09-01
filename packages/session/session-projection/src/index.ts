@@ -17,6 +17,25 @@
  * @module @deepseek-ai/dsh-session-projection
  */
 
+/*
+ * ================================ 文件注释 ================================
+ * 【文件职责】session-projection 能力缝的 Service Definition 与驱动注册表：
+ *   定义投影单元契约（ProjectionDefinition）、变更馈送监听器、一致性快照读取面，
+ *   并提供 ctx.sessionProjections 注册表驱动所有已注册单元在已提交会话事件上向前折叠。
+ * 【技术维度】基于 Cordis Service；领域宿主插件贡献纯同步折叠（apply）与可选客户端视图（wire）；
+ *   框架拥有订阅、每会话 watermark 缓存与变更通知；快照/检查点/冷恢复三套读取配方。
+ * 【产品维度】把"会话日志"折叠成"持久可查的投影值"（如子代理身份、回合耗时），
+ *   查询与枚举不必重放整个日志，API 与前端可消费一致视图。
+ * 【逻辑维度】按代码顺序：类型导出 → ProjectionDefinition → 变更监听器 → ProjectionSnapshot
+ *   → 检查点行 → 内部擦除定义/单元格/注册 → SessionProjectionRegistry（register/onChanged/
+ *   stateOf/snapshot/checkpoint/restoreFloor/viewCheckpoint/restore/buildCell/cellFor/drive）。
+ * 【关键边界】整值事件规则（载荷必须携带完整变更后状态而非差值）；apply 必须同步且返回
+ *   相同引用表示"无变化"；state 必须是纯 JSON（持久化缓存前提）；stateVersion 不符即废弃旧行。
+ * 【新手阅读建议】先读 ProjectionDefinition 的契约（apply/view/stateVersion），再看
+ *   register 与 drive 如何把事件推给每个单元，最后看 snapshot/checkpoint/restore 三套读取。
+ * ==========================================================================
+ */
+
 import { Context, Service } from '@deepseek-ai/cordis'
 import type { ZodType } from 'zod'
 import type { Session, SessionEvent, SessionHeader } from '@deepseek-ai/dsh-session'

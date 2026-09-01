@@ -4,6 +4,17 @@
  * @module dsh-agent-loop/agent
  */
 
+/*
+ * ================================ 文件注释 ================================
+ * 【文件职责】实现 ReactLoopAgent：agent-loop 的核心驱动类，把一条会话推进过“轮次 turn → 步骤 step → 模型请求 → 工具调用 → 结果回灌”的循环。
+ * 【技术维度】基于 vendored Cordis；通过瀑布式事件（agent/pre-step、agent/request）暴露扩展点；所有模型可见输入都持久化到会话日志（模型可见即日志可重建）。
+ * 【产品维度】用户每发一条消息都由它驱动模型回复；工具调用、出错重试、取消、维护任务等生命周期行为都编排在 turn()/step() 中。
+ * 【逻辑维度】按代码顺序：Phase 状态机 → send/steer/inject 入站 → cancel/whenIdle 生命周期 → wakeDriver 唤醒闩锁 → turn 开轮 → step 单步 → buildRequest 组装冻结请求。
+ * 【关键边界】不负责智能体的创建与注册（那是 index.ts 的 AgentLoop）；请求必须冻结且能从会话日志重建；错误要么结构化要么归一到 UNKNOWN 码；max-tokens 结论有粘性，后续步骤不能降级。
+ * 【新手阅读建议】先读 Phase 与构造函数了解状态，再读 turn() 与 step() 两个核心循环，最后看 buildRequest()；wakeDriver 的唤醒闩锁逻辑较绕，可放最后。
+ * ==========================================================================
+ */
+
 import type {
   Agent,
   AgentCancelCause,

@@ -1,5 +1,27 @@
 /** Unified JSON-value schema DSL, inference, compilation, and typed tool helper. @module dsh-tools/schema */
 
+/*
+ * ================================ 文件注释 ================================
+ * 【文件职责】定义工具作者使用的"统一 JSON 值模式 DSL"（ValueSchemaSpec 系列）：
+ *   提供编译到 json-schema.ts 受控子集的投影、编译期 TypeScript 类型推断，以及
+ *   首方工具定义助手 defineTool。
+ * 【技术维度】三层：① 作者 DSL（带 required: true 注解、强制显式 additionalProperties、
+ *   type: 'json' 透传）；② 纯类型层——条件类型递归推断参数/输出值类型（深度上限
+ *   16 层后回退 JsonValue）；③ 运行时编译器——显式栈遍历把 DSL 编译为原始 JSON
+ *   Schema 并再次断言子集合法。defineTool 在 execute 前自动校验参数。
+ * 【产品维度】让工具作者用一份声明同时获得：模型可见的参数 schema、编译期类型检查、
+ *   运行时参数校验与输出契约——写一次，三处受益。
+ * 【逻辑维度】先声明各类型的 Spec 接口与联合 → 类型推断辅助（InferValue 等）→
+ *   运行时编译器任务类型与执行器 → 两个导出投影函数 → validateArgs 与错误类 →
+ *   DefineToolOptions + defineTool 组装最终 ToolDefinition。
+ * 【关键边界】DSL 关键字白名单严格（多余键直接报错）；对象节点必须显式声明
+ *   additionalProperties；presentCall/presentResult 走软校验（失败回退 undefined，
+ *   不抛错），execute 走硬校验（抛 ToolArgsError）。
+ * 【新手阅读建议】先看 ValueSchemaSpec 联合与 ParameterSchemaSpec 的"隐式对象根"
+ *   设计，再读 defineTool 的组装过程；类型推断部分可跳过不影响使用。
+ * ==========================================================================
+ */
+
 import { HarnessError } from '@deepseek-ai/dsh-llm'
 import type { ContentBlock } from '@deepseek-ai/dsh-llm'
 import type { JsonValue } from '@deepseek-ai/dsh-util-values'

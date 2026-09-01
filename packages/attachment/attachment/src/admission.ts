@@ -1,5 +1,14 @@
 /** Wire-form admission of base64-encoded image uploads. @module @deepseek-ai/dsh-attachment/admission */
 
+/*
+ * 文件职责：接纳线协议中的 Base64 图片批次，规范解码后交给附件存储执行统一策略。
+ * 技术维度：使用 Node Buffer 严格往返校验规范 Base64，并通过 AttachmentStore 批量保存。
+ * 产品维度：拒绝歧义或损坏上传，确保浏览器图片以稳定顺序持久化并返回引用。
+ * 逻辑维度：decodeBase64 校验单条编码，saveInput 转换字段，admitEncodedImages 映射整个批次并保存。
+ * 关键边界：空字符串和非规范等价编码均拒绝；数量、总字节、媒体类型与单图限制由存储层拥有。
+ * 新手阅读建议：先看 decodeBase64 的往返判断，再看 saveInput 的可选 name，最后看批量入口。
+ */
+
 import { Buffer } from 'node:buffer'
 import { AttachmentError } from './error.ts'
 import type { AttachmentStore } from './index.ts'

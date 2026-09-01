@@ -1,5 +1,22 @@
 /** Durable Team mailbox admission, target-local dispatch, acknowledgement, and recovery. */
 
+/*
+ * ================================ 文件注释 ================================
+ * 【文件职责】持久团队邮箱：入队准入、目标本地分发、接收确认与恢复重试。
+ * 【技术维度】消息先以 team/message/queued 写入 Lead 日志再尝试即时投递；
+ *   投递按目标串行化（dispatchTails）、同消息进程内去重（inFlightMessages）；
+ *   目标记录（team-message 来源的 user/message）后回写 delivered 确认边；
+ *   observeSessionEvent 观察目标侧持久收据。
+ * 【产品维度】队友间"必达、有序、可恢复"的消息通道。
+ * 【逻辑维度】TeamMailbox（send/observeSessionEvent/recoverFor/pendingDispatches +
+ *   私有准入/串行化/单次投递/确认/内容框定/冷目标检查）。
+ * 【关键边界】quiet 不唤醒闲置成员、wakeup 走 followup；目标不可达保持排队；
+ *   每条消息在进程内同一时刻至多一次投递尝试。
+ * 【新手阅读建议】先看 sendAdmitted 的入队，再看 tryDispatch→serializeDispatch→
+ *   dispatchOnce 的投递与确认路径。
+ * ==========================================================================
+ */
+
 import { randomUUID } from 'node:crypto'
 import type { Context } from '@deepseek-ai/cordis'
 import { brandString } from '@deepseek-ai/dsh-brand'

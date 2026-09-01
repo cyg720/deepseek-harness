@@ -9,6 +9,10 @@
  * @module @deepseek-ai/dsh-session-turn-outline
  */
 
+/*
+ * 中文导读：本模块注册 turnOutline 投影单元，使客户端无需持有完整事件日志即可列出并跳转到每个轮次。
+ */
+
 import type { Context } from '@deepseek-ai/cordis'
 import { turnOutlineProjectionDefinition } from './projection.ts'
 

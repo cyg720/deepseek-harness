@@ -19,6 +19,10 @@
  * @module @deepseek-ai/dsh-session-turn-outline/projection
  */
 
+/*
+ * 中文导读：本模块折叠轮次开始、首个人类提示和最终助手响应，生成聊天侧栏使用的完整轮次大纲。
+ */
+
 import { z } from 'zod'
 import type { ZodType } from 'zod'
 import type { SessionEvent } from '@deepseek-ai/dsh-session'

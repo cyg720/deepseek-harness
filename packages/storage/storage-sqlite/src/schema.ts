@@ -6,6 +6,28 @@
  * @module @deepseek-ai/dsh-storage-sqlite/schema
  */
 
+/**
+ * ================================ 文件注释 ================================
+ * 【文件职责】SQLite 存储后端的"schema 与打开期助手"：物理布局版本、数据库的
+ * 打开/配置序列（权限、pragma、版本盖章/拒绝）、单元元数据表（units、unit_globals）。
+ * 单元的记录表（u_<单元>_<表>）在 unit.ts 中按描述符创建。
+ * 【技术维度】用 node:sqlite 的 DatabaseSync（同步 API）；物理布局版本存于
+ * PRAGMA user_version，与每个单元自己的 version（units 行里的戳）正交；
+ * 版本不符一律拒绝（本未发布格式不做迁移）。外键开启；journal_mode 按配置设置。
+ * 【产品维度】SQLite 后端以"单文件数据库托管所有路由单元"：元数据表记录单元身份
+ * 与版本戳，保证重开后能校验格式兼容性；STRICT 表保证列类型严格。
+ * 【逻辑维度】按出现顺序：STORAGE_SQLITE_SCHEMA_VERSION（布局版本）→ JournalMode
+ * （日志模式）→ createDatabaseFile（独占建库文件，权限 0600）→ openDatabase（打开 +
+ * 配置 + 建元数据表）→ configureDatabase（pragma/版本检查/盖章）→ recordTableName
+ * （物理表名派生）。
+ * 【关键边界】新库最后才盖章：盖章即"布局已完整"的断言，之前任何失败都让介质保持
+ * 未盖章状态（障碍清除后重开会从头重试物化）；journal_mode 排除 memory/off（静默
+ * 丢弃日志持久性，与 KV 后端契约的持久性条款矛盾）。
+ * 【新手阅读建议】先看 openDatabase/configureDatabase 的打开序列（权限 → pragma →
+ * 版本检查 → 建表 → 盖章），再看 recordTableName 理解物理表命名。
+ * ==========================================================================
+ */
+
 import { DatabaseSync } from 'node:sqlite'
 import { mkdir, open } from 'node:fs/promises'
 import { dirname, resolve } from 'node:path'

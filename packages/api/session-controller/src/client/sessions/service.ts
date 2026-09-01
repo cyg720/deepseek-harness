@@ -14,6 +14,23 @@
  * tears its scope down immediately unless it is the staged one, whose scope
  * survives frozen (read-only view) until the stage moves on.
  */
+/*
+ * ================================ 文件注释 ================================
+ * 【文件职责】SessionRuntime：根会话服务——列表快照存储（含持久化选中
+ *   current）、Agent 作用域树、稳定 SessionBinding 缓存、面包屑路由投影。
+ * 【技术维度】管理器（SessionManager）是 wire 真值、list 是投影；作用域
+ *   生命周期由"舞台"（stage）驱动：懒铸造、随 current 开窗、离场即拆。
+ * 【产品维度】会话侧边栏、会话路由、标准属性 provide、子代理目录、fork
+ *   与搜索都经本服务；选中会话的窗口"打开"与舞台严格同步。
+ * 【逻辑维度】类型区定义概要/列表/绑定；构造函数装配管理器、存储、提供
+ *   通道与注册表重建；公开面（open/clear/search/fork/provide/scope 系列）；
+ *   私有区（followCurrent/resolve/eligible/projectList/pruneScopes 等）。
+ * 【关键边界】舞台（watched）在遮蔽间隙保持冻结视图；被裁剪的会话延迟到
+ *   舞台移开再拆；create/fork 保证解析时新会话已在列表存储中（同步可寻址）。
+ * 【新手阅读建议】先读 manager.ts 与 session.ts，再看本文件的舞台生命周期。
+ * ==========================================================================
+ */
+
 import type { Context, Fiber } from '@deepseek-ai/cordis'
 import type { SubagentAddress } from '@deepseek-ai/dsh-subagent/client'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'

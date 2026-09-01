@@ -5,6 +5,26 @@
  * @module @deepseek-ai/dsh-session/repair
  */
 
+/*
+ * ================================ 文件注释 ================================
+ * 【文件职责】崩溃恢复：修复被打断的会话日志尾部。它保全已完整写下的最后一轮，并补齐缺失的
+ *           工具结果、step 与 turn 边界事件，使日志能以“提供方合法的转录”继续 resume。
+ * 【技术维度】对日志的单遍扫描状态机（跟踪开着的 turn/step 与未闭合的工具调用）；确定性合成事件
+ *            （seq 接续日志、时间戳复用最后一条真实事件）；freezeMessage 构造不可变消息。
+ * 【产品维度】进程崩溃或被强杀后，日志尾部可能停在“半开的轮次”里；不补齐这些事件，恢复后发给
+ *           模型的转录会带着悬空的工具调用而被 API 拒绝。此模块让恢复既合法又对模型诚实——
+ *           合成的错误结果明确告诉模型“结局未知，谨慎重试”。
+ * 【逻辑维度】interruptedTurnClosers 先扫描全日志，用 pendingCalls 登记未配对的工具调用并记录
+ *           开着的 turn/step；平衡日志直接返回空；否则按“悬空调用的错误结果 → step/end →
+ *           turn/end(interrupted)”顺序生成合成收尾事件。
+ * 【关键边界】合成事件的 seq 接续最后一条真实事件、时间戳沿用之（保证确定性且不虚构未来时间）；
+ *           “已启动但结果未知”与“尚未记录启动”使用不同的错误码与提示文案；
+ *           Map 插入序保证多条悬空调用按转录顺序闭合；每个 turn 边界都会清空登记表防泄漏。
+ * 【新手阅读建议】先读两个错误码常量与函数主注释，再顺着 switch 理解 pendingCalls 的登记/清账时机，
+ *           最后对比两种合成结果文案，体会“未知结局 vs 未曾启动”的差异。
+ * ==========================================================================
+ */
+
 import { brandString } from '@deepseek-ai/dsh-brand'
 import type { MessageId, ToolCallId, ToolResultMessage } from '@deepseek-ai/dsh-llm'
 import { deepFreeze } from '@deepseek-ai/dsh-util-values'

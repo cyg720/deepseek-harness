@@ -6,6 +6,25 @@
  * @module @deepseek-ai/dsh-settings
  */
 
+/*
+ * ================================ 文件注释 ================================
+ * 【文件职责】用户设置能力缝（capability seam）的"服务定义"：声明全局 ctx.settings 服务，
+ *   抽象出 Provider（负责原始文档存取）与注册者（插件注册命名空间 schema 并读取解析值）双方契约。
+ * 【技术维度】Cordis Service 抽象基类；Schemastery schema 驱动解析；按"schema 默认值 → 合成层
+ *   base → 用户文档层"三层合并解析；序列化写队列；JSON 深度相等做变更检测。
+ * 【产品维度】插件需要持久化的可配置项：配置界面读写设置、插件注册自己的命名空间并感知变更；
+ *   事件 settings/updated 让 UI 与逻辑及时刷新。
+ * 【逻辑维度】register 注册命名空间 → resolve 三层合并解析 → update/replace/mutate 三种写入路径
+ *   （经 cloneJsonShaped 校验与队列串行化）→ persist 落盘 → commit 通知 watcher 并发出事件；
+ *   publish 供 Provider 推送外部变更；describe 向配置界面输出描述；installSettingsSection 是
+ *   可选设置消费方的标准接线。
+ * 【关键边界】写入只接受 JSON 兼容数据；跨写队列做修订号冲突检测（SettingsConflictError）；
+ *   watcher/监听失败被包含并记日志，INVARIANT 类失败向上抛出；redactSecrets 用于跨线脱敏。
+ * 【新手阅读建议】先通读本文件建立"注册/解析/写入/通知"心智模型，再看 settings-file 包的
+ *   Provider 实现，最后看 types.ts（事件声明）与 redact.ts（秘密字段脱敏）。
+ * ==========================================================================
+ */
+
 import { Context, Service } from '@deepseek-ai/cordis'
 import type z from '@deepseek-ai/schemastery'
 import { deepEqualJson, deepFreeze } from '@deepseek-ai/dsh-util-values'

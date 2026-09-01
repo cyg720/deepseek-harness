@@ -4,6 +4,21 @@
  * @module @deepseek-ai/dsh-tool-session-query/operations
  */
 
+/*
+ * ================================ 文件注释 ================================
+ * 【文件职责】工具操作编排：在 session-query 服务能力之上实现五个模型面工具的执行，
+ *   全部经工作区授权（workspace-access）与服务错误翻译（service-boundary）。
+ * 【技术维度】每个操作：取调用者 → 解析目标 → 授权 → 分页收集（collectPages 检测
+ *   重复游标与上限截断）→ 读标题 → 格式化输出。
+ * 【产品维度】让模型能搜索/追踪/读取历史会话而不越出工作区边界。
+ * 【逻辑维度】executeSessionSearch/executeEventSearch/executeSessionTrace/
+ *   executeEventTrace/executeEventRead → collectPages → operations 聚合导出。
+ * 【关键边界】当前会话的会话内搜索被 step/start 边界截断（不搜正在执行的本步）；
+ *   跨会话搜索要求调用者有工作区 cwd。
+ * 【新手阅读建议】先读 collectPages 的分页契约，再对照各 execute 的授权步骤。
+ * ==========================================================================
+ */
+
 import type { Context } from '@deepseek-ai/cordis'
 import { HarnessError } from '@deepseek-ai/dsh-llm'
 import type { SessionId } from '@deepseek-ai/dsh-session'

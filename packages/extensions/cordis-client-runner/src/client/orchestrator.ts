@@ -5,6 +5,26 @@
  * an in-flight transition.
  */
 
+/*
+ * ================================ 文件注释 ================================
+ * 【文件职责】页面侧的运行编排：把"模型审批"与"面板直跑"两类激活请求统一驱动为
+ *             Host 启动 → 拉取 Client 源码 → 本页加载 → 结算回 Host 的完整流程，
+ *             并按插件维护可订阅的活动/失败状态。
+ * 【技术维度】CordisRunHostSeam 是折叠了传输错误的 Host 接缝；run 流程有请求 ID
+ *             时走 resolveRequestRun 结算，无请求 ID（面板直跑）走 settleUserRun；
+ *             同插件并发编排复用进行中的 Promise；状态经 CordisObservable 发布。
+ * 【产品维度】面板与卡片读取同一份插件键状态，重挂载不丢待审批与进行中迁移；
+ *             审批/拒绝/失败都即时反映到 UI 并回灌 Host。
+ * 【逻辑维度】类型（Activity/Failure/Seam/Request/UserRunRequest）→ 编排器：
+ *             open/reconcileApprovals/close/approve/decline/startUserRun →
+ *             orchestrate/drive（Host→Client→结算）→ 失败与应答助手。
+ * 【关键边界】Host 激活永远先于 Client 加载；已授权的自动激活不留审批活动；
+ *             同插件同一时刻只有一个编排在途；重连后以 Host 库存为准重建审批。
+ * 【新手阅读建议】先看类型与 open/approve/decline 三个入口，再看 drive 的
+ *             Host→源码→加载→结算主干。
+ * ==========================================================================
+ */
+
 import type {
   ApprovalRequestId,
   CordisDynamicPackageId,

@@ -1,5 +1,9 @@
 /** The one Remote failure class shared by owners, the Gateway, and consumers. */
 
+/*
+ * 中文导读：本模块定义服务所有者、网关和消费者共享的 Remote 失败类及其类型收窄辅助能力。
+ */
+
 import type { RemoteErrorCode, RemoteErrorDetailsMap, RemoteFailure } from './types.ts'
 
 /**

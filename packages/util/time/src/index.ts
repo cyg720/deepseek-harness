@@ -1,3 +1,7 @@
+/*
+ * 中文导读：本模块负责调用方时区的验证与规范化；格式化和领域失败类型由使用它的边界自行拥有。
+ */
+
 /**
  * Time vocabulary shared by the wire boundaries that accept a caller's zone.
  * Validation and canonicalization only: this library formats nothing and owns

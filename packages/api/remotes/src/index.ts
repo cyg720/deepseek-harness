@@ -1,5 +1,9 @@
 /** Host BFF entry and Loader shell for the Remote contribution assembly. */
 
+/*
+ * 中文导读：本模块组装 Host 侧 BFF 与 Loader 入口，并把允许转发的事件接入 Typert Remote 网关。
+ */
+
 import { homedir } from 'node:os'
 import type { Context } from '@deepseek-ai/cordis'
 import type {

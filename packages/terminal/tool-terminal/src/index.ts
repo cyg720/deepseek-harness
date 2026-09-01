@@ -4,6 +4,27 @@
  * @module @deepseek-ai/dsh-tool-terminal
  */
 
+/*
+ * ================================ 文件注释 ================================
+ * 【文件职责】六个模型可见的持久化终端工具（terminal_open / terminal_send /
+ * terminal_read / terminal_signal / terminal_close / terminal_list）：把模型参数翻译成
+ * ctx.terminals 的操作，owner 身份来自精确的工具执行 Agent，后台 id 与收集归通用
+ * ctx.jobs。
+ * 【技术维度】defineTool 注册六个工具；finalizeContent 统一对完整结果做 UTF-8 字节
+ * 上限；terminal_send 支持前台（等落定）与后台（job id）；输出 schema 与 render.ts
+ * 的渲染函数配合；JobKindMap 声明 'pty-send' 种类。
+ * 【产品维度】模型在需要持久终端状态或交互式 stdin 时使用终端会话：跨调用保持
+ * shell 状态、发送文本/信号、分页读回、关闭与列表。
+ * 【逻辑维度】apply 装配配置与 finalizeContent → 注册六个工具（各自 execute 调用
+ * ctx.terminals 对应方法）→ 提示词指引"何时用终端而非 shell 工具"。
+ * 【关键边界】sessionId 必须非空并转换为品牌类型；owner 必须存在；inferred_idle/
+ * timeout 结果不证明前台命令已退出（提示词强调）；后台发送需 jobs 服务且受配置开关
+ * 约束。
+ * 【新手阅读建议】先看 terminal_open 与 terminal_send 的 execute（前后台分流），
+ * 再看 finalizeContent 的预算封顶，最后对照 render.ts 的渲染格式。
+ * ==========================================================================
+ */
+
 import { Context } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
 import type { Agent } from '@deepseek-ai/dsh-agent'

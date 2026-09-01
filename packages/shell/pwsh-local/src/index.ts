@@ -15,6 +15,27 @@
 
 /* jscpd:ignore-start -- this executor mirrors dsh-bash-local call-for-call by
    design (see this package's README), so the two import the same seam surface */
+/**
+ * ================================ 文件注释 ================================
+ * 【文件职责】实现 bash 能力缝的本地 PowerShell Service Provider：PwshLocalExecutor 把每条
+ * 命令作为 `pwsh -NoLogo -NoProfile -NonInteractive -Command <command>` 在受管子进程里运行，
+ * 负责命令默认值、截止时间与原因分类、模型友好的终端环境、UTF-8 输出固定与后台读取时的
+ * stdout/stderr 合并。
+ * 【技术维度】基于子进程能力缝（ctx.subprocess）；命令字符串作为单个 argv 元素传给 -Command，
+ * 由 PowerShell 自行解析，不存在中间 shell，因而没有 bash 式引号转义层；ENCODING_PREAMBLE
+ * 在每条命令前固定 UTF-8 输出编码（兼容 Windows PowerShell 5.1）；pwsh 可执行文件由独立的
+ * resolve.ts 解析。
+ * 【产品维度】Windows 上模型与插件执行 shell 命令的默认通道：自动定位 pwsh 安装、关闭
+ * 颜色/分页等干扰、输出超限落盘、超时可配置，是 pwsh-sandbox 执行器的父类与执行机制来源。
+ * 【逻辑维度】config 解析与校验 → pwsh 路径解析 → resolve 补全规格 → run/start 分流 →
+ * argv 生成（含编码前导）→ runArgv/startArgv 驱动生命周期与输出读取 → onProcessDone 钩子。
+ * 【关键边界】执行策略（沙箱、预执行钩子）不属于本执行器；沙箱子类通过 argv() 方法重包装
+ * 命令；本文件与 bash-local 刻意逐调用镜像（jscpd 豁免），修改时需同步两份。
+ * 【新手阅读建议】先看 argv() 理解命令如何组装（注意编码前导与单 argv 元素），再看
+ * resolve 与 runArgv，最后对照 bash-local/index.ts 体会二者的镜像关系。
+ * ==========================================================================
+ */
+
 import { Context } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
 import { SHELL_SETTINGS_NAMESPACE, ShellExecutor } from '@deepseek-ai/dsh-shell'

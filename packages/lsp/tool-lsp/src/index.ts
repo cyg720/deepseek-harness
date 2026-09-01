@@ -10,6 +10,18 @@
  * @module @deepseek-ai/dsh-tool-lsp
  */
 
+/*
+ * ================================ 文件注释 ================================
+ * 【文件职责】面向模型的 lsp 工具插件：在 ctx.lsp 之上注册一个只读工具，提供四种操作（跳转定义、查找引用、跳转实现、悬停）；负责一基→零基坐标转换、会话工作区获取、结果封顶与渲染、超时预算配置。命名空间插件。
+ * 【技术维度】基于 dsh-tools 的 defineTool 定义工具（含 JSON Schema 参数与输出声明、render 渲染器）；schemastery 校验配置；仅运行时注入 tools、lsp、systemPrompt 三个服务，不引入任何提供者。
+ * 【产品维度】模型获得"精确代码导航"能力：当文本搜索匹配含糊、或改动前需要精确的定义、实现、引用时调用 lsp 工具；system-prompt 引导其使用时机。
+ * 【逻辑维度】re-export 渲染工具 → 插件名与依赖注入 → 默认常量与提示文本 → 配置类型与校验 → 输出 schema 常量 → apply（校验配置、注册 prompt 段落、注册工具：参数声明、输出渲染、超时、execute 执行）→ 配置校验辅助。
+ * 【关键边界】坐标一基（模型）与零基（缝/协议）在工具层转换；无工作区 cwd 时抛 LSP_WORKSPACE_REQUIRED
+ *   （无回退）；结果按 maxLocations/maxResultChars 封顶；timeoutMs 不超过 MAX_TIMER_DELAY_MS。
+ * 【新手阅读建议】先读 apply 的 execute 看一次工具调用如何把参数转成 ctx.lsp.query，再对照 render.ts 理解结果如何呈现。
+ * ==========================================================================
+ */
+
 import type { Context } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
 import { defineTool } from '@deepseek-ai/dsh-tools'

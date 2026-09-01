@@ -6,6 +6,30 @@
  * @module @deepseek-ai/dsh-session
  */
 
+/*
+ * ================================ 文件注释 ================================
+ * 【文件职责】dsh-session 包的主入口：定义事件溯源（event-sourced）的会话对象 Session（只追加事件
+ *           日志 + 表面视图 + 派生消息历史）、内存会话仓库 SessionStore（ctx.sessions 服务）、fork
+ *           支持，以及种子/恢复数据的全套校验与冻结工具函数。
+ * 【技术维度】Cordis 插件体系：Service 基类、ctx.effect() 注册效果、ctx.on() 监听事件、declare
+ *            module 声明合并挂载 sessions 属性与 session/* 事件；事件溯源架构（append-only log 为
+ *            权威，消息历史为派生）；WeakMap 模块级附件把发布钩子挂在 Session 上而不污染公共 API；
+ *            deepFreeze 深度冻结保证耐久历史不可篡改；snapshotJsonValue 在边界处校验并分离数据。
+ * 【产品维度】一切 agent 对话的“黑匣子”：用户消息、助手回复、工具调用与结果、待办清单、请求配置全部
+ *           以事件形式落入日志，支撑 UI 回放、崩溃恢复、fork 分叉、telemetry 与持久化插件对接。
+ * 【逻辑维度】按代码顺序：Cordis 上下文/事件声明合并 → 头部校验与快照函数 → adopt/snapshotSessionEvent
+ *           → 各类信封与消息形状校验 → 观察者收集与容错调用 → Session 类（append、requestHeader/
+ *           requestContext 折叠、deriveMessages 缓存）→ fork 错误类型 → SessionStore 服务
+ *           （prepare/enter/announce/create/flush/fork）。
+ * 【关键边界】append 的数据必须无损 JSON 可序列化否则当场抛错；事件一经入日志即为已提交，观察者异常
+ *           只告警不影响提交；表面事件必须携带 SurfaceIntent、纯日志事件禁止携带；append 发布期间禁止
+ *           重入；种子事件按与实时追加相同的规则校验且 seq 必须从 0 连续。
+ * 【新手阅读建议】先读 Session 类的类注释与 append 方法（系统的心脏），再读 SessionStore 的
+ *           create/prepare/enter/announce 四步事务理解“发布”语义，最后浏览各 assert* 与 validate* 校验
+ *           函数了解边界防线。事件语义细节见 types.ts 的 SessionEventMap。
+ * ==========================================================================
+ */
+
 import { Context, Service } from '@deepseek-ai/cordis'
 import { isAbsolute } from 'node:path'
 import { brandString } from '@deepseek-ai/dsh-brand'

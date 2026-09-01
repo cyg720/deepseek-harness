@@ -4,6 +4,33 @@
  * participates in method lookup, invocation, or type exposure.
  */
 
+/*
+ * ================================ 文件注释 ================================
+ * 【文件职责】实现"客户端投影"（Client projection）层的核心：把生成器产出的
+ * Typert 远程描述符贡献集（contribution）挂载到客户端 Cordis 上，安装为
+ * 类型化的 remote.<namespace> 服务；本地方法调用被转换为对 Connection
+ * 载体的 /api RPC 调用，Host 转发的事件则被分发给订阅者。
+ * 【技术维度】基于 Cordis Service 与 effect 生命周期：每个贡献集经
+ * ctx.effect 注册、按命名空间分组安装；方法查找走"对象属性 + Map 记录"的
+ * 真实映射，不依赖 JavaScript Proxy；参数经 codec 严格解码后通过
+ * Connection 的 rpc.call 发出，取消信号与挂载令牌（MountToken）绑定。
+ * 【产品维度】远程 BFF 的"客户端侧"：业务包（commands、settings 等）只需
+ * 声明远程描述符，本模块负责把描述符变成可调用的本地方法并同步转发事件，
+ * 让客户端代码以本地 Service 的方式使用 Host 能力。
+ * 【逻辑维度】按出现顺序：内部数据结构（MountToken / ScopedProjection /
+ * RemoteMethodRecord 等）→ 模块级类型（ClientRemote、RemoteEventListener）→
+ * ClientRemoteService（挂载、订阅、派发、命名空间安装、调用转发）→
+ * RemoteNamespaceService（命名空间服务的属性安装与移除）→ 工具函数
+ * （installMethods、scopedProjection、requireStrictDescriptor、parse 等）。
+ * 【关键边界】描述符必须使用严格（strict）codec（requireStrictDescriptor）；
+ * 挂载后的方法随 effect 注销而卸载；同 namespace 下 direct / scoped 变体
+ * 不能重复；命名空间名不能与 Cordis 已有服务或 Service 自带字段冲突。
+ * 【新手阅读建议】先读 $mount 与 installNamespace 理解"贡献集如何变成
+ * 可调用方法"，再读 invoke 理解"本地调用如何落到 Connection 载体"，最后看
+ * RemoteNamespaceService.install 理解属性注入与 getter 的配合方式。
+ * ==========================================================================
+ */
+
 import { Service } from '@deepseek-ai/cordis'
 import { RemoteError, remoteErrorOf } from '@deepseek-ai/dsh-typert-protocol'
 export type { TypertGatewayFaultDetails } from '../remote-error-codes.ts'

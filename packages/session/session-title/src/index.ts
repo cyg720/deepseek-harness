@@ -3,6 +3,23 @@
  * @module @deepseek-ai/dsh-session-title
  */
 
+/*
+ * ================================ 文件注释 ================================
+ * 【文件职责】日志背书的会话标题服务：确定性回退标题、可选标题提供者契约与
+ *   ctx.sessionTitle 服务本身（读取/重命名/刷新/自动生成调度）。
+ * 【技术维度】Cordis Service；标题以 log-only session/title 事件持久化（last-wins 折叠）；
+ *   自动生成由 user/message 事件排程、request/header 路由确定后启动（first-prompt 或
+ *   all-prompts 节奏）；用户重命名钉住标题；提供者结果经校验与归一化后追加。
+ * 【产品维度】会话列表/API 获得稳定、可恢复、可覆盖的会话标题。
+ * 【逻辑维度】按代码顺序：类型与品牌 ID → 事件声明合并 → 内部状态类型 → SessionTitleService
+ *   （get/rename/refresh/register + 事件驱动与提供者执行/校验/回退折叠）。
+ * 【关键边界】标题事件 log-only（永不进模型面）；fallbackMaxBytes ≤ maxTitleBytes；
+ *   自动生成只在"未钉住"时排程；服务销毁中止在途工作。
+ * 【新手阅读建议】先读 foldSessionTitle 与 collectSessionTitleMessages 两个纯函数，
+ *   再看 SessionTitleService 的自动生成状态机。
+ * ==========================================================================
+ */
+
 import { Context, FiberState, Service, type Fiber } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
 import { z as zod } from 'zod'

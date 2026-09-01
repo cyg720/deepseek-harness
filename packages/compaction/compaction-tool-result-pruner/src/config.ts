@@ -1,5 +1,14 @@
 /** Configuration resolution for deterministic tool-result pruning. */
 
+/*
+ * 文件职责：实现上下文压缩的 config.ts 模块。
+ * 技术维度：TypeScript、Cordis 插件、会话事件和严格判别联合。
+ * 产品维度：控制模型请求中的上下文压缩信息。
+ * 逻辑维度：读取日志或文件状态，计算投影并记录/注入结果。
+ * 关键边界：不能静默丢失必需事件；裁剪和替换必须保持日志可重放。
+ * 新手阅读建议：先读导出类型与配置，再跟踪事件和投影流程。
+ */
+
 import { deepFreeze } from '@deepseek-ai/dsh-util-values'
 import type { ResolvedConfig, ToolResultPruneConfig } from './types.ts'
 

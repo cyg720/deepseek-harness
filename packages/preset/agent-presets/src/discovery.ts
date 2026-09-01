@@ -21,6 +21,15 @@
  * @module @deepseek-ai/dsh-agent-presets/discovery
  */
 
+/*
+ * 文件职责：实现 discovery.ts 承担的Agent 预设配置、装载与运行时协作职责。
+ * 技术维度：使用 TypeScript、Cordis 插件、事件日志、配置解析和异步生命周期管理。
+ * 产品维度：让 Agent 能按用户配置启用Agent 预设并保持会话行为一致。
+ * 逻辑维度：解析输入配置，注册插件能力，处理事件，并在卸载时清理资源。
+ * 关键边界：配置错误应尽早失败；模型可见状态必须写入日志；注册必须可撤销。
+ * 新手阅读建议：先看导出类型和配置，再读插件入口与事件处理，最后关注校验和清理。
+ */
+
 import { existsSync } from 'node:fs'
 import { readdir, readFile, stat } from 'node:fs/promises'
 import { isBuiltin } from 'node:module'

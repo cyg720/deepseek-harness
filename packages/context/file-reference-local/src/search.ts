@@ -6,6 +6,27 @@
  * @module @deepseek-ai/dsh-file-reference-local/search
  */
 
+/**
+ * ================================ 文件注释 ================================
+ * 【文件职责】@ 文件补全的 Host 工作区发现核心：扫描 agent 工作目录、建立
+ *             有界索引、对候选做模糊排序。索引里只存路径，不读文件内容。
+ * 【技术维度】node:fs/promises 的 readdir/lstat 做广度优先遍历；用"代"
+ *             （generation）机制支持可取消、可复用的异步索引；AbortSignal
+ *             贯穿所有异步点；路径统一用 / 分隔展示，Windows 反斜杠转换。
+ * 【产品维度】决定用户输入 @ 后补全面板里"出现什么、按什么顺序"：目录内
+ *             实时列出，裸关键字走模糊索引（前缀 > 包含 > 子序列）。
+ * 【逻辑维度】1) 默认配置常量；2) WorkspaceFileSearch 类：list 分发（目录
+ *             查询走实时 listDirectory，裸查询走 ensureIndex 的模糊索引）；
+ *             3) scanWorkspace 广度优先建索引（含排除目录、条目上限、取消）；
+ *             4) 排序打分链（scoreCandidate/subsequenceScore/kindRank）。
+ * 【关键边界】索引是"建议性缓存"：工具结果事件后失效重建；目录穿越被严格
+ *             拦截（resolveDisplayDirectory 逐段 lstat 校验符号链接）；
+ *             不可读子树静默跳过（补全只是辅助，不应报错打断用户）。
+ * 【新手阅读建议】先看 list 的分流逻辑，再分别追 listDirectory（实时）与
+ *                 scanWorkspace（索引）两条路径，最后看打分函数的分层。
+ * ==========================================================================
+ */
+
 import { lstat, readdir } from 'node:fs/promises'
 import { isAbsolute, join, relative, resolve, sep } from 'node:path'
 import type { FileReferenceCandidate } from '@deepseek-ai/dsh-file-reference'

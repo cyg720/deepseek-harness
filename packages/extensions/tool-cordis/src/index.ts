@@ -3,6 +3,30 @@
  * @module @deepseek-ai/dsh-tool-cordis
  */
 
+/*
+ * ================================ 文件注释 ================================
+ * 【文件职责】面向模型的 Cordis 运行时工具集入口：注册 cordis_inspect_list/query/
+ *             self、cordis_define/run/stop/undefine 七个工具，注入 Cordis 动态插件
+ *             系统提示词，注册第一方 inspect 提供者，并在用户提到 @pluginId 时注入
+ *             对应插件的修改上下文。
+ * 【技术维度】基于 dsh-tools 的 defineTool 定义工具（含参数 schema、输出渲染与
+ *             presentCall 展示意图）；底层能力来自 cordis-host-runner 的
+ *             dynamicCordisRunner / cordisInspect 服务；通过 agent/pre-step 水瀑布
+ *             钩子在模型进入下一步前追加参考上下文。
+ * 【产品维度】把"AI 现场编写并激活 Cordis 插件"暴露为模型可调用的一套工具：
+ *             查目录 → 查详情 → 定义 → 运行/更新 → 停止/删除，全程由用户面板
+ *             确认客户端激活，结果回灌给模型继续决策。
+ * 【逻辑维度】常量与 requireAgent 助手 → apply 注册七个工具（inspect 三件套 →
+ *             define → run → stop/undefine）→ @pluginId 上下文注入钩子 → 底部纯
+ *             辅助函数（JSON 校验、selfSummary/selfState、引用识别与渲染）。
+ * 【关键边界】所有工具都以"当前 agent 会话"为所有权边界；inspect_self 的 packageId
+ *             不能单独出现；@pluginId 引用只在用户消息中识别；run 的异步结果通过
+ *             steering 回灌而非工具内等待。
+ * 【新手阅读建议】先看 apply 里 inspect 三件套的注册，再看 cordis_run 的 execute
+ *             如何拼接状态，最后看底部 referencedPluginIds/renderReference。
+ * ==========================================================================
+ */
+
 import type { Context } from '@deepseek-ai/cordis'
 import type { Agent, PreStepDecision } from '@deepseek-ai/dsh-agent'
 import {

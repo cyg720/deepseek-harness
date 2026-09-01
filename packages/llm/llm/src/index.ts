@@ -6,6 +6,27 @@
  * @module @deepseek-ai/dsh-llm
  */
 
+/*
+ * ================================ 文件注释 ================================
+ * 【文件职责】dsh-llm 包的入口与核心：实现 LLM 服务（LlmRuntime）——适配器
+ * 注册表 + 可被瀑布流拦截的流式调用 API，并导出抽象适配器基类 LlmAdapter、
+ * 块组装器 BlockAssembler 及全部公共类型。
+ * 【技术维度】基于 vendored Cordis：LlmRuntime 继承 Service，注册通过
+ * ctx.effect 登记（disposer 机制）；llm/stream 是 waterfall（瀑布流）事件，
+ * 监听器可短路或拦截每个流式调用；注册表变更发布 llm/adapters-updated 事件。
+ * 【产品维度】这是 harness 与所有 LLM provider 打交道的唯一入口：上层（agent
+ * loop）只需调用 ctx.llm.stream/prepareCall，插件可在瀑布流上做重试、回放、
+ * 路由等横切；对 provider 的自定义支持通过注册新适配器实现。
+ * 【逻辑维度】错误与凭据 → 预备调用类型 → LlmAdapter 抽象 → 注册句柄 →
+ * LlmRuntime（注册/替换/发现/解析/分发/流式）→ 结尾辅助与内部注册结构。
+ * 【关键边界】"模型可见 ⟺ 已记录"：loop 构建的请求深冻结、只读；适配器边界
+ * 的失败被规范化为终结性 finish 块；回放状态只在同一适配器实例同时拥有历史
+ * 与目标 provider 时保留；prepareCall 的一次性分发音同一次适配器世代。
+ * 【新手阅读建议】建议顺序：LlmRuntime 类（registerAdapter → stream →
+ * adapterStream）→ LlmAdapter 抽象类 → PreparedLlmCall → 事件声明。
+ * ==========================================================================
+ */
+
 import { Context } from '@deepseek-ai/cordis'
 import { Remote, RemoteError, TypertRemoteService } from '@deepseek-ai/dsh-typert-protocol'
 import { deepFreeze } from '@deepseek-ai/dsh-util-values'

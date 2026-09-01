@@ -4,6 +4,15 @@
  * @module dsh-llm-pi-ai/context
  */
 
+/*
+ * 文件职责：实现Pi AI LLM的 context.ts 模块。
+ * 技术维度：TypeScript、Fetch、SSE、OAuth/密钥认证、模型目录和运行时模式校验。
+ * 产品维度：让 Agent 能稳定调用供应商模型、发现能力并接收流式结果。
+ * 逻辑维度：解析配置和认证，转换请求，消费流并映射模型事件。
+ * 关键边界：网络响应属于不可信输入；密钥和令牌不得记录；取消必须终止请求与流。
+ * 新手阅读建议：先读 config/auth/catalog，再看 adapter/stream，最后阅读错误和重放测试。
+ */
+
 import { brandString } from '@deepseek-ai/dsh-brand'
 import { contentHasImage, LlmError, offloadedImageText, offloadRequestImagesWithPolicy, requestImageHandleText } from '@deepseek-ai/dsh-llm'
 import type { ContentBlock, GenerateOptions, ImageAttachmentAccessResolver, Message, ToolCallId } from '@deepseek-ai/dsh-llm'

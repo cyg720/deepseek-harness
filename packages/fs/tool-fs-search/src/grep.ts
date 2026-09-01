@@ -11,6 +11,35 @@
  * @module @deepseek-ai/dsh-tool-fs-search/grep
  */
 
+/*
+ * ================================ 文件注释 ================================
+ * 【文件职责】面向模型的 grep 工具：用 ripgrep 正则表达式搜索文件内容。执行时通过
+ * 子进程接缝、用普通 argv 向量直接启动打包的 ripgrep 二进制（@vscode/ripgrep），
+ * 命令固定为面向行的 rg --json，使文件路径、行号与行文本无需冒号切分歧义即可解析；
+ * 本模块拥有模型侧 schema、参数校验、argv 构造、--json 记录解析、每行预览保留、
+ * 匹配保留、分组与格式化；进程关注点留在 ctx.subprocess。
+ * 【技术维度】buildGrepCommand 生成固定 rg --json argv（--regexp=pattern 与
+ * --glob=include 用 --flag=value 形式、目标跟在 -- 后）；parseRecord 消费 NDJSON
+ * 行（只取 type === 'match' 的记录，begin/end/context/summary 是传输框架直接跳过）；
+ * 每行匹配经 previewLine 预览、retainGrepMatches 统一封顶；展示与卡片共用同一份
+ * 保留结果；超限完整结果经 trySaveFormattedResult 存成 spill 文件。
+ * 【产品维度】让模型按正则搜索文件内容（替代 shell grep/rg）：带行号、按文件分组、
+ * 内联有界、完整匹配表可 spill 恢复；行预览截断保留 UTF-8 边界。
+ * 【逻辑维度】按出现顺序：GREP_MAX_MATCHES/GREP_MAX_LINE_BYTES（默认常量）→
+ * GrepToolCaps/GrepInput（类型）→ validateInclude/parseGrepArgs（校验）→
+ * buildGrepCommand（argv）→ malformedRecord/parseRecord/parseGrepMatches（解析）→
+ * matchNoun/formatGrepMatches/formatGrepOutput/formatRetainedGrep（展示）→
+ * presentGrepCall/presentGrepResult（卡片）→ applyGrepTool（注册）。
+ * 【关键边界】include 必须是"一个正向 glob 过滤器"：空白、取反（!…）与逗号列表
+ * 都被拒绝（大括号里的逗号合法，*.{ts,tsx} 是一个带交替的 glob）；非 UTF-8 行用
+ * 占位预览而非失败整次搜索；畸形 --json 统一报 SEARCH_FAILED（内部传输，宁可失败
+ * 不给部分结果）。
+ * 【新手阅读建议】先看 parseRecord 理解 --json 记录如何解析，再看
+ * retainGrepMatches 的保留与 formatGrepOutput 的脚注，最后看 applyGrepTool 的
+ * 超限 spill 交接。
+ * ==========================================================================
+ */
+
 import type { Context } from '@deepseek-ai/cordis'
 import { defineTool } from '@deepseek-ai/dsh-tools'
 import type { GenericCallView, SearchResultView, ToolResult } from '@deepseek-ai/dsh-tools'

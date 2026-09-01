@@ -4,6 +4,33 @@
  * @module @deepseek-ai/dsh-typert-protocol/types
  */
 
+/*
+ * ================================ 文件注释 ================================
+ * 【文件职责】定义 typert 协议层的全部核心数据结构：Host 对象与线格式（wire）标识的
+ *             类型级关联、远程调用描述（InvocationDescriptor）、运行时各注册中心的
+ *             接口契约。业务包、generator 生成的 Remote 产物、Host 网关与 Client
+ *             实现共同依赖本文件，它是跨进程通信的"契约层"。
+ * 【技术维度】几乎全部是 TypeScript 类型层面声明（interface / type / unique symbol）。
+ *             用 unique symbol 做幻影类型（phantom type）品牌字段，用声明合并
+ *             （declaration merging）提供可扩展映射表；大量使用条件类型与模板字符串
+ *             类型在编译期做模式匹配（如从端点字符串拆出命名空间）。
+ * 【产品维度】一端是暴露方法的 Host 服务，另一端是调用方法的 Client 消费者，双方不共享
+ *             运行时代码，只要共同遵守这里的描述结构即可远程通信，是类型安全的 RPC 契约。
+ * 【逻辑维度】按代码顺序：① 品牌类型与提取类型（TypertLookup / TypertContext 等）；
+ *             ② 可合并映射表（LookupMap / ContextMap / RemoteMap / RemoteScopeMap）；
+ *             ③ 失败与结果信封（RemoteFailure / RemoteResult）；④ 单个调用完整描述
+ *             （InvocationDescriptor 及其子结构）；⑤ 客户端能力接口
+ *             （TypertClientRemote 的 $mount / $on / $dispatch）；⑥ 四类运行时注册中心
+ *             接口（本地 / 远程 / 查找 / 上下文）；⑦ 模块扩充把 typert 挂到 Cordis Context。
+ * 【关键边界】本文件只描述结构、不含实现；RemoteFailure.code 故意用开放 string 而非封闭
+ *             联合类型，避免反向依赖 carrier 包。unique symbol 与 readonly 防止外部
+ *             伪造标识或篡改契约；解析不到的标识一律用 undefined 表达。
+ * 【新手阅读建议】先读 ④ 的 InvocationDescriptor（一次远程调用长什么样），再看 ① 品牌类型
+ *             与 ③ 结果信封，最后浏览 ⑥ 注册中心接口（由 registry 包实现，generator
+ *             生成的代码消费它们）。
+ * ==========================================================================
+ */
+
 import type { Context, Events } from '@deepseek-ai/cordis'
 
 declare const LOOKUP_HOST: unique symbol

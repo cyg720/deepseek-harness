@@ -1,5 +1,27 @@
 /** Current-surface projection and byte-bounded rendering. */
 
+/**
+ * ================================ 文件注释 ================================
+ * 【文件职责】会话引用的"投影 + 字节预算"处理：把来源会话的表面快照投影成
+ *             仅含用户/助手文本的对话，并在给定字节预算内裁剪到可放进提示词。
+ * 【技术维度】事件流投影（跳过工具/推理/注入上下文）；TextRetainer 做
+ *             头尾保留式截断；二分查找确定最大可保留字节数；所有字节按
+ *             UTF-8 精确计量（Buffer.byteLength）。
+ * 【产品维度】用户 @ 引用一个长会话时，这里决定"哪些消息、多少内容"能被
+ *             带进当前会话：优先保消息数（砍掉非检查点消息），再保文本（截断
+ *             最长消息并附"省略了多少字节"的提示）。
+ * 【逻辑维度】1) projectSessionConversation：事件流 → 纯文本对话项；2)
+ *             retainReferencedSession：两阶段裁剪（先丢消息、再截文本），
+ *             同时产出保留统计；3) truncateWithNotice：头尾保留 + 省略提示。
+ * 【关键边界】checkpoint 消息（压缩检查点）永不丢弃，因为它是之前会话的
+ *             摘要锚点；固定字段（id/label/cwd）超预算时直接返回 undefined
+ *             （上游抛 BUDGET_EXCEEDED）。
+ * 【新手阅读建议】先读三个接口看数据结构，再读 retainReferencedSession 的
+ *                 两个 while 循环（裁剪阶段），最后读 truncateWithNotice 的
+ *                 二分逻辑与省略提示格式。
+ * ==========================================================================
+ */
+
 import { isCompactCheckpointSource } from '@deepseek-ai/dsh-compaction'
 import type { SessionSurfaceSnapshot } from '@deepseek-ai/dsh-session-query'
 import { TextRetainer } from '@deepseek-ai/dsh-output-retention'

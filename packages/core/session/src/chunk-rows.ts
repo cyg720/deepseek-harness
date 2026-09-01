@@ -19,6 +19,27 @@
  * @module @deepseek-ai/dsh-session/chunk-rows
  */
 
+/*
+ * ================================ 文件注释 ================================
+ * 【文件职责】为 assistant/chunk 流增量（delta）串提供无损的存储打包：把连续同类同块的 delta
+ *           chunk 事件串压成一行存储记录（text-chunks / reasoning-chunks / tool-call-chunks），
+ *           并能把行精确展开回原来的事件序列。
+ * 【技术维度】行程编码思想；白名单式结构分类（classify 精确匹配键集合与类型，不认识的原样存储
+ *            ——丢压缩率绝不丢数据）；时间差（dt 数组）编码成员时间戳；安全整数范围校验防浮点
+ *            舍入造成静默损坏；判别联合 + assertNever 兜底。
+ * 【产品维度】提供方按 token 粒度流式输出，日志里会出现大量近乎雷同的事件行，JSON 信封体积远超
+ *            载荷（实测约 56 倍）。打包显著缩小磁盘占用，同时保证重放时字节级还原。
+ * 【逻辑维度】classify 判定事件可否打包；continues 判定是否延续同一串；buildRow 构造行；
+ *           packChunkRuns 是编码主入口；validateRunData/validateRow 校验行；expandRow 展开；
+ *           decodeStorageRecord 是解码主入口（行标签的值先验证后展开，其余值原样通过）。
+ * 【关键边界】存储行的类型标签不带斜杠（text-chunks 等），刻意区别于事件词汇（assistant/chunk）；
+ *           MIN_RUN=3 是格式常量而非可调参数；name 字段只有整串一致时才能打包；dt 允许负值
+ *           （墙钟回拨）；展开时 seq/time 越出安全整数即判损坏并抛错。
+ * 【新手阅读建议】先读 ChunkRow 三个变体与 RunDataBase 理解行布局，再读 packChunkRuns 的
+ *           run/flush 主循环，最后读 decodeStorageRecord 体会“先验证后展开、fail loud”的策略。
+ * ==========================================================================
+ */
+
 import { brandString } from '@deepseek-ai/dsh-brand'
 import type { ToolCallId } from '@deepseek-ai/dsh-llm/brand'
 import type { StreamChunk } from '@deepseek-ai/dsh-llm'

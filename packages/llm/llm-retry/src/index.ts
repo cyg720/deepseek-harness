@@ -5,6 +5,25 @@
  * @module @deepseek-ai/dsh-llm-retry
  */
 
+/*
+ * ================================ 文件注释 ================================
+ * 【文件职责】实现 dsh-llm-retry 插件：在 agent loop 的"请求失败恢复"扩展点
+ * 上执行 provider 路由的模型请求重试策略（normal 有界 / always 无界）。
+ * 【技术维度】监听 agent/request-error 瀑布流事件；每次调度的重试在可取消
+ * 等待前先写入会话日志（持久化契约）；用 AbortSignal.any 融合请求信号与插件
+ * 生命周期信号；normal 模式通过会话事件历史推断已有重试次数（崩溃/重启后可
+ * 续跑），provider 的 Retry-After 优先于本地指数退避。
+ * 【产品维度】瞬时限流/超时/服务器错误自动重试是 agent 稳定性的关键：配置了
+ * 策略的 provider 失败后自动退避重试，用户无需手动重试。
+ * 【逻辑维度】导出与配置 → 校验 → 内部类型与辅助（下游结算/退避/策略键/
+ * 可取消延迟）→ apply（track/backoff/recover + 监听器 + 生命周期清理）。
+ * 【关键边界】normal 模式只在失败码属于 retryableCodes 时重试；超过 maxRetries
+ * 交给下游；always 模式忽略下游恢复失败并继续；插件销毁时中止所有活跃等待。
+ * 【新手阅读建议】先读 recover 的分支逻辑（always/normal/不可重试码），再读
+ * backoff 理解"先持久化调度记录再等待"的时序。
+ * ==========================================================================
+ */
+
 import { randomUUID } from 'node:crypto'
 import type { Context, Events } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'

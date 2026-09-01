@@ -9,6 +9,15 @@
  * @module @deepseek-ai/dsh-acp
  */
 
+/*
+ * 文件职责：把 Harness 代理会话通过标准输入输出上的 ACP JSON-RPC 暴露给可信自动化客户端。
+ * 技术维度：使用 Cordis 插件生命周期、Agent Client Protocol SDK、异步结算门和会话事件流桥接代理运行时。
+ * 产品维度：支持自动化工具创建独立会话、发送文本或图片、接收已提交输出、取消任务并回答一次性权限请求。
+ * 逻辑维度：挂载连接与事件监听，维护每会话状态，实现 ACP 方法，关联提示与轮次，最后按顺序排空并释放资源。
+ * 关键边界：仅支持单一绝对工作区且不接收 MCP 配置；每会话同时只有一个提示；桥接层只发送已提交内容。
+ * 新手阅读建议：先看 SessionRecord 状态字段，再看 makeAgent 的协议方法，随后理解事件关联，最后阅读 quiesce 清理顺序。
+ */
+
 import type { Context } from '@deepseek-ai/cordis'
 import { Buffer } from 'node:buffer'
 import { randomUUID } from 'node:crypto'

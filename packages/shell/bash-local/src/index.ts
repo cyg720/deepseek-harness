@@ -9,6 +9,25 @@
  * @module @deepseek-ai/dsh-bash-local
  */
 
+/**
+ * ================================ 文件注释 ================================
+ * 【文件职责】实现 bash 能力缝的本地 Service Provider：LocalBashExecutor 把前台命令作为
+ * `bash -c` 在受管进程组里运行，负责命令默认值、截止时间与原因分类、模型友好的终端环境、
+ * 以及后台读取时的 stdout/stderr 合并。
+ * 【技术维度】基于子进程能力缝（ctx.subprocess）：通过 SubprocessSpawnSpec 声明输出收集
+ * 预算与溢出文件；用 dsh-timeout 的 deadline 把"超时 + 调用方取消"融合成单一截止时间；
+ * 后台进程由子进程服务按进程树管理，能跨执行器重载存活。
+ * 【产品维度】模型与插件执行 shell 命令的默认通道：禁用颜色/分页等干扰输出的终端特性，
+ * 输出超限自动落盘（spill 文件），超时可配置，是 sandbox 执行器的父类与执行机制来源。
+ * 【逻辑维度】config 解析与校验 → resolve 补全规格 → run/start 分流（前台/后台）→
+ * spawnSpec 组装子进程请求 → runArgv/startArgv 驱动生命周期与输出读取 → onProcessDone 钩子。
+ * 【关键边界】执行策略（沙箱、预执行钩子）不属于本执行器；stderr 在后台读取时放入
+ * [stderr] 标记分区；executor 自身超时才算 timedOut，外层截止时间算 aborted。
+ * 【新手阅读建议】从 resolve 的字段补全规则读起，再看 runArgv 的 deadline 融合逻辑，
+ * 最后看 startArgv 里 proc 句柄的 done/readOutput/kill 三个接口如何落地。
+ * ==========================================================================
+ */
+
 import { Context } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
 import { SHELL_SETTINGS_NAMESPACE, ShellExecutor } from '@deepseek-ai/dsh-shell'

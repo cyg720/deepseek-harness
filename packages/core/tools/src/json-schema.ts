@@ -11,6 +11,10 @@
  * @module dsh-tools/json-schema
  */
 
+/*
+ * 中文导读：本模块实现工具输出、PTC、子代理和工作流共享的受限 JSON Schema 校验规则；不支持的关键字会直接拒绝。
+ */
+
 import { HarnessError } from '@deepseek-ai/dsh-llm'
 import { assertNever, isJsonValue, type JsonValue } from '@deepseek-ai/dsh-util-values'
 

@@ -1,3 +1,7 @@
+/*
+ * 中文导读：本模块提供可跨重复安装安全识别的 JSON 值与不可变值辅助函数。
+ */
+
 /** Duplicate-install-safe JSON and immutable-value helpers. @module @deepseek-ai/dsh-util-values */
 
 /** A value that round-trips through JSON without loss. */

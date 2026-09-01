@@ -194,6 +194,10 @@ Host service backing the generated `ctx.remote.workspace` namespace.
  * Create or idempotently resolve one Workspace over an existing directory.
  * @param request - directory path to register.
  * @returns the Workspace and whether this call created it.
+ * @remarks 中文说明：功能说明：创建 create 相关流程；使用场景由所在模块及调用位置决定。；
+ * 参数说明：request（WorkspaceCreateRequest）：提供调用方提交的请求信息；必须满足声明的类型及调用时序要求。；
+ * 返回值：Promise<WorkspaceCreateValue>；调用方应按声明类型处理，不应假定未声明的附加状态。；
+ * 使用示例：典型用法：在完成前置校验后调用 create(request)，并按返回类型处理结果。
  */
 @Remote('create') create(request: WorkspaceCreateRequest): Promise<WorkspaceCreateValue>
 
@@ -201,6 +205,10 @@ Host service backing the generated `ctx.remote.workspace` namespace.
  * Rename one Workspace to a unique non-blank title.
  * @param request - Workspace identity and proposed title.
  * @returns the updated Workspace projection.
+ * @remarks 中文说明：功能说明：处理 rename 相关流程；使用场景由所在模块及调用位置决定。；
+ * 参数说明：request（WorkspaceRenameRequest）：提供调用方提交的请求信息；必须满足声明的类型及调用时序要求。；
+ * 返回值：Promise<WorkspaceValue>；调用方应按声明类型处理，不应假定未声明的附加状态。；
+ * 使用示例：典型用法：在完成前置校验后调用 rename(request)，并按返回类型处理结果。
  */
 @Remote('rename') rename(request: WorkspaceRenameRequest): Promise<WorkspaceValue>
 
@@ -208,6 +216,10 @@ Host service backing the generated `ctx.remote.workspace` namespace.
  * Remove one Workspace registration while retaining files and Sessions.
  * @param request - Workspace identity to remove.
  * @returns deletion confirmation.
+ * @remarks 中文说明：功能说明：删除 delete 相关流程；使用场景由所在模块及调用位置决定。；
+ * 参数说明：request（WorkspaceDeleteRequest）：提供调用方提交的请求信息；必须满足声明的类型及调用时序要求。；
+ * 返回值：Promise<WorkspaceDeleteValue>；调用方应按声明类型处理，不应假定未声明的附加状态。；
+ * 使用示例：典型用法：在完成前置校验后调用 delete(request)，并按返回类型处理结果。
  */
 @Remote('delete') delete(request: WorkspaceDeleteRequest): Promise<WorkspaceDeleteValue>
 
@@ -215,6 +227,10 @@ Host service backing the generated `ctx.remote.workspace` namespace.
  * Move one Workspace within the registry display order.
  * @param request - moved Workspace and optional anchor.
  * @returns the complete resulting Workspace order.
+ * @remarks 中文说明：功能说明：处理 insertBefore 相关流程；使用场景由所在模块及调用位置决定。；
+ * 参数说明：request（WorkspaceInsertBeforeRequest）：提供调用方提交的请求信息；必须满足声明的类型及调用时序要求。
+ * ；返回值：Promise<WorkspaceOrderValue>；调用方应按声明类型处理，不应假定未声明的附加状态。；
+ * 使用示例：典型用法：在完成前置校验后调用 insertBefore(request)，并按返回类型处理结果。
  */
 @Remote('insertBefore') insertBefore(request: WorkspaceInsertBeforeRequest): Promise<WorkspaceOrderValue>
 
@@ -222,6 +238,10 @@ Host service backing the generated `ctx.remote.workspace` namespace.
  * Move one accounted Session within a Workspace.
  * @param request - Workspace, Session, and optional anchor identities.
  * @returns the updated Workspace projection.
+ * @remarks 中文说明：功能说明：处理 insertSessionBefore 相关流程；使用场景由所在模块及调用位置决定。；
+ * 参数说明：request（WorkspaceInsertSessionBeforeRequest）：提供调用方提交的请求信息；
+ * 必须满足声明的类型及调用时序要求。；返回值：Promise<WorkspaceValue>；调用方应按声明类型处理，不应假定未声明的附加状态。；
+ * 使用示例：典型用法：在完成前置校验后调用 insertSessionBefore(request)，并按返回类型处理结果。
  */
 @Remote('insertSessionBefore') insertSessionBefore(request: WorkspaceInsertSessionBeforeRequest): Promise<WorkspaceValue>
 
@@ -229,6 +249,10 @@ Host service backing the generated `ctx.remote.workspace` namespace.
  * Hide one known Session from Workspace grouping surfaces.
  * @param request - Session identity to archive.
  * @returns the complete resulting archive set.
+ * @remarks 中文说明：功能说明：处理 archiveSession 相关流程；使用场景由所在模块及调用位置决定。；
+ * 参数说明：request（WorkspaceArchiveSessionRequest）：提供调用方提交的请求信息；
+ * 必须满足声明的类型及调用时序要求。；返回值：Promise<WorkspaceArchiveValue>；调用方应按声明类型处理，
+ * 不应假定未声明的附加状态。；使用示例：典型用法：在完成前置校验后调用 archiveSession(request)，并按返回类型处理结果。
  */
 @Remote('archiveSession') archiveSession(request: WorkspaceArchiveSessionRequest): Promise<WorkspaceArchiveValue>
 
@@ -236,6 +260,10 @@ Host service backing the generated `ctx.remote.workspace` namespace.
  * Stream a complete Workspace baseline followed by ordered increments.
  * @param signal - generation cancellation.
  * @returns baseline followed by ordered Workspace increments.
+ * @remarks 中文说明：功能说明：处理 follow 相关流程；使用场景由所在模块及调用位置决定。；
+ * 参数说明：signal（AbortSignal）：传递取消或终止信号；必须满足声明的类型及调用时序要求。；
+ * 返回值：AsyncIterable<WorkspaceFollowFrame>；调用方应按声明类型处理，不应假定未声明的附加状态。；
+ * 使用示例：典型用法：在完成前置校验后调用 follow(signal)，并按返回类型处理结果。
  */
 @Remote({ mode: 'stream' }) follow(signal: AbortSignal): AsyncIterable<WorkspaceFollowFrame>
 ```

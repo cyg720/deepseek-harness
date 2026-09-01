@@ -5,6 +5,24 @@
  * signal. A provider timeout remains a backstop for direct service callers.
  */
 
+/*
+ * ================================ 文件注释 ================================
+ * 【文件职责】本文件是面向模型的 web_fetch 工具：抓取并返回指定 HTTP(S) URL 的文本内容。
+ *             本模块拥有 schema、校验、HTML 转 Markdown 渲染与展示；检索本身归 ctx.web。
+ * 【技术维度】defineTool 定义工具；turndown + GFM 插件做 HTML→Markdown 转换；自带深度上限
+ *             保护（防止恶意嵌套 HTML 造成同步卡死）；输出与源输入双重字符上限；
+ *             render/presentationMeta 用 WeakMap 记忆化共享一次转换结果。
+ * 【产品维度】模型可"拿到具体网页全文"来回答需要精确内容的问题（如搜索结果详情）；
+ *             超时是部署策略而非模型参数，防止模型把上下文预算当玩具。
+ * 【逻辑维度】共享转换器 → 表格专用渲染规则 → 参数校验 → 深度保护 → 正文渲染 → 输出组装
+ *             （renderFetchOutput 记忆化）→ meta 投影/回读 → 注册工具。
+ * 【关键边界】深度超限或转换失败时降级为原始 HTML（差页面胜于报错）；时间与字符上限都在
+ *             渲染前/后分两段施加；卡片展示的 truncated 与模型看到的文本必须一致。
+ * 【新手阅读建议】先读 renderBody 与 computeFetchOutput（核心渲染管线），再读
+ *             renderFetchOutput 看记忆化，最后看 applyWebFetchTool 的注册。
+ * ==========================================================================
+ */
+
 import type { Context } from '@deepseek-ai/cordis'
 import TurndownService from 'turndown'
 import { gfm } from '@joplin/turndown-plugin-gfm'

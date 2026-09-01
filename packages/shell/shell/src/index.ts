@@ -5,6 +5,23 @@
  * @module @deepseek-ai/dsh-shell
  */
 
+/*
+ * ================================ 文件注释 ================================
+ * 【文件职责】dsh-shell 包入口：声明 ctx.shell 能力缝（capability seam）的抽象 Service 与
+ * 设置命名空间，并统一再导出全部请求/结果类型与渲染辅助函数，是消费者唯一的导入根。
+ * 【技术维度】Cordis 插件 + Service 模式：通过模块增强（declare module）把 shell 服务挂到
+ * Context 上；抽象基类 ShellExecutor 定义统一契约（resolve / run / start），由各执行器子类
+ * （bash-local、bash-sandbox、pwsh-local、pwsh-sandbox）实现并注册。
+ * 【产品维度】"bash 能力缝合"的总闸门：宿主组合加载一个执行器后，模型与进程内插件即可
+ * 统一通过 ctx.shell 运行前台命令或持有后台进程句柄。
+ * 【逻辑维度】导出设置命名空间 → 再导出类型与解析函数 → 模块增强声明服务 → 定义抽象执行器契约。
+ * 【关键边界】同一上下文只能加载一个 ctx.shell 实现（重复注册会报错）；后台作业语义
+ * （job id、所有权、轮询、通知）归 dsh-jobs 管，本包只暴露进程句柄。
+ * 【新手阅读建议】从 ShellExecutor 抽象类读起，理解 run 与 start 两条执行路径的契约差异；
+ * 再结合 types.ts 看"请求 → 规格 → 结果"三类形状之间的关系。
+ * ==========================================================================
+ */
+
 import { Context, Service } from '@deepseek-ai/cordis'
 import type { SandboxMode } from '@deepseek-ai/dsh-sandbox'
 import type { ShellExecRequest, ShellExecSpec, ShellProcess, ShellRunResult } from './types.ts'

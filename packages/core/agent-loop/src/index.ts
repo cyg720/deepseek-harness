@@ -5,6 +5,18 @@
  * @module @deepseek-ai/dsh-agent-loop
  */
 
+/*
+ * ================================ 文件注释 ================================
+ * 【文件职责】agent-loop 插件本体：AgentLoop 服务负责创建/恢复 ReactLoopAgent、把它们发布进 agents/sessions 注册表，并统一管理有序拆除（teardown）。
+ * 【技术维度】Cordis Service 实现 AgentFactory 接口；用 ctx.effect 注册生命周期；配置经 schemastery schema 校验；支持 settings 动态修改并行上限；launcher 可预置会话身份。
+ * 【产品维度】这是“配置文件里声明一个 agent”的落地实现：cordis.yml 里写 agents 列表即可在启动时自动创建或恢复会话，支持断点续跑（resume）。
+ * 【逻辑维度】常量与工具函数（FactoryOwnership/raceAbort/校验）→ 类型与事件声明 → PreparedAgent 准备流程（prepare：创建、融合取消信号、反向拆除）
+ * → 公开入口（create/createAgent/resume/resumeWith）。
+ * 【关键边界】所有拆除路径必须幂等且共享同一 Promise；并发 create/resume 竞争同一身份时只有一处能发布；错误在 load 阶段必须响亮失败，绝不静默跳过。
+ * 【新手阅读建议】先读 Config 与 AgentLoop 构造函数看配置如何驱动，再读 prepare() 理解“注册前先建好拆除逻辑”的思路，最后看 create/resume 两条入口。
+ * ==========================================================================
+ */
+
 import { Context, FiberState, Service } from '@deepseek-ai/cordis'
 import { randomUUID } from 'node:crypto'
 import z from '@deepseek-ai/schemastery'

@@ -8,6 +8,28 @@
  * @module @deepseek-ai/dsh-tool-bash
  */
 
+/**
+ * ================================ 文件注释 ================================
+ * 【文件职责】实现 bash 工具的模型侧消费者（Consumer）：注册名为 `bash` 的工具，把模型
+ * 参数翻译成 ctx.shell 的请求并执行，负责参数校验、工作目录解析、沙箱升级审批、
+ * 后台任务登记（ctx.jobs）与结果/展示规范化。
+ * 【技术维度】defineTool + ctx.tools.register 注册；execute 内先审批后执行（升级流程委托
+ * approveEscalation）；后台路径经 ctx.jobs.start 登记，工具调用信号在返回 job id 后不再
+ * 驱动取消；输出 schema 用 oneOf 区分后台/前台两种形状；presentCall/presentResult 把
+ * 前台调用画成 terminal 卡片、后台画成 generic 卡片。
+ * 【产品维度】模型执行 bash 命令的入口：既有前台（等结果）也有后台（长任务先拿 job id），
+ * 沙箱拒绝时引导模型同轮用 sandbox_permissions 发起审批升级；描述文本引导模型检查
+ * [exit code: N] 标记、使用受管 DSH_* 环境事实。
+ * 【逻辑维度】validateBashArgs 校验参数 → resolveSandboxPolicy 取会话策略 → 可选
+ * approveBashEscalation 审批升级 → resolveWorkdir 解析工作目录 → 前台/后台分流执行 →
+ * canonicalBashResult / renderResult 规范化输出。
+ * 【关键边界】执行策略（部署级）应放 tools/pre-execute 与沙箱执行器（见 TODO 标记）；
+ * 未宣传沙箱能力时 sandbox_permissions 字段不注册但仍需守卫（schema 只校验已宣传的键）。
+ * 【新手阅读建议】先看 apply 里工具注册的参数与输出 schema，再沿 execute 走一遍
+ * 前台路径，最后看后台路径如何与 ctx.jobs 协作。
+ * ==========================================================================
+ */
+
 import type { Context } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
 import { isAbsolute, resolve as resolvePath } from 'node:path'

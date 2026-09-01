@@ -11,6 +11,18 @@
  * @module dsh-agent-loop/tool-calls
  */
 
+/*
+ * ================================ 文件注释 ================================
+ * 【文件职责】调度一个 assistant 步骤中的工具调用：互斥（exclusive）调用形成屏障串行执行，并行调用用有上限的滚动池并发执行，并把结果按模型顺序回写会话日志。
+ * 【技术维度】基于 dsh-tools 的 scheduler 三阶段（prepare/dispatch/finalize）；结果与上下文按模型顺序提交；中止时给未启动调用补写合成错误结果以保持重放有效。
+ * 【产品维度】决定工具执行是“一个接一个”还是“多个同时跑”，以及中止/失败时日志如何收尾，直接影响用户体验与回放（replay）一致性。
+ * 【逻辑维度】PlannedCall/Slot/GroupOutcome 类型 → executeToolCalls 入口（按模式分组）→ runGroup（滚动池 + 提交）
+ * → appendToolCall/appendToolResult/appendSkippedToolCall 日志助手。
+ * 【关键边界】并行上限读自 ctx.agentLoop.config（可配置）；调度器内部失败不伪造结果，但中止会补合成结果；提交必须按模型顺序推进，不允许乱序。
+ * 【新手阅读建议】先读 executeToolCalls 看分组逻辑，再读 runGroup 的 fillPool/commitReady 两个核心循环；最后看中止路径 appendSkippedToolCall。
+ * ==========================================================================
+ */
+
 import type { Context } from '@deepseek-ai/cordis'
 import { createToolResultMessage, type ToolCallBlock } from '@deepseek-ai/dsh-llm'
 import type { Session, UserMessage } from '@deepseek-ai/dsh-session'

@@ -1,5 +1,25 @@
 /** Canonical session URI and inline mention encoding. */
 
+/*
+ * ================================ 文件注释 ================================
+ * 【文件职责】会话引用的规范 URI 编码与内联提及（mention）语法：把任意会话 id
+ *             编码成无损的 dsh-session: URI，并负责在用户文本里解析/生成
+ *             Markdown 风格的 @[label](dsh-session:…) 提及。
+ * 【技术维度】Base64url 编码（无 +/ 和 = 填充，URI 友好）；双向可逆（encode 与
+ *             decode 互逆，且 decode 校验规范性）；正则提取提及与裸 URI。
+ * 【产品维度】用户在聊天里用 @ 提及另一个会话时，Host 需要把这个提及翻译成
+ *             结构化引用，模型看到的是可读的 @label，底层携带的是完整 URI。
+ * 【逻辑维度】1) encode：session id 经 JSON + base64url 编码成 URI；2) decode：
+ *             前缀/字符集/可逆性三重校验后还原 id；3) formatMention：生成
+ *             @[label](uri)；4) parseText：一次正则同时匹配 Markdown 提及与
+ *             裸 URI，替换为可读 @label 并收集结构化引用。
+ * 【关键边界】只接受规范形式（encode 后再比对），防伪造/混用编码；label 中的
+ *             反斜杠与方括号需转义（escapeLabel/unescapeLabel 成对出现）。
+ * 【新手阅读建议】先看 encode/decode 的互逆关系，再看 parseSessionReferenceText
+ *                 的正则结构与替换回调，最后看两个转义函数的成对关系。
+ * ==========================================================================
+ */
+
 import { brandString } from '@deepseek-ai/dsh-brand'
 import type { SessionId as SessionIdType } from '@deepseek-ai/dsh-session'
 import { SessionReferenceError } from './config.ts'

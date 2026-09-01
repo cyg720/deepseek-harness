@@ -1,5 +1,17 @@
 /** Complete dependency validation for current Team task snapshots. */
 
+/*
+ * ================================ 文件注释 ================================
+ * 【文件职责】当前团队任务快照的完整依赖校验：替换一个候选快照后验证整个活跃
+ *   任务图（缺失/重复/自引用/环）。
+ * 【技术维度】两遍检查：先逐任务核对 blocker 存在与去重，再做 DFS 环检测
+ *   （visiting/visited 两集合）；错误带稳定 violation 类别供命令层映射。
+ * 【产品维度】保证持久化的任务依赖图始终合法（不变量的一部分）。
+ * 【逻辑维度】TeamTaskGraphViolation → TeamTaskGraphError → assertTaskGraphCandidate。
+ * 【新手阅读建议】先看第一遍的逐任务检查，再看第二遍的 DFS 环检测。
+ * ==========================================================================
+ */
+
 import type { TeamTaskId, TeamTaskSnapshot } from './types.ts'
 
 /** Task dependency relation rejected by the shared graph validator. */

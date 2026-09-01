@@ -1,3 +1,17 @@
+/**
+ * ================================ 文件注释 ================================
+ * 【文件职责】plugin-inventory 域的纯类型契约：插件条目 id、fiber 阶段与条目/
+ * 快照形状。无运行时逻辑，供客户端与服务端共用。
+ * 【技术维度】PluginEntryId 是品牌化字符串（编译期约束）；PluginFiberPhase 把
+ * Cordis Fiber 生命周期投影为字符串字面量联合（null = 无活跃根 fiber）。
+ * 【产品维度】"已装插件"面板的数据形状：枚举插件名、启用状态与生命周期阶段。
+ * 【逻辑维度】PluginEntryId → PluginFiberPhase → PluginInventoryEntry → 快照。
+ * 【关键边界】enabled 是有效 Loader 启用态（含被禁用的祖先组）；fiberPhase 为
+ * null 时表示该条目当前没有活跃根 fiber。
+ * 【新手阅读建议】与 index.ts 的 list() 投影逻辑对照阅读。
+ * ==========================================================================
+ */
+
 import type { Branded } from '@deepseek-ai/dsh-brand'
 
 /** Stable Loader-tree identity of one configured plugin entry. */

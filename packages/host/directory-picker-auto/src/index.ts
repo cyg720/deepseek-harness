@@ -11,6 +11,28 @@
  * @module @deepseek-ai/dsh-host-directory-picker-auto
  */
 
+/*
+ * ================================ 文件注释 ================================
+ * 【文件职责】directory-picker 接缝的自适应选择器：启动时一次性解析宿主的处境
+ * （绑定主机、SSH 启动、显示会话、Linux 选择器二进制）并挂载匹配的交互——
+ * native 或 browse——作为真实 Loader 条目进入内存根树。
+ * 【技术维度】Cordis 插件：依赖 webServer（读有效绑定主机）与 loader（挂载条
+ * 目）；每个交互是"后端 + 客户端表面"一对（后端承载接缝能力，表面占据
+ * ui-workspace 的目录流空洞），两者都作为普通条目被发现与组合。
+ * 【产品维度】一次决定两副面孔：有本地显示器与原生选择器的环境用系统对话框，
+ * 远程/无头环境自动退化为应用内目录浏览器——无论哪种，固定一个交互就是直接
+ * 组合那对包，而非本行。
+ * 【逻辑维度】探针（probe.ts）→ 解析（resolve.ts）→ apply：解析后端种类 →
+ * 以"后端先、表面后"顺序创建两个 Loader 条目 → 失败回滚 → 返回卸载器。
+ * 【关键边界】只做根树内存挂载（write() 是 no-op，绝不持久化回配置文件）；
+ * 卸载按逆序移除条目并等待其 fiber 静止；本包是"固定组合词汇"而非可调项——
+ * 后端/表面包名是运行时字符串，静态配置门看不到 yml 行，verify-cordis-config
+ * 要求组合本选择器的每个应用把两者声明为依赖。
+ * 【新手阅读建议】先读 probe.ts 与 resolve.ts 两个纯决策模块，再读 apply 的
+ * 挂载/卸载流程，最后看 BACKEND_PACKAGES/SURFACE_PACKAGES 的固定词汇。
+ * ==========================================================================
+ */
+
 import type { Context } from '@deepseek-ai/cordis'
 // Empty type imports carry the `loader` and `webServer` Context merges for the reads below.
 import type {} from '@deepseek-ai/cordis-plugin-loader'

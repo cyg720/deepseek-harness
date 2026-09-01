@@ -4,6 +4,15 @@
  */
 
 /* jscpd:ignore-start */
+/*
+ * 文件职责：为模型可见子代理工具适配器注册空不变量伴生插件。
+ * 技术维度：使用 Cordis 所有权注册协议。
+ * 产品维度：让子代理委派工具可被诊断发现。
+ * 逻辑维度：元数据和空安装器经 apply 注册。
+ * 关键边界：适配器无独立生命周期流，关系由 subagent 接缝拥有。
+ * 新手阅读建议：区分工具 Consumer 与子代理服务后阅读。
+ */
+
 import type { Context } from '@deepseek-ai/cordis'
 import type { InvariantFailure, InvariantInstaller } from '@deepseek-ai/dsh-invariants'
 import { subagentModelSelectionPolicy } from './model-selection-state.ts'

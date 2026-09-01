@@ -13,6 +13,31 @@
  * @module @deepseek-ai/dsh-cordis-host-runner/guard
  */
 
+/*
+ * ================================ 文件注释 ================================
+ * 【文件职责】沙箱 Host 半部与真实运行时的"注册边界"：把沙箱里 defineTool/registerTool/
+ *             handle 的入参规范化为宿主侧可信对象，提供运行插件所见的安全 ctx 门面
+ *             （白名单 + 服务代理 + 拒绝 Context 逃逸），以及运行生命周期用来收窄
+ *             沙箱返回值是否为合法插件的判定助手。
+ * 【技术维度】node:vm 的沙箱与宿主存在"双 realm"问题（两套原型/构造函数），因此
+ *             schema 与 JSON 值要跨 realm 重建（cloneJson / normalizePropertyMap 均为
+ *             显式任务栈实现，防栈溢出、防 __proto__ 污染）；defineTool/registerTool
+ *             用不可枚举的 Symbol 标记配对，杜绝绕过标记的注册。
+ * 【产品维度】让"AI 现场写的插件"在受限但够用的环境里注册工具/方法/服务，同时
+ *             报错带教学文案（如"忘了 return"、"参数要用统一 DSL"），保证模型能
+ *             根据错误自我修正。
+ * 【逻辑维度】schema 校验与规范化（isPlainRecord → cloneJson → normalize* 系列）→
+ *             defineTool/handle/registerTool 三入口 → ctx 门面（CTX_VERBS 白名单 +
+ *             declaredInjects 声明闸 + denyContext 防逃逸）→ isPlugin/guardedPlugin/
+ *             pluginName 收尾助手。
+ * 【关键边界】这是安全边界但非完整隔离（宿主侧闭包仍是逃逸通道）；只暴露生命周期
+ *             安全的动词，框架内部与"返回 Context 的服务"一律拒绝；VM realm 的
+ *             数组/对象必须验证"内在原型 + 无隐藏键"才可信。
+ * 【新手阅读建议】先读 isPlainRecord/cloneJson 理解双 realm 问题，再看
+ *             sandboxDefineTool 与 sandboxContext 两个核心入口，最后看 isPlugin。
+ * ==========================================================================
+ */
+
 import { Context } from '@deepseek-ai/cordis'
 import type { Plugin } from '@deepseek-ai/cordis'
 import { scopeOf } from '@deepseek-ai/dsh-scope'

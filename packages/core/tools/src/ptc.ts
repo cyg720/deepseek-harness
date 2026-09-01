@@ -6,6 +6,10 @@
  * @module @deepseek-ai/dsh-tools/src/ptc
  */
 
+/*
+ * 中文导读：本模块实现 PTC 的 run_code 传输，在原生并发约束下调度嵌套工具并记录可重建的子调用。
+ */
+
 import { brandString } from '@deepseek-ai/dsh-brand'
 import { createUserMessage, HarnessError } from '@deepseek-ai/dsh-llm'
 import type { ContentBlock, ToolCallId } from '@deepseek-ai/dsh-llm'

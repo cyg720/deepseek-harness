@@ -10,6 +10,10 @@
  * @module @deepseek-ai/dsh-agent-presets/composition-inventory
  */
 
+/*
+ * 中文导读：本模块读取预设的插件组成与有效启用状态；有活动挂载时以 Loader 实际条目为准，否则解析组成文件。
+ */
+
 import { readFile } from 'node:fs/promises'
 import { load } from 'js-yaml'
 import type { FiberState } from '@deepseek-ai/cordis'

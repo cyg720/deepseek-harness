@@ -10,6 +10,15 @@
  * @module @deepseek-ai/dsh-goal/types
  */
 
+/*
+ * 文件职责：实现目标管理的 types.ts 模块。
+ * 技术维度：TypeScript、Cordis、会话事件、路径策略、判别联合和 Vitest。
+ * 产品维度：保证目标管理操作可预测、可审计并在失败时保持一致。
+ * 逻辑维度：校验输入，更新领域状态并记录事件或注册能力。
+ * 关键边界：文件路径必须经过策略检查；目标引用含版本，过期修改必须拒绝。
+ * 新手阅读建议：先读类型与测试夹具，再按校验、执行、事件折叠和错误流程阅读。
+ */
+
 import type { Branded } from '@deepseek-ai/dsh-brand'
 
 /** Identifies one goal across its durable revisions. */

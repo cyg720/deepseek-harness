@@ -4,6 +4,34 @@
  * @module @deepseek-ai/dsh-cordis-host-runner
  */
 
+/*
+ * ================================ 文件注释 ================================
+ * 【文件职责】Dynamic Cordis Plugin 运行时服务（`dynamicCordisRunner`）的实现：
+ *             管理由模型在会话中现场编写、可反复升级的 Cordis 插件——定义/删除包
+ *             版本、启动 Host 半部、请求人工审批后再激活 Client 半部、停止运行、
+ *             转发 Client 对 Host 方法的调用、汇总只读查询数据。是本包的对外门面。
+ * 【技术维度】基于 vendored Cordis：插件（Plugin）持有多个不可变包版本（Package），
+ *             一次激活对应一个运行（Run）与一次尝试记录（Attempt，见 types.ts）；
+ *             通过 Typert 远程服务协议（@Remote 装饰器）把方法暴露给浏览器页面；
+ *             Host 半部代码在 VM 沙箱中求值（sandbox.ts）后以 Fiber 挂载（lifecycle.ts）；
+ *             所有跨端数据必须是可 JSON 序列化的。
+ * 【产品维度】让最终用户能在浏览器面板里"安装/更新/停止"AI 助手现场写出的 Cordis
+ *             插件；涉及 Client 代码的激活会推送审批请求到 UI 等待用户确认；成功/
+ *             失败结果以用户消息注入 agent，指导模型下一步操作。
+ * 【逻辑维度】1) define/undefine 管理包版本；2) run/runHostHalf 走"模型驱动"与
+ *             "面板驱动"两条激活路径；3) resolveRequestRun/settleUserRun 结算激活；
+ *             4) invoke 转发 Client 调用；5) snapshot/inventory/inspect* 提供只读查询；
+ *             6) 私有方法执行状态机与错误回导（steer* 系列）。
+ * 【关键边界】插件归属创建它的 Session，跨会话访问会被拒绝；同一插件同一时刻只允许
+ *             一个"正在启动"的激活（starting Map 防并发）；代码先经 precheckCode
+ *             预检、再在带超时（vmTimeoutMs）的沙箱中执行；运行期错误按去重键只上报
+ *             一次，避免反复打扰模型。
+ * 【新手阅读建议】先读 types.ts 掌握 Plugin/Package/Run/Attempt 词汇，再按本文件
+ *             define→run→resolveRequestRun 的激活主流程阅读，最后读 registry.ts、
+ *             lifecycle.ts、sandbox.ts、guard.ts 补齐细节。
+ * ==========================================================================
+ */
+
 import { Context } from '@deepseek-ai/cordis'
 import type { Fiber } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'

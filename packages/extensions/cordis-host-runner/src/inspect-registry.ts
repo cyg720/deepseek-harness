@@ -1,5 +1,25 @@
 /** Host registry for model-visible, read-only Cordis capability queries. */
 
+/**
+ * ================================ 文件注释 ================================
+ * 【文件职责】模型可见的只读 Cordis 能力查询（inspect）的 Host 侧注册表与跨页面
+ *             路由：Host 本地提供者（如服务清单）直接执行；Client 提供者则把查询
+ *             广播到浏览器页面等待实时应答。对应 cordis_inspect_list 与查询工具。
+ * 【技术维度】Cordis Service 子类；提供者注册返回幂等 disposer；查询输入/输出都经
+ *             JSON Schema 校验且必须无损 JSON（snapshotJsonValue）；Client 查询用
+ *             Promise + AbortSignal 挂起，事件广播后由 resolveClientQuery 结算。
+ * 【产品维度】让模型能够"问清楚再动手"：列出 Host/Client 两侧可用的只读查询并用
+ *             实时结果辅助决策（如查某个服务有哪些方法再调用），且全程只读、可控。
+ * 【逻辑维度】注册（register/syncClientManifest）→ 目录（list）→ 执行（query 分
+ *             Host/Client 两条路径）→ Client 应答结算（resolveClientQuery）→ 若干
+ *             校验助手（validateManifest/findMethod/validateInput/validateOutput）。
+ * 【关键边界】提供者 ID 与方法名必须唯一；Client 应答"先到先得"且只认有效 JSON
+ *             输出；查询可被 AbortSignal 取消（取消时广播已结算事件）。
+ * 【新手阅读建议】先读 query 看 Host/Client 分支，再看 queryClient 的挂起/取消逻辑，
+ *             最后看 validateManifest 与 validateInput/Output 的校验规则。
+ * ==========================================================================
+ */
+
 import { Service } from '@deepseek-ai/cordis'
 import type { Context } from '@deepseek-ai/cordis'
 import type { Agent } from '@deepseek-ai/dsh-agent'

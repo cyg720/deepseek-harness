@@ -21,6 +21,25 @@
  * @module @deepseek-ai/dsh-subagent
  */
 
+/*
+ * ================================ 文件注释 ================================
+ * 【文件职责】可续聊子代理的内部控制管理器：稳定子代理 ID、描述符持久化、Activation 准入、
+ *   实时所有权图、冷恢复、子优先释放、以及向父代理投递结算通知，全部收在 ctx.subagents 背后。
+ * 【技术维度】一个续聊子代理 = 一个持久 Session + 至多一个进程内 Activation（驻留 epoch）；
+ *   Agent 收件箱（inbox）是唯一回合队列；用 ChildLock 按 childId 串行化关键区；
+ *   watchSettlement 以 Agent 静默 + ownedChildren 推导驻留状态，不用第二套状态机。
+ * 【产品维度】后台续聊子代理可以跨多次指令持续工作（收件箱 FIFO 回合），父代理在子代理
+ *   结算时收到通知；主代理可中断、可追问、可选择性释放，适合异步多轮任务编排。
+ * 【逻辑维度】按代码顺序：消息来源类型 → 报告/起点选项 → 内部状态与输入类型 → ChildLock →
+ *   SubagentContinuationManager（startContinuable/followup/interrupt/reportFrom/drain 系列/
+ *   物化与冷恢复/结算观察/释放与通知）。
+ * 【关键边界】Agent 收件箱是唯一队列 ⇒ 每条被接受消息只有一个可观察顺序；物化在首次
+ *   接受前失败会完全回滚（无 ID 返回、无生命周期边）；dispose 事务存在即准入截止。
+ * 【新手阅读建议】先读顶部英文 JSDoc 理解 Activation 概念，再看 startContinuable 与
+ *   coldResume 两条物化路径，最后看 watchSettlement/dispose 的子优先释放。
+ * ==========================================================================
+ */
+
 import { randomUUID } from 'node:crypto'
 import type { Context } from '@deepseek-ai/cordis'
 import { brandString } from '@deepseek-ai/dsh-brand'

@@ -1,3 +1,7 @@
+/*
+ * 中文导读：本模块是 turnOutline 投影键与数据类型的唯一来源，可同时供 Host 和 Client 编译面使用。
+ */
+
 /**
  * Pure types of the turn-outline domain: the ONE home of the `turnOutline`
  * projection-key declaration, free of this package's host-side value imports

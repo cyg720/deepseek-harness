@@ -845,6 +845,11 @@ Registry of independently owned top-level fields for official DeepSeek requests.
  * @param field - declaration-merged field owned by the provider.
  * @param provider - request-time field preparation and optional acceptance behavior.
  * @returns disposer that releases the field.
+ * @remarks 中文说明：功能说明：注册 register 相关流程；使用场景由所在模块及调用位置决定。；
+ * 参数说明：field（K）：提供本次调用所需的数据；必须满足声明的类型及调用时序要求。；
+ * 参数说明：provider（DeepSeekLlmApiExtensionProvider<DeepSeekLlmApiExtensionMap
+ * […）：提供本次调用所需的数据；必须满足声明的类型及调用时序要求。；返回值：() => Promise<void>；调用方应按声明类型处理，
+ * 不应假定未声明的附加状态。；使用示例：典型用法：在完成前置校验后调用 register(field, provider)，并按返回类型处理结果。
  */
 register<K extends keyof DeepSeekLlmApiExtensionMap>( field: K, provider: DeepSeekLlmApiExtensionProvider<DeepSeekLlmApiExtensionMap[K]>, ): () => Promise<void>
 
@@ -854,6 +859,11 @@ register<K extends keyof DeepSeekLlmApiExtensionMap>( field: K, provider: DeepSe
  * providers retain no mutable alias to the outgoing request.
  * @param request - exact serialized request facts before extension fields.
  * @returns detached fields and their idempotent joint acceptance transaction.
+ * @remarks 中文说明：功能说明：处理 prepare 相关流程；使用场景由所在模块及调用位置决定。；
+ * 参数说明：request（DeepSeekLlmApiExtensionRequest）：提供调用方提交的请求信息；
+ * 必须满足声明的类型及调用时序要求。；返回值：Promise<PreparedDeepSeekLlmApiExtensions>；
+ * 调用方应按声明类型处理，不应假定未声明的附加状态。；使用示例：典型用法：在完成前置校验后调用 prepare(request)，
+ * 并按返回类型处理结果。
  */
 async prepare(request: DeepSeekLlmApiExtensionRequest): Promise<PreparedDeepSeekLlmApiExtensions>
 ```

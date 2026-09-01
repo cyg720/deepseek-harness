@@ -1,5 +1,21 @@
 /** Scoped model-facing tools for the opt-in Agent Teams runtime. */
 
+/*
+ * ================================ 文件注释 ================================
+ * 【文件职责】opt-in Agent Teams 运行时的"作用域模型面工具"：把团队能力以工具
+ *   （spawn_teammate/send_message/followup_task/list_agents/wait_agent/
+ *   interrupt_agent/team_task_*）与协作策略注入每个团队成员的作用域。
+ * 【技术维度】每个精确活体成员作用域内注册（agent.ctx 作用域工具）；输出 schema
+ *   用 jsonOutput 声明并让编译器核对 execute 与模型承诺值一致；wait_agent 的
+ *   no-progress 快捷路径与活动判定在同一同步跨度内完成。
+ * 【产品维度】让模型能发起并参与多代理团队协作，且遵循"先明确要求才建队友"策略。
+ * 【逻辑维度】Config → 策略文本/schema 常量 → jsonOutput/callingAgent → install
+ *   （注册提示段与全部工具）→ apply（按成员作用域安装 + 生命周期清理）。
+ * 【关键边界】工具只在成员作用域注册；安装失败回滚已注册项（disposers.reverse）。
+ * 【新手阅读建议】先看 POLICY 与 install 的注册清单，再看 apply 的按成员安装。
+ * ==========================================================================
+ */
+
 import type { Context } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
 import type { Agent } from '@deepseek-ai/dsh-agent'

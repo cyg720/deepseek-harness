@@ -4,6 +4,29 @@
  * mapped interfaces make the content, source, and finish unions extensible.
  */
 
+/*
+ * ================================ 文件注释 ================================
+ * 【文件职责】定义"provider 中立"的消息与流式词汇：会话循环、会话日志、插件
+ * 共同使用的核心类型——内容块（ContentBlock）、结束原因（FinishReason）、
+ * token 用量（TokenUsage）、流块（StreamChunk）与完整请求（GenerateOptions）。
+ * 【技术维度】适配器是唯一负责翻译 provider 线格式的一层；这里的"映射接口"
+ * （ContentBlockMap、FinishReasonMap、MessageSourceMap 等）通过 TypeScript
+ * 声明合并（declaration merging）让插件可以扩展联合类型；按 type/kind 判别
+ * 分支、未知项显式放行。
+ * 【产品维度】这些类型是 harness 与所有 LLM provider 交互的公共"词汇表"：
+ * 无论是消息展示、token 计量还是错误路由，都基于同一套类型，避免各层各自
+ * 发明方言。
+ * 【逻辑维度】注册表事件声明 → 消息类型再导出 → 失败事实 → 内容块族 →
+ * 结束原因族 → token 用量 → provider/模型目录与发现 → 回放包络 → 流协议
+ * → 工具 schema → 完整请求。
+ * 【关键边界】TokenUsage 计数互斥（inputTokens 不含缓存读/写）；目录成员资格
+ * 只是建议性（advisory），不影响请求路由与校验；适配器必须遵守 StreamChunk
+ * 的协议约束（usage 在 finish 之前、工具参数保持原始 JSON 字符串）。
+ * 【新手阅读建议】建议顺序：GenerateOptions → StreamChunk → ContentBlock →
+ * TokenUsage → FinishReason，先建立"一次请求长什么样"的整体印象。
+ * ==========================================================================
+ */
+
 import type { Branded } from '@deepseek-ai/dsh-brand'
 import type { ImageAttachmentRef } from '@deepseek-ai/dsh-attachment'
 import type { ToolCallId, ProviderRequestId, ReasoningEffortId } from './brand.ts'

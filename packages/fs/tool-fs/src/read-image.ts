@@ -11,6 +11,29 @@
  * @module @deepseek-ai/dsh-tool-fs/src/read-image
  */
 
+/**
+ * ================================ 文件注释 ================================
+ * 【文件职责】面向模型的 read_image 工具：提交一个 PNG/JPEG/WebP/GIF 文件为持久
+ * attachment，并把图片本身作为工具结果的一部分返回（模型可看）。
+ * 【技术维度】defineTool 注册：execute 流程 = 扩展名门（只收四种类型）→ attachment
+ * 服务存在性/媒体类型门 → 路由图像能力门（当前模型必须声明 image 输入）→ 解析
+ * 目标 → readBytes（双字节上限）→ attachments.saveImage 持久化（失败按错误码给出
+ * 可恢复的提示）→ 发 observed → 返回结构化值；展示层把值投影成"文本信封 + 图片块"。
+ * 【产品维度】让模型直接查看图片文件（无需安装图像库或手工建缩略图）：harness 会
+ * 在下次模型请求前校验并降采样大图；模型须支持图像输入。
+ * 【逻辑维度】按出现顺序：IMAGE_EXTENSIONS（扩展名→媒体类型表）→ IMAGE_VALUE_SCHEMA
+ * → ImageReadValue（输出结构）→ imageMediaTypeForPath → assertImageCapableRoute
+ * （路由门）→ imageRefFromValue（结构化值 → attachment 引用）→ formatImageReadOutput
+ * （信封文本）→ imageReadContent（内容块）→ applyReadImageTool（注册）。
+ * 【关键边界】路由门刻意比宿主上传预检更严：读图工具只在"确切调用路由能检查其结果"
+ * 时有用，未知能力直接拒绝，而不是等文件系统与 attachment 工作做完后靠适配器失败；
+ * 所有门在任何文件系统 I/O 之前执行（拒绝不泄漏部分读取或 attachment 写入）；
+ * saveImage 失败按错误码转成可恢复工具错误（超大图/过多像素/16 位 PNG/类型不匹配）。
+ * 【新手阅读建议】先看 execute 的四个门顺序，再看 saveImage 失败分支的映射表，
+ * 最后看 imageReadContent 的"文本 + 图片"双块结果。
+ * ==========================================================================
+ */
+
 import { basename, extname } from 'node:path'
 import type { Context } from '@deepseek-ai/cordis'
 import { AttachmentError, AttachmentId } from '@deepseek-ai/dsh-attachment'

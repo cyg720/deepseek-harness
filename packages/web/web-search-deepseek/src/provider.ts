@@ -6,6 +6,24 @@
  * @module @deepseek-ai/dsh-web-search-deepseek/provider
  */
 
+/*
+ * ================================ 文件注释 ================================
+ * 【文件职责】本文件实现 DeepSeek 搜索提供者：通过 Anthropic 兼容 Messages API 调用原生
+ *             web_search_20250305 服务端工具执行搜索，把结果块归一化为 WebSearchProvider。
+ * 【技术维度】实现 WebSearchProvider 接口；用原生 fetch 客户端（不走 ctx.llm）；一次搜索
+ *             花费一次模型轮次；结果以结构化块返回，缺失结果块视为错误而非散文兜底。
+ * 【产品维度】复用 DeepSeek API key 即可获得 DeepSeek 原生联网搜索；请求快照会写入会话日志，
+ *             保证"模型可见输入可还原"。
+ * 【逻辑维度】常量 → 请求快照类型 + 会话事件声明 → 选项接口 → citationSnippets /
+ *             mapAnthropicResponse 两个映射函数 → 提供者类（available / search / apiKey）
+ *             → 取消与校验辅助函数。
+ * 【关键边界】密钥解析与端点读取必须来自同一次配置快照（防止设置热更新混用）；
+ *             响应无 web_search_tool_result 块即抛错；重定向 fail 为 WEB_PROVIDER_ERROR。
+ * 【新手阅读建议】先读 mapAnthropicResponse 看结果块如何拼接，再读 search() 看请求构造
+ *             与错误分类，最后看 abortable 的取消竞态处理。
+ * ==========================================================================
+ */
+
 import { WebError } from '@deepseek-ai/dsh-web'
 import type {
   WebSearchProvider,

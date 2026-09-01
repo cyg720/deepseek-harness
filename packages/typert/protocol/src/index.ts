@@ -5,6 +5,30 @@
  * @module @deepseek-ai/dsh-typert-protocol
  */
 
+/*
+ * ================================ 文件注释 ================================
+ * 【文件职责】typert 协议包的运行时入口：提供 Remote 方法装饰器（@Remote / @RemoteScope）、
+ *             显式的服务到网关绑定（bindTypertRemote / TypertRemoteService），以及
+ *             全部协议类型的统一再导出。装饰器只往私有模块状态里记标记，不做严格反射。
+ * 【技术维度】标准 TC39 装饰器（ClassMethodDecoratorContext + addInitializer），配合
+ *             WeakMap<原型, Map<方法名, 标记>> 记录"哪个方法可以被远程调用"；
+ *             服务基类继承 Cordis 的 Service。严格反射（类型图生成）属于 generator 的职责。
+ * 【产品维度】业务开发者用 @Remote 把一个服务方法"变成"可跨进程调用的远程方法，
+ *             再继承 TypertRemoteService 使服务自带网关导出绑定；网关据此发现并路由方法。
+ * 【逻辑维度】按代码顺序：① 端点分段名校验（isTypertRemoteSegment 及正则）；
+ *             ② TypertLookupFailure 错误类型（携带适配器专属失败载荷）；③ 协议类型
+ *             批量再导出；④ 网关绑定（bindTypertRemote / TypertRemoteService）；
+ *             ⑤ 装饰器（Remote / RemoteScope）与标记读取（remoteMethods）；
+ *             ⑥ 私有辅助：登记标记（mark）、冲突检测（sameInvocation）、名称校验。
+ * 【关键边界】只记录"直连 / 作用域化"两种调用形态的标记；方法必须是公开实例方法且名字
+ *             必须是字符串（private / static / symbol 名会被拒绝）。端点分段名只允许
+ *             `[A-Za-z0-9_$.-]` 且不能是 "." 或 ".."，否则无法安全跨 RPC 传输。
+ *             标记表是模块级私有状态，不随服务实例序列化，也不会被外部篡改。
+ * 【新手阅读建议】先看 ⑤ 的 @Remote 装饰器与 ④ 的 TypertRemoteService（日常使用入口），
+ *             再读 ⑥ 的 mark / sameInvocation 理解冲突检测，最后看 ① 的正则与校验。
+ * ==========================================================================
+ */
+
 import { Service, type Context } from '@deepseek-ai/cordis'
 import type { TypertContextMap } from './types.ts'
 

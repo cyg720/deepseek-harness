@@ -1,5 +1,24 @@
 /** First-party Host inspect providers registered by the Cordis tool package. */
 
+/**
+ * ================================ 文件注释 ================================
+ * 【文件职责】由 tool-cordis 注册的"第一方 Host inspect 提供者"：把生成的能力目录
+ *             （Service/Event 目录）、Host 内置符号清单与实时工具注册表暴露为模型
+ *             可查询的只读提供者（cordis_inspect_list/query 的数据来源）。
+ * 【技术维度】HostCordisInspectProviderRegistration 注册项 + registration 工厂；
+ *             Service/Event 目录来自 api-catalog.ts 的生成数据；Tool 提供者读取
+ *             ctx.tools.schemas 且按调用 agent 作用域过滤。
+ * 【产品维度】让模型在写插件前"查能力目录"：确认某个服务有哪些方法、事件是什么
+ *             模式、沙箱里有哪些内置符号、自己能调哪些工具，避免瞎猜 API。
+ * 【逻辑维度】常量（输入/输出 schema、HOST_EVENTS 过滤）→ hostInspectProviders 组装
+ *             四个提供者（Service/Event/Builtin/Tool）→ registration 工厂与工具函数
+ *             （exactInput/readExact）。
+ * 【关键边界】所有查询必须只读；Client 专属事件（cordis/ 前缀）不列入 Host Event
+ *             目录；输入输出都带 JSON Schema 供校验。
+ * 【新手阅读建议】先看 registration 工厂理解一个提供者的结构，再看四个提供者的组装。
+ * ==========================================================================
+ */
+
 import type { Context } from '@deepseek-ai/cordis'
 import { HOST_BUILTIN_INSPECTION } from '@deepseek-ai/dsh-cordis-host-runner'
 import type { HostCordisInspectProviderRegistration } from '@deepseek-ai/dsh-cordis-host-runner'

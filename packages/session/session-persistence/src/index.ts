@@ -5,6 +5,31 @@
  * @module @deepseek-ai/dsh-session-persistence
  */
 
+/**
+ * ================================ 文件注释 ================================
+ * 【文件职责】定义会话持久化能力的"服务契约"（Service Definition）：以抽象类
+ *   SessionPersistence 规定一切持久化后端必须实现的能力（登记、追加、加载、
+ *   检视、按序号读取、列举、定位工件等），并通过声明合并把它挂到 Cordis 容器的
+ *   ctx.sessionPersistence 服务名下。具体落盘实现（JSONL、SQLite 后端）都继承本类。
+ * 【技术维度】Cordis 插件容器 Service 模式 + TypeScript 抽象类契约；事件溯源
+ *   （event sourcing，即"持久化逐条事件而非最终状态"）：日志主体是 SessionEvent
+ *   流的追加式存储，不可重放的会话头（SessionHeader）单独存放；另含品牌化修订号
+ *   （Branded 类型）等跨包类型词汇。
+ * 【产品维度】让 agent 的每段会话都能可靠保存、崩溃后恢复、随时续聊（resume）和
+ *   只读检视（inspect），支撑"模型可见的内容必须能从日志重建"这条架构不变量。
+ * 【逻辑维度】按代码顺序：①类型再导出（SessionHeader、修订号）；②三个轻量只读
+ *   视图接口 Snapshot / Inspection / RawArtifact；③协调器（coordinator.ts）公共
+ *   符号的转发导出；④Context 服务名声明合并；⑤SessionLocation 工件定位结构；
+ *   ⑥抽象基类 SessionPersistence 及其全部方法。
+ * 【关键边界】本文件只有契约没有实现：append 必须在数据真正持久化（durable，即
+ *   断电也不丢）后才 resolve；事件必须 seq 连续且可无损 JSON 序列化；返回的日志
+ *   是多方共享的不可变快照，调用方只读不写。
+ * 【新手阅读建议】先通读 SessionPersistence 类的方法文档理解"能做什么"，再看
+ *   coordinator.ts 理解"公共流程如何统一编排"，最后看 jsonl 包理解"如何落到单个
+ *   文件"；三个视图接口可在读到对应返回值时回头查阅。
+ * ==========================================================================
+ */
+
 import { Context, Service } from '@deepseek-ai/cordis'
 import { SessionPreparation } from '@deepseek-ai/dsh-session'
 import type { Session, SessionEvent, SessionId, SessionHeader } from '@deepseek-ai/dsh-session'

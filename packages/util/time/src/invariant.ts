@@ -4,6 +4,10 @@
  */
 
 /* jscpd:ignore-start */
+/*
+ * 中文导读：本模块校验时间工具包的关键运行时关系，并作为该包拥有的不变量入口。
+ */
+
 import type { Context } from '@deepseek-ai/cordis'
 import type { InvariantInstaller } from '@deepseek-ai/dsh-invariants'
 

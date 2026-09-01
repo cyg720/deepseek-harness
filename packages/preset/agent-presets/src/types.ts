@@ -1,4 +1,8 @@
 /** Client-safe payloads and event declarations owned by the agent-preset domain. */
+/*
+ * 中文导读：本模块集中声明 Agent 预设领域的客户端安全载荷与事件类型。
+ */
+
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import type { PresetTrust } from './preset.ts'
 

@@ -5,6 +5,18 @@
  * @module @deepseek-ai/dsh-agent
  */
 
+/*
+ * ================================ 文件注释 ================================
+ * 【文件职责】dsh-agent 插件本体：AgentRegistry 服务（ctx.agents）维护在线 agent 注册表，并提供进程内“发起者（initiator）”作用域链；智能体的具体创建由 AgentLoop 工厂实现。
+ * 【技术维度】Cordis Service + AsyncLocalStorage 传播发起者；事件带作用域载体（Scoped<Agent>）分发；factory 经 getTraceable 重定向到调用者上下文，使所有权跟随调用者。
+ * 【产品维度】这是所有 agent 能力的中枢：创建/恢复/查询 agent、事件订阅、以及“当前由哪个 agent 发起”的因果归属，供日志、指标、宿主归因使用。
+ * 【逻辑维度】类型与事件声明（AgentSetup/Handle/Factory/Events 合并）→ AgentRegistry（注册表 + enter/announce 两段式发布）
+ * → 发起者管理（withInitiator/runWithInitiator/关闭与排空）。
+ * 【关键边界】注册表是权威碰撞边界：同 id 只能有一个 live 条目；enter 与 announce 分离以支持异步工厂的“先 setup 后发布”；发起者链在 teardown 时排空但不等待自身排空。
+ * 【新手阅读建议】先读 AgentFactory 接口了解“创建者”契约，再看 AgentRegistry 的 enter/announce/detachEntered 顺序发布逻辑，最后看发起者（initiator）三个公开方法。
+ * ==========================================================================
+ */
+
 import { Context, FiberState, getTraceable, Service, symbols } from '@deepseek-ai/cordis'
 import type { Fiber } from '@deepseek-ai/cordis'
 import { AsyncLocalStorage } from 'node:async_hooks'

@@ -2,6 +2,15 @@
 // dispatch entry + list state, constructed and held by ClientSessions (one per browser client).
 // List data never enters zustand; React connects via subscribe/getListSnapshot.
 
+/**
+ * 文件职责：管理客户端会话清单、当前会话、历史分页、实时事件订阅和命令操作。
+ * 技术维度：Cordis 服务、响应式 Store、异步并发控制、AbortController、会话投影与 API 客户端。
+ * 产品维度：驱动会话侧栏和对话页，支持创建、切换、重命名、归档、提示与模型选择。
+ * 逻辑维度：初始化列表，按需加载历史，接收实时事件并更新投影；公开命令负责远程调用与本地状态同步。
+ * 关键边界：会话切换和销毁必须取消旧请求；历史与实时事件要按序去重；失败不能覆盖较新的状态。
+ * 新手阅读建议：先看 Manager 的公开状态与构造过程，再读会话选择/历史加载，最后阅读各产品命令和事件处理。
+ */
+
 import type { SubagentAddress, SubagentCatalog } from '@deepseek-ai/dsh-subagent/client'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import type { WorkspaceId } from '@deepseek-ai/dsh-workspace/types'

@@ -1,5 +1,25 @@
 /** Content-block structure helpers. @module @deepseek-ai/dsh-llm/content */
 
+/*
+ * ================================ 文件注释 ================================
+ * 【文件职责】提供内容块的结构辅助：递归检测内容中是否含图片、把图片投射成
+ * 确定性文本占位（纯文本模型或超限卸载）、以及按"数量/字节配额 + 量化步长"
+ * 卸载最旧图片的策略实现。
+ * 【技术维度】图片策略统一共用 contentHasImage 这一处递归遍历；卸载算法基于
+ * 持久消息顺序与附件元数据做确定性选择（按字节统计支持 raw/base64 两种口径），
+ * 不修改持久消息（原地替换产生浅拷贝）。
+ * 【产品维度】多模态请求与纯文本模型、受限请求体之间的兼容：图片不能发给
+ * 文本模型时给出稳定占位文本，请求体超限时按策略去掉最旧图片并告知模型，
+ * 兼顾可用性与可预测性。
+ * 【逻辑维度】占位文本常量 → 三类文本渲染辅助 → 递归图片检测 → 卸载策略
+ * 类型 → 长度收集/替换辅助 → 两个对外入口（纯文本投射、超限卸载）。
+ * 【关键边界】OFFLOADED_IMAGE_TEXT 对"最早图片先被移除"的说明必须真实；
+ * 卸载目标是持久历史（oldest first）的确定性函数，重试/回放结果一致。
+ * 【新手阅读建议】先看 contentHasImage 的递归结构，再读
+ * offloadRequestImagesWithPolicy 的"长度收集 → 超额计算 → 替换"三段流程。
+ * ==========================================================================
+ */
+
 import type { ContentBlock } from './types.ts'
 import type { Message } from './message.ts'
 import type { AttachmentStore, ImageAttachmentRef, ImageMediaType, RequestImageAttachment } from '@deepseek-ai/dsh-attachment'

@@ -1,5 +1,14 @@
 /** Durable attachment storage seam (`ctx.attachments`). @module @deepseek-ai/dsh-attachment */
 
+/*
+ * 文件职责：定义ctx.attachments附件服务接口，以及图片批量准入、持久提交、读取和请求版本投影的抽象流程。
+ * 技术维度：使用Cordis Service抽象类、TypeScript类型契约和模板方法统一不同存储后端行为。
+ * 产品维度：让会话、协议和模型提供方通过同一能力安全使用持久图片，而不依赖具体文件或云存储实现。
+ * 逻辑维度：声明上下文服务，先执行批次数量/字节/媒体类型检查，再验证全部成员并按顺序保存。
+ * 关键边界：默认后端不支持请求图片投影；批量存储失败不返回部分引用；实现必须在发布引用前验证字节。
+ * 新手阅读建议：先看AttachmentStore抽象方法，再读saveImages的模板流程，最后理解readImageRequest默认失败的扩展点。
+ */
+
 import { Context, Service } from '@deepseek-ai/cordis'
 import { AttachmentError } from './error.ts'
 import type {

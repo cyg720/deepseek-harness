@@ -4,6 +4,15 @@
  * @module @deepseek-ai/dsh-agent-instructions/files
  */
 
+/*
+ * 文件职责：实现工作区指令上下文的 files.ts 模块。
+ * 技术维度：TypeScript、Cordis 插件、会话事件和严格判别联合。
+ * 产品维度：控制模型请求中的工作区指令上下文信息。
+ * 逻辑维度：读取日志或文件状态，计算投影并记录/注入结果。
+ * 关键边界：不能静默丢失必需事件；裁剪和替换必须保持日志可重放。
+ * 新手阅读建议：先读导出类型与配置，再跟踪事件和投影流程。
+ */
+
 import { createReadStream } from 'node:fs'
 import { stat } from 'node:fs/promises'
 import { dirname, isAbsolute, join, relative, resolve } from 'node:path'

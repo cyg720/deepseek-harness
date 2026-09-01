@@ -1,5 +1,29 @@
 /** Platform-neutral assembly of generated Host Remote contributions. */
 
+/*
+ * ================================ 文件注释 ================================
+ * 【文件职责】dsh-api-remotes 的 Client 面装配：把各属主包（commands、goal、
+ * cordis-host-runner、file-reference 等）生成的远程贡献集（remote 描述符
+ * 模块）显式挂载到客户端，并聚合导出客户端所需的全部远程类型词汇。
+ * 【技术维度】Cordis 插件的 apply 里逐个调用 ctx.remote.$mount 挂载贡献集，
+ * 挂载失败时逆序回滚；类型部分全部为 type-only 再导出，包括载体的客户端
+ * 类型、被选命名空间的载荷词汇（payload vocabulary）与 JSON 词汇。
+ * 【产品维度】这是"消费者编译面"的单一装配点：业务包只需依赖本包即可
+ * 获得可调用的 remote.<ns> 方法与配套类型，无需逐个引入 Host 包或
+ * Connection 插件；也避免在客户端重复声明 Host 才有的类型。
+ * 【逻辑维度】按出现顺序：贡献集导入 → 远程类型再导出（ClientRemote、
+ * 命名空间类型、事件座位、Events 词汇）→ 载体类型再导出（Connection 等）
+ * → 载荷 / JSON / 引用发现词汇再导出 → Cordis Context 类型增强 →
+ * inject 声明 → apply 挂载逻辑。
+ * 【关键边界】被挂载的命名空间由本文件的导入清单显式选择；卸载按挂载
+ * 逆序进行，保证后挂的命名空间先拆；类型再导出必须保持 type-only，
+ * 载体的运行时值留在其模块边界之后。
+ * 【新手阅读建议】先读 apply 理解挂载与回滚，再看各类再导出的分组注释
+ * 理解"为什么每个词汇都从这里出口"，最后对照 gateway/client/index.ts
+ * 理解 $mount 背后的机制。
+ * ==========================================================================
+ */
+
 import type { Context } from '@deepseek-ai/cordis'
 import agentPresetsRemote from '@deepseek-ai/dsh-agent-presets/remote'
 import commandsRemote from '@deepseek-ai/dsh-commands/remote'

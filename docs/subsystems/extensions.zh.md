@@ -268,6 +268,12 @@ Shared Host/Client service façade over the realm's source publisher.
  * @param topic - Domain-owned topic name.
  * @param payload - JSON value validated before it reaches the carrier.
  * @param monotonicMs - Source-clock timestamp; defaults to `performance.now()`.
+ * @remarks 中文说明：功能说明：处理 publish 相关流程；使用场景由所在模块及调用位置决定。；
+ * 参数说明：topic（string）：提供本次调用所需的数据；必须满足声明的类型及调用时序要求。；
+ * 参数说明：payload（InspectorJsonValue）：提供本次调用所需的数据；必须满足声明的类型及调用时序要求。；
+ * 参数说明：monotonicMs（number）：提供本次调用所需的数据；必须满足声明的类型及调用时序要求。；返回值：void；
+ * 调用方应按声明类型处理，不应假定未声明的附加状态。；使用示例：典型用法：在完成前置校验后调用 publish(topic, payload,
+ * monotonicMs)，并按返回类型处理结果。
  */
 publish(topic: string, payload: InspectorJsonValue, monotonicMs?: number): void
 ```

@@ -5,6 +5,32 @@
  * @module @deepseek-ai/dsh-session-persistence/coordinator
  */
 
+/*
+ * ================================ 文件注释 ================================
+ * 【文件职责】实现"与具体存储无关"的会话写入/读取编排器 PersistenceCoordinator：
+ *   第一方后端（如 JSONL）只需提供最底层的存取原语（PersistenceBackend 接口），
+ *   缓冲、序列化、旧格式迁移、崩溃修复、按 id 串行化、释放清理等全部由本文件统一
+ *   编排；另含两个专用错误类型与格式版本拒绝文案。
+ * 【技术维度】事件溯源日志的追加写 + 按 id 的 Promise 链串行化（防并发交错）；
+ *   写后缓冲（write-behind，见 write-behind.ts）；基于修订号的乐观并发控制（读/
+ *   校验一个来回内日志未变才提交）；旧版事件词表的读取期迁移（migrate* 函数）；
+ *   Cordis effect/on 监听会话生命周期。
+ * 【产品维度】让每种持久化介质都能以最小成本接入同一套可靠语义：崩溃后日志可恢复、
+ *   并发写不损坏、resume 结果确定，用户在不同后端间获得一致体验。
+ * 【逻辑维度】按代码顺序：①默认参数常量与两个错误类；②格式拒绝文案函数；③协调器
+ *   策略接口与存储结果结构 StoredPrefix/StoredSuffix；④PersistenceBackend 存储契约；
+ *   ⑤私有记账结构与一批纯函数助手（校验、迁移、快照）；⑥PersistenceCoordinator
+ *   类：公共 API（create/append/prepare/load/inspect/readFrom）、每 id 串行链、
+ *   写路径监听安装、收养与修复逻辑。
+ * 【关键边界】序列化后的公共方法之间绝不能互相调用（会死锁），只能调未串行化的
+ *   *Core 助手；append 时未知事件类型故意不拒绝（只读侧才拒绝），避免打断进行中的
+ *   会话；返回的事件图必须与后端结果完全脱钩（fresh/unaliased）。
+ * 【新手阅读建议】先读 PersistenceBackend 接口理解"后端要提供什么"，再读类的公共
+ *   API 与 serialize/installWritePath 理解主流程，最后按需查 migrate* 迁移函数和
+ *   prepareCore→commitPrepared 的冷读-提交流水线。
+ * ==========================================================================
+ */
+
 import { Context } from '@deepseek-ai/cordis'
 import {
   adoptSessionEvent,

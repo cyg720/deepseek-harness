@@ -3,6 +3,29 @@
  * @module @deepseek-ai/dsh-api-gateway/types
  */
 
+/*
+ * ================================ 文件注释 ================================
+ * 【文件职责】定义 dsh-api-gateway（Typert RPC 网关）包对外暴露的类型契约：
+ * 一次远程调用的请求结构（InvokeRemoteRequest）、网关错误码分类
+ * （TypertGatewayErrorCode）与网关服务接口（TypertGateway），并把网关服务
+ * 挂到 Cordis 的 Context 类型上供全包使用。
+ * 【技术维度】纯类型文件：只含 interface / type / declare module，无运行时代码；
+ * 用 Cordis 的声明合并（declaration merging）机制为 Context 增加
+ * typertGateway 成员，让插件在编译期就能拿到网关服务的类型。
+ * 【产品维度】远程 BFF 架构的"接口契约层"：Host（服务端）按此契约暴露
+ * 能力，远程客户端按同一签名调用，两端共用一份类型定义保证一致。
+ * 【逻辑维度】按出现顺序：请求结构 InvokeRemoteRequest → 错误码
+ * TypertGatewayErrorCode → 网关接口 TypertGateway（invoke 方法）→
+ * Cordis Context 类型增强（declare module 块）。
+ * 【关键边界】args 是"命名 wire 值"，字段必须与生成描述符精确匹配；
+ * 错误码只覆盖基础设施与边界失败（如参数校验、服务不可用），业务错误
+ * 保留其原始类型与身份，不在此枚举内。
+ * 【新手阅读建议】先看 InvokeRemoteRequest（调用长什么样）与
+ * TypertGatewayErrorCode（失败怎么分类），再看 TypertGateway.invoke 的
+ * 契约（@throws 说明），最后看 declare module 理解 Cordis 类型扩展的写法。
+ * ==========================================================================
+ */
+
 import type { Context } from '@deepseek-ai/cordis'
 import type { RemoteEventHostInfo } from './stream-protocol.ts'
 

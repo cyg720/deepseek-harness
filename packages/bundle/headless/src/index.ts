@@ -8,6 +8,15 @@
  * @module @deepseek-ai/dsh-headless
  */
 
+/*
+ * 文件职责：实现headless Bundle的一次性代理驱动器，创建会话、执行单个任务、汇总最终文本、刷新并请求退出。
+ * 技术维度：使用Cordis插件、代理注册表、持久Session事件和默认模型选择完成空闲到空闲的直接运行区间。
+ * 产品维度：为脚本和CI提供无需HTTP或浏览器的单任务入口，并以stdout/stderr与退出码表达结果。
+ * 逻辑维度：等待Loader树完整，创建带模型选择的代理，记录起始序号，发送用户消息，等待空闲，汇总并刷新会话。
+ * 关键边界：每次只运行一个任务；仅输出最后已提交助手文本；异常或非正常轮次映射为失败退出。
+ * 新手阅读建议：先看Config和RunOutcome，再读summarize如何过滤事件，最后跟踪run中的创建、等待、刷新和退出顺序。
+ */
+
 import { randomUUID } from 'node:crypto'
 import type { Context } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'

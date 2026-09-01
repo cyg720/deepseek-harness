@@ -5,6 +5,19 @@
  * @module @deepseek-ai/dsh-lsp-stdio/translate
  */
 
+/*
+ * ================================ 文件注释 ================================
+ * 【文件职责】lsp-stdio 的纯协议翻译层：判断服务器能力允许哪些操作、是否支持临时 open/close，以及把 Location/LocationLink/Hover 原始载荷规范化为缝的封闭联合结果。无 I/O、无进程状态，全部为纯函数变换。
+ * 【技术维度】操作 → 请求方法名（requestMethod）与能力字段（capabilityValue）的映射；结构守卫
+ *   （isRange/isPosition 等）校验不可信线缆数据；悬停的多种编码（MarkupContent、字符串 MarkedString、
+ *   带语言标记的 MarkedString、数组）统一渲染为字符串。
+ * 【产品维度】把"任意 LSP 服务器"的输出翻译成本项目统一的 LSP 结果契约，供模型工具直接消费；纯函数便于 fake-stdio 测试精确锁定行为。
+ * 【逻辑维度】方法/能力映射 → 能力判断（supportsOperation/supportsTransientOpen）→ 位置编码协商 → 导航结果归一化（normalizeLocations）→ 悬停归一化（normalizeHover）→ 各结构守卫与错误构造。
+ * 【关键边界】所有输入视为不可信线缆数据，结构不符抛 LSP_MALFORMED_RESPONSE；位置编码只支持 utf-16，其他编码直接拒绝；findReferences 永远要求包含声明。
+ * 【新手阅读建议】先读 normalizeLocations 与 normalizeHover 两条主路径，再看底层守卫函数如何保证安全。
+ * ==========================================================================
+ */
+
 import type {
   LspHover,
   LspLocation,

@@ -10,6 +10,28 @@
  * it until asked again.
  */
 
+/**
+ * ================================ 文件注释 ================================
+ * 【文件职责】cordis-client-runner 的浏览器（Client）半部入口：把"一个浏览器半部
+ *             的源码"变为真实运行中的 Cordis 插件（闭包 → 守卫 → 模块表 → loader
+ *             条目），并提供运行编排（审批/直跑）、本页加载状态与 Client inspect。
+ * 【技术维度】apply 组装三件套：DynamicCordisPackageRunner（运行引擎，runtime.ts）、
+ *             CordisRunOrchestrator（编排，orchestrator.ts）、ClientCordisInspectRegistry
+ *             （只读查询）；经 Remote 命名空间调用 Host（runHostHalf/getClientCode/
+ *             resolveRequestRun/…）；订阅 Host 转发的 cordis/* 事件。
+ * 【产品维度】刷新页面后不会自动恢复运行中的插件（本页只在收到分派事件后才加载）：
+ *             定义仍在 Host 进程内存，页面按需再启动即可——这是有意的设计。
+ * 【逻辑维度】提供定时器/inspect → 构造 runner（invoke 教学错误 + 渲染/守卫失败上报）
+ *             → 构造 orchestrator（Host 接缝折叠传输错误）→ 合成 CordisRunnerFace 服务
+ *             → 订阅 cordis/* 事件驱动 open/close/retract/query。
+ * 【关键边界】激活仅在分派后发生（模型 cordis_run 或用户按卡片启动）；invoke 是
+ *             双层失败（载波错误 vs Host 拒绝）且只有此处知道调用归属；渲染失败
+ *             上报为 fire-and-forget（一次崩溃不得变成两次）。
+ * 【新手阅读建议】先读文件头英文注释理解"按需加载"哲学，再看 apply 的组装顺序，
+ *             最后读 runtime.ts 与 orchestrator.ts 两个引擎。
+ * ==========================================================================
+ */
+
 import type { Context } from '@deepseek-ai/cordis'
 import type {
   ApprovalRequestId, CordisDynamicPluginId, DynamicCordisInvokeResult,

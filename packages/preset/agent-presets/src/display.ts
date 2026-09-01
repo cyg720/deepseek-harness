@@ -1,3 +1,7 @@
+/*
+ * 中文导读：本模块统一解析预设显示名：内置预设使用 locale 字典，用户自定义元数据保持原文。
+ */
+
 /**
  * Display resolution for roster presets, shared by every surface that renders
  * preset names: shipped presets resolve through locale dictionary keys, and

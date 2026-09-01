@@ -1,5 +1,21 @@
 /** Injected faces and the Package-owned `tool.view.cordis` slot declaration. */
 
+/*
+ * ================================ 文件注释 ================================
+ * 【文件职责】ui-cordis 各 UI 面（face）的注入类型契约，以及包自有的
+ *             `tool.view.cordis` 槽位声明：动态包 Client 代码注册业务视图的锚点。
+ * 【技术维度】slots 系统的 keyed 槽位声明（kind: 'keyed'、scope: 'session'、owner
+ *             载荷）；各 face 接口承载组件所需的 hooks 与回调；声明合并把新槽位
+ *             注册进 SlotMap。
+ * 【产品维度】让动态插件可以在"最新一次成功的 cordis_run 卡片"里渲染可交互的
+ *             业务 UI（表单/按钮等），用户直接在对话流里操作，而不是只读文本。
+ * 【逻辑维度】owner 载荷 → 槽位声明 → 三种 face（Define/Run/Panel）契约。
+ * 【关键边界】业务视图必须由 Client 守卫把 key:'self' 绑定到当前插件/包；face
+ *             只承载数据与回调，不承载组件实现。
+ * 【新手阅读建议】先看槽位声明理解业务视图挂载点，再看三个 face 的字段。
+ * ==========================================================================
+ */
+
 import type { SessionId } from '@deepseek-ai/dsh-api-remotes/client'
 import type { HostObservable } from '@deepseek-ai/dsh-client-ui-slots'
 import type {

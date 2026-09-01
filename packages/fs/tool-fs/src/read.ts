@@ -4,6 +4,27 @@
  * @module @deepseek-ai/dsh-tool-fs/src/read
  */
 
+/*
+ * ================================ 文件注释 ================================
+ * 【文件职责】面向模型的 UTF-8 读取工具。它做一次提供者 stat（用于类型、路由与
+ * 观察版本），大文件或大小未知的文件走流式，渲染一个有界窗口，然后发出观察事件。
+ * 【技术维度】defineTool 注册：schema 校验 file_path/offset/limit；execute 流程 =
+ * parseReadArgs → resolveRegularReadTarget（解析+stat）→ 按大小选 readText 或
+ * streamText → buildWindow（行/字节双上限，见 read-render.ts）→ 发 observed →
+ * 返回 { path, offset, lines, totalLines }；展示层把结构化窗口投影进 meta（重放
+ * 安全），presentResult 用 meta 重建带行号的代码视图。
+ * 【产品维度】模型查看文本文件的标准工具：带行号、支持 offset/limit 续读大文件、
+ * 行与字节双上限防失控；系统提示引导"用 read 而非 cat"。
+ * 【逻辑维度】按出现顺序：READ_LIMIT/STREAM_MIN_SIZE（默认常量）→ ReadToolCaps →
+ * ReadInput → parsePositiveInteger/parseReadArgs（校验）→ applyReadTool（注册）。
+ * 【关键边界】isConcurrencySafe 为 true：观察竞争"失败即关闭"——守卫变更会在锁内
+ * 重查版本，过期即要求重读；流式阈值同时覆盖"size 未知"（无大小后端永不无界缓冲）；
+ * presentResult 对畸形 meta 走通用兜底，绝不在重放时抛错。
+ * 【新手阅读建议】先看 parseReadArgs 的默认与上限，再看 execute 的流式路由，最后
+ * 看 presentResult 的 meta 收窄与信封正则。
+ * ==========================================================================
+ */
+
 import type { Context } from '@deepseek-ai/cordis'
 import { defineTool } from '@deepseek-ai/dsh-tools'
 import type { GenericCallView, ReadResultView, ToolResult } from '@deepseek-ai/dsh-tools'

@@ -4,6 +4,27 @@
  * @module @deepseek-ai/dsh-tools
  */
 
+/*
+ * ================================ 文件注释 ================================
+ * 【文件职责】工具系统的产品 API 主干：ToolRuntime 服务（工具注册表 + 执行流水线）、
+ *   模型呈现模式（native/code/both）、pre/execute/post 三段 waterfall 策略事件、
+ *   单调 guard、以及本包全部公开类型的再导出。
+ * 【技术维度】Cordis 服务类（static inject/Config）+ 作用域分层注册表（ScopedLayers，
+ *   子作用域遮蔽全局）；执行流水线分 prepare/dispatch/finalize/finish 四个阶段供并行
+ *   调度器交错调用；结果经快照-校验-渲染-物化-冻结后发布；取消信号在环绕包装层
+ *   与调用方信号融合。
+ * 【产品维度】所有工具的"注册 → 呈现给模型 → 审批/守卫 → 执行 → 后处理 → 日志/UI"
+ *   全链路都在这里收口；Code Mode 的 run_code 传输由本服务按需构建并保留。
+ * 【逻辑维度】常量与 SDK 渲染表 → 事件声明合并 → 输入/执行/结果等核心类型 → 错误类
+ *   与小工具函数 → ToolLayer 与视图派生 → ToolRuntime 服务类（注册/限制/守卫/
+ *   视图/schema 投影/四阶段流水线）→ 模块级辅助函数。
+ * 【关键边界】模型可见 ⟺ 可由日志重建：参数在策略前做无损 JSON 快照并深冻结；
+ *   结果发布前整体冻结；run_code 名字保留、不可注册/限制；guard 只能拒绝不能放行。
+ * 【新手阅读建议】先读 ToolDefinition 理解一个工具长什么样，再顺着 execute 的注释走
+ *   一遍流水线，最后看 view()/modeFor() 理解作用域与呈现模式的解析规则。
+ * ==========================================================================
+ */
+
 import { Context, Service } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
 import { AnonymousEntries, NamedEntries, ScopedLayers, scopeOf, scopeTarget } from '@deepseek-ai/dsh-scope'

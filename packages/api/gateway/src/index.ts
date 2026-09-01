@@ -5,6 +5,35 @@
  * @module @deepseek-ai/dsh-api-gateway
  */
 
+/*
+ * ================================ 文件注释 ================================
+ * 【文件职责】实现 Typert RPC 网关的核心逻辑：把远程客户端发来的"命名端点
+ * + 参数"请求，解析为具体的 Service 方法与业务实参，分发到 Host 端插件上
+ * 执行，再把业务结果做边界校验后返回；同时作为 Connection 载体的 RPC
+ * 处理器，拦截 /api 路径下的调用。
+ * 【技术维度】基于 Cordis 的 Service 插件体系：TypertGatewayService 继承
+ * Service 并注册为 ctx.typertGateway；通过 ctx.connection.rpc.intercept
+ * 挂接 RPC 拦截器；描述符解析支持两条路径——严格生成描述符（typert 注册表
+ * 里的 InvocationDescriptor）与 SRC 标记（源码上的 typertRemote 绑定反射）。
+ * 【产品维度】远程 BFF 网关是"能力暴露层"：Host 端各插件（如 commands、
+ * settings、llm）的能力经此网关暴露给远程客户端（IDE 扩展、ACP 等），
+ * 客户端无需引入 Host 包即可调用；网关同时负责参数校验、上下文解析、
+ * 查找（lookup）解析与 JSON 安全边界检查。
+ * 【逻辑维度】按出现顺序：错误类型（TypertGatewayError 等）→ 网关服务类
+ * TypertGatewayService（拦截器挂接 → 端点认领 → 描述符解析 → 参数与上下文
+ * 解析 → 方法调用 → 结果解码）→ 模块级工具函数（RPC 失败映射、绑定校验、
+ * 签名解析、参数精确匹配、JSON 安全断言）。
+ * 【关键边界】args 必须与描述符精确匹配（assertExactArguments）；业务结果
+ * 必须通过 JSON 安全校验（assertJsonValue），非有限数值、循环引用、符号
+ * 属性等都会在边界被拒绝；SRC 回退只在没有严格定义时使用，且参数名必须
+ * 是合法的简单标识符。
+ * 【新手阅读建议】建议按调用链阅读：先看 invoke() 总览整条链路，再依次
+ * 看 resolveDescriptor / resolveReceiverContext / resolveParameter 理解
+ * 参数如何从 wire 值变成业务实参，最后看 assertJsonValue 理解 JSON 安全
+ * 边界为什么存在。
+ * ==========================================================================
+ */
+
 import { randomUUID } from 'node:crypto'
 import { Context, Service, symbols } from '@deepseek-ai/cordis'
 import type { ConnectionRpcHandler } from '@deepseek-ai/dsh-client-connection'

@@ -5,6 +5,22 @@
  * @module @deepseek-ai/dsh-web-search-deepseek
  */
 
+/*
+ * ================================ 文件注释 ================================
+ * 【文件职责】本文件是 dsh-web-search-deepseek 包的插件入口：把 DeepSeek 搜索提供者注册进
+ *             ctx.web 的搜索注册表，并把插件配置、设置面板、环境变量解析成提供者选项。
+ * 【技术维度】函数式 Cordis 插件：导出 name/inject/Config/apply；用 settings 服务的设置面板
+ *             承载可热更新的端点/模型配置；每次搜索前动态解析选项。
+ * 【产品维度】复用 DeepSeek API key 即可获得 DeepSeek 原生联网搜索；端点可用独立的
+ *             $DEEPSEEK_SEARCH_BASE_URL 环境变量或设置面板覆盖。
+ * 【逻辑维度】插件三要素 → 配置 schema → 环境变量名与设置命名空间 → resolveOptions() 解析 →
+ *             apply() 安装设置面板并注册提供者。
+ * 【关键边界】搜索走 Anthropic 兼容 Messages API，与聊天补全的 $DEEPSEEK_BASE_URL 不同源，
+ *             因此不复用该变量；提供者每次搜索都重新解析配置以支持设置热更新。
+ * 【新手阅读建议】先看 provider.ts 的 DeepSeekSearchProvider 与 resolveOptions 的对应关系。
+ * ==========================================================================
+ */
+
 import type { Context } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
 import type {} from '@deepseek-ai/dsh-agent'

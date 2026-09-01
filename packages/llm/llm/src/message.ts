@@ -1,5 +1,23 @@
 /** Message value types, identity, and immutable construction helpers. */
 
+/*
+ * ================================ 文件注释 ================================
+ * 【文件职责】定义消息的值类型（Message 及其角色特化）、消息来源（source）
+ * 与上下文形态（ContextForm）词汇表，以及不可变消息的构造/冻结辅助函数。
+ * 【技术维度】消息跨"交付、持久历史、模型请求"多个边界共享同一不可变表示；
+ * source 是可扩展联合（插件可加 kind），ContextForm 是语义化词汇（描述内容
+ * 是什么，而非怎么展示）；所有构造函数最终都走 deepFreeze(structuredClone)。
+ * 【产品维度】消息是用户可见对话的最小单元：统一的不可变表示保证日志可回放、
+ * 模型请求可重建；语义化的上下文形态让 UI 按内容类型展示而不侵入数据层。
+ * 【逻辑维度】来源与出处类型 → 上下文形态与结构化字段 → 来源映射 → 消息
+ * 主类型与角色特化 → 内部"新消息"输入类型 → 冻结/构造辅助 → token 增量判定。
+ * 【关键边界】create* 系列生成的 id 用 crypto.randomUUID；消息一经创建即冻结，
+ * 禁止任何原地修改；source.kind 决定"谁产生的"，form 决定"是什么类型的东西"。
+ * 【新手阅读建议】先读 Message 接口与三种角色特化，再看 ContextForm 的英文
+ * 注释理解"语义而非视觉"的设计原则，最后看构造辅助函数的调用链。
+ * ==========================================================================
+ */
+
 import { randomUUID } from '@deepseek-ai/dsh-util-crypto'
 import { brandString } from '@deepseek-ai/dsh-brand'
 import { deepFreeze } from '@deepseek-ai/dsh-util-values'
