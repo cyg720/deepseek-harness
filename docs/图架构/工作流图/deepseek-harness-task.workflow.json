@@ -1,0 +1,171 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "DeepSeek Harness 一次任务的完整工作流",
+    "locale": "zh-CN",
+    "output": "deepseek-harness-task-workflow.html",
+    "quality_profile": "showcase"
+  },
+  "lanes": [
+    { "id": "entry", "label": "使用者与入口应用｜Web / Headless / SDK / ACP / Webhook" },
+    { "id": "boot", "label": "启动与组装｜dsh CLI + app-boot" },
+    { "id": "agent", "label": "Agent 核心主干｜agent-loop + system-prompt + session" },
+    { "id": "capability", "label": "可插拔能力提供方｜ctx.llm + ctx.tools + approval + sandbox" },
+    { "id": "record", "label": "记录与呈现｜SessionEvent + projection + UI / persistence" }
+  ],
+  "phases": [
+    { "id": "intake", "label": "启动与任务进入", "fromCol": 0, "toCol": 1 },
+    { "id": "prepare", "label": "开启 turn 并准备请求", "fromCol": 2, "toCol": 3, "variant": "emphasis" },
+    { "id": "run", "label": "请求模型、继续或结束", "fromCol": 4, "toCol": 5, "variant": "dashed" }
+  ],
+  "groups": [
+    { "id": "turn_loop", "label": "一个 turn 内的多个 step", "lane": "agent", "fromCol": 2, "toCol": 5, "variant": "emphasis" }
+  ],
+  "mainPath": [
+    "task_input",
+    "create_agent",
+    "claim_input",
+    "assemble_request",
+    "llm_stream",
+    "decide_next",
+    "final_view"
+  ],
+  "semanticChecks": {
+    "allowedRoots": ["task_input", "profile_start"],
+    "allowedTerminals": ["final_view"],
+    "requiredPaths": [
+      { "from": "task_input", "to": "final_view" },
+      { "from": "profile_start", "to": "create_agent" },
+      { "from": "decide_next", "to": "execute_tools" },
+      { "from": "execute_tools", "to": "assemble_request" }
+    ]
+  },
+  "nodes": [
+    {
+      "id": "task_input",
+      "lane": "entry",
+      "col": 0,
+      "type": "frontend",
+      "label": "1 · 任务进入",
+      "sublabel": "用户任务 / 接口调用",
+      "tag": "责任：入口应用",
+      "width": 152
+    },
+    {
+      "id": "profile_start",
+      "lane": "boot",
+      "col": 0,
+      "type": "cloud",
+      "label": "选择 profile",
+      "sublabel": "dsh CLI 统一启动",
+      "tag": "启动前提",
+      "width": 152
+    },
+    {
+      "id": "plugin_tree",
+      "lane": "boot",
+      "col": 1,
+      "type": "backend",
+      "label": "组装 Cordis 插件树",
+      "sublabel": "Bundle → profile / home → patch",
+      "tag": "责任：dsh-app-boot",
+      "width": 176
+    },
+    {
+      "id": "create_agent",
+      "lane": "entry",
+      "col": 1,
+      "type": "frontend",
+      "label": "2 · 创建或恢复 Agent",
+      "sublabel": "将输入放入统一 inbox",
+      "tag": "责任：入口 + ctx.agents",
+      "width": 168
+    },
+    {
+      "id": "claim_input",
+      "lane": "agent",
+      "col": 2,
+      "type": "backend",
+      "label": "3 · 开启 turn 并领取输入",
+      "sublabel": "turn/start · agent/pre-step",
+      "tag": "责任：agent-loop",
+      "width": 172
+    },
+    {
+      "id": "assemble_request",
+      "lane": "agent",
+      "col": 3,
+      "type": "backend",
+      "label": "4 · 组装本次模型请求",
+      "sublabel": "历史 + 系统提示词 + 工具定义",
+      "tag": "责任：session + system-prompt",
+      "width": 184
+    },
+    {
+      "id": "llm_stream",
+      "lane": "capability",
+      "col": 4,
+      "type": "cloud",
+      "label": "5 · 流式生成模型回复",
+      "sublabel": "agent/request → llm/stream",
+      "tag": "责任：ctx.llm Provider",
+      "width": 156
+    },
+    {
+      "id": "decide_next",
+      "lane": "agent",
+      "col": 5,
+      "type": "messagebus",
+      "label": "6 · 记录回复并判断下一步",
+      "sublabel": "回复、工具调用与新输入",
+      "tag": "责任：agent-loop",
+      "width": 184
+    },
+    {
+      "id": "final_view",
+      "lane": "entry",
+      "col": 5,
+      "type": "frontend",
+      "label": "7 · 结束 turn 并呈现结果",
+      "sublabel": "turn/end · agent/status idle",
+      "tag": "责任：agent-loop + UI / SDK",
+      "width": 184
+    },
+    {
+      "id": "execute_tools",
+      "lane": "capability",
+      "col": 5,
+      "type": "security",
+      "label": "策略检查并执行工具",
+      "sublabel": "检查 / 审批 → 执行 → 归一化",
+      "tag": "责任：ctx.tools + Provider",
+      "width": 176
+    },
+    {
+      "id": "event_log",
+      "lane": "record",
+      "col": 4,
+      "type": "database",
+      "label": "SessionEvent 日志与投影",
+      "sublabel": "assistant / tool 事件",
+      "tag": "UI / replay / resume / persistence 均由此派生",
+      "width": 184
+    }
+  ],
+  "edges": [
+    { "id": "task_to_agent", "from": "task_input", "to": "create_agent", "label": "提交任务", "variant": "emphasis", "role": "main" },
+    { "id": "profile_to_tree", "from": "profile_start", "to": "plugin_tree", "label": "加载有序配置层", "variant": "dashed", "role": "branch" },
+    { "id": "tree_to_agent", "from": "plugin_tree", "to": "create_agent", "label": "插件树就绪", "variant": "dashed", "role": "branch" },
+    { "id": "agent_to_claim", "from": "create_agent", "to": "claim_input", "label": "inbox 唤醒 driver", "variant": "emphasis", "role": "main" },
+    { "id": "claim_to_request", "from": "claim_input", "to": "assemble_request", "label": "enter(messages)", "variant": "emphasis", "role": "main" },
+    { "id": "request_to_llm", "from": "assemble_request", "to": "llm_stream", "label": "请求模型", "variant": "emphasis", "role": "main" },
+    { "id": "llm_to_decide", "from": "llm_stream", "to": "decide_next", "label": "StreamChunk*", "variant": "emphasis", "role": "main" },
+    { "id": "decide_to_final", "from": "decide_next", "to": "final_view", "label": "无工具调用，且无待处理输入", "variant": "emphasis", "role": "main" },
+    { "id": "decide_to_tools", "from": "decide_next", "to": "execute_tools", "label": "包含 tool call", "variant": "security", "role": "branch" },
+    { "id": "log_to_request", "from": "event_log", "to": "assemble_request", "label": "读取 tool/result，进入下一 step", "variant": "dashed", "role": "return" },
+    { "id": "assistant_to_log", "from": "llm_stream", "to": "event_log", "label": "记录回复事件", "variant": "dashed", "role": "async" },
+    { "id": "tools_to_log", "from": "execute_tools", "to": "event_log", "label": "tool/call + tool/result", "variant": "dashed", "role": "async" }
+  ],
+  "cards": []
+}

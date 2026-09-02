@@ -1,0 +1,297 @@
+{
+  "schema_version": 1,
+  "diagram_type": "lifecycle",
+  "meta": {
+    "title": "DeepSeek Harness Agent 任务生命周期",
+    "locale": "zh-CN",
+    "subtitle": "一张图看懂：任务如何被唤醒、循环调用模型与工具、等待审批、恢复重试，并以哪种结果结束本轮",
+    "output": "docs/图架构/生命周期图/deepseek-harness-agent-lifecycle.html",
+    "viewBox": [920, 566],
+    "animation": "trace",
+    "visual_preset": "signal-flow",
+    "quality_profile": "showcase",
+    "legend": {
+      "mode": "all",
+      "entries": {
+        "start": { "label": "起点 / 对外空闲" },
+        "active": { "label": "运行中" },
+        "waiting": { "label": "等待外部决定" },
+        "decision": { "label": "判断与收束" },
+        "success": { "label": "正常结束" },
+        "failure": { "label": "恢复或异常结束" },
+        "neutral": { "label": "被策略拦截" },
+        "external": { "visible": false }
+      }
+    },
+    "views": [
+      {
+        "id": "normal-run",
+        "label": "正常主线",
+        "focus": ["idle", "preStep", "modelRequest", "toolPipeline", "turnClosing", "completed"],
+        "note": "沿主线看完一个 Turn；maintenance 对外仍是 idle，新输入排队并在维护结束后唤醒。"
+      },
+      {
+        "id": "wait-retry",
+        "label": "等待与重试",
+        "focus": ["modelRequest", "requestRecovery", "toolPipeline", "approvalWait"],
+        "note": "审批会暂停工具执行；模型失败只有被恢复插件接管并真正推进上下文后才重试。"
+      },
+      {
+        "id": "all-endings",
+        "label": "全部结局",
+        "focus": ["preStep", "turnClosing", "completed", "blocked", "maxTokens", "aborted", "error"],
+        "note": "cancel 可打断任意 running 子状态；常规结局后回 idle。interrupted 仅在崩溃重载时补记。"
+      }
+    ]
+  },
+  "lanes": [
+    { "id": "main", "label": "主生命周期（Agent 对外状态：idle → running → idle）" },
+    { "id": "wait", "label": "运行中的等待" },
+    { "id": "recovery", "label": "可恢复失败" },
+    { "id": "terminal", "label": "本轮 Turn 的持久结束结果" }
+  ],
+  "states": [
+    {
+      "id": "idle",
+      "type": "start",
+      "label": "空闲 / 等待输入",
+      "sublabel": "无 Driver；输入可唤醒",
+      "tag": "agent.status = idle",
+      "step": "01",
+      "lane": "main",
+      "col": 0,
+      "width": 120
+    },
+    {
+      "id": "preStep",
+      "type": "decision",
+      "label": "Turn 打开与预步判断",
+      "sublabel": "turn/start → 认领 → pre-step",
+      "tag": "running · claim",
+      "step": "02",
+      "lane": "main",
+      "col": 1,
+      "width": 120
+    },
+    {
+      "id": "modelRequest",
+      "type": "active",
+      "label": "模型请求中",
+      "sublabel": "step/start → stream → message",
+      "tag": "LLM · stream",
+      "step": "03",
+      "lane": "main",
+      "col": 2,
+      "width": 120
+    },
+    {
+      "id": "toolPipeline",
+      "type": "active",
+      "label": "工具分流与执行",
+      "sublabel": "无工具跳过；有工具执行回灌",
+      "tag": "Tools · scheduler",
+      "step": "04",
+      "lane": "main",
+      "col": 3,
+      "width": 120
+    },
+    {
+      "id": "turnClosing",
+      "type": "decision",
+      "label": "步骤循环或轮次收束",
+      "sublabel": "step/end → turn-stopping",
+      "tag": "checkpoint",
+      "step": "05",
+      "lane": "main",
+      "col": 4,
+      "width": 120
+    },
+    {
+      "id": "approvalWait",
+      "type": "waiting",
+      "label": "等待工具审批",
+      "sublabel": "一次性询问；仍为 running",
+      "tag": "human gate",
+      "lane": "wait",
+      "col": 1,
+      "width": 120,
+      "yOffset": -45
+    },
+    {
+      "id": "requestRecovery",
+      "type": "failure",
+      "label": "请求失败待恢复",
+      "sublabel": "agent/request-error；默认不重试",
+      "tag": "recoverable",
+      "lane": "recovery",
+      "col": 0,
+      "width": 120,
+      "yOffset": -45
+    },
+    {
+      "id": "completed",
+      "type": "success",
+      "label": "正常完成",
+      "sublabel": "正常响应或空首批",
+      "tag": "terminal",
+      "lane": "terminal",
+      "col": 2,
+      "width": 120,
+      "height": 52,
+      "yOffset": -139
+    },
+    {
+      "id": "blocked",
+      "type": "neutral",
+      "label": "预步被拦截",
+      "sublabel": "turn/end · blocked；无 Step",
+      "tag": "terminal",
+      "lane": "terminal",
+      "col": 1,
+      "width": 120,
+      "height": 52,
+      "yOffset": -139
+    },
+    {
+      "id": "maxTokens",
+      "type": "failure",
+      "label": "达到输出上限",
+      "sublabel": "turn/end · max-tokens（粘性）",
+      "tag": "terminal",
+      "lane": "terminal",
+      "col": 2,
+      "width": 120,
+      "height": 52,
+      "yOffset": -63
+    },
+    {
+      "id": "aborted",
+      "type": "failure",
+      "label": "已取消 / 中止",
+      "sublabel": "turn/end · aborted（含原因）",
+      "tag": "terminal",
+      "lane": "terminal",
+      "col": 1,
+      "width": 120,
+      "height": 52,
+      "yOffset": -63
+    },
+    {
+      "id": "error",
+      "type": "failure",
+      "label": "不可恢复错误",
+      "sublabel": "turn/end · error（结构化）",
+      "tag": "terminal",
+      "lane": "terminal",
+      "col": 0,
+      "width": 120,
+      "height": 52,
+      "yOffset": -139
+    }
+  ],
+  "transitions": [
+    { "id": "wake", "from": "idle", "to": "preStep", "variant": "emphasis", "route": "auto" },
+    { "id": "enterStep", "from": "preStep", "to": "modelRequest", "route": "auto" },
+    { "id": "modelResult", "from": "modelRequest", "to": "toolPipeline", "route": "auto" },
+    { "id": "finishStep", "from": "toolPipeline", "to": "turnClosing", "route": "auto" },
+    {
+      "id": "nextStep",
+      "from": "toolPipeline",
+      "to": "preStep",
+      "label": "工具结果或 steer → 下一 Step",
+      "variant": "emphasis",
+      "route": "top-channel",
+      "channelY": 76,
+      "labelDy": -8
+    },
+    {
+      "id": "approvalNeeded",
+      "from": "toolPipeline",
+      "to": "approvalWait",
+      "label": "ask",
+      "variant": "security",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "route": "straight",
+      "labelAt": [530, 212]
+    },
+    {
+      "id": "approvalResolved",
+      "from": "approvalWait",
+      "to": "toolPipeline",
+      "variant": "emphasis",
+      "route": "right-channel",
+      "channelX": 630
+    },
+    {
+      "id": "requestFailed",
+      "from": "modelRequest",
+      "to": "requestRecovery",
+      "label": "提供方失败",
+      "variant": "security",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "route": "straight",
+      "labelAt": [350, 226]
+    },
+    {
+      "id": "retryRequest",
+      "from": "requestRecovery",
+      "to": "modelRequest",
+      "label": "有真实进展 → retry",
+      "variant": "emphasis",
+      "route": "right-channel",
+      "channelX": 478,
+      "labelAt": [500, 305]
+    },
+    {
+      "id": "recoveryFailed",
+      "from": "requestRecovery",
+      "to": "error",
+      "variant": "security",
+      "fromSide": "left",
+      "toSide": "left",
+      "via": [[300, 262], [300, 337]]
+    },
+    {
+      "id": "completeTurn",
+      "from": "turnClosing",
+      "to": "completed",
+      "label": "completed",
+      "variant": "emphasis",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "route": "straight",
+      "labelAt": [760, 250]
+    },
+    {
+      "id": "preStepRejected",
+      "from": "preStep",
+      "to": "blocked",
+      "label": "reject",
+      "variant": "security",
+      "fromSide": "left",
+      "toSide": "bottom",
+      "via": [[170, 157], [170, 378], [556, 378]],
+      "labelAt": [250, 388]
+    },
+    {
+      "id": "tokenLimit",
+      "from": "turnClosing",
+      "to": "maxTokens",
+      "label": "max-tokens（粘性）",
+      "variant": "security",
+      "route": "right-channel",
+      "channelX": 806,
+      "labelAt": [790, 378]
+    },
+    {
+      "id": "cancelActive",
+      "from": "toolPipeline",
+      "to": "aborted",
+      "variant": "security",
+      "route": "right-channel",
+      "channelX": 640
+    }
+  ]
+}

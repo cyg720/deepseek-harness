@@ -1,0 +1,199 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "DeepSeek Harness 系统架构全景",
+    "locale": "zh-CN",
+    "output": "deepseek-harness-system.html",
+    "quality_profile": "showcase",
+    "repository": {
+      "url": "https://github.com/cyg720/deepseek-harness.git",
+      "revision": "769654085bcaec486c46dcfabe4878ddb4776be7"
+    },
+    "viewBox": [1100, 520]
+  },
+  "components": [
+    {
+      "id": "entry",
+      "type": "frontend",
+      "label": "1 · 使用入口",
+      "sublabel": "Web / Headless / SDK / ACP / Webhook",
+      "tag": "人或外部系统从这里进入",
+      "pos": [10, 180],
+      "size": [165, 92],
+      "sources": [
+        { "path": "docs/architecture.zh.md", "label": "应用启动" },
+        { "path": "packages/bundle/web-app/cordis.patch.yml", "label": "Web 应用" },
+        { "path": "packages/bundle/headless/cordis.patch.yml", "label": "Headless 应用" }
+      ]
+    },
+    {
+      "id": "assembly",
+      "type": "backend",
+      "label": "2 · 启动与组装层",
+      "sublabel": "dsh CLI → Profile → Bundle → Patch",
+      "tag": "得到本次运行的插件树",
+      "pos": [200, 180],
+      "size": [190, 92],
+      "sources": [
+        { "path": "apps/cli/package.json", "label": "dsh 入口" },
+        { "path": "packages/boot/app-boot/src/profile.ts", "label": "Profile 组装" },
+        { "path": "docs/architecture.zh.md", "label": "叠加顺序" }
+      ]
+    },
+    {
+      "id": "configuration",
+      "type": "cloud",
+      "label": "配置来源",
+      "sublabel": "组合包 + profile/home patch + --patch",
+      "tag": "上层可替换下层同 id 配置",
+      "pos": [200, 30],
+      "size": [190, 92],
+      "sources": [
+        { "path": "packages/bundle/base/cordis.patch.yml", "label": "基础组合" },
+        { "path": "packages/boot/app-boot/src/profile.ts", "label": "叠加机制" }
+      ]
+    },
+    {
+      "id": "cordis",
+      "type": "backend",
+      "label": "3 · Cordis 插件运行时",
+      "sublabel": "共享 ctx · 服务 · 类型事件 · 可逆 effect",
+      "tag": "没有不可替换的特权内核",
+      "pos": [415, 180],
+      "size": [190, 92],
+      "sources": [
+        { "path": "docs/architecture.zh.md", "label": "Cordis 架构" },
+        { "path": "docs/cordis-primer.zh.md", "label": "Cordis 入门" }
+      ]
+    },
+    {
+      "id": "extensions",
+      "type": "external",
+      "label": "扩展插件",
+      "sublabel": "添加服务、事件监听器或工具",
+      "tag": "优先挂载插件，不改 agent-loop",
+      "pos": [415, 30],
+      "size": [190, 92],
+      "sources": [
+        { "path": "docs/architecture.zh.md", "label": "扩展点" },
+        { "path": "docs/cookbook/extension-cookbook.zh.md", "label": "扩展手册" }
+      ]
+    },
+    {
+      "id": "core",
+      "type": "backend",
+      "label": "4 · Agent 核心主干",
+      "sublabel": "Session · Prompt · Tools · Agent · Loop",
+      "tag": "输入 → 模型 → 工具 → 继续，直到轮次结束",
+      "pos": [630, 180],
+      "size": [205, 98],
+      "sources": [
+        { "path": "packages/core/README.zh.md", "label": "Core 分组" },
+        { "path": "docs/architecture.zh.md", "label": "轮次流程" },
+        { "path": "packages/core/agent-loop/src/index.ts", "label": "默认循环" }
+      ]
+    },
+    {
+      "id": "session_log",
+      "type": "database",
+      "label": "会话数据与投影",
+      "sublabel": "SessionEvent 日志 → 历史 / 回放 / UI / 恢复",
+      "tag": "模型可见 ⇔ 日志可重建",
+      "pos": [630, 340],
+      "size": [205, 98],
+      "sources": [
+        { "path": "docs/architecture.zh.md", "label": "会话日志" },
+        { "path": "packages/session/session-projection/README.zh.md", "label": "投影" },
+        { "path": "packages/session/session-persistence-jsonl/README.zh.md", "label": "持久化" }
+      ]
+    },
+    {
+      "id": "capabilities",
+      "type": "backend",
+      "label": "5 · 可替换能力层",
+      "sublabel": "LLM / FS / Shell / Web / Subagent",
+      "tag": "定义 → 提供方 → 消费方（常是工具）",
+      "pos": [860, 180],
+      "size": [225, 98],
+      "sources": [
+        { "path": "docs/capability-seams.zh.md", "label": "能力全景" },
+        { "path": "docs/architecture.zh.md", "label": "能力 seam" },
+        { "path": "packages/README.zh.md", "label": "包分组" }
+      ]
+    },
+    {
+      "id": "policy",
+      "type": "security",
+      "label": "策略与人机协作",
+      "sublabel": "Approval · Permission · Sandbox · Guard",
+      "tag": "在工具与进程执行点施加约束",
+      "pos": [860, 340],
+      "size": [225, 98],
+      "sources": [
+        { "path": "packages/bundle/base/cordis.patch.yml", "label": "默认策略组装" },
+        { "path": "packages/interaction/README.zh.md", "label": "人机协作" },
+        { "path": "docs/defensive-patterns.zh.md", "label": "防御模式" }
+      ]
+    },
+    {
+      "id": "outside_world",
+      "type": "external",
+      "label": "6 · 外部世界",
+      "sublabel": "模型 API · 本地/E2B · 进程 · 网络 · 存储",
+      "tag": "提供方将统一接口落到具体环境",
+      "pos": [860, 30],
+      "size": [225, 92],
+      "sources": [
+        { "path": "docs/capability-seams.zh.md", "label": "提供方" },
+        { "path": "packages/llm/README.zh.md", "label": "LLM" },
+        { "path": "packages/subprocess/README.zh.md", "label": "进程" }
+      ]
+    }
+  ],
+  "boundaries": [
+    {
+      "kind": "region",
+      "label": "运行中的 Cordis 插件树",
+      "wraps": ["cordis", "core", "session_log", "capabilities", "policy"],
+      "pad": 10
+    }
+  ],
+  "connections": [
+    { "id": "entry_to_assembly", "from": "entry", "to": "assembly", "variant": "emphasis" },
+    { "id": "configuration_to_assembly", "from": "configuration", "to": "assembly", "label": "有序叠加", "variant": "dashed", "labelAt": [295, 136] },
+    { "id": "assembly_to_cordis", "from": "assembly", "to": "cordis", "variant": "emphasis" },
+    { "id": "extensions_to_cordis", "from": "extensions", "to": "cordis", "label": "注册 / 卸载", "variant": "dashed", "labelAt": [510, 136] },
+    { "id": "cordis_to_core", "from": "cordis", "to": "core", "variant": "emphasis" },
+    { "id": "core_to_session_log", "from": "core", "to": "session_log", "label": "追加并投影 SessionEvent", "labelAt": [732, 292] },
+    { "id": "core_to_capabilities", "from": "core", "to": "capabilities", "variant": "emphasis" },
+    { "id": "policy_to_capabilities", "from": "policy", "to": "capabilities", "label": "审批、沙箱、守卫", "variant": "security" },
+    { "id": "capabilities_to_outside", "from": "capabilities", "to": "outside_world", "label": "适配器调用", "variant": "emphasis" }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "先记住 1：它是“装起来”的",
+      "items": [
+        "所有受支持的 Node 应用都由 dsh CLI 加一个具名 profile 启动",
+        "Bundle 和 Patch 按顺序合并，最终得到一棵 Cordis 插件树"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "先记住 2：它是“记着跑”的",
+      "items": [
+        "Agent loop 组装提示词、调用模型、分发工具，直到轮次结束",
+        "模型看到的事必须写入 SessionEvent；回放、UI 和恢复都从日志派生"
+      ]
+    },
+    {
+      "dot": "violet",
+      "title": "先记住 3：它是“换能力不换主干”的",
+      "items": [
+        "一项完整能力由 Service Definition、Provider 和 Consumer 组成",
+        "新行为优先挂到服务、事件或工具扩展点，而不是修改 agent-loop"
+      ]
+    }
+  ]
+}

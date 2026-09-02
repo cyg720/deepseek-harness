@@ -1,0 +1,257 @@
+{
+  "schema_version": 1,
+  "diagram_type": "dataflow",
+  "meta": {
+    "title": "DeepSeek Harness 一次任务的数据流",
+    "locale": "zh-CN",
+    "output": "D:/code/CYG/Github/deepseek-harness/docs/图架构/数据流图/deepseek-harness-task-dataflow.html",
+    "quality_profile": "showcase",
+    "viewBox": [1080, 560],
+    "views": [
+      {
+        "id": "answer_path",
+        "label": "从输入到回答",
+        "focus": ["user_input", "input_admission", "agent_loop", "llm_provider", "session_log", "client_projection"],
+        "note": "沿主线查看用户输入如何变成模型请求、会话事实和界面内容。"
+      },
+      {
+        "id": "tool_feedback",
+        "label": "工具结果回灌",
+        "focus": ["agent_loop", "tool_pipeline", "session_log", "session_history", "context_builder"],
+        "note": "工具结果先写入 Session 日志，下一 step 再从日志派生为模型历史。"
+      },
+      {
+        "id": "durable_outputs",
+        "label": "保存与下游",
+        "focus": ["session_log", "jsonl_store", "client_projection", "derived_consumers"],
+        "note": "同一份已提交事件分别供磁盘、客户端读模型和其他消费者使用。"
+      }
+    ]
+  },
+  "stages": [
+    { "label": "数据来源" },
+    { "label": "校验与组装" },
+    { "label": "Agent 编排" },
+    { "label": "处理与记录" },
+    { "label": "数据去向" }
+  ],
+  "nodes": [
+    {
+      "id": "user_input",
+      "type": "frontend",
+      "label": "用户输入",
+      "sublabel": "文字 / 图片",
+      "stage": 0,
+      "row": 0,
+      "tag": "原始数据"
+    },
+    {
+      "id": "session_history",
+      "type": "database",
+      "label": "既有会话历史",
+      "sublabel": "同一日志的既有前缀",
+      "stage": 0,
+      "row": 1,
+      "tag": "下一 step / 恢复输入"
+    },
+    {
+      "id": "runtime_config",
+      "type": "security",
+      "label": "运行配置",
+      "sublabel": "persona / route",
+      "stage": 0,
+      "row": 2,
+      "tag": "凭据值留在 Provider"
+    },
+    {
+      "id": "input_admission",
+      "type": "backend",
+      "label": "入口校验",
+      "sublabel": "附件 → UserMessage",
+      "stage": 1,
+      "row": 0,
+      "tag": "Session Controller"
+    },
+    {
+      "id": "context_builder",
+      "type": "backend",
+      "label": "上下文组装",
+      "sublabel": "历史 + Prompt + 工具",
+      "stage": 1,
+      "row": 2,
+      "tag": "模型可见数据"
+    },
+    {
+      "id": "agent_loop",
+      "type": "backend",
+      "label": "Agent Loop",
+      "sublabel": "驱动 turn / step",
+      "stage": 2,
+      "row": 1,
+      "tag": "编排"
+    },
+    {
+      "id": "llm_provider",
+      "type": "cloud",
+      "label": "LLM Provider",
+      "sublabel": "流式推理",
+      "stage": 3,
+      "row": 0,
+      "tag": "StreamChunk"
+    },
+    {
+      "id": "session_log",
+      "type": "database",
+      "label": "Session 日志",
+      "sublabel": "追加后成为下一步历史",
+      "stage": 3,
+      "row": 1,
+      "tag": "权威数据源"
+    },
+    {
+      "id": "tool_pipeline",
+      "type": "security",
+      "label": "工具流水线",
+      "sublabel": "审批、执行、后处理",
+      "stage": 3,
+      "row": 2,
+      "tag": "受控执行"
+    },
+    {
+      "id": "client_projection",
+      "type": "frontend",
+      "label": "UI / SDK",
+      "sublabel": "历史、状态、工具卡片",
+      "stage": 4,
+      "row": 0,
+      "tag": "用户输出"
+    },
+    {
+      "id": "derived_consumers",
+      "type": "external",
+      "label": "派生消费者",
+      "sublabel": "遥测、标题、Fork、回放",
+      "stage": 4,
+      "row": 1,
+      "tag": "可插拔"
+    },
+    {
+      "id": "jsonl_store",
+      "type": "database",
+      "label": "JSONL 持久化",
+      "sublabel": "逐会话磁盘日志",
+      "stage": 4,
+      "row": 2,
+      "tag": "可选 Zstandard"
+    }
+  ],
+  "flows": [
+    {
+      "id": "input_to_admission",
+      "from": "user_input",
+      "to": "input_admission",
+      "label": "文字 / 图片 / mode",
+      "classification": "用户输入",
+      "variant": "emphasis"
+    },
+    {
+      "id": "admission_to_agent",
+      "from": "input_admission",
+      "to": "agent_loop",
+      "label": "UserMessage",
+      "classification": "inbox",
+      "variant": "emphasis"
+    },
+    {
+      "id": "history_to_context",
+      "from": "session_history",
+      "to": "context_builder",
+      "label": "deriveMessages()",
+      "classification": "当前表面历史"
+    },
+    {
+      "id": "config_to_context",
+      "from": "runtime_config",
+      "to": "context_builder",
+      "label": "persona / route",
+      "classification": "非 secret 配置",
+      "variant": "security",
+      "route": "straight",
+      "labelAt": [208, 435]
+    },
+    {
+      "id": "context_to_agent",
+      "from": "context_builder",
+      "to": "agent_loop",
+      "label": "system + history + tools",
+      "classification": "PromptAssembly"
+    },
+    {
+      "id": "agent_to_llm",
+      "from": "agent_loop",
+      "to": "llm_provider",
+      "label": "冻结的模型请求",
+      "classification": "messages + config",
+      "variant": "emphasis",
+      "labelDy": -35
+    },
+    {
+      "id": "agent_to_log",
+      "from": "agent_loop",
+      "to": "session_log",
+      "label": "user + header",
+      "classification": "已提交事件",
+      "route": "straight",
+      "labelDy": 35
+    },
+    {
+      "id": "llm_to_log",
+      "from": "llm_provider",
+      "to": "session_log",
+      "label": "assistant/chunk* + message",
+      "classification": "Agent Loop 记录",
+      "variant": "emphasis",
+      "labelAt": [745, 225]
+    },
+    {
+      "id": "agent_to_tools",
+      "from": "agent_loop",
+      "to": "tool_pipeline",
+      "label": "tool name + JSON args",
+      "classification": "tool/call",
+      "route": "bottom-channel"
+    },
+    {
+      "id": "tools_to_log",
+      "from": "tool_pipeline",
+      "to": "session_log",
+      "label": "tool/result + meta",
+      "classification": "规范化结果",
+      "labelDy": -30
+    },
+    {
+      "id": "log_to_client",
+      "from": "session_log",
+      "to": "client_projection",
+      "label": "历史 + 读模型",
+      "classification": "实时与回放",
+      "variant": "emphasis"
+    },
+    {
+      "id": "log_to_consumers",
+      "from": "session_log",
+      "to": "derived_consumers",
+      "label": "遥测 / 标题 / Fork",
+      "classification": "可插拔消费者",
+      "labelDx": 120,
+      "labelDy": 67
+    },
+    {
+      "id": "log_to_store",
+      "from": "session_log",
+      "to": "jsonl_store",
+      "label": "append / flush",
+      "classification": "持久化"
+    }
+  ]
+}

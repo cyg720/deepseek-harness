@@ -1,0 +1,62 @@
+{
+  "schema_version": 1,
+  "diagram_type": "sequence",
+  "meta": {
+    "title": "DeepSeek Harness 一次任务的调用时序",
+    "locale": "zh-CN",
+    "output": "deepseek-harness-task-sequence.html",
+    "quality_profile": "showcase",
+    "column_fit": "spread",
+    "viewBox": [1340, 800]
+  },
+  "participants": [
+    { "id": "user", "type": "external", "label": "使用者" },
+    { "id": "entry", "type": "frontend", "label": "入口应用" },
+    { "id": "agent", "type": "backend", "label": "Agent Loop" },
+    { "id": "session", "type": "database", "label": "Session" },
+    { "id": "prompt", "type": "messagebus", "label": "Prompt / Hooks" },
+    { "id": "llm", "type": "cloud", "label": "LLM Provider" },
+    { "id": "tools", "type": "security", "label": "工具策略 / 审批" },
+    { "id": "provider", "type": "backend", "label": "Tool Provider" }
+  ],
+  "segments": [
+    { "from": 150, "to": 290, "label": "任务进入与首次请求" },
+    { "from": 300, "to": 525, "label": "工具调用与结果回灌" },
+    { "from": 535, "to": 730, "label": "第二次请求与最终返回" }
+  ],
+  "messages": [
+    { "id": "submit", "from": "user", "to": "entry", "y": 165, "label": "提交任务", "variant": "emphasis" },
+    { "id": "followup", "from": "entry", "to": "agent", "y": 194, "label": "followup(message)：写入 inbox 并唤醒", "variant": "emphasis" },
+    { "id": "open_step", "from": "agent", "to": "session", "y": 223, "label": "turn/start · step/start · user/message", "variant": "dashed" },
+    { "id": "prepare_step", "from": "agent", "to": "prompt", "y": 252, "label": "assemble + agent/pre-step", "variant": "default" },
+    { "id": "prepared_input", "from": "prompt", "to": "agent", "y": 281, "label": "enter(messages) + prompt + tool schemas", "variant": "return" },
+
+    { "id": "first_request", "from": "agent", "to": "llm", "y": 310, "label": "agent/request → llm/stream", "variant": "emphasis" },
+    { "id": "first_stream", "from": "llm", "to": "agent", "y": 339, "label": "StreamChunk*：回复包含 tool call", "variant": "return" },
+    { "id": "record_call", "from": "agent", "to": "session", "y": 368, "label": "assistant/chunk* · assistant/message · tool/call", "variant": "dashed" },
+    { "id": "prepare_tool", "from": "agent", "to": "tools", "y": 397, "label": "pre → guard / approval → execute", "variant": "security" },
+    { "id": "execute_tool", "from": "tools", "to": "provider", "y": 426, "label": "允许时 execute(args, signal)", "variant": "security" },
+    { "id": "tool_value", "from": "provider", "to": "tools", "y": 455, "label": "canonical value / error", "variant": "return" },
+    { "id": "finalize_tool", "from": "tools", "to": "agent", "y": 484, "label": "post → finalizeContent → frozen result", "variant": "return" },
+    { "id": "record_result", "from": "agent", "to": "session", "y": 513, "label": "tool/result · step/end", "variant": "dashed" },
+
+    { "id": "next_prepare", "from": "agent", "to": "prompt", "y": 542, "label": "下一 step：重新组装上下文", "variant": "default" },
+    { "id": "next_context", "from": "prompt", "to": "agent", "y": 571, "label": "历史已包含 tool/result", "variant": "return" },
+    { "id": "second_request", "from": "agent", "to": "llm", "y": 600, "label": "第二次 agent/request", "variant": "emphasis" },
+    { "id": "final_stream", "from": "llm", "to": "agent", "y": 629, "label": "最终 StreamChunk*", "variant": "return" },
+    { "id": "close_turn", "from": "agent", "to": "session", "y": 658, "label": "assistant/message · step/end · turn/end", "variant": "dashed" },
+    { "id": "project_events", "from": "session", "to": "entry", "y": 687, "label": "session/event：完成结果投影", "variant": "dashed" },
+    { "id": "render", "from": "entry", "to": "user", "y": 716, "label": "status idle 后呈现最终答案", "variant": "return" }
+  ],
+  "activations": [
+    { "participant": "entry", "from": 190, "to": 720, "type": "frontend" },
+    { "participant": "agent", "from": 194, "to": 665, "type": "backend" },
+    { "participant": "prompt", "from": 247, "to": 286, "type": "messagebus" },
+    { "participant": "llm", "from": 305, "to": 344, "type": "cloud" },
+    { "participant": "tools", "from": 392, "to": 489, "type": "security" },
+    { "participant": "provider", "from": 421, "to": 460, "type": "backend" },
+    { "participant": "prompt", "from": 537, "to": 576, "type": "messagebus" },
+    { "participant": "llm", "from": 595, "to": 634, "type": "cloud" }
+  ],
+  "cards": []
+}
