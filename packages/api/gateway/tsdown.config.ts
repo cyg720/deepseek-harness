@@ -8,8 +8,4 @@
  */
 import { clientBundle } from '../../client/tsdown.client.ts'
 
-/**
- * 生成 API Gateway 的构建配置；参数依次是包标识和 Node 端入口，返回 tsdown 配置函数。
- * 使用示例：运行 `pnpm --filter @deepseek-ai/dsh-api-gateway bundle` 时由 tsdown 自动读取。
- */
-export default clientBundle('@deepseek-ai/dsh-api-gateway', ['lib/types/index.js', 'lib/types/invariant.js'])
+export default clientBundle('@deepseek-ai/dsh-api-gateway', ['lib/types/index.js'])

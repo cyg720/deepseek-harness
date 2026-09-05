@@ -1,16 +1,13 @@
 // Settled-node identity prevents stream-delta updates from rerendering this row.
 // Mounted on 'conversation.composer.dock' so it sticks with the composer in the
 // active conversation scrollport (see ConversationRoot data-conversation-scroll).
-/**
- * 文件职责：实现会话聊天界面的 StatsLine 组件。
- * 技术维度：React、TypeScript、Cordis 插槽和 CSS Modules。
- * 产品维度：向用户展示并操作会话聊天相关状态。
- * 逻辑维度：读取属性与状态，派生展示数据并响应交互。
- * 关键边界：异步状态、可访问性标签和空数据分支必须保持一致。
- * 新手阅读建议：先读 Props，再看局部状态、effect 和 JSX。
+
+/*
+ * 【文件职责】显示请求耗时、工具耗时等轮次统计；
+ * 缺失计时数据不能被解释成额外的已测量请求。
  */
 
-import { Fragment, memo, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { Fragment, memo, useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Tooltip } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { UseProjection } from '@deepseek-ai/dsh-api-session-controller/client'
 import type { SnapshotSelectorHook } from '@deepseek-ai/dsh-client-ui-slots'
@@ -144,6 +141,44 @@ export interface StatsLineProps {
   t: ChatViewSlotProps['t']
 }
 
+/** Render and measure one non-empty statistics line. */
+const StatsLineContent = memo(function StatsLineContent({
+  groups,
+  line,
+}: {
+  readonly groups: readonly string[]
+  readonly line: string
+}) {
+  const rootRef = useRef<HTMLDivElement | null>(null)
+  const [truncated, setTruncated] = useState(false)
+  const measure = useCallback(() => {
+    const el = rootRef.current
+    if (el === null) return
+    const next = el.scrollWidth > el.clientWidth
+    setTruncated(current => current === next ? current : next)
+  }, [])
+  useLayoutEffect(() => {
+    const el = rootRef.current
+    if (el === null || typeof ResizeObserver === 'undefined') return
+    const observer = new ResizeObserver(measure)
+    observer.observe(el)
+    return () => { observer.disconnect() }
+  }, [measure])
+  useLayoutEffect(measure, [line, measure])
+  return (
+    <Tooltip label={line} side="top" delayMs={500} disabled={!truncated}>
+      <div ref={rootRef} className={css.root}>
+        {groups.map((group, i) => (
+          <Fragment key={group}>
+            {i > 0 && <><span className={css.sep} aria-hidden>|</span>{' '}</>}
+            <span>{group}</span>
+          </Fragment>
+        ))}
+      </div>
+    </Tooltip>
+  )
+})
+
 export const StatsLine = memo(function StatsLine({ useChat, useProjection, t }: StatsLineProps) {
   const settledNodes = useChat(s => s.legacy.nodes)
   const usage = useProjection('tokenUsage')
@@ -195,36 +230,6 @@ export const StatsLine = memo(function StatsLine({ useChat, useProjection, t }: 
   }
   /** 中文说明：当前组件的局部值 line，由紧邻初始化决定。 */
   const line = groups.join(' | ')
-  // The row elides with ellipsis when overlong; a delayed hover tooltip carries
-  // the full line, enabled only while content is actually clipped.
-  /** 中文说明：当前组件的局部值 rootRef，由紧邻初始化决定。 */
-  const rootRef = useRef<HTMLDivElement | null>(null)
-  /** 中文说明：当前组件的局部值 [truncated, setTruncated]，由紧邻初始化决定。 */
-  const [truncated, setTruncated] = useState(false)
-  useLayoutEffect(() => {
-    /** 中文说明：当前组件的局部值 el，由紧邻初始化决定。 */
-    const el = rootRef.current
-    if (el === null) return
-    /** 中文说明：当前组件的局部值 measure，由紧邻初始化决定。 */
-    const measure = () => { setTruncated(el.scrollWidth > el.clientWidth) }
-    measure()
-    if (typeof ResizeObserver === 'undefined') return
-    /** 中文说明：当前组件的局部值 observer，由紧邻初始化决定。 */
-    const observer = new ResizeObserver(measure)
-    observer.observe(el)
-    return () => { observer.disconnect() }
-  }, [line])
   if (groups.length === 0) return null
-  return (
-    <Tooltip label={line} side="top" delayMs={500} disabled={!truncated}>
-      <div ref={rootRef} className={css.root}>
-        {groups.map((group, i) => (
-          <Fragment key={group}>
-            {i > 0 && <><span className={css.sep} aria-hidden>|</span>{' '}</>}
-            <span>{group}</span>
-          </Fragment>
-        ))}
-      </div>
-    </Tooltip>
-  )
+  return <StatsLineContent groups={groups} line={line} />
 })

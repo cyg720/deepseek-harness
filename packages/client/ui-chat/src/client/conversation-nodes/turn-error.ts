@@ -1,22 +1,12 @@
-/**
- * ================================ 文件注释 ================================
- * 【文件职责】回合终止失败状态机：turn/start 时开始跟踪，turn/end 且 reason 为 error
- *             时记录失败并产出错误行节点。
- * 【技术维度】ConversationNodeDefinition（target: 'chat'）；failureFrom 提取失败消息与
- *             代码；fallbackState 从匹配历史重建。
- * 【产品维度】回合整体失败时在消息流底部显示明确错误，且不被重试行替代。
- * 【逻辑维度】1) 数据映射扩充；2) lastStep / failureFrom / fallbackState；
- *             3) 状态机；4) 注册函数。
- * 【关键边界】重试发生在失败的回合内部，llm/retry 历史不会抑制本终态行（由
- *             model-retry 节点单独渲染）。
- * 【新手阅读建议】先看 match 对 turn/start 与 turn/end 的两种角色处理。
- * ==========================================================================
+/*
+ * 【文件职责】将 turn/end 中的终止失败呈现为轮次错误；
+ * 同轮重试历史由独立节点显示，不能掩盖最终失败。
  */
+
 import type { Context } from '@deepseek-ai/cordis'
 import type {
-  ConversationMatch, ConversationNodeContext, ConversationNodeDefinition,
+  ConversationMatch, ConversationNodeContext, ConversationNodeDefinition, TurnErrorNode,
 } from '@deepseek-ai/dsh-client-ui-conversation/client'
-import type { TurnErrorNode } from '../contract/snapshot.ts'
 import { chatNode } from './common.ts'
 import { displayFailure } from './event-projection.ts'
 

@@ -5,12 +5,7 @@
  */
 
 /*
- * 文件职责：实现目标管理的 index.ts 模块。
- * 技术维度：TypeScript、Cordis、会话事件、路径策略、判别联合和 Vitest。
- * 产品维度：保证目标管理操作可预测、可审计并在失败时保持一致。
- * 逻辑维度：校验输入，更新领域状态并记录事件或注册能力。
- * 关键边界：文件路径必须经过策略检查；目标引用含版本，过期修改必须拒绝。
- * 新手阅读建议：先读类型与测试夹具，再按校验、执行、事件折叠和错误流程阅读。
+ * 【文件职责】从日志维护同会话目标状态，通过比较并设置控制修改，并管理进程内的续轮激活。
  */
 
 import { randomUUID } from 'node:crypto'
@@ -20,7 +15,8 @@ import { z as zod } from 'zod'
 import type { ZodType } from 'zod'
 import { agentEvents } from '@deepseek-ai/dsh-agent'
 import type { Agent } from '@deepseek-ai/dsh-agent'
-import type { Session, SessionEvent } from '@deepseek-ai/dsh-session'
+import { SessionSeq } from '@deepseek-ai/dsh-session'
+import type { Session, SessionEvent, SessionLogOffset } from '@deepseek-ai/dsh-session'
 import { TypertRemoteService, Remote } from '@deepseek-ai/dsh-typert-protocol'
 import type {} from '@deepseek-ai/dsh-session-projection'
 import type { ProjectionDefinition } from '@deepseek-ai/dsh-session-projection'
@@ -191,7 +187,10 @@ export interface ResolvedConfig {
 /** Process-local activation state crossing the synchronous append boundary. */
 interface GoalRuntimeState {
   activation: GoalActivation
-  pendingActivation: { readonly seq: number; readonly activation: GoalActivation } | undefined
+  pendingActivation: {
+    readonly offset: SessionLogOffset
+    readonly activation: GoalActivation
+  } | undefined
 }
 
 /** Validated create input with every deployment default materialized. */
@@ -264,7 +263,8 @@ export class GoalService extends TypertRemoteService {
     ctx.on('session/event', (session, event) => {
       if (event.type !== 'goal/change') return
       const runtime = this.runtimeState(session)
-      runtime.activation = runtime.pendingActivation?.seq === event.seq
+      runtime.activation = runtime.pendingActivation !== undefined
+        && SessionSeq(runtime.pendingActivation.offset) === event.seq
         ? runtime.pendingActivation.activation
         : 'disarmed'
     })
@@ -588,11 +588,11 @@ export class GoalService extends TypertRemoteService {
   /** Commit one mutation into the goal log and live event stream. */
   private commit(agent: Agent, runtime: GoalRuntimeState, change: GoalChangeMeta, activation: GoalActivation): void {
     const ref = goalChangeRef(change)
-    runtime.pendingActivation = { seq: agent.session.seq, activation }
+    runtime.pendingActivation = { offset: agent.session.seq, activation }
     try {
       const event = agent.session.append('goal/change', change)
       /* v8 ignore next -- Session.append returns the event committed at the pre-append seq. */
-      if (runtime.pendingActivation.seq === event.seq) runtime.activation = activation
+      if (SessionSeq(runtime.pendingActivation.offset) === event.seq) runtime.activation = activation
     } finally {
       runtime.pendingActivation = undefined
     }

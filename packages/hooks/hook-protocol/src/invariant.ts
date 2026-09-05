@@ -1,11 +1,7 @@
 /** Package-owned hook invocation/result stream invariants. @module @deepseek-ai/dsh-hook-protocol/invariant */
+
 /*
- * 文件职责：实现Hook 线协议的 invariant.ts 模块。
- * 技术维度：TypeScript、Cordis、JSON 编解码、子进程、事件匹配和严格联合类型。
- * 产品维度：保证Hook 线协议可预测地传递事件、限制循环或适配外部工具。
- * 逻辑维度：解析配置，匹配事件，执行处理器并合并输出。
- * 关键边界：线协议输入必须校验；外部 Hook 失败不得破坏会话日志或核心循环。
- * 新手阅读建议：先读 types/events，再看 codec/matcher/runner，最后阅读桥接配置。
+ * 【文件职责】检查 Hook 调用与结果日志的对应关系，使每次执行的结果可追溯到原调用。
  */
 
 import type { Context } from '@deepseek-ai/cordis'
@@ -98,8 +94,7 @@ const install: InvariantInstaller = Object.assign((ctx: Context, fail: Invariant
     /** 中文说明：协议局部值 trace，由紧邻初始化决定。 */
     const trace: HookTrace = { openTurn: null, pending: new Map() }
     traces.set(session, trace)
-    /** 中文说明：协议局部值 event，由紧邻初始化决定。 */
-    for (const event of session.events) {
+    for (const event of session.snapshotEvents()) {
       if (event.type === 'turn/start') trace.openTurn = event.data.turn
       else if (event.type === 'turn/end') trace.openTurn = null
       /** 中文说明：协议局部值 transition，由紧邻初始化决定。 */

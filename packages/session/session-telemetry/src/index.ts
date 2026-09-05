@@ -1,24 +1,10 @@
-/*
- * ================================ 文件注释 ================================
- * 【文件职责】SessionTelemetryBackend Service Definition：拥有会话事件上报的"捕获侧"——
- *   哪些记录存在（chunk 投影）、记录携带什么（逻辑记录）、何时捕获（收养、每追加火线、
- *   生命周期转发）、live 与按需的规范日志捕获、HMR 游标。
- * 【技术维度】Cordis Service + 声明合并的 session-telemetry/record 瀑布事件（脱敏扩展点，
- *   本包不内置任何规则）；emit 之后的批处理/重试/排队/丢失策略归上报 SDK。
- * 【产品维度】遥测上报的契约层：任何后端（如 OTel）实现该 Service 即可接入；
- *   部署方可挂瀑布监听器做脱敏。
- * 【逻辑维度】按代码顺序：事件声明合并 → 严重度/记录/接收器类型 → 共享状态 → 抽象后端类。
- * 【关键边界】emit 必须是非阻塞入队（热路径同步调用）；flushes 与 shutdown 并发
- *   交互危险（OTel 后端故意不实现 flush）；导出副本才被脱敏，规范日志永不重写。
- * 【新手阅读建议】先读 SessionTelemetryRecord 与 SessionTelemetrySink，再看 coordinator.ts。
- * ==========================================================================
- */
+
 
 /**
  * SessionTelemetryBackend Service Definition for the DeepSeek Harness.
  *
- * This package owns the CAPTURE side of session-event reporting — which records
- * exist (the chunk projection), what they carry (the logical record), when
+ * This package owns the CAPTURE side of session-event reporting — the complete
+ * one-record-per-event ledger mirror, what records carry, when
  * they are captured (adoption, the per-append firehose, lifecycle
  * forwarding), live versus on-demand canonical-log capture, and the HMR
  * cursor. Everything downstream of
@@ -28,6 +14,10 @@
  * .agents/notes/implemented/feature/2026-07-23-session-telemetry-otel-revival.md.
  *
  * @module @deepseek-ai/dsh-session-telemetry
+ */
+
+/*
+ * 【文件职责】定义遥测后端及事件捕获策略，负责捕获时机和完整事件镜像，下游传输队列由报告 SDK 管理。
  */
 
 import { Context, Service } from '@deepseek-ai/cordis'
@@ -91,8 +81,9 @@ export interface SessionTelemetryRecord {
   severity: SessionTelemetrySeverity
   /**
    * Identity attributes, deliberately minimal: ledger records carry
-   * `session.id`, `event.type`, `event.seq`, plus `session.cwd` /
-   * `session.parent_id` / `session.seed_length` when the header has them;
+   * `session.id`, `session.format_version`, `event.type`, `event.seq`, plus optional
+   * `session.cwd` / `session.parent_id`; a seeded Session also carries
+   * `session.seed_length` from its exact inherited event count;
    * ops records carry `telemetry.op`, `session.id`, and (for `agent-error`)
    * `agent.id`, `turn`, `step`, `error.name`. Anything recoverable from the
    * body is intentionally NOT duplicated here.

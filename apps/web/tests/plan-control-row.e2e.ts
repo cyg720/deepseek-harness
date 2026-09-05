@@ -46,8 +46,7 @@ import {
 import { connectFreshWorkspace, newEnglishPage, saveFailureShot } from './support.ts'
 
 const SNAPSHOT_DIR = fileURLToPath(new URL('../../../snapshots/web/plan-narrow-viewport', import.meta.url))
-const FIXTURE = join(SNAPSHOT_DIR, 'session.jsonl')
-/** 两个控件几何关系的预期快照。 */
+const FIXTURE = join(SNAPSHOT_DIR, 'session.v2.jsonl')
 const LAYOUT_EXPECTED = join(SNAPSHOT_DIR, 'layout.expected.md')
 /** 当前快照模式。 */
 const MODE = webSnapshotMode()
@@ -161,6 +160,6 @@ describe('web e2e: plan chip click area at the narrow viewport', () => {
   }, 200_000)
 
   it('keeps the snapshot inventory closed', async () => {
-    await assertFixtureInventory(SNAPSHOT_DIR, ['session.jsonl', 'layout.expected.md'])
+    await assertFixtureInventory(SNAPSHOT_DIR, ['session.v2.jsonl', 'layout.expected.md'])
   })
 })

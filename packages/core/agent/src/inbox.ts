@@ -1,18 +1,12 @@
-/*
- * ================================ 文件注释 ================================
- * 【文件职责】Inbox：agent 待处理消息队列的增量投影。把持久化的 agent/inbox/spliced 会话事件重放并增量应用到内存中 next-turn/next-step 两个列表。
- * 【技术维度】投影模式：构造时从 seedLength 之后的事件重放，运行中每次变更先写会话日志（durable）再改内存（live），并发布 inserted/discarded/claimed 通知。
- * 【产品维度】用户消息、steering（转向）、inject（上下文注入）都先进入 inbox，由循环按轮次/步骤边界消费；取消（clear）会记录 outcome: 'canceled'。
- * 【逻辑维度】InboxState/InboxNotifications 类型 → Inbox 类（构造重放 → 两个 getter + hasPending → clear/claim/append/prepend/replace/remove
- * → splice/mutate 核心 → apply/validate 内部助手）。
- * 【关键边界】所有变更必须先 append 会话事件再改内存，同步观察者可读到 splice 前状态；消息身份（id）在任一列表中不得重复；start/deleteCount 经过规范化（负索引、NaN 容错）。
- * 【新手阅读建议】先看构造函数的重放逻辑，再看 mutate()（所有变更的唯一出口），最后看 claim() 理解“一步消费一批”的语义。
- * ==========================================================================
- */
+
 /**
  * Incremental projection of durable agent inbox events.
  *
  * @module @deepseek-ai/dsh-agent/inbox
+ */
+
+/*
+ * 【文件职责】从持久 Agent inbox 事件增量重建队列状态，使输入的认领与恢复使用同一事实来源。
  */
 
 import type { MessageId } from '@deepseek-ai/dsh-llm'
@@ -47,8 +41,7 @@ export class Inbox {
     private readonly session: Session,
     private readonly notifications: InboxNotifications,
   ) {
-    // 重放：从 seedLength（重建起点）之后的事件开始，把历史上的 inbox 变更事件重新应用到内存列表。
-    for (const event of session.events.slice(session.header.seedLength ?? 0)) {
+    for (const event of session.ownEvents()) {
       if (event.type !== 'agent/inbox/spliced') continue
       try {
         this.apply(event.data)

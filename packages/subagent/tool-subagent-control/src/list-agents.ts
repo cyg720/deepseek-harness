@@ -8,12 +8,7 @@
  */
 
 /*
- * 文件职责：实现 list-agents.ts 覆盖的子代理工具行为与生命周期。
- * 技术维度：使用 TypeScript、Vitest、Cordis 插件、进程流、终端会话或快照规范化。
- * 产品维度：保障 Agent 的子代理工具能力稳定、可复现且可诊断。
- * 逻辑维度：准备输入和资源，执行核心流程，收集事件或输出，再处理错误与清理。
- * 关键边界：进程退出与取消可能竞态；外部输出不可信；清理必须等待子资源完全停止。
- * 新手阅读建议：先看类型和夹具，再读启动/收集主流程，最后关注平台差异、规范化和清理。
+ * 【文件职责】提供可独立装载的 list_agents 工具，枚举可继续子 Agent 或后代树，不自行持有运行生命周期。
  */
 
 import type { Context } from '@deepseek-ai/cordis'
@@ -105,8 +100,9 @@ export function apply(ctx: Context): void {
       + 'you started, not to poll for completion — you are told when one finishes. Status comes from the live '
       + 'registry: running means the agent is working right now, idle means it is loaded but between turns '
       + '(it may be waiting on agents it started), and ready means it exists only in storage — resumable, not '
-      + 'terminal, and not a result waiting to be collected; a `send_message` starts a new turn on the same '
-      + 'conversation, and a direct child remains a `send_message` candidate in every status. The snapshot is not a delivery '
+      + 'terminal, and not a result waiting to be collected; a `send_message` steers a running child at its nearest '
+      + 'step boundary or starts a turn for an idle or ready child, and a direct child remains a `send_message` '
+      + 'candidate in every status. The snapshot is not a delivery '
       + 'promise — `send_message` performs the authoritative check and may still fail. Children that could '
       + 'not be read are reported as diagnostics instead of being silently dropped. Scope `descendants` '
       + 'walks the whole tree below you in stable pre-order, annotating each entry with its durable direct-parent '

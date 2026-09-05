@@ -1,12 +1,7 @@
 /** Durable attachment vocabulary. @module @deepseek-ai/dsh-attachment/types */
 
 /*
- * 文件职责：集中定义持久图片附件、上传输入、存储结果、部署限制和模型请求变体的数据类型。
- * 技术维度：使用TypeScript接口、字面量联合和品牌标识表达可序列化且不可混淆的附件数据。
- * 产品维度：让会话日志、附件后端和模型提供方共享同一套图片事实，避免传递主机路径或临时URL。
- * 逻辑维度：先定义媒体类型与持久引用，再定义准入限制和输入，最后定义请求图片策略与缓存版本。
- * 关键边界：attachmentId和variantId均为不透明品牌值；名称只用于显示；所有尺寸与字节必须来自已验证数据。
- * 新手阅读建议：先看ImageAttachmentRef理解会话保存什么，再看Save/Stored差异，最后读RequestImageAttachment派生字段。
+ * 【文件职责】声明图片与普通文件的持久引用、上传输入和存储结果类型，统一附件生产者与消费者使用的数据。
  */
 
 import type { AttachmentId, ImageVariantId } from './brand.ts'
@@ -40,6 +35,45 @@ export interface ImageAttachmentRef {
   }
 }
 
+/**
+ * Durable, serializable reference to one verbatim stored file. Files are
+ * stored byte-for-byte with no normalization; `attachmentId` is the sha256
+ * digest of exactly those bytes.
+ */
+export interface FileAttachmentRef {
+  /** Opaque content-addressed storage identifier; never a filesystem path or bearer URL. */
+  attachmentId: AttachmentId
+  /** Sanitized display filename, also the stored object's leaf name. */
+  name: string
+  /** Exact byte length. */
+  bytes: number
+}
+
+/** Base64-encoded file upload accompanying one wire request. */
+export interface EncodedFileAttachment {
+  /** Canonical base64 encoding of the file bytes. */
+  data: string
+  /** Optional display name; it is never interpreted as a path. */
+  name?: string
+}
+
+/** Request to durably commit one file verbatim. */
+export interface SaveFileAttachment {
+  data: Uint8Array
+  /** Optional browser/provider display name; it is never interpreted as a path. */
+  name?: string
+}
+
+/** Request to durably commit one file from bounded byte chunks. */
+export interface SaveFileStreamAttachment {
+  /** Exact file bytes in order; providers must not retain the complete sequence in memory. */
+  data: AsyncIterable<Uint8Array>
+  /** Optional cancellation for source reads and storage writes. */
+  signal?: AbortSignal
+  /** Optional browser/provider display name; it is never interpreted as a path. */
+  name?: string
+}
+
 /** Deployment-resolved limits used by upload admission and request buffering. */
 export interface ImageAttachmentLimits {
   maxImageBytes: number
@@ -64,7 +98,7 @@ export interface EncodedImageAttachment {
 /**
  * Browser-submitted prompt content accepted by Host prompt endpoints; the
  * accepting Host promotes image parts to durable references through
- * `admitPromptContent` before any message is created, so a wire caller can
+ * `ctx.attachments.admitPromptContent()` before any message is created, so a wire caller can
  * never cite an attachment it did not upload.
  */
 export type PromptContentPart =
@@ -76,10 +110,16 @@ export type PromptContentPart =
     readonly name?: string
   }
 
-/** Host-admitted prompt content with each uploaded image replaced by its durable reference. */
+/** Host prompt content whose file receipts are resolved and whose image bytes await admission. */
+export type AttachmentAdmissionPart =
+  | PromptContentPart
+  | { readonly type: 'file'; readonly attachment: FileAttachmentRef }
+
+/** Host-admitted prompt content with every attachment represented by its durable reference. */
 export type AdmittedPromptContentPart =
   | { readonly type: 'text'; readonly text: string }
   | { readonly type: 'image'; readonly attachment: ImageAttachmentRef }
+  | { readonly type: 'file'; readonly attachment: FileAttachmentRef }
 
 /** Request to validate and durably commit one image. */
 export interface SaveImageAttachment {

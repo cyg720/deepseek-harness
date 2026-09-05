@@ -1,11 +1,7 @@
-/**
- * 文件职责：定义 SubagentHeaderLineage 的样式与设计变量。
- * 技术维度：CSS、CSS Modules、主题变量和浏览器滚动条选择器。
- * 产品维度：保持子代理谱系在不同主题和平台下清晰一致。
- * 逻辑维度：按变量、容器、内容、交互和状态组织规则。
- * 关键边界：全局样式影响整个应用；局部类名须与组件同步。
- * 新手阅读建议：先看变量层，再对照组件和状态选择器。
+/*
+ * 【文件职责】定义子 Agent 血缘信息及会话切换入口的紧凑布局。
  */
+
 .root {
   position: relative;
   display: inline-flex;
@@ -111,13 +107,14 @@
   max-height: min(560px, calc(100vh - 140px));
   padding: 4px;
   overflow: auto;
-  border-radius: 12px;
+  border-radius: 20px;
   background: var(--dsw-specific-menu);
   /* 中文说明：自定义属性 --dsh-scrollbar-thumb 保存主题或组件复用的样式值。 */
   --dsh-scrollbar-thumb: var(--dsw-alias-scrollbar-bg-l2);
   /* 中文说明：自定义属性 --dsh-scrollbar-thumb-hover 保存主题或组件复用的样式值。 */
   --dsh-scrollbar-thumb-hover: var(--dsw-alias-scrollbar-hover-l2);
-  box-shadow: var(--dsw-shadow-lv3);
+  --dsw-elevation-stroke-color: var(--dsw-alias-border-l1);
+  box-shadow: var(--dsw-elevation-prominent);
 }
 
 .node {
@@ -270,7 +267,7 @@
   content: '';
   position: absolute;
   left: 0;
-  border-left: 1px solid var(--dsw-alias-border-l2);
+  border-left: 0.5px solid var(--dsw-alias-border-l2);
 }
 
 .children::before {
@@ -299,7 +296,7 @@
   top: 16px;
   left: -4px;
   width: 14px;
-  border-top: 1px solid var(--dsw-alias-border-l2);
+  border-top: 0.5px solid var(--dsw-alias-border-l2);
 }
 
 .notice,

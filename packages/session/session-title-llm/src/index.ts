@@ -5,20 +5,7 @@
  */
 
 /*
- * ================================ 文件注释 ================================
- * 【文件职责】模型标题提供者的共享路由、框定、超时、组装与校验策略：
- *   两个模型标题插件（first-prompt / all-prompts）复用的注册与生成核心。
- * 【技术维度】共享 Loader schema 与配置解析（provider/model 必须成对）；
- *   生成走"JSON 框定消息 + 系统提示 + deadline + BlockAssembler 流组装 +
- *   normalizeSessionTitle 归一化 + log-only title-llm-request 事件"的固定配方。
- * 【产品维度】让模型生成安全、规范、可持久化溯源的会话标题。
- * 【逻辑维度】按代码顺序：请求事件类型/声明合并 → 配置族与 schema → 解析/注册 →
- *   resolveRoute/systemPrompt/frameMessages/finishError → generateSessionTitleWithLlm。
- * 【关键边界】用户文本经 JSON.stringify 框定，结构定界符不可被文本破坏；
- *   输入字节数与输出 token 上限严格校验；超时用共享 deadline 码。
- * 【新手阅读建议】先读 generateSessionTitleWithLlm 的完整生成流程，再看两个
- *   provider 插件如何选择消息子集。
- * ==========================================================================
+ * 【文件职责】统一模型生成标题的路由、提示框定、超时、内容装配与校验策略，辅助请求先写入可重建记录。
  */
 
 import type { Context } from '@deepseek-ai/cordis'
@@ -27,6 +14,7 @@ import { createUserMessage, BlockAssembler } from '@deepseek-ai/dsh-llm'
 import type { FinishReason, GenerateOptions, Message } from '@deepseek-ai/dsh-llm'
 import { deadline, MAX_TIMER_DELAY_MS } from '@deepseek-ai/dsh-timeout'
 import { deepFreeze } from '@deepseek-ai/dsh-util-values'
+import type { SessionSeq } from '@deepseek-ai/dsh-session'
 import {
   normalizeSessionTitle,
   SessionTitleProviderId,
@@ -44,7 +32,7 @@ export interface SessionTitleLlmRequestEventData {
   /** Registered title-provider identity responsible for the request. */
   readonly titleProvider: SessionTitleProviderId
   /** Exact human `user/message` seqs represented in `messages`. */
-  readonly messageSeqs: number[]
+  readonly messageSeqs: SessionSeq[]
   /** Exact auxiliary LLM route. */
   readonly route: SessionTitleModelProvenance
   /** Exact auxiliary system prompt. */

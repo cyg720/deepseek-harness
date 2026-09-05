@@ -2,6 +2,10 @@
  * Cordis-free React primitives styled only through `--dsw-*` tokens.
  */
 
+/*
+ * 【文件职责】导出不依赖 Cordis 的 React 基础组件，外观通过统一设计 token 控制。
+ */
+
 export { StateDot } from './StateDot.tsx'
 export type { StateDotState } from './StateDot.tsx'
 export { DisclosureRow } from './DisclosureRow.tsx'
@@ -28,12 +32,17 @@ export { BrandWordmark } from './BrandWordmark.tsx'
 export type { BrandWordmarkProps } from './BrandWordmark.tsx'
 export { ReferenceIcon } from './ReferenceIcon.tsx'
 export type { ReferenceIconKind, ReferenceIconProps } from './ReferenceIcon.tsx'
+export { LinkIcon, classifyLinkPath } from './LinkIcon.tsx'
+export type { LinkIconKind, LinkIconProps } from './LinkIcon.tsx'
 export { projectUserText } from './user-text.tsx'
 export { Tooltip } from './Tooltip.tsx'
 export type { TooltipSide } from './Tooltip.tsx'
 export { Toast } from './Toast.tsx'
+export { fileSizeText } from './file-size.ts'
+export { DocumentFileIcon } from './DocumentFileIcon.tsx'
 export { writeClipboard } from './clipboard.ts'
 export { relativeTime } from './relative-time.ts'
+export { rankByName } from './rank-by-name.ts'
 export type { RelativeTime, RelativeTimeUnit } from './relative-time.ts'
 export { JsonTree } from './JsonTree.tsx'
 export type { JsonTreeProps, JsonTreeLabels } from './JsonTree.tsx'
@@ -57,7 +66,6 @@ export type { CodeBlockProps } from './markdown/CodeBlock.tsx'
 export { JsonBlock } from './markdown/JsonBlock.tsx'
 export { MarkdownText } from './markdown/MarkdownText.tsx'
 export type { MarkdownCodeLabels, MarkdownFileMentions, MarkdownLabels } from './markdown/MarkdownText.tsx'
-export { MessageText } from './markdown/MessageText.tsx'
 export { extractMarkdownPlainText } from './markdown/plain-text.ts'
 export type { MarkdownPlainTextMode, MarkdownPlainTextOptions } from './markdown/plain-text.ts'
 export * from './icons/index.tsx'

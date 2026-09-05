@@ -1,19 +1,4 @@
-/*
- * ================================ 文件注释 ================================
- * 【文件职责】定义 token-meter 的公共配置与测量词汇：配置类型、测量基线、
- * 测量快照（TokenMeasurement）与表面节点（TokenSurfaceNode）。
- * 【技术维度】TokenMeasurement 是从"一次消费到的日志修订号"上的请求压力 +
- * 表面快照（深冻结、剥离副本）；基线（baseline）区分三种来源：无（none）、
- * 启发式估计（estimated）、provider 实测用量（usage）。
- * 【产品维度】上层（agent loop、UI）调用 tokenMeter.measure() 获得"当前请求
- * 会花多少钱、当前表面有多少"的只读快照，用于上下文预算与占用展示。
- * 【逻辑维度】投影类型再导出 → 配置 → 基线 → 测量快照 → 表面节点。
- * 【关键边界】logRevision 等于"下一个未读事件 seq"；totalTokens 非负；
- * surfaceDeltaTokens 是相对基线锚点的有符号重定价。
- * 【新手阅读建议】先读 TokenMeasurement 各字段，再对照 index.ts 的 measure()
- * 理解字段如何产生。
- * ==========================================================================
- */
+
 
 /**
  * Public configuration and measurement vocabulary for replay token metering.
@@ -21,7 +6,12 @@
  * @module @deepseek-ai/dsh-token-meter/types
  */
 
+/*
+ * 【文件职责】声明可回放 token 计量的配置和测量结果，固定估算算法不额外暴露设置。
+ */
+
 import type { TokenUsage } from '@deepseek-ai/dsh-llm'
+import type { SessionLogOffset, SessionSeq } from '@deepseek-ai/dsh-session/types'
 
 export type { ContextBreakdownProjection, ContextPressureProjection, TokenUsageProjection } from './projection.ts'
 
@@ -45,8 +35,7 @@ export type TokenMeasurementBaseline =
  */
 export interface TokenMeasurement {
   /** Number of durable events consumed; equal to the next unread event seq. */
-  // 中文：已消费的持久事件数；等于下一个未读事件 seq。
-  readonly logRevision: number
+  readonly logRevision: SessionLogOffset
   /** Provider or heuristic anchor used for this measurement. */
   // 中文：本次测量使用的 provider 或启发式锚点。
   readonly baseline: TokenMeasurementBaseline
@@ -69,8 +58,7 @@ export interface TokenMeasurement {
  */
 export interface TokenSurfaceNode {
   /** Durable sequence number of the surface event. */
-  // 中文：表面事件的持久序号。
-  readonly seq: number
+  readonly seq: SessionSeq
   /**
    * Request-pressure tokens for the exact message projected by this node under
    * the measured route: image occurrences carry the route's declared visual

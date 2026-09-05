@@ -1,18 +1,15 @@
 /* Plugin configuration fields: label, control, override badge, and hint. */
 
 /* 中文：插件配置字段样式，覆盖标签、输入控件、覆盖状态徽章和帮助提示。 */
-/*
- * 中文说明：
- * - 文件职责：定义插件设置表单中字段、标签、状态徽章、重置按钮、输入框和提示文本的视觉规则。
- * - 技术维度：使用 CSS Modules、组合类 composes、伪类和设计系统颜色令牌。
- * - 产品维度：让用户清楚区分默认值、覆盖值、无效输入及不可编辑状态。
- * - 逻辑维度：按字段容器、标题行、徽章、操作按钮、输入状态和说明文本依次组织。
- * - 关键边界：inputInvalid 依赖 CSS Modules 的 input 组合；颜色变量需由宿主主题提供。
- * - 新手阅读建议：先看 field/head 的布局，再对比 badge、input 的正常与异常状态。
- */
+
 
 
 /* 单个配置字段的纵向容器；上下留白由字段自身承担。 */
+
+/*
+ * 【文件职责】定义插件配置字段的标签、控件、覆盖标记及提示区域。
+ */
+
 .field {
   display: flex;
   flex-direction: column;
@@ -22,7 +19,7 @@
 
 /* 相邻字段之间的分隔线；首个字段不会出现顶部边框。 */
 .field + .field {
-  border-top: 1px solid var(--dsw-alias-border-l2);
+  border-top: 0.5px solid var(--dsw-alias-border-l2);
 }
 
 /* 字段标题行，水平排列标签和右侧状态操作。 */
@@ -52,6 +49,7 @@
 /* 主要状态徽章，例如字段已被用户覆盖。 */
 .badge {
   border-radius: 999px;
+  corner-shape: round;
   padding: 1px 8px;
   font-size: 11px;
   line-height: 17px;
@@ -64,6 +62,7 @@
 /* 次要弱化徽章，用于不需要突出显示的状态。 */
 .badgeMuted {
   border-radius: 999px;
+  corner-shape: round;
   padding: 1px 8px;
   font-size: 11px;
   line-height: 17px;
@@ -97,7 +96,7 @@
 .input {
   height: 34px;
   padding: 0 12px;
-  border: 1px solid var(--dsw-alias-border-l2);
+  border: 0.5px solid var(--dsw-alias-border-l4);
   border-radius: 8px;
   background: var(--dsw-alias-bg-layer-3);
   font: inherit;

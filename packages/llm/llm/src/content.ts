@@ -1,28 +1,14 @@
 /** Content-block structure helpers. @module @deepseek-ai/dsh-llm/content */
 
 /*
- * ================================ 文件注释 ================================
- * 【文件职责】提供内容块的结构辅助：递归检测内容中是否含图片、把图片投射成
- * 确定性文本占位（纯文本模型或超限卸载）、以及按"数量/字节配额 + 量化步长"
- * 卸载最旧图片的策略实现。
- * 【技术维度】图片策略统一共用 contentHasImage 这一处递归遍历；卸载算法基于
- * 持久消息顺序与附件元数据做确定性选择（按字节统计支持 raw/base64 两种口径），
- * 不修改持久消息（原地替换产生浅拷贝）。
- * 【产品维度】多模态请求与纯文本模型、受限请求体之间的兼容：图片不能发给
- * 文本模型时给出稳定占位文本，请求体超限时按策略去掉最旧图片并告知模型，
- * 兼顾可用性与可预测性。
- * 【逻辑维度】占位文本常量 → 三类文本渲染辅助 → 递归图片检测 → 卸载策略
- * 类型 → 长度收集/替换辅助 → 两个对外入口（纯文本投射、超限卸载）。
- * 【关键边界】OFFLOADED_IMAGE_TEXT 对"最早图片先被移除"的说明必须真实；
- * 卸载目标是持久历史（oldest first）的确定性函数，重试/回放结果一致。
- * 【新手阅读建议】先看 contentHasImage 的递归结构，再读
- * offloadRequestImagesWithPolicy 的"长度收集 → 超额计算 → 替换"三段流程。
- * ==========================================================================
+ * 【文件职责】提供内容块结构处理工具，统一附件在执行环境中可读取的路径表达。
  */
 
 import type { ContentBlock } from './types.ts'
 import type { Message } from './message.ts'
-import type { AttachmentStore, ImageAttachmentRef, ImageMediaType, RequestImageAttachment } from '@deepseek-ai/dsh-attachment'
+import type {
+  AttachmentStore, FileAttachmentRef, ImageAttachmentRef, ImageMediaType, RequestImageAttachment,
+} from '@deepseek-ai/dsh-attachment'
 import { assertNever } from '@deepseek-ai/dsh-util-values'
 
 /** Execution-world path that model tools can use to read one normalized attachment. */
@@ -144,6 +130,78 @@ export function offloadedImageText(
 export function contentHasImage(content: readonly ContentBlock[]): boolean {
   return content.some(block => block.type === 'image'
     || (block.type === 'tool-result' && contentHasImage(block.content)))
+}
+
+/**
+ * True when typed model content contains a file block, walking nested
+ * tool-result content on the same recursion every file policy shares.
+ * @param content - typed model content blocks.
+ * @returns whether any nested block is a file.
+ */
+export function contentHasFile(content: readonly ContentBlock[]): boolean {
+  return content.some(block => block.type === 'file'
+    || (block.type === 'tool-result' && contentHasFile(block.content)))
+}
+
+/**
+ * Stable model-facing handle for one durable file reference: the address of
+ * the verbatim stored copy and the instruction to read it on demand. This is
+ * the only representation a provider ever receives for a file.
+ * @param ref - durable verbatim file reference.
+ * @param readonlyPath - execution-world path of the stored copy, when resolvable.
+ * @returns deterministic handle text naming the file, its size, and its address.
+ */
+export function fileHandleText(ref: FileAttachmentRef, readonlyPath: string | undefined): string {
+  const digest = String(ref.attachmentId).slice('sha256:'.length, 'sha256:'.length + 8)
+  const identity = `File ${quoted(ref.name)} (${ref.bytes} bytes, sha256:${digest})`
+  if (readonlyPath === undefined) {
+    return `[${identity} was uploaded, but the current execution environment cannot access a readable path. Report that limitation if its contents are needed; do not claim to have read it.]`
+  }
+  return `[${identity}: verbatim read-only copy saved at ${quoted(readonlyPath)}. Read that path with your file tools when its contents are needed; copy it to a writable location before modifying it. When delegating file work, include this saved path in the delegation prompt; only subagents sharing this execution environment can read it.]`
+}
+
+/** Replace every file occurrence, including nested tool results, with handle text. */
+function replaceFilesWithHandles(
+  blocks: readonly ContentBlock[],
+  resolvePath: (ref: FileAttachmentRef) => string | undefined,
+): ContentBlock[] {
+  let next: ContentBlock[] | undefined
+  for (const [index, block] of blocks.entries()) {
+    if (block.type === 'file') {
+      next ??= blocks.slice(0, index)
+      next.push({ type: 'text', text: fileHandleText(block.attachment, resolvePath(block.attachment)) })
+      continue
+    }
+    if (block.type === 'tool-result') {
+      const content = replaceFilesWithHandles(block.content, resolvePath)
+      if (content !== block.content) {
+        next ??= blocks.slice(0, index)
+        next.push({ ...block, content })
+        continue
+      }
+    }
+    next?.push(block)
+  }
+  return next ?? blocks as ContentBlock[]
+}
+
+/**
+ * Project durable file history into deterministic handle text for every model
+ * route. Unlike images, no provider receives file blocks natively, so this
+ * projection is unconditional in request assembly.
+ * @param messages - complete request history.
+ * @param resolvePath - resolve one reference's current execution-world read path.
+ * @returns the original list without files, otherwise shallow message copies with handle text.
+ */
+export function projectFilesToText(
+  messages: readonly Message[],
+  resolvePath: (ref: FileAttachmentRef) => string | undefined,
+): readonly Message[] {
+  if (!messages.some(message => contentHasFile(message.content))) return messages
+  return messages.map((message) => {
+    const content = replaceFilesWithHandles(message.content, resolvePath)
+    return content === message.content ? message : { ...message, content }
+  })
 }
 
 /** Base64 length of raw image bytes, including padding. */

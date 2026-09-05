@@ -5,14 +5,7 @@
  *
  * @module @deepseek-ai/dsh-code-runtime/src/types
  */
-/*
- * 文件职责：实现代码运行时的 types 模块。
- * 技术维度：TypeScript、Cordis 插件、Worker/JSON 协议和严格类型。
- * 产品维度：为产品提供代码运行时能力。
- * 逻辑维度：解析配置或协议，执行核心流程并返回结构化结果。
- * 关键边界：跨线程和模型输入属于不可信边界；资源与事件注册必须清理。
- * 新手阅读建议：先读导出类型与配置，再跟踪入口和错误分支。
- */
+
 
 /**
  * One host-side function exposed to the program as an async callable. The
@@ -24,6 +17,12 @@
  * corresponding call.
  */
 /* 中文说明：类型或类 CodeBindingFunction 约束协议数据或模块职责。 */
+
+/*
+ * 【文件职责】声明代码执行请求、绑定和结果；
+ * 跨运行时传递的参数及返回值必须能无损表示为 JSON。
+ */
+
 export type CodeBindingFunction = (args: unknown) => Promise<CodeJsonValue>
 
 /** A lossless JSON value transferable through the dependency-light Service Definition. */
@@ -136,7 +135,11 @@ export interface CodeRunResult {
    * rendered string; a failed or value-less run leaves this absent.
    */
   value?: CodeJsonValue
-  /** Text the program emitted, in order, bounded only as part of the outer result. */
+  /**
+   * Captured text. Each source channel preserves emission order; interleaving
+   * across independent channels is backend-dependent. Bounded only as part of
+   * the outer result.
+   */
   logs: string[]
   /** Present iff the run failed; see {@link CodeRunFailure} for the taxonomy. */
   error?: CodeRunFailure

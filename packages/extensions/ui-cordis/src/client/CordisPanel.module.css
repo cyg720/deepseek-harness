@@ -1,11 +1,7 @@
 /* Sidebar-foot Cordis action and the fixed list it opens above the footer. */
-/**
- * 文件职责：定义Cordis 扩展界面的 CordisPanel.module.css 样式。
- * 技术维度：CSS Modules、主题变量和状态选择器。
- * 产品维度：保证Cordis 扩展界面在配置、运行、失败和清理场景中可理解且可靠。
- * 逻辑维度：按容器、字段、操作与状态组织规则。
- * 关键边界：沙箱与宿主 Context 不可混用；反馈追加新记录，不改写既有会话历史。
- * 新手阅读建议：先读类型和夹具，再按注册、执行、错误与卸载流程阅读。
+
+/*
+ * 【文件职责】定义侧栏底部的 Cordis 入口及其上方固定列表。
  */
 
 .layer {
@@ -79,6 +75,7 @@
   height: 36px;
   padding: 0;
   border-radius: 50%;
+  corner-shape: round;
 }
 
 .rail .footerButtons {
@@ -97,10 +94,11 @@
   max-width: calc(100vw - 24px);
   max-height: 60vh;
   overflow: hidden;
-  border: 1px solid var(--dsw-alias-border-inverted);
+  border: 0;
   border-radius: 12px;
   background: var(--dsw-specific-menu);
-  box-shadow: var(--dsw-shadow-lv3);
+  --dsw-elevation-stroke-color: var(--dsw-alias-border-l1);
+  box-shadow: var(--dsw-elevation-prominent);
   /* Only `.body` scrolls; the header remains fixed above it. */
   /* 中文说明：自定义属性 --dsh-scrollbar-thumb 保存扩展界面复用的样式值。 */
   --dsh-scrollbar-thumb: var(--dsw-alias-scrollbar-bg-l2);
@@ -169,7 +167,7 @@
   flex-direction: column;
   gap: 8px;
   padding: 14px 12px 10px;
-  border: 1px solid var(--dsw-alias-border-l2);
+  border: 0.5px solid var(--dsw-alias-border-l4);
   border-radius: 12px;
 }
 
@@ -258,7 +256,7 @@
   flex: 1;
   height: 26px;
   padding: 0 8px;
-  border: 1px solid var(--dsw-alias-border-l2);
+  border: 0.5px solid var(--dsw-alias-border-l3);
   border-radius: 7px;
   background: transparent;
   color: var(--dsw-alias-label-secondary);
@@ -307,8 +305,9 @@
 
 .transitionActions button {
   padding: 2px 8px;
-  border: 1px solid var(--dsw-alias-border-l2);
+  border: 0.5px solid var(--dsw-alias-border-l3);
   border-radius: 999px;
+  corner-shape: round;
   background: transparent;
   color: var(--dsw-alias-label-secondary);
   font: inherit;
@@ -341,6 +340,7 @@
   padding: 0;
   border: none;
   border-radius: 999px;
+  corner-shape: round;
   background: transparent;
   color: var(--dsw-alias-label-tertiary);
   cursor: pointer;

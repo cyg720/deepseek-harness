@@ -46,6 +46,7 @@ const messageEventArb: fc.Arbitrary<Appendable> = fc.oneof(
     data: {
       turn: 1,
       step: 1,
+      stream: [],
       message: createMessage({
         role: 'assistant',
         content,
@@ -59,6 +60,7 @@ const messageEventArb: fc.Arbitrary<Appendable> = fc.oneof(
     data: {
       turn: 1,
       step: 1,
+      stream: [],
       message: createMessage({
         role: 'assistant',
         content,
@@ -86,7 +88,10 @@ const nonMessageEventArb: fc.Arbitrary<Appendable> = fc.oneof(
   fc.constant<Appendable>({ type: 'turn/end', data: { turn: 1, reason: { kind: 'completed' } } }),
   fc.constant<Appendable>({ type: 'step/start', data: { turn: 1, step: 1 } }),
   fc.constant<Appendable>({ type: 'step/end', data: { turn: 1, step: 1 } }),
-  fc.string().map((text): Appendable => ({ type: 'assistant/chunk', data: { turn: 1, step: 1, chunk: { type: 'text-delta', index: 0, text } } })),
+  fc.string().map((text): Appendable => ({
+    type: 'assistant/attempt',
+    data: { turn: 1, step: 1, stream: [{ type: 'text-chunks', time0: 1, index: 0, dt: [], texts: [text] }] },
+  })),
 )
 
 /** 中文说明：测试局部值 anyEventArb，由紧邻初始化决定。 */
@@ -122,7 +127,7 @@ describe('Session properties', () => {
     fc.assert(fc.property(logArb, (events) => {
       /** 中文说明：测试局部值 session，由紧邻初始化决定。 */
       const session = build(events)
-      session.events.forEach((event, i) => { expect(event.seq).toBe(i) })
+      session.snapshotEvents().forEach((event, i) => { expect(event.seq).toBe(i) })
       expect(session.seq).toBe(events.length)
     }))
   })
@@ -131,11 +136,10 @@ describe('Session properties', () => {
     fc.assert(fc.property(logArb, (events) => {
       /** 中文说明：测试局部值 original，由紧邻初始化决定。 */
       const original = build(events)
-      /** 中文说明：测试局部值 replayed，由紧邻初始化决定。 */
-      const replayed = Session.create(SessionId(`replay-${counter++}`), [...original.events])
+      const replayed = Session.create(SessionId(`replay-${counter++}`), original.snapshotEvents())
       expect(replayed.deriveMessages()).toEqual(original.deriveMessages())
       // Every explicit replay grows by exactly one log-only boundary.
-      expect(replayed.events.slice(0, original.seq)).toEqual(original.events)
+      expect(replayed.snapshotEvents().slice(0, original.seq)).toEqual(original.snapshotEvents())
       expect(replayed.seq).toBe(original.seq + 1)
     }))
   })
@@ -144,12 +148,10 @@ describe('Session properties', () => {
     fc.assert(fc.property(logArb, (events) => {
       /** 中文说明：测试局部值 original，由紧邻初始化决定。 */
       const original = build(events)
-      /** 中文说明：测试局部值 once，由紧邻初始化决定。 */
-      const once = Session.create(SessionId(`idem-a-${counter++}`), [...original.events])
-      /** 中文说明：测试局部值 twice，由紧邻初始化决定。 */
-      const twice = Session.create(SessionId(`idem-b-${counter++}`), [...once.events])
+      const once = Session.create(SessionId(`idem-a-${counter++}`), original.snapshotEvents())
+      const twice = Session.create(SessionId(`idem-b-${counter++}`), once.snapshotEvents())
       // Lazy resume makes browsing a pickup, so this must not grow per open.
-      expect(twice.events).toEqual(once.events)
+      expect(twice.snapshotEvents()).toEqual(once.snapshotEvents())
     }))
   })
 
@@ -191,9 +193,7 @@ describe('Session properties', () => {
       const session = build(events)
       /** 中文说明：测试局部值 messages，由紧邻初始化决定。 */
       const messages = session.deriveMessages()
-      /** 中文说明：测试局部值 before，由紧邻初始化决定。 */
-      const before = structuredClone(session.events)
-      /** 中文说明：测试局部值 m，由紧邻初始化决定。 */
+      const before = structuredClone(session.snapshotEvents())
       for (const m of messages) {
         expect(['user', 'assistant', 'system']).toContain(m.role)
         // Derived messages are frozen shared projections: mutation THROWS
@@ -201,7 +201,7 @@ describe('Session properties', () => {
         expect(Object.isFrozen(m)).toBe(true)
         expect(() => { m.content.push({ type: 'text', text: 'mutation' }) }).toThrow(TypeError)
       }
-      expect(session.events).toEqual(before)
+      expect(session.snapshotEvents()).toEqual(before)
     }))
   })
 })

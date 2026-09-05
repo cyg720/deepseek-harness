@@ -15,13 +15,10 @@
  * nothing) rather than ending in assertNever: grammars registered elsewhere
  * may add node types this renderer has no mapping for.
  */
+
 /*
- * 文件职责：实现Markdown 与代码内容相关的 render 基础组件。
- * 技术维度：React、TypeScript、CSS Modules 和浏览器 DOM API。
- * 产品维度：为上层产品界面提供一致的Markdown 与代码内容展示。
- * 逻辑维度：接收属性，派生展示结构并处理局部交互。
- * 关键边界：组件不拥有业务状态；不可信内容必须经过既有安全渲染路径。
- * 新手阅读建议：先读 Props，再看派生值、事件处理和 JSX。
+ * 【文件职责】将 mdast 直接渲染为 React 节点并复用冻结流式块；
+ * 链接和图片必须通过协议限制，原始 HTML 按文本显示。
  */
 
 import { Fragment, createElement } from 'react'
@@ -32,6 +29,7 @@ import type {} from 'mdast-util-math'
 import { normalizeUri } from 'micromark-util-sanitize-uri'
 import { CodeBlock } from './CodeBlock.tsx'
 import { renderTexToReact } from './katex.tsx'
+import { LinkIcon, classifyLinkPath } from '../LinkIcon.tsx'
 import type { PositionedBlock } from './incremental.ts'
 import css from './MarkdownText.module.css'
 
@@ -297,6 +295,7 @@ function renderNode(node: Md.RootContent, key: Key, context: MarkdownRenderConte
               aria-label={mention.label}
               onClick={mention.open}
             >
+              <LinkIcon kind={classifyLinkPath(value)} className={css.linkIcon} />
               {value}
             </button>
           </code>
@@ -321,7 +320,7 @@ function renderNode(node: Md.RootContent, key: Key, context: MarkdownRenderConte
     case 'table':
       return renderTable(node, key, context)
     case 'link':
-      return renderAnchor(node.url, renderChildren(node.children, { ...context, inLink: true }), key)
+      return renderAnchor(node.url, renderChildren(node.children, { ...context, inLink: true }), key, !anchorWrapsOnlyImages(node.children))
     case 'linkReference':
       return renderLinkReference(node, key, context)
     case 'image':
@@ -527,10 +526,17 @@ function renderTableRow(
   return <tr key={key}>{cells}</tr>
 }
 
+/**
+ * True when an anchor's markdown children are all images, so the anchor is a
+ * clickable picture (badge, thumbnail): the leading URL glyph would dangle
+ * beside the image instead of leading link text, so those anchors skip it.
+ */
+function anchorWrapsOnlyImages(children: Md.PhrasingContent[]): boolean {
+  return children.length > 0 && children.every(child => child.type === 'image' || child.type === 'imageReference')
+}
+
 /** Anchor over an already-authored href: allowlisted or unwrapped, external links get the safe attributes. */
-/* 中文说明：函数 renderSafeLink 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
-function renderSafeLink(href: string, children: ReactNode[], key: Key): ReactNode {
-  /** 中文说明：组件局部值 safeHref，由紧邻初始化决定。 */
+function renderSafeLink(href: string, children: ReactNode[], key: Key, glyph = true): ReactNode {
   const safeHref = sanitizeUrl(href)
   if (safeHref === '') return <Fragment key={key}>{children}</Fragment>
   /** 中文说明：组件局部值 external，由紧邻初始化决定。 */
@@ -541,15 +547,15 @@ function renderSafeLink(href: string, children: ReactNode[], key: Key): ReactNod
       href={safeHref}
       {...(external ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
     >
+      {glyph && <LinkIcon kind="url" className={css.linkIcon} />}
       {children}
     </a>
   )
 }
 
 /** Anchor over a parsed markdown destination, which hast normalized before the allowlist saw it. */
-/* 中文说明：函数 renderAnchor 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
-function renderAnchor(url: string, children: ReactNode[], key: Key): ReactNode {
-  return renderSafeLink(normalizeUri(url), children, key)
+function renderAnchor(url: string, children: ReactNode[], key: Key, glyph = true): ReactNode {
+  return renderSafeLink(normalizeUri(url), children, key, glyph)
 }
 
 /**
@@ -612,7 +618,8 @@ function renderLinkReference(
     // not an anchor, so mentions inside it stay live.
     return <Fragment key={key}>{'['}{renderChildren(node.children, context)}{referenceSuffix(node)}</Fragment>
   }
-  return renderAnchor(definition.url, renderChildren(node.children, { ...context, inLink: true }), key)
+  const rendered = renderChildren(node.children, { ...context, inLink: true })
+  return renderAnchor(definition.url, rendered, key, !anchorWrapsOnlyImages(node.children))
 }
 
 /** 中文说明：函数 renderImageReference 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */

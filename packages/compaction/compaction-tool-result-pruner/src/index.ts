@@ -3,20 +3,16 @@
  *
  * @module @deepseek-ai/dsh-compaction-tool-result-pruner
  */
+
 /*
- * 文件职责：实现上下文压缩的 index.ts 模块。
- * 技术维度：TypeScript、Cordis 插件、会话事件和严格判别联合。
- * 产品维度：控制模型请求中的上下文压缩信息。
- * 逻辑维度：读取日志或文件状态，计算投影并记录/注入结果。
- * 关键边界：不能静默丢失必需事件；裁剪和替换必须保持日志可重放。
- * 新手阅读建议：先读导出类型与配置，再跟踪事件和投影流程。
+ * 【文件职责】按确定的头、中、尾保留策略裁剪工具文本结果，无需模型请求，结果可以从日志回放。
  */
 
 import { Context, Service } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
 import { freezeMessage } from '@deepseek-ai/dsh-llm'
 import type { ContentBlock } from '@deepseek-ai/dsh-llm'
-import type { Session, SessionEvent, ToolResultMessage } from '@deepseek-ai/dsh-session'
+import type { Session, SessionEvent, SessionSeq, ToolResultMessage } from '@deepseek-ai/dsh-session'
 // Type-only: the `compaction/*` SessionEventMap merges (the shadow-price event).
 import type {} from '@deepseek-ai/dsh-compaction'
 // Type-only: the `ctx.tokenMeter` Context merge for the declared injection.
@@ -46,7 +42,7 @@ declare module '@deepseek-ai/cordis' {
 
 /** 中文说明：类型或类 SnapshotCandidate 约束上下文或压缩数据职责。 */
 interface SnapshotCandidate {
-  readonly seq: number
+  readonly seq: SessionSeq
   readonly event: SessionEvent<'tool/result'>
 }
 
@@ -167,8 +163,7 @@ export class ToolResultPruner extends Service {
     const candidates: SnapshotCandidate[] = []
     /** 中文说明：上下文局部值 seq，由紧邻初始化决定。 */
     for (const seq of [...session.surface.nodes]) {
-      /** 中文说明：上下文局部值 event，由紧邻初始化决定。 */
-      const event = session.events[seq]
+      const event = session.eventAt(seq)
       /* v8 ignore next -- surface seqs are validated contiguous log references. */
       if (event?.type === 'tool/result') candidates.push({ seq, event })
     }

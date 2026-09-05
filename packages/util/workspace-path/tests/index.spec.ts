@@ -30,10 +30,12 @@ describe('Workspace path helpers', () => {
     expect(resolveWorkspacePath('/w', '\\\\server\\share')).toBe('\\\\server\\share')
   })
 
-  /**
-   * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；返回值：由 TypeScript 根据实现推断的结果；
-   * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调()，并按返回类型处理结果。
-   */
+  it('keeps Windows drive-root and directory joins fully qualified', () => {
+    expect(resolveWorkspacePath('C:\\', 'src\\a.ts')).toBe('C:\\src\\a.ts')
+    expect(resolveWorkspacePath('C:\\work\\', 'src\\a.ts')).toBe('C:\\work\\src\\a.ts')
+    expect(resolveWorkspacePath('C:/work/', 'src/a.ts')).toBe('C:/work/src/a.ts')
+  })
+
   it('abbreviates only descendants of a POSIX home', () => {
     expect(abbreviateHomePath('/Users/u', '/Users/u')).toBe('~')
     expect(abbreviateHomePath('/Users/u/', '/Users/u')).toBe('~')

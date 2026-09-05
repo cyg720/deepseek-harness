@@ -9,7 +9,6 @@
  */
 import { Context } from '@deepseek-ai/cordis'
 import { createScope, scopeOf } from '@deepseek-ai/dsh-api-session-controller/client'
-import InvariantRegistry from '@deepseek-ai/dsh-invariants'
 import type { ToolCallId } from '@deepseek-ai/dsh-llm'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
@@ -19,7 +18,6 @@ import type { ApprovalComposerProps } from '../src/client/contract/slots.ts'
 import { PendingApproval } from '../src/client/contract/slots.ts'
 import { apply, inject } from '../src/client/index.ts'
 import { apply as nodeApply } from '../src/index.ts'
-import * as ApprovalInvariant from '../src/invariant.ts'
 
 type ApprovalListener = (
   this: Context,
@@ -818,23 +816,12 @@ describe('ApprovalPanel', () => {
  * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调()，并按返回类型处理结果。
  */
 describe('package entries', () => {
-  /**
-   * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；返回值：由 TypeScript 根据实现推断的结果；
-   * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调()，并按返回类型处理结果。
-   */
-  it('declares its service edges, keeps the Host half inert, and registers its invariant', async () => {
+  it('declares its service edges and keeps the Host half inert', () => {
     expect(inject).toEqual(['sessions', 'remote', 'uiSession', 'slots', 'locale'])
     /**
      * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；返回值：由 TypeScript 根据实现推断的结果；
      * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调()，并按返回类型处理结果。
      */
     expect(() => { nodeApply() }).not.toThrow()
-    /**
-     * 常量说明：ctx 用于处理 ctx 相关数据，作用于当前作用域；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。
-     */
-    const ctx = new Context()
-    await ctx.plugin(InvariantRegistry, { enabled: true })
-
-    await expect(ctx.plugin(ApprovalInvariant).await()).resolves.toBeDefined()
   })
 })

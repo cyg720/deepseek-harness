@@ -39,6 +39,9 @@ interface LegacyConversationSlice {
   readonly nodes: readonly ConversationNode[]
 }
 
+const EMPTY_LOCATION_DATA_SOURCE = { getSnapshot: () => undefined, subscribe: () => () => {} }
+const EMPTY_LOCATION_DATA = { get: () => undefined, source: () => EMPTY_LOCATION_DATA_SOURCE }
+
 afterEach(cleanup)
 
 describe('TrajectoryTurnHeader', () => {
@@ -298,8 +301,7 @@ describe('deriveTrajectoryLayout', () => {
         blocks: [{ kind: 'text', text: 'second step' }],
       },
     ] as unknown as LegacyConversationSlice['nodes']
-    const data = { get: () => undefined }
-    /** 中文说明：测试局部值 step，由紧邻初始化决定。 */
+    const data = EMPTY_LOCATION_DATA
     const step = { turn: 1, step: 2, start: undefined, end: undefined, status: 'open' as const, data }
     /** 中文说明：测试局部值 turn，由紧邻初始化决定。 */
     const turn = {
@@ -335,8 +337,7 @@ describe('deriveTrajectoryLayout', () => {
       kind: 'steering', messageId: 'steer-1', seq: 3, time: 3_000,
       content: [{ type: 'text', text: 'change direction' }], source: null,
     }] as unknown as LegacyConversationSlice['nodes']
-    const data = { get: () => undefined }
-    /** 中文说明：测试局部值 step，由紧邻初始化决定。 */
+    const data = EMPTY_LOCATION_DATA
     const step = { turn: 1, step: 2, start: undefined, end: undefined, status: 'open' as const, data }
     /** 中文说明：测试局部值 turn，由紧邻初始化决定。 */
     const turn = {
@@ -728,5 +729,48 @@ describe('durable image attachments', () => {
     const block = turns[0]?.groups[0]?.cells[0]?.sourceBlocks?.[0]
     expect(block?.attachment).toBeUndefined()
     expect(block?.content).toContain('https://example.com/a.png')
+  })
+})
+
+describe('durable file attachments', () => {
+  const attachment = {
+    attachmentId: `sha256:${'d'.repeat(64)}`,
+    name: 'notes.pdf',
+    bytes: 2447 * 1024 * 1024,
+  }
+
+  it('labels file-only and mixed-text user records without rendering file cards', () => {
+    const nodes = [
+      {
+        kind: 'user', seq: 1, time: 1_000, source: null,
+        content: [{ type: 'file', attachment }, { type: 'file', attachment }],
+      },
+      {
+        kind: 'user', seq: 2, time: 2_000, source: null,
+        content: [{ type: 'text', text: 'review these' }, { type: 'file', attachment }],
+      },
+    ] as unknown as LegacyConversationSlice['nodes']
+    const turns = deriveTrajectoryLayout({ nodes, partial: null, runningCalls: [] })
+    const users = turns.flatMap(turn => turn.groups).flatMap(group => group.cells)
+      .filter(cell => cell.kind === 'user')
+    expect(users[0]?.text).toBe('Files ×2')
+    expect(users[0]?.previewMarkdown).toBeUndefined()
+    expect(users[1]).toMatchObject({ text: 'Files ×1', previewMarkdown: 'review these' })
+  })
+
+  it('keeps image and file counts in a file-only attachment summary', () => {
+    const image = {
+      attachmentId: `sha256:${'e'.repeat(64)}`,
+      mediaType: 'image/png',
+      bytes: 68,
+      width: 640,
+      height: 320,
+    }
+    const nodes = [{
+      kind: 'user', seq: 1, time: 1_000, source: null,
+      content: [{ type: 'image', attachment: image }, { type: 'file', attachment }],
+    }] as unknown as LegacyConversationSlice['nodes']
+    const turns = deriveTrajectoryLayout({ nodes, partial: null, runningCalls: [] })
+    expect(turns[0]?.groups[0]?.cells[0]?.text).toBe('Images ×1 · Files ×1')
   })
 })

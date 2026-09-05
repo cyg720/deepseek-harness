@@ -1,23 +1,10 @@
-/*
- * ================================ 文件注释 ================================
- * 【文件职责】以 Cordis 伴随插件形式注册本包（@deepseek-ai/dsh-tools）的运行时
- *   不变量检查：工具流水线阶段顺序、最终结果快照的冻结契约、code-dispatch 子调用
- *   的 id 封闭关系与"回合内追加"约束。
- * 【技术维度】函数式插件三件套（name/inject/apply）；通过 internal/dispatch 全局钩子
- *   在事件分发前拦截校验；WeakMap 维护按执行对象/会话索引的状态。
- * 【产品维度】把"模型可见 ⟺ 可由日志重建""发布前必须冻结"等架构承诺变成可执行
- *   的守门断言，防止回归悄悄破坏日志与 UI 的正确性。
- * 【逻辑维度】install 安装器先对全部既有会话回放播种基线，再挂三个全局监听：
- *   会话创建、会话事件流、内部分发拦截；validateDispatch/commitDispatch 负责子调用
- *   归属校验与登记，validateResult 负责最终快照校验。
- * 【关键边界】只校验不修复：任何失败都经 fail 上报为不变量违规；状态表全部使用
- *   WeakMap，随对象回收自动清理，无泄漏风险。
- * 【新手阅读建议】先读 ToolStage 与三个 WeakMap 的用途，再顺着 install 里四个监听
- *   的注册顺序理解"历史播种 → 实时增量校验"的两段式结构。
- * ==========================================================================
- */
+
 
 /** Package-owned tool-pipeline invariants. @module @deepseek-ai/dsh-tools/invariant */
+
+/*
+ * 【文件职责】检查工具流水线产生的持久调用与结果关系，约束执行过程的日志完整性。
+ */
 
 import type { Context } from '@deepseek-ai/cordis'
 import type { Session, SessionEvent } from '@deepseek-ai/dsh-session'
@@ -121,7 +108,7 @@ const install: InvariantInstaller = Object.assign((ctx: Context, fail: Invariant
   const seed = (session: Session): number | null => {
     let openTurn: number | null = null
     dispatchRoots.set(session, new Map())
-    for (const event of session.events) {
+    for (const event of session.snapshotEvents()) {
       validateDispatch(session, event)
       commitDispatch(session, event)
       if (event.type === 'turn/start') openTurn = event.data.turn

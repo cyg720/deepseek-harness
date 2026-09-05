@@ -20,7 +20,8 @@
 
 import { describe, expect, it } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
-import { createMessage } from '@deepseek-ai/dsh-llm'
+import { createMessage, ToolCallId } from '@deepseek-ai/dsh-llm'
+import type { StreamChunk, TokenUsage } from '@deepseek-ai/dsh-llm'
 import SessionStore, { SessionId } from '@deepseek-ai/dsh-session'
 import type { Session, SessionEvent } from '@deepseek-ai/dsh-session'
 import SessionProjectionRegistry from '@deepseek-ai/dsh-session-projection'
@@ -49,6 +50,7 @@ function closeStep(session: Session, turn: number, step: number): number {
 /* 中文说明：函数 appendEmptyAssistantMessage 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function appendEmptyAssistantMessage(session: Session, turn: number, step: number): void {
   session.append('assistant/message', {
+    stream: [],
     turn,
     step,
     message: createMessage({
@@ -56,7 +58,7 @@ function appendEmptyAssistantMessage(session: Session, turn: number, step: numbe
       content: [],
       source: { kind: 'model', provider: 'mock', model: 'mock' },
     }),
-  }, { surfaceOp: 'append', sourceEventSeqs: [] })
+  }, { surfaceOp: 'append' })
 }
 
 /** The all-zero projection value plus overrides, for exact fold expectations. */
@@ -173,6 +175,19 @@ function at(time: number, type: string, data: unknown): SessionEvent {
   return { type, seq: time, time, data } as unknown as SessionEvent
 }
 
+function attemptAt(
+  time: number,
+  chunks: readonly { readonly time: number; readonly chunk: StreamChunk }[],
+  turn = 1,
+  step = 1,
+): SessionEvent {
+  return at(time, 'assistant/attempt', {
+    turn,
+    step,
+    stream: chunks.map(member => ({ type: 'chunk', ...member })),
+  })
+}
+
 /** Fold a synthetic event list through the definition and view the result. */
 /* 中文说明：函数 fold 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function fold(events: readonly SessionEvent[]): SessionStatsProjection {
@@ -192,11 +207,26 @@ describe('sessionStats wall-time fold (controlled timestamps)', () => {
     source: { kind: 'model', provider: 'mock', model: 'mock' },
   })
 
+  function messageAt(
+    time: number,
+    chunks: readonly { readonly time: number; readonly chunk: StreamChunk }[] = [],
+    usage?: TokenUsage,
+  ): SessionEvent {
+    return at(time, 'assistant/message', {
+      turn: 1,
+      step: 1,
+      message,
+      stream: chunks.map(member => ({ type: 'chunk', ...member })),
+      ...usage === undefined ? {} : { usage },
+    })
+  }
+
   it('accrues model, first-token, and decode time from one fully recorded step', () => {
     expect(fold([
       at(1_000, 'step/start', { turn: 1, step: 1 }),
-      at(1_800, 'assistant/chunk', { turn: 1, step: 1, chunk: { type: 'text-delta', index: 0, text: 'a' } }),
-      at(4_800, 'assistant/message', { turn: 1, step: 1, message, usage: { inputTokens: 10, outputTokens: 60 } }),
+      messageAt(4_800, [{
+        time: 1_800, chunk: { type: 'text-delta', index: 0, text: 'a' },
+      }], { inputTokens: 10, outputTokens: 60 }),
       at(4_900, 'step/end', { turn: 1, step: 1 }),
     ])).toEqual(totals({
       turns: 1, steps: 1, llmMs: 3_800, ttftMs: 800, ttftSteps: 1, decodeMs: 3_000, decodeTokens: 60,
@@ -206,24 +236,38 @@ describe('sessionStats wall-time fold (controlled timestamps)', () => {
   it('keeps the first attempt token boundary across an in-step retry (window resetForRetry parity)', () => {
     expect(fold([
       at(1_000, 'step/start', { turn: 1, step: 1 }),
-      at(1_200, 'assistant/chunk', { turn: 1, step: 1, chunk: { type: 'reasoning-delta', index: 0, text: 'x' } }),
+      attemptAt(1_100, [{
+        time: 1_100, chunk: { type: 'text-delta', index: 0, text: '' },
+      }]),
+      attemptAt(2_000, [{
+        time: 1_200, chunk: { type: 'reasoning-delta', index: 0, text: 'x' },
+      }]),
+      attemptAt(2_500, [{
+        time: 1_500, chunk: { type: 'text-delta', index: 0, text: 'later' },
+      }]),
       at(2_000, 'llm/retry', { turn: 1, step: 1 }),
-      at(3_000, 'assistant/chunk', { turn: 1, step: 1, chunk: { type: 'text-delta', index: 0, text: 'y' } }),
-      at(5_000, 'assistant/message', { turn: 1, step: 1, message }),
+      messageAt(5_000, [{
+        time: 3_000, chunk: { type: 'text-delta', index: 0, text: 'y' },
+      }]),
       at(5_100, 'step/end', { turn: 1, step: 1 }),
     ])).toEqual(totals({ turns: 1, steps: 1, llmMs: 4_000, ttftMs: 200, ttftSteps: 1 }))
   })
 
   it('ignores empty deltas, non-token chunks, and chunks outside the open step', () => {
     expect(fold([
-      // Chunk before any step/start: no open boundary.
-      at(500, 'assistant/chunk', { turn: 1, step: 1, chunk: { type: 'text-delta', index: 0, text: 'stray' } }),
+      // Attempt before any step/start: no open boundary.
+      attemptAt(500, [{
+        time: 500, chunk: { type: 'text-delta', index: 0, text: 'stray' },
+      }]),
       at(1_000, 'step/start', { turn: 1, step: 1 }),
-      at(1_100, 'assistant/chunk', { turn: 1, step: 1, chunk: { type: 'block-start', index: 0, blockType: 'text' } }),
-      at(1_200, 'assistant/chunk', { turn: 1, step: 1, chunk: { type: 'text-delta', index: 0, text: '' } }),
-      at(1_300, 'assistant/chunk', { turn: 2, step: 9, chunk: { type: 'text-delta', index: 0, text: 'other' } }),
-      at(1_400, 'assistant/chunk', { turn: 1, step: 1, chunk: { type: 'text-delta', index: 0, text: 'first' } }),
-      at(2_000, 'assistant/message', { turn: 1, step: 1, message }),
+      attemptAt(1_300, [{
+        time: 1_300, chunk: { type: 'text-delta', index: 0, text: 'other' },
+      }], 2, 9),
+      messageAt(2_000, [
+        { time: 1_100, chunk: { type: 'block-start', index: 0, blockType: 'text' } },
+        { time: 1_200, chunk: { type: 'text-delta', index: 0, text: '' } },
+        { time: 1_400, chunk: { type: 'text-delta', index: 0, text: 'first' } },
+      ]),
       at(2_100, 'step/end', { turn: 1, step: 1 }),
     ])).toEqual(totals({ turns: 1, steps: 1, llmMs: 1_000, ttftMs: 400, ttftSteps: 1 }))
   })
@@ -231,28 +275,22 @@ describe('sessionStats wall-time fold (controlled timestamps)', () => {
   it('uses non-empty Tool-call names or arguments as the first token', () => {
     expect(fold([
       at(1_000, 'step/start', { turn: 1, step: 1 }),
-      at(1_100, 'assistant/chunk', {
-        turn: 1,
-        step: 1,
-        chunk: { type: 'tool-call-delta', index: 0, id: 'call-1', argumentsDelta: '' },
-      }),
-      at(1_200, 'assistant/chunk', {
-        turn: 1,
-        step: 1,
-        chunk: { type: 'tool-call-delta', index: 0, id: 'call-1', name: 'read', argumentsDelta: '' },
-      }),
-      at(2_000, 'assistant/message', { turn: 1, step: 1, message }),
+      messageAt(2_000, [
+        { time: 1_100, chunk: { type: 'tool-call-delta', index: 0, id: ToolCallId('call-1'), argumentsDelta: '' } },
+        {
+          time: 1_200,
+          chunk: { type: 'tool-call-delta', index: 0, id: ToolCallId('call-1'), name: 'read', argumentsDelta: '' },
+        },
+      ]),
       at(2_100, 'step/end', { turn: 1, step: 1 }),
     ])).toEqual(totals({ turns: 1, steps: 1, llmMs: 1_000, ttftMs: 200, ttftSteps: 1 }))
 
     expect(fold([
       at(1_000, 'step/start', { turn: 1, step: 1 }),
-      at(1_300, 'assistant/chunk', {
-        turn: 1,
-        step: 1,
-        chunk: { type: 'tool-call-delta', index: 0, id: 'call-1', argumentsDelta: '{' },
-      }),
-      at(2_000, 'assistant/message', { turn: 1, step: 1, message }),
+      messageAt(2_000, [{
+        time: 1_300,
+        chunk: { type: 'tool-call-delta', index: 0, id: ToolCallId('call-1'), argumentsDelta: '{' },
+      }]),
       at(2_100, 'step/end', { turn: 1, step: 1 }),
     ])).toEqual(totals({ turns: 1, steps: 1, llmMs: 1_000, ttftMs: 300, ttftSteps: 1 }))
   })
@@ -260,7 +298,9 @@ describe('sessionStats wall-time fold (controlled timestamps)', () => {
   it('leaves a cancelled step untimed: counted by step/end, no assembled message to accrue from', () => {
     expect(fold([
       at(1_000, 'step/start', { turn: 1, step: 1 }),
-      at(1_500, 'assistant/chunk', { turn: 1, step: 1, chunk: { type: 'text-delta', index: 0, text: 'partial' } }),
+      attemptAt(1_500, [{
+        time: 1_500, chunk: { type: 'text-delta', index: 0, text: 'partial' },
+      }]),
       at(2_000, 'step/end', { turn: 1, step: 1 }),
     ])).toEqual(totals({ turns: 1, steps: 1 }))
   })
@@ -319,9 +359,10 @@ describe('sessionStats wall-time fold (controlled timestamps)', () => {
     /** 中文说明：变量 events 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const events = [
       at(1_000, 'step/start', { turn: 1, step: 1 }),
-      at(1_400, 'assistant/chunk', { turn: 1, step: 1, chunk: { type: 'text-delta', index: 0, text: 'a' } }),
       // A malformed provider report: guarded like the window fold guards node usage.
-      at(2_000, 'assistant/message', { turn: 1, step: 1, message, usage: { inputTokens: 1, outputTokens: -5 } }),
+      messageAt(2_000, [{
+        time: 1_400, chunk: { type: 'text-delta', index: 0, text: 'a' },
+      }], { inputTokens: 1, outputTokens: -5 }),
     ]
     expect(fold([...events, at(2_100, 'step/end', { turn: 1, step: 1 })]))
       .toEqual(totals({ turns: 1, steps: 1, llmMs: 1_000, ttftMs: 400, ttftSteps: 1 }))
@@ -334,7 +375,7 @@ describe('sessionStats wall-time fold (controlled timestamps)', () => {
     )
     expect(sessionStatsProjectionDefinition.apply(
       state,
-      at(2_050, 'assistant/message', { turn: 1, step: 1, message }),
+      messageAt(2_050),
     )).toBe(state)
   })
 
@@ -346,7 +387,7 @@ describe('sessionStats wall-time fold (controlled timestamps)', () => {
     expect(untouched).toBe(state)
     expect(fold([
       at(2_000, 'step/start', { turn: 1, step: 1 }),
-      at(1_000, 'assistant/message', { turn: 1, step: 1, message }),
+      messageAt(1_000),
       at(2_100, 'step/end', { turn: 1, step: 1 }),
     ])).toEqual(totals({ turns: 1, steps: 1 }))
   })

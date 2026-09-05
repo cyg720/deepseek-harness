@@ -1,17 +1,17 @@
-/* 文件职责：定义通用单行输入框的外壳、图标、原生输入和焦点状态样式。
- * 技术维度：使用 CSS Modules、Flexbox、伪类和设计令牌构造可复用输入原子。
- * 产品维度：为搜索框和行内表单提供统一、清晰的文本输入体验。
- * 逻辑维度：wrap 管理整体盒模型，focus-within 显示焦点，icon 与 input 分别承担前缀和文字输入。
- * 关键边界：固定高度为 32 像素；多行编辑器不使用此样式，键盘行为由原生 input 和组件属性决定。
- * 新手阅读建议：先看 wrap 的 Flex 布局，再观察 focus-within 如何在子 input 聚焦时改变外框。 */
+
 /* wrap：输入框外壳，水平排列可选图标和可伸缩输入区域。 */
+
+/*
+ * 【文件职责】定义基础输入控件的外框、焦点和内部排列样式。
+ */
+
 .wrap {
   display: inline-flex;
   align-items: center;
   gap: 6px;
   height: 32px;
   padding: 0 8px;
-  border: 1px solid var(--dsw-alias-border-l2);
+  border: 0.5px solid var(--dsw-alias-border-l4);
   border-radius: 8px;
   background: var(--dsw-alias-bg-layer-1);
 }

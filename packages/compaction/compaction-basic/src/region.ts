@@ -4,13 +4,9 @@
  *
  * @module @deepseek-ai/dsh-compaction-basic/region
  */
+
 /*
- * 文件职责：实现上下文压缩的 region 模块。
- * 技术维度：TypeScript、Cordis 插件、Worker/JSON 协议和严格类型。
- * 产品维度：为产品提供上下文压缩能力。
- * 逻辑维度：解析配置或协议，执行核心流程并返回结构化结果。
- * 关键边界：跨线程和模型输入属于不可信边界；资源与事件注册必须清理。
- * 新手阅读建议：先读导出类型与配置，再跟踪入口和错误分支。
+ * 【文件职责】选择当前会话表面的保留区间，并执行自动轮次内压缩和手动空闲压缩共用的日志事务。
  */
 
 import { randomUUID } from 'node:crypto'
@@ -27,7 +23,7 @@ import type { CommandId } from '@deepseek-ai/dsh-commands/brand'
 import { createUserMessage, errorChain } from '@deepseek-ai/dsh-llm'
 import type { Message, UserMessage } from '@deepseek-ai/dsh-llm'
 import type { TokenMeasurement, TokenMeter } from '@deepseek-ai/dsh-token-meter'
-import type { Session, SessionEvent } from '@deepseek-ai/dsh-session'
+import { SessionSeq, type Session, type SessionEvent } from '@deepseek-ai/dsh-session'
 import type { Agent } from '@deepseek-ai/dsh-agent'
 import { frameSummary } from './summarizer.ts'
 import type { SummarizationInput, SummaryResult } from './summarizer.ts'
@@ -41,11 +37,11 @@ interface RegionDependencies {
 /** One validated inclusive span of current surface positions. */
 /* 中文说明：类型或类 SurfaceSelection 约束协议数据或模块职责。 */
 interface SurfaceSelection {
-  readonly start: number
-  readonly end: number
+  readonly start: SessionSeq
+  readonly end: SessionSeq
   readonly startIdx: number
   readonly endIdx: number
-  readonly shadowedSeqs: readonly number[]
+  readonly shadowedSeqs: readonly SessionSeq[]
 }
 
 /** A selection with its priced snapshot and the replay input built from it. */
@@ -80,7 +76,7 @@ interface CompactionTransactionOptions {
 interface CompactionEntryState {
   readonly openTurn: number | null
   readonly unmatchedCompactionStart: SessionEvent<'compaction/start'> | undefined
-  readonly latestEndSeedSeq: number | undefined
+  readonly latestEndSeedSeq: SessionSeq | undefined
 }
 
 /**
@@ -125,8 +121,7 @@ export function selectCompactableRange(
   session: Session,
   measurement: TokenMeasurement,
   retainTokens: number,
-): { start: number; end: number } | null {
-  /** 中文说明：运行时局部值 pricedNodes，由紧邻初始化决定。 */
+): { start: SessionSeq; end: SessionSeq } | null {
   const pricedNodes = measurement.nodes
   if (pricedNodes.length === 0) return null
 
@@ -196,8 +191,8 @@ export function selectCompactableRange(
 export async function compactSurfaceRegion(
   dependencies: RegionDependencies,
   session: Session,
-  start: number,
-  end: number,
+  start: SessionSeq,
+  end: SessionSeq,
   agent: Agent,
   options: CompactionTransactionOptions,
   signal?: AbortSignal,
@@ -205,8 +200,7 @@ export async function compactSurfaceRegion(
   if (options.owner === null) signal?.throwIfAborted()
   /** 中文说明：运行时局部值 selection，由紧邻初始化决定。 */
   const selection = validateSurfaceRegion(session, start, end)
-  /** 中文说明：运行时局部值 entryState，由紧邻初始化决定。 */
-  const entryState = inspectCompactionEntryState(session.events)
+  const entryState = inspectCompactionEntryState(session)
   assertCompactionInactive(
     entryState.unmatchedCompactionStart,
     entryState.latestEndSeedSeq,
@@ -348,7 +342,7 @@ function throwManualFailure(failure: TransactionFailure): never {
 /* 中文说明：函数 assertCompactionInactive 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function assertCompactionInactive(
   unmatchedCompactionStart: SessionEvent<'compaction/start'> | undefined,
-  latestEndSeedSeq: number | undefined,
+  latestEndSeedSeq: SessionSeq | undefined,
   stage: string,
 ): void {
   if (unmatchedCompactionStart === undefined
@@ -371,8 +365,7 @@ function assertCompactionInactive(
  * @param stage 中文说明：该参数的用途和取值约束见函数签名及调用上下文。
  */
 export function assertNoActiveCompaction(session: Session, stage: string): void {
-  /** 中文说明：运行时局部值 entryState，由紧邻初始化决定。 */
-  const entryState = inspectCompactionEntryState(session.events)
+  const entryState = inspectCompactionEntryState(session)
   assertCompactionInactive(
     entryState.unmatchedCompactionStart,
     entryState.latestEndSeedSeq,
@@ -381,9 +374,7 @@ export function assertNoActiveCompaction(session: Session, stage: string): void 
 }
 
 /** Validate one requested surface-position span before asynchronous work begins. */
-/* 中文说明：函数 validateSurfaceRegion 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
-function validateSurfaceRegion(session: Session, start: number, end: number): SurfaceSelection {
-  /** 中文说明：运行时局部值 nodes，由紧邻初始化决定。 */
+function validateSurfaceRegion(session: Session, start: SessionSeq, end: SessionSeq): SurfaceSelection {
   const nodes = session.surface.nodes
   /** 中文说明：运行时局部值 startIdx，由紧邻初始化决定。 */
   const startIdx = nodes.indexOf(start)
@@ -595,17 +586,14 @@ function completeCompaction(
 /* 中文说明：函数 buildSummarizationInput 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function buildSummarizationInput(
   session: Session,
-  shadowedSeqs: readonly number[],
+  shadowedSeqs: readonly SessionSeq[],
 ): SummarizationInput {
   /** 中文说明：运行时局部值 header，由紧邻初始化决定。 */
   const header = session.requestHeader()
-  /** 中文说明：运行时局部值 events，由紧邻初始化决定。 */
-  const events = session.events
-  /** 中文说明：运行时局部值 regionMessages，由紧邻初始化决定。 */
   const regionMessages = shadowedSeqs
     // shadowedSeqs are current surface seqs, so each is a valid log index.
     // oxlint-disable-next-line typescript/no-non-null-assertion
-    .map(seq => session.deriveEventMessage(events[seq]!))
+    .map(seq => session.deriveEventMessage(session.eventAt(seq)!))
     .filter((message): message is Message => message !== null)
   return {
     ...header?.system === undefined ? {} : { system: header.system },
@@ -615,9 +603,7 @@ function buildSummarizationInput(
 }
 
 /** Inspect open-turn, unmatched-compaction, and latest seed-boundary state independently. */
-/* 中文说明：函数 inspectCompactionEntryState 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
-function inspectCompactionEntryState(events: readonly SessionEvent[]): CompactionEntryState {
-  /** 中文说明：运行时局部值 openTurn，由紧邻初始化决定。 */
+function inspectCompactionEntryState(session: Session): CompactionEntryState {
   let openTurn: number | null = null
   /** 中文说明：运行时局部值 openTurnStateKnown，由紧邻初始化决定。 */
   let openTurnStateKnown = false
@@ -625,13 +611,10 @@ function inspectCompactionEntryState(events: readonly SessionEvent[]): Compactio
   let unmatchedCompactionStart: SessionEvent<'compaction/start'> | undefined
   /** 中文说明：运行时局部值 compactionEntryStateKnown，由紧邻初始化决定。 */
   let compactionEntryStateKnown = false
-  /** 中文说明：运行时局部值 解构结果，由紧邻初始化决定。 */
-  let latestEndSeedSeq: number | undefined
-  /** 中文说明：运行时局部值 index，由紧邻初始化决定。 */
-  for (let index = events.length - 1; index >= 0; index -= 1) {
-    /** 中文说明：运行时局部值 event，由紧邻初始化决定。 */
+  let latestEndSeedSeq: SessionSeq | undefined
+  for (let seq = session.seq - 1; seq >= 0; seq -= 1) {
     // oxlint-disable-next-line typescript/no-non-null-assertion
-    const event = events[index]!
+    const event = session.eventAt(SessionSeq(seq))!
     if (latestEndSeedSeq === undefined && event.type === 'session/end-seed') {
       latestEndSeedSeq = event.seq
     }

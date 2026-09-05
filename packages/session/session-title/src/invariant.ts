@@ -1,15 +1,4 @@
-/*
- * ================================ 文件注释 ================================
- * 【文件职责】session-title 包的 invariant 伴生插件：核对每一条 session/title 事件
- *   的"来源与引用消息序列"持久化关系——自动标题必须至少引用一条人类 user/message seq，
- *   显式用户重命名必须一条都不引用。
- * 【技术维度】internal/dispatch 拦截（在事件公开发布前拒绝非法追加）；global 监听。
- * 【产品维度】无论谁写入标题事件，持久化关系都被守护。
- * 【逻辑维度】name/inject → install（internal/dispatch 校验）→ apply。
- * 【关键边界】在 session/event 公开监听之前拦截，才能拒绝尚未提交的日志。
- * 【新手阅读建议】理解 messageSeqs 空与否 ⟺ source.kind 为 user 的等价关系。
- * ==========================================================================
- */
+
 
 /**
  * Package-owned invariant companion for `@deepseek-ai/dsh-session-title`.
@@ -17,9 +6,15 @@
  */
 
 /* jscpd:ignore-start */
+
+/*
+ * 【文件职责】检查标题领域的持久记录与对应生命周期，保证标题变更具有可追溯依据。
+ */
+
 import type { Context } from '@deepseek-ai/cordis'
 import type { InvariantFailure, InvariantInstaller } from '@deepseek-ai/dsh-invariants'
-import type { SessionEvent } from '@deepseek-ai/dsh-session'
+import { SessionSeq } from '@deepseek-ai/dsh-session'
+import type { Session, SessionEvent } from '@deepseek-ai/dsh-session'
 
 const PACKAGE_NAME = '@deepseek-ai/dsh-session-title'
 
@@ -36,18 +31,49 @@ export const inject = ['invariants']
  * relationship every appended `session/title` event must keep, whichever
  * writer produced it.
  */
+function validate(
+  session: Session,
+  event: SessionEvent<'session/title'>,
+  fail: InvariantFailure,
+): void {
+  const { source, messageSeqs } = event.data
+  if ((messageSeqs.length === 0) !== (source.kind === 'user')) {
+    const requirement = source.kind === 'user' ? 'cite no message seqs' : 'cite at least one message seq'
+    fail(`session/title event ${String(event.seq)} with source "${source.kind}" must ${requirement}; got ${String(messageSeqs.length)}`)
+  }
+  const seen = new Set<ReturnType<typeof SessionSeq>>()
+  for (const seq of messageSeqs) {
+    let checked: ReturnType<typeof SessionSeq>
+    try {
+      checked = SessionSeq(seq)
+    } catch {
+      fail(`session/title event ${String(event.seq)} has an invalid message seq ${String(seq)}`)
+    }
+    if (seen.has(checked)) {
+      fail(`session/title event ${String(event.seq)} repeats message seq ${checked}`)
+    }
+    seen.add(checked)
+    const cited = checked < event.seq ? session.eventAt(checked) : undefined
+    if (cited?.type !== 'user/message' || cited.data.source.kind !== 'user') {
+      fail(`session/title event ${String(event.seq)} message seq ${checked} must name an earlier human user/message`)
+    }
+  }
+}
+
 const install: InvariantInstaller = Object.assign((ctx: Context, fail: InvariantFailure) => {
+  const validateExisting = (session: Session): void => {
+    for (const event of session.snapshotEvents()) {
+      if (event.type === 'session/title') validate(session, event, fail)
+    }
+  }
+  ctx.sessions.list().forEach(validateExisting)
+  ctx.on('session/created', validateExisting, { global: true })
   // internal/dispatch interception rejects the append before publication
   // (the session/event listener would only observe the already-committed log).
   ctx.on('internal/dispatch', (_mode, eventName, args) => {
     if (eventName !== 'session/event') return
-    const [, event] = args as [unknown, SessionEvent]
-    if (event.type !== 'session/title') return
-    const { source, messageSeqs } = event.data
-    if ((messageSeqs.length === 0) !== (source.kind === 'user')) {
-      const requirement = source.kind === 'user' ? 'cite no message seqs' : 'cite at least one message seq'
-      fail(`session/title event ${String(event.seq)} with source "${source.kind}" must ${requirement}; got ${String(messageSeqs.length)}`)
-    }
+    const [session, event] = args as [Session, SessionEvent]
+    if (event.type === 'session/title') validate(session, event, fail)
   }, { global: true })
 }, { inject: ['sessions'] })
 

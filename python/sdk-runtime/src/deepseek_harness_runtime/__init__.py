@@ -18,6 +18,8 @@ Both carriers execute the same dsh command grammar. The Python SDK selects the
 ``sdk`` profile and requires an explicit Harness home; the installed ``dsh``
 console command requires ``DSH_HOME`` for the same reason.
 """
+
+# 【文件职责】定位并执行 Python SDK 随包提供的 dsh 运行时；按平台检查可执行文件及必要侧车，开发模式才使用 Node 部署目录。
 # 文件职责：实现 __init__.py 覆盖的Python SDK 与捆绑运行时职责。
 # 技术维度：使用 Python、异步 I/O、JSON-RPC、构建后端或标准库文件与进程接口。
 # 产品维度：保障 Agent 的Python SDK 与捆绑运行时能力可安装、可调用且可诊断。
@@ -139,12 +141,11 @@ def _current_platform_tag() -> str:
         plat is None
         or arch is None
         or (plat == "win" and arch != "x64")
-        or (plat == "macos" and arch != "arm64")
     ):
         raise FileNotFoundError(
             "no bundled DeepSeek Harness SDK runtime exists for this platform "
             f"(sys.platform={sys.platform!r}, machine={platform.machine()!r}); supported: "
-            "Linux x64/arm64, macOS arm64, and Windows x64. " + _EXE_ACQUISITION_HINT
+            "Linux x64/arm64, macOS x64/arm64, and Windows x64. " + _EXE_ACQUISITION_HINT
         )
     return f"{plat}-{arch}"
 

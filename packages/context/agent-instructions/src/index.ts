@@ -10,12 +10,8 @@
  */
 
 /*
- * 文件职责：实现工作区指令上下文的 index.ts 模块。
- * 技术维度：TypeScript、Cordis 插件、会话事件和严格判别联合。
- * 产品维度：控制模型请求中的工作区指令上下文信息。
- * 逻辑维度：读取日志或文件状态，计算投影并记录/注入结果。
- * 关键边界：不能静默丢失必需事件；裁剪和替换必须保持日志可重放。
- * 新手阅读建议：先读导出类型与配置，再跟踪事件和投影流程。
+ * 【文件职责】装载工作区指令并将其持久化到上下文；
+ * 文件工具触及的嵌套、变更或删除指令通过 inbox 协调更新。
  */
 
 import type { Context } from '@deepseek-ai/cordis'
@@ -62,7 +58,7 @@ function visibleBaselineSource(
     }
   }
   for (const seq of agent.session.surface.nodes.toReversed()) {
-    const event = agent.session.events[seq]
+    const event = agent.session.eventAt(seq)
     if (event?.type === 'user/message'
       && event.data.source.kind === 'agent-instructions'
       && event.data.source.baseline === true) return event.data.source
@@ -237,7 +233,7 @@ export function apply(ctx: Context, config: Config): void {
     const alreadySupplied = desired !== undefined && (
       claimed.some(message => sameContextPayload(message, desired))
       || agent.session.surface.nodes.some((seq) => {
-        const event = agent.session.events[seq]
+        const event = agent.session.eventAt(seq)
         return event?.type === 'user/message' && sameContextPayload(event.data, desired)
       })
     )

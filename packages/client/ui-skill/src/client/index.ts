@@ -30,11 +30,18 @@
  * accent row derived only from each logged call/result slice.
  */
 // Type-only: the carrier types, the forwarded Host-event face and the ctx.remote merge.
+
+/*
+ * 【文件职责】注册按会话查询的技能候选来源并使用共享模糊排序；
+ * 选择后写入字面 /name 文本，实际技能装载由主机决定。
+ */
+
 import type { Context as ClientContext } from '@deepseek-ai/cordis'
 import type { SkillEntry } from '@deepseek-ai/dsh-api-remotes/client'
 import type {} from '@deepseek-ai/dsh-api-session-controller/client'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import type { InputTriggerServiceContract, InputTriggerSource } from '@deepseek-ai/dsh-client-ui-input-trigger/client'
+import { rankByName } from '@deepseek-ai/dsh-client-ui-primitives'
 // Type-only: pulls the locale plugin's Context merge (ctx.locale).
 import type {} from '@deepseek-ai/dsh-client-locale/client'
 // Type-only: pulls the SlotRegistry service merge (ctx.slots).
@@ -142,8 +149,9 @@ export function apply(ctx: ClientContext): void {
       const skills = await fetchCatalog(session.sessionId)
       // Superseded keystroke: the shared fetch stays warm, this caller yields.
       if (signal.aborted) return []
-      return skills
-        .filter(skill => skill.name.startsWith(query))
+      // The same ranking as the command group of this menu: case-insensitive
+      // ordered subsequence, prefix hits first.
+      return rankByName(skills, query)
         .map(skill => ({
           name: skill.name,
           // The user-only marker rides the description (the menu's only

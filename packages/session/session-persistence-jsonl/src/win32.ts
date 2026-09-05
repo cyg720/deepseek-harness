@@ -1,24 +1,4 @@
-/*
- * ================================ 文件注释 ================================
- * 【文件职责】JSONL 后端的 Windows 持久命名空间助手：在 Node 无法 fsync 父目录的
- *   平台上，用原生 MoveFileExW(MOVEFILE_WRITE_THROUGH) 实现"目录/文件的 durable
- *   发布"，保证崩溃后命名项仍然存在。
- * 【技术维度】通过 Koffi FFI 惰性加载 kernel32.dll 的 MoveFileExW/GetLastError；
- *   每个缺失目录先建成随机暂存兄弟目录再写透移动到最终名；扩展长度路径
- *   （\\?\ 前缀）规避 MAX_PATH；Win32 错误码手工映射为 Node errno。
- * 【产品维度】Windows 用户与会话日志同样获得"断电不丢"的持久化承诺，
- *   与 POSIX 路径的行为保持一致。
- * 【逻辑维度】按代码顺序：①FFI 类型与 Win32 错误码常量；②惰性加载 win32()；
- *   ③errnoCode 映射与 win32Error 构造；④assertDirectory 探测；
- *   ⑤publishNewFileWin32 发布单文件；⑥ensureDurableDirectoryWin32 逐层建目录、
- *   createLeafDirectoryWin32 处理并发创建竞争。
- * 【关键边界】发布语义是"目标必须不存在 + 不允许跨卷复制回退"；仅 Windows
- *   进程会真正加载 Koffi（惰性导入）；与另一创建者竞争时只有确认赢家是目录
- *   才接受，否则照常报错。
- * 【新手阅读建议】先读文件头英文注释理解"为什么 Windows 需要另一条路"，
- * 再看 ensureDurableDirectoryWin32 的逐层循环，最后看错误码映射表即可。
- * ==========================================================================
- */
+
 /**
  * Windows durable namespace helpers for the JSONL backend.
  *
@@ -36,17 +16,29 @@
  * Windows 没有等价接口，这里改用原生写透移动原语完成同一目标。
  */
 
+/*
+ * 【文件职责】通过 Windows 原生持久命名操作发布暂存日志对象，不覆盖已有目标，也不回退为跨卷复制。
+ */
+
+import { createHash } from 'node:crypto'
 import { mkdtemp, rm, stat } from 'node:fs/promises'
 import { join, parse, resolve, toNamespacedPath } from 'node:path'
 
 /** 【中文】kernel32!MoveFileExW 的 FFI 签名：返回非 0 表示成功。 */
 type MoveFileExW = (existing: string, replacement: string, flags: number) => number
-/** 【中文】kernel32!GetLastError 的 FFI 签名：取最近一次调用的错误码。 */
+type CreateSemaphoreW = (security: null, initial: number, maximum: number, name: string) => number
+type WaitForSingleObject = (handle: number, milliseconds: number) => number
+type ReleaseSemaphore = (handle: number, count: number, previous: null) => number
+type CloseHandle = (handle: number) => number
 type GetLastError = () => number
 
 /** 【中文】已加载的原生绑定集合（进程内缓存）。 */
 interface Win32Bindings {
   moveFileExW: MoveFileExW
+  createSemaphoreW: CreateSemaphoreW
+  waitForSingleObject: WaitForSingleObject
+  releaseSemaphore: ReleaseSemaphore
+  closeHandle: CloseHandle
   getLastError: GetLastError
 }
 
@@ -58,14 +50,15 @@ interface Win32ErrnoException extends NodeJS.ErrnoException {
 
 /** 【中文】MOVEFILE_WRITE_THROUGH：移动操作写透到底层存储才算完成（崩溃持久）。 */
 const MOVEFILE_WRITE_THROUGH = 0x00000008
-/** 【中文】ERROR_FILE_NOT_FOUND / ERROR_PATH_NOT_FOUND → ENOENT。 */
+const WAIT_OBJECT_0 = 0
+const WAIT_TIMEOUT = 0x00000102
 const ERROR_FILE_NOT_FOUND = 2
 const ERROR_PATH_NOT_FOUND = 3
 /** 【中文】ERROR_ACCESS_DENIED → EACCES。 */
 const ERROR_ACCESS_DENIED = 5
 /** 【中文】ERROR_NOT_SAME_DEVICE → EXDEV（跨卷，未启用复制回退时拒绝）。 */
 const ERROR_NOT_SAME_DEVICE = 17
-/** 【中文】ERROR_FILE_EXISTS / ERROR_ALREADY_EXISTS → EEXIST。 */
+const ERROR_SHARING_VIOLATION = 32
 const ERROR_FILE_EXISTS = 80
 /** 【中文】ERROR_INVALID_NAME → EINVAL。 */
 const ERROR_INVALID_NAME = 123
@@ -86,6 +79,10 @@ async function win32(): Promise<Win32Bindings> {
   const kernel32 = koffi.load('kernel32.dll')
   bindings = {
     moveFileExW: kernel32.func('__stdcall', 'MoveFileExW', 'int', ['str16', 'str16', 'uint']) as MoveFileExW,
+    createSemaphoreW: kernel32.func('__stdcall', 'CreateSemaphoreW', 'intptr', ['void*', 'int', 'int', 'str16']) as CreateSemaphoreW,
+    waitForSingleObject: kernel32.func('__stdcall', 'WaitForSingleObject', 'uint', ['intptr', 'uint']) as WaitForSingleObject,
+    releaseSemaphore: kernel32.func('__stdcall', 'ReleaseSemaphore', 'int', ['intptr', 'int', 'void*']) as ReleaseSemaphore,
+    closeHandle: kernel32.func('__stdcall', 'CloseHandle', 'int', ['intptr']) as CloseHandle,
     getLastError: kernel32.func('__stdcall', 'GetLastError', 'uint', []) as GetLastError,
   }
   return bindings
@@ -101,6 +98,8 @@ function errnoCode(win32Code: number): string {
       return 'EACCES'
     case ERROR_NOT_SAME_DEVICE:
       return 'EXDEV'
+    case ERROR_SHARING_VIOLATION:
+      return 'EBUSY'
     case ERROR_FILE_EXISTS:
     case ERROR_ALREADY_EXISTS:
       return 'EEXIST'
@@ -178,6 +177,41 @@ export async function publishNewFileWin32(existing: string, replacement: string)
   const api = await win32()
   const ok = api.moveFileExW(toNamespacedPath(existing), toNamespacedPath(replacement), MOVEFILE_WRITE_THROUGH)
   if (ok === 0) throw win32Error('MoveFileExW', api.getLastError(), existing, replacement)
+}
+
+/**
+ * Acquire the session write lock as a named kernel semaphore (count 1) whose
+ * name is derived from the canonical lock path. A kernel object never touches
+ * the filesystem, so readers, searches, and directory removal proceed freely
+ * while the lock is held; a second acquirer's zero-timeout wait times out
+ * (`EBUSY`); and when the last handle closes — including on any process
+ * death — the object is destroyed, so a successor's create starts fresh.
+ * @param path - the lock file path the name is derived from (case-folded:
+ *   Windows paths are case-insensitive).
+ * @returns the open semaphore handle, released via {@link releaseLockHandleWin32}.
+ */
+export async function acquireLockHandleWin32(path: string): Promise<number> {
+  const api = await win32()
+  const name = `Local\\dsh-session-lock-${createHash('sha256').update(resolve(path).toLowerCase()).digest('hex')}`
+  const handle = api.createSemaphoreW(null, 1, 1, name)
+  if (handle === 0) throw win32Error('CreateSemaphoreW', api.getLastError(), path, name)
+  const wait = api.waitForSingleObject(handle, 0)
+  if (wait === WAIT_OBJECT_0) return handle
+  api.closeHandle(handle)
+  if (wait === WAIT_TIMEOUT) throw win32Error('WaitForSingleObject', ERROR_SHARING_VIOLATION, path, name)
+  throw win32Error('WaitForSingleObject', api.getLastError(), path, name)
+}
+
+/**
+ * Release a lock from {@link acquireLockHandleWin32}: restore the semaphore
+ * count and close the handle (the object dies with its last handle).
+ * @param handle - the open semaphore handle.
+ */
+export async function releaseLockHandleWin32(handle: number): Promise<void> {
+  const api = await win32()
+  const released = api.releaseSemaphore(handle, 1, null)
+  const closed = api.closeHandle(handle)
+  if (released === 0 || closed === 0) throw win32Error('ReleaseSemaphore', api.getLastError(), `handle:${handle}`, `handle:${handle}`)
 }
 
 /**

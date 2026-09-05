@@ -26,8 +26,7 @@ import {
 import { connectFreshWorkspace, newEnglishPage, saveFailureShot } from './support.ts'
 
 const SNAPSHOT_DIR = fileURLToPath(new URL('../../../snapshots/web/goal-multi-turn-actions', import.meta.url))
-const FIXTURE = join(SNAPSHOT_DIR, 'session.jsonl')
-/** 回放时覆盖模型输出顺序的脚本。 */
+const FIXTURE = join(SNAPSHOT_DIR, 'session.v2.jsonl')
 const OVERRIDE = join(SNAPSHOT_DIR, 'replay.override.json')
 /** 两轮答案和操作行的 ARIA 快照。 */
 const UI_EXPECTED = join(SNAPSHOT_DIR, 'ui.expected.md')
@@ -213,7 +212,7 @@ describe('web e2e: Goal keeps one assistant action row per completed turn', () =
 
   it.skipIf(MODE === 'record')('keeps a closed fixture inventory', async () => {
     await assertFixtureInventory(SNAPSHOT_DIR, [
-      'replay.override.json', 'session.jsonl', 'ui.expected.md', 'ui-expanded.expected.md',
+      'replay.override.json', 'session.v2.jsonl', 'ui.expected.md', 'ui-expanded.expected.md',
     ])
   })
 })

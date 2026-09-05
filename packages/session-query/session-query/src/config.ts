@@ -1,16 +1,10 @@
-/*
- * ================================ 文件注释 ================================
- * 【文件职责】会话查询服务的公共配置与定型失败：两个默认常量、可继承 Config、
- *   封闭错误码族与 SessionQueryError。
- * 【技术维度】继承 HarnessError 并在类型上把 code 收窄为封闭联合成员。
- * 【产品维度】让所有查询失败都有稳定的机器可路由错误码。
- * 【逻辑维度】按代码顺序：两个默认常量 → Config → 错误码联合 → SessionQueryError。
- * 【关键边界】错误码是封闭枚举（非可合并扩展）。
- * 【新手阅读建议】记住默认窗口 50 与默认并发 4，其余看错误码清单。
- * ==========================================================================
- */
+
 
 /** Public configuration and typed failures for the combined session-query service. */
+
+/*
+ * 【文件职责】声明统一会话查询的配置及稳定错误，集中定义精确事件窗口等限制。
+ */
 
 import { HarnessError } from '@deepseek-ai/dsh-llm'
 
@@ -18,15 +12,24 @@ import { HarnessError } from '@deepseek-ai/dsh-llm'
 // 中文：默认的最大 before/after 原始事件窗口（读事件上下文时两侧各最多 50 条）。
 export const SESSION_QUERY_READ_WINDOW_MAX = 50
 
-/** Default maximum number of concurrent persisted-log inspections in one batch read. */
+/** Default maximum number of concurrent persisted-log reads in one batch read. */
 export const SESSION_QUERY_DEFAULT_PERSISTED_INSPECT_CONCURRENCY = 4
+
+/** Default maximum number of cold prepared-Session observations retained for reuse. */
+export const SESSION_QUERY_DEFAULT_PREPARED_SESSION_CACHE_SIZE = 5
 
 /** Backend-independent configuration inherited by every session-query implementation. */
 export interface Config {
   /** Maximum accepted raw read context on either side. Defaults to 50. */
   readWindowMax?: number
-  /** Maximum concurrent persisted-log inspections in one batch read. Defaults to 4. */
-  persistedInspectConcurrency?: number
+  /** Maximum concurrent persisted-log reads in one batch read. Defaults to 4. */
+  persistedReadConcurrency?: number
+  /**
+   * Maximum cold prepared-Session observations retained for reuse, keyed by
+   * durable revision. Entries pinned by active observation leases do not count
+   * against this bound until released. Defaults to 5.
+   */
+  preparedSessionCacheSize?: number
 }
 
 /** Stable machine-routable failure taxonomy for session reads, traces, and search. */

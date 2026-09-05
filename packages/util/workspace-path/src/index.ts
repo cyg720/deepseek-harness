@@ -3,16 +3,10 @@
  * @module @deepseek-ai/dsh-util-workspace-path
  */
 
-/** Whether a path uses a Windows drive or UNC prefix.
- * @remarks 文件说明：文件职责：实现 util/workspace-path 中 index 模块的职责，并向相邻模块提供可复用能力。；
- * 技术维度：主要使用TypeScript/JavaScript 的 ESM 模块、严格类型约束与 Cordis 插件机制，
- * 通过当前文件中的类型、函数与数据结构完成实现。；产品维度：支撑 DeepSeek Harness 的 util/workspace-path
- * 能力，使上层功能能够稳定组合和扩展。；逻辑维度：建议按“依赖与类型定义 → 常量和状态 → 核心函数或类 → 导出或注册入口”的顺序理解。；
- * 关键边界：调用方必须遵守类型、生命周期和错误处理约定；涉及外部输入、异步任务或资源释放时需特别关注异常分支。；
- * 新手阅读建议：先确认导入依赖和公开导出，再沿主要函数调用链阅读，最后结合相邻测试理解输入、输出与边界条件。
- * @remarks 中文说明：功能说明：判断是否为 Windows Style Path 相关流程；使用场景由所在模块及调用位置决定。；
- * 参数说明：value（string）：提供本次调用所需的数据；必须满足声明的类型及调用时序要求。；返回值：boolean；调用方应按声明类型处理，
- * 不应假定未声明的附加状态。；使用示例：典型用法：在完成前置校验后调用 isWindowsStylePath(value)，并按返回类型处理结果。 */
+/*
+ * 【文件职责】提供浏览器安全的工作区路径与显示工具，识别 Windows 驱动器及 UNC 路径并保留根路径含义。
+ */
+
 function isWindowsStylePath(value: string): boolean {
   return /^[A-Za-z]:[/\\]/.test(value) || value.startsWith('\\\\')
 }
@@ -31,15 +25,13 @@ function isWindowsStylePath(value: string): boolean {
 export function resolveWorkspacePath(cwd: string | undefined, path: string): string {
   if (path.startsWith('/') || isWindowsStylePath(path)) return path
   if (cwd === undefined || cwd === '') return path
-  /**
-   * 常量说明：base 用于处理 base 相关数据，作用于当前作用域；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。
-   */
+  const separator = isWindowsStylePath(cwd) && cwd.includes('\\') ? '\\' : '/'
   const base = cwd.replace(/[/\\]+$/, '')
   /**
    * 常量说明：relative 用于处理 relative 相关数据，作用于当前作用域；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。
    */
   const relative = path.replace(/^[/\\]+/, '')
-  return `${base}/${relative}`
+  return `${base}${separator}${relative}`
 }
 
 /**

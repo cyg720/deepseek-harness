@@ -1,17 +1,4 @@
-/*
- * ================================ 文件注释 ================================
- * 【文件职责】定义"子代理最终助手输出"的唯一选择规则：取最后一条非空 assistant 消息；
- *   没有则取累计的文本流；再没有则为空。后端运行结果与 subagent/end 事件都套用同一规则。
- * 【技术维度】AssistantOutputFold 类按事件流增量折叠，支持流式推送；finalAssistantOutput
- *   一次性对整个事件后缀应用规则。空内容消息（仅用量记录）不覆盖更早的输出。
- * 【产品维度】保证无论子代理以什么方式结束（正常/超限/失败/取消），父代理拿到的"最终回答"
- *   都是同一套可预期的选择结果，避免空消息吞掉有效输出。
- * 【逻辑维度】按代码顺序：AssistantOutputFold（push/pushText/collect 三个增量接口）→
- *   finalAssistantOutput（对事件数组整体折叠的便捷函数）。
- * 【关键边界】选择与停止原因（stopReason）无关；文本流回退仅在无任何非空消息时生效。
- * 【新手阅读建议】关注 collect() 的三级选择逻辑，这是整个文件的核心规则。
- * ==========================================================================
- */
+
 
 /**
  * Canonical selection of a child's final assistant output. Backend run results
@@ -25,7 +12,12 @@
  * @module @deepseek-ai/dsh-subagent/assistant-output
  */
 
-import type { ContentBlock } from '@deepseek-ai/dsh-llm'
+/*
+ * 【文件职责】统一选择子 Agent 的最终非空助手输出；
+ * 只承载用量的空消息不会覆盖已有回复，选择规则独立于停止原因。
+ */
+
+import { expandAssistantStream, type ContentBlock } from '@deepseek-ai/dsh-llm'
 import type { SessionEvent } from '@deepseek-ai/dsh-session'
 
 /**
@@ -44,8 +36,8 @@ export class AssistantOutputFold {
 
   /**
    * Fold one session event: a non-empty assistant message becomes the
-   * candidate final answer, and a `text-delta` chunk extends the streamed
-   * fallback; every other event contributes nothing.
+   * candidate final answer, while its embedded stream and any log-only attempt
+   * extend the streamed fallback; every other event contributes nothing.
    * @param event - the next observed session event.
    */
   // 中文：喂入一条会话事件：非空 assistant 消息成为最终答案候选，text-delta 块扩展
@@ -54,8 +46,11 @@ export class AssistantOutputFold {
     if (event.type === 'assistant/message') {
       const content = event.data.message.content
       if (content.length > 0) this.message = content
-    } else if (event.type === 'assistant/chunk' && event.data.chunk.type === 'text-delta') {
-      this.pushText(event.data.chunk.text)
+    }
+    if (event.type === 'assistant/message' || event.type === 'assistant/attempt') {
+      for (const { chunk } of expandAssistantStream(event.data.stream)) {
+        if (chunk.type === 'text-delta') this.pushText(chunk.text)
+      }
     }
   }
 

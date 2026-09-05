@@ -1,18 +1,7 @@
 /** Shared Team task DAG commands and runtime-enriched views. */
 
 /*
- * ================================ 文件注释 ================================
- * 【文件职责】共享团队任务板：任务 DAG 命令与运行时增强视图。
- * 【技术维度】任务以 team/task 整值快照持久化，每次变更 revision+1（CAS）；
- *   update 按 action 做授权（owner 或 Lead）与合法转移校验；依赖图经
- *   task-graph.ts 的完整校验（缺失/重复/环/自引用）。
- * 【产品维度】团队共享"任务板"协作：创建、认领、编辑、依赖、完成、重开、再指派、删除。
- * 【逻辑维度】scopesOverlap → TASK_GRAPH_ERROR_CODES → TeamTaskBoard（create/get/list/
- *   update + dependencies/writeScopes/assertTaskGraph/taskReady/withoutOwner/taskView）。
- * 【关键边界】claim 需要 ready（所有 blocker 完成）；删除前检查无存活依赖者；
- *   写作用域重叠只是提示（advisory），不是锁。
- * 【新手阅读建议】先看 update 的 action switch（授权与转移），再看 taskView 的派生视图。
- * ==========================================================================
+ * 【文件职责】执行共享团队任务 DAG 的操作，并把运行时事实补充到任务视图中。
  */
 
 import type { Agent } from '@deepseek-ai/dsh-agent'
@@ -82,7 +71,7 @@ export class TeamTaskBoard {
         writeScopes: this.writeScopes(request.writeScopes ?? []),
       }
       this.assertTaskGraph(state, task)
-      await this.journal.appendAndFlush(root, 'team/task', { version: 1, teamId: TeamId(root.id), task })
+      await this.journal.appendAndFlush(root, 'team/task', { version: 2, teamId: TeamId(root.id), task })
       return this.taskView(root, state, task)
     })
   }
@@ -224,7 +213,7 @@ export class TeamTaskBoard {
         revision: current.revision + 1,
       }
       this.assertTaskGraph(state, task)
-      await this.journal.appendAndFlush(root, 'team/task', { version: 1, teamId: TeamId(root.id), task })
+      await this.journal.appendAndFlush(root, 'team/task', { version: 2, teamId: TeamId(root.id), task })
       return this.taskView(root, state, task)
     })
   }

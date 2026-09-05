@@ -129,8 +129,7 @@ it('accepts pasted images into the composer rail in order and removes them', asy
   // 中文说明：jsdom 会把编辑器子树判断为不可见，因此通过 DOM 直接定位附件栏。
   /** 显示待发送图片缩略图的附件栏。 */
   const rail = await waitFor(() => {
-    /** 本轮等待中找到的附件栏；为空时继续重试。 */
-    const el = document.querySelector('[role="group"][aria-label="Pending images"]')
+    const el = document.querySelector('[role="group"][aria-label="Pending attachments"]')
     if (el === null) throw new Error('attachment rail missing')
     return el
   }, { timeout: 5_000 })
@@ -163,26 +162,19 @@ it('accepts pasted images into the composer rail in order and removes them', asy
   if (remove.length !== 2) throw new Error('remove buttons missing')
   for (const button of remove) fireEvent.click(button)
   await waitFor(() => {
-    expect(document.querySelector('[role="group"][aria-label="Pending images"]')).toBeNull()
+    expect(document.querySelector('[role="group"][aria-label="Pending attachments"]')).toBeNull()
   })
 
-  // An unsupported file announces a transient toast (the inline strip is
-  // gone) and the banner dismisses itself after its hold-and-fade lifetime.
-  // 中文说明：不支持的文件通过短暂提示告知用户，提示会在展示和淡出后自动消失。
+  // A non-image paste follows the generic-file path and remains in the
+  // composer as a file card.
   fireEvent.paste(textarea, {
     clipboardData: {
       items: [{ kind: 'file', type: 'text/plain', getAsFile: () => new File(['x'], 'notes.txt', { type: 'text/plain' }) }],
       getData: () => '',
     },
   })
-  /** 不支持文件类型时应显示的用户提示。 */
-  const unsupportedMessage = 'Only PNG, JPG, WebP, and GIF images are supported'
-  /** 承载不支持格式提示的警告元素。 */
-  const toast = await screen.findByText(unsupportedMessage)
-  expect(toast.closest('[role="alert"]')).not.toBeNull()
-  await waitFor(() => {
-    expect(screen.queryByText(unsupportedMessage)).toBeNull()
-  }, { timeout: 6_000 })
+  const files = await screen.findByRole('group', { name: 'Pending attachments' })
+  expect(files.textContent).toContain('notes.txt')
 })
 
 it('accepts a whole-page drop under the limits-labeled overlay and refuses an over-limit batch at intake', async () => {
@@ -213,17 +205,16 @@ it('accepts a whole-page drop under the limits-labeled overlay and refuses an ov
   fireEvent.dragEnter(document.body, { dataTransfer })
   /** 文件进入页面时覆盖整个视口的拖放提示。 */
   const overlay = await screen.findByRole('status')
-  expect(overlay.textContent).toContain('Drag images here to add them')
+  expect(overlay.textContent).toContain('Drag files or images here to add them')
   await waitFor(() => {
-    expect(overlay.textContent).toContain('Up to 20 images, 5MB each')
+    expect(overlay.textContent).toContain('Image limit: up to 20 images, 5MB each')
   })
 
   // Dropping on the transcript area (not the composer card) lands in the rail.
   // 中文说明：即使落点不在编辑器卡片中，整页拖放也应把图片加入附件栏。
   fireEvent.drop(document.body, { dataTransfer })
   await waitFor(() => {
-    /** 拖放完成后应出现的附件栏。 */
-    const rail = document.querySelector('[role="group"][aria-label="Pending images"]')
+    const rail = document.querySelector('[role="group"][aria-label="Pending attachments"]')
     if (rail === null) throw new Error('attachment rail missing after page drop')
     expect([...rail.querySelectorAll('img')].map(img => img.getAttribute('alt'))).toEqual(['dropped.png'])
   }, { timeout: 5_000 })
@@ -247,8 +238,7 @@ it('accepts a whole-page drop under the limits-labeled overlay and refuses an ov
   /** 显示数量限制的警告横幅。 */
   const banner = await screen.findByText(limitMessage)
   expect(banner.closest('[role="alert"]')).not.toBeNull()
-  /** 拒绝批次后仍只保留原图片的附件栏。 */
-  const rail = document.querySelector('[role="group"][aria-label="Pending images"]')
+  const rail = document.querySelector('[role="group"][aria-label="Pending attachments"]')
   expect([...(rail?.querySelectorAll('img') ?? [])]).toHaveLength(1)
 })
 
@@ -277,7 +267,7 @@ it('renders a host dimension rejection with the projected 2000px limit', async (
     },
   })
   await waitFor(() => {
-    expect(document.querySelector('[role="group"][aria-label="Pending images"]')).not.toBeNull()
+    expect(document.querySelector('[role="group"][aria-label="Pending attachments"]')).not.toBeNull()
   })
   fireEvent.keyDown(textarea, { key: 'Enter' })
 
@@ -291,5 +281,5 @@ it('renders a host dimension rejection with the projected 2000px limit', async (
       "text": "Image sides must be at most 2000px; downscale it and try again",
     }
   `)
-  expect(document.querySelector('[role="group"][aria-label="Pending images"]')).not.toBeNull()
+  expect(document.querySelector('[role="group"][aria-label="Pending attachments"]')).not.toBeNull()
 })

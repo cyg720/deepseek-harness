@@ -24,7 +24,7 @@ import { newEnglishPage, saveFailureShot } from './support.ts'
 
 // Borrowed read-only: this scenario needs any settled assistant message to
 // address, not a new recording (message-actions / sidebar-scrollbar pattern).
-const SEED = fileURLToPath(new URL('../../../snapshots/web/seeded-history/session.jsonl', import.meta.url))
+const SEED = fileURLToPath(new URL('../../../snapshots/web/seeded-history/session.v2.jsonl', import.meta.url))
 const MODE = webSnapshotMode()
 /** 注入借用会话时使用的稳定标识。 */
 const SEED_ID = 'message-feedback-web-e2e'

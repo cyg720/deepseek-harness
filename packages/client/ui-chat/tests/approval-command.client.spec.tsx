@@ -8,14 +8,12 @@
  * 新手阅读建议：先确认导入依赖和公开导出，再沿主要函数调用链阅读，最后结合相邻测试理解输入、输出与边界条件。
  */
 import { Context } from '@deepseek-ai/cordis'
-import InvariantRegistry from '@deepseek-ai/dsh-invariants'
 import type { ChatSnapshot, UseChat } from '@deepseek-ai/dsh-client-ui-chat/client'
 import type { PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import { render, screen } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
 import { ApprovalCommand, commandOf } from '../src/client/chat/ApprovalCommand.tsx'
 import { apply as nodeApply } from '../src/index.ts'
-import * as ChatInvariant from '../src/invariant.ts'
 
 /**
  * 功能说明：处理 props 相关流程；使用场景由所在模块及调用位置决定。
@@ -120,22 +118,12 @@ describe('ApprovalCommand', () => {
  * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调()，并按返回类型处理结果。
  */
 describe('ui-chat package entries', () => {
-  /**
-   * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；返回值：由 TypeScript 根据实现推断的结果；
-   * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调()，并按返回类型处理结果。
-   */
-  it('keeps the Host half optional and registers the invariant companion', async () => {
-    /**
-     * 常量说明：ctx 用于处理 ctx 相关数据，作用于当前作用域；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。
-     */
+  it('keeps the Host half optional', () => {
     const ctx = new Context()
     /**
      * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；返回值：由 TypeScript 根据实现推断的结果；
      * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调()，并按返回类型处理结果。
      */
     expect(() => { nodeApply(ctx) }).not.toThrow()
-    await ctx.plugin(InvariantRegistry, { enabled: true })
-
-    await expect(ctx.plugin(ChatInvariant).await()).resolves.toBeDefined()
   })
 })

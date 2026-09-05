@@ -2,6 +2,10 @@
 // chain, AND the composer bar (session-maybe slot) stay mounted across
 // no-session/session transitions — the bar renders inert via owner props.
 
+/*
+ * 【文件职责】呈现 Conversation 根布局并管理记录区宽度偏好，业务数据由派生插槽属性和框架钩子提供。
+ */
+
 import { useCallback, useEffect, useRef, useState } from 'react'
 import clsx from 'clsx'
 import type { WorkspaceId } from '@deepseek-ai/dsh-workspace/types'
@@ -341,11 +345,6 @@ export function ConversationRoot({
         // user clears it.
         ? { blocked: composerBlock, placeholder: composerBlock.reason }
         : hero ? { placeholder: t('placeholder.hero') } : {}),
-    overlay: sessionId === undefined ? undefined : renderSlot('conversation.input.overlay', {}),
-    leftItems: zone === undefined ? null : renderSlot('conversation.input.left', zone),
-    rightItems: zone === undefined ? null : renderSlot('conversation.input.right', zone),
-    // Ambient dock under the card shares the composer's width constraint.
-    footer: !hero && zone !== undefined ? renderSlot('conversation.composer.dock', zone) : null,
   })
 
   const composerBar = (

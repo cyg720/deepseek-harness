@@ -28,15 +28,16 @@ afterEach(() => { vi.unstubAllGlobals() })
 /** 中文说明：测试场景的局部值 labels，由紧邻初始化决定。 */
 const labels: AttachmentRailLabels = {
   group: '待发送图片',
-  open: '查看原图',
   scrollLeft: '向左滚动图片',
   scrollRight: '向右滚动图片',
 }
 
 /** 中文说明：函数 item 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
 function item(id: string): AttachmentRailItem {
-  return { id, previewUrl: `blob:${id}`, alt: `${id}.png`, removeLabel: `移除图片 ${id}.png` }
+  return { id }
 }
+
+const renderItem = (entry: AttachmentRailItem) => <span>{entry.id}</span>
 
 /** Stub the rail's scroll geometry (jsdom reports 0 for every metric). */
 /* 中文说明：函数 stubGeometry 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
@@ -59,28 +60,17 @@ function stubGeometry(rail: HTMLElement, { scrollWidth, clientWidth }: { scrollW
 }
 
 describe('AttachmentRail', () => {
-  it('renders thumbnails in order and routes open and remove clicks', () => {
-    /** 中文说明：测试场景的局部值 onOpen，由紧邻初始化决定。 */
-    const onOpen = vi.fn()
-    /** 中文说明：测试场景的局部值 onRemove，由紧邻初始化决定。 */
-    const onRemove = vi.fn()
-    /** 中文说明：测试场景的局部值 items，由紧邻初始化决定。 */
+  it('renders owner-provided attachment cards in order', () => {
     const items = [item('a'), item('b')]
-    /** 中文说明：测试场景的局部值 view，由紧邻初始化决定。 */
-    const view = render(<AttachmentRail items={items} labels={labels} onOpen={onOpen} onRemove={onRemove} />)
-    /** 中文说明：测试场景的局部值 rail，由紧邻初始化决定。 */
+    const view = render(<AttachmentRail items={items} labels={labels} renderItem={renderItem} />)
     const rail = view.getByRole('group', { name: '待发送图片' })
-    expect([...rail.querySelectorAll('img')].map(img => img.getAttribute('alt'))).toEqual(['a.png', 'b.png'])
-    fireEvent.click(view.getAllByTitle('查看原图')[0]!)
-    expect(onOpen).toHaveBeenCalledWith(items[0])
-    fireEvent.click(view.getByRole('button', { name: '移除图片 b.png' }))
-    expect(onRemove).toHaveBeenCalledWith(items[1])
+    expect([...rail.children].map(child => child.textContent)).toEqual(['a', 'b'])
   })
 
   it('shows edge arrows from scroll geometry and pages a viewport at a time', () => {
     /** 中文说明：测试场景的局部值 view，由紧邻初始化决定。 */
     const view = render(
-      <AttachmentRail items={[item('a'), item('b'), item('c')]} labels={labels} onOpen={vi.fn()} onRemove={vi.fn()} />,
+      <AttachmentRail items={[item('a'), item('b'), item('c')]} labels={labels} renderItem={renderItem} />,
     )
     /** 中文说明：测试场景的局部值 rail，由紧邻初始化决定。 */
     const rail = view.getByRole('group', { name: '待发送图片' })
@@ -110,7 +100,7 @@ describe('AttachmentRail', () => {
   it('shows both arrows mid-scroll and recomputes when the rail itself resizes', () => {
     /** 中文说明：测试场景的局部值 view，由紧邻初始化决定。 */
     const view = render(
-      <AttachmentRail items={[item('a'), item('b'), item('c')]} labels={labels} onOpen={vi.fn()} onRemove={vi.fn()} />,
+      <AttachmentRail items={[item('a'), item('b'), item('c')]} labels={labels} renderItem={renderItem} />,
     )
     /** 中文说明：测试场景的局部值 rail，由紧邻初始化决定。 */
     const rail = view.getByRole('group', { name: '待发送图片' })
@@ -129,7 +119,7 @@ describe('AttachmentRail', () => {
     vi.stubGlobal('ResizeObserver', undefined)
     /** 中文说明：测试场景的局部值 view，由紧邻初始化决定。 */
     const view = render(
-      <AttachmentRail items={[item('a')]} labels={labels} onOpen={vi.fn()} onRemove={vi.fn()} />,
+      <AttachmentRail items={[item('a')]} labels={labels} renderItem={renderItem} />,
     )
     expect(view.getByRole('group', { name: '待发送图片' })).toBeTruthy()
     view.unmount()
@@ -138,7 +128,7 @@ describe('AttachmentRail', () => {
   it('pans horizontally on a vertical wheel, consuming the event, with clamped normalized travel', () => {
     /** 中文说明：测试场景的局部值 view，由紧邻初始化决定。 */
     const view = render(
-      <AttachmentRail items={[item('a'), item('b')]} labels={labels} onOpen={vi.fn()} onRemove={vi.fn()} />,
+      <AttachmentRail items={[item('a'), item('b')]} labels={labels} renderItem={renderItem} />,
     )
     /** 中文说明：测试场景的局部值 rail，由紧邻初始化决定。 */
     const rail = view.getByRole('group', { name: '待发送图片' })
@@ -172,7 +162,7 @@ describe('AttachmentRail', () => {
       vi.stubGlobal('matchMedia', vi.fn(() => ({ matches }) as MediaQueryList))
       /** 中文说明：测试场景的局部值 view，由紧邻初始化决定。 */
       const view = render(
-        <AttachmentRail items={[item('a'), item('b'), item('c')]} labels={labels} onOpen={vi.fn()} onRemove={vi.fn()} />,
+        <AttachmentRail items={[item('a'), item('b'), item('c')]} labels={labels} renderItem={renderItem} />,
       )
       /** 中文说明：测试场景的局部值 rail，由紧邻初始化决定。 */
       const rail = view.getByRole('group', { name: '待发送图片' })
@@ -190,17 +180,17 @@ describe('AttachmentRail', () => {
     const first = [item('a'), item('b')]
     /** 中文说明：测试场景的局部值 view，由紧邻初始化决定。 */
     const view = render(
-      <AttachmentRail items={first} labels={labels} onOpen={vi.fn()} onRemove={vi.fn()} />,
+      <AttachmentRail items={first} labels={labels} renderItem={renderItem} />,
     )
     /** 中文说明：测试场景的局部值 rail，由紧邻初始化决定。 */
     const rail = view.getByRole('group', { name: '待发送图片' })
     stubGeometry(rail, { scrollWidth: 400, clientWidth: 200 })
     view.rerender(
-      <AttachmentRail items={[...first, item('c')]} labels={labels} onOpen={vi.fn()} onRemove={vi.fn()} />,
+      <AttachmentRail items={[...first, item('c')]} labels={labels} renderItem={renderItem} />,
     )
     expect(rail.scrollLeft).toBe(200)
     view.rerender(
-      <AttachmentRail items={first} labels={labels} onOpen={vi.fn()} onRemove={vi.fn()} />,
+      <AttachmentRail items={first} labels={labels} renderItem={renderItem} />,
     )
     // Removal keeps the position; only growth jumps to the end.
     expect(rail.scrollLeft).toBe(200)

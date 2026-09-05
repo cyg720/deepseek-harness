@@ -1,20 +1,4 @@
-/*
- * ================================ 文件注释 ================================
- * 【文件职责】实现与工具无关的 shell 环境插件：持有 ctx.shellEnv 注册表，管理每次模型 shell
- * 调用注入的、可信的 DSH_* 环境变量。内置 shell 事实由注册表自身拥有，插件可登记额外的
- * 可枚举事实（随插件生命周期释放）。
- * 【技术维度】Cordis Service + ctx.effect 注册模式：贡献者声明"键所有权"（提前检测冲突），
- * resolve 每次执行时计算可用值；collect 按贡献者名排序后合并快照并 Object.freeze 冻结。
- * 【产品维度】让模型 shell 调用获得会话级事实（如 DSH_SESSION_ID、DSH_SESSION_JSONL），
- * 且这些值可信（执行器会丢弃环境里残留的 DSH_* 再注入快照），不会把宿主的陈旧值泄漏给模型。
- * 【逻辑维度】声明内置键与保留键 → 定义贡献者接口 → ShellEnvRegistry.register 校验并登记 →
- * collect 构建快照 → list 枚举声明 → apply 注册服务并登记 session-persistence 贡献者。
- * 【关键边界】键必须带 DSH_ 前缀且符合命名规范；内置键保留给注册表本身；贡献者返回值
- * 必须是声明过的键且为字符串；重复名/重复键立即抛错（失败要响亮）。
- * 【新手阅读建议】先看 BashEnvContributor 接口（贡献者长什么样），再看 register 的校验规则，
- * 最后看 collect 如何把内置事实与贡献者值合并成最终快照。
- * ==========================================================================
- */
+
 
 /**
  * Tool-independent shell environment plugin: owns the `ctx.shellEnv` registry of
@@ -26,13 +10,16 @@
  * @module @deepseek-ai/dsh-shell-env
  */
 
+/*
+ * 【文件职责】管理工具无关的 DSH_ 执行环境变量及受信任事实，插件额外贡献随效果生命周期注册和撤销。
+ */
+
 import { Service, type Context } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
 import { DSH_ENV_PREFIX } from '@deepseek-ai/dsh-shell'
 import type { DshEnvironment, DshEnvironmentKey } from '@deepseek-ai/dsh-shell'
 import { DSH_HOME_ENV, resolveDshHome } from '@deepseek-ai/dsh-home-paths'
 import type { ToolExecution } from '@deepseek-ai/dsh-tools'
-import type {} from '@deepseek-ai/dsh-session-persistence'
 
 declare module '@deepseek-ai/cordis' {
   interface Context {
@@ -107,8 +94,6 @@ export interface BashEnvVariableInfo extends BashEnvVariable {
 
 const DSH_SHELL_KEY = `${DSH_ENV_PREFIX}SHELL` as const
 const DSH_SESSION_ID_KEY = `${DSH_ENV_PREFIX}SESSION_ID` as const
-const DSH_SESSION_JSONL_KEY = `${DSH_ENV_PREFIX}SESSION_JSONL` as const
-// 保留给注册表自身的内置键集合：插件贡献者不得声明这些键。
 const RESERVED_BASH_ENV_KEYS = new Set<DshEnvironmentKey>([
   DSH_HOME_ENV,
   DSH_SHELL_KEY,
@@ -269,8 +254,7 @@ export class ShellEnvRegistry extends Service {
 }
 
 /**
- * Load the shell-env plugin: register the `ctx.shellEnv` service and the
- * shell-agnostic persistence contributor (`DSH_SESSION_JSONL`).
+ * Load the shell-env plugin: register the `ctx.shellEnv` registry service.
  * @param ctx - Cordis context that owns the service and registrations.
  * @param config - home-directory configuration for the built-in variables.
  */
@@ -281,21 +265,5 @@ export class ShellEnvRegistry extends Service {
  * @param config 内置变量所需的主目录配置
  */
 export function apply(ctx: Context, config: Config = {}): void {
-  // 创建并安装 ctx.shellEnv 服务。
-  const registry = new ShellEnvRegistry(ctx, config)
-  registry.register({
-    name: 'session-persistence',
-    variables: {
-      [DSH_SESSION_JSONL_KEY]: {
-        description: 'Absolute target path of the current session JSONL when the active persistence backend provides one.',
-      },
-    },
-    resolve(execution) {
-      const agent = execution.agent
-      if (agent === undefined) return {}
-      // 查询当前会话的持久化落点；仅在 JSONL 后端可用时提供该键。
-      const location = ctx.get('sessionPersistence')?.locate(agent.session.header)
-      return location?.kind === 'jsonl' ? { [DSH_SESSION_JSONL_KEY]: location.path } : {}
-    },
-  })
+  new ShellEnvRegistry(ctx, config)
 }

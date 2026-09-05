@@ -1,13 +1,9 @@
 /* GoalBar: the second standalone card in the composer context stack (Figma
    1236:32276). Its dock column (card cap minus four insets) matches Todo and
    the Queue panel. */
-/**
- * 文件职责：定义 GoalBar 的局部样式。
- * 技术维度：CSS Modules、主题变量和交互状态选择器。
- * 产品维度：让目标进度界面保持清晰一致。
- * 逻辑维度：按容器、内容、操作和状态组织规则。
- * 关键边界：类名须与组件同步并复用主题值。
- * 新手阅读建议：对照同名 TSX 按 DOM 层级阅读。
+
+/*
+ * 【文件职责】定义目标状态卡片在输入上下文区的停靠宽度，使其与待办及队列面板对齐。
  */
 
 .dock {
@@ -34,7 +30,7 @@
   height: 36px;
   margin: 0 auto;
   padding: 4px 5px 4px 12px;
-  border: 1px solid var(--dsw-alias-border-l1);
+  border: 0.5px solid var(--dsw-alias-border-l1);
   border-radius: 12px;
   background: var(--dsw-specific-tip);
 }
@@ -84,7 +80,7 @@
   min-width: 0;
   height: 26px;
   padding: 0 8px;
-  border: 1px solid var(--dsw-alias-border-l2);
+  border: 0.5px solid var(--dsw-alias-border-l4);
   border-radius: 6px;
   background: var(--dsw-alias-bg-base);
   font-size: 13px;
@@ -119,6 +115,7 @@
   padding: 0;
   border: none;
   border-radius: 999px;
+  corner-shape: round;
   background: transparent;
   color: var(--dsw-alias-label-tertiary);
   cursor: pointer;

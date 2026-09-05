@@ -40,6 +40,7 @@ import {
   IMAGE_FILE_NAME, PREVIEW_FIXTURE_MANIFEST_FILE, PREVIEW_FIXTURE_MANIFEST_VERSION,
   type PreviewFixtureManifest,
 } from '@deepseek-ai/dsh-experimental-webworker-runtime'
+import { buildVfsExampleFiles } from '../../../packages/experimental/webworker-runtime/tests/vfs-example-fixture.ts'
 import { captureStableAria, compareOrRefreshGolden, webSnapshotMode } from './scaffold.ts'
 import { newEnglishPage, REPO_ROOT, saveFailureShot } from './support.ts'
 
@@ -53,14 +54,7 @@ const DIST_ROOT = fileURLToPath(new URL('../dist', import.meta.url))
  * 但对象内部是否可变仍由其类型决定。 */
 const IMAGE_FILE = join(DIST_ROOT, 'preview', IMAGE_FILE_NAME)
 
-/** Built-in source catalog read by the pre-boot chooser.
- * @remarks 中文说明：常量说明：FIXTURE_MANIFEST_FILE 用于处理 FIXTURE_MANIFEST_FILE 相关数据，
- * 作用于当前作用域；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。 */
-const FIXTURE_MANIFEST_FILE = join(DIST_ROOT, 'preview', PREVIEW_FIXTURE_MANIFEST_FILE)
-
-/** Keyless browser golden for the pre-Worker source chooser.
- * @remarks 中文说明：常量说明：SOURCE_CHOOSER_EXPECTED 用于处理 SOURCE_CHOOSER_EXPECTED
- * 相关数据，作用于当前作用域；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。 */
+/** Keyless browser golden for the pre-Worker source chooser. */
 const SOURCE_CHOOSER_EXPECTED = fileURLToPath(new URL('./snapshots/preview-boot/source-chooser.expected.md', import.meta.url))
 
 /**
@@ -165,12 +159,13 @@ function requirePreviewPages(): void {
 }
 
 /**
- * The base image, fixture manifest, and overlays to serve, packed here when
- * `dist/` does not carry the complete set: `pnpm run build` emits the pages but
- * only `build:preview` packs these files, so this lane packs for itself rather
- * than skipping the deployment it accepts. A complete built set is used as it
- * stands — the worker refuses a base lowered against another wrapper contract.
- * Self-packed files land in a temp directory, never in `dist/`: the
+ * The base image, fixture manifest, and overlays to serve. `pnpm run build`
+ * emits the pages but only `build:preview` packs the image, so this lane packs
+ * a missing image rather than skipping the deployment it accepts. The example
+ * overlay pairs its committed Session generations with the generator-owned
+ * current projection cache. The worker therefore exercises historical reads
+ * without relying on a stale cache schema. Generated files land in a temp
+ * directory, never in `dist/`: the
  * client-artifact digest record treats `dist/` as build-owned, so a test write
  * there fails the record check for every later consumer.
  * @returns Static-path overrides and their teardown.
@@ -186,38 +181,6 @@ function requireVfsAssets(): PreviewAssets {
    * 但对象内部是否可变仍由其类型决定。
    */
   const fixtureDefinitions = previewFixtures(REPO_ROOT)
-  /**
-   * 常量说明：fixtureFiles 用于处理 fixtureFiles 相关数据，作用于当前作用域；初始化后不可重新赋值，
-   * 但对象内部是否可变仍由其类型决定。
-   */
-  const fixtureFiles = fixtureDefinitions.map(/*
- * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；参数：fixture（由 TypeScript
- * 根据调用位置推断的类型）：提供本次调用所需的数据；必须满足声明的类型及调用时序要求。；返回值：由 TypeScript 根据实现推断的结果；
- * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调(fixture)，并按返回类型处理结果。
- */ fixture =>
-      join(DIST_ROOT, 'preview', 'fixtures', `${fixture.id}.tar.gz`))
-  if ([IMAGE_FILE, FIXTURE_MANIFEST_FILE, ...fixtureFiles].every(existsSync)) {
-    return { overrides: new Map(), cleanup: /*
- * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；返回值：由 TypeScript 根据实现推断的结果；
- * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调()，并按返回类型处理结果。
- */ () => {} }
-  }
-  /**
-   * 常量说明：packed 用于处理 packed 相关数据，作用于当前作用域；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。
-   */
-  const packed = packVfsImage({
-    config: composeProfile(REPO_ROOT, PROFILE),
-    profile: PROFILE,
-    workspaces: indexWorkspacePackages(REPO_ROOT),
-    resolveFrom: REPO_ROOT,
-    configTrees: configTrees(REPO_ROOT),
-  })
-  if (packed.missing.length > 0) {
-    throw new Error(`preview boot: ${String(packed.missing.length)} dependencies did not resolve: ${packed.missing.join(', ')}`)
-  }
-  /**
-   * 常量说明：directory 用于处理 directory 相关数据，作用于当前作用域；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。
-   */
   const directory = mkdtempSync(join(tmpdir(), 'dsh-preview-boot-'))
   /**
    * 常量说明：overrides 用于处理 overrides 相关数据，作用于当前作用域；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。
@@ -240,31 +203,37 @@ function requireVfsAssets(): PreviewAssets {
     writeFileSync(path, bytes)
     overrides.set(relativePath, path)
   }
-  writeAsset(`preview/${IMAGE_FILE_NAME}`, packed.image)
-  /**
-   * 常量说明：fixtures 用于处理 fixtures 相关数据，作用于当前作用域；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。
-   */
-  const fixtures = fixtureDefinitions.map(/*
- * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；参数：fixture（由 TypeScript
- * 根据调用位置推断的类型）：提供本次调用所需的数据；必须满足声明的类型及调用时序要求。；返回值：由 TypeScript 根据实现推断的结果；
- * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调(fixture)，并按返回类型处理结果。
- */ (fixture) => {
-    /**
-     * 常量说明：relativePath 用于处理 relativePath 相关数据，作用于当前作用域；初始化后不可重新赋值，
-     * 但对象内部是否可变仍由其类型决定。
-     */
-      const relativePath = `preview/fixtures/${fixture.id}.tar.gz`
-      writeAsset(relativePath, packVfsOverlay(fixture.trees).image)
-      return {
-        id: fixture.id,
-        label: fixture.label,
-        description: fixture.description,
-        overlays: [`fixtures/${fixture.id}.tar.gz`],
-      }
+  if (!existsSync(IMAGE_FILE)) {
+    const packed = packVfsImage({
+      config: composeProfile(REPO_ROOT, PROFILE),
+      profile: PROFILE,
+      workspaces: indexWorkspacePackages(REPO_ROOT),
+      resolveFrom: REPO_ROOT,
+      configTrees: configTrees(REPO_ROOT),
     })
-  /**
-   * 常量说明：manifest 用于处理 manifest 相关数据，作用于当前作用域；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。
-   */
+    if (packed.missing.length > 0) {
+      throw new Error(`preview boot: ${String(packed.missing.length)} dependencies did not resolve: ${packed.missing.join(', ')}`)
+    }
+    writeAsset(`preview/${IMAGE_FILE_NAME}`, packed.image)
+  }
+  const currentCache = buildVfsExampleFiles().get('home/storages/session_projcache.json')
+  if (currentCache === undefined) throw new Error('preview boot: generated example has no projection cache')
+  const cacheDirectory = join(directory, 'current-projection-cache')
+  mkdirSync(cacheDirectory, { recursive: true })
+  writeFileSync(join(cacheDirectory, 'session_projcache.json'), currentCache)
+  const fixtures = fixtureDefinitions.map((fixture) => {
+    const relativePath = `preview/fixtures/${fixture.id}.tar.gz`
+    const trees = fixture.id === 'vfs-example'
+      ? [...fixture.trees, { mount: 'home/storages', directory: cacheDirectory }]
+      : fixture.trees
+    writeAsset(relativePath, packVfsOverlay(trees).image)
+    return {
+      id: fixture.id,
+      label: fixture.label,
+      description: fixture.description,
+      overlays: [`fixtures/${fixture.id}.tar.gz`],
+    }
+  })
   const manifest: PreviewFixtureManifest = {
     version: PREVIEW_FIXTURE_MANIFEST_VERSION,
     defaultFixture: fixtures[0]?.id ?? null,
@@ -281,13 +250,7 @@ function requireVfsAssets(): PreviewAssets {
  * Answer one request with its generated override or the file under `dist/`.
  * @param request - Incoming request; only its path is read.
  * @param response - Response to write the bytes or the 404 to.
- * @param overrides - Generated deployment files used when `dist/` has none.
- * @remarks 中文说明：功能说明：处理 respond 相关流程；使用场景由所在模块及调用位置决定。；
- * 参数说明：request（IncomingMessage）：提供调用方提交的请求信息；必须满足声明的类型及调用时序要求。；
- * 参数说明：response（ServerResponse）：提供本次调用所需的数据；必须满足声明的类型及调用时序要求。；
- * 参数说明：overrides（ReadonlyMap<string, string>）：提供本次调用所需的数据；必须满足声明的类型及调用时序要求。
- * ；返回值：Promise<void>；调用方应按声明类型处理，不应假定未声明的附加状态。；使用示例：典型用法：在完成前置校验后调用
- * respond(request, response, overrides)，并按返回类型处理结果。
+ * @param overrides - Generated deployment files served before `dist/`.
  */
 async function respond(
   request: IncomingMessage,

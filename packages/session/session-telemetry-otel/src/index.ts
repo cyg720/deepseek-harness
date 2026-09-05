@@ -1,19 +1,4 @@
-/*
- * ================================ 文件注释 ================================
- * 【文件职责】OpenTelemetry 遥测后端（能力缝的 Service Provider）：把 OTel JS SDK
- *   原样组合（LoggerProvider + BatchLogRecordProcessor + OTLP/HTTP 导出器），
- *   把协调器交来的每条记录映射到 logger.emit()。
- * 【技术维度】SDK 原样透传（exporter/processor 两个 passthrough），本包只拥有
- *   捕获模式与一个外部关闭期限（SDK 的导出超时不管它之前的 forceFlush 等待）。
- * 【产品维度】把会话遥测（日志/反馈）上报到标准 OTel collector；FULL 实时上报、
- *   FEEDBACK_ONLY 仅回放规范日志里的反馈记录、DISABLED 不上报。
- * 【逻辑维度】按代码顺序：模式枚举/常量 → 模式解析与映射 → Config/schema →
- *   OpenTelemetrySessionBackend（构造器三模式分支、emit、shutdown）。
- * 【关键边界】batchSize 非正整数会让 shutdown 永远挂起 → 加载时校验；
- *   shutdown 有外部期限（race 超时 reject）；DISABLED 不构造任何 SDK 状态。
- * 【新手阅读建议】对照三模式构造分支理解捕获语义，再看 shutdown 的 deadline race。
- * ==========================================================================
- */
+
 
 /**
  * OpenTelemetry Service Provider for the DeepSeek Harness telemetry capability.
@@ -27,6 +12,10 @@
  * not bound its preceding `forceFlush()` wait.
  *
  * @module @deepseek-ai/dsh-session-telemetry-otel
+ */
+
+/*
+ * 【文件职责】将会话遥测映射到 OpenTelemetry 日志 SDK，SDK 负责批量、重试和队列，插件另设整体退出期限。
  */
 
 import { createRequire } from 'node:module'
@@ -270,7 +259,7 @@ export class OpenTelemetrySessionBackend extends SessionTelemetryBackend {
     ctx.on('session/event', (session, event) => {
       if (event.type !== 'feedback/record') return
       // Consent is the committed record, not an independently emitted bus value.
-      if (session.events[event.seq] !== event) {
+      if (session.eventAt(event.seq) !== event) {
         ctx.logger.warn(NON_CANONICAL_FEEDBACK_WARNING)
         return
       }

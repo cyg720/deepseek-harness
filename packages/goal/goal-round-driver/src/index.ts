@@ -2,13 +2,9 @@
  * Same-session goal-round driver over public agent, session, and goal services.
  * @module @deepseek-ai/dsh-goal-round-driver
  */
+
 /*
- * 文件职责：实现目标管理的 index.ts 模块。
- * 技术维度：TypeScript、Cordis、会话事件、路径策略、判别联合和 Vitest。
- * 产品维度：保证目标管理操作可预测、可审计并在失败时保持一致。
- * 逻辑维度：校验输入，更新领域状态并记录事件或注册能力。
- * 关键边界：文件路径必须经过策略检查；目标引用含版本，过期修改必须拒绝。
- * 新手阅读建议：先读类型与测试夹具，再按校验、执行、事件折叠和错误流程阅读。
+ * 【文件职责】通过公共 Agent、Session 和 Goal 服务驱动目标后续轮次，在续轮输入进入 inbox 前保留其身份。
  */
 
 import { isDeepStrictEqual } from 'node:util'
@@ -310,8 +306,13 @@ export function apply(ctx: Context): void {
         const attempt = state.attempt
         /** 中文说明：领域局部值 goal，由紧邻初始化决定。 */
         const goal = currentGoal(state)
-        if ((attempt?.phase === 'queued' || attempt?.phase === 'claimed' || attempt?.cancelled)
-          && goal?.phase === 'active' && goal.activation === 'armed') {
+        // Fence the pause to the exact dropped attempt's ref. A resume bumps
+        // the revision, so a host pause followed by an immediate resume (before
+        // the aborted turn converges to idle) must not re-pause the resumed goal.
+        if (attempt !== undefined
+          && (attempt.phase === 'queued' || attempt.phase === 'claimed' || attempt.cancelled)
+          && goal !== undefined && goal.phase === 'active' && goal.activation === 'armed'
+          && attempt.goalId === goal.id && attempt.revision === goal.revision) {
           state.attempt = undefined
           try {
             ctx.goals.pause(agent, goalRef(goal))
@@ -323,10 +324,16 @@ export function apply(ctx: Context): void {
         requestDrive(state)
       }
     })
-    ctx.on('goal/changed', ({ agent }) => {
-      /** 中文说明：领域局部值 state，由紧邻初始化决定。 */
+    ctx.on('goal/changed', ({ agent, change }) => {
       const state = stateFor(agent)
       state.needsCheckpoint = true
+      // A host-initiated pause stops goal execution: abort the live turn so the
+      // model cannot keep acting or resume in the same turn. A model-initiated
+      // pause (update_goal inside its own turn) finishes normally.
+      if (change.operation === 'pause' && agent.status === 'running'
+        && ctx.agents.currentInitiator() !== agent) {
+        agent.cancel({ kind: 'user' }, { keepInbox: true })
+      }
       requestDrive(state)
     })
 

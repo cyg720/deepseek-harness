@@ -471,10 +471,21 @@ describe('Cordis tree inspection', () => {
     expect(byteBound.snapshot()).toMatchObject({ truncated: true, root: { children: [] } })
     byteBound.close()
 
-    /**
-     * 常量说明：impossible 用于处理 impossible 相关数据，作用于当前作用域；初始化后不可重新赋值，
-     * 但对象内部是否可变仍由其类型决定。
-     */
+    const nestedRoot = new Context()
+    const outerFiber = nestedRoot.plugin({ name: 'outer', apply() {} })
+    await outerFiber.await()
+    const innerFiber = outerFiber.ctx.isolate('nested').plugin({ name: 'inner', apply() {} })
+    await innerFiber.await()
+    const nestedComplete = new CordisTreeCollector(nestedRoot, { maxNodes: 100, maxBytes: 64 * 1_024 })
+    const nestedBytes = jsonByteLength(nestedComplete.snapshot() as unknown as InspectorJsonValue)
+    nestedComplete.close()
+    const nestedBound = new CordisTreeCollector(nestedRoot, { maxNodes: 100, maxBytes: nestedBytes - 1 })
+    const nestedSnapshot = nestedBound.snapshot()
+    expect(nestedSnapshot.truncated).toBe(true)
+    expect(treeNodes(nestedSnapshot.root)
+      .some(node => node.kind === 'fiber' && node.uid === innerFiber.uid)).toBe(false)
+    nestedBound.close()
+
     const impossible = new CordisTreeCollector(root, { maxNodes: 0, maxBytes: 1 })
     /**
      * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；返回值：由 TypeScript 根据实现推断的结果；
@@ -494,6 +505,8 @@ describe('Cordis tree inspection', () => {
      */
     expect(() => rootTooLarge.snapshot()).toThrow('Cordis root exceeds the source-frame byte limit')
     rootTooLarge.close()
+    await innerFiber.dispose()
+    await outerFiber.dispose()
     await directFiber.dispose()
     await fiber.dispose()
   })

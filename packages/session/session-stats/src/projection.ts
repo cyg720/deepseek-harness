@@ -1,22 +1,8 @@
-/*
- * ================================ 文件注释 ================================
- * 【文件职责】sessionStats 投影单元：把步骤边界、流式块、工具对与组装后的助手消息
- *   折叠成全日志的计数与耗时（turns/steps/llmMs/toolMs/ttftMs/decodeMs/decodeTokens）。
- * 【技术维度】Zod 校验状态与视图；计数以 step/end 为权威（每条已进入步骤恰好一条，
- *   finally 中追加）；耗时折叠与客户端窗口折叠逐字段对齐（模型耗时=step/start→
- *   assistant/message，首 token=首个非空 delta 块，解码=首 token→消息组装）。
- * 【产品维度】前端展示整场会话统计，不因历史分页/压缩而漂移。
- * 【逻辑维度】按代码顺序：SessionStatsTotals → SessionStatsState → schema →
- *   usageOutputTokens → sessionStatsProjectionDefinition（init/apply 各事件分支/wire）。
- * 【关键边界】apply 对不感兴趣的事件返回同一引用（Object.is 门控变更馈送）；
- *   pendingCalls 用 Object.hasOwn 防原型污染；turn/end 清理未落地调用。
- * 【新手阅读建议】对照 apply 的各 case 与顶部英文 JSDoc 的"为什么以 step/end 计数"。
- * ==========================================================================
- */
+
 
 /**
  * The `sessionStats` projection unit: a pure fold of step boundaries, stream
- * chunks, tool pairs, and assembled assistant messages into whole-log counts
+ * embedded streams, tool pairs, and assembled assistant messages into whole-log counts
  * and wall times.
  *
  * `step/end` — not `assistant/message` — is the counted step event because it
@@ -39,8 +25,13 @@
  * @module @deepseek-ai/dsh-session-stats/projection
  */
 
+/*
+ * 【文件职责】从步骤边界、嵌入助手流和工具配对计算会话统计；
+ * 步骤数量以 step/end 为权威。
+ */
+
 import { z } from 'zod'
-import type { StreamChunk } from '@deepseek-ai/dsh-llm/types'
+import { expandAssistantStream, type AssistantStreamRecord, type StreamChunk } from '@deepseek-ai/dsh-llm'
 import type { ProjectionDefinition } from '@deepseek-ai/dsh-session-projection'
 
 /* jscpd:ignore-start -- Session Stats owns its whole-log timing projection independently. */
@@ -56,6 +47,11 @@ function isTokenDelta(chunk: StreamChunk): boolean {
     default:
       return false
   }
+}
+
+/** First non-empty token timestamp in one durable Assistant stream. */
+function firstTokenTime(stream: readonly AssistantStreamRecord[]): number | null {
+  return expandAssistantStream(stream).find(member => isTokenDelta(member.chunk))?.time ?? null
 }
 
 /* jscpd:ignore-end */
@@ -175,15 +171,17 @@ export const sessionStatsProjectionDefinition = {
           ...state,
           openStep: { turn: event.data.turn, step: event.data.step, startTime: event.time, firstTokenTime: null },
         }
-      case 'assistant/chunk': {
+      case 'assistant/attempt': {
         const open = state.openStep
         if (open === null || open.turn !== event.data.turn || open.step !== event.data.step) return state
-        if (open.firstTokenTime !== null || !isTokenDelta(event.data.chunk)) return state
-        return { ...state, openStep: { ...open, firstTokenTime: event.time } }
+        const first = firstTokenTime(event.data.stream)
+        if (open.firstTokenTime !== null || first === null) return state
+        return { ...state, openStep: { ...open, firstTokenTime: first } }
       }
       case 'assistant/message': {
         const open = state.openStep
         if (open === null || open.turn !== event.data.turn || open.step !== event.data.step) return state
+        const firstToken = open.firstTokenTime ?? firstTokenTime(event.data.stream)
         // One assembled message per step: closing the boundary means a
         // defensive duplicate cannot accrue twice.
         const next: SessionStatsState = {
@@ -191,12 +189,12 @@ export const sessionStatsProjectionDefinition = {
           llmMs: state.llmMs + Math.max(0, event.time - open.startTime),
           openStep: null,
         }
-        if (open.firstTokenTime !== null) {
-          next.ttftMs += Math.max(0, open.firstTokenTime - open.startTime)
+        if (firstToken !== null) {
+          next.ttftMs += Math.max(0, firstToken - open.startTime)
           next.ttftSteps += 1
           const outputTokens = usageOutputTokens(event.data.usage)
           if (outputTokens !== null) {
-            next.decodeMs += Math.max(0, event.time - open.firstTokenTime)
+            next.decodeMs += Math.max(0, event.time - firstToken)
             next.decodeTokens += outputTokens
           }
         }

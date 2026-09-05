@@ -1,13 +1,7 @@
 /** Session-log download command and Host-owned streaming route. */
 
 /*
- * 文件说明：文件职责：实现 session-query/session-log-export 中 index 模块的职责，
- * 并向相邻模块提供可复用能力。；技术维度：主要使用TypeScript/JavaScript 的 ESM 模块、严格类型约束与 Cordis
- * 插件机制，通过当前文件中的类型、函数与数据结构完成实现。；产品维度：支撑 DeepSeek Harness 的
- * session-query/session-log-export 能力，使上层功能能够稳定组合和扩展。；逻辑维度：建议按“依赖与类型定义 →
- * 常量和状态 → 核心函数或类 → 导出或注册入口”的顺序理解。；关键边界：调用方必须遵守类型、生命周期和错误处理约定；
- * 涉及外部输入、异步任务或资源释放时需特别关注异常分支。；新手阅读建议：先确认导入依赖和公开导出，再沿主要函数调用链阅读，
- * 最后结合相邻测试理解输入、输出与边界条件。
+ * 【文件职责】注册会话日志下载命令及主机流式路由，将归档生成交给日志导出实现。
  */
 
 import type { Context } from '@deepseek-ai/cordis'
@@ -16,10 +10,10 @@ import { brandString } from '@deepseek-ai/dsh-brand'
 import type {} from '@deepseek-ai/dsh-attachment'
 import type { CommandResult } from '@deepseek-ai/dsh-commands'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
-import type { SessionRawArtifact } from '@deepseek-ai/dsh-session-persistence'
 import {
   DEFAULT_SESSION_LOG_COMPRESSION_LEVEL,
   flushLiveSessionLog,
+  readSessionLogText,
   sessionLogExportDeps,
   sessionLogZipFilename,
   streamSessionLogZip,
@@ -30,6 +24,9 @@ import {
 export {
   DEFAULT_SESSION_LOG_COMPRESSION_LEVEL,
   flushLiveSessionLog,
+  readSessionLogText,
+  serializeSessionLog,
+  SESSION_LOG_FILENAME,
   sessionLogExportDeps,
   sessionLogZipEntries,
   sessionLogZipFilename,
@@ -65,6 +62,7 @@ interface SessionLogConnection {
     register(route: {
       readonly path: string
       readonly methods: readonly ('GET' | 'HEAD')[]
+      readonly requestBody: 'buffered'
       readonly fetch: (request: Request) => Promise<Response>
     }): () => Promise<void>
   }
@@ -91,6 +89,7 @@ export function apply(ctx: Context, config: Config = {}): void {
   connectionOf(ctx).fetch.register({
     path: SESSION_LOG_EXPORT_PATH,
     methods: ['GET', 'HEAD'],
+    requestBody: 'buffered',
     fetch: async (request) => {
       const response = await sessionLogExportResponse(
         ctx,
@@ -131,32 +130,31 @@ async function sessionLogExportResponse(
       { status: 500 },
     )
   }
-  if (!deps.sessionPersistence.supportsRawArtifacts) {
-    return new Response(
-      'session log export is unavailable: the persistence backend does not expose per-session raw artifacts',
-      { status: 501 },
-    )
-  }
   const ready: SessionLogExportReady = {
     sessionQuery: deps.sessionQuery,
     sessionPersistence: deps.sessionPersistence,
     attachments: deps.attachments,
     sessions: deps.sessions,
   }
-  let root: SessionRawArtifact | undefined
+  let rootContent: string | undefined
   try {
     await flushLiveSessionLog(deps, sessionId, request.signal)
-    root = await deps.sessionPersistence.readRaw(sessionId, request.signal)
+    rootContent = await readSessionLogText(deps.sessionPersistence, sessionId, request.signal)
     request.signal.throwIfAborted()
   } catch {
     request.signal.throwIfAborted()
-    return new Response('session log export failed to prepare the stored artifact', { status: 500 })
+    // Root preparation failure (flush, open, or read): answer 500 without
+    // echoing the error, which may carry absolute host paths into the
+    // browser error bar.
+    return new Response('session log export failed to read the stored log', { status: 500 })
   }
-  if (root === undefined) return new Response('session not found', { status: 404 })
+  if (rootContent === undefined) {
+    return new Response('session not found', { status: 404 })
+  }
   const response = new Response(
     streamSessionLogZip(
       ready,
-      root,
+      rootContent,
       sessionId,
       descendantsValue === 'true',
       compressionLevel,

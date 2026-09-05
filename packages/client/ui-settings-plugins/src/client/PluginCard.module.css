@@ -1,17 +1,13 @@
 /* Plugin card: a header that names the plugin, disclosing its controls in place. */
-/**
- * 文件职责：定义 PluginCard 的局部样式。
- * 技术维度：CSS Modules、表单布局、状态颜色和响应式规则。
- * 产品维度：让插件配置信息和操作清晰可辨。
- * 逻辑维度：按卡片、字段、操作与状态组织样式。
- * 关键边界：错误、禁用与敏感字段必须有明确视觉区分。
- * 新手阅读建议：对照同名 TSX 按表单结构阅读。
+
+/*
+ * 【文件职责】定义可原位展开配置的插件卡片，以边框和标题区表达当前卡片状态。
  */
 
 .card {
   list-style: none;
-  border: 1px solid var(--dsw-alias-border-l2);
-  border-radius: 12px;
+  border: 0.5px solid var(--dsw-alias-border-l4);
+  border-radius: 16px;
   background: var(--dsw-alias-bg-layer-3);
   transition: border-color .16s, background .16s;
 }
@@ -81,7 +77,7 @@
 }
 
 .body {
-  border-top: 1px solid var(--dsw-alias-border-l2);
+  border-top: 0.5px solid var(--dsw-alias-border-l2);
   margin: 0 16px;
   padding-bottom: 8px;
 }
@@ -97,6 +93,7 @@
 .pending {
   flex: none;
   border-radius: 999px;
+  corner-shape: round;
   padding: 1px 8px;
   font-size: 11px;
   line-height: 17px;
@@ -112,7 +109,7 @@
   justify-content: flex-end;
   gap: 8px;
   padding: 12px 0 4px;
-  border-top: 1px solid var(--dsw-alias-border-l2);
+  border-top: 0.5px solid var(--dsw-alias-border-l2);
 }
 
 .failed {

@@ -1,4 +1,9 @@
 /** Per-Session target-neutral Conversation assembly. */
+
+/*
+ * 【文件职责】为单个会话持有目标无关的 Conversation 装配与可观察输出，统一其创建和释放生命周期。
+ */
+
 import { Service, type Context } from '@deepseek-ai/cordis'
 import type { ImageAttachmentRef } from '@deepseek-ai/dsh-attachment'
 import type {
@@ -86,10 +91,7 @@ class BoundConversation implements ConversationBinding {
   rebuild(): void { this.publish(this.assembler.rebuildRegistry()) }
 
   dispose(): void {
-    if (this.frame !== undefined && typeof cancelAnimationFrame === 'function') {
-      cancelAnimationFrame(this.frame)
-    }
-    this.frame = undefined
+    this.cancelFrame()
     this.disposeFeed()
   }
 
@@ -116,7 +118,14 @@ class BoundConversation implements ConversationBinding {
           if (next === 'immediate' || publication === 'none') publication = next
         }
         this.publish(publication)
+        return
       }
+      case 'settle-assistant':
+        this.publish(this.assembler.settleAssistant(
+          window.change.attemptId,
+          window.change.entry,
+        ))
+        return
     }
   }
 
@@ -124,13 +133,26 @@ class BoundConversation implements ConversationBinding {
     if (publication === 'none') return
     if (publication === 'animation-frame' && typeof requestAnimationFrame === 'function') {
       if (this.frame !== undefined) return
+      // Cross three paint opportunities before publishing high-frequency stream updates.
       this.frame = requestAnimationFrame(() => {
-        this.frame = undefined
-        this.flush()
+        this.frame = requestAnimationFrame(() => {
+          this.frame = requestAnimationFrame(() => {
+            this.frame = undefined
+            this.flush()
+          })
+        })
       })
       return
     }
+    this.cancelFrame()
     this.flush()
+  }
+
+  private cancelFrame(): void {
+    if (this.frame !== undefined && typeof cancelAnimationFrame === 'function') {
+      cancelAnimationFrame(this.frame)
+    }
+    this.frame = undefined
   }
 
   private flush(): void {

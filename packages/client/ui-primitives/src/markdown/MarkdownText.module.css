@@ -1,13 +1,9 @@
 /* Visual baseline: deepsuite `@deepseek/md` markdown.css, adapted to CSS
    Modules. Cite pills, header anchors, and thinking-small variants are
    intentionally absent (no matching DOM). Token names match that sheet. */
-/**
- * 文件职责：定义 MarkdownText 的局部样式。
- * 技术维度：CSS Modules、主题变量、滚动与状态选择器。
- * 产品维度：保证Markdown 与代码内容在不同容器中清晰一致。
- * 逻辑维度：按容器、内容、操作和状态组织规则。
- * 关键边界：类名须与组件同步，长内容必须可滚动或换行。
- * 新手阅读建议：对照同名 TSX 按 DOM 层级阅读。
+
+/*
+ * 【文件职责】定义 Markdown 正文、代码、表格及链接排版，与实际 mdast 渲染元素对应。
  */
 
 .markdown {
@@ -65,9 +61,10 @@
 
 .markdown a {
   /* deepsuite markdown.css uses brand-text (blue in newDesign); this sheet
-     keeps design-platform brand-text as near-black, so links use the blue
-     business-primary alias instead. */
-  color: var(--dsw-alias-state-business-primary);
+     keeps design-platform brand-text as near-black, so links use the
+     dedicated link alias instead. */
+  color: var(--dsw-alias-link);
+  font-weight: 500;
   transition: box-shadow var(--ds-transition-duration) var(--ds-ease-in-out);
   position: relative;
   text-decoration: none;
@@ -83,11 +80,25 @@
 .markdown a:hover,
 .markdown a:focus {
   outline: none;
-  text-decoration: underline var(--dsw-alias-state-business-primary);
+  text-decoration: underline dotted var(--dsw-alias-link);
+  text-underline-offset: 3px;
 }
 
 .markdown a:focus-visible {
   box-shadow: 0 0 0 2px var(--dsw-alias-state-business-primary);
+}
+
+/* Leading link-category glyph inside anchors, file mentions, and
+   URL-promoted inline code: outline glyphs ride the link's currentColor.
+   1.1em keeps the glyph proportional to the surrounding text's size (it
+   shrinks with the code chip's 0.875em); the small negative offset seats
+   its optical center on the cap height. */
+.linkIcon {
+  flex: none;
+  width: 1.1em;
+  height: 1.1em;
+  vertical-align: -0.25em;
+  margin-right: 5px;
 }
 
 .markdown :where(ul, ol) {
@@ -134,7 +145,7 @@
 .markdown hr {
   display: block;
   border: none;
-  height: 1px;
+  height: 0.5px;
   margin: 32px 0;
   background: var(--dsw-alias-border-l2);
 }
@@ -159,6 +170,7 @@
   font-family: var(--ds-font-family-code);
   font-size: 0.875em !important;
   background-color: var(--dsw-alias-markdown-inline-code);
+  border: 0.5px solid var(--dsw-alias-border-l1);
   border-radius: 6px;
   padding: 0 5px;
 }
@@ -233,7 +245,7 @@
 .tableScroll th {
   text-align: start;
   padding: 10px 16px;
-  border-bottom: 1px solid var(--dsw-alias-border-l3);
+  border-bottom: 0.5px solid var(--dsw-alias-border-l3);
   border-top: none;
   font: var(--dsw-font-markdown-table-head);
   max-width: 320px;
@@ -243,7 +255,7 @@
 
 .tableScroll td {
   padding: 10px 16px;
-  border-bottom: 1px solid var(--dsw-alias-border-l2);
+  border-bottom: 0.5px solid var(--dsw-alias-border-l2);
   font: var(--dsw-font-markdown-table);
   max-width: 320px;
   max-width: min(30vw, 320px);
@@ -290,8 +302,8 @@
 }
 
 /* Inline file mention: the same link language this sheet gives anchors (and
-   thereby URL-promoted inline code) — link-blue at rest, underline only on
-   hover/focus. An underline at rest reads badly inside the code chip, where
+   thereby URL-promoted inline code) — link-blue at rest, dotted underline only
+   on hover/focus. An underline at rest reads badly inside the code chip, where
    it collides with monospace descenders and the pill background. */
 .fileMention {
   margin: 0;
@@ -299,7 +311,8 @@
   border: none;
   background: none;
   font: inherit;
-  color: var(--dsw-alias-state-business-primary);
+  font-weight: 500;
+  color: var(--dsw-alias-link);
   text-decoration: none;
   cursor: pointer;
 }
@@ -307,6 +320,6 @@
 .fileMention:hover,
 .fileMention:focus {
   outline: none;
-  text-decoration: underline var(--dsw-alias-state-business-primary);
+  text-decoration: underline dotted var(--dsw-alias-link);
   text-underline-offset: 3px;
 }

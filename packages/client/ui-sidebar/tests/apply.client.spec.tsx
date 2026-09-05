@@ -5,6 +5,7 @@ import { SlotRegistry } from '@deepseek-ai/dsh-client-ui-renderer/client'
 import { LocaleRuntime } from '@deepseek-ai/dsh-client-locale/client'
 import { apply, inject } from '@deepseek-ai/dsh-client-ui-sidebar/client'
 import type { SidebarRootInjected } from '@deepseek-ai/dsh-client-ui-sidebar/client'
+import { apply as hostApply } from '../src/index.ts'
 
 /** 中文说明：函数 bench 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 async function bench(declare = true) {
@@ -29,6 +30,10 @@ async function bench(declare = true) {
 }
 
 describe('ui-sidebar apply', () => {
+  it('keeps the host Loader entry inert', () => {
+    expect(hostApply).not.toThrow()
+  })
+
   it('declares only the services it uses', () => {
     expect(inject).toEqual(['slots', 'layout', 'uiWorkspace', 'locale'])
   })

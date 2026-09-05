@@ -1,16 +1,12 @@
 /** Assistant reasoning disclosure, independent of Tool-call presentation. */
+
 /*
- * 文件职责：实现会话聊天界面的 ReasoningRow 组件。
- * 技术维度：React、TypeScript、Cordis 插槽和 CSS Modules。
- * 产品维度：向用户展示并操作会话聊天相关状态。
- * 逻辑维度：读取属性与状态，派生展示数据并响应交互。
- * 关键边界：异步状态、可访问性标签和空数据分支必须保持一致。
- * 新手阅读建议：先读 Props，再看局部状态、effect 和 JSX。
+ * 【文件职责】把助手推理内容呈现为独立可展开行，流式运行状态使用 Conversation 的本地化文案。
  */
-import { useEffect, useRef, useState } from 'react'
+
+import { useState } from 'react'
 import { DisclosureRow, IconThinkOutline14 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { ChatViewSlotProps } from '../contract/slots.ts'
-import { useThrottledVisualUpdate } from './use-throttled-visual-update.ts'
 import a11yCss from './accessibility.module.css'
 import css from './ReasoningRow.module.css'
 
@@ -41,23 +37,15 @@ function latestLine(text: string): string {
 export function ReasoningRow({ text, running, t }: { text: string; running: boolean; t: ChatViewSlotProps['t'] }) {
   /** 中文说明：当前组件的局部值 [expanded, setExpanded]，由紧邻初始化决定。 */
   const [expanded, setExpanded] = useState(false)
-  /** 中文说明：当前组件的局部值 summaryRef，由紧邻初始化决定。 */
-  const summaryRef = useRef<HTMLSpanElement>(null)
-  /** 中文说明：当前组件的局部值 summary，由紧邻初始化决定。 */
   const summary = running ? latestLine(text) : firstLine(text)
-  /** 中文说明：当前组件的局部值 scheduleSummaryScroll，由紧邻初始化决定。 */
-  const scheduleSummaryScroll = useThrottledVisualUpdate(() => {
-    /** 中文说明：当前组件的局部值 element，由紧邻初始化决定。 */
-    const element = summaryRef.current
-    if (element === null) return
-    element.scrollLeft = running ? element.scrollWidth - element.clientWidth : 0
-  })
-  useEffect(() => {
-    scheduleSummaryScroll()
-  }, [running, scheduleSummaryScroll, summary])
 
   return (
-    <div className={css.root} data-variant="think" data-state={running ? 'running' : 'ok'}>
+    <div
+      className={css.root}
+      data-variant="think"
+      data-state={running ? 'running' : 'ok'}
+      data-expanded={expanded || undefined}
+    >
       {running && <span className={a11yCss.visuallyHidden}>{t('row.running')}</span>}
       <DisclosureRow
         rowClassName={css.row}
@@ -73,7 +61,9 @@ export function ReasoningRow({ text, running, t }: { text: string; running: bool
         collapsedContent={(
           <>
             <span className={css.separator} aria-hidden />
-            <span ref={summaryRef} className={css.summary} data-follow-end={running || undefined}>{summary}</span>
+            <span className={css.summary} data-follow-end={running || undefined}>
+              <span className={css.summaryText}>{summary}</span>
+            </span>
           </>
         )}
       >

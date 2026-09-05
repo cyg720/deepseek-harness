@@ -8,6 +8,12 @@
 // The block union's defining home is runtime (fold-product types); this
 // contract only forwards it (type-definition authority stays with the layer
 // that produces the values).
+
+/*
+ * 【文件职责】从冻结调用数据推导工具行类型、单行摘要和展开内容；
+ * 输入取自参数，输出与错误取自完成结果。
+ */
+
 import type { ToolCallBlock, ToolResultNode } from '@deepseek-ai/dsh-client-ui-chat/client'
 import type { LocaleKeysOf } from '@deepseek-ai/dsh-client-ui-slots'
 import { abbreviateHomePath } from '@deepseek-ai/dsh-util-workspace-path'
@@ -44,6 +50,11 @@ const TOOL_VARIANTS: Record<string, ToolRowVariant> = {
   // with its own title from TOOL_TITLE_KEYS, not the generic `others` row.
   pwsh: 'bash',
   read: 'read',
+  // read_image is a single-file read: the same browse icon and the same openable
+  // path summary (FILE_PATH_VARIANTS covers `read`), with its own title key below.
+  // Left unclassified it falls to `others`, which titles the row generically and
+  // derives no filePath — so the path the row advertises as openable never is.
+  read_image: 'read',
   web_fetch: 'read',
   web_search: 'search',
   grep: 'search',
@@ -70,6 +81,7 @@ const TOOL_TITLE_KEYS: Record<string, ToolTitleKey> = {
   cordis_stop: 'tool.title.stopCordis',
   cordis_undefine: 'tool.title.removeCordis',
   pwsh: 'tool.title.pwsh',
+  read_image: 'tool.title.readImage',
 }
 
 /**

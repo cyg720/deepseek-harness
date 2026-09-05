@@ -1,27 +1,10 @@
-/**
- * ================================ 文件注释 ================================
- * 【文件职责】time-context 包自有的持久化时钟上下文不变式：校验会话日志里
- *             每个"时间读取"消息的格式、位置与时区一致性，保证回放与
- *             生产注入行为完全吻合。
- * 【技术维度】Cordis 插件 + invariants 服务；对已加载会话与实时派发的事件
- *             双重校验；READING 正则描述持久化读取的完整文本外形；
- *             与 timestamp.ts/request-zone.ts 的格式严格对应。
- * 【产品维度】时间注入是"模型可见"内容，项目要求模型可见 ⟺ 可回放：
- *             这里确保任何一条时间读取都能从日志中无歧义复现。
- * 【逻辑维度】1) READING 正则（时间读取的规范文本）；2) preparationPosition：
- *             从事件历史推导允许追加读取的回合/步骤位置；3) validateReading：
- *             校验单条读取（块结构/正则/回合步骤/来源归属/时区文本/时间戳）；
- *             4) install：对已加载会话 + 新派发事件安装校验。
- * 【关键边界】读取必须位于打开回合内、step/start 之后、request/header 之前；
- *             来源必须保持包归属（plugin: time-context）；渲染时间戳不得晚于
- *             持久化事件时间。
- * 【新手阅读建议】先读 READING 正则理解"合法读取长什么样"，再读
- *                 preparationPosition 的位置状态机，最后看 validateReading
- *                 的逐项断言与 install 的双通道接线。
- * ==========================================================================
- */
+
 
 /** Package-owned durable clock-context invariants. @module @deepseek-ai/dsh-time-context/invariant */
+
+/*
+ * 【文件职责】检查时间上下文的持久记录与来源关系，保证请求时钟信息具备对应日志证据。
+ */
 
 import type { Context } from '@deepseek-ai/cordis'
 import type { Session, SessionEvent } from '@deepseek-ai/dsh-session'
@@ -201,11 +184,12 @@ function validateReading(
 /** Validate all package-owned readings already present in one session. */
 /* 校验一个会话中已存在的全部包归属时间读取（逐个按历史位置校验）。 */
 function validateSession(session: Session, fail: InvariantFailure): void {
-  for (const [index, event] of session.events.entries()) {
+  const events = session.snapshotEvents()
+  for (const [index, event] of events.entries()) {
     if (event.type !== 'user/message'
       || event.data.source.kind !== 'plugin'
       || event.data.source.plugin !== SOURCE_NAME) continue
-    validateReading(session.events.slice(0, index), event, fail)
+    validateReading(events.slice(0, index), event, fail)
   }
 }
 
@@ -220,7 +204,7 @@ const install: InvariantInstaller = Object.assign((ctx: Context, fail: Invariant
     if (event.type !== 'user/message'
       || event.data.source.kind !== 'plugin'
       || event.data.source.plugin !== SOURCE_NAME) return
-    validateReading(session.events, event, fail)
+    validateReading(session.snapshotEvents(), event, fail)
   }, { global: true })
 }, { inject: ['sessions'] })
 /* jscpd:ignore-end */

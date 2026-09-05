@@ -33,7 +33,7 @@ export interface AcpConfig {
 
 依赖：`Stream`（`@agentclientprotocol/sdk`）
 
-来源：[`packages/acp/acp/src/index.ts:84`](../packages/acp/acp/src/index.ts)
+来源：[`packages/acp/acp/src/index.ts:79`](../packages/acp/acp/src/index.ts)
 
 <a id="deepseek-aidsh-agent-default-model"></a>
 
@@ -126,7 +126,7 @@ export interface Config {
 
 依赖：[`AgentOptions`](subsystems/core.zh.md) · [`SessionId`](subsystems/core.zh.md)
 
-来源：[`packages/core/agent-loop/src/index.ts:323`](../packages/core/agent-loop/src/index.ts)
+来源：[`packages/core/agent-loop/src/index.ts:322`](../packages/core/agent-loop/src/index.ts)
 
 <a id="deepseek-aidsh-agent-presets"></a>
 
@@ -220,19 +220,17 @@ export interface Config {
 
 ## `@deepseek-ai/dsh-api-session-controller`
 
-需要：`agentDefaultModel` · `agents` · `attachments` · `llm` · `sessions` · `sessionProjections` · `sessionQuery` · `typert` · `workspaceRegistry`
+需要：`agentDefaultModel` · `agents` · `attachments` · `fileUploads` · `llm` · `sessions` · `sessionProjections` · `sessionQuery` · `typert` · `workspaceRegistry`
 
 ```ts config-catalog
 /** Session Controller deployment policy. */
 export interface Config {
-  /** Maximum cold Session artifact size eligible for one full projection observation. */
-  readonly coldBlankProbeMaxBytes?: number
   /** Override platform desktop-opener detection. */
   readonly nativeOpen?: boolean
 }
 ```
 
-来源：[`packages/api/session-controller/src/index.ts:77`](../packages/api/session-controller/src/index.ts)
+来源：[`packages/api/session-controller/src/index.ts:73`](../packages/api/session-controller/src/index.ts)
 
 <a id="deepseek-aidsh-api-settings-controller"></a>
 
@@ -289,7 +287,7 @@ export interface Config {
 }
 ```
 
-来源：[`packages/attachment/attachment-local/src/index.ts:71`](../packages/attachment/attachment-local/src/index.ts)
+来源：[`packages/attachment/attachment-local/src/index.ts:73`](../packages/attachment/attachment-local/src/index.ts)
 
 <a id="deepseek-aidsh-bash-local"></a>
 
@@ -370,7 +368,7 @@ export interface ConnectionConfig {
 }
 ```
 
-来源：[`packages/client/connection/src/index.ts:84`](../packages/client/connection/src/index.ts)
+来源：[`packages/client/connection/src/index.ts:82`](../packages/client/connection/src/index.ts)
 
 <a id="deepseek-aidsh-client-hmr"></a>
 
@@ -498,7 +496,7 @@ export interface ToolResultPruneConfig {
 }
 ```
 
-来源：[`packages/compaction/compaction-tool-result-pruner/src/types.ts:5`](../packages/compaction/compaction-tool-result-pruner/src/types.ts)
+来源：[`packages/compaction/compaction-tool-result-pruner/src/types.ts:11`](../packages/compaction/compaction-tool-result-pruner/src/types.ts)
 
 <a id="deepseek-aidsh-cordis-host-runner"></a>
 
@@ -553,7 +551,7 @@ export interface Config {
 }
 ```
 
-来源：[`packages/e2b/e2b/src/index.ts:62`](../packages/e2b/e2b/src/index.ts)
+来源：[`packages/e2b/e2b/src/index.ts:60`](../packages/e2b/e2b/src/index.ts)
 
 <a id="deepseek-aidsh-experimental-agent-team"></a>
 
@@ -577,7 +575,74 @@ export interface Config {
 }
 ```
 
-来源：[`packages/experimental/agent-team/src/types.ts:145`](../packages/experimental/agent-team/src/types.ts)
+来源：[`packages/experimental/agent-team/src/types.ts:136`](../packages/experimental/agent-team/src/types.ts)
+
+<a id="deepseek-aidsh-experimental-code-runtime-python"></a>
+
+## `@deepseek-ai/dsh-experimental-code-runtime-python`
+
+```ts config-catalog
+/** Plugin config: every cap, changeable from `cordis.yml` (no hardcoded tunables). */
+export interface Config {
+  /**
+   * RLIMIT_CPU in whole seconds (a positive integer — `setrlimit` in the child
+   * rejects a float). The child sets the soft limit to `cpuSeconds` and the
+   * hard limit to `cpuSeconds + 1`: the kernel delivers SIGXCPU at the soft
+   * limit, which the host classifies as a `timeout`; the +1s hard limit is a
+   * SIGKILL backstop for a program that traps SIGXCPU. Granularity is seconds —
+   * a coarser counterpart to the worker backend's millisecond `computeMs`.
+   */
+  cpuSeconds?: number
+  /** Wall-clock ceiling in milliseconds; backstops CPU time for programs awaiting a promise nobody resolves. */
+  maxWallMs?: number
+  /**
+   * RLIMIT_AS in mebibytes; caps address space so a runaway allocation fails
+   * cleanly. Not applied on Darwin, where the dyld shared cache mapped into
+   * every process at exec exceeds any practical cap and the kernel rejects
+   * the call; `cpuSeconds` and `maxWallMs` still bound the run there. Bounds
+   * `maxLogBytes`/`maxValueBytes` at load on EVERY platform (this static check
+   * runs on Darwin too, where only the runtime `setrlimit` is skipped): each
+   * budget times a worst-case Unicode expansion must fit this byte count minus a
+   * fixed interpreter baseline, so a near-budget output cannot breach the address
+   * space during the child's build-and-encode.
+   */
+  addressSpaceMb?: number
+  /**
+   * Shared byte budget for captured log text (host-side ledger). Bounded at load
+   * against `addressSpaceMb`: the child builds and encodes a near-budget entry
+   * under RLIMIT_AS with several copies live at once, so this cap times the
+   * worst-case Unicode expansion must fit the address space left after the
+   * interpreter baseline (see `addressSpaceMb`) — a load-time rejection, not a
+   * runtime clamp. Also bounded at load by the host's configured heap like
+   * `maxValueBytes` (see its JSDoc): the effective frame cap minus the frame
+   * envelope.
+   */
+  maxLogBytes?: number
+  /**
+   * Byte cap for the completion value. Bounded at load against `addressSpaceMb`
+   * the same way `maxLogBytes` is: the child builds and encodes a near-budget
+   * value under RLIMIT_AS with several copies live at once, so this cap times the
+   * worst-case Unicode expansion must fit the address space left after the
+   * interpreter baseline. Both budgets are ALSO bounded at load by the host's
+   * configured heap: the effective frame cap (the protocol cap, or a lower
+   * heap-derived ceiling when the host heap cannot safely parse a near-cap
+   * frame — see `hostFrameParseCeiling`) minus the frame envelope, so a budget
+   * whose honest frame could OOM the host's own JSON.parse is rejected up
+   * front.
+   */
+  maxValueBytes?: number
+  /** SIGTERM→SIGKILL grace period on kill, matching bash-local's default. */
+  graceMs?: number
+  /**
+   * Absolute path, relative path, or basename of a CPython 3.10+ interpreter.
+   * Resolved and validated once at plugin load under a five-second force-kill
+   * deadline; a basename searches `PATH`.
+   */
+  pythonBin?: string
+}
+```
+
+来源：[`packages/experimental/code-runtime-python/src/index.ts:47`](../packages/experimental/code-runtime-python/src/index.ts)
 
 <a id="deepseek-aidsh-experimental-inspector"></a>
 
@@ -663,7 +728,7 @@ export interface Config {
 }
 ```
 
-来源：[`packages/experimental/tool-agent-team/src/index.ts:33`](../packages/experimental/tool-agent-team/src/index.ts)
+来源：[`packages/experimental/tool-agent-team/src/index.ts:21`](../packages/experimental/tool-agent-team/src/index.ts)
 
 <a id="deepseek-aidsh-file-reference-local"></a>
 
@@ -751,7 +816,7 @@ export interface Config {
 }
 ```
 
-来源：[`packages/goal/goal/src/index.ts:180`](../packages/goal/goal/src/index.ts)
+来源：[`packages/goal/goal/src/index.ts:176`](../packages/goal/goal/src/index.ts)
 
 <a id="deepseek-aidsh-headless"></a>
 
@@ -767,7 +832,7 @@ export interface Config {
 }
 ```
 
-来源：[`packages/bundle/headless/src/index.ts:42`](../packages/bundle/headless/src/index.ts)
+来源：[`packages/bundle/headless/src/index.ts:39`](../packages/bundle/headless/src/index.ts)
 
 <a id="deepseek-aidsh-hooks-claude-code"></a>
 
@@ -805,7 +870,7 @@ export interface Config {
 }
 ```
 
-来源：[`packages/hooks/hooks-claude-code/src/index.ts:55`](../packages/hooks/hooks-claude-code/src/index.ts)
+来源：[`packages/hooks/hooks-claude-code/src/index.ts:50`](../packages/hooks/hooks-claude-code/src/index.ts)
 
 <a id="deepseek-aidsh-hooks-codex"></a>
 
@@ -832,7 +897,7 @@ export interface Config {
 }
 ```
 
-来源：[`packages/hooks/hooks-codex/src/index.ts:54`](../packages/hooks/hooks-codex/src/index.ts)
+来源：[`packages/hooks/hooks-codex/src/index.ts:50`](../packages/hooks/hooks-codex/src/index.ts)
 
 <a id="deepseek-aidsh-host-directory-picker-browse"></a>
 
@@ -1096,7 +1161,7 @@ export interface PiAiProviderProfile {
    * to answer instead.
    */
   defaultInput?: PiAiModality[]
-  /** Provider request headers; Harness attribution wins reserved names. */
+  /** Provider request headers, validated against Fetch when the profile resolves; Harness attribution wins reserved names. */
   headers?: Record<string, string>
   /** Provider-neutral pi-ai reasoning level. */
   reasoning?: ModelThinkingLevel
@@ -1289,7 +1354,7 @@ export type PiAiThinkingFormat = NonNullable<OpenAICompletionsCompat['thinkingFo
 
 依赖：`Api`（`@earendil-works/pi-ai`）· `CacheRetention`（`@earendil-works/pi-ai`）· `Model`（`@earendil-works/pi-ai`）· `ModelThinkingLevel`（`@earendil-works/pi-ai`）· `OpenAICompletionsCompat`（`@earendil-works/pi-ai`）· [`RetryPolicyConfig`](../packages/llm/llm/src/index.ts) · `ThinkingBudgets`（`@earendil-works/pi-ai`）· `Transport`（`@earendil-works/pi-ai`)
 
-来源：[`packages/llm/llm-pi-ai/src/config.ts:233`](../packages/llm/llm-pi-ai/src/config.ts)
+来源：[`packages/llm/llm-pi-ai/src/config.ts:230`](../packages/llm/llm-pi-ai/src/config.ts)
 
 <a id="deepseek-aidsh-llm-replay"></a>
 
@@ -1366,7 +1431,7 @@ export interface ReplayModelConfig {
 
 依赖：[`ModelModality`](../packages/llm/llm/src/index.ts) · [`RetryPolicyConfig`](../packages/llm/llm/src/index.ts)
 
-来源：[`packages/test-support/llm-replay/src/index.ts:919`](../packages/test-support/llm-replay/src/index.ts)
+来源：[`packages/test-support/llm-replay/src/index.ts:1294`](../packages/test-support/llm-replay/src/index.ts)
 
 <a id="deepseek-aidsh-llm-retry"></a>
 
@@ -1529,7 +1594,7 @@ export interface Config {
 }
 ```
 
-来源：[`packages/feedback/message-feedback/src/index.ts:58`](../packages/feedback/message-feedback/src/index.ts)
+来源：[`packages/feedback/message-feedback/src/index.ts:55`](../packages/feedback/message-feedback/src/index.ts)
 
 <a id="deepseek-aidsh-permission-presets"></a>
 
@@ -1608,7 +1673,7 @@ export interface PlanModeConfig {
 }
 ```
 
-来源：[`packages/plan/plan-mode/src/index.ts:72`](../packages/plan/plan-mode/src/index.ts)
+来源：[`packages/plan/plan-mode/src/index.ts:68`](../packages/plan/plan-mode/src/index.ts)
 
 <a id="deepseek-aidsh-plugin-package-inventory-deepseek"></a>
 
@@ -1837,7 +1902,7 @@ export interface Config {
 }
 ```
 
-来源：[`packages/session/session-log-deepseek/src/index.ts:34`](../packages/session/session-log-deepseek/src/index.ts)
+来源：[`packages/session/session-log-deepseek/src/index.ts:41`](../packages/session/session-log-deepseek/src/index.ts)
 
 <a id="deepseek-aidsh-session-log-export"></a>
 
@@ -1857,16 +1922,14 @@ export interface Config {
 export type SessionLogCompressionLevel = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9
 ```
 
-来源：[`packages/session-query/session-log-export/src/index.ts:52`](../packages/session-query/session-log-export/src/index.ts)
+来源：[`packages/session-query/session-log-export/src/index.ts:49`](../packages/session-query/session-log-export/src/index.ts)
 
 <a id="deepseek-aidsh-session-persistence-jsonl"></a>
 
 ## `@deepseek-ai/dsh-session-persistence-jsonl`
 
-需要：`sessions` · `sessionProjections`
-
 ```ts config-catalog
-/** Plugin config: where the JSONL backend keeps its session logs, and the packed-row write switch. */
+/** Plugin config for the JSONL backend's root and physical encoding. */
 export interface Config {
   /**
    * Root directory for all session files. Required (no default): a default of
@@ -1876,20 +1939,8 @@ export interface Config {
    * readable directory; an absent root is created on first materialization.
    */
   root: string
-  /**
-   * Write runs of consecutive `assistant/chunk` delta events as packed
-   * `text-chunks`/`reasoning-chunks`/`tool-call-chunks` rows (lossless,
-   * ~60% smaller logs measured on a real session). Defaults to true; false
-   * keeps one `SessionEvent` per line for diagnostics. Reading packed rows is
-   * unconditional: a log's layout never depends on this switch.
-   */
-  packChunks?: boolean
   /** Physical encoding; defaults to checksummed Zstandard frames. */
   compression?: JsonlCompression
-  /** Maximum cold Session preparations retained for history-to-resume reuse. */
-  preparedSessionCacheSize?: number
-  /** Fixed live-event coalescing window; not a backend completion deadline. */
-  writeBatchMaxDelayMs?: number
 }
 
 /** Physical encoding selected for JSONL session artifacts. */
@@ -1897,7 +1948,7 @@ export interface Config {
 export type JsonlCompression = 'zstd' | 'none'
 ```
 
-来源：[`packages/session/session-persistence-jsonl/src/index.ts:87`](../packages/session/session-persistence-jsonl/src/index.ts)
+来源：[`packages/session/session-persistence-jsonl/src/index.ts:90`](../packages/session/session-persistence-jsonl/src/index.ts)
 
 <a id="deepseek-aidsh-session-projection-cache"></a>
 
@@ -1921,7 +1972,7 @@ export interface Config {
 }
 ```
 
-来源：[`packages/session/session-projection-cache/src/index.ts:66`](../packages/session/session-projection-cache/src/index.ts)
+来源：[`packages/session/session-projection-cache/src/index.ts:68`](../packages/session/session-projection-cache/src/index.ts)
 
 <a id="deepseek-aidsh-session-query-sqlite"></a>
 
@@ -1954,8 +2005,10 @@ export interface Config extends SessionQueryConfig {
   maxLimit?: number
   /** Maximum snippet length in Unicode code points. Defaults to 240. */
   snippetChars?: number
-  /** Maximum concurrent persisted-log inspections in one inherited batch read. Defaults to 4. */
-  persistedInspectConcurrency?: number
+  /** Maximum concurrent persisted-log reads in one inherited batch read. Defaults to 4. */
+  persistedReadConcurrency?: number
+  /** Maximum cold prepared-Session observations the inherited reader retains for reuse. Defaults to 5. */
+  preparedSessionCacheSize?: number
 }
 
 /** SQLite module/handle opening phase; `never` disables full-text search entirely. */
@@ -1967,7 +2020,7 @@ export type JournalMode = 'wal' | 'delete' | 'truncate' | 'persist'
 
 依赖：[`SessionQueryConfig`](../packages/session-query/session-query/src/index.ts)
 
-来源：[`packages/session-query/session-query-sqlite/src/index.ts:106`](../packages/session-query/session-query-sqlite/src/index.ts)
+来源：[`packages/session-query/session-query-sqlite/src/index.ts:98`](../packages/session-query/session-query-sqlite/src/index.ts)
 
 <a id="deepseek-aidsh-session-reference"></a>
 
@@ -2041,7 +2094,7 @@ export enum SessionTelemetryMode {
 
 依赖：`BatchLogRecordProcessorOptions`（`@opentelemetry/sdk-logs`）· `OTLPExporterNodeConfigBase`（`@opentelemetry/otlp-exporter-base`）
 
-来源：[`packages/session/session-telemetry-otel/src/index.ts:115`](../packages/session/session-telemetry-otel/src/index.ts)
+来源：[`packages/session/session-telemetry-otel/src/index.ts:104`](../packages/session/session-telemetry-otel/src/index.ts)
 
 <a id="deepseek-aidsh-session-title"></a>
 
@@ -2061,7 +2114,7 @@ export interface Config {
 }
 ```
 
-来源：[`packages/session/session-title/src/index.ts:72`](../packages/session/session-title/src/index.ts)
+来源：[`packages/session/session-title/src/index.ts:60`](../packages/session/session-title/src/index.ts)
 
 <a id="deepseek-aidsh-session-title-all-prompts-llm"></a>
 
@@ -2127,7 +2180,7 @@ export interface Config {
 }
 ```
 
-来源：[`packages/shell/shell-env/src/index.ts:48`](../packages/shell/shell-env/src/index.ts)
+来源：[`packages/shell/shell-env/src/index.ts:35`](../packages/shell/shell-env/src/index.ts)
 
 <a id="deepseek-aidsh-skill"></a>
 
@@ -2273,7 +2326,7 @@ export interface Config {
 }
 ```
 
-来源：[`packages/storage/storage-domain/src/index.ts:87`](../packages/storage/storage-domain/src/index.ts)
+来源：[`packages/storage/storage-domain/src/index.ts:71`](../packages/storage/storage-domain/src/index.ts)
 
 <a id="deepseek-aidsh-storage-json"></a>
 
@@ -2548,7 +2601,7 @@ export interface Config {
 }
 ```
 
-来源：[`packages/subagent/subagent-fork-in-process/src/index.ts:42`](../packages/subagent/subagent-fork-in-process/src/index.ts)
+来源：[`packages/subagent/subagent-fork-in-process/src/index.ts:39`](../packages/subagent/subagent-fork-in-process/src/index.ts)
 
 <a id="deepseek-aidsh-subagent-spawn-in-process"></a>
 
@@ -2696,7 +2749,7 @@ export interface Config {
 }
 ```
 
-来源：[`packages/context/time-context/src/index.ts:70`](../packages/context/time-context/src/index.ts)
+来源：[`packages/context/time-context/src/index.ts:53`](../packages/context/time-context/src/index.ts)
 
 <a id="deepseek-aidsh-tmux-context"></a>
 
@@ -2726,7 +2779,7 @@ export interface Config {
 export type TokenMeterConfig = Record<string, never>
 ```
 
-来源：[`packages/llm/token-meter/src/types.ts:30`](../packages/llm/token-meter/src/types.ts)
+来源：[`packages/llm/token-meter/src/types.ts:20`](../packages/llm/token-meter/src/types.ts)
 
 <a id="deepseek-aidsh-tool-bash"></a>
 
@@ -3019,7 +3072,7 @@ export interface Config {
 }
 ```
 
-来源：[`packages/skill/tool-skill/src/index.ts:86`](../packages/skill/tool-skill/src/index.ts)
+来源：[`packages/skill/tool-skill/src/index.ts:76`](../packages/skill/tool-skill/src/index.ts)
 
 <a id="deepseek-aidsh-tool-str-replace-editor"></a>
 
@@ -3110,29 +3163,7 @@ export interface Config {
 
 依赖：[`AgentOptions`](subsystems/core.zh.md)
 
-来源：[`packages/subagent/tool-subagent/src/index.ts:57`](../packages/subagent/tool-subagent/src/index.ts)
-
-<a id="deepseek-aidsh-tool-subagent-report"></a>
-
-## `@deepseek-ai/dsh-tool-subagent-report`
-
-需要：`subagents` · `tools` · `systemPrompt`
-
-```ts config-catalog
-/** Config: how accepted reports are scheduled on the parent. */
-export interface Config {
-  /**
-   * Parent scheduling (default `next-step`). `next-step` wakes the parent and
-   * enters at its nearest step boundary; `quiet` adds the same context without
-   * waking, so a parked parent waits for another waking input.
-   */
-  reportDelivery?: SubagentReportDelivery
-}
-```
-
-依赖：[`SubagentReportDelivery`](subsystems/subagent.zh.md)
-
-来源：[`packages/subagent/tool-subagent-report/src/index.ts:34`](../packages/subagent/tool-subagent-report/src/index.ts)
+来源：[`packages/subagent/tool-subagent/src/index.ts:52`](../packages/subagent/tool-subagent/src/index.ts)
 
 <a id="deepseek-aidsh-tool-terminal"></a>
 
@@ -3262,7 +3293,7 @@ export interface Config {
 export type ToolPresentationMode = 'native' | 'ptc' | 'both'
 ```
 
-来源：[`packages/core/tools/src/index.ts:668`](../packages/core/tools/src/index.ts)
+来源：[`packages/core/tools/src/index.ts:651`](../packages/core/tools/src/index.ts)
 
 <a id="deepseek-aidsh-typert-loader"></a>
 
@@ -3312,7 +3343,7 @@ export interface Config {
 export type ApprovalPolicy = 'ask' | 'never'
 ```
 
-来源：[`packages/interaction/user-approval/src/index.ts:151`](../packages/interaction/user-approval/src/index.ts)
+来源：[`packages/interaction/user-approval/src/index.ts:132`](../packages/interaction/user-approval/src/index.ts)
 
 <a id="deepseek-aidsh-web"></a>
 
@@ -3547,6 +3578,7 @@ export interface Config {
 - `@deepseek-ai/dsh-api-remotes` — 需要 `typertGateway`（[`packages/api/remotes/src/index.ts`](../packages/api/remotes/src/index.ts)）
 - `@deepseek-ai/dsh-api-workspace-controller` — 需要 `typert` · `workspaceRegistry`（[`packages/api/workspace-controller/src/index.ts`](../packages/api/workspace-controller/src/index.ts)）
 - `@deepseek-ai/dsh-authorization` — 需要 `credentials`（[`packages/credentials/authorization/src/index.ts`](../packages/credentials/authorization/src/index.ts)）
+- `@deepseek-ai/dsh-client-file-upload` — 需要 `agents` · `attachments` · `commands` · `connection`（[`packages/client/file-upload/src/index.ts`](../packages/client/file-upload/src/index.ts)）
 - `@deepseek-ai/dsh-client-locale`（[`packages/client/locale/src/index.ts`](../packages/client/locale/src/index.ts)）
 - `@deepseek-ai/dsh-client-modules` — 需要 `webServer` · `loader`（[`packages/client/modules/src/index.ts`](../packages/client/modules/src/index.ts)）
 - `@deepseek-ai/dsh-client-ui-agent-preset`（[`packages/client/ui-agent-preset/src/index.ts`](../packages/client/ui-agent-preset/src/index.ts)）
@@ -3656,7 +3688,6 @@ export interface Config {
 - `@deepseek-ai/dsh-client-ui-slots`（[`packages/client/ui-slots/src/index.ts`](../packages/client/ui-slots/src/index.ts)）
 - `@deepseek-ai/dsh-client-web`（[`packages/client/web/src/index.ts`](../packages/client/web/src/index.ts)）
 - `@deepseek-ai/dsh-cmdline`（[`packages/boot/cmdline/src/index.ts`](../packages/boot/cmdline/src/index.ts)）
-- `@deepseek-ai/dsh-code-runtime-python`（[`packages/code-runtime/code-runtime-python/src/index.ts`](../packages/code-runtime/code-runtime-python/src/index.ts)）
 - `@deepseek-ai/dsh-deque`（[`packages/util/deque/src/index.ts`](../packages/util/deque/src/index.ts)）
 - `@deepseek-ai/dsh-experimental-agent-team-profile`（[`packages/experimental/agent-team-profile/src/index.ts`](../packages/experimental/agent-team-profile/src/index.ts)）
 - `@deepseek-ai/dsh-experimental-agent-team-web-profile`（[`packages/experimental/agent-team-web-profile/src/index.ts`](../packages/experimental/agent-team-web-profile/src/index.ts)）
@@ -3664,6 +3695,7 @@ export interface Config {
 - `@deepseek-ai/dsh-experimental-webworker-runtime`（[`packages/experimental/webworker-runtime/src/index.ts`](../packages/experimental/webworker-runtime/src/index.ts)）
 - `@deepseek-ai/dsh-home-paths`（[`packages/util/home-paths/src/index.ts`](../packages/util/home-paths/src/index.ts)）
 - `@deepseek-ai/dsh-hook-protocol`（[`packages/hooks/hook-protocol/src/index.ts`](../packages/hooks/hook-protocol/src/index.ts)）
+- `@deepseek-ai/dsh-http-proxy`（[`packages/util/http-proxy/src/index.ts`](../packages/util/http-proxy/src/index.ts)）
 - `@deepseek-ai/dsh-launch-environment`（[`packages/util/launch-environment/src/index.ts`](../packages/util/launch-environment/src/index.ts)）
 - `@deepseek-ai/dsh-llm-mock-server`（[`packages/test-support/llm-mock-server/src/index.ts`](../packages/test-support/llm-mock-server/src/index.ts)）
 - `@deepseek-ai/dsh-loader-smoke`（[`packages/test-support/loader-smoke/src/index.ts`](../packages/test-support/loader-smoke/src/index.ts)）
@@ -3674,6 +3706,10 @@ export interface Config {
 - `@deepseek-ai/dsh-sdk-client`（[`packages/sdk/client/src/index.ts`](../packages/sdk/client/src/index.ts)）
 - `@deepseek-ai/dsh-sdk-minimal`（[`packages/bundle/sdk-minimal/src/index.ts`](../packages/bundle/sdk-minimal/src/index.ts)）
 - `@deepseek-ai/dsh-sdk-protocol`（[`packages/sdk/protocol/src/index.ts`](../packages/sdk/protocol/src/index.ts)）
+- `@deepseek-ai/dsh-session-format`（[`packages/session/session-format/src/index.ts`](../packages/session/session-format/src/index.ts)）
+- `@deepseek-ai/dsh-session-format-catalog`（[`packages/session/session-format-catalog/src/index.ts`](../packages/session/session-format-catalog/src/index.ts)）
+- `@deepseek-ai/dsh-session-format-v0-to-v1`（[`packages/session/session-format-v0-to-v1/src/index.ts`](../packages/session/session-format-v0-to-v1/src/index.ts)）
+- `@deepseek-ai/dsh-session-format-v1-to-v2`（[`packages/session/session-format-v1-to-v2/src/index.ts`](../packages/session/session-format-v1-to-v2/src/index.ts)）
 - `@deepseek-ai/dsh-session-snapshot`（[`packages/test-support/session-snapshot/src/index.ts`](../packages/test-support/session-snapshot/src/index.ts)）
 - `@deepseek-ai/dsh-session-telemetry`（[`packages/session/session-telemetry/src/index.ts`](../packages/session/session-telemetry/src/index.ts)）
 - `@deepseek-ai/dsh-session-title-llm`（[`packages/session/session-title-llm/src/index.ts`](../packages/session/session-title-llm/src/index.ts)）

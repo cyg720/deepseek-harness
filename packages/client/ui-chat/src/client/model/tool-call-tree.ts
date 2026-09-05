@@ -1,24 +1,12 @@
-/**
- * ================================ 文件注释 ================================
- * 【文件职责】工具调用树：拥有 Code Dispatch 配对逻辑，并把私有的父索引
- *   投影成会话快照暴露的递归工具调用契约（子调用嵌套）。
- * 【技术维度】增量 fold 类：吸收 tool/code-dispatch-start 与 tool/code-dispatch
- *   事件建父子边；用缓存 + 修订号保证投影引用稳定（无变化时返回原列表）。
- * 【产品维度】agent 执行代码分发（Code Dispatch）时会产生子工具调用树，
- *   UI 需要把"某次调用派生了哪些子调用"递归挂到对应节点上展示层级。
- * 【逻辑维度】apply 折叠事件建边；projectNodes/projectRunningCalls 把
- *   递归投影挂到根节点；projectBlock 递归投影单块；acceptEdge 做深度
- *   安全与环检测（遍历安全上限 MAX_TOOL_CALL_TREE_DEPTH）。
- * 【关键边界】环边与超深边被吞掉（不隐藏会话其余部分）；Host 铸的 id
- *   本身排除环，此处防御畸形 wire/历史数据。
- * 【新手阅读建议】先理解 RunningToolCall/ToolResultNode 的 subCalls 字段。
- * ==========================================================================
+/*
+ * 【文件职责】按代码分发身份配对子工具调用，并将内部父子索引投影为受深度限制的工具树。
  */
+
 import type { SessionEvent } from '@deepseek-ai/dsh-session/types'
 import type {} from '@deepseek-ai/dsh-tools/types'
 import type {
   ConversationNode, RunningToolCall, ToolCallBlock, ToolResultNode,
-} from '../contract/snapshot.ts'
+} from '@deepseek-ai/dsh-client-ui-conversation/client'
 
 /** 内部投影块：源块 + 子块列表 + 投影结果（用于引用稳定缓存）。 */
 interface ProjectedBlock {

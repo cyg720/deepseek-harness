@@ -1,11 +1,7 @@
 /** Package-owned durable goal-stream invariants. @module @deepseek-ai/dsh-goal/invariant */
+
 /*
- * 文件职责：实现目标管理的 invariant.ts 模块。
- * 技术维度：TypeScript、Cordis、会话事件、路径策略、判别联合和 Vitest。
- * 产品维度：保证目标管理操作可预测、可审计并在失败时保持一致。
- * 逻辑维度：校验输入，更新领域状态并记录事件或注册能力。
- * 关键边界：文件路径必须经过策略检查；目标引用含版本，过期修改必须拒绝。
- * 新手阅读建议：先读类型与测试夹具，再按校验、执行、事件折叠和错误流程阅读。
+ * 【文件职责】检查目标领域持久事件的顺序及关联，保证目标状态可以一致回放。
  */
 
 import type { Context } from '@deepseek-ai/cordis'
@@ -62,8 +58,7 @@ const install: InvariantInstaller = Object.assign((ctx: Context, fail: Invariant
   const seed = (session: Session): GoalFoldState => {
     /** 中文说明：领域局部值 state，由紧邻初始化决定。 */
     const state = emptyGoalFoldState()
-    /** 中文说明：领域局部值 event，由紧邻初始化决定。 */
-    for (const event of session.events) applyChecked(state, event, fail)
+    for (const event of session.snapshotEvents()) applyChecked(state, event, fail)
     states.set(session, state)
     return state
   }

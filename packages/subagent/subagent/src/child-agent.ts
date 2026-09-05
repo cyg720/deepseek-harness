@@ -9,21 +9,7 @@
  */
 
 /*
- * ================================ 文件注释 ================================
- * 【文件职责】进程内子代理的共享组装逻辑：委派深度预算、持久会话元数据、解析后的子代理
- *   AgentOptions、委派策略种子（sandbox/approval）、以及子代理创建窗口内的作用域组装。
- * 【技术维度】一次性 provider 驱动与续聊管理器都用同一套函数组装子代理，保证深度记账、
- *   血缘盖章、委派策略只有一个出处；通过 ctx.get() 机会式读取可选服务（preset/sandbox/approval）。
- * 【产品维度】子代理继承父代理的 preset 与系统提示上下文、固定委派范围声明，并可被
- *   单独覆盖 persona/工具过滤，使子代理在"继承 + 收紧"的安全模型下运行。
- * 【逻辑维度】按代码顺序：SubagentDepthError → resolveChildDepth → resolveChildAgentOptions →
- *   childSessionMeta → ChildComposition → SUBAGENT_DELEGATION_CONTEXT → applyChildComposition →
- *   DelegatedPolicyOverrides → captureDelegatedPolicyOverrides → appendDelegatedPolicyOverrides →
- *   ChildCreateInputs。
- * 【关键边界】委派策略在首次 await 前同步捕获（父代理后续切换不属于本子代理）；
- *   子代理的审批策略被钉死为 'never'（只在自己的沙箱范围内行动）。
- * 【新手阅读建议】applyChildComposition 是组装核心；capture/append 两个函数理解"策略随日志持久化"。
- * ==========================================================================
+ * 【文件职责】统一子 Agent 的深度预算、持久血缘元数据、选项与委托策略种子，供一次性和可继续子 Agent 共用。
  */
 
 import type { Context } from '@deepseek-ai/cordis'
@@ -150,13 +136,13 @@ export function resolveChildAgentOptions(
  * child never had.
  * @param parent - the delegating parent agent.
  * @param childDepth - the resolved delegation depth to persist.
- * @param lineageSeedLength - how many leading events came from the parent's log.
+ * @param isSeeded - whether this child inherits a parent-log prefix, including an explicitly empty one.
  * @returns the `meta` for `ctx.agents.create()`.
  */
 export function childSessionMeta(
   parent: Agent,
   childDepth: number,
-  lineageSeedLength: number,
+  isSeeded: boolean,
 ): NonNullable<CreateAgentOptions['meta']> {
   const parentHeader = parent.session.header
   const agentPreset = parent.ctx.get('agentPresets')?.composedPreset(parent.ctx)
@@ -164,12 +150,12 @@ export function childSessionMeta(
     ...parentHeader.cwd !== undefined ? { cwd: parentHeader.cwd } : {},
     ...agentPreset === undefined ? {} : { agentPreset },
     parentSession: parentHeader.id,
+    isSeeded,
     // Navigation classification only; the descriptor remains the authority
     // for mode and continuation capability.
     origin: 'subagent',
     // Durable: the recursion budget must survive persistence and resume.
     delegationDepth: childDepth,
-    ...lineageSeedLength > 0 ? { seedLength: lineageSeedLength } : {},
   }
 }
 

@@ -1,25 +1,15 @@
-/**
- * ================================ 文件注释 ================================
- * 【文件职责】根工具调用生命周期与嵌套 code-dispatch 子调用状态机：tool/call → result
- *             加上子调用树，产出聊天工具行节点（运行中 / 定格 / 被打断形态）。
- * 【技术维度】ConversationNodeDefinition（target: 'chat'）；三张表维护调用树；
- *             projectBlock 深度优先投影（带引用缓存，同引用返回原块以保渲染稳定）。
- * 【产品维度】消息流中的工具调用行展示参数、结果、嵌套子调用与中断状态。
- * 【逻辑维度】1) 状态与缓存结构；2) 事件转节点；3) 树维护（acceptsEdge / updateDispatch）；
- *             4) projectBlock / fallbackState / interruption；5) 状态机；6) 注册函数。
- * 【关键边界】深度上限防环防爆栈；引用相同则复用原块（保持 React 引用稳定）；
- *             状态缺失时从匹配历史重建。
- * 【新手阅读建议】先看 projectBlock 的引用缓存设计。
- * ==========================================================================
+/*
+ * 【文件职责】关联根工具调用与递归子调用，将调用开始、结果和嵌套代码分发折叠到同一工具树。
  */
+
 import type { Context } from '@deepseek-ai/cordis'
 import type {
-  ConversationMatch, ConversationNodeContext, ConversationNodeDefinition,
+  ConversationMatch, ConversationNodeContext, ConversationNodeDefinition, RunningToolCall,
+  ToolCallBlock, ToolResultNode,
 } from '@deepseek-ai/dsh-client-ui-conversation/client'
 import { isAppendSurfaceEvent } from '@deepseek-ai/dsh-session/surface'
 import type {} from '@deepseek-ai/dsh-tools/types'
 import type { ToolChatData } from '../contract/chat-nodes.ts'
-import type { RunningToolCall, ToolCallBlock, ToolResultNode } from '../contract/snapshot.ts'
 import { CHAT_SYNTHETIC_SEQ_OFFSETS, chatNode } from './common.ts'
 
 declare module '../contract/chat-nodes.ts' {

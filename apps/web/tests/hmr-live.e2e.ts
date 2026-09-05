@@ -9,7 +9,7 @@
  * 新手阅读建议：先读主测试的启动与恢复流程，再读输出等待器和进程树停止辅助函数。
  */
 
-import { existsSync, globSync } from 'node:fs'
+import { existsSync, globSync, statSync } from 'node:fs'
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -22,7 +22,20 @@ import type { SubprocessHandle, SubprocessSpawnSpec } from '@deepseek-ai/dsh-sub
 import { readClientBuildRecord } from '../../../scripts/client-build-environment.ts'
 import { REPO_ROOT } from './support.ts'
 
-/** 创建子进程启动参数；argv 是命令参数，cwd 是目录，env 是可选环境，返回可执行配置。示例：spawnSpec(['pnpm'], REPO_ROOT)。 */
+const CLIENT_ARTIFACT_PATTERNS = [
+  'apps/web/dist/**/*',
+  'packages/*/*/lib/client.js',
+  'packages/*/*/lib/client.js.map',
+]
+
+/** Return every artifact that `pnpm run dev:web` can rewrite. */
+function clientArtifactPaths(): string[] {
+  return globSync(CLIENT_ARTIFACT_PATTERNS, { cwd: REPO_ROOT })
+    .map(path => join(REPO_ROOT, path))
+    .filter(path => statSync(path).isFile())
+    .sort()
+}
+
 function spawnSpec(argv: readonly string[], cwd: string, env?: Record<string, string>): SubprocessSpawnSpec {
   return {
     argv,
@@ -99,12 +112,9 @@ it('hot-reloads a real client-plugin source edit without refreshing the page', a
   if (!existsSync(binPath)) throw new Error('HMR browser test needs the built dsh bin; run pnpm run build first')
   /** 与当前客户端构建记录一致的环境变量。 */
   const clientBuildEnvironment = readClientBuildRecord(REPO_ROOT).environment
-  /** 监听器可能重写、因此需要恢复的客户端构建产物路径。 */
-  const clientBundlePaths = globSync('packages/*/*/lib/client.js{,.map}', { cwd: REPO_ROOT })
-    .map(path => join(REPO_ROOT, path))
-  /** 每个客户端构建产物在测试前的原始字节。 */
-  const originalClientBundles = await Promise.all(clientBundlePaths.map(async path => [path, await readFile(path)] as const))
-  /** 源码文件在测试前的原始字节，用于无条件恢复。 */
+  const originalClientArtifacts = await Promise.all(clientArtifactPaths()
+    .map(async path => [path, await readFile(path)] as const))
+  const originalClientArtifactPaths = new Set(originalClientArtifacts.map(([path]) => path))
   const originalSource = await readFile(sourcePath)
   /** 页面首次加载时应显示的原始标题。 */
   const oldText = 'Into the Unknown'
@@ -173,12 +183,21 @@ it('hot-reloads a real client-plugin source edit without refreshing the page', a
   } finally {
     await writeFile(sourcePath, originalSource).catch((error: unknown) => failures.push(error))
     if (watcher !== undefined) await stopTree(watcher).catch((error: unknown) => failures.push(error))
-    await Promise.all(originalClientBundles.map(async ([path, content]) => {
-      await writeFile(path, content).catch((error: unknown) => failures.push(error))
-    }))
     if (host !== undefined) await stopTree(host).catch((error: unknown) => failures.push(error))
     await browser?.close().catch((error: unknown) => failures.push(error))
     await subprocessFiber?.dispose().catch((error: unknown) => failures.push(error))
+    await Promise.all(clientArtifactPaths()
+      .filter(path => !originalClientArtifactPaths.has(path))
+      .map(async (path) => { await rm(path, { force: true }) }))
+      .catch((error: unknown) => failures.push(error))
+    await Promise.all(originalClientArtifacts.map(async ([path, content]) => {
+      await writeFile(path, content)
+    })).catch((error: unknown) => failures.push(error))
+    try {
+      readClientBuildRecord(REPO_ROOT)
+    } catch (error) {
+      failures.push(error)
+    }
     await rm(world, { recursive: true, force: true }).catch((error: unknown) => failures.push(error))
   }
   if (failures.length > 0) throw new AggregateError(failures, 'HMR browser test or cleanup failed')

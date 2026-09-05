@@ -9,22 +9,8 @@
  */
 
 /*
- * ================================ 文件注释 ================================
- * 【文件职责】把 DeepSeek 的 SSE 负载翻译成 harness 的 StreamChunk 流协议：
- * 每个 content/reasoning/tool-call 索引对应一个有状态的 harness 块。
- * 【技术维度】纯生成器翻译层：按 delta 增量累积文本，块结束/用量/finish 都
- * 延迟到 [DONE] 哨兵再一次性产出（覆盖"finish 附着"与"末尾仅用量"两种线上
- * 形态，且保证 finish 之后不再有任何块）；空的首个 reasoning delta 不打开块。
- * 【产品维度】thinking 模式把思维链与可见文本交错下发，工具参数跨多个 delta
- * 拼接；正确的"延迟冲刷"保证消费方（agent loop/日志）看到的是顺序正确、
- * 永不"finish 后再冒内容"的稳定流。
- * 【逻辑维度】OpenBlock 内部结构 → mapFinishReason → mapUsage → closeBlock →
- * translate 主生成器（累积 → [DONE] 冲刷 → 逐 choice 处理 delta）。
- * 【关键边界】退化完成（stop/缺席 finish 但零块）映射为 EMPTY_RESPONSE 错误；
- * 畸形 JSON 抛 MALFORMED_RESPONSE；payload 源违反 [DONE] 约定抛 STREAM_CLOSED。
- * 【新手阅读建议】先读 translate 主循环理解三路 delta（reasoning/content/tool），
- * 再看 [DONE] 分支的冲刷顺序（block-end → usage → finish）。
- * ==========================================================================
+ * 【文件职责】将 DeepSeek SSE 转为有状态的内容、推理和工具块；
+ * 结束原因及最新用量等到 DONE 才发布，finish 后不再追加片段。
  */
 
 import { brandString } from '@deepseek-ai/dsh-brand'
@@ -38,9 +24,9 @@ interface OpenBlock {
   index: number
   kind: 'text' | 'reasoning' | 'tool-call'
   text: string
-  /** tool-call only */
-  callId?: string
-  name?: string
+  /** tool-call only, absent until a delta carries a non-empty value. */
+  callId?: string | undefined
+  name?: string | undefined
 }
 
 /**
@@ -88,6 +74,21 @@ export function mapUsage(usage: WireUsage): TokenUsage {
     ...cacheRead !== undefined ? { cacheReadTokens: cacheRead } : {},
     ...reasoning !== undefined ? { reasoningTokens: reasoning } : {},
   }
+}
+
+/**
+ * Accept one streamed identity field for a tool call. `id` and `name` are
+ * identity, not accumulation: the wire sends each once, on the call's first
+ * delta. A continuation delta that re-sends the field empty — or `null`, which
+ * some OpenAI-compatible gateways fill in — means "no update", never "clear".
+ * @param current - the identity established by an earlier delta of this call.
+ * @param incoming - the field as parsed from this delta. The wire type is a
+ *   claim about a remote encoder, so anything but a non-empty string leaves the
+ *   established value alone rather than overwriting it.
+ * @returns the identity in force after this delta.
+ */
+function acceptIdentity(current: string | undefined, incoming: unknown): string | undefined {
+  return typeof incoming === 'string' && incoming.length > 0 ? incoming : current
 }
 
 /** Assemble the final ContentBlock for one open block. */
@@ -185,8 +186,8 @@ export async function* translate(payloads: AsyncIterable<string>): AsyncGenerato
           toolBlocks.set(call.index, block)
           yield { type: 'block-start', index: block.index, blockType: 'tool-call' }
         }
-        if (call.id !== undefined) block.callId = call.id
-        if (call.function?.name !== undefined) block.name = call.function.name
+        block.callId = acceptIdentity(block.callId, call.id)
+        block.name = acceptIdentity(block.name, call.function?.name)
         const fragment = call.function?.arguments ?? ''
         block.text += fragment
         yield {

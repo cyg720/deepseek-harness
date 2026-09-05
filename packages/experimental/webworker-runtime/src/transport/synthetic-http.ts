@@ -1,21 +1,7 @@
-/**
- * `IncomingMessage`/`ServerResponse` synthesis for tunnel requests. The app's
- * `node:http` proxy reports a successful bind and captures the webserver's
- * request listener; the tunnel feeds that listener these pairs, so the real
- * route table, its trust fences, and every handler run unchanged.
- *
- * Synthesized members are exactly the ones the route handlers read; anything
- * else is absent on purpose so a new consumer
- * fails loud instead of silently reading a stub.
- * @module @deepseek-ai/dsh-experimental-webworker-runtime/src/transport/synthetic-http
- * @remarks 文件说明：文件职责：实现 experimental/webworker-runtime 中 synthetic http
- * 模块的职责，并向相邻模块提供可复用能力。；技术维度：主要使用TypeScript/JavaScript 的 ESM 模块、严格类型约束与
- * Cordis 插件机制，通过当前文件中的类型、函数与数据结构完成实现。；产品维度：支撑 DeepSeek Harness 的
- * experimental/webworker-runtime 能力，使上层功能能够稳定组合和扩展。；逻辑维度：建议按“依赖与类型定义 →
- * 常量和状态 → 核心函数或类 → 导出或注册入口”的顺序理解。；关键边界：调用方必须遵守类型、生命周期和错误处理约定；
- * 涉及外部输入、异步任务或资源释放时需特别关注异常分支。；新手阅读建议：先确认导入依赖和公开导出，再沿主要函数调用链阅读，
- * 最后结合相邻测试理解输入、输出与边界条件。
+/*
+ * 【文件职责】为隧道请求构造实际路由所需的 IncomingMessage/ServerResponse，使主机路由和访问检查可在 Worker 环境复用。
  */
+
 import type { TunnelRequestFrame } from './frames.ts'
 
 /**
@@ -139,7 +125,25 @@ export function createSyntheticExchange(frame: TunnelRequestFrame, sink: Respons
      * @example 在完成前置校验后调用 [Symbol.asyncIterator]()，并按返回类型处理结果。
      */
     async *[Symbol.asyncIterator](): AsyncGenerator<Uint8Array> {
-      if (frame.body === undefined || frame.body.byteLength === 0) return
+      if (frame.body === undefined) return
+      if (frame.body instanceof Blob) {
+        for await (const chunk of frame.body.stream()) {
+          if (aborted) return
+          if (chunk.byteLength > 0) yield chunk
+        }
+        return
+      }
+      if (frame.body instanceof ReadableStream) {
+        for await (const chunk of frame.body) {
+          if (aborted) return
+          if (!(chunk instanceof Uint8Array)) {
+            throw new TypeError('webworker tunnel: request stream produced a non-Uint8Array chunk')
+          }
+          if (chunk.byteLength > 0) yield chunk
+        }
+        return
+      }
+      if (aborted || frame.body.byteLength === 0) return
       yield new Uint8Array(frame.body)
     },
   }
@@ -267,6 +271,7 @@ export function createSyntheticExchange(frame: TunnelRequestFrame, sink: Respons
       if (finished) return
       aborted = true
       finished = true
+      emit('aborted')
       emit('close')
     },
   }

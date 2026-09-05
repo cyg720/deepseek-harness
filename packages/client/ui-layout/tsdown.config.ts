@@ -8,8 +8,4 @@
  */
 import { clientBundle } from '../tsdown.client.ts'
 
-/**
- * 生成布局包的构建配置；参数为包标识和 Node 端入口，返回按构建阶段选择的配置函数。
- * 使用示例：运行 `pnpm --filter @deepseek-ai/dsh-client-ui-layout bundle` 时自动加载。
- */
-export default clientBundle('@deepseek-ai/dsh-client-ui-layout', ['lib/types/index.js', 'lib/types/invariant.js'])
+export default clientBundle('@deepseek-ai/dsh-client-ui-layout', ['lib/types/index.js'])

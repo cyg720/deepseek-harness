@@ -1,13 +1,8 @@
 /** Agent activation, composition, and model-selection policy owned by API Session. */
 
 /*
- * 文件说明：文件职责：实现 api/session-controller 中 agent 模块的职责，并向相邻模块提供可复用能力。
- * ；技术维度：主要使用TypeScript/JavaScript 的 ESM 模块、严格类型约束与 Cordis 插件机制，
- * 通过当前文件中的类型、函数与数据结构完成实现。；产品维度：支撑 DeepSeek Harness 的
- * api/session-controller 能力，使上层功能能够稳定组合和扩展。；逻辑维度：建议按“依赖与类型定义 → 常量和状态 →
- * 核心函数或类 → 导出或注册入口”的顺序理解。；关键边界：调用方必须遵守类型、生命周期和错误处理约定；
- * 涉及外部输入、异步任务或资源释放时需特别关注异常分支。；新手阅读建议：先确认导入依赖和公开导出，再沿主要函数调用链阅读，
- * 最后结合相邻测试理解输入、输出与边界条件。
+ * 【文件职责】管理 API 会话的 Agent 激活、插件组合与模型选择策略；
+ * 冷会话身份必须从持久化记录确认。
  */
 
 import { mkdir } from 'node:fs/promises'
@@ -19,7 +14,8 @@ import type {
 import type {} from '@deepseek-ai/dsh-agent-default-model'
 import type {} from '@deepseek-ai/dsh-agent-presets'
 import { ReasoningEffortId } from '@deepseek-ai/dsh-llm'
-import type { Session, SessionEvent, SessionHeader, SessionId } from '@deepseek-ai/dsh-session'
+import type { Session, SessionId } from '@deepseek-ai/dsh-session'
+import type { SessionInspection } from '@deepseek-ai/dsh-session-persistence'
 import { SessionQueryError, type SessionObservation } from '@deepseek-ai/dsh-session-query'
 import { RemoteError } from '@deepseek-ai/dsh-typert-protocol'
 import type {} from '@deepseek-ai/dsh-typert-registry'
@@ -122,7 +118,7 @@ export async function inspectApiSession(
   ctx: Context,
   sessionId: SessionId,
   signal?: AbortSignal,
-): Promise<{ meta: SessionHeader; events: SessionEvent[] }> {
+): Promise<SessionInspection> {
   try {
     using observation = await ctx.sessionQuery.observeSession(sessionId, {
       ...(signal === undefined ? {} : { signal }),
@@ -131,7 +127,11 @@ export async function inspectApiSession(
     if (observation.header.cwd === undefined) {
       throw new ApiSessionNotFound(`session "${sessionId}" not found`)
     }
-    return { meta: observation.header, events: [...observation.events] }
+    return {
+      meta: observation.header,
+      inheritedEventCount: observation.inheritedEventCount,
+      events: [...observation.events],
+    }
   } catch (error: unknown) {
     if (error instanceof SessionQueryError
       && error.code === 'SESSION_QUERY_SESSION_NOT_FOUND') {

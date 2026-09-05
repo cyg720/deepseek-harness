@@ -13,13 +13,10 @@
  *
  * @module dsh-llm-pi-ai/config
  */
+
 /*
- * 文件职责：实现Pi AI LLM的 config.ts 模块。
- * 技术维度：TypeScript、Fetch、SSE、OAuth/密钥认证、模型目录和运行时模式校验。
- * 产品维度：让 Agent 能稳定调用供应商模型、发现能力并接收流式结果。
- * 逻辑维度：解析配置和认证，转换请求，消费流并映射模型事件。
- * 关键边界：网络响应属于不可信输入；密钥和令牌不得记录；取消必须终止请求与流。
- * 新手阅读建议：先读 config/auth/catalog，再看 adapter/stream，最后阅读错误和重放测试。
+ * 【文件职责】验证 pi-ai 提供者配置；
+ * 已知路由继承目录默认值，未知路由必须由配置完整声明。
  */
 
 import type { CacheRetention, ChatTemplateKwargValue, ModelThinkingLevel, Provider, ThinkingBudgets, Transport } from '@earendil-works/pi-ai'
@@ -159,7 +156,7 @@ export interface PiAiProviderProfile {
    * to answer instead.
    */
   defaultInput?: PiAiModality[]
-  /** Provider request headers; Harness attribution wins reserved names. */
+  /** Provider request headers, validated against Fetch when the profile resolves; Harness attribution wins reserved names. */
   headers?: Record<string, string>
   /** Provider-neutral pi-ai reasoning level. */
   reasoning?: ModelThinkingLevel
@@ -377,7 +374,7 @@ export const Config: z<Config> = z.object({
  * renders and the value an absent section resolves to; wrapping it would break
  * both.
  * @param config - the resolved section to check.
- * @throws Error naming the route and model that cannot be served.
+ * @throws Error naming the route and configuration entry that cannot be served.
  */
 /*
  * 中文说明：函数 assertServiceable 的参数见签名，返回结果供模型流程使用；示例见本文件。
@@ -404,6 +401,20 @@ function rejectRemovedFields(provider: string, source: PiAiProviderProfile): voi
       `llm-pi-ai: provider "${provider}" sets maxRetries or maxRetryDelayMs, which were removed;`
       + ' compose agent recovery with dsh-llm-retry',
     )
+  }
+}
+
+/** Reject a profile header that Fetch cannot put on a provider request. */
+function assertValidHeaders(provider: string, headers: Readonly<Record<string, string>> | undefined): void {
+  for (const [name, value] of Object.entries(headers ?? {})) {
+    try {
+      new Headers([[name, value]])
+    } catch {
+      throw new Error(
+        `llm-pi-ai: provider "${provider}" header "${name}" is not valid for Fetch;`
+        + ' use a valid HTTP field name and a single-line value representable as bytes',
+      )
+    }
   }
 }
 
@@ -440,7 +451,7 @@ export function resolveProfiles(
     if (source.displayName !== undefined && source.displayName.length === 0) {
       throw new Error(`llm-pi-ai: provider "${provider}" has an empty displayName`)
     }
-    /** 中文说明：适配器局部值 streamIdleTimeoutMs，由紧邻初始化决定。 */
+    assertValidHeaders(provider, source.headers)
     const streamIdleTimeoutMs = source.streamIdleTimeoutMs ?? DEFAULT_STREAM_IDLE_TIMEOUT_MS
     if (!Number.isFinite(streamIdleTimeoutMs)
       || streamIdleTimeoutMs <= 0

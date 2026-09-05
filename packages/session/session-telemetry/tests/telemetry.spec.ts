@@ -1,22 +1,20 @@
-/**
- * 文件职责：验证 telemetry.spec.ts 覆盖的会话遥测行为、持久化与生命周期。
- * 技术维度：使用 TypeScript、Vitest、Cordis 插件、事件日志、SQLite 或 OpenTelemetry。
- * 产品维度：保障 Agent 的会话遥测状态稳定、可重放且可诊断。
- * 逻辑维度：准备或解析会话数据，执行核心流程，再处理结果、错误与资源清理。
- * 关键边界：持久化和遥测输入不可信；敏感数据必须脱敏；事件与数据库资源必须正确收尾。
- * 新手阅读建议：先看数据类型和辅助函数，再读写入/投影主流程，最后关注恢复、脱敏和失败场景。
- */
-import { createToolResultMessage, createUserMessage } from '@deepseek-ai/dsh-llm'
+import { createAssistantMessage, createToolResultMessage, createUserMessage } from '@deepseek-ai/dsh-llm'
 /**
  * Coordinator semantics against a bare fake backend — the RFC's named unit
  * tier for the seam: adoption (fresh, seeded, re-adoption via the handoff
- * cursor), the fixed chunk projection, deep-copy isolation, turn-latency and
+ * cursor), lifecycle-suffix replay, deep-copy isolation, turn-latency and
  * dispose-ordering pins, failure containment, and the `agent/error` relay.
  */
 
 import { describe, expect, it, vi } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
-import SessionStore, { SessionId, type Session, type SessionEvent } from '@deepseek-ai/dsh-session'
+import SessionStore, {
+  SESSION_FORMAT_VERSION,
+  Session,
+  SessionId,
+  SessionLogOffset,
+  type SessionEvent,
+} from '@deepseek-ai/dsh-session'
 import type { Agent } from '@deepseek-ai/dsh-agent'
 import {
   SessionTelemetryCoordinator,
@@ -106,6 +104,27 @@ function appendTurn(session: Session): void {
   }), { surfaceOp: 'append' })
 }
 
+function appendAssistantMessage(
+  session: Session,
+  turn: number,
+  step: number,
+  texts: readonly string[],
+  time0 = 100,
+): void {
+  session.append('assistant/message', {
+    turn,
+    step,
+    message: createAssistantMessage({
+      content: [{ type: 'text', text: texts.join('') }],
+      source: { provider: 'mock', model: 'mock' },
+    }),
+    stream: [
+      { type: 'text-chunks', time0, index: 0, dt: texts.slice(1).map(() => 5), texts: [...texts] },
+      { type: 'chunk', time: time0 + Math.max(0, texts.length - 1) * 5, chunk: { type: 'finish', reason: { kind: 'stop' } } },
+    ],
+  }, { surfaceOp: 'append' })
+}
+
 describe('SessionTelemetryCoordinator capture', () => {
   it('hands every appended event over with envelope identity and cloned body', async () => {
     const { ctx, backend } = await setup()
@@ -117,14 +136,18 @@ describe('SessionTelemetryCoordinator capture', () => {
     const start = backend.ledger()[0]!
     /** 中文说明：变量 message 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const message = backend.ledger()[1]!
-    expect(start.attributes).toMatchObject({ 'session.id': 'cap', 'event.type': 'turn/start', 'event.seq': 0 })
-    expect(start.time).toBe(session.events[0]!.time)
+    expect(start.attributes).toMatchObject({
+      'session.id': 'cap',
+      'session.format_version': SESSION_FORMAT_VERSION,
+      'event.type': 'turn/start',
+      'event.seq': 0,
+    })
+    expect(start.time).toBe(session.snapshotEvents()[0]!.time)
     expect(start.severity).toBe('info')
     expect(message.attributes['event.seq']).toBe(1)
     // Deep-copy isolation: mutating the handed-off body never reaches the log.
     ;(message.body as { content: { text: string }[] }).content[0]!.text = 'tampered'
-    /** 中文说明：变量 logged 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-    const logged = session.events[1] as SessionEvent<'user/message'>
+    const logged = session.snapshotEvents()[1] as SessionEvent<'user/message'>
     expect(logged.data.content[0]).toMatchObject({ text: 'hello' })
   })
 
@@ -137,6 +160,7 @@ describe('SessionTelemetryCoordinator capture', () => {
     appendTurn(session)
     /** 中文说明：该循环依次处理会话数据；循环变量仅在当前循环中有效。 */
     for (const record of backend.ledger()) {
+      expect(record.attributes['session.format_version']).toBe(SESSION_FORMAT_VERSION)
       expect(record.attributes['session.cwd']).toBe('/tmp/proj')
       expect(record.attributes['session.parent_id']).toBe('parent')
     }
@@ -188,26 +212,33 @@ describe('SessionTelemetryCoordinator capture', () => {
     expect(record.body).toEqual({ payload: { nested: ['a', 'b'] } })
   })
 
-  it('ships only the first chunk of each (turn, step), per session', async () => {
+  it('ships every assistant stream in canonical order with its complete body', async () => {
     const { ctx, backend } = await setup()
     /** 中文说明：变量 a 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const a = liveSession(ctx, 'a')
     /** 中文说明：变量 b 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const b = liveSession(ctx, 'b')
-    /** 中文说明：函数值 chunk 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
-    const chunk = (s: Session, turn: number, step: number, text: string) =>
-      s.append('assistant/chunk', { turn, step, chunk: { type: 'text-delta', index: 0, text } })
-    chunk(a, 1, 1, 'a11-first')
-    chunk(a, 1, 1, 'a11-second')
-    chunk(a, 1, 2, 'a12-first')
-    chunk(b, 1, 1, 'b11-first')
-    chunk(b, 1, 1, 'b11-second')
-    /** 中文说明：函数值 shipped 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
-    const shipped = backend.ledger().map(r => [r.attributes['session.id'], (r.body as { chunk: { text: string } }).chunk.text])
+    appendAssistantMessage(a, 1, 1, ['a11-first', 'a11-second'], 110)
+    appendAssistantMessage(a, 1, 2, ['a12-first'], 120)
+    appendAssistantMessage(b, 1, 1, ['b11-first', 'b11-second'], 210)
+    const shipped = backend.ledger().map(r => [
+      r.attributes['session.id'],
+      r.attributes['event.seq'],
+      (r.body as SessionEvent<'assistant/message'>['data']).stream,
+    ])
     expect(shipped).toEqual([
-      ['a', 'a11-first'],
-      ['a', 'a12-first'],
-      ['b', 'b11-first'],
+      ['a', 0, [
+        { type: 'text-chunks', time0: 110, index: 0, dt: [5], texts: ['a11-first', 'a11-second'] },
+        { type: 'chunk', time: 115, chunk: { type: 'finish', reason: { kind: 'stop' } } },
+      ]],
+      ['a', 1, [
+        { type: 'text-chunks', time0: 120, index: 0, dt: [], texts: ['a12-first'] },
+        { type: 'chunk', time: 120, chunk: { type: 'finish', reason: { kind: 'stop' } } },
+      ]],
+      ['b', 0, [
+        { type: 'text-chunks', time0: 210, index: 0, dt: [5], texts: ['b11-first', 'b11-second'] },
+        { type: 'chunk', time: 215, chunk: { type: 'finish', reason: { kind: 'stop' } } },
+      ]],
     ])
   })
 })
@@ -218,8 +249,9 @@ describe('SessionTelemetryCoordinator on-demand capture', () => {
     /** 中文说明：变量 session 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const session = liveSession(ctx, 'on-demand-prefix')
     appendTurn(session)
-    /** 中文说明：变量 firstBoundary 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-    const firstBoundary = session.events[1]!.seq
+    appendAssistantMessage(session, 1, 1, ['first'], 100)
+    const firstBoundary = session.snapshotEvents()[2]!.seq
+    appendAssistantMessage(session, 1, 2, ['second'], 200)
     session.append('turn/end', { turn: 1, reason: { kind: 'completed' } })
     expect(backend.records).toEqual([])
 
@@ -227,16 +259,33 @@ describe('SessionTelemetryCoordinator on-demand capture', () => {
     expect(backend.ledger().map(record => record.attributes['event.type'])).toEqual([
       'turn/start',
       'user/message',
+      'assistant/message',
     ])
+    expect(backend.ledger().map(record => record.attributes['event.seq'])).toEqual([0, 1, 2])
+    expect(backend.ledger()[2]!.body).toMatchObject({
+      stream: [
+        { type: 'text-chunks', time0: 100, index: 0, dt: [], texts: ['first'] },
+        { type: 'chunk', time: 100, chunk: { type: 'finish', reason: { kind: 'stop' } } },
+      ],
+    })
 
-    expect(backend.ledger()).toHaveLength(2)
+    expect(backend.ledger()).toHaveLength(3)
     coordinator.captureSession(session)
     coordinator.captureSession(session)
     expect(backend.ledger().map(record => record.attributes['event.type'])).toEqual([
       'turn/start',
       'user/message',
+      'assistant/message',
+      'assistant/message',
       'turn/end',
     ])
+    expect(backend.ledger().map(record => record.attributes['event.seq'])).toEqual([0, 1, 2, 3, 4])
+    expect(backend.ledger()[3]!.body).toMatchObject({
+      stream: [
+        { type: 'text-chunks', time0: 200, index: 0, dt: [], texts: ['second'] },
+        { type: 'chunk', time: 200, chunk: { type: 'finish', reason: { kind: 'stop' } } },
+      ],
+    })
   })
 
   it('runs the currently mounted redaction policy during canonical-log capture', async () => {
@@ -325,8 +374,7 @@ describe('SessionTelemetryCoordinator on-demand capture', () => {
 })
 
 describe('SessionTelemetryCoordinator adoption', () => {
-  it('exports an unpublished suffix without re-exporting constructor history', async () => {
-    /** 中文说明：变量 backend 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
+  it('replays a new fork object from its constructor boundary without its inherited prefix', async () => {
     const backend = new FakeBackend()
     /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
@@ -339,8 +387,7 @@ describe('SessionTelemetryCoordinator adoption', () => {
       inject: ['sessions'],
       apply: (inner: Context) => void new SessionTelemetryCoordinator(inner, backend),
     })
-    /** 中文说明：变量 child 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-    const child = ctx.sessions.prepare(SessionId('seeded'), { seed: [...parent.events], meta: {} })
+    const child = ctx.sessions.prepare(SessionId('seeded'), { seed: [...parent.snapshotEvents()], meta: {} })
     child.append('turn/end', { turn: 1, reason: { kind: 'completed' } })
     ctx.sessions.enter(child)
     ctx.sessions.announce(child)
@@ -348,46 +395,56 @@ describe('SessionTelemetryCoordinator adoption', () => {
     /** 中文说明：函数值 seqs 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
     const seqs = backend.ledger().map(r => [r.attributes['session.id'], r.attributes['event.seq']])
     expect(seqs).toEqual(expect.arrayContaining([['seed-parent', 0], ['seed-parent', 1]]))
-    // 2 end-seed, 3 turn/end: both this lifecycle's own writes, while
-    // inherited 0-1 stay with the parent stream.
-    expect(seqs.filter(([id]) => id === 'seeded')).toEqual([['seeded', 2], ['seeded', 3]])
+    expect(seqs.filter(([id]) => id === 'seeded')).toEqual([
+      ['seeded', 2],
+      ['seeded', 3],
+    ])
   })
 
-  it('resume shape: a full-log seed exports only its own end-seed and rebuilds the chunk projection', async () => {
-    /** 中文说明：变量 backend 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
+  it('replays a restored post-migration Session from its constructor boundary', async () => {
     const backend = new FakeBackend()
     /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
     await ctx.plugin(SessionStore)
-    /** 中文说明：变量 donor 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-    const donor = ctx.sessions.create(SessionId('donor'), { meta: {} })
+    const donor = Session.create(SessionId('donor'))
     donor.append('turn/start', { turn: 1 })
-    donor.append('assistant/chunk', { turn: 1, step: 1, chunk: { type: 'text-delta', index: 0, text: 'first' } })
-    /** 中文说明：变量 resumed 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-    const resumed = ctx.sessions.create(SessionId('resumed'), { seed: [...donor.events], meta: {} })
+    appendAssistantMessage(donor, 1, 1, ['first'], 100)
     await ctx.plugin({
       name: 'fake-telemetry',
       inject: ['sessions'],
       apply: (inner: Context) => void new SessionTelemetryCoordinator(inner, backend),
     })
-    /** 中文说明：函数值 ofResumed 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
+    // Session persistence migrates before it constructs the restored Session;
+    // telemetry therefore receives a current-format object with the complete
+    // migrated canonical seed.
+    const resumed = ctx.sessions.prepare(SessionId('resumed'), {
+      seed: structuredClone(donor.snapshotEvents()) as SessionEvent[],
+      meta: {
+        version: SESSION_FORMAT_VERSION,
+        id: SessionId('resumed'),
+        createdAt: 1,
+        isSeeded: false,
+      },
+      inheritedEventCount: SessionLogOffset(0),
+      seedSource: 'persistence',
+    })
+    ctx.sessions.enter(resumed)
+    ctx.sessions.announce(resumed)
     const ofResumed = () => backend.ledger()
       .filter(r => r.attributes['session.id'] === 'resumed')
-      .map(r => r.attributes['event.seq'])
-    // Nothing inherited is re-exported; seq 2 is this session's own first
-    // write — the end-seed event its constructor appended after the seed.
-    expect(ofResumed()).toEqual([2])
-    // The seed fed the projection: the (turn 1, step 1) first chunk already
-    // shipped from the original process, so its continuation is re-dropped…
-    resumed.append('assistant/chunk', { turn: 1, step: 1, chunk: { type: 'text-delta', index: 0, text: 'continuation' } })
-    expect(ofResumed()).toEqual([2])
-    // …while a new step's first chunk exports normally.
-    resumed.append('assistant/chunk', { turn: 1, step: 2, chunk: { type: 'text-delta', index: 0, text: 'next step' } })
-    expect(ofResumed()).toEqual([2, 4])
+    expect(ofResumed().map(r => r.attributes['event.seq'])).toEqual([2])
+    expect(ofResumed().every(r => r.attributes['session.format_version'] === SESSION_FORMAT_VERSION)).toBe(true)
+    appendAssistantMessage(resumed, 1, 1, ['continuation'], 200)
+    appendAssistantMessage(resumed, 1, 2, ['next step'], 300)
+    expect(ofResumed().map(r => r.attributes['event.seq'])).toEqual([2, 3, 4])
+    expect(ofResumed().map(r => (r.body as { stream?: { type: string; texts?: string[] }[] }).stream?.[0]?.texts)).toEqual([
+      undefined,
+      ['continuation'],
+      ['next step'],
+    ])
   })
 
-  it('stamps session.seed_length from the header so receivers can stitch fork streams', async () => {
-    /** 中文说明：变量 backend 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
+  it('stamps session.seed_length from the exact Session cut so receivers can stitch fork streams', async () => {
     const backend = new FakeBackend()
     /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
@@ -397,8 +454,9 @@ describe('SessionTelemetryCoordinator adoption', () => {
     appendTurn(parent)
     /** 中文说明：变量 child 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const child = ctx.sessions.create(SessionId('stitch-child'), {
-      seed: [...parent.events],
-      meta: { parentSession: SessionId('stitch-parent'), seedLength: 2 },
+      seed: [...parent.snapshotEvents()],
+      inheritedEventCount: SessionLogOffset(parent.snapshotEvents().length),
+      meta: { parentSession: SessionId('stitch-parent'), isSeeded: true },
     })
     await ctx.plugin({
       name: 'fake-telemetry',
@@ -436,19 +494,18 @@ describe('SessionTelemetryCoordinator adoption', () => {
     expect(backend.ledger()).toHaveLength(2)
   })
 
-  it('resumes from the handoff cursor across a reload, re-dropping mid-step chunks', async () => {
-    /** 中文说明：变量 backend 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
+  it('resumes from the handoff cursor across same-object re-adoption without duplicates', async () => {
     const backend = new FakeBackend()
     const { ctx, fiber } = await setup(backend)
     /** 中文说明：变量 session 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const session = liveSession(ctx, 'hmr')
     session.append('turn/start', { turn: 1 })
-    session.append('assistant/chunk', { turn: 1, step: 1, chunk: { type: 'text-delta', index: 0, text: 'first' } })
+    appendAssistantMessage(session, 1, 1, ['first'], 100)
     expect(backend.ledger()).toHaveLength(2)
 
     await fiber.dispose()
     // The reload window: appends while no telemetry listener is registered.
-    session.append('assistant/chunk', { turn: 1, step: 1, chunk: { type: 'text-delta', index: 0, text: 'mid-step continuation' } })
+    appendAssistantMessage(session, 1, 2, ['mid-step continuation'], 200)
     session.append('turn/end', { turn: 1, reason: { kind: 'completed' } })
 
     /** 中文说明：变量 second 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
@@ -458,9 +515,11 @@ describe('SessionTelemetryCoordinator adoption', () => {
       inject: ['sessions'],
       apply: (inner: Context) => void new SessionTelemetryCoordinator(inner, second),
     })
-    // Only the window events past the cursor are re-handed, and the mid-step
-    // continuation is re-dropped because ≤cursor events rebuilt the projection.
-    expect(second.ledger().map(r => r.attributes['event.type'])).toEqual(['turn/end'])
+    // Only window events past the same object's cursor are re-handed.
+    expect(second.ledger().map(r => [r.attributes['event.seq'], r.attributes['event.type']])).toEqual([
+      [2, 'assistant/message'],
+      [3, 'turn/end'],
+    ])
   })
 
   it('replays past a record the backend rejects: one event withheld, the rest adopted', async () => {

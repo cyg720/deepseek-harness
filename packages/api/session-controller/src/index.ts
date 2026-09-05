@@ -1,20 +1,16 @@
 /** Session Remote owner: cold reads, explicit Agent commands, and live control state. */
 
 /*
- * 文件说明：文件职责：实现 api/session-controller 中 index 模块的职责，并向相邻模块提供可复用能力。
- * ；技术维度：主要使用TypeScript/JavaScript 的 ESM 模块、严格类型约束与 Cordis 插件机制，
- * 通过当前文件中的类型、函数与数据结构完成实现。；产品维度：支撑 DeepSeek Harness 的
- * api/session-controller 能力，使上层功能能够稳定组合和扩展。；逻辑维度：建议按“依赖与类型定义 → 常量和状态 →
- * 核心函数或类 → 导出或注册入口”的顺序理解。；关键边界：调用方必须遵守类型、生命周期和错误处理约定；
- * 涉及外部输入、异步任务或资源释放时需特别关注异常分支。；新手阅读建议：先确认导入依赖和公开导出，再沿主要函数调用链阅读，
- * 最后结合相邻测试理解输入、输出与边界条件。
+ * 【文件职责】拥有会话 Remote 命名空间，分别提供冷读取、显式 Agent 命令和进程内控制状态。
  */
 
 import { Context } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
 import { errorChain } from '@deepseek-ai/dsh-llm'
+import type {} from '@deepseek-ai/dsh-client-file-upload'
 import { canOpenNativePath, openNativePath } from '@deepseek-ai/dsh-native-command'
-import type { SessionEvent, SessionHeader, SessionId } from '@deepseek-ai/dsh-session'
+import type { SessionId } from '@deepseek-ai/dsh-session'
+import type { SessionInspection } from '@deepseek-ai/dsh-session-persistence'
 import type { SessionObservation } from '@deepseek-ai/dsh-session-query'
 import { Remote, RemoteError, TypertRemoteService } from '@deepseek-ai/dsh-typert-protocol'
 import {
@@ -26,7 +22,7 @@ import { SessionCommandController } from './commands.ts'
 import { SessionControlController } from './control.ts'
 import { SessionHistoryController } from './history.ts'
 import { SessionFileReferences } from './file-references.ts'
-import { ApiSessionList, DEFAULT_COLD_BLANK_PROBE_MAX_BYTES } from './list.ts'
+import { ApiSessionList } from './list.ts'
 import { buildModelCatalog } from './catalog.ts'
 import { installModelSelectionProjection } from './model-selection-projection.ts'
 import { SessionSkillCatalog } from './skill-catalog.ts'
@@ -75,8 +71,6 @@ declare module '@deepseek-ai/cordis' {
 
 /** Session Controller deployment policy. */
 export interface Config {
-  /** Maximum cold Session artifact size eligible for one full projection observation. */
-  readonly coldBlankProbeMaxBytes?: number
   /** Override platform desktop-opener detection. */
   readonly nativeOpen?: boolean
 }
@@ -95,6 +89,7 @@ export class SessionController extends TypertRemoteService {
     'agentDefaultModel',
     'agents',
     'attachments',
+    'fileUploads',
     'llm',
     'sessions',
     'sessionProjections',
@@ -104,7 +99,6 @@ export class SessionController extends TypertRemoteService {
   ]
 
   static Config: z<Config> = z.object({
-    coldBlankProbeMaxBytes: z.natural().default(DEFAULT_COLD_BLANK_PROBE_MAX_BYTES),
     nativeOpen: z.boolean(),
   })
 
@@ -119,13 +113,19 @@ export class SessionController extends TypertRemoteService {
 
   /**
    * @param ctx - Host context containing the Session capability assembly.
-   * @param config - cold-list observation policy.
+   * @param config - native-opener deployment policy.
+   * @param internals - host integrations replaceable by direct unit tests.
    */
   constructor(ctx: Context, config: Config, internals: SessionControllerInternals = {}) {
     super(ctx, 'sessionController', { namespace: 'session' })
     installModelSelectionProjection(ctx)
     this.agents = new ApiSessionAgentController(ctx)
     this.commands = new SessionCommandController(ctx, this.agents, process.cwd())
+    ctx.effect(() => ctx.fileUploads.registerAgentResolver(async (sessionId) => {
+      const result = await this.agents.resolveAgent(sessionId)
+      if ('error' in result) throw result.error
+      return result.agent
+    }), 'session-controller: file-upload Agent resolver')
     this.controlState = new SessionControlController(ctx)
     // Registered before history so reverse-order teardown closes every
     // follower before waiting for already-admitted promotions.
@@ -133,10 +133,7 @@ export class SessionController extends TypertRemoteService {
       await Promise.allSettled([...this.promotions])
     }, 'session-controller.promotions')
     this.history = new SessionHistoryController(ctx, (observation) => { this.promote(observation) })
-    this.listState = new ApiSessionList(
-      ctx,
-      config.coldBlankProbeMaxBytes ?? DEFAULT_COLD_BLANK_PROBE_MAX_BYTES,
-    )
+    this.listState = new ApiSessionList(ctx)
     this.openPath = internals.openPath ?? openNativePath
     this.canOpenPath = internals.canOpenPath
       ?? (() => config.nativeOpen ?? (internals.openPath !== undefined || canOpenNativePath()))
@@ -201,10 +198,14 @@ export class SessionController extends TypertRemoteService {
   inspect(
     sessionId: SessionId,
     signal?: AbortSignal,
-  ): Promise<{ meta: SessionHeader; events: SessionEvent[] }> {
+  ): Promise<SessionInspection> {
     const attached = this.ctx.sessions.get(sessionId)
     if (attached !== undefined) {
-      return Promise.resolve({ meta: attached.header, events: [...attached.events] })
+      return Promise.resolve({
+        meta: attached.header,
+        inheritedEventCount: attached.inheritedEventCount,
+        events: attached.snapshotEvents(),
+      })
     }
     return inspectApiSession(this.ctx, sessionId, signal)
   }
@@ -379,7 +380,8 @@ export class SessionController extends TypertRemoteService {
    * Follow one Session log from its opening or resume cursor.
    * @param request - durable address and last committed sequence already held by the caller.
    * @param signal - cancellation owned by the Remote stream carrier.
-   * @returns a complete opening snapshot followed by gap-free event frames.
+   * @returns a complete opening snapshot followed by gap-free durable event
+   *   frames and optional cursorless assistant-stream frames.
    */
   @Remote({ mode: 'stream' })
   follow(request: SessionFollowRequest, signal: AbortSignal): AsyncIterable<SessionFollowFrame> {

@@ -7,12 +7,8 @@
  */
 
 /*
- * 文件职责：为dsh系列入口统一装配环境变量、配置路径、用户补丁、Loader根树、失败处理和启动完成校验。
- * 技术维度：使用Cordis Loader/Include/HMR、js-yaml、Node.js环境与路径API驱动插件树生命周期。
- * 产品维度：让CLI、ACP等入口以一致规则启动配置，并在配置错误或插件激活失败时快速给出明确诊断。
- * 逻辑维度：分层读取环境，解析补丁与配置转储，挂载根Include，安装未处理拒绝守卫，最后执行boot和激活检查。
- * 关键边界：启动专用环境变量不能由磁盘.env覆盖；用户补丁必须是数组；任何启用条目缺失或失败都终止启动。
- * 新手阅读建议：先看resolveConfigPath和loadLayeredEnv，再看mountRootInclude，最后沿boot中的stage变量理解启动阶段。
+ * 【文件职责】提供 profile 共用的环境、Harness home 和 Loader 启动支持；
+ * 配置装载失败必须显式暴露。
  */
 
 import { pathToFileURL } from 'node:url'
@@ -129,8 +125,18 @@ const BOOTSTRAP_NAMES = new Set([
 const BOOTSTRAP_PREFIXES = ['DSH_', 'XDG_', 'DYLD_', 'BASH_FUNC_']
 
 /**
+ * The bootstrap names the Harness-home `.env` alone may set. A proxy chooses the route every
+ * request takes, so the invoking directory's file — which arrives with a clone — keeps refusing
+ * them; the home file is the user's own, and `DSH_HOME` is itself bootstrap-only, so no `.env` can
+ * relocate this exemption. The CA and TLS names in the same group stay refused everywhere: they
+ * change what is trusted, not where traffic goes.
+ */
+const HOME_LAYER_PROXY_NAMES = new Set(['HTTP_PROXY', 'HTTPS_PROXY', 'ALL_PROXY', 'NO_PROXY'])
+
+/**
  * Whether a variable may come only from the inherited process environment
- * because it changes process, runtime, VCS, or network bootstrap.
+ * because it changes process, runtime, VCS, or network bootstrap. The Harness-home
+ * file is additionally allowed {@link HOME_LAYER_PROXY_NAMES}.
  * @param name - the variable name.
  * @returns true when only the inherited environment may supply it.
  */
@@ -145,13 +151,15 @@ function isBootstrapOnly(name: string): boolean {
  * @param binName - the diagnostic prefix on the thrown error.
  * @param dir - the directory whose `.env` to read.
  * @param warn - sink for the one-line unreadable-file diagnostic.
+ * @param home - the resolved Harness home; when `dir` is it, {@link HOME_LAYER_PROXY_NAMES} are accepted.
  * @returns the parsed entries, or `undefined` when the file is absent or unreadable.
- * @throws when the file declares a name {@link isBootstrapOnly} rejects.
+ * @throws when the file declares a name {@link isBootstrapOnly} rejects and this layer may not set.
  */
 function readEnvLayer(
-  binName: string, dir: string, warn: (line: string) => void,
+  binName: string, dir: string, warn: (line: string) => void, home: string,
 ): { path: string; values: Record<string, string> } | undefined {
   const path = resolve(dir, '.env')
+  const isHome = resolve(dir) === home
   let content: string
   try {
     content = readFileSync(path, 'utf8')
@@ -166,10 +174,16 @@ function readEnvLayer(
   const values = parseEnv(content) as Record<string, string>
   for (const name of Object.keys(values)) {
     if (!isBootstrapOnly(name)) continue
+    const proxyName = HOME_LAYER_PROXY_NAMES.has(name.toUpperCase())
+    if (isHome && proxyName) continue
+    // A proxy name has a second way out that the other bootstrap names do not, so its message says so.
+    const remedy = proxyName
+      ? `export ${name}, or put it in ${resolve(home, '.env')}, which does not travel with a repository`
+      : `export ${name} instead of putting it in a .env file`
     throw new Error(
       `${binName}: ${path} sets "${name}", which only the launching environment may set`
       + ' (it decides how this process starts, where its code and instructions load from, or how it'
-      + ` reaches the network); export ${name} instead of putting it in a .env file`,
+      + ` reaches the network); ${remedy}`,
     )
   }
   return { path, values }
@@ -184,7 +198,7 @@ function readEnvLayer(
  * @param cwd - the invoking directory whose `.env` is the project layer.
  * @param warn - sink for the one-line misconfiguration diagnostics.
  * @returns this run's frozen environment snapshot.
- * @throws when either file declares a bootstrap-only variable.
+ * @throws when either file declares a bootstrap-only variable, except {@link HOME_LAYER_PROXY_NAMES} in the Harness-home file.
  */
 export function loadLayeredEnv(
   binName: string, cwd: string = process.cwd(),
@@ -193,8 +207,8 @@ export function loadLayeredEnv(
   const home = resolveDshHome()
   const inherited = { ...process.env } as Record<string, string>
   // Parse both layers first: a rejection must not leave one file applied.
-  const project = readEnvLayer(binName, cwd, warn)
-  const user = home === resolve(cwd) ? undefined : readEnvLayer(binName, home, warn)
+  const project = readEnvLayer(binName, cwd, warn, home)
+  const user = home === resolve(cwd) ? undefined : readEnvLayer(binName, home, warn, home)
   // Apply the checked values without replacing a higher-ranked name.
   for (const layer of [project, user]) {
     if (layer === undefined) continue

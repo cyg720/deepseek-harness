@@ -6,13 +6,10 @@
  * unbalanced and cannot be replayed as a valid child session.
  * @module @deepseek-ai/dsh-subagent-fork-in-process
  */
+
 /*
- * 文件职责：实现 index.ts 覆盖的子代理启动、协议、继承与生命周期行为。
- * 技术维度：使用 TypeScript、Vitest、Cordis 插件、进程协议或同进程代理驱动。
- * 产品维度：保障 Agent 能可靠委派任务、继承上下文并收集子代理结果。
- * 逻辑维度：准备代理配置，启动或连接子代理，转发事件，再处理结果、取消与清理。
- * 关键边界：异步状态不等于单次任务结果；外部输出不可信；清理必须等待子代理完全停止。
- * 新手阅读建议：先看公开配置和测试夹具，再读启动/事件流程，最后关注继承、取消与失败路径。
+ * 【文件职责】创建继承父会话前缀的进程内 fork 子 Agent；
+ * 种子截止最后一个 turn/end，避免复制尚未平衡的当前轮次。
  */
 
 import type { Context } from '@deepseek-ai/cordis'
@@ -59,9 +56,7 @@ export const Config: z<Config> = z.object({
  */
 /* 中文说明：函数 completedTurnPrefix 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function completedTurnPrefix(parent: Agent): SessionEvent[] {
-  /** 中文说明：变量 events 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-  const events = parent.session.events
-  /** 中文说明：函数值 lastEnd 封装本模块的局部步骤；参数和返回值由右侧签名约束；示例见本模块调用。 */
+  const events = parent.session.snapshotEvents()
   const lastEnd = events.findLast(e => e.type === 'turn/end')
   if (lastEnd === undefined) return []
   // seq === array index (the append contract), so slice up to and including it.
@@ -98,12 +93,6 @@ class ForkInProcessProvider implements SubagentProvider {
     })
   }
 
-  // TODO(fork-continuable-prefix-reuse): CLI presets call this and accept that
-  // a continuable child's `report` tool and prompt section precede the inherited
-  // history, defeating the prefix reuse a fork exists for. Cache-preserving
-  // continuable fork needs byte-identical child system prompt and tool schemas;
-  // see issue #2124 and
-  // .agents/notes/implemented/architecture/2026-08-10-fork-children-stay-one-shot.md.
   prepareContinuable(request: ContinuableCreateRequest): Promise<ContinuableCreateSpec> {
     // The fork prefix is captured ONCE, at creation: it becomes part of the
     // child's own durable transcript, so a later cold resume replays that

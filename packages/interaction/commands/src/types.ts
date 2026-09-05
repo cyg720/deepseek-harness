@@ -8,22 +8,17 @@
  */
 
 /*
- * ================================ 文件注释 ================================
- * 【文件职责】dsh-commands 的"持久化命令事件词汇 + 注册表事件声明"，供纯类型消费方共享：
- *   命令的不可变描述（CommandDescriptor）、执行结果（CommandResult）、输入描述等。
- * 【技术维度】declaration merging 扩展 Cordis Events 与 dsh-session 的 SessionEventMap；
- *   CommandSourceMap 是"可合并扩展"的和类型，镜像 MessageSourceMap 的形状。
- * 【产品维度】command/run 与 command/done 事件按 commandId 配对，记录一次命令执行的完整
- *   生命周期——对应工具调用的 tool/call ↔ tool/result 配对，供投影单元与富命令卡片消费。
- * 【逻辑维度】输入描述 → 结果联合 → 执行对象 → 命令描述 → 来源映射 → 注册表事件 →
- *   会话生命周期事件对。
- * 【关键边界】command/run 只记录不送模型（log-only）；args 携带的是 parseCommand 的原始切分
- *   （名字 + 原样 rawInput，含分隔空白），消费方不得重新解析一行。
- * 【新手阅读建议】对照 index.ts 的 execute 方法理解两个生命周期事件如何产生与配对。
- * ==========================================================================
+ * 【文件职责】声明持久命令事件、目录变更和命令附件类型，客户端与主机使用同一份浏览器安全声明。
  */
 
+import type { SessionSeq } from '@deepseek-ai/dsh-session/types'
 import type { CommandId } from './brand.ts'
+import type { EncodedImageAttachment } from '@deepseek-ai/dsh-attachment/types'
+
+/** One browser-submitted command attachment: encoded image input or a staged file receipt. */
+export type CommandSubmitAttachment =
+  | ({ readonly type: 'image' } & EncodedImageAttachment)
+  | { readonly type: 'file'; readonly receiptId: string }
 
 // 命令可选自由输入的元数据：hint 是输入框占位文案；images 声明是否允许随调用附带图片附件。
 /** Immutable metadata for a command's optional unstructured input. */
@@ -31,13 +26,13 @@ export interface CommandInputDescriptor {
   /** Placeholder shown before the user supplies free-form input. */
   readonly hint: string
   /**
-   * Whether composer image attachments may accompany an invocation. Absent or
-   * false = the executor rejects an invocation carrying images and capable
+   * Whether composer attachments may accompany an invocation. Absent or
+   * false = the executor rejects an invocation carrying attachments and capable
    * composers refuse the submission before dispatch. A declaring command's
    * handler receives the admitted durable blocks and owns every further
    * grammar decision, including rejecting sub-commands that cannot use them.
    */
-  readonly images?: boolean
+  readonly attachments?: boolean
 }
 
 // 命令预期结果：success（可带文本与更权威域事件的序号，供 UI 做富展示）或 error（必带非空文本）。
@@ -47,7 +42,7 @@ export type CommandResult =
     readonly kind: 'success'
     readonly text?: string
     /** Earlier authoritative domain event that owns a richer presentation. */
-    readonly sourceEventSeq?: number
+    readonly sourceEventSeq?: SessionSeq
   }
   | { readonly kind: 'error'; readonly text: string }
 
@@ -126,7 +121,7 @@ declare module '@deepseek-ai/dsh-session/types' {
       commandId: CommandId
       kind: 'success' | 'error'
       text?: string
-      sourceEventSeq?: number
+      sourceEventSeq?: import('@deepseek-ai/dsh-session/types').SessionSeq
     }
   }
 }

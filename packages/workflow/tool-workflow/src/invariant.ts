@@ -1,11 +1,7 @@
 /** Package-owned durable workflow-record invariants. @module @deepseek-ai/dsh-tool-workflow/invariant */
+
 /*
- * 文件职责：实现 invariant.ts 覆盖的工作流与 Worker Thread行为与生命周期。
- * 技术维度：使用 TypeScript、Vitest、Cordis 插件、Worker Thread、消息协议或领域实体。
- * 产品维度：保障 Agent 的工作流与 Worker Thread能力稳定、可隔离且可诊断。
- * 逻辑维度：准备配置和消息，建立运行环境，执行流程，再处理事件、错误与清理。
- * 关键边界：线程消息不可信；跨线程状态必须显式传递；终止时必须等待所拥有资源停止。
- * 新手阅读建议：先看协议和类型，再读 Host/Runtime 主流程，最后关注隔离、失败与清理。
+ * 【文件职责】检查工作流持久运行记录的关联关系，约束工作流与子运行的日志完整性。
  */
 
 import type { Context } from '@deepseek-ai/cordis'
@@ -175,8 +171,7 @@ const install: InvariantInstaller = Object.assign((ctx: Context, fail: Invariant
   const seed = (session: Session): WorkflowTrace => {
     /** 中文说明：变量 trace 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const trace: WorkflowTrace = new Map()
-    /** 中文说明：该循环依次处理消息或实体；循环变量仅在当前循环中有效。 */
-    for (const event of session.events.filter(isWorkflowRecordEvent)) applyEvent(trace, event, fail)
+    for (const event of session.snapshotEvents().filter(isWorkflowRecordEvent)) applyEvent(trace, event, fail)
     traces.set(session, trace)
     return trace
   }

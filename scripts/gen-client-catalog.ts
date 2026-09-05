@@ -496,6 +496,8 @@ export function renderClientCatalog(entries: readonly SlotEntry[]): string {
     ' * @module @deepseek-ai/dsh-cordis-client-runner/client/slot-catalog',
     ' */',
     '',
+    '/* 【文件职责】生成浏览器插槽的类型、拥有者及贡献目录，供 cordis_inspect 查询可用组合位置。 */',
+    '',
     '/* jscpd:ignore-start */',
     '/** One option a register call passes for a given slot cardinality. */',
     'export interface ClientSlotOption {',

@@ -13,17 +13,23 @@ import { AssistantOutputFold, finalAssistantOutput } from '../src/assistant-outp
 
 /** 中文说明：函数 message 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function message(content: ContentBlock[]): SessionEvent {
-  return { type: 'assistant/message', data: { message: { content } } } as SessionEvent
+  return { type: 'assistant/message', data: { stream: [], message: { content } } } as SessionEvent
 }
 
 /** 中文说明：函数 textDelta 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function textDelta(text: string): SessionEvent {
-  return { type: 'assistant/chunk', data: { chunk: { type: 'text-delta', text } } } as SessionEvent
+  return {
+    type: 'assistant/attempt',
+    data: { stream: [{ type: 'text-chunks', time0: 0, index: 0, dt: [], texts: [text] }] },
+  } as SessionEvent
 }
 
 /** 中文说明：函数 reasoningDelta 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function reasoningDelta(text: string): SessionEvent {
-  return { type: 'assistant/chunk', data: { chunk: { type: 'reasoning-delta', text } } } as SessionEvent
+  return {
+    type: 'assistant/attempt',
+    data: { stream: [{ type: 'reasoning-chunks', time0: 0, index: 0, dt: [], texts: [text] }] },
+  } as SessionEvent
 }
 
 /** 中文说明：函数 toolResult 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */

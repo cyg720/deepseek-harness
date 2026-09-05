@@ -1,3 +1,7 @@
+/*
+ * 【文件职责】定义 Conversation 主列及其共享宽度变量，为记录区和输入区提供一致的定位与布局尺度。
+ */
+
 .root {
   position: relative; /* positioning context for slot-owned absolute chrome */
   display: flex;
@@ -48,8 +52,8 @@
   bottom: 1px;
   left: 0;
   z-index: 0;
-  height: 1px;
-  background: var(--dsw-alias-border-l2);
+  height: 0.5px;
+  background: var(--dsw-alias-border-l3);
   pointer-events: none;
 }
 

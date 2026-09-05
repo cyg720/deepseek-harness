@@ -408,9 +408,9 @@ describe('submit-machine: claimed lifecycle', () => {
      * 常量说明：m 用于处理 m 相关数据，作用于当前作用域；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。
      */
     const m = new SubmitMachine()
-    m.dispatch({ type: 'claim', claim: { ...claimOf('goal', 'set a goal'), images: true } })
+    m.dispatch({ type: 'claim', claim: { ...claimOf('goal', 'set a goal'), attachments: true } })
     expect(m.state.phase).toBe('claimed')
-    expect(m.state.claim).toMatchObject({ token: '/goal ', hint: 'set a goal', images: true })
+    expect(m.state.claim).toMatchObject({ token: '/goal ', hint: 'set a goal', attachments: true })
   })
 
   /**
@@ -786,10 +786,14 @@ describe('decorations: scanTextRefs', () => {
     expect(scanTextRefs('/research @goal', lexicon)).toEqual([])
   })
 
-  /**
-   * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；返回值：由 TypeScript 根据实现推断的结果；
-   * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调()，并按返回类型处理结果。
-   */
+  it('a "/" token continued by a path never matches, even when the name is on the lexicon', () => {
+    expect(scanTextRefs('/goal/x /goal/ /goal.md', lexicon)).toEqual([])
+  })
+
+  it('a "/" token glued to punctuation is not a reference: the host gesture is whitespace-bounded', () => {
+    expect(scanTextRefs('/goal。 then /goal, now', lexicon)).toEqual([])
+  })
+
   it('word boundary: a trigger glued to text never matches', () => {
     expect(scanTextRefs('x/goal y@research', lexicon)).toEqual([])
   })

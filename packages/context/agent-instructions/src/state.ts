@@ -3,13 +3,9 @@
  *
  * @module @deepseek-ai/dsh-agent-instructions/state
  */
+
 /*
- * 文件职责：实现工作区指令上下文的 state.ts 模块。
- * 技术维度：TypeScript、Cordis 插件、会话事件和严格判别联合。
- * 产品维度：控制模型请求中的工作区指令上下文信息。
- * 逻辑维度：读取日志或文件状态，计算投影并记录/注入结果。
- * 关键边界：不能静默丢失必需事件；裁剪和替换必须保持日志可重放。
- * 新手阅读建议：先读导出类型与配置，再跟踪事件和投影流程。
+ * 【文件职责】维护会话可见的工作区指令状态，按持久生产者及文件事实协调动态指令变化。
  */
 
 import type { Agent } from '@deepseek-ai/dsh-agent'
@@ -168,18 +164,14 @@ function visibleInstructionChanges(
   agent: Agent,
   authorityMessages: readonly UserMessage[],
 ): Map<string, AgentInstructionChange> {
-  /** 中文说明：上下文局部值 visibleSeqs，由紧邻初始化决定。 */
-  const visibleSeqs = new Set(agent.session.surface.nodes)
-  /** 中文说明：上下文局部值 visible，由紧邻初始化决定。 */
   const visible = new Map<string, AgentInstructionChange>()
-  /** 中文说明：上下文局部值 [seq，由紧邻初始化决定。 */
-  for (const [seq, event] of agent.session.events.entries()) {
-    if (event.type !== 'user/message' || !isWorkspaceContextSource(event.data.source)) continue
-    /** 中文说明：上下文局部值 changes，由紧邻初始化决定。 */
+  for (const seq of agent.session.surface.nodes) {
+    const event = agent.session.eventAt(seq)
+    if (event?.type !== 'user/message' || !isWorkspaceContextSource(event.data.source)) continue
     const changes = workspaceInstructionChanges(event.data.source)
     /** 中文说明：上下文局部值 change，由紧邻初始化决定。 */
     for (const change of changes) {
-      if (visibleSeqs.has(seq)) visible.set(change.scope, change)
+      visible.set(change.scope, change)
     }
   }
   /** 中文说明：上下文局部值 message，由紧邻初始化决定。 */

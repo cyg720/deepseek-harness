@@ -33,8 +33,7 @@ import {
 } from './support.ts'
 
 const SNAPSHOT_DIR = fileURLToPath(new URL('../../../snapshots/web/question-composer', import.meta.url))
-const FIXTURE = join(SNAPSHOT_DIR, 'session.jsonl')
-/** 问题卡初始界面的预期快照。 */
+const FIXTURE = join(SNAPSHOT_DIR, 'session.v2.jsonl')
 const UI_EXPECTED = join(SNAPSHOT_DIR, 'ui.expected.md')
 /** 问题等待期间侧栏状态快照。 */
 const SIDEBAR_EXPECTED = join(SNAPSHOT_DIR, 'sidebar.expected.md')
@@ -128,7 +127,6 @@ function cancelledFixture(fixture: string): string {
     message.content[0].isError = true
     data.error = {
       name: 'UserQuestionError',
-      message: 'the user cancelled ask_user_question',
       code: 'ASK_CANCELLED',
     }
     replaced = true
@@ -432,7 +430,7 @@ describe.skipIf(MODE === 'record')('web e2e: cancelled question transcript', () 
 
   it('keeps the fixture inventory closed', async () => {
     await assertFixtureInventory(SNAPSHOT_DIR, [
-      'session.jsonl',
+      'session.v2.jsonl',
       'ui.expected.md',
       'sidebar.expected.md',
       'composed.expected.md',

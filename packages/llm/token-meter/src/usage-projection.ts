@@ -1,29 +1,17 @@
-/*
- * ================================ 文件注释 ================================
- * 【文件职责】实现两个纯投影单元：tokenUsage（跨整份日志累计 provider 报告
- * 用量）与 contextPressure（最近请求压力 + 最新已知路由容量的占用视图）。
- * 【技术维度】标准投影单元：zod 严格 schema 定义状态与视图；usage 折叠用
- * "单 last 槽"保存最近一次同 turn/step 的采样（同步骤重复采样替换旧值而非
- * 重复累计，依赖"同步骤用量报告相邻"的会话日志不变量）；pressure 用
- * foldSurfaceProjection 的 O(1) 表面总量 + 采样时刻快照推导 projectedTokens。
- * 【产品维度】用量统计页消费 tokenUsage；占用/压力展示消费 contextPressure；
- * projectedTokens 让展示对"下一次请求"作答，而不是停留在最后一次请求。
- * 【逻辑维度】桶辅助与 schema → tokenUsage 定义（含 last 槽去重）→
- * contextPressure 定义（压力/容量/表面/claim 四路更新 + 视图推导）。
- * 【关键边界】重复采样按"替换"处理；pressureTokens 只含提示侧；usage 采样
- * 在事件加入表面之前盖印，因此 assistant/message 锚定到它自己请求所见的表面。
- * 【新手阅读建议】先读 tokenUsage 的 apply（去重逻辑），再读 contextPressure
- * 的 apply 与 wire（projectedTokens 如何从三个量推导）。
- * ==========================================================================
- */
+
 
 /**
  * Pure folds for durable provider-reported token usage and context occupancy.
  */
 
+/*
+ * 【文件职责】从持久事件纯折叠提供者用量与上下文占用，保存可检查和可恢复的投影状态。
+ */
+
 import { z } from 'zod'
-import type { TokenUsage } from '@deepseek-ai/dsh-llm'
+import { expandAssistantStream, type TokenUsage } from '@deepseek-ai/dsh-llm'
 import type {} from '@deepseek-ai/dsh-llm-retry/types'
+import { SessionSeq } from '@deepseek-ai/dsh-session'
 import type { SessionEvent } from '@deepseek-ai/dsh-session'
 import type { ProjectionDefinition } from '@deepseek-ai/dsh-session-projection'
 import type { ContextPressureProjection, TokenUsageProjection } from './projection.ts'
@@ -107,15 +95,15 @@ const pressureSchema: z.ZodType<ContextPressureProjection> = z.object({
 const pressureFrom = (usage: TokenUsage): number =>
   usage.inputTokens + (usage.cacheReadTokens ?? 0) + (usage.cacheWriteTokens ?? 0)
 
-/** The usage a chunk or finalized message reports for its step, if any. */
-// 中文：某块或已定稿消息为其步骤报告的用量（若有）：usage 块或带 usage 的
-// assistant/message。
-const usageOf = (event: SessionEvent): TokenUsage | undefined =>
-  event.type === 'assistant/chunk' && event.data.chunk.type === 'usage'
-    ? event.data.chunk.usage
-    : event.type === 'assistant/message'
-      ? event.data.usage
-      : undefined
+/** The usage one durable Assistant settlement reports for its attempt, if any. */
+function usageOf(event: SessionEvent): TokenUsage | undefined {
+  if (event.type === 'assistant/message' && event.data.usage !== undefined) return event.data.usage
+  if (event.type !== 'assistant/message' && event.type !== 'assistant/attempt') return undefined
+  for (const member of expandAssistantStream(event.data.stream).toReversed()) {
+    if (member.chunk.type === 'usage') return member.chunk.usage
+  }
+  return undefined
+}
 
 declare module '@deepseek-ai/dsh-session-projection/types' {
   interface SessionProjectionStateMap {
@@ -133,8 +121,8 @@ const contextPressureStateSchema = z.object({
   surfaceTokens: z.number().int().nonnegative(),
   sampledSurfaceTokens: z.number().int().nonnegative().optional(),
   claim: z.object({
-    start: z.number().int().nonnegative(),
-    end: z.number().int().nonnegative(),
+    start: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER).transform(SessionSeq),
+    end: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER).transform(SessionSeq),
     tokens: z.number().int().nonnegative(),
   }).optional(),
 }).strict()
@@ -151,12 +139,9 @@ type ContextPressureState = z.infer<typeof contextPressureStateSchema>
 /**
  * Token-meter's session projection unit.
  *
- * Usage chunks provide an early sample that survives a later request failure;
- * an assistant message provides the final sample for the same attempt. A
- * repeated sample replaces that attempt's earlier value instead of double
- * counting it, while `llm/retry-started` closes the replacement slot so the
- * retried attempt adds to the total. The single `last` slot relies on the
- * session-log invariant that usage reports for one attempt are adjacent.
+ * Each v2 Assistant settlement contributes the last usage sample embedded in
+ * its stream. `llm/retry-started` closes the replacement slot so the retried
+ * attempt adds to the total.
  */
 export const tokenUsageProjectionDefinition = {
   key: 'tokenUsage',
@@ -169,18 +154,13 @@ export const tokenUsageProjectionDefinition = {
         ? { ...state, last: null }
         : state
     }
-    let turn: number
-    let step: number
-    let usage: TokenUsage
-    // 中文：只处理两类带用量的事件（usage 块 / 带 usage 的 assistant/message）。
-    if (event.type === 'assistant/chunk' && event.data.chunk.type === 'usage') {
-      ;({ turn, step } = event.data)
-      usage = event.data.chunk.usage
-    } else if (event.type === 'assistant/message' && event.data.usage !== undefined) {
-      ;({ turn, step, usage } = event.data)
-    } else {
+    if (event.type !== 'assistant/message' && event.type !== 'assistant/attempt') {
       return state
     }
+    const sample = usageOf(event)
+    if (sample === undefined) return state
+    const { turn, step } = event.data
+    const usage: TokenUsage = sample
 
     const buckets = bucketsFrom(usage)
     // 中文：同 turn/step 的旧采样（若有）作为"被替换"基准；完全相同则无变化。

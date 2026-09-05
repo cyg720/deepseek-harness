@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
-  compressZstdFrame, createZstdFrameDecoder, decompressZstdFrame, decompressZstdPrefix, scanZstdFrames,
+  compressZstdFrame, createZstdFrameDecoder, decompressZstdFrame, scanZstdFrames,
 } from '../src/zstd.ts'
 import { NodePrivateZstdFrameDecoder } from '../src/zstd-private-decoder.ts'
 import { PublicZstdFrameDecoder } from '../src/zstd-public-decoder.ts'
@@ -44,7 +44,6 @@ describe('JSONL Zstandard compatibility', () => {
     /** 去掉末尾校验字节的残缺帧，用于模拟写入中断。 */
     const missingChecksumByte = eventFrame.subarray(0, -1)
     expect(scanZstdFrames(missingChecksumByte)).toEqual({ frames: [], tornStart: 0 })
-    expect((await decompressZstdPrefix(missingChecksumByte)).toString()).toContain('"type":"turn/start"')
   })
 })
 /**

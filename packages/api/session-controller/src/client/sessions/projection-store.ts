@@ -1,19 +1,4 @@
-/**
- * ================================ 文件注释 ================================
- * 【文件职责】通用的按会话投影值存储（推送模型）：Host 是唯一计算点，
- *   客户端持有每个键的完整最新值——key -> { value, seq }——由历史尾部
- *   页的 projections 块播种，由 session/projection 推送帧更新。
- * 【技术维度】单一规则：seq 更大者胜（higher seq wins）。无客户端域折叠：
- *   域无需客户端代码即可支持投影。每键裸可观察面供 useProjection 使用。
- * 【产品维度】Host 单位计算标题、进度等投影值并推给客户端；客户端直接
- *   展示，重放帧不会回退值，陈旧基线不会覆盖新帧。
- * 【逻辑维度】faceOf/get/values 读；apply 应用推送帧；seed 播种基线；
- *   truncate 丢弃超过 mux 世代基线的行；changed/channel 内部通知。
- * 【关键边界】未见过的键读作 undefined（能力缺失）；每个键的面身份稳定
- *   （按需创建并缓存）；seq 小于等于当前值时丢弃。
- * 【新手阅读建议】先读 docs/subsystems/session-projection.md 理解整体。
- * ==========================================================================
- */
+
 /**
  * Generic per-session projection value store (push model; see the
  * session-projection subsystem page, docs/subsystems/session-projection.md):
@@ -31,7 +16,14 @@
  * 遵循单一规则"seq 更大者胜"。不存在客户端侧域折叠：域以零客户端代码
  * 交付投影支持。每键裸可观察面供 useProjection 消费（ui-renderer 绑定）。
  */
+
+/*
+ * 【文件职责】保存主机计算完成的投影值；
+ * 同一键只接受更新的序号，客户端不重复执行领域投影。
+ */
+
 import type { SessionProjectionMap } from '@deepseek-ai/dsh-session-projection/types'
+import type { SessionSeqCursor } from '@deepseek-ai/dsh-session/types'
 import type { ObservableSnapshot } from '@deepseek-ai/dsh-client-store'
 import { Notifier } from './notifier.ts'
 
@@ -85,8 +77,7 @@ export type UseProjection = {
  */
 export interface ProjectionsBaseline {
   /** The consistent-cut seq (equals the window tail seq by construction). */
-  /* 一致切割的 seq（按构造等于窗口尾部 seq）。 */
-  asOfSeq: number
+  asOfSeq: SessionSeqCursor
   /** Whole current values by key; a registered key absent here means the capability is absent. */
   values: Readonly<Record<string, unknown>>
 }
@@ -95,7 +86,7 @@ export interface ProjectionsBaseline {
 /* 一个键的行：最新完整值及其一致的 seq。 */
 interface Row {
   value: unknown
-  seq: number
+  seq: SessionSeqCursor
 }
 
 /** Per-key notification channel: the bare face plus its batching notifier. */
@@ -201,13 +192,7 @@ export class ProjectionValueStore {
    * @param value - whole value computed by the host unit.
    * @param seq - the unit's watermark at emission.
    */
-  /*
-   * 应用一个完整值（session/projection 推送帧路径）。
-   * @param key 投影键。
-   * @param value Host 单位计算出的完整值。
-   * @param seq 发射时单位的水位线（seq）。
-   */
-  apply(key: string, value: unknown, seq: number): void {
+  apply(key: string, value: unknown, seq: SessionSeqCursor): void {
     const row = this.rows.get(key)
     if (row !== undefined && seq <= row.seq) return // higher seq wins; replays and stale frames drop
     // seq 更大者胜；重放与陈旧帧被丢弃
@@ -251,14 +236,7 @@ export class ProjectionValueStore {
    * baseline immediately afterward.
    * @param lastSeq - highest durable sequence reflected by the baseline.
    */
-  /*
-   * 丢弃超过 mux 世代基线（session/subscribed.lastSeq）的行：声称知道
-   * 超过 Host 自身持久基线的行，骑乘了重启丢失的状态——在"后到者胜"下
-   * 它会永远错误地压过 Host 重算（较低 seq）的值。持久重放与下一个基线
-   * 会重新播种真正存活的值（标题快照先例的推广）。
-   * @param lastSeq 订阅帧的持久基线 seq。
-   */
-  truncate(lastSeq: number): void {
+  truncate(lastSeq: SessionSeqCursor): void {
     for (const [key, row] of this.rows) {
       if (row.seq <= lastSeq) continue
       this.rows.delete(key)

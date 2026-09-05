@@ -64,22 +64,15 @@ describe('createChatStore', () => {
     expect(second.store.getSnapshot().selection).toBeNull()
   })
 
-  /**
-   * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；返回值：由 TypeScript 根据实现推断的结果；
-   * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调()，并按返回类型处理结果。
-   */
-  it('stores only manually expanded Turn-process generations', () => {
-    /**
-     * 常量说明：store 用于处理 store 相关数据，作用于当前作用域；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。
-     */
+  it('stores only manually expanded Turn-process answers', () => {
     const store = createChatStore().create()
-    store.actions.setTurnProcessOpen(2, '2|3', true)
-    expect(store.store.getSnapshot().turnProcesses).toEqual([{ turn: 2, generation: '2|3' }])
+    store.actions.setTurnProcessOpen(2, 3, true)
+    expect(store.store.getSnapshot().turnProcesses).toEqual([{ turn: 2, answerStep: 3 }])
 
-    store.actions.setTurnProcessOpen(2, '2|4', true)
-    expect(store.store.getSnapshot().turnProcesses).toEqual([{ turn: 2, generation: '2|4' }])
+    store.actions.setTurnProcessOpen(2, 4, true)
+    expect(store.store.getSnapshot().turnProcesses).toEqual([{ turn: 2, answerStep: 4 }])
 
-    store.actions.setTurnProcessOpen(2, '2|4', false)
+    store.actions.setTurnProcessOpen(2, 4, false)
     expect(store.store.getSnapshot().turnProcesses).toEqual([])
   })
 
@@ -92,12 +85,12 @@ describe('createChatStore', () => {
      * 常量说明：store 用于处理 store 相关数据，作用于当前作用域；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。
      */
     const store = createChatStore().create()
-    store.actions.setTurnProcessOpen(2, '2|3', true)
-    store.actions.setTurnProcessOpen(3, '3|4', true)
+    store.actions.setTurnProcessOpen(2, 3, true)
+    store.actions.setTurnProcessOpen(3, 4, true)
 
-    store.actions.setTurnProcessOpen(2, '2|3', false)
-    store.actions.setTurnProcessOpen(9, '9|10', false)
+    store.actions.setTurnProcessOpen(2, 3, false)
+    store.actions.setTurnProcessOpen(9, 10, false)
 
-    expect(store.store.getSnapshot().turnProcesses).toEqual([{ turn: 3, generation: '3|4' }])
+    expect(store.store.getSnapshot().turnProcesses).toEqual([{ turn: 3, answerStep: 4 }])
   })
 })

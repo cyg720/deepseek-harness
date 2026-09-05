@@ -1,12 +1,7 @@
 /** Package-owned durable plan-mode invariants. @module @deepseek-ai/dsh-plan-mode/invariant */
+
 /*
- * 中文说明：
- * - 文件职责：为 plan/mode 持久事件校验 active 字段并注册历史与实时不变量。
- * - 技术维度：使用 Cordis 伴生插件、会话回放、全局事件监听和运行时类型检查。
- * - 产品维度：防止损坏的计划模式状态进入日志，保证恢复后界面与代理模式一致。
- * - 逻辑维度：validateEvent 检查载荷；install 回放已有/新会话并监听追加；apply 完成登记。
- * - 关键边界：计划模式可在轮次之间或步骤边界提交，因此只校验布尔载荷，不建立轮次包含关系。
- * - 新手阅读建议：先看 validateEvent 的单字段规则，再看 seed 如何覆盖历史和新创建会话。
+ * 【文件职责】检查计划模式持久事件与状态转换，保证模式在回放中的一致性。
  */
 
 import type { Context } from '@deepseek-ai/cordis'
@@ -44,8 +39,7 @@ function validateEvent(event: SessionEvent, fail: InvariantFailure): void {
 const install: InvariantInstaller = Object.assign((ctx: Context, fail: InvariantFailure) => {
   /** 中文：回放一个 session 的已有事件；无返回值。 */
   const seed = (session: Session): void => {
-    /** 当前会话的一条历史事件。 */
-    for (const event of session.events) validateEvent(event, fail)
+    for (const event of session.snapshotEvents()) validateEvent(event, fail)
   }
   /** 当前已装载、需要立即回放的会话。 */
   for (const session of ctx.sessions.list()) seed(session)

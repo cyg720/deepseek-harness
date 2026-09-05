@@ -1,12 +1,8 @@
 /* Context-occupancy ring beside the send button plus its click-open breakdown
-   panel (menu surface: r12, inverted hairline, shadow-lv3). */
-/**
- * 文件职责：定义 ContextMeter 的局部样式。
- * 技术维度：CSS Modules、主题变量、响应式布局和状态选择器。
- * 产品维度：让会话骨架在不同状态和窗口尺寸下保持清晰。
- * 逻辑维度：按容器、内容、操作与状态类组织规则。
- * 关键边界：类名必须与 TSX 同步，尺寸和颜色优先复用设计变量。
- * 新手阅读建议：对照同名组件，按 DOM 层级阅读类名。
+   panel (menu surface: r12, elevation-prominent). */
+
+/*
+ * 【文件职责】定义发送按钮旁的上下文占用环及分解弹层，交互区域与相邻附件按钮同属圆形尺寸体系。
  */
 
 .root {
@@ -23,6 +19,7 @@
   height: 28px;
   border: none;
   border-radius: 999px;
+  corner-shape: round;
   background: transparent;
   color: var(--dsw-alias-label-secondary);
   cursor: pointer;
@@ -53,10 +50,11 @@
   box-sizing: border-box;
   width: 264px;
   padding: 12px;
-  border: 1px solid var(--dsw-alias-border-inverted);
+  border: 0;
   border-radius: 12px;
   background: var(--dsw-specific-menu);
-  box-shadow: var(--dsw-shadow-lv3);
+  --dsw-elevation-stroke-color: var(--dsw-alias-border-l1);
+  box-shadow: var(--dsw-elevation-prominent);
   font-size: 12px;
   line-height: 20px;
   color: var(--dsw-alias-label-secondary);
@@ -97,6 +95,7 @@
   margin: 10px 0 12px;
   height: 4px;
   border-radius: 999px;
+  corner-shape: round;
   background: var(--dsw-alias-interactive-bg-hover);
   overflow: hidden;
 }

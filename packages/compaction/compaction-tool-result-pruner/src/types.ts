@@ -1,4 +1,10 @@
+/*
+ * 【文件职责】声明工具结果裁剪的字符预算策略；
+ * 文本长度以 Unicode 码点计数。
+ */
+
 import type { ToolCallId } from '@deepseek-ai/dsh-llm'
+import type { SessionSeq } from '@deepseek-ai/dsh-session/types'
 
 /** Character-budget policy for deterministic tool-result pruning. */
 /* 确定性工具结果裁剪的字符预算策略；省略字段时使用实现默认值。 */
@@ -29,11 +35,9 @@ export interface ResolvedConfig {
 /* 一次已落地替换的来源事件引用和长度统计。 */
 export interface PrunedEntry {
   /** Full-fidelity tool-result event shadowed by the replacement. */
-  /* 被新事件遮蔽的完整工具结果事件序号。 */
-  readonly originalSeq: number
+  readonly originalSeq: SessionSeq
   /** Newly appended pruned tool-result event. */
-  /* 新追加的裁剪后工具结果事件序号。 */
-  readonly replacementSeq: number
+  readonly replacementSeq: SessionSeq
   /** Tool call shared by the original and replacement. */
   readonly callId: ToolCallId
   /** Original text size in Unicode code points. */

@@ -11,21 +11,12 @@
  */
 
 /*
- * ================================ 文件注释 ================================
- * 【文件职责】session-projcache 存储域的声明：一张按 SessionId 键控的 sessions 表，
- *   每条记录是一个会话的完整投影检查点（key → {ver, seq, val} 行）。
- * 【技术维度】defineDomain + domainTable 声明域的身份/版本/记录 schema；
- *   zod 在持久化边界强制 val 为纯 JSON（z.json()）。
- * 【产品维度】域路由决定介质（json 后端落在 <root>/session_projcache.json 旁）。
- * 【逻辑维度】按代码顺序：checkpointRow → checkpointIdentity → CheckpointIdentity →
- *   checkpointRecord → CheckpointRecord → projectionCacheDomainSpec。
- * 【关键边界】域版本 3：版本升级会丢弃整个介质（缓存语义：旧缓存只贵在回放，不会错）。
- * 【新手阅读建议】理解"行可过期不可错"与"身份绑定"两个概念即可。
- * ==========================================================================
+ * 【文件职责】声明投影缓存领域及其 sessions 表，每条记录保存单个会话所有投影键的版本、水位和值。
  */
 
 import { z } from 'zod'
-import type { SessionId } from '@deepseek-ai/dsh-session'
+import { SessionLogOffset, SessionSeq } from '@deepseek-ai/dsh-session'
+import type { SessionId, SessionSeqCursor } from '@deepseek-ai/dsh-session'
 import { defineDomain, domainTable } from '@deepseek-ai/dsh-storage-domain'
 
 /**
@@ -38,7 +29,8 @@ import { defineDomain, domainTable } from '@deepseek-ai/dsh-storage-domain'
  */
 export const checkpointRow = z.object({
   ver: z.number().int().nonnegative(),
-  seq: z.number().int().gte(-1),
+  seq: z.number().int().gte(-1).transform((value): SessionSeqCursor =>
+    value === -1 ? -1 : SessionSeq(value)),
   val: z.json(),
 })
 
@@ -50,10 +42,20 @@ export const checkpointRow = z.object({
  * old record pass every watermark check and seed state folded from an
  * unrelated log. Reads validate this against the live header (listing) or
  * the stored header (cold read) before accepting any record.
+ *
+ * The format and lineage fields are optional because records admitted through
+ * `compatibleVersions` predate them. The reader (`identityMatches`) refuses an
+ * absent format generation because no current Session log can prove that
+ * record's fold semantics. It interprets absent lineage as unseeded only after
+ * the format generation matches. Current-version writes always store all three
+ * fields.
  */
 export const checkpointIdentity = z.object({
+  formatVersion: z.number().int().nonnegative().optional(),
   createdAt: z.number().int().nonnegative(),
   cwd: z.string().optional(),
+  isSeeded: z.boolean().optional(),
+  inheritedEventCount: z.number().int().nonnegative().transform(SessionLogOffset).optional(),
 })
 
 /** The identity fields a record is bound to, inferred from {@link checkpointIdentity}. */
@@ -78,11 +80,30 @@ export type CheckpointRecord = z.infer<typeof checkpointRecord>
  * bumps per session: after a bump, a stale session document is discarded on
  * open (cache semantics — a stale or unreadable cache costs a longer tail
  * replay, never a wrong value) while the rest of the domain stays usable,
- * instead of rejecting the whole medium.
+ * instead of rejecting the whole medium. The `compatibleVersions` entries
+ * keep structurally valid predecessor records available for a later current
+ * checkpoint rewrite. Records without `formatVersion` remain unusable as fold
+ * shortcuts because they cannot prove which Session event semantics produced
+ * their rows; the per-record version map and disposition live in the read-compat Agent Note
+ * (.agents/notes/implemented/architecture/2026-09-02-projcache-cross-version-read-compat.md).
+ * The per-row `ver` guard and the identity match still discard anything the
+ * current fold semantics cannot vouch for.
+ *
+ * A lifecycle-matching predecessor may still expose its version-compatible
+ * title through the cache service's listing-only hint; this never relaxes the
+ * format requirement for hydration or another fold shortcut.
+ *
+ * `invalidRecords: 'backup-and-skip'`: a stored record that fails the schema
+ * anyway is disposable derived data, so it must never cost the boot — the
+ * domain layer moves the document aside as `<key>.json.bak.<stamp>`, logs
+ * the concrete validation failure, and serves the session as uncached (a
+ * cold read rebuilds and rewrites it).
  */
 export const projectionCacheDomainSpec = defineDomain({
   name: 'session_projcache',
-  version: 4,
+  version: 7,
+  compatibleVersions: [3, 4, 5, 6],
+  invalidRecords: 'backup-and-skip',
   layout: 'per-record',
   tables: { sessions: domainTable<SessionId, CheckpointRecord>(checkpointRecord) },
 })

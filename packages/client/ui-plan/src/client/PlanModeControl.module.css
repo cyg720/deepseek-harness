@@ -1,12 +1,12 @@
 /* Active plan status follows Figma's warn-state pill. */
-/* 文件职责：定义计划模式激活状态的胶囊按钮、关闭图标和错误文字样式。
- * 技术维度：使用 CSS Modules、Flexbox、警告状态设计令牌和焦点伪类。
- * 产品维度：让用户清楚看到计划模式正在生效，并可通过键盘或指针退出。
- * 逻辑维度：wrap 排列内容，chip 表示状态与操作，close 承载图标，error 展示失败反馈。
- * 关键边界：禁用态只改变视觉与指针；组件必须设置 disabled 并处理退出失败。
- * 新手阅读建议：先比较 chip 的默认、hover、focus、disabled 四种状态，再看辅助元素。 */
+
 
 /* wrap：水平排列计划状态控件及其相邻内容。 */
+
+/*
+ * 【文件职责】定义计划模式状态标签和操作区域，以警告色层级区分活动模式。
+ */
+
 .wrap {
   display: inline-flex;
   align-items: center;
@@ -22,6 +22,7 @@
   padding: 2px 8px;
   border: none;
   border-radius: 999px;
+  corner-shape: round;
   background: var(--dsw-alias-state-warn-tertiary);
   color: var(--dsw-alias-state-warn-label);
   font-size: 13px;

@@ -2,13 +2,9 @@
  * Package-owned strict Schedule stream invariant.
  * @module @deepseek-ai/dsh-schedule/invariant
  */
+
 /*
- * 文件职责：注册日程事件流的不变量检查器，拒绝无法按日程领域规则重放的会话事件。
- * 技术维度：使用 Cordis 插件事件、会话重放和领域折叠函数实施运行时一致性校验。
- * 产品维度：防止损坏的日程记录进入会话，保证计划任务在恢复和继续执行时可信。
- * 逻辑维度：先验证已有与新建会话，再在 schedule/change 事件写入前验证候选事件流。
- * 关键边界：这里只拥有日程事件规则，非日程事件直接忽略，领域错误统一交给不变量服务报告。
- * 新手阅读建议：先理解 validate 如何调用 foldScheduleEvents，再看 install 在三个生命周期点复用它。
+ * 【文件职责】检查提醒事件流的严格领域规则，拒绝无法一致回放的持久提醒记录。
  */
 
 import type { Context } from '@deepseek-ai/cordis'
@@ -27,17 +23,9 @@ export const name = 'tool-schedule-invariant'
 export const inject = ['invariants']
 
 /** Validate a complete exact-session stream under its fork suffix policy. */
-/*
- * 按会话分叉后缀规则验证完整事件流。
- * @param events 待重放的会话事件。
- * @param seedLength 分叉种子部分的事件数量。
- * @param fail 向不变量服务报告失败的回调。
- * @returns 无返回值；验证失败时通过 fail 报告。
- * @example `validate(session.events, session.header.seedLength ?? 0, fail)`
- */
-function validate(events: readonly SessionEvent[], seedLength: number, fail: InvariantFailure): void {
+function validate(events: readonly SessionEvent[], fail: InvariantFailure): void {
   try {
-    foldScheduleEvents(events, seedLength)
+    foldScheduleEvents(events)
   } catch (error: unknown) {
     /* v8 ignore next -- foldScheduleEvents normalizes every rejected stream to ScheduleLogError. */
     /* foldScheduleEvents 会将所有被拒绝的事件流统一转换为 ScheduleLogError。 */
@@ -53,17 +41,17 @@ function validate(events: readonly SessionEvent[], seedLength: number, fail: Inv
 const install: InvariantInstaller = Object.assign((ctx: Context, fail: InvariantFailure) => {
   /** 遍历当前已加载的会话，确保启动时的历史记录有效。 */
   for (const session of ctx.sessions.list()) {
-    validate(session.events, session.header.seedLength ?? 0, fail)
+    validate(session.ownEvents(), fail)
   }
   ctx.on('session/created', (session) => {
-    validate(session.events, session.header.seedLength ?? 0, fail)
+    validate(session.ownEvents(), fail)
   }, { global: true })
   ctx.on('internal/dispatch', (_mode, eventName, args) => {
     if (eventName !== 'session/event') return
     /** 当前即将接收事件的会话及事件本体。 */
     const [session, event] = args as [Session, SessionEvent]
     if (event.type !== 'schedule/change') return
-    validate([...session.events, event], session.header.seedLength ?? 0, fail)
+    validate([...session.ownEvents(), event], fail)
   }, { global: true })
 }, { inject: ['sessions'] })
 /* jscpd:ignore-end */

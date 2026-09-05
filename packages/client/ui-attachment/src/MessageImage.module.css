@@ -1,10 +1,10 @@
-/* 文件职责：定义会话消息中图片画廊、缩略图、加载和失败状态的样式。
- * 技术维度：使用 CSS Module、弹性换行、data 属性变体、对象裁切和主题令牌。
- * 产品维度：让用户以整齐画廊查看附件，并能点击放大或重试失败图片。
- * 逻辑维度：gallery 管理排列，frame 管理图片容器，tile 固定缩略图，loading/error 展示状态。
- * 关键边界：tile 必须保持 64px 网格；普通图片最大宽度受父容器限制，失败项仍可点击。
- * 新手阅读建议：先看 gallery 对齐变体，再比较 frame 普通与 tile，最后看加载和错误状态。 */
+
 /* 可换行图片画廊；项目间距 10px，宽度不超过消息容器。 */
+
+/*
+ * 【文件职责】定义消息图片画廊、缩略图与对齐方式，图片裁切与点击框由不同元素承担。
+ */
+
 .gallery {
   display: flex;
   flex-wrap: wrap;
@@ -33,7 +33,7 @@
   min-height: 44px;
   padding: 0;
   overflow: hidden;
-  border: 1px solid var(--dsw-alias-border-l2-darkmode-thin);
+  border: 0.5px solid var(--dsw-alias-border-l2-darkmode-thin);
   border-radius: 16px;
   background: var(--dsw-alias-interactive-bg-hover);
   cursor: zoom-in;
@@ -67,7 +67,7 @@
 .error {
   max-width: 240px;
   padding: 10px 12px;
-  border: 1px solid var(--dsw-alias-border-l2-darkmode-thin);
+  border: 0.5px solid var(--dsw-alias-border-l2-darkmode-thin);
   border-radius: 10px;
   background: var(--dsw-alias-interactive-bg-hover-danger);
   cursor: pointer;

@@ -1,12 +1,12 @@
 /* Ongoing blue has no alias token (state-business-primary is the 500 step,
  * not this 450) — component-level var pinned to the static scale instead. */
-/* 文件职责：定义完成、警告、错误和进行中状态点的静态圆点与像素追逐动画。
- * 技术维度：使用 CSS Module、自定义属性、伪元素同色光晕、SVG fill 和离散关键帧。
- * 产品维度：用紧凑视觉信号表达任务状态，并让进行中状态具有易识别的动态反馈。
- * 逻辑维度：dot/matrix 共享进行中色；dot 用双层圆形表达静态状态，matrix/cell 用相位延迟动画表达进行中。
- * 关键边界：进行中蓝色固定到静态 450 色阶；每个 cell 的 delay 由组件内联设置，本文件只定义亮度周期。
- * 新手阅读建议：先比较 dot 的 before/after 两层，再看三种 data-state 颜色，最后阅读 matrix 动画。 */
+
 /* 静态圆点和动画矩阵共享的进行中色常量。 */
+
+/*
+ * 【文件职责】定义状态点及矩阵图形，运行中颜色与状态光晕使用对应设计色阶。
+ */
+
 .dot,
 .matrix {
   --dsh-state-ongoing: var(--dsw-static-deepseek-450);
@@ -27,6 +27,7 @@
   position: absolute;
   inset: 0;
   border-radius: 50%;
+  corner-shape: round;
   background: currentColor;
   opacity: 0.1;
 }
@@ -37,6 +38,7 @@
   position: absolute;
   inset: 20%;
   border-radius: 50%;
+  corner-shape: round;
   background: currentColor;
 }
 

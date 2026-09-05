@@ -1,3 +1,7 @@
+/*
+ * 【文件职责】定义工作区浏览侧栏的边缘留白、滚动条和窄栏控件布局。
+ */
+
 .root {
   /* 中文说明：自定义属性 --dsh-session-list-edge-inset 保存当前界面复用的样式值。 */
   --dsh-session-list-edge-inset: var(--dsh-sidebar-inline-padding);
@@ -26,6 +30,7 @@
   height: 28px;
   border: none;
   border-radius: 50%;
+  corner-shape: round;
   padding: 0;
   background: transparent;
   cursor: pointer;
@@ -142,6 +147,7 @@
   box-sizing: border-box;
   border: none;
   border-radius: 50%;
+  corner-shape: round;
   background: transparent;
   cursor: text;
   color: var(--dsw-alias-label-secondary);
@@ -158,7 +164,7 @@
   height: 30px;
   margin-inline: -2px;
   padding: 0 4px 0 0;
-  border: 1px solid var(--dsw-alias-border-l2);
+  border: 0.5px solid var(--dsw-alias-border-l4);
   border-radius: 10px;
   background: transparent;
   color: var(--dsw-alias-label-caption);
@@ -173,6 +179,7 @@
   height: 28px;
   border: none;
   border-radius: 50%;
+  corner-shape: round;
   padding: 0;
   background: transparent;
   cursor: pointer;
@@ -226,6 +233,7 @@
   height: 24px;
   border: none;
   border-radius: 50%;
+  corner-shape: round;
   padding: 0;
   background: transparent;
   cursor: pointer;
@@ -458,7 +466,7 @@
   width: 100%;
   height: 44px;
   padding: 7px 14px;
-  border: 1px solid var(--dsw-alias-border-l2);
+  border: 0.5px solid var(--dsw-alias-border-l4);
   border-radius: 22px;
   outline: none;
   background: transparent;

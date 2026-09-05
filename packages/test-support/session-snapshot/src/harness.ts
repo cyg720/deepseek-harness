@@ -47,6 +47,11 @@ import {
   type AgentUnderTest,
   type LaunchedAcpTestAgent,
 } from './launcher.ts'
+import { clearedProxyEnv } from '@deepseek-ai/dsh-http-proxy'
+import {
+  assertPersistedSessionVersion,
+  latestPersistedSessionPaths,
+} from './session-files.ts'
 import { captureWorkspaceSnapshot, type WorkspaceSnapshotEntry } from './workspace.ts'
 
 export type { AgentUnderTest } from './launcher.ts'
@@ -300,6 +305,12 @@ export async function runScenario(input: InputScript, opts: RunOptions): Promise
     })
     const env: NodeJS.ProcessEnv = {
       ...opts.env,
+      // A replay must not depend on the machine's network policy, the same reason it pins its home
+      // and sessions root. The harness honors the proxy environment, so a runner that exports one
+      // would send a scenario's fixture-server request to a proxy that cannot resolve the fixture
+      // host and record that proxy's error page as the expected output. `undefined` removes the
+      // name from the child rather than setting it empty.
+      ...clearedProxyEnv(),
       DSH_SNAPSHOT: opts.mode,
       DSH_SNAPSHOT_FILE: opts.fixtureFile,
       DSH_SNAPSHOT_SESSIONS_ROOT: sessionsRoot,
@@ -862,13 +873,14 @@ function latestOpenTurn(content: string): number | undefined {
 }
 
 /**
- * Harvest EVERY persisted `.jsonl` session log under a sessions root, parse each
+ * Harvest every latest-generation raw JSONL Session under a sessions root, parse each
  * header line, and return them ordered primary-first: the top-level session (no
  * `parentSession`) leads, then each subagent child by ascending `createdAt`.
  *
- * Snapshot configs select the JSONL backend's raw mode, which lays sessions
- * out as `<root>/<project>/<session-id>/session.jsonl`. Recursive collection
- * catches the primary and every child session. Returns `[]` if no log was
+ * Snapshot configs select the JSONL backend's raw mode, which lays each immutable
+ * generation beneath `<root>/<project>/<session-id>/`. Recursive collection
+ * chooses the numerically highest generation for the primary and every child.
+ * Returns `[]` if no log was
  * produced (a no-session scenario).
  */
 /** 中文说明：函数 harvestSessionLogs 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
@@ -882,12 +894,10 @@ async function harvestSessionLogs(root: string): Promise<HarvestedLog[]> {
   }
   /** 中文说明：变量 logs 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const logs: HarvestedLog[] = []
-  /** 中文说明：该循环依次处理事件或输出；循环变量仅在当前循环中有效。 */
-  for (const file of files) {
-    if (basename(file) !== 'session.jsonl') continue
-    /** 中文说明：变量 content 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
+  for (const file of latestPersistedSessionPaths(files)) {
     const content = await readFile(join(root, file), 'utf8')
-    /** 中文说明：函数值 firstLine 封装本模块的局部步骤；参数和返回值由右侧签名约束；示例见本模块调用。 */
+    assertPersistedSessionVersion(basename(file), content)
+    /* v8 ignore next -- the generation validator above rejects header-less content. */
     const firstLine = content.split('\n').find(line => line.trim().length > 0) ?? '{}'
     /** 中文说明：变量 header 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const header = JSON.parse(firstLine) as { id?: unknown; createdAt?: unknown; parentSession?: unknown }

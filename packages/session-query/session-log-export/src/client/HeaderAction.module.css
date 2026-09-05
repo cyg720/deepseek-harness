@@ -1,10 +1,10 @@
-/* 文件职责：定义会话日志导出标题栏按钮的基础、悬停、禁用和内容布局样式。
- * 技术维度：使用 CSS Modules、Flexbox、伪类和设计令牌实现胶囊形操作按钮。
- * 产品维度：为用户提供清晰的会话日志导出入口，并在处理中显示不可重复点击状态。
- * 逻辑维度：基础规则设置按钮盒模型，hover 提供反馈，disabled 表示等待，子元素规则稳定图标与文字。
- * 关键边界：禁用状态使用 wait 指针但不自动禁用事件；组件必须设置原生 disabled 属性。
- * 新手阅读建议：先看 sessionLogButton 基础规则，再比较 hover 与 disabled 的条件选择器。 */
+
 /* sessionLogButton：标题栏导出按钮的尺寸、排列、边框和文字基础样式。 */
+
+/*
+ * 【文件职责】定义会话日志下载按钮的交互及禁用状态，下载等待时保持按钮尺寸稳定。
+ */
+
 .sessionLogButton {
   display: inline-flex;
   align-items: center;
@@ -13,7 +13,7 @@
   height: 32px;
   padding: 6px 12px;
   gap: 4px;
-  border: 1px solid var(--dsw-alias-border-l2);
+  border: 0.5px solid var(--dsw-alias-border-l4);
   border-radius: 18px;
   color: var(--dsw-alias-label-primary);
   background: transparent;

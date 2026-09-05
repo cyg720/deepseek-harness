@@ -4,20 +4,7 @@
  */
 
 /*
- * ================================ 文件注释 ================================
- * 【文件职责】日志背书的会话标题服务：确定性回退标题、可选标题提供者契约与
- *   ctx.sessionTitle 服务本身（读取/重命名/刷新/自动生成调度）。
- * 【技术维度】Cordis Service；标题以 log-only session/title 事件持久化（last-wins 折叠）；
- *   自动生成由 user/message 事件排程、request/header 路由确定后启动（first-prompt 或
- *   all-prompts 节奏）；用户重命名钉住标题；提供者结果经校验与归一化后追加。
- * 【产品维度】会话列表/API 获得稳定、可恢复、可覆盖的会话标题。
- * 【逻辑维度】按代码顺序：类型与品牌 ID → 事件声明合并 → 内部状态类型 → SessionTitleService
- *   （get/rename/refresh/register + 事件驱动与提供者执行/校验/回退折叠）。
- * 【关键边界】标题事件 log-only（永不进模型面）；fallbackMaxBytes ≤ maxTitleBytes；
- *   自动生成只在"未钉住"时排程；服务销毁中止在途工作。
- * 【新手阅读建议】先读 foldSessionTitle 与 collectSessionTitleMessages 两个纯函数，
- *   再看 SessionTitleService 的自动生成状态机。
- * ==========================================================================
+ * 【文件职责】提供日志驱动的会话标题与确定性回退，并定义标题提供者的注册接口。
  */
 
 import { Context, FiberState, Service, type Fiber } from '@deepseek-ai/cordis'
@@ -32,6 +19,7 @@ import type {
   Session,
   SessionEvent,
 } from '@deepseek-ai/dsh-session'
+import { SessionSeq } from '@deepseek-ai/dsh-session'
 import type {} from '@deepseek-ai/dsh-session-projection'
 import type { ProjectionDefinition } from '@deepseek-ai/dsh-session-projection'
 import type {} from '@deepseek-ai/dsh-agent'
@@ -124,7 +112,7 @@ export interface SessionTitleProviderResult {
   /** Proposed title text. */
   readonly title: string
   /** Exact seqs from `request.messages` used by this result. */
-  readonly messageSeqs: readonly number[]
+  readonly messageSeqs: readonly SessionSeq[]
   /** Auxiliary LLM route, when generation used a model. */
   readonly model?: SessionTitleModelProvenance
 }
@@ -187,7 +175,7 @@ interface ProviderRegistration {
 interface PendingAutomaticWork {
   readonly registration: ProviderRegistration
   readonly revision: number
-  readonly throughSeq: number
+  readonly throughSeq: SessionSeq
 }
 
 /** Provider call currently allowed to commit for one session. */
@@ -229,14 +217,14 @@ function titleSnapshotFromState(state: TitleProjection): SessionTitleSnapshot {
 const EMPTY_TITLE_INPUT: TitleInputState = { first: null, count: 0, lastSeq: null }
 
 const sessionTitleUserMessageSchema: ZodType<SessionTitleUserMessage> = zod.object({
-  seq: zod.number().int().nonnegative(),
+  seq: zod.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER).transform(SessionSeq),
   text: zod.string(),
 }).strict()
 
 const titleInputStateSchema: ZodType<TitleInputState> = zod.object({
   first: sessionTitleUserMessageSchema.nullable(),
   count: zod.number().int().nonnegative(),
-  lastSeq: zod.number().int().nonnegative().nullable(),
+  lastSeq: zod.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER).transform(SessionSeq).nullable(),
 }).strict().superRefine((state, context) => {
   const empty = state.first === null && state.lastSeq === null && state.count === 0
   const populated = state.first !== null
@@ -262,7 +250,7 @@ const titleInputStateSchema: ZodType<TitleInputState> = zod.object({
  */
 function collectSessionTitleMessages(
   events: readonly SessionEvent[],
-  throughSeq?: number,
+  throughSeq?: SessionSeq,
 ): SessionTitleUserMessage[] {
   const messages: SessionTitleUserMessage[] = []
   for (const event of events) {
@@ -399,7 +387,7 @@ export class SessionTitleService extends Service {
    * @returns latest title snapshot, or `undefined` before eligible input.
    */
   get(session: Session): SessionTitleSnapshot | undefined {
-    return foldSessionTitle(session.events)
+    return foldSessionTitle(session.snapshotEvents())
   }
 
   /**
@@ -609,7 +597,7 @@ export class SessionTitleService extends Service {
       this.assertCurrent(session, work)
       await this.ensureFallback(session)
       this.assertCurrent(session, work)
-      const messages = collectSessionTitleMessages(session.events, work.throughSeq)
+      const messages = collectSessionTitleMessages(session.snapshotEvents(), work.throughSeq)
       const result = await work.registration.provider.generate({
         session,
         messages,
@@ -649,18 +637,19 @@ export class SessionTitleService extends Service {
     if (!Array.isArray(candidate.messageSeqs) || candidate.messageSeqs.length === 0) {
       throw new Error('session-title provider must identify at least one source message seq')
     }
-    const messageSeqs: number[] = []
+    const messageSeqs: SessionSeq[] = []
     const order = new Map(messages.map((message, index) => [message.seq, index]))
     let previous = -1
     for (const seq of candidate.messageSeqs as unknown[]) {
-      if (typeof seq !== 'number') {
+      if (typeof seq !== 'number' || !Number.isSafeInteger(seq) || seq < 0) {
         throw new Error('session-title provider messageSeqs must be unique, ordered seqs from the request')
       }
-      const index = order.get(seq)
-      if (!Number.isSafeInteger(seq) || seq < 0 || index === undefined || index <= previous) {
+      const sessionSeq = SessionSeq(seq)
+      const index = order.get(sessionSeq)
+      if (index === undefined || index <= previous) {
         throw new Error('session-title provider messageSeqs must be unique, ordered seqs from the request')
       }
-      messageSeqs.push(seq)
+      messageSeqs.push(sessionSeq)
       previous = index
     }
     const modelCandidate = candidate.model

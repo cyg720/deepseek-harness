@@ -7,12 +7,7 @@
  */
 
 /*
- * 文件职责：实现 host.ts 覆盖的工作流与 Worker Thread行为与生命周期。
- * 技术维度：使用 TypeScript、Vitest、Cordis 插件、Worker Thread、消息协议或领域实体。
- * 产品维度：保障 Agent 的工作流与 Worker Thread能力稳定、可隔离且可诊断。
- * 逻辑维度：准备配置和消息，建立运行环境，执行流程，再处理事件、错误与清理。
- * 关键边界：线程消息不可信；跨线程状态必须显式传递；终止时必须等待所拥有资源停止。
- * 新手阅读建议：先看协议和类型，再读 Host/Runtime 主流程，最后关注隔离、失败与清理。
+ * 【文件职责】管理单次工作流的主机生命周期，首个终局结果关闭消息准入，退出等待待启动与已发布子 Agent 全部清理。
  */
 
 import { tmpdir } from 'node:os'
@@ -38,7 +33,11 @@ interface ChildRecord {
 }
 
 /**
- * The scrubbed worker environment: no ambient credentials, no loader flags.
+ * The scrubbed worker environment: no ambient credentials, no loader flags, and deliberately no
+ * proxy policy. A worker thread does not inherit the host's global dispatcher, so a workflow's own
+ * requests go direct — the alternative is handing the worker a proxy URL that may carry
+ * `user:password`, and this worker executes the model-authored script body. That is the same
+ * containment the code runtime keeps, and `docs/defensive-patterns.md` requires it.
  * Windows derives `os.tmpdir()` from `TMP`/`TEMP` and falls back to the
  * literal relative path `undefined\temp` when the environment is empty, so
  * tsx's transform cache would land in a cwd-relative `undefined/temp`

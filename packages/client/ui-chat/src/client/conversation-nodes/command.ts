@@ -1,30 +1,16 @@
-/**
- * ================================ 文件注释 ================================
- * 【文件职责】斜杠命令生命周期状态机：command/run → command/done 组装命令行，并集成
- *             手动 /compact 命令的压缩事务（检查点 + 摘要），产出命令节点或
- *             manual-compaction 节点。
- * 【技术维度】ConversationNodeDefinition（target: 'chat'）；compactSource 识别压缩检查点
- *             来源；compactSummary 从生命周期证据构建可见摘要标记；updateCompactionState
- *             供自动压缩节点复用。
- * 【产品维度】消息流中的命令行展示名称、参数、结果状态；/compact 合并展示压缩摘要。
- * 【逻辑维度】1) 映射扩充；2) commandFromRun / commandFromDone；3) compactSource /
- *             compactSummary；4) fallbackState / updateCompactionState；5) 状态机；
- *             6) 注册函数。
- * 【关键边界】compact 命令特殊处理为 manual-compaction（checkpoint 缺失时 compaction
- *             为 null）；来源事件 seq 需安全整数校验。
- * 【新手阅读建议】先看 compactSource 如何从 user/message 来源识别压缩检查点。
- * ==========================================================================
+/*
+ * 【文件职责】将普通斜杠命令和手动压缩命令的生命周期装配为 Chat 节点。
  */
+
 import type { Context } from '@deepseek-ai/cordis'
 import type {
-  ConversationMatch, ConversationNodeContext, ConversationNodeDefinition,
+  CommandNode, CompactionSummaryNode, ConversationMatch, ConversationNodeContext, ConversationNodeDefinition,
 } from '@deepseek-ai/dsh-client-ui-conversation/client'
 import type { CompactionCheckpointSource } from '@deepseek-ai/dsh-compaction/checkpoint'
 import type {} from '@deepseek-ai/dsh-compaction/types'
 import type {} from '@deepseek-ai/dsh-commands/types'
 import { isReplacementSurfaceEvent } from '@deepseek-ai/dsh-session/surface'
 import type { ManualCompactionChatData } from '../contract/chat-nodes.ts'
-import type { CommandNode, CompactionSummaryNode } from '../contract/snapshot.ts'
 import { chatNode } from './common.ts'
 
 declare module '../contract/chat-nodes.ts' {

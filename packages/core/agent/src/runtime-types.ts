@@ -1,14 +1,4 @@
-/*
- * ================================ 文件注释 ================================
- * 【文件职责】dsh-agent 的公共类型面：Agent 接口、创建/恢复选项、生命周期事件与扩展点事件的完整声明，是智能体能力的“契约文件”。
- * 【技术维度】纯类型模块（含 declare module 合并）；Agent 接口描述能力，事件通过 Scoped<Agent> 限定作用域；扩展点用 waterfall/serial/emit 三种模式标注。
- * 【产品维度】任何想“给 agent 加行为”的插件都在这份契约上接线：拦步骤（pre-step）、换模型（request）、处理失败（request-error）、监听生命周期。
- * 【逻辑维度】AgentOptions/CancelOptions 等基础类型 → Agent 接口（cancel/whenIdle/runMaintenance/send/followup/steer/inject）
- * → Cordis Events 合并（生命周期 + 扩展点 + 错误通知）。
- * 【关键边界】模型可见输入必须走已记录通道；scope 过滤要求事件带 agent 载体；turn/step 的持久化事实归 dsh-session 管，本文件只定义 live 运行时事件。
- * 【新手阅读建议】先通读 Agent 接口的六个方法，再看 Events 合并区：@mode 标注（emit/serial/waterfall）决定监听器写法，waterfall 监听器必须调用 next()。
- * ==========================================================================
- */
+
 /**
  * Public agent types and live-runtime events. Durable transcript facts and
  * turn/step boundaries remain `@deepseek-ai/dsh-session` events.
@@ -16,10 +6,17 @@
  * @module @deepseek-ai/dsh-agent
  */
 
+/*
+ * 【文件职责】声明 Agent 运行时接口与实时事件；
+ * 需要回放的对话、轮次和步骤事实属于 Session 事件。
+ */
+
 import type { Context } from '@deepseek-ai/cordis'
 import type { Scoped } from '@deepseek-ai/dsh-scope'
-import type { LlmCallConfig, LlmFailure, ReasoningEffortId, ResolvedRetryPolicy } from '@deepseek-ai/dsh-llm'
-import type { AgentCancelCause, Session, UserMessage } from '@deepseek-ai/dsh-session'
+import type {
+  LlmAttemptId, LlmCallConfig, LlmFailure, ReasoningEffortId, ResolvedRetryPolicy, StreamChunk,
+} from '@deepseek-ai/dsh-llm'
+import type { AgentCancelCause, Session, SessionSeq, UserMessage } from '@deepseek-ai/dsh-session'
 export type { AgentCancelCause } from '@deepseek-ai/dsh-session'
 import type { Inbox } from './inbox.ts'
 import type { Agent } from './types.ts'
@@ -90,6 +87,42 @@ export type RequestErrorAction = { kind: 'retry' } | undefined
 /** Why a session lifecycle began; seeded creates are `startup`, while persisted loads are `resume`. */
 // 会话生命周期起点：新建为 startup，恢复持久化会话为 resume，还有 clear/compact 两种维护性起点。
 export type SessionStartSource = 'startup' | 'resume' | 'clear' | 'compact'
+
+/** One process-local live assistant streaming publication. */
+export type AssistantStreamFrame =
+  | {
+    readonly type: 'start'
+    readonly attemptId: LlmAttemptId
+    /** Monotone within one attached Agent lifecycle; replacement restarts at 1. */
+    readonly revision: number
+    readonly turn: number
+    readonly step: number
+  }
+  | {
+    readonly type: 'chunk'
+    readonly attemptId: LlmAttemptId
+    readonly revision: number
+    /** Dense zero-based position within the attempt. */
+    readonly index: number
+    /** Safe-integer timestamp reused by the durable embedded stream. */
+    readonly time: number
+    readonly chunk: StreamChunk
+  }
+  | {
+    readonly type: 'end'
+    readonly attemptId: LlmAttemptId
+    readonly revision: number
+    /** Number of chunk frames emitted by this attempt. */
+    readonly index: number
+    /** Durable settlement committed before this notification, or live abandonment without one. */
+    readonly outcome:
+      | {
+        readonly kind: 'committed'
+        readonly eventType: 'assistant/message' | 'assistant/attempt'
+        readonly seq: SessionSeq
+      }
+      | { readonly kind: 'abandoned' }
+  }
 
 declare module './types.ts' {
   interface Agent {
@@ -298,6 +331,16 @@ declare module '@deepseek-ai/cordis' {
      */
     // agent/request-error：请求失败恢复瀑布。返回 { kind: 'retry' }（不调 next）自己接管重试；调 next() 委托；默认 undefined 即失败终局。
     'agent/request-error'(this: Scoped<Agent>, payload: { agent: Agent; turn: number; step: number; provider: string; failure: LlmFailure; retryPolicy: ResolvedRetryPolicy | undefined; signal: AbortSignal }, next: () => Promise<RequestErrorAction>): Promise<RequestErrorAction>
+    /**
+     * Process-local assistant-stream publication. Chunk frames are transient;
+     * the loop appends one final v2 `assistant/message` or `assistant/attempt`
+     * with the same stream before a committed end frame.
+     * @param payload.agent - the agent whose attempt produced the frame.
+     * @param payload.frame - one ordered start, chunk, or end publication.
+     * Scope-filtered dispatch (`@deepseek-ai/dsh-scope`): agent-scoped listeners receive only that agent.
+     * @mode emit
+     */
+    'agent/assistant-stream'(this: Scoped<Agent>, payload: { agent: Agent; frame: AssistantStreamFrame }): void
     /**
      * The turn is about to close: the model owes no response (no live tool
      * calls, no fresh steering). Awaited before the boundary commits — a

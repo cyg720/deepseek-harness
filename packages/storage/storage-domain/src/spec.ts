@@ -8,6 +8,10 @@
  * @module @deepseek-ai/dsh-storage-domain/src/spec
  */
 
+/*
+ * 【文件职责】以单个领域声明集中定义身份、布局和记录 schema，使静态类型与运行时验证从同一来源派生。
+ */
+
 import type { ZodType } from 'zod'
 import { UNIT_NAME_RE, type KvUnitDescriptor } from '@deepseek-ai/dsh-storage'
 
@@ -54,17 +58,36 @@ export interface DomainSpec {
   /** Domain name; must match `UNIT_NAME_RE` (doubles as the backend unit name). */
   /* 领域名；必须匹配 UNIT_NAME_RE（该正则约束也决定了它可作后端单元名，即介质上的存储单元名）。 */
   readonly name: string
-  /** Domain format version; a medium stamped with a different version rejects at open. */
-  /* 领域格式版本；介质上盖的版本戳与之不同时，打开介质会被拒绝（防止读到不兼容的旧格式）。 */
+  /** Current domain format version; reads enforce it according to the selected layout. */
   readonly version: number
   /**
    * Medium layout for the backend unit: `single` (the default) stores the
    * whole unit as one document; `per-record` stores each record as its own
    * document, for units whose records are large, sparse, or individually
-   * disposable — the projection cache — and scopes version bumps per record
-   * (a stale record document is discarded, never migrated).
+   * disposable — the projection cache — and scopes version checks per record
+   * (an unaccepted record document is discarded, never migrated).
    */
   readonly layout?: 'single' | 'per-record'
+  /**
+   * Older domain versions whose stored records the current record schemas
+   * also accept (the declaring owner vouches for that, typically by
+   * declaring the fields older records lack as optional). `per-record` backends
+   * read documents stamped with a listed version instead of discarding them,
+   * and accept a legacy whole-unit file so stamped for the one-time
+   * bootstrap; writes always stamp {@link version}.
+   */
+  readonly compatibleVersions?: readonly number[]
+  /**
+   * What `open` does with a stored table record that fails its zod schema.
+   * Absent (the default), the whole open rejects with `invalid-record` —
+   * right for authoritative data. `'backup-and-skip'` is for domains whose
+   * records are disposable derived data: the backend moves the record's
+   * document aside (`KvUnit.backupRecord`), the failure is logged with
+   * its cause, and the open continues with the record absent. A backend
+   * without `backupRecord` (no per-record document to move) falls back
+   * to the rejecting default. The global slot always rejects.
+   */
+  readonly invalidRecords?: 'backup-and-skip'
   /** Optional global singleton slot. */
   /* 可选的全局单例槽位；不声明就没有 global。 */
   readonly global?: DomainGlobalSpec<unknown>
@@ -138,12 +161,25 @@ export function defineDomain<S extends DomainSpec>(spec: S): S {
   if (!Number.isInteger(spec.version) || spec.version < 0) {
     throw new Error(`domain '${spec.name}' version must be a non-negative integer, got ${spec.version}`)
   }
+  for (const compat of spec.compatibleVersions ?? []) {
+    if (!Number.isInteger(compat) || compat < 0 || compat >= spec.version) {
+      throw new Error(
+        `domain '${spec.name}' compatibleVersions entries must be non-negative integers below version ${spec.version}, got ${compat}`,
+      )
+    }
+  }
   if (spec.layout !== undefined) {
     // Runtime boundary: the union type is compile-time only — a spec built
     // from config could carry any value, and a bad one must fail loud here.
     const layout: string = spec.layout
     if (layout !== 'single' && layout !== 'per-record') {
       throw new Error(`domain '${spec.name}' layout must be 'single' or 'per-record', got ${layout}`)
+    }
+  }
+  if (spec.invalidRecords !== undefined) {
+    const policy: string = spec.invalidRecords
+    if (policy !== 'backup-and-skip') {
+      throw new Error(`domain '${spec.name}' invalidRecords must be 'backup-and-skip' when present, got ${policy}`)
     }
   }
   for (const table of Object.keys(spec.tables)) {
@@ -178,5 +214,6 @@ export function descriptorOf(spec: DomainSpec): KvUnitDescriptor {
     tables: Object.keys(spec.tables),
     hasGlobal: spec.global !== undefined,
     ...spec.layout === undefined ? {} : { layout: spec.layout },
+    ...spec.compatibleVersions === undefined ? {} : { compatibleVersions: spec.compatibleVersions },
   }
 }

@@ -1,20 +1,19 @@
-/**
- * 文件职责：实现附件界面的 ComposerAttachments 组件。
- * 技术维度：React、TypeScript、Cordis 插槽和 CSS Modules。
- * 产品维度：向用户展示并操作附件相关状态。
- * 逻辑维度：读取属性与状态，派生展示数据并响应交互。
- * 关键边界：异步状态、可访问性标签和空数据分支必须保持一致。
- * 新手阅读建议：先读 Props，再看局部状态、effect 和 JSX。
+/*
+ * 【文件职责】呈现草稿图片、待上传文件和拖放目标；
+ * 回调保留浏览器拥有的原始附件身份。
  */
+
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type {
-  ComposerAttachment, ComposerAttachmentsProps,
+  ComposerAttachment, ComposerAttachmentsProps, ComposerImageAttachment,
 } from '@deepseek-ai/dsh-client-ui-conversation/client'
+import { IconCloseFill14 } from '@deepseek-ai/dsh-client-ui-primitives'
 import { AttachmentRail } from '../AttachmentRail.tsx'
 import type { AttachmentRailItem } from '../AttachmentRail.tsx'
 import { DropOverlay } from '../DropOverlay.tsx'
+import { FileCard } from '../FileCard.tsx'
 import { ImageLightbox } from '../ImageLightbox.tsx'
-import { attachmentRailLabels, dropOverlayLabels, lightboxLabels } from './labels.ts'
+import { attachmentRailLabels, dropOverlayLabels, fileCardLabels, lightboxLabels } from './labels.ts'
 import css from './ComposerAttachments.module.css'
 
 /** Rail item retaining its browser-owned attachment for callbacks. */
@@ -23,20 +22,16 @@ interface ComposerRailItem extends AttachmentRailItem {
   attachment: ComposerAttachment
 }
 
-/** Draft-image rail, document drop target, and original-image preview slot entry. */
-/* 中文说明：函数 ComposerAttachments 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
+/** Draft image previews, pending-file cards, drop target, and original-image preview. */
 export function ComposerAttachments({
-  attachments, canAcceptDrop, onAddImages, onRemoveImage, dropLimits, t,
+  attachments, canAcceptDrop, onAddFiles, onRemoveAttachment, uploads, onRetryFile, dropLimits, t,
 }: ComposerAttachmentsProps) {
-  /** 中文说明：当前组件的局部值 [preview, setPreview]，由紧邻初始化决定。 */
-  const [preview, setPreview] = useState<ComposerAttachment | null>(null)
-  /** 中文说明：当前组件的局部值 [dragActive, setDragActive]，由紧邻初始化决定。 */
+  const [preview, setPreview] = useState<ComposerImageAttachment | null>(null)
   const [dragActive, setDragActive] = useState(false)
   /** 中文说明：当前组件的局部值 dragDepth，由紧邻初始化决定。 */
   const dragDepth = useRef(0)
   /** 中文说明：当前组件的局部值 closePreview，由紧邻初始化决定。 */
   const closePreview = useCallback(() => { setPreview(null) }, [])
-
   useEffect(() => {
     if (preview !== null && !attachments.some(attachment => attachment.id === preview.id)) setPreview(null)
   }, [attachments, preview])
@@ -86,7 +81,7 @@ export function ComposerAttachments({
       if (dataTransfer === null) return
       event.preventDefault()
       reset()
-      if (canAcceptDrop) onAddImages([...dataTransfer.files])
+      if (canAcceptDrop) onAddFiles([...dataTransfer.files])
     }
     document.addEventListener('dragenter', onDragEnter)
     document.addEventListener('dragover', onDragOver)
@@ -100,16 +95,13 @@ export function ComposerAttachments({
       document.removeEventListener('drop', onDrop)
       window.removeEventListener('dragend', reset)
     }
-  }, [canAcceptDrop, onAddImages])
+  }, [canAcceptDrop, onAddFiles])
 
   /** 中文说明：当前组件的局部值 railItems，由紧邻初始化决定。 */
   const railItems = useMemo<ComposerRailItem[]>(() => attachments.map(attachment => ({
     id: attachment.id,
-    previewUrl: attachment.previewUrl,
-    alt: attachment.file.name || t('image.pending'),
-    removeLabel: t('image.remove', { name: attachment.file.name }),
     attachment,
-  })), [attachments, t])
+  })), [attachments])
 
   return (
     <>
@@ -124,8 +116,47 @@ export function ComposerAttachments({
           <AttachmentRail
             items={railItems}
             labels={attachmentRailLabels(t)}
-            onOpen={(item) => { setPreview(item.attachment) }}
-            onRemove={(item) => { onRemoveImage(item.attachment.id) }}
+            renderItem={(item) => {
+              const attachment = item.attachment
+              if (attachment.kind === 'file') {
+                const upload = uploads[attachment.id]
+                return (
+                  <FileCard
+                    name={attachment.file.name || t('file.label')}
+                    bytes={attachment.file.size}
+                    state={upload === undefined || upload.status === 'uploading'
+                      ? 'uploading'
+                      : upload.status === 'ready' ? 'ready' : 'error'}
+                    {...upload?.status === 'uploading' && upload.total !== undefined && upload.total > 0
+                      ? { progress: upload.loaded / upload.total }
+                      : {}}
+                    labels={fileCardLabels(t, attachment.file.name)}
+                    onRemove={() => { onRemoveAttachment(attachment.id) }}
+                    onRetry={() => { onRetryFile(attachment.id) }}
+                  />
+                )
+              }
+              return (
+                <div className={css.imageItem}>
+                  <button
+                    type="button"
+                    className={css.thumbnail}
+                    title={t('image.openOriginal')}
+                    onClick={() => { setPreview(attachment) }}
+                  >
+                    <img src={attachment.previewUrl} alt={attachment.file.name || t('image.pending')} />
+                  </button>
+                  <button
+                    type="button"
+                    className={css.remove}
+                    aria-label={t('image.remove', { name: attachment.file.name })}
+                    onClick={() => { onRemoveAttachment(attachment.id) }}
+                  >
+                    <IconCloseFill14 size={12} />
+                  </button>
+                </div>
+              )
+            }}
           />
         </div>
       )}

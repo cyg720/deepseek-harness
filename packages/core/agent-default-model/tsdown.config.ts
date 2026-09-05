@@ -21,15 +21,4 @@ export default defineConfig([
     dts: false,
     clean: false,
   },
-  // 不变量入口：默认模型关系的可选检查模块。
-  {
-    entry: ['lib/types/invariant.js'],
-    outDir: 'lib',
-    format: ['esm'],
-    platform: 'node',
-    target: 'es2024',
-    fixedExtension: false,
-    dts: false,
-    clean: false,
-  },
 ])

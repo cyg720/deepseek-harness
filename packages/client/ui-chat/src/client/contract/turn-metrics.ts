@@ -1,19 +1,14 @@
-/**
- * ================================ 文件注释 ================================
- * 【文件职责】回合级延迟 / 吞吐折叠：为已定格回合的页脚与统计行提供 TTFT 与解码吞吐。
- * 【技术维度】纯函数投影；按 assistant 节点折叠（TTFT 取回合内最小 step 的读数，
- *            吞吐 = 输出 token 总和 ÷ 解码墙钟总和，只统计两者都有的 step）。
- * 【产品维度】每条消息下的"首 token x秒 · y tok/s"数据，让用户感知模型响应速度。
- * 【逻辑维度】1) TurnMetrics / StepReading 数据结构；2) usage 提取；3) 单步读取；
- *             4) 回合折叠与汇总。
- * 【关键边界】TTFT 仅在窗口包含回合起点时才有意义（调用方用 turnTimings 把关）；
- *             无读数或吞吐无效的回合不进结果。
- * 【新手阅读建议】先看 assistantStepReading 的读取，再看 deriveTurnMetrics 的折叠。
- * ==========================================================================
- */
+
 // Latency/throughput folds shared by the settled turn footer and StatsLine.
 
-import type { AssistantMessageNode, ConversationNode } from './snapshot.ts'
+/*
+ * 【文件职责】声明轮次页脚使用的延迟和解码吞吐指标；
+ * 未记录的计时保持缺失状态。
+ */
+
+import type {
+  AssistantMessageNode, ConversationNode,
+} from '@deepseek-ai/dsh-client-ui-conversation/client'
 
 /** Latency and decode-throughput readings for one turn's footer. */
 // 一个回合页脚的延迟与解码吞吐读数。

@@ -1,28 +1,15 @@
-/**
- * ================================ 文件注释 ================================
- * 【文件职责】轨迹目标下"assistant 步骤生命周期"状态机：累积流式块（文本 / 推理 / 工具
- *             调用 / 用量），在步骤结束时产出最终 assistant 节点与请求（含 TTFT、用量、
- *             重试信息），并处理中断与回合结束事件。
- * 【技术维度】ConversationNodeDefinition 状态机（match / start / update / publication /
- *             buildViewNode）；按 chunk 类型增量更新块数组；publication 控制流式发布
- *             频率（usage/finish 不发布、其余按 animation-frame）。
- * 【产品维度】轨迹中每条 assistant 回复展示流式内容、首 token 时间、token 用量与
- *             重试 / 中断状态。
- * 【逻辑维度】1) 状态与工具接口；2) updateChunk 按块类型累积；3) closedBoundary /
- *             fallbackState / finalNode / assistantRequest 组装；4) 状态机定义；
- *             5) 回合结束状态机；6) 注册函数。
- * 【关键边界】块数组按 chunk.index 定位；firstVisibleSeq / firstTokenTime 只记首次；
- *             llm/retry 会重置状态但保留首 token 时间与用量。
- * 【新手阅读建议】先看 updateChunk 对五种 chunk 的处理，再看 finalNode 的两种收尾路径。
- * ==========================================================================
+/*
+ * 【文件职责】注册轨迹目标自己的助手流、完成记录和请求生命周期 Definition。
  */
+
 import type { Context } from '@deepseek-ai/cordis'
-import type { ChunkRowEvent } from '@deepseek-ai/dsh-api-session-controller/types'
 import type {
   AssistantBlock, AssistantMessageNode, ConversationLocation,
   ConversationMatch, ConversationNodeContext, ConversationNodeDefinition,
   PartialAssistant, RequestView,
 } from '@deepseek-ai/dsh-client-ui-conversation/client'
+import type { StreamChunk } from '@deepseek-ai/dsh-llm'
+import { expandAssistantStream } from '@deepseek-ai/dsh-llm/assistant-stream'
 import { trajectoryNode } from './trajectory-definition-common.ts'
 import {
   displayFailure, emptyAssistantBlock, isTokenDelta, toAssistantBlock, toAssistantBlocks,
@@ -67,12 +54,6 @@ interface AssistantState {
   readonly usage: UsageValue | undefined
   readonly retry: RetryValue | undefined
   readonly stepEnd: ConversationMatch | undefined
-}
-
-function isChunkRunEvent(event: ConversationMatch['event']): event is ChunkRowEvent {
-  return event.type === 'chunkrow/text-chunks'
-    || event.type === 'chunkrow/reasoning-chunks'
-    || event.type === 'chunkrow/tool-call-chunks'
 }
 
 function initialState(
@@ -140,9 +121,12 @@ function addUsage(current: UsageValue | undefined, next: UsageValue): UsageValue
   }
 }
 
-function updateChunk(state: AssistantState, match: ConversationMatch): AssistantState {
-  if (match.event.type !== 'assistant/chunk') return state
-  const chunk = match.event.data.chunk
+function updateChunk(
+  state: AssistantState,
+  chunk: StreamChunk,
+  seq: number,
+  time: number,
+): AssistantState {
   if (chunk.type === 'usage') {
     return { ...state, sawChunk: true, usage: addUsage(state.usage, chunk.usage) }
   }
@@ -207,94 +191,23 @@ function updateChunk(state: AssistantState, match: ConversationMatch): Assistant
     blocks,
     visibleBlocks,
     ...(visibleBlocks > 0 && state.firstVisibleSeq === undefined
-      ? { firstVisibleSeq: match.event.seq, firstVisibleTime: match.event.time }
+      ? { firstVisibleSeq: seq, firstVisibleTime: time }
       : {}),
     ...(isTokenDelta(chunk) && state.firstTokenTime === undefined
-      ? { firstTokenTime: match.event.time }
+      ? { firstTokenTime: time }
       : {}),
   }
 }
 
-interface ChunkRunBoundaries {
-  readonly firstTokenTime: number | undefined
-  readonly firstVisible: { readonly seq: number; readonly time: number } | undefined
-}
-
-function chunkRunBoundaries(
-  event: ChunkRowEvent,
-  needsToken: boolean,
-  needsVisible: boolean,
-  visibleFromStart: boolean,
-): ChunkRunBoundaries {
-  const fragments = event.type === 'chunkrow/tool-call-chunks' ? event.data.args : event.data.texts
-  const nameStartsToken = event.type === 'chunkrow/tool-call-chunks'
-    && Object.hasOwn(event.data, 'name')
-  let firstTokenTime: number | undefined
-  let firstVisible: ChunkRunBoundaries['firstVisible']
-  let time = event.time
-  for (let index = 0; index < fragments.length; index++) {
-    const fragment = fragments[index] as string
-    if (needsToken && firstTokenTime === undefined && (nameStartsToken || fragment !== '')) {
-      firstTokenTime = time
-    }
-    if (needsVisible && firstVisible === undefined
-      && (visibleFromStart
-        || (event.type !== 'chunkrow/tool-call-chunks' && fragment.trim() !== ''))) {
-      firstVisible = { seq: event.seq + index, time }
-    }
-    if ((!needsToken || firstTokenTime !== undefined)
-      && (!needsVisible || firstVisible !== undefined)) break
-    time += event.data.dt[index] ?? 0
+function updateEmbedded(
+  state: AssistantState,
+  event: Extract<ConversationMatch['event'], { type: 'assistant/message' | 'assistant/attempt' }>,
+): AssistantState {
+  let next = state
+  for (const member of expandAssistantStream(event.data.stream)) {
+    next = updateChunk(next, member.chunk, event.seq, member.time)
   }
-  return { firstTokenTime, firstVisible }
-}
-
-function updateChunkRun(state: AssistantState, event: ChunkRowEvent): AssistantState {
-  const blocks = [...state.blocks]
-  const previous = blocks[event.data.index]
-  const previousVisible = blockIsVisible(previous)
-  let visibleFromStart = state.visibleBlocks - Number(previousVisible) > 0
-  if (event.type === 'chunkrow/text-chunks') {
-    const text = previous?.kind === 'text' ? previous.text : ''
-    visibleFromStart ||= text.trim() !== ''
-    blocks[event.data.index] = { kind: 'text', text: text + event.data.texts.join('') }
-  } else if (event.type === 'chunkrow/reasoning-chunks') {
-    const text = previous?.kind === 'reasoning' ? previous.text : ''
-    visibleFromStart ||= text.trim() !== ''
-    blocks[event.data.index] = { kind: 'reasoning', text: text + event.data.texts.join('') }
-  } else {
-    const base = previous?.kind === 'tool-call'
-      ? previous
-      : { kind: 'tool-call' as const, callId: '', name: '', argsRaw: '' }
-    blocks[event.data.index] = {
-      kind: 'tool-call',
-      callId: base.callId || String(event.data.id),
-      name: Object.hasOwn(event.data, 'name') ? event.data.name as string : base.name,
-      argsRaw: base.argsRaw + event.data.args.join(''),
-    }
-  }
-  const boundaries = chunkRunBoundaries(
-    event,
-    state.firstTokenTime === undefined,
-    state.firstVisibleSeq === undefined,
-    visibleFromStart,
-  )
-  const visibleBlocks = state.visibleBlocks
-    - Number(previousVisible)
-    + Number(blockIsVisible(blocks[event.data.index]))
-  return {
-    ...state,
-    sawChunk: true,
-    blocks,
-    visibleBlocks,
-    ...(boundaries.firstVisible === undefined ? {} : {
-      firstVisibleSeq: boundaries.firstVisible.seq,
-      firstVisibleTime: boundaries.firstVisible.time,
-    }),
-    ...(boundaries.firstTokenTime === undefined ? {} : {
-      firstTokenTime: boundaries.firstTokenTime,
-    }),
-  }
+  return next
 }
 
 function closedBoundary(
@@ -312,23 +225,14 @@ function closedBoundary(
 function fallbackState(context: ConversationNodeContext<AssistantState>): AssistantState | undefined {
   let state: AssistantState | undefined
   for (const match of context.matches) {
-    if (isChunkRunEvent(match.event)) {
-      state ??= initialState(
-        match.event.data.turn,
-        match.event.data.step,
-        match.event.seq,
-        match.event.time,
-        false,
-      )
-      state = updateChunkRun(state, match.event)
-      continue
-    }
     const event = match.event
-    if (event.type === 'assistant/chunk') {
+    if (event.type === 'assistant/live-chunk') {
       state ??= initialState(event.data.turn, event.data.step, event.seq, event.time, false)
-      state = updateChunk(state, match)
-    } else if (event.type === 'assistant/message') {
+      state = updateChunk(state, event.data.chunk, event.seq, event.time)
+    } else if (event.type === 'assistant/message' || event.type === 'assistant/attempt') {
       state ??= initialState(event.data.turn, event.data.step, event.seq, event.time, false)
+      state = updateEmbedded(state, event)
+      if (event.type === 'assistant/attempt') continue
       const blocks = toAssistantBlocks(event.data.message.content)
       state = {
         ...state,
@@ -434,13 +338,11 @@ const trajectoryAssistantDefinition: ConversationNodeDefinition<AssistantState> 
     if (event.type === 'step/start') {
       return { id: `${event.data.turn}:${event.data.step}`, role: 'start' }
     }
-    if (event.type === 'assistant/chunk'
+    if (event.type === 'assistant/live-chunk'
       || event.type === 'assistant/message'
+      || event.type === 'assistant/attempt'
       || event.type === 'llm/retry'
       || event.type === 'step/end') {
-      return { id: `${event.data.turn}:${event.data.step}`, role: 'update' }
-    }
-    if (isChunkRunEvent(event)) {
       return { id: `${event.data.turn}:${event.data.step}`, role: 'update' }
     }
     return null
@@ -458,16 +360,19 @@ const trajectoryAssistantDefinition: ConversationNodeDefinition<AssistantState> 
     )
   },
   update: (context, match) => {
-    if (isChunkRunEvent(match.event)) return updateChunkRun(context.state, match.event)
-    if (match.event.type === 'assistant/chunk') return updateChunk(context.state, match)
+    if (match.event.type === 'assistant/live-chunk') {
+      return updateChunk(context.state, match.event.data.chunk, match.event.seq, match.event.time)
+    }
+    if (match.event.type === 'assistant/attempt') return updateEmbedded(context.state, match.event)
     if (match.event.type === 'assistant/message') {
+      const streamed = updateEmbedded(context.state, match.event)
       const blocks = toAssistantBlocks(match.event.data.message.content)
       return {
-        ...context.state,
+        ...streamed,
         blocks,
         visibleBlocks: countVisibleBlocks(blocks),
         final: match,
-        usage: context.state.usage ?? match.event.data.usage,
+        usage: streamed.usage ?? match.event.data.usage,
       }
     }
     if (match.event.type === 'step/end') return { ...context.state, stepEnd: match }
@@ -495,8 +400,7 @@ const trajectoryAssistantDefinition: ConversationNodeDefinition<AssistantState> 
   },
   publication: (match) => {
     if (match.event.type === 'step/start') return 'none'
-    if (isChunkRunEvent(match.event)) return 'animation-frame'
-    if (match.event.type !== 'assistant/chunk') return 'immediate'
+    if (match.event.type !== 'assistant/live-chunk') return 'immediate'
     const type = match.event.data.chunk.type
     return type === 'usage' || type === 'finish' ? 'none' : 'animation-frame'
   },

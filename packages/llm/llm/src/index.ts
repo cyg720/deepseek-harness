@@ -7,24 +7,7 @@
  */
 
 /*
- * ================================ 文件注释 ================================
- * 【文件职责】dsh-llm 包的入口与核心：实现 LLM 服务（LlmRuntime）——适配器
- * 注册表 + 可被瀑布流拦截的流式调用 API，并导出抽象适配器基类 LlmAdapter、
- * 块组装器 BlockAssembler 及全部公共类型。
- * 【技术维度】基于 vendored Cordis：LlmRuntime 继承 Service，注册通过
- * ctx.effect 登记（disposer 机制）；llm/stream 是 waterfall（瀑布流）事件，
- * 监听器可短路或拦截每个流式调用；注册表变更发布 llm/adapters-updated 事件。
- * 【产品维度】这是 harness 与所有 LLM provider 打交道的唯一入口：上层（agent
- * loop）只需调用 ctx.llm.stream/prepareCall，插件可在瀑布流上做重试、回放、
- * 路由等横切；对 provider 的自定义支持通过注册新适配器实现。
- * 【逻辑维度】错误与凭据 → 预备调用类型 → LlmAdapter 抽象 → 注册句柄 →
- * LlmRuntime（注册/替换/发现/解析/分发/流式）→ 结尾辅助与内部注册结构。
- * 【关键边界】"模型可见 ⟺ 已记录"：loop 构建的请求深冻结、只读；适配器边界
- * 的失败被规范化为终结性 finish 块；回放状态只在同一适配器实例同时拥有历史
- * 与目标 provider 时保留；prepareCall 的一次性分发音同一次适配器世代。
- * 【新手阅读建议】建议顺序：LlmRuntime 类（registerAdapter → stream →
- * adapterStream）→ LlmAdapter 抽象类 → PreparedLlmCall → 事件声明。
- * ==========================================================================
+ * 【文件职责】提供 LLM 适配器注册和可被 waterfall 拦截的流式调用入口，统一导出块装配器及提供者基类。
  */
 
 import { Context } from '@deepseek-ai/cordis'
@@ -53,7 +36,10 @@ import type { LlmCallConfig, LlmCallConfigAdapterDefaults } from './call-config.
 import { HarnessError, INVALID_CREDENTIAL_CODE } from './error.ts'
 import { normalizeLlmFailure } from './adapter-failure.ts'
 import { normalizeApiKey } from './api-key.ts'
-import { contentHasImage, projectImagesForTextModel } from './content.ts'
+import {
+  contentHasFile, contentHasImage, fileHandleText, projectFilesToText, projectImagesForTextModel,
+} from './content.ts'
+import type { FileAttachmentRef } from '@deepseek-ai/dsh-attachment'
 
 export * from './attribution.ts'
 export * from './brand.ts'
@@ -61,6 +47,7 @@ export * from './error.ts'
 export * from './api-key.ts'
 export * from './types.ts'
 export * from './content.ts'
+export * from './assistant-stream.ts'
 export * from './message.ts'
 export * from './retry-policy.ts'
 export { BlockAssembler } from './assembler.ts'
@@ -681,6 +668,16 @@ export class LlmRuntime extends TypertRemoteService {
     return this.adapters.get(provider)?.adapter.imageRequestPricing(provider, model)
   }
 
+  /**
+   * Resolve the exact text one durable file occurrence contributes to every
+   * provider request in the current execution environment.
+   * @param ref - durable verbatim file reference from model history.
+   * @returns the same deterministic handle text used at adapter dispatch.
+   */
+  fileRequestText(ref: FileAttachmentRef): string {
+    return fileHandleText(ref, this.fileReadPath(ref))
+  }
+
   /** Detach typed adapter-owned modality metadata. */
   private detachedModalities(modalities: readonly ModelModality[] | undefined): ModelModality[] | undefined {
     return modalities === undefined ? undefined : [...modalities]
@@ -978,6 +975,26 @@ export class LlmRuntime extends TypertRemoteService {
   }
 
   /**
+   * Resolve the current execution-world read path of one durable file
+   * reference through the mounted attachment and filesystem providers.
+   */
+  private fileReadPath(ref: FileAttachmentRef): string | undefined {
+    let hostPath: string | undefined
+    try {
+      hostPath = this.ctx.get('attachments')?.fileHostPath(ref)
+    } catch {
+      // A malformed durable reference degrades this occurrence to the no-path
+      // handle instead of failing every later request over the same log.
+      return undefined
+    }
+    if (hostPath === undefined) return undefined
+    // Structural face: dsh-llm cannot depend on the filesystem package, and
+    // only this one mapping method is consumed.
+    const fs = this.ctx.get('fs') as { processPathFromHostPath(hostPath: string): string | undefined } | undefined
+    return fs?.processPathFromHostPath(hostPath)
+  }
+
+  /**
    * Final adapter boundary. Adapter selection, dispatch, iterator construction,
    * and iteration failures become one terminal failure chunk. Middleware and
    * downstream consumer failures remain thrown plugin or consumer errors.
@@ -1014,13 +1031,21 @@ export class LlmRuntime extends TypertRemoteService {
         : Object.isFrozen(options)
           ? deepFreeze({ ...options, ...resolvedConfig })
           : { ...options, ...resolvedConfig }
-      const projectedOptions = modelInfo.inputModalities !== undefined
+      // Files are never dispatched natively: every route receives handle text.
+      let projectedMessages: readonly Message[] = resolvedOptions.messages
+      if (projectedMessages.some(message => contentHasFile(message.content))) {
+        projectedMessages = projectFilesToText(projectedMessages, ref => this.fileReadPath(ref))
+      }
+      if (modelInfo.inputModalities !== undefined
         && !modelInfo.inputModalities.includes('image')
-        && resolvedOptions.messages.some(message => contentHasImage(message.content))
-        ? Object.isFrozen(resolvedOptions)
-          ? deepFreeze({ ...resolvedOptions, messages: projectImagesForTextModel(resolvedOptions.messages) as Message[] })
-          : { ...resolvedOptions, messages: projectImagesForTextModel(resolvedOptions.messages) as Message[] }
-        : resolvedOptions
+        && projectedMessages.some(message => contentHasImage(message.content))) {
+        projectedMessages = projectImagesForTextModel(projectedMessages)
+      }
+      const projectedOptions = projectedMessages === resolvedOptions.messages
+        ? resolvedOptions
+        : Object.isFrozen(resolvedOptions)
+          ? deepFreeze({ ...resolvedOptions, messages: projectedMessages as Message[] })
+          : { ...resolvedOptions, messages: projectedMessages as Message[] }
       const stream = dispatch(this.forAdapter(projectedOptions, adapter))
       iterator = stream[Symbol.asyncIterator]()
     } catch (error: unknown) {

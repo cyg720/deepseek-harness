@@ -1,14 +1,11 @@
 /* Figma font-weight 510 (an SF Pro variable-font weight) always renders as
    font-weight: 500 in this UI — non-variable webfonts snap intermediate
    weights unpredictably across platforms. */
-/**
- * 文件职责：定义 design-platform 的样式与设计变量。
- * 技术维度：CSS、CSS Modules、主题变量和浏览器滚动条选择器。
- * 产品维度：保持主题与设计系统在不同主题和平台下清晰一致。
- * 逻辑维度：按变量、容器、内容、交互和状态组织规则。
- * 关键边界：全局样式影响整个应用；局部类名须与组件同步。
- * 新手阅读建议：先看变量层，再对照组件和状态选择器。
+
+/*
+ * 【文件职责】定义全局设计色阶和语义主题变量，为组件提供统一颜色与排版来源。
  */
+
 body {
   /* 中文说明：自定义属性 --dsw-static-amber-100 保存主题或组件复用的样式值。 */
   --dsw-static-amber-100: rgb(254, 245, 231);
@@ -414,7 +411,7 @@ body {
   --dsw-alias-label-secondary: var(--dsw-static-neutral-bluish-700);
   /* 中文说明：自定义属性 --dsw-alias-label-tertiary 保存主题或组件复用的样式值。 */
   --dsw-alias-label-tertiary: var(--dsw-static-neutral-bluish-600);
-  /* 中文说明：自定义属性 --dsw-alias-markdown-citation 保存主题或组件复用的样式值。 */
+  --dsw-alias-link: var(--dsw-static-deepseek-500);
   --dsw-alias-markdown-citation: var(--dsw-static-neutral-bluish-100);
   /* 中文说明：自定义属性 --dsw-alias-markdown-code-block-banner 保存主题或组件复用的样式值。 */
   --dsw-alias-markdown-code-block-banner: var(--dsw-static-neutral-bluish-50);
@@ -424,9 +421,7 @@ body {
   --dsw-alias-markdown-code-segment-selected: var(--dsw-static-neutral-bluish-00);
   /* 中文说明：自定义属性 --dsw-alias-markdown-code-segment-unselected 保存主题或组件复用的样式值。 */
   --dsw-alias-markdown-code-segment-unselected: var(--dsw-static-neutral-bluish-75);
-  /* 中文说明：自定义属性 --dsw-alias-markdown-inline-code 保存主题或组件复用的样式值。 */
-  --dsw-alias-markdown-inline-code: var(--dsw-static-neutral-bluish-100);
-  /* 中文说明：自定义属性 --dsw-alias-markdown-placeholder 保存主题或组件复用的样式值。 */
+  --dsw-alias-markdown-inline-code: var(--dsw-static-neutral-50);
   --dsw-alias-markdown-placeholder: var(--dsw-static-neutral-bluish-60);
   /* 中文说明：自定义属性 --dsw-alias-markdown-tag 保存主题或组件复用的样式值。 */
   --dsw-alias-markdown-tag: var(--dsw-static-neutral-bluish-75);
@@ -595,7 +590,7 @@ body[data-ds-dark-theme] {
   --dsw-alias-label-secondary: var(--dsw-static-neutral-bluish-300);
   /* 中文说明：自定义属性 --dsw-alias-label-tertiary 保存主题或组件复用的样式值。 */
   --dsw-alias-label-tertiary: var(--dsw-static-neutral-bluish-400);
-  /* 中文说明：自定义属性 --dsw-alias-markdown-citation 保存主题或组件复用的样式值。 */
+  --dsw-alias-link: var(--dsw-static-deepseek-400);
   --dsw-alias-markdown-citation: var(--dsw-static-neutral-bluish-800);
   /* 中文说明：自定义属性 --dsw-alias-markdown-code-block-banner 保存主题或组件复用的样式值。 */
   --dsw-alias-markdown-code-block-banner: var(--dsw-static-neutral-bluish-850);
@@ -605,9 +600,7 @@ body[data-ds-dark-theme] {
   --dsw-alias-markdown-code-segment-selected: var(--dsw-static-neutral-bluish-800);
   /* 中文说明：自定义属性 --dsw-alias-markdown-code-segment-unselected 保存主题或组件复用的样式值。 */
   --dsw-alias-markdown-code-segment-unselected: var(--dsw-static-neutral-bluish-900);
-  /* 中文说明：自定义属性 --dsw-alias-markdown-inline-code 保存主题或组件复用的样式值。 */
-  --dsw-alias-markdown-inline-code: var(--dsw-static-neutral-bluish-850);
-  /* 中文说明：自定义属性 --dsw-alias-markdown-placeholder 保存主题或组件复用的样式值。 */
+  --dsw-alias-markdown-inline-code: var(--dsw-static-neutral-800);
   --dsw-alias-markdown-placeholder: var(--dsw-static-neutral-bluish-850);
   /* 中文说明：自定义属性 --dsw-alias-markdown-tag 保存主题或组件复用的样式值。 */
   --dsw-alias-markdown-tag: var(--dsw-static-neutral-bluish-850);

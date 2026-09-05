@@ -2,19 +2,25 @@
  * Display projection of reference forms in sent user text (bubble and queue
  * rows). The logged model text remains the single truth; this is presentation
  * only, and every part renders inline so a single-line message never breaks
- * across lines. Three decoration sources, by precedence: the wire session form
+ * across lines. Four decoration sources, by precedence: the wire session form
  * `@[label](dsh-session:...)` folds to its label; exact session labels
- * supplied by an adjacent recall decorate their bare `@label` mention; and
- * plain `/name` / `@name` word-boundary tokens decorate by shape alone (sent
- * tokens were validated at compose time).
- * @remarks 文件说明：文件职责：实现 client/ui-primitives 中 user text 模块的职责，
- * 并向相邻模块提供可复用能力。；技术维度：主要使用TypeScript、React 与项目的插件化客户端组件体系，
- * 通过当前文件中的类型、函数与数据结构完成实现。；产品维度：支撑 DeepSeek Harness 的 client/ui-primitives
- * 能力，使上层功能能够稳定组合和扩展。；逻辑维度：建议按“依赖与类型定义 → 常量和状态 → 核心函数或类 → 导出或注册入口”的顺序理解。；
- * 关键边界：调用方必须遵守类型、生命周期和错误处理约定；涉及外部输入、异步任务或资源释放时需特别关注异常分支。；
- * 新手阅读建议：先确认导入依赖和公开导出，再沿主要函数调用链阅读，最后结合相邻测试理解输入、输出与边界条件。
+ * supplied by an adjacent recall decorate their bare `@label` mention; plain
+ * `@name` word-boundary tokens decorate by shape alone; and a plain `/name`
+ * token decorates only when the caller names it — a skill the host actually
+ * loaded for that message (ui-chat reads the step's `skill-invocation`
+ * injections) or the command a command-input bubble echoes — so `/123` or a
+ * stray `/word` stays plain text. A `/name` token is whitespace-bounded like
+ * the host skill gesture (`dsh-tool-skill`): it ends at whitespace or the
+ * text end, so slash paths (`/nfs-hg/xxx`, `/plan.md`) and punctuation-glued
+ * tokens (`/plan。`) stay plain even for a loaded name.
  */
+
+/*
+ * 【文件职责】把已发送用户文本中的会话引用、提及和已知命令呈现为行内装饰，日志中的模型原文保持权威。
+ */
+
 import type { ReactNode } from 'react'
+import clsx from 'clsx'
 import { ReferenceIcon } from './ReferenceIcon.tsx'
 import css from './user-text.module.css'
 
@@ -22,6 +28,9 @@ import css from './user-text.module.css'
  * @remarks 中文说明：常量说明：SESSION_WIRE_RE 用于处理 SESSION_WIRE_RE 相关数据，作用于当前作用域；
  * 初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。 */
 const SESSION_WIRE_RE = /@\[([^\]\n]+)\]\(dsh-session:[^)\s]+\)/gu
+
+/** Sentence punctuation a bare `@name` token may carry without being part of the reference. */
+const TRAILING_PUNCTUATION_RE = /[.,;:!?，。；：！？]+$/u
 
 interface DecorationRange {
   readonly start: number
@@ -37,6 +46,10 @@ interface DecorationRange {
  * Split one sent text into inline plain runs and reference chips.
  * @param text - the logged model text of the message or queue row.
  * @param sessionLabels - exact session mention labels associated by an adjacent recall.
+ * @param slashNames - names a `/name` token may decorate as: the skills the
+ * host loaded for this message, or the command a command bubble echoes
+ * (unsent queue rows pass none).
+ * @param slashKind - the chip kind those tokens render as.
  * @returns inline nodes covering the whole text.
  * @remarks 中文说明：功能说明：处理 projectUserText 相关流程；使用场景由所在模块及调用位置决定。；
  * 参数说明：text（string）：提供本次调用所需的数据；必须满足声明的类型及调用时序要求。；
@@ -44,10 +57,12 @@ interface DecorationRange {
  * 返回值：ReactNode；调用方应按声明类型处理，不应假定未声明的附加状态。；使用示例：典型用法：在完成前置校验后调用
  * projectUserText(text, sessionLabels)，并按返回类型处理结果。
  */
-export function projectUserText(text: string, sessionLabels: readonly string[]): ReactNode {
-  /**
-   * 常量说明：ranges 用于处理 ranges 相关数据，作用于当前作用域；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。
-   */
+export function projectUserText(
+  text: string,
+  sessionLabels: readonly string[],
+  slashNames: readonly string[] = [],
+  slashKind: 'skill' | 'command' = 'skill',
+): ReactNode {
   const ranges: DecorationRange[] = []
   SESSION_WIRE_RE.lastIndex = 0
   /**
@@ -86,13 +101,9 @@ export function projectUserText(text: string, sessionLabels: readonly string[]):
       start = text.indexOf(label, start + label.length)
     }
   }
-  /**
-   * 常量说明：re 用于处理 re 相关数据，作用于当前作用域；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。
-   */
-  const re = /(^|\s)(\/[\w-]+|@"[^"\n]+"|@[^\s]+)/gu
-  /**
-   * 变量说明：m 用于处理 m 相关数据，作用于当前作用域；其值可能随流程推进而变化，读写时需遵守声明类型和所在生命周期。
-   */
+  // A `/` token ends at whitespace or the text end like the host skill
+  // gesture; only `@` tokens shed sentence punctuation below.
+  const re = /(^|\s)(\/[\w-]+(?=\s|$)|@"[^"\n]+"|@[^\s]+)/gu
   let m: RegExpExecArray | null
   while ((m = re.exec(text)) !== null) {
     /**
@@ -109,8 +120,9 @@ export function projectUserText(text: string, sessionLabels: readonly string[]):
      */
     const label = rawLabel.startsWith('@"')
       ? rawLabel
-      : rawLabel.replace(/[.,;:!?，。；：！？]+$/gu, '')
+      : rawLabel.replace(TRAILING_PUNCTUATION_RE, '')
     if (label.length <= 1) continue
+    if (label.startsWith('/') && !slashNames.includes(label.slice(1))) continue
     ranges.push({ start: tokenStart, end: tokenStart + label.length, label, kind: 'plain' })
   }
   /**
@@ -180,8 +192,8 @@ export function projectUserText(text: string, sessionLabels: readonly string[]):
     parts.push(
       <span
         key={tokenStart}
-        className={css.refChip}
-        data-ref-chip={referenceKind ?? 'skill'}
+        className={clsx(css.refChip, referenceKind === undefined && css.slashChip)}
+        data-ref-chip={referenceKind ?? slashKind}
         title={label}
       >
         {referenceKind !== undefined && (

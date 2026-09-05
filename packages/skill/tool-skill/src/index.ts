@@ -1,23 +1,13 @@
-/*
- * ================================ 文件注释 ================================
- * 【文件职责】本文件是 dsh-tool-skill 包：提供可持久化的会话技能目录（catalog）与面向模型
- *             的 skill 加载工具，同时支持用户以 /name 手势直接唤起技能。
- * 【技术维度】defineTool 定义 skill 工具；两个 agent/pre-step 瀑布监听器分别处理"用户手势
- *             注入"与"目录发布/更新"；目录作为 catalog 形式上下文写入会话，保证可回放。
- * 【产品维度】模型在动手前可加载技能全文照做；用户在消息里输入 /name 可强制加载指定技能；
- *             目录随技能集合变化自动重发替换版，避免模型用过期技能名。
- * 【逻辑维度】目录源类型与事件声明 → 工具定义 → 用户手势注入监听器 → 目录发布监听器 →
- *             渲染/摘要/手势匹配等纯函数。
- * 【关键边界】只有 source.kind 为 user 的消息才能触发手势；目录只在"本插件注册的工具恰好
- *             可见"时才发布；加载结果与目录条目都做摘要长度归一化与校验。
- * 【新手阅读建议】先读 apply() 里的两个监听器（手势注入、目录发布），再读
- *             invokedSkillNames 与 digestCatalogEntries 理解匹配与去重。
- * ==========================================================================
- */
+
 /**
  * Durable session skill catalog and model-facing `skill` loader tool.
  *
  * @module @deepseek-ai/dsh-tool-skill
+ */
+
+/*
+ * 【文件职责】持久化会话技能目录并提供 skill 工具；
+ * 展示目录的消费者读取结构记录，不能重新解析模型提示文本。
  */
 
 import { createHash } from 'node:crypto'
@@ -26,7 +16,7 @@ import z from '@deepseek-ai/schemastery'
 import type { Agent, PreStepDecision } from '@deepseek-ai/dsh-agent'
 import { defineTool } from '@deepseek-ai/dsh-tools'
 import { createUserMessage } from '@deepseek-ai/dsh-llm'
-import type { UserMessage } from '@deepseek-ai/dsh-session'
+import { SessionSeq, type UserMessage } from '@deepseek-ai/dsh-session'
 import {
   escapeText,
   isModelInvocable,
@@ -392,7 +382,7 @@ function digestCatalogEntries(entries: SkillCatalogSource['entries']): string {
  * Entries of one durable catalog message, or undefined when the record is not a
  * usable catalog.
  *
- * `agent.session.events` may be a resumed, forked, or externally written seed,
+ * `agent.session.snapshotEvents()` may contain a resumed, forked, or externally written seed,
  * and seed validation only guarantees a source object with a non-empty `kind`;
  * no per-kind field is checked there. An unreadable record is therefore treated
  * as "not this plugin's catalog" — the posture the replaced content digest had —
@@ -420,13 +410,12 @@ function readCatalogEntries(source: unknown): SkillCatalogSource['entries'] | un
 // 从代理会话历史中找目录：返回"模型当前可见的目录摘要"与"是否曾发布过目录"。
 function catalogHistory(agent: Agent): { visibleDigest?: string; published: boolean } {
   const visible = new Set(agent.session.surface.nodes)
-  const events = agent.session.events
   let published = false
-  for (let index = events.length - 1; index >= 0; index -= 1) {
-    // The loop bounds prove the read-only event view contains this index.
-    // 循环边界保证只读事件视图包含该下标。
-    // oxlint-disable-next-line typescript/no-non-null-assertion
-    const event = events[index]!
+  for (let index = agent.session.seq - 1; index >= 0; index -= 1) {
+    const event = agent.session.eventAt(SessionSeq(index))
+    if (event === undefined) {
+      throw new Error(`skill catalog cannot read seq ${String(index)} below the current Session length`)
+    }
     if (event.type !== 'user/message' || event.data.source.kind !== 'skill-catalog') continue
     const entries = readCatalogEntries(event.data.source)
     if (entries === undefined) continue

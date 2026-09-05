@@ -17,27 +17,20 @@
  */
 
 /*
- * ================================ 文件注释 ================================
- * 【文件职责】持久化投影缓存服务（ctx.sessionProjectionCache）：把每个客户端可见或显式
- *   持久化投影单元的状态按会话写入耐用存储（session_projcache 域），并提供冷读梯子。
- * 【技术维度】Cordis Service + storage-domain 的 KvTable；写后置（write-behind）节流
- *   （count/interval 两触发器）+ 两个强制写点（turn/end、会话 detach）；冷读走
- *   "缓存行 → 持久化 readFrom 尾 → 注册表 restore → 写回"的梯子。
- * 【产品维度】让"离线/冷"会话的投影无需全日志加载即可读取：行可能过期但绝不错误
- *   （seq 说明过期程度，ver 不匹配直接废弃而非迁移）。
- * 【逻辑维度】按代码顺序：Config → DirtyState → SessionProjectionCache（init/recordFor/
- *   cachedSnapshot/write/coldSnapshot/installWritePath/flushSoft/markClean/put/putSoft）→
- *   identityOf/identityMatches。
- * 【关键边界】所有耐用写都是 fail-soft（丢失只导致下次冷读更长尾回放）；记录绑定日志身份
- *   （createdAt+cwd），同 ID 不同生命周期不串味。
- * 【新手阅读建议】先看 write 的"先 flush 后落行"耐久屏障，再看 coldSnapshot 的梯子与回退。
- * ==========================================================================
+ * 【文件职责】持久化各会话投影单元的检查点；
+ * 领域存储先完成耐久写入再更新内存，读写共享一致状态。
  */
 
 import { Context, Service } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
 import { snapshotJsonValue } from '@deepseek-ai/dsh-util-values'
-import type { Session, SessionEvent, SessionHeader, SessionId } from '@deepseek-ai/dsh-session'
+import { SessionLogOffset } from '@deepseek-ai/dsh-session'
+import type {
+  Session,
+  SessionEvent,
+  SessionHeader,
+  SessionId,
+} from '@deepseek-ai/dsh-session'
 import type {
   ProjectionCheckpoint,
   ProjectionSnapshot,
@@ -46,6 +39,15 @@ import type {
 import type { KvTable } from '@deepseek-ai/dsh-storage-domain'
 import { projectionCacheDomainSpec } from './spec.ts'
 import type { CheckpointIdentity, CheckpointRecord } from './spec.ts'
+
+/** Complete identity written by the current cache generation. */
+type CurrentCheckpointIdentity = CheckpointIdentity & {
+  formatVersion: number
+  isSeeded: boolean
+  inheritedEventCount: SessionLogOffset
+}
+
+const PREDECESSOR_TITLE_KEY = 'title' as Extract<keyof SessionProjectionMap, string>
 
 export { checkpointIdentity, checkpointRecord, checkpointRow, projectionCacheDomainSpec } from './spec.ts'
 export type { CheckpointIdentity, CheckpointRecord } from './spec.ts'
@@ -124,7 +126,7 @@ export class SessionProjectionCache extends Service {
    * @param expected - the log identity the caller holds (live or stored header).
    * @returns the identity-matching record, or `undefined` (absent or unrelated).
    */
-  private recordFor(id: SessionId, expected: CheckpointIdentity): CheckpointRecord | undefined {
+  private recordFor(id: SessionId, expected: CurrentCheckpointIdentity): CheckpointRecord | undefined {
     const record = this.requireTable().get(id)
     if (record === undefined) return undefined
     return identityMatches(record.identity, expected) ? record : undefined
@@ -139,23 +141,67 @@ export class SessionProjectionCache extends Service {
    * paths (the history tail baseline) supersede these values whenever a
    * session is actually opened.
    * @param meta - the listed session's header (identity witness; no log read).
+   * @param inheritedEventCount - exact inherited prefix length that completes
+   * the checkpoint identity.
    * @param keys - optional projection keys required by the caller's audience.
    * @returns the cut (`asOfSeq` = lowest served-row watermark), or
    *   `undefined` when no usable row exists for this lifecycle.
    */
   cachedSnapshot(
     meta: SessionHeader,
+    inheritedEventCount: SessionLogOffset,
     keys?: readonly Extract<keyof SessionProjectionMap, string>[],
   ): ProjectionSnapshot | undefined {
-    const record = this.recordFor(meta.id, identityOf(meta))
+    const record = this.recordFor(meta.id, identityOf(meta, inheritedEventCount))
     if (record === undefined) return undefined
+    return this.viewRecord(record, keys)
+  }
+
+  /**
+   * Read only a predecessor checkpoint's title as a zero-I/O listing hint.
+   *
+   * The authoritative Session header supplies the lifecycle identity. A cache
+   * checkpoint can lag that log but cannot lead it because writes flush the
+   * log first, so a matching predecessor title is a genuine (possibly stale)
+   * fact from this Session. The registry still requires the current title
+   * projection's row version and schema. No other predecessor projection is
+   * exposed: format normalization can change their current meaning, and the
+   * strict {@link cachedSnapshot} / hydration paths continue to reject them.
+   * @param meta - authoritative listed Session header.
+   * @param inheritedEventCount - exact inherited cut completing the lifecycle identity.
+   * @returns a title-only checkpoint view with `asOfSeq: -1`, or `undefined`
+   *   when the record is current, newer, unrelated, missing, or incompatible
+   *   with the title unit. The sentinel avoids reusing a sequence that a
+   *   cardinality-changing Session migration may have remapped.
+   */
+  cachedPredecessorTitle(
+    meta: SessionHeader,
+    inheritedEventCount: SessionLogOffset,
+  ): ProjectionSnapshot | undefined {
+    const expected = identityOf(meta, inheritedEventCount)
+    const record = this.requireTable().get(meta.id)
+    if (record === undefined || !predecessorIdentityMatches(record.identity, expected)) return undefined
+    const title = this.viewRecord(record, [PREDECESSOR_TITLE_KEY])
+    return title === undefined ? undefined : { ...title, asOfSeq: -1 }
+  }
+
+  /** View selected wire rows and bind them to their lowest served watermark. */
+  private viewRecord(
+    record: CheckpointRecord,
+    keys?: readonly Extract<keyof SessionProjectionMap, string>[],
+  ): ProjectionSnapshot | undefined {
     const values = this.ctx.sessionProjections.viewCheckpoint(record.rows, keys)
     const servedKeys = Object.keys(values)
     if (servedKeys.length === 0) return undefined
     // The block carries ONE cut: the lowest served watermark is the seq every
     // value is at least current as of (under-claiming is safe under
     // higher-seq-wins; over-claiming would let a stale value outrank pushes).
-    const asOfSeq = Math.min(...servedKeys.map(key => (record.rows[key] as { seq: number }).seq))
+    const firstKey = servedKeys[0] as string
+    let asOfSeq = (record.rows[firstKey] as ProjectionCheckpoint[string]).seq
+    for (const key of servedKeys.slice(1)) {
+      const row = record.rows[key] as ProjectionCheckpoint[string]
+      if (row.seq < asOfSeq) asOfSeq = row.seq
+    }
     return { asOfSeq, values }
   }
 
@@ -165,25 +211,31 @@ export class SessionProjectionCache extends Service {
    * advances every unit to the observation cut. No checkpoint is written
    * because the logical observation may contain recovery events not yet durable.
    * @param session - exact unpublished Session retained by persistence.
-   * @param meta - observed lifecycle header.
    * @param events - exact logical event prefix represented by the observation.
    * @returns all projection values at the event cut.
    */
   hydratePrepared(
     session: Session,
-    meta: SessionHeader,
     events: readonly SessionEvent[],
   ): ProjectionSnapshot {
-    const record = this.recordFor(meta.id, identityOf(meta))
+    const record = this.recordFor(
+      session.id,
+      identityOf(session.header, session.inheritedEventCount),
+    )
     if (record === undefined) {
-      return this.ctx.sessionProjections.hydrate(session, {}, events, 0)
+      return this.ctx.sessionProjections.hydrate(session, {}, events, SessionLogOffset(0))
     }
     try {
-      return this.ctx.sessionProjections.hydrate(session, record.rows, events, 0)
+      return this.ctx.sessionProjections.hydrate(
+        session,
+        record.rows,
+        events,
+        SessionLogOffset(0),
+      )
     } catch {
       // Cached rows are disposable derived data. Retry from the exact log so a
       // stale schema cannot make a valid Session unreadable.
-      return this.ctx.sessionProjections.hydrate(session, {}, events, 0)
+      return this.ctx.sessionProjections.hydrate(session, {}, events, SessionLogOffset(0))
     }
   }
 
@@ -207,7 +259,11 @@ export class SessionProjectionCache extends Service {
     // already gone; persistence's own retirement drain covers that path and
     // any residual overreach is caught by the cold read's anchored floor.
     if (this.ctx.sessions.get(session.id) === session) await this.ctx.sessions.flush(session)
-    await this.put(session.id, identityOf(session.header), rows)
+    await this.put(
+      session.id,
+      identityOf(session.header, session.inheritedEventCount),
+      rows,
+    )
   }
 
   /**
@@ -219,14 +275,26 @@ export class SessionProjectionCache extends Service {
    * The caller supplies the complete log in seq order: this service never
    * consults the persistence layer.
    * @param meta - the stored session header (identity witness).
+   * @param inheritedEventCount - exact inherited prefix length for projection initialization and identity.
    * @param events - the session's complete log, in seq order.
    * @returns the projection cut at the log end.
    */
-  coldSnapshot(meta: SessionHeader, events: readonly SessionEvent[]): ProjectionSnapshot {
-    const restored = this.ctx.sessionProjections.restore(this.recordFor(meta.id, identityOf(meta))?.rows ?? {}, events, 0, meta)
+  coldSnapshot(
+    meta: SessionHeader,
+    inheritedEventCount: SessionLogOffset,
+    events: readonly SessionEvent[],
+  ): ProjectionSnapshot {
+    const identity = identityOf(meta, inheritedEventCount)
+    const restored = this.ctx.sessionProjections.restore(
+      this.recordFor(meta.id, identity)?.rows ?? {},
+      events,
+      SessionLogOffset(0),
+      meta,
+      inheritedEventCount,
+    )
     // Refresh the row so the next cold read seeds from it; fail-soft and
     // fire-and-forget — a failed write-back only costs a longer tail replay.
-    void this.put(meta.id, identityOf(meta), restored.checkpoint).catch((error: unknown) => {
+    void this.put(meta.id, identity, restored.checkpoint).catch((error: unknown) => {
       this.ctx.logger.warn(`session projection cache: cold-read write-back for "${meta.id}" failed (cache stays stale): ${String(error)}`)
     })
     return restored.snapshot
@@ -329,13 +397,54 @@ export class SessionProjectionCache extends Service {
 }
 
 /** Project a header onto the identity fields a record is bound to. */
-function identityOf(header: SessionHeader): CheckpointIdentity {
-  return { createdAt: header.createdAt, ...header.cwd === undefined ? {} : { cwd: header.cwd } }
+function identityOf(
+  header: SessionHeader,
+  inheritedEventCount: SessionLogOffset,
+): CurrentCheckpointIdentity {
+  const cut = SessionLogOffset(inheritedEventCount)
+  if (!header.isSeeded && cut !== 0) {
+    throw new Error('unseeded projection-cache identity inherited event count must be 0')
+  }
+  return {
+    formatVersion: header.version,
+    createdAt: header.createdAt,
+    ...header.cwd === undefined ? {} : { cwd: header.cwd },
+    isSeeded: header.isSeeded,
+    inheritedEventCount: cut,
+  }
 }
 
-/** Whether a stored record's bound identity names the caller's lifecycle. */
-function identityMatches(stored: CheckpointIdentity, expected: CheckpointIdentity): boolean {
-  return stored.createdAt === expected.createdAt && stored.cwd === expected.cwd
+/**
+ * Whether a stored record's bound identity names the caller's lifecycle.
+ * An absent format generation cannot prove the fold semantics and never
+ * matches. Once the format matches, absent lineage fields (records admitted
+ * via `compatibleVersions` predate them) read as the unseeded lineage: exact
+ * for an unseeded caller, while a seeded caller fails the match.
+ */
+function identityMatches(stored: CheckpointIdentity, expected: CurrentCheckpointIdentity): boolean {
+  return stored.formatVersion === expected.formatVersion
+    && lifecycleIdentityMatches(stored, expected)
+}
+
+/** Match one predecessor cache record to the authoritative listed lifecycle. */
+function predecessorIdentityMatches(
+  stored: CheckpointIdentity,
+  expected: CurrentCheckpointIdentity,
+): boolean {
+  const predecessor = stored.formatVersion === undefined
+    || stored.formatVersion < expected.formatVersion
+  return predecessor && lifecycleIdentityMatches(stored, expected)
+}
+
+/** Match the format-independent fields that distinguish one Session lifecycle. */
+function lifecycleIdentityMatches(
+  stored: CheckpointIdentity,
+  expected: CurrentCheckpointIdentity,
+): boolean {
+  return stored.createdAt === expected.createdAt
+    && stored.cwd === expected.cwd
+    && (stored.isSeeded ?? false) === expected.isSeeded
+    && (stored.inheritedEventCount ?? 0) === expected.inheritedEventCount
 }
 
 export default SessionProjectionCache

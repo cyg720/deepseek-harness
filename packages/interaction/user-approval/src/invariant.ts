@@ -1,11 +1,7 @@
 /** Package-owned approval audit-stream invariants. @module @deepseek-ai/dsh-user-approval/invariant */
+
 /*
- * 文件职责：实现交互与审批的 invariant.ts 模块。
- * 技术维度：TypeScript、Cordis 服务、会话事件、持久状态、Node 宿主接口和 Vitest。
- * 产品维度：保证交互与审批在授权、等待、失败和清理场景中可靠。
- * 逻辑维度：注册能力，校验请求，更新状态并记录事件。
- * 关键边界：匿名标识不是认证；模型可见审批、提问和任务信息必须写入会话日志。
- * 新手阅读建议：先读类型与事件，再按注册、请求、状态变化和清理流程阅读。
+ * 【文件职责】检查审批审计日志中的请求与决策关系，约束授权记录的完整性。
  */
 
 import type { Context } from '@deepseek-ai/cordis'
@@ -85,8 +81,7 @@ const install: InvariantInstaller = Object.assign((ctx: Context, fail: Invariant
     /** 中文说明：服务局部值 trace，由紧邻初始化决定。 */
     const trace: ApprovalTrace = { openTurn: null, pending: new Set() }
     traces.set(session, trace)
-    /** 中文说明：服务局部值 event，由紧邻初始化决定。 */
-    for (const event of session.events) {
+    for (const event of session.snapshotEvents()) {
       if (event.type === 'turn/start') trace.openTurn = event.data.turn
       else if (event.type === 'turn/end') trace.openTurn = null
       /** 中文说明：服务局部值 transition，由紧邻初始化决定。 */

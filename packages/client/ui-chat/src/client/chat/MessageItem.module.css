@@ -1,12 +1,8 @@
 /* User bubble: right-aligned column (bubble + IconActions). Figma
    User_Bubble/message_container 659:38813 — r22 fill, actions gap 6 below. */
-/**
- * 文件职责：定义 MessageItem 的局部样式。
- * 技术维度：CSS Modules、主题变量和状态选择器。
- * 产品维度：保证会话聊天界面层级清楚并适配交互状态。
- * 逻辑维度：按容器、内容、操作与状态组织规则。
- * 关键边界：类名须与组件同步，颜色和尺寸优先复用设计变量。
- * 新手阅读建议：对照同名 TSX 按 DOM 层级阅读。
+
+/*
+ * 【文件职责】定义用户气泡、助手消息和附属操作的布局，消息宽度随会话内容轴调整。
  */
 
 .userRow {
@@ -299,4 +295,58 @@
     color: inherit;
     animation: none;
   }
+}
+
+.attachmentRow {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  max-width: 100%;
+  gap: 8px;
+}
+
+.fileCard {
+  display: inline-flex;
+  flex: 0 0 240px;
+  align-items: center;
+  gap: 10px;
+  width: 240px;
+  min-height: 64px;
+  padding: 8px 12px;
+  border: 0.5px solid var(--dsw-alias-border-l2, rgba(0, 0, 0, 0.12));
+  border-radius: 16px;
+  background: var(--dsw-specific-input-major, transparent);
+  box-sizing: border-box;
+}
+
+.fileIcon {
+  flex: none;
+  width: 24px;
+  height: 28px;
+}
+
+.fileContent {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.fileName {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--dsw-alias-label-primary);
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 22px;
+}
+
+.fileMeta {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--dsw-alias-label-tertiary, rgba(0, 0, 0, 0.45));
+  font-size: 12px;
+  line-height: 15px;
 }

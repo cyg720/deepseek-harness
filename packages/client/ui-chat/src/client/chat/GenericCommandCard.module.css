@@ -1,10 +1,10 @@
-/* 文件职责：定义通用命令卡片的折叠标题、运行扫光、摘要、错误和详情正文样式。
- * 技术维度：使用 CSS Module、data 状态、渐变伪元素、关键帧和减少动态媒体查询。
- * 产品维度：让用户查看命令运行进度、摘要、完整输出和失败状态。
- * 逻辑维度：root/row 组织布局，running 伪元素显示扫光，标题部件排版，body 提供受限滚动详情。
- * 关键边界：扫光不得拦截指针；正文最大 260px；减少动态偏好下必须停止动画。
- * 新手阅读建议：先看 running 状态，再按 leading 到 summary 阅读标题行，最后看 body 与动画降级。 */
+
 /* 卡片根容器，纵向排列标题和可选正文。 */
+
+/*
+ * 【文件职责】定义通用命令卡片及运行中扫光效果，摘要和展开内容共享同一可折叠布局。
+ */
+
 .root {
   display: flex;
   flex-direction: column;
@@ -88,7 +88,7 @@
   margin: 4px 0 4px 4px;
   padding: 12px 16px;
   overflow: auto;
-  border: 1px solid var(--dsw-alias-border-l1);
+  border: 0.5px solid var(--dsw-alias-border-l1);
   border-radius: 12px;
   background: var(--dsw-alias-markdown-code-block);
   color: var(--dsw-alias-label-primary);

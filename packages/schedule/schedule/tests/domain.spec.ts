@@ -7,6 +7,7 @@
  * 新手阅读建议：先读辅助函数和平台条件，再看正常路径，最后阅读恢复与失败用例。
  */
 import { describe, expect, it } from 'vitest'
+import { SessionLogOffset } from '@deepseek-ai/dsh-session'
 import type { SessionEvent } from '@deepseek-ai/dsh-session'
 import {
   ScheduleId,
@@ -160,13 +161,13 @@ describe('version-1 Schedule decoding and folding', () => {
     const parentCreate = scheduleEvent(createData('parent'), 0)
     /** 中文说明：变量 childCreate 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const childCreate = scheduleEvent(createData('child'), 1)
-    expect(foldScheduleEvents([parentCreate, childCreate], 1)).toEqual({
+    expect(foldScheduleEvents([parentCreate, childCreate], SessionLogOffset(1))).toEqual({
       active: [expect.objectContaining({ id: 'child' })],
       seenIds: ['child'],
     })
-    expect(() => foldScheduleEvents([], -1)).toThrow(/seedLength/)
-    expect(() => foldScheduleEvents([], 1)).toThrow(/seedLength/)
-    expect(() => foldScheduleEvents([], 0.5)).toThrow(/seedLength/)
+    expect(() => foldScheduleEvents([], -1 as never)).toThrow(/inheritedEventCount/)
+    expect(() => foldScheduleEvents([], SessionLogOffset(1))).toThrow(/inheritedEventCount/)
+    expect(() => foldScheduleEvents([], 0.5 as never)).toThrow(/inheritedEventCount/)
   })
 
   it('allocates a readable id without reusing ended or colliding ids', () => {

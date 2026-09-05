@@ -1,15 +1,7 @@
-/**
- * 文件职责：验证 executor.spec.ts 覆盖的Shell 命令与沙箱行为、并发与异常场景。
- * 技术维度：使用 TypeScript、Vitest、Cordis 插件、临时文件系统或受控子进程。
- * 产品维度：保障 Agent 的Shell 命令与沙箱能力稳定、安全且可诊断。
- * 逻辑维度：准备配置和测试资源，执行被测流程，再核对结果、错误与资源清理。
- * 关键边界：并发写入和进程退出可能竞态；敏感配置不得泄露；资源必须等待完全停止。
- * 新手阅读建议：先看夹具与平台条件，再读正常场景，最后关注并发、安全与失败路径。
- */
-import { mkdtempSync } from 'node:fs'
+import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { describe, expect, it } from 'vitest'
+import { afterAll, describe, expect, it } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
 import { LocalBashExecutor } from '@deepseek-ai/dsh-bash-local'
 import LocalSubprocessRuntime from '@deepseek-ai/dsh-subprocess-local'
@@ -19,7 +11,10 @@ import type { ShellProcess } from '@deepseek-ai/dsh-shell'
 /** 中文说明：变量 spillDir 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const spillDir = mkdtempSync(join(tmpdir(), 'dsh-bash-exec-spec-'))
 
-/** 中文说明：函数 setup 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+afterAll(() => {
+  rmSync(spillDir, { recursive: true, force: true })
+})
+
 async function setup(config: ConstructorParameters<typeof LocalBashExecutor>[1] = {}) {
   /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const ctx = new Context()

@@ -1,12 +1,8 @@
 /* Trajectory step cell — 38px row: index · kind tag · text · optional message
  * metrics · elapsed time. */
-/**
- * 文件职责：定义 TrajectoryCell 的局部样式。
- * 技术维度：CSS Modules、代码字体、状态颜色和布局规则。
- * 产品维度：让运行轨迹内容清晰区分状态与层级。
- * 逻辑维度：按容器、标题、内容和状态组织样式。
- * 关键边界：长命令与结果必须可滚动或换行，颜色不能单独承载含义。
- * 新手阅读建议：对照同名 TSX 按 DOM 层级阅读。
+
+/*
+ * 【文件职责】定义轨迹单元格中的序号、类型、正文、指标和耗时排列。
  */
 
 .root {
@@ -17,7 +13,7 @@
   padding: 0 8px 0 20px;
   gap: 24px;
   border-radius: 8px;
-  border: 1px solid var(--dsw-alias-border-l2);
+  border: 0.5px solid var(--dsw-alias-border-l4);
   background: var(--dsw-alias-bg-layer-3);
   min-width: 0;
 }

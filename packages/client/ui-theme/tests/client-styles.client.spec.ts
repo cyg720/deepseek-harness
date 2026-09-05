@@ -37,6 +37,7 @@ describe('ui-theme client styles', () => {
     // style 是单个动态样式标签；提取 data-plugin-css 作为来源标识。
     expect(styles.map(style => style.dataset.pluginCss)).toEqual([
       `${PLUGIN_ID}/base.css`,
+      `${PLUGIN_ID}/corner-shape.css`,
       `${PLUGIN_ID}/design-platform.css`,
       `${PLUGIN_ID}/scrollbar.css`,
       `${PLUGIN_ID}/gradient-shadow-text.css`,

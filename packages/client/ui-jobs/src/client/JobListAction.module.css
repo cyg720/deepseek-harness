@@ -1,12 +1,10 @@
-/*
- * 文件职责：定义任务列表操作入口、展开菜单及每条任务状态信息的局部样式。
- * 技术维度：使用 CSS Modules、设计令牌、绝对定位和文本截断构建浮层菜单。
- * 产品维度：让用户从紧凑入口查看任务数量、类型、状态和耗时，而不挤占主界面空间。
- * 逻辑维度：先定位触发器，再布置菜单容器，最后处理任务行及各字段的显示状态。
- * 关键边界：菜单宽高受视口限制，过长标签和原始错误文本必须截断以避免撑破浮层。
- * 新手阅读建议：按 root、trigger、menu、row 的层级阅读，再查看状态和文本截断规则。
- */
+
 /* 操作入口的定位容器，也是菜单绝对定位的参照。 */
+
+/*
+ * 【文件职责】定义后台任务入口按钮及任务列表弹层的显示样式。
+ */
+
 .root {
   position: relative;
 }
@@ -70,12 +68,13 @@
   padding: 4px;
   overflow: auto;
   list-style: none;
-  border: 1px solid var(--dsw-alias-border-l2);
-  border-radius: 12px;
+  border: 0;
+  border-radius: 20px;
   background: var(--dsw-specific-menu);
   --dsh-scrollbar-thumb: var(--dsw-alias-scrollbar-bg-l2);
   --dsh-scrollbar-thumb-hover: var(--dsw-alias-scrollbar-hover-l2);
-  box-shadow: var(--dsw-shadow-lv3);
+  --dsw-elevation-stroke-color: var(--dsw-alias-border-l1);
+  box-shadow: var(--dsw-elevation-prominent);
 }
 
 /* 单条任务信息的横向布局。 */

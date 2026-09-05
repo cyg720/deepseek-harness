@@ -9,6 +9,7 @@
  * 新手阅读建议：先确认导入依赖和公开导出，再沿主要函数调用链阅读，最后结合相邻测试理解输入、输出与边界条件。
  */
 import { describe, expect, it } from 'vitest'
+import { SessionSeq } from '@deepseek-ai/dsh-session/types'
 import type { SessionEvent } from '@deepseek-ai/dsh-session/types'
 import { inspectRequestPrompt } from '../src/client/contract/request-inspection.ts'
 
@@ -28,7 +29,7 @@ const CONFIG = { provider: 'test', model: 'test' }
  * @example 在完成前置校验后调用 header(seq, reason, value)，并按返回类型处理结果。
  */
 function header(
-  seq: number,
+  seq: SessionSeq,
   reason: SessionEvent<'request/header'>['data']['reason'],
   value: SessionEvent<'request/header'>['data']['header'],
 ): SessionEvent<'request/header'> {
@@ -50,7 +51,7 @@ describe('inspectRequestPrompt', () => {
    * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调()，并按返回类型处理结果。
    */
   it('classifies the first complete header as the initial prompt', () => {
-    expect(inspectRequestPrompt(undefined, header(1, 'initial', {
+    expect(inspectRequestPrompt(undefined, header(SessionSeq(1), 'initial', {
       config: CONFIG,
       system: '# System\n\nFollow instructions.',
       tools: [{ name: 'read', description: 'Read a file', parameters: { type: 'object' } }],
@@ -69,7 +70,7 @@ describe('inspectRequestPrompt', () => {
    * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调()，并按返回类型处理结果。
    */
   it('suppresses a resume header when the earlier prompt is outside the loaded window', () => {
-    expect(inspectRequestPrompt(undefined, header(2, 'resume', {
+    expect(inspectRequestPrompt(undefined, header(SessionSeq(2), 'resume', {
       config: CONFIG,
       system: 'same prompt',
     }))).toEqual({
@@ -82,34 +83,22 @@ describe('inspectRequestPrompt', () => {
    * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调()，并按返回类型处理结果。
    */
   it('classifies system, tool, and combined changes against the previous prompt', () => {
-    /**
-     * 常量说明：initial 用于处理 initial 相关数据，作用于当前作用域；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。
-     */
-    const initial = inspectRequestPrompt(undefined, header(1, 'initial', {
+    const initial = inspectRequestPrompt(undefined, header(SessionSeq(1), 'initial', {
       config: CONFIG,
       system: 'first',
       tools: [{ name: 'read', description: 'Read', parameters: { type: 'object' } }],
     })).prompt
-    /**
-     * 常量说明：system 用于处理 system 相关数据，作用于当前作用域；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。
-     */
-    const system = inspectRequestPrompt(initial, header(2, 'change', {
+    const system = inspectRequestPrompt(initial, header(SessionSeq(2), 'change', {
       config: CONFIG,
       system: 'second',
       tools: [...initial.tools],
     }))
-    /**
-     * 常量说明：tools 用于处理 tools 相关数据，作用于当前作用域；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。
-     */
-    const tools = inspectRequestPrompt(system.prompt, header(3, 'change', {
+    const tools = inspectRequestPrompt(system.prompt, header(SessionSeq(3), 'change', {
       config: CONFIG,
       system: 'second',
       tools: [{ name: 'write', description: 'Write', parameters: { type: 'object' } }],
     }))
-    /**
-     * 常量说明：combined 用于处理 combined 相关数据，作用于当前作用域；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。
-     */
-    const combined = inspectRequestPrompt(tools.prompt, header(4, 'change', {
+    const combined = inspectRequestPrompt(tools.prompt, header(SessionSeq(4), 'change', {
       config: CONFIG,
       system: 'third',
       tools: [],
@@ -126,15 +115,12 @@ describe('inspectRequestPrompt', () => {
    * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调()，并按返回类型处理结果。
    */
   it('omits a change when the prompt and tools are unchanged', () => {
-    /**
-     * 常量说明：previous 用于处理 previous 相关数据，作用于当前作用域；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。
-     */
-    const previous = inspectRequestPrompt(undefined, header(1, 'initial', {
+    const previous = inspectRequestPrompt(undefined, header(SessionSeq(1), 'initial', {
       config: CONFIG,
       system: 'same',
     })).prompt
 
-    expect(inspectRequestPrompt(previous, header(2, 'resume', {
+    expect(inspectRequestPrompt(previous, header(SessionSeq(2), 'resume', {
       config: { ...CONFIG, maxTokens: 1_024 },
       system: 'same',
     }))).toEqual({

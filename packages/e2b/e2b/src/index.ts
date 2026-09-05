@@ -3,13 +3,9 @@
  * handle, so filesystem and process operations inhabit one remote Linux world.
  * @module @deepseek-ai/dsh-e2b
  */
+
 /*
- * 文件职责：实现E2B 远程沙箱的 index.ts 模块。
- * 技术维度：TypeScript、Cordis、异步资源生命周期、远程文件/进程接口和 Vitest。
- * 产品维度：保证E2B 远程沙箱在真实组装、失败和清理场景中可靠。
- * 逻辑维度：注册能力，转换请求并管理远程资源。
- * 关键边界：凭据不得泄漏；远程句柄、终端和后台进程必须在取消或卸载时释放。
- * 新手阅读建议：先读接口和夹具，再按创建、操作、错误和清理流程阅读。
+ * 【文件职责】持有一个共享 E2B 沙箱，文件和进程适配器等待同一 SDK 句柄，以保证操作发生在同一远程 Linux 环境。
  */
 
 import { randomUUID } from 'node:crypto'
@@ -17,6 +13,8 @@ import { posix } from 'node:path'
 import { Context, Service } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
 import { FileType, Sandbox, SandboxNotFoundError } from 'e2b'
+import { proxyRouteFor } from '@deepseek-ai/dsh-http-proxy'
+import { e2bApiUrl } from './api-url.ts'
 
 export {
   CommandExitError,
@@ -87,6 +85,7 @@ declare module '@deepseek-ai/cordis' {
     e2b: E2BRuntime
   }
 }
+
 
 /**
  * Creates one lazily consumable E2B SDK handle and deletes the sandbox at
@@ -176,12 +175,17 @@ export class E2BRuntime extends Service {
   }
 
   private async open(): Promise<Sandbox> {
-    /** 中文说明：运行时局部值 sandbox，由紧邻初始化决定。 */
+    // The SDK builds its own undici dispatcher, so the global one never reaches it; it takes a proxy
+    // URL instead and reads no environment of its own. The decision is made against the URL the SDK
+    // will really call, so a bypass entry naming that host is honored and a loopback debug plane
+    // stays direct.
+    const route = proxyRouteFor(new URL(e2bApiUrl()))
     const sandbox = await Sandbox.create({
       apiKey: this.config.apiKey,
       timeoutMs: this.config.timeoutMs,
       secure: true,
       lifecycle: { onTimeout: 'kill' },
+      ...route.proxied ? { proxy: route.proxy } : {},
     })
     try {
       await sandbox.files.makeDir(this.cwd)

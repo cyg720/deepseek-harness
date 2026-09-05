@@ -95,6 +95,7 @@ function appendRequestHeader(session: Session, turn: number, step: number): void
 /** 中文说明：函数 appendAssistant 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function appendAssistant(session: Session, turn: number, step: number, body: string): void {
   session.append('assistant/message', {
+    stream: [],
     turn,
     step,
     message: createAssistantMessage({
@@ -138,6 +139,7 @@ function appendToolStep(
   })
 
   session.append('assistant/message', {
+    stream: [],
     turn,
     step: 1,
     message: createAssistantMessage({
@@ -189,9 +191,10 @@ function fixtureLog(session: Session): string {
       id: '{{sessionId}}',
       createdAt: Date.now() - 60_000,
       cwd: '{{cwd}}',
+      isSeeded: false,
       delegationDepth: 0,
     }),
-    ...session.events.map(event => JSON.stringify(event)),
+    ...session.snapshotEvents().map(event => JSON.stringify(event)),
     '',
   ].join('\n')
 }

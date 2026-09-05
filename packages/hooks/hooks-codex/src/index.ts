@@ -12,13 +12,10 @@
 // Each dialect bridge keeps its complete dependency list visible at the entry
 // point; a cross-package facade for imports alone would add indirection.
 /* jscpd:ignore-start */
+
 /*
- * 文件职责：实现Codex Hook 桥的 index.ts 模块。
- * 技术维度：TypeScript、Cordis、Fetch/RPC 信封、运行时模式校验、Node/Windows 宿主接口。
- * 产品维度：保证浏览器 API、Hook 或目录操作在各种状态下可靠且可诊断。
- * 逻辑维度：适配外部事件，调用宿主能力并返回结构化结果。
- * 关键边界：网络与路径输入必须校验；原生对话框和宿主路径操作只允许受信调用。
- * 新手阅读建议：先读请求/响应夹具，再按 API 域、错误码和生命周期场景阅读。
+ * 【文件职责】把 Codex 命令 Hook 映射到受支持的拦截点，只执行可支持的阻断决策；
+ * 共享执行与解析由 hook-protocol 提供。
  */
 
 import { readFileSync } from 'node:fs'
@@ -29,7 +26,6 @@ import type {} from '@deepseek-ai/dsh-session-projection'
 import { createUserMessage } from '@deepseek-ai/dsh-llm'
 import type { ContentBlock, MessageSource } from '@deepseek-ai/dsh-llm'
 import type { UserMessage } from '@deepseek-ai/dsh-session'
-import type {} from '@deepseek-ai/dsh-session-persistence'
 import type { PostToolDecision, PreToolDecision, ToolExecution, ToolExecutionResult } from '@deepseek-ai/dsh-tools'
 import {
   appendHookInvoked,
@@ -196,7 +192,7 @@ export function apply(ctx: Context, config: Config): void {
   // hook may miss the first request.
   // TODO(session-start-gating): add a startup gate before promising first-turn delivery.
   ctx.on('agent/session-start', ({ agent, source }) => {
-    detached.track(runPoint('SessionStart', source, { ...base(ctx, agent, 'SessionStart', model), source }, { agent, plainStdoutAsContext: true, signal: detached.signal })
+    detached.track(runPoint('SessionStart', source, { ...base(agent, 'SessionStart', model), source }, { agent, plainStdoutAsContext: true, signal: detached.signal })
       .then((merged) => {
         const context = contextFrom(merged)
         if (context) agent.inject(context)
@@ -209,7 +205,7 @@ export function apply(ctx: Context, config: Config): void {
   ctx.on('agent/pre-step', async ({ agent, messages, turn, signal }, next): Promise<PreStepDecision> => {
     if (messages.length === 0) return next()
     const payload = {
-      ...base(ctx, agent, 'UserPromptSubmit', model),
+      ...base(agent, 'UserPromptSubmit', model),
       turn_id: String(turn),
       prompt: blocksToText(messages.flatMap(message => message.content)),
     }
@@ -298,12 +294,12 @@ function blocksToText(content: ContentBlock[]): string {
 /* jscpd:ignore-end */
 
 /** Base fields on every Codex payload (no turn_id). */
-function base(ctx: Context, agent: Agent | undefined, event: string, model: string): Record<string, unknown> {
+function base(agent: Agent | undefined, event: string, model: string): Record<string, unknown> {
   return {
     session_id: agent?.session.header.id ?? '',
-    transcript_path: agent === undefined
-      ? null
-      : ctx.get('sessionPersistence')?.locate(agent.session.header)?.path ?? null,
+    // The persistence seam exposes no artifact path; the field stays null
+    // (a durable consumer gap recorded in this package's README).
+    transcript_path: null,
     cwd: agent?.session.header.cwd ?? process.cwd(),
     hook_event_name: event,
     model,
@@ -313,7 +309,7 @@ function base(ctx: Context, agent: Agent | undefined, event: string, model: stri
 
 /** Base + turn_id, for the turn-scoped events (PreToolUse/PostToolUse/UserPromptSubmit/Stop). */
 function turnBase(ctx: Context, agent: Agent | undefined, event: string, model: string): Record<string, unknown> {
-  return { ...base(ctx, agent, event, model), turn_id: String(lastTurn(ctx, agent)) }
+  return { ...base(agent, event, model), turn_id: String(lastTurn(ctx, agent)) }
 }
 
 /** Extract a `command` string from a tool call's parsed arguments, else ''. */

@@ -31,7 +31,7 @@ import {
 import { connectFreshWorkspace, newEnglishPage, saveFailureShot } from './support.ts'
 
 const SNAPSHOT_DIR = fileURLToPath(new URL('../../../snapshots/web/plan-review', import.meta.url))
-const FIXTURE = join(SNAPSHOT_DIR, 'session.jsonl')
+const FIXTURE = join(SNAPSHOT_DIR, 'session.v2.jsonl')
 // The waiting golden owns the decision card; the approved golden owns the
 // transcript the approval leaves behind — the state the card cannot see.
 // 中文说明：等待快照固定决策卡，批准快照固定卡片消失后留在会话中的结果。
@@ -146,7 +146,7 @@ describe('web e2e: plan review takeover round trip', () => {
 
   it.skipIf(MODE === 'record')('keeps the fixture inventory closed', async () => {
     await assertFixtureInventory(SNAPSHOT_DIR, [
-      'session.jsonl', 'review.expected.md', 'sidebar.expected.md',
+      'session.v2.jsonl', 'review.expected.md', 'sidebar.expected.md',
       'approved.expected.md', 'approved-expanded.expected.md',
     ])
   })

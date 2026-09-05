@@ -54,7 +54,7 @@ describe('foldConsumedWork', () => {
     const session = Session.create(SessionId('empty'))
     accept(session, 'queued')
 
-    expect(foldConsumedWork(session.events)).toEqual({ droppedUnrun: false })
+    expect(foldConsumedWork(session.snapshotEvents())).toEqual({ droppedUnrun: false })
   })
 
   it('reports the latest turn that entered a model step', () => {
@@ -63,7 +63,7 @@ describe('foldConsumedWork', () => {
     steppedTurn(session, 1, { kind: 'completed' })
     steppedTurn(session, 2, { kind: 'max-tokens' })
 
-    expect(foldConsumedWork(session.events).end?.data)
+    expect(foldConsumedWork(session.snapshotEvents()).end?.data)
       .toEqual({ turn: 2, reason: { kind: 'max-tokens' } })
   })
 
@@ -77,7 +77,7 @@ describe('foldConsumedWork', () => {
     claim(session)
     session.append('turn/end', { turn: 2, reason: { kind: 'error', error: { message: 'ENOSPC', code: 'UNKNOWN' } } })
 
-    expect(foldConsumedWork(session.events).end?.data.turn).toBe(2)
+    expect(foldConsumedWork(session.snapshotEvents()).end?.data.turn).toBe(2)
   })
 
   it('reports a turn that claimed its input and was then stopped before any step', () => {
@@ -88,7 +88,7 @@ describe('foldConsumedWork', () => {
     claim(session)
     session.append('turn/end', { turn: 2, reason: { kind: 'aborted', reason: { kind: 'user' } } })
 
-    expect(foldConsumedWork(session.events).end?.data.turn).toBe(2)
+    expect(foldConsumedWork(session.snapshotEvents()).end?.data.turn).toBe(2)
   })
 
   it('ignores a turn stopped, failed, or rejected without taking any input', () => {
@@ -103,7 +103,7 @@ describe('foldConsumedWork', () => {
     session.append('turn/end', { turn: 4, reason: { kind: 'blocked' } })
 
     // None of these turns describes work: they opened, found nothing of their own, and closed.
-    expect(foldConsumedWork(session.events).end?.data.turn).toBe(1)
+    expect(foldConsumedWork(session.snapshotEvents()).end?.data.turn).toBe(1)
   })
 
   it('reports a turn whose claimed input a pre-step rejection discarded', () => {
@@ -116,7 +116,7 @@ describe('foldConsumedWork', () => {
 
     // Rejection does not retain the claimed messages, so the `blocked` end is
     // the only account of input that will never run.
-    expect(foldConsumedWork(session.events).end?.data.turn).toBe(2)
+    expect(foldConsumedWork(session.snapshotEvents()).end?.data.turn).toBe(2)
   })
 
   it('ignores a claim its own turn emptied', () => {
@@ -129,7 +129,7 @@ describe('foldConsumedWork', () => {
 
     // An emptied claim ran nothing and dropped nothing: a listener rewrote the
     // batch away, which is not this log's account of the work.
-    expect(foldConsumedWork(session.events).end?.data.turn).toBe(1)
+    expect(foldConsumedWork(session.snapshotEvents()).end?.data.turn).toBe(1)
   })
 
   it('credits a claim with no open turn to no turn at all', () => {
@@ -141,7 +141,7 @@ describe('foldConsumedWork', () => {
     claim(session)
     session.append('turn/end', { turn: 2, reason: { kind: 'aborted', reason: { kind: 'user' } } })
 
-    expect(foldConsumedWork(session.events).end?.data.turn).toBe(1)
+    expect(foldConsumedWork(session.snapshotEvents()).end?.data.turn).toBe(1)
   })
 
   it('reports work cancelled out of the inbox after the last accounting turn', () => {
@@ -152,8 +152,8 @@ describe('foldConsumedWork', () => {
     cancelPending(session)
 
     // No turn opened over it, so only the cancellation says the work was cut short.
-    expect(foldConsumedWork(session.events)).toEqual({
-      end: session.events.find(event => event.type === 'turn/end'),
+    expect(foldConsumedWork(session.snapshotEvents())).toEqual({
+      end: session.snapshotEvents().find(event => event.type === 'turn/end'),
       droppedUnrun: true,
     })
   })
@@ -166,7 +166,7 @@ describe('foldConsumedWork', () => {
       target: 'next-turn', start: 0, removedCount: 1, inserted: [message('rewritten')], outcome: 'canceled',
     })
 
-    expect(foldConsumedWork(session.events).droppedUnrun).toBe(false)
+    expect(foldConsumedWork(session.snapshotEvents()).droppedUnrun).toBe(false)
   })
 
   it('lets a later accounting turn absorb an earlier drop', () => {
@@ -176,8 +176,8 @@ describe('foldConsumedWork', () => {
     cancelPending(session)
     steppedTurn(session, 2, { kind: 'completed' })
 
-    expect(foldConsumedWork(session.events)).toEqual({
-      end: session.events.findLast(event => event.type === 'turn/end'),
+    expect(foldConsumedWork(session.snapshotEvents())).toEqual({
+      end: session.snapshotEvents().findLast(event => event.type === 'turn/end'),
       droppedUnrun: false,
     })
   })

@@ -1,21 +1,4 @@
-/*
- * ================================ 文件注释 ================================
- * 【文件职责】槽位注册表纯核心：槽位契约（SlotMap）的类型之家与 register 的
- *             编译期约束，以及部分核心运行时（SlotCore 注册/投影/订阅）。
- * 【技术维度】零运行时依赖（仅 React 类型）；声明合并驱动一切：所有者把槽位契约
- *             并入 SlotMap，register 一次调用贡献组件 + 子槽位声明 + store + 业务面；
- *             SlotCore 是纯注册表（无 cordis）。
- * 【产品维度】整个客户端 UI 的组合机制：任意插件把组件挂到任意声明槽位，
- *             并受编译期"键 ⊆ 声明"的强制约束。
- * 【逻辑维度】类型层：SlotMap/SlotSpec/ComposedProps/InjectFace 等组合约束；
- *             运行时层：SlotCore.register（含负载校验与阴影/链规则）、entries/
- *             entriesOfSlot 投影、订阅与声明生命周期、崩溃上报。
- * 【关键边界】声明即认领：重复声明报错；共享 store handle 只能挂一个作用域；
- *             单/键控/列表槽位同格同优先级二次注册报错。
- * 【新手阅读建议】先看 SlotMap 与 SlotEntryDef 的类型轴，再读 SlotCore.register 的
- *             校验与分派规则。
- * ==========================================================================
- */
+
 /**
  * Slot registry pure core. Owners declare slot
  * contracts by merging into {@link SlotMap}; one `register` call contributes a
@@ -31,11 +14,16 @@
  * in THIS compilation unit (so the intersection reads as `never`), but every
  * consumer merges keys in and the intersection is what keeps them string-typed.
  * The rule fires on the empty-map view, not on real redundancy. */
+
+/*
+ * 【文件职责】实现不依赖 React 运行时的插槽注册核心，一次注册同时声明组件、子插槽、存储和注入需求。
+ */
+
 import type { ReactNode } from 'react'
 import type {
   BoundActions, HandleOf, PropsStore, SnapshotSelectorHook, StoreDecl,
 } from '@deepseek-ai/dsh-client-store'
-import type { HostObservable } from './renderer.ts'
+import type { HostObservable, KeyedStandardSource } from './renderer.ts'
 
 export * from './store.ts'
 export * from './renderer.ts'
@@ -393,6 +381,26 @@ export type SlotComponent<P> = (props: P) => ReactNode
  */
 export type HooksSources = Record<string, HostObservable<unknown>>
 
+/** Registrant keyed-hooks compartment: stable key-to-observable resolvers. */
+export type KeyedHooksSources = Record<string, KeyedStandardSource>
+
+/** Selector Hook over an open family of keyed observable sources. */
+export type KeyedSnapshotSelectorHook<Snapshot> = {
+  /** @param key - source key. @returns the current value, or absence when the source is unavailable. */
+  (key: string): Snapshot | undefined
+  /**
+   * @param key - source key.
+   * @param selector - projection over the current keyed value.
+   * @param equal - optional selected-value equality.
+   * @returns the selected value.
+   */
+  <Selected>(
+    key: string,
+    selector: (value: Snapshot | undefined) => Selected,
+    equal?: (left: Selected, right: Selected) => boolean,
+  ): Selected
+}
+
 /** Framework-owned props visible while a slot-level contextual Hook is bound. */
 export type StandardPropsOf<K extends keyof SlotMap & string> =
   (ScopeOf<K> extends 'session' ? SessionStandardProps
@@ -439,13 +447,26 @@ export type PropsHooks<HS extends HooksSources> = {
   SnapshotSelectorHook<HS[N] extends HostObservable<infer T> ? T : never>
 }
 
+/** Selector-hook share synthesized from an entry inject keyed-hooks compartment. */
+export type PropsKeyedHooks<HS extends KeyedHooksSources> = {
+  [N in keyof HS & string as `use${Capitalize<N>}`]: KeyedSnapshotSelectorHook<
+    HS[N] extends (key: string) => HostObservable<infer T> | undefined ? T : never
+  >
+}
+
 /**
  * The component-side view of an inject face: the reserved `hooks`
  * compartment (when declared) arrives as bound `use<Name>` selector hooks;
  * every other member passes through verbatim.
  */
 export type InjectFace<I extends object> =
-  I extends { hooks: infer HS extends HooksSources } ? Omit<I, 'hooks'> & PropsHooks<HS> : I
+  I extends { hooks: infer HS extends HooksSources }
+    ? I extends { keyedHooks: infer KS extends KeyedHooksSources }
+      ? Omit<I, 'hooks' | 'keyedHooks'> & PropsHooks<HS> & PropsKeyedHooks<KS>
+      : Omit<I, 'hooks'> & PropsHooks<HS>
+    : I extends { keyedHooks: infer KS extends KeyedHooksSources }
+      ? Omit<I, 'keyedHooks'> & PropsKeyedHooks<KS>
+      : I
 
 /**
  * The composed component props intersection: runtime share (SlotMap) +

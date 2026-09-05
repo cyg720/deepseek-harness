@@ -1,11 +1,7 @@
-/**
- * 文件职责：定义 ModelSelect 的局部样式。
- * 技术维度：CSS Modules、主题变量和状态选择器。
- * 产品维度：保持模型选择界面清晰一致。
- * 逻辑维度：按容器、内容、操作和状态组织样式。
- * 关键边界：类名与组件同步，优先复用主题值。
- * 新手阅读建议：对照同名 TSX 按 DOM 层级阅读。
+/*
+ * 【文件职责】定义模型选择入口及展开列表，使触发按钮与同一工具行的其他选择控件对齐。
  */
+
 .root {
   position: relative;
   min-width: 0;
@@ -90,10 +86,11 @@
   padding: 4px;
   /* Surface tokens match the Menu primitive card (ui-primitives
    * Menu.module.css) so every dropdown reads as the same material. */
-  border: 1px solid var(--dsw-alias-border-inverted);
-  border-radius: 12px;
+  border: 0;
+  border-radius: 20px;
   background: var(--dsw-specific-menu);
-  box-shadow: var(--dsw-shadow-lv3);
+  --dsw-elevation-stroke-color: var(--dsw-alias-border-l1);
+  box-shadow: var(--dsw-elevation-prominent);
   color: var(--dsw-alias-label-primary);
   /* Elevated surface: the scrollbar thumb takes the l2 elevation tokens.
      Declared here rather than on the scrolling `.groups` child so the

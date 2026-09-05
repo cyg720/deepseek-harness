@@ -17,7 +17,6 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { setTimeout as delay } from 'node:timers/promises'
 import { fileURLToPath } from 'node:url'
-import { decodeStorageRecord } from '@deepseek-ai/dsh-session/chunk-rows'
 import { describe, expect, it } from 'vitest'
 import WebSocket from 'ws'
 
@@ -110,21 +109,13 @@ interface WorkspaceBaseline {
 }
 
 interface HistoryPage {
-  records: Array<
-    | { type: 'event'; event: HistoryEvent }
-    | { type: 'chunks'; event: HistoryChunkEvent }
-  >
+  records: Array<{ type: 'event'; event: HistoryEvent }>
   hasMore: boolean
 }
 
 interface HistoryEvent {
   type: string
   data: unknown
-}
-
-interface HistoryChunkEvent extends HistoryEvent {
-  seq: number
-  time: number
 }
 
 interface ProcessObservation {
@@ -617,24 +608,9 @@ function assistantText(page: HistoryPage): string {
   return text.join('\n')
 }
 
-/** Expand lossless history records for assertions over the public event stream.
- * @remarks 中文说明：功能说明：处理 historyEvents 相关流程；使用场景由所在模块及调用位置决定。；
- * 参数说明：page（HistoryPage）：提供本次调用所需的数据；必须满足声明的类型及调用时序要求。；返回值：HistoryEvent[]；
- * 调用方应按声明类型处理，不应假定未声明的附加状态。；使用示例：典型用法：在完成前置校验后调用 historyEvents(page)，
- * 并按返回类型处理结果。 */
+/** Read scalar v2 history records for assertions over the public event stream. */
 function historyEvents(page: HistoryPage): HistoryEvent[] {
-  return page.records.flatMap(/*
- * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；参数：record（由 TypeScript
- * 根据调用位置推断的类型）：提供本次调用所需的数据；必须满足声明的类型及调用时序要求。；返回值：由 TypeScript 根据实现推断的结果；
- * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调(record)，并按返回类型处理结果。
- */ record => record.type === 'event'
-      ? [record.event]
-      : decodeStorageRecord({
-        type: record.event.type.replace(/^chunkrow\//u, ''),
-        seq0: record.event.seq,
-        time0: record.event.time,
-        data: record.event.data,
-      }))
+  return page.records.map(record => record.event)
 }
 
 /** Stop the spawned CLI through its normal signal path, escalating only on a stuck teardown.

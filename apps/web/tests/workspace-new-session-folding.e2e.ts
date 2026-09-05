@@ -34,13 +34,7 @@ const EXPECTED_DIR = fileURLToPath(new URL('./expected/workspace-new-session-fol
  * 但对象内部是否可变仍由其类型决定。
  */
 const SIDEBAR_EXPECTED = join(EXPECTED_DIR, 'sidebar.expected.md')
-/**
- * 常量说明：SEED 用于处理 SEED 相关数据，作用于当前作用域；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。
- */
-const SEED = fileURLToPath(new URL('../../../snapshots/web/message-feedback-protocol/session.jsonl', import.meta.url))
-/**
- * 常量说明：MODE 用于处理 MODE 相关数据，作用于当前作用域；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。
- */
+const SEED = fileURLToPath(new URL('../../../snapshots/web/message-feedback-protocol/session.v2.jsonl', import.meta.url))
 const MODE = webSnapshotMode()
 /**
  * 常量说明：EXISTING_SESSION_COUNT 用于处理 EXISTING_SESSION_COUNT 相关数据，作用于当前作用域；

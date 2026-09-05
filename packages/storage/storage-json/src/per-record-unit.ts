@@ -1,36 +1,9 @@
-/**
- * One opened JSON unit in `per-record` layout: the unit is a directory at
- * `dir`, holding one document per record under `<dir>/<table>/<key>.json`
- * plus `global.json` for the global slot. The directory is the state — this
- * unit holds NO in-memory state of its own: `loadAll` re-reads the tree and
- * every write is one durable file operation. The domain layer owns the live
- * in-memory tables (seeded by the open-time `loadAll`) and serializes writes
- * through its write chain, so this unit never mutates memory and needs no
- * rollback — a failed write simply leaves both the file and the domain's
- * memory unchanged.
- *
- * Per-record contract: a record document that is malformed or stamped with a
- * different version reads as an absent record — one bad or stale file never
- * bricks the whole unit, and a version bump discards stale records instead
- * of migrating them. Record keys become path segments, so they must be
- * path-safe (`[a-zA-Z0-9_-]+`); an unsafe key rejects at write.
- *
- * Legacy bootstrap: when the new tree has no document path, a legacy
- * whole-unit file `<root>/<name>.json` (the pre-per-record layout) seeds
- * per-record documents. Any new document path, including one whose contents
- * are unreadable or stale, suppresses the bootstrap for the whole unit. The
- * legacy file is never changed or deleted.
- * @module @deepseek-ai/dsh-storage-json/src/per-record-unit
- * @remarks 文件说明：文件职责：实现 storage/storage-json 中 per record unit 模块的职责，
- * 并向相邻模块提供可复用能力。；技术维度：主要使用TypeScript/JavaScript 的 ESM 模块、严格类型约束与 Cordis
- * 插件机制，通过当前文件中的类型、函数与数据结构完成实现。；产品维度：支撑 DeepSeek Harness 的
- * storage/storage-json 能力，使上层功能能够稳定组合和扩展。；逻辑维度：建议按“依赖与类型定义 → 常量和状态 →
- * 核心函数或类 → 导出或注册入口”的顺序理解。；关键边界：调用方必须遵守类型、生命周期和错误处理约定；
- * 涉及外部输入、异步任务或资源释放时需特别关注异常分支。；新手阅读建议：先确认导入依赖和公开导出，再沿主要函数调用链阅读，
- * 最后结合相邻测试理解输入、输出与边界条件。
+/*
+ * 【文件职责】实现按记录存储的 JSON 单元，每次读取重新观察目录、写入完成耐久文件操作；
+ * 内存表及串行链由领域层持有。
  */
 
-import { mkdir, readFile, readdir, rm } from 'node:fs/promises'
+import { mkdir, readFile, readdir, rename, rm } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import type { Dirent } from 'node:fs'
 import { StorageError } from '@deepseek-ai/dsh-storage'
@@ -72,7 +45,7 @@ export async function openPerRecordUnit(
  * Read every record document under the unit directory: each declared table's
  * `<key>.json` files plus `global.json`. A missing directory is the empty
  * unit (materialization defers to the first write); a foreign document
- * (missing, malformed, or stamped with another version) reads as an absent
+ * (missing, malformed, or stamped with an unaccepted version) reads as an absent
  * record, per the per-record contract.
  * @param descriptor - Static identity and shape of the unit.
  * @param dir - Absolute unit directory path.
@@ -84,14 +57,7 @@ export async function openPerRecordUnit(
  * loadPerRecordState(descriptor, dir)，并按返回类型处理结果。
  */
 async function loadPerRecordState(descriptor: KvUnitDescriptor, dir: string): Promise<UnitState> {
-  /**
-   * 常量说明：state 用于处理 state 相关数据，作用于当前作用域；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。
-   */
-  /**
-   * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；参数：table（由 TypeScript
-   * 根据调用位置推断的类型）：提供本次调用所需的数据；必须满足声明的类型及调用时序要求。；返回值：由 TypeScript 根据实现推断的结果；
-   * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调(table)，并按返回类型处理结果。
-   */
+  const versions = acceptedStamps(descriptor)
   const state: UnitState = {
     version: descriptor.version,
     global: null,
@@ -129,14 +95,11 @@ async function loadPerRecordState(descriptor: KvUnitDescriptor, dir: string): Pr
          */
         const records = state.tables.get(entry.name)
         if (records !== undefined) {
-          return loadTableRecords(records, descriptor.version, join(dir, entry.name))
+          return loadTableRecords(records, versions, join(dir, entry.name))
         }
       }
       if (entry.name === 'global.json' && descriptor.hasGlobal) {
-        /**
-         * 常量说明：global 用于处理 global 相关数据，作用于当前作用域；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。
-         */
-        const global = await readRecord(join(dir, entry.name), descriptor.version)
+        const global = await readRecord(join(dir, entry.name), versions)
         if (global !== undefined) state.global = global
         return true
       }
@@ -146,12 +109,21 @@ async function loadPerRecordState(descriptor: KvUnitDescriptor, dir: string): Pr
   return state
 }
 
+/** The version stamps this unit reads as its own: current plus declared compatible versions. */
+function acceptedStamps(descriptor: KvUnitDescriptor): readonly number[] {
+  return [descriptor.version, ...descriptor.compatibleVersions ?? []]
+}
+
 /**
  * Bootstrap an empty per-record tree from a legacy whole-unit file
  * (`<root>/<name>.json`, the pre-per-record layout). Every declared-table
  * record is copied into a current-version document, while the legacy file is
  * retained unchanged. A missing, foreign (another unit's name), malformed,
- * or non-unit legacy file is left alone; other read failures propagate.
+ * or non-unit legacy file is left alone, and so is one whose stored unit
+ * version is outside the accepted set — migrating records the owner never
+ * vouched for would stamp them with the current version and turn a
+ * discardable stale cache into schema failures at the domain layer. Other
+ * read failures propagate.
  * @param descriptor - Static identity and shape of the unit.
  * @param dir - The per-record unit directory (`<root>/<name>`).
  * @param state - The empty tree state; bootstrapped records are added.
@@ -181,22 +153,18 @@ async function bootstrapLegacyUnit(descriptor: KvUnitDescriptor, dir: string, st
     if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
     return
   }
-  // The legacy document is runtime data: only `unit.name` and the tables map
-  // shape are checked here — the record values are migrated as-is and the
-  // domain layer's schemas judge them.
-  /**
-   * 变量说明：document 用于处理 document 相关数据，作用于当前作用域；其值可能随流程推进而变化，读写时需遵守声明类型和所在生命周期。
-   */
-  let document: { unit?: { name?: unknown }; tables?: unknown }
+  // The legacy document is runtime data: only `unit.name`, `unit.version`,
+  // and the tables map shape are checked here — the record values are
+  // migrated as-is and the domain layer's schemas judge them.
+  let document: { unit?: { name?: unknown; version?: unknown }; tables?: unknown }
   try {
-    document = JSON.parse(text) as { unit?: { name?: unknown }; tables?: unknown }
+    document = JSON.parse(text) as { unit?: { name?: unknown; version?: unknown }; tables?: unknown }
   } catch {
     return // Malformed legacy file: not ours to interpret or delete.
   }
   if (document.unit?.name !== descriptor.name) return
-  /**
-   * 常量说明：tables 用于处理 tables 相关数据，作用于当前作用域；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。
-   */
+  const stamped = document.unit.version
+  if (typeof stamped !== 'number' || !acceptedStamps(descriptor).includes(stamped)) return
   const tables = document.tables
   if (typeof tables !== 'object' || tables === null) return
   /**
@@ -239,10 +207,7 @@ async function bootstrapLegacyUnit(descriptor: KvUnitDescriptor, dir: string, st
  * 调用方应按声明类型处理，不应假定未声明的附加状态。；使用示例：典型用法：在完成前置校验后调用 loadTableRecords(records,
  * version, dir)，并按返回类型处理结果。
  */
-async function loadTableRecords(records: Map<string, unknown>, version: number, dir: string): Promise<boolean> {
-  /**
-   * 常量说明：files 用于处理 files 相关数据，作用于当前作用域；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。
-   */
+async function loadTableRecords(records: Map<string, unknown>, versions: readonly number[], dir: string): Promise<boolean> {
   const files = await readdir(dir, { withFileTypes: true })
   /**
    * 常量说明：hasDocuments 用于判断是否包含 Documents 相关数据，作用于当前作用域；初始化后不可重新赋值，
@@ -271,10 +236,7 @@ async function loadTableRecords(records: Map<string, unknown>, version: number, 
      */
     const key = file.name.slice(0, -'.json'.length)
     if (!SAFE_KEY_RE.test(key)) return
-    /**
-     * 常量说明：record 用于处理 record 相关数据，作用于当前作用域；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。
-     */
-    const record = await readRecord(join(dir, file.name), version)
+    const record = await readRecord(join(dir, file.name), versions)
     if (record !== undefined) return [key, record] as const
   }))
   /**
@@ -286,15 +248,10 @@ async function loadTableRecords(records: Map<string, unknown>, version: number, 
   return hasDocuments
 }
 
-/** Read one record document; a foreign (unreadable or stale) one reads as absent.
- * @remarks 中文说明：功能说明：读取 Record 相关流程；使用场景由所在模块及调用位置决定。；
- * 参数说明：path（string）：指定要读取、写入或匹配的文件位置；必须满足声明的类型及调用时序要求。；
- * 参数说明：version（number）：提供本次调用所需的数据；必须满足声明的类型及调用时序要求。；返回值：Promise<unknown>；
- * 调用方应按声明类型处理，不应假定未声明的附加状态。；使用示例：典型用法：在完成前置校验后调用 readRecord(path, version)，
- * 并按返回类型处理结果。 */
-async function readRecord(path: string, version: number): Promise<unknown> {
+/** Read one record document; a foreign (unreadable or stale) one reads as absent. */
+async function readRecord(path: string, versions: readonly number[]): Promise<unknown> {
   try {
-    return parseRecord(await readFile(path, 'utf8'), version)
+    return parseRecord(await readFile(path, 'utf8'), versions)
   } catch {
     return undefined
   }
@@ -382,11 +339,23 @@ export class PerRecordJsonUnit implements KvUnit {
     await this.tracked(rm(join(this.tableDir(table), `${key}.json`), { force: true }))
   }
 
-  /** Durably replace the global singleton. Only valid when declared.
-   * @remarks 中文说明：功能说明：设置 Global 相关流程；使用场景由所在模块及调用位置决定。；
-   * 参数说明：value（unknown）：提供本次调用所需的数据；必须满足声明的类型及调用时序要求。；返回值：Promise<void>；
-   * 调用方应按声明类型处理，不应假定未声明的附加状态。；使用示例：典型用法：在完成前置校验后调用 setGlobal(value)，
-   * 并按返回类型处理结果。 */
+  /**
+   * Move one record's document aside as `<key>.json.bak.<YYYYMMDDHHmm>`. The
+   * moved file no longer ends in `.json`, so every later read ignores it; the
+   * bytes stay on disk for inspection. A same-minute backup of the same
+   * key overwrites the previous backup (the newer bytes are the ones worth
+   * keeping).
+   */
+  async backupRecord(table: string, key: string): Promise<string> {
+    this.assertOpen()
+    assertSafeKey(this.descriptor.name, key)
+    const path = join(this.tableDir(table), `${key}.json`)
+    const moved = `${path}.bak.${backupStamp(new Date())}`
+    await this.tracked(rename(path, moved))
+    return moved
+  }
+
+  /** Durably replace the global singleton. Only valid when declared. */
   async setGlobal(value: unknown): Promise<void> {
     this.assertOpen()
     if (!this.descriptor.hasGlobal) {
@@ -471,11 +440,13 @@ export class PerRecordJsonUnit implements KvUnit {
   }
 }
 
-/** Reject a record key that would be unsafe as a path segment.
- * @remarks 中文说明：功能说明：断言 Safe Key 相关流程；使用场景由所在模块及调用位置决定。；
- * 参数说明：unit（string）：提供本次调用所需的数据；必须满足声明的类型及调用时序要求。；
- * 参数说明：key（string）：提供本次调用所需的数据；必须满足声明的类型及调用时序要求。；返回值：void；调用方应按声明类型处理，
- * 不应假定未声明的附加状态。；使用示例：典型用法：在完成前置校验后调用 assertSafeKey(unit, key)，并按返回类型处理结果。 */
+/** Local-time `YYYYMMDDHHmm` suffix for backed-up documents. */
+function backupStamp(now: Date): string {
+  const pad = (value: number): string => String(value).padStart(2, '0')
+  return `${String(now.getFullYear())}${pad(now.getMonth() + 1)}${pad(now.getDate())}${pad(now.getHours())}${pad(now.getMinutes())}`
+}
+
+/** Reject a record key that would be unsafe as a path segment. */
 function assertSafeKey(unit: string, key: string): void {
   if (!SAFE_KEY_RE.test(key)) {
     throw new Error(`unit '${unit}': per-record key '${key}' is not path-safe (must match ${SAFE_KEY_RE})`)

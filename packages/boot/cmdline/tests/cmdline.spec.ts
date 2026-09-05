@@ -12,7 +12,7 @@
  * 新手阅读建议：先看demoCommand与resolveDemo，再跟随bootFixture的两行依赖关系，最后阅读终止型参数用例。
  */
 
-import { mkdtempSync, writeFileSync } from 'node:fs'
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { EventEmitter } from 'node:events'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -48,6 +48,9 @@ interface Fixture {
 // 所有已启动夹具的异步释放函数，afterEach依次调用。
 const disposers: (() => Promise<void>)[] = []
 
+/** Fixture tree roots, removed after their booted tree has been disposed. */
+const tempDirs: string[] = []
+
 const readyApp: AppReady = {
   onReady(listener) {
     listener()
@@ -73,6 +76,7 @@ function controlledAppReady(): { service: AppReady; commit(): void } {
 
 afterEach(async () => {
   for (const dispose of disposers.splice(0)) await dispose()
+  for (const dir of tempDirs.splice(0)) rmSync(dir, { recursive: true, force: true })
   internals.stdin = process.stdin
   internals.stdout = process.stdout
   internals.stderr = process.stderr
@@ -122,7 +126,7 @@ async function bootFixture(
 ): Promise<Fixture> {
   // 当前夹具插件文件和cordis.yml所在的临时目录。
   const dir = mkdtempSync(join(tmpdir(), 'dsh-cmdline-'))
-  // 由插件树和Commander输出共同更新的观察状态。
+  tempDirs.push(dir)
   const observed: Observed = { exits: [], out: '' }
   writeFileSync(join(dir, 'reader.mjs'), `
 export const name = 'reader'

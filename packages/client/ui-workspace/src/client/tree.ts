@@ -3,6 +3,12 @@
  * Unassigned Sessions trail under Ungrouped; only the selected blank Session
  * remains visible.
  */
+
+/*
+ * 【文件职责】按主机工作区顺序和成员关系生成浏览树；
+ * 未分组会话排在后面，空白会话只保留当前选中项。
+ */
+
 import {
   type SessionListState, type SessionSearchResultItem, type SessionSummary,
 } from '@deepseek-ai/dsh-api-session-controller/client'
@@ -19,6 +25,20 @@ import {
 
 /** Group key for Sessions outside every Workspace. */
 export const UNGROUPED_KEY = ''
+
+/**
+ * Resolve the Workspace browser group that owns one Session.
+ * @param workspaces - authoritative Workspace membership.
+ * @param sessionId - Session whose browser group is required.
+ * @returns owning Workspace id, or {@link UNGROUPED_KEY} when no Workspace accounts for it.
+ */
+export function owningGroupKey(
+  workspaces: readonly WorkspaceView[],
+  sessionId: SessionId,
+): string {
+  return (workspaces.find(workspace => workspace.sessionIds.includes(sessionId))
+    ?.workspaceId as string | undefined) ?? UNGROUPED_KEY
+}
 
 /** Pending interaction kinds with dedicated Workspace-row presentation. */
 export type SessionPendingInteractionStatus = 'approval' | 'plan-review' | 'question'
@@ -287,8 +307,7 @@ export function deriveGroups(
   const descendants = indexSubagentDescendants(list.byId)
   const currentGroup = list.current === undefined
     ? undefined
-    : (workspaces.find(w => w.sessionIds.includes(list.current as SessionId))?.workspaceId as string | undefined)
-        ?? UNGROUPED_KEY
+    : owningGroupKey(workspaces, list.current)
   const groups: GroupNode[] = []
   for (const g of groupByWorkspace(list, workspaces, archived, view.ungroupedOrder)) {
     const expanded = expandedGroups.has(g.key)

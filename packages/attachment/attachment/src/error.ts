@@ -1,14 +1,12 @@
 /** Attachment failure class. @module @deepseek-ai/dsh-attachment/error */
-/*
- * 文件职责：定义附件能力的稳定错误码、错误类和图片准入失败分类函数。
- * 技术维度：使用TypeScript字面量联合、只读Set和结构兼容检查跨包传递错误。
- * 产品维度：让协议层区分用户可修正的图片输入与存储内部故障，并返回稳定机器码。
- * 逻辑维度：集中列出准入错误码，扩展完整附件错误联合，构造AttachmentError，再执行运行时成员判断。
- * 关键边界：错误消息不得包含原始图片或主机路径；消费者按code路由，不依赖原型链。
- * 新手阅读建议：先看两层错误码联合，再看为何AttachmentError不继承HarnessError，最后读分类函数的结构检查。
- */
+
 
 // 调用者可以通过修改图片内容或批次重新尝试的稳定错误码列表。
+
+/*
+ * 【文件职责】集中定义稳定的附件错误码和错误类型，供上传准入、存储及 RPC 错误路由共同使用。
+ */
+
 const IMAGE_ADMISSION_ERROR_CODES = [
   'TOO_MANY_IMAGES',
   'IMAGES_TOO_LARGE',
@@ -25,20 +23,25 @@ const IMAGE_ADMISSION_ERROR_CODES = [
 /* 图片准入阶段由调用者修正输入即可解决的错误码。 */
 export type ImageAdmissionErrorCode = typeof IMAGE_ADMISSION_ERROR_CODES[number]
 
+const ATTACHMENT_ERROR_CODES = [
+  ...IMAGE_ADMISSION_ERROR_CODES,
+  'INVALID_FILE_BASE64',
+  'INVALID_ATTACHMENT_REF',
+  'ATTACHMENT_CORRUPT',
+  'ATTACHMENT_WRITE_FAILED',
+  'ATTACHMENT_NOT_FOUND',
+  'ATTACHMENT_READ_FAILED',
+  'ATTACHMENT_PROJECTION_UNSUPPORTED',
+  'ATTACHMENT_FILES_UNSUPPORTED',
+] as const
+
 /** Stable attachment failure codes used for protocol error routing. */
-/* 协议错误路由使用的全部稳定附件错误码。 */
-export type AttachmentErrorCode =
-  | ImageAdmissionErrorCode
-  | 'INVALID_ATTACHMENT_REF'
-  | 'ATTACHMENT_CORRUPT'
-  | 'ATTACHMENT_WRITE_FAILED'
-  | 'ATTACHMENT_NOT_FOUND'
-  | 'ATTACHMENT_READ_FAILED'
-  | 'ATTACHMENT_PROJECTION_UNSUPPORTED'
+export type AttachmentErrorCode = typeof ATTACHMENT_ERROR_CODES[number]
 
 /** Runtime membership for structurally compatible errors crossing package boundaries. */
 /* 跨包结构兼容错误的图片准入码运行时集合。 */
 const IMAGE_ADMISSION_ERROR_CODE_SET: ReadonlySet<string> = new Set(IMAGE_ADMISSION_ERROR_CODES)
+const ATTACHMENT_ERROR_CODE_SET: ReadonlySet<string> = new Set(ATTACHMENT_ERROR_CODES)
 
 /**
  * Stable failures suitable for host RPC error mapping.
@@ -72,6 +75,18 @@ export class AttachmentError extends Error {
     this.name = 'AttachmentError'
     this.code = code
   }
+}
+
+/**
+ * Identify attachment failures by their stable code across duplicate package installations.
+ * @param error - failure raised while validating, persisting, or reading an attachment.
+ * @returns whether the failure carries a recognized attachment error code.
+ */
+export function isAttachmentError(error: unknown): error is AttachmentError {
+  return error instanceof Error
+    && 'code' in error
+    && typeof error.code === 'string'
+    && ATTACHMENT_ERROR_CODE_SET.has(error.code)
 }
 
 /**

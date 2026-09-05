@@ -9,12 +9,8 @@
  */
 
 /*
- * 文件职责：实现headless Bundle的一次性代理驱动器，创建会话、执行单个任务、汇总最终文本、刷新并请求退出。
- * 技术维度：使用Cordis插件、代理注册表、持久Session事件和默认模型选择完成空闲到空闲的直接运行区间。
- * 产品维度：为脚本和CI提供无需HTTP或浏览器的单任务入口，并以stdout/stderr与退出码表达结果。
- * 逻辑维度：等待Loader树完整，创建带模型选择的代理，记录起始序号，发送用户消息，等待空闲，汇总并刷新会话。
- * 关键边界：每次只运行一个任务；仅输出最后已提交助手文本；异常或非正常轮次映射为失败退出。
- * 新手阅读建议：先看Config和RunOutcome，再读summarize如何过滤事件，最后跟踪run中的创建、等待、刷新和退出顺序。
+ * 【文件职责】运行一次无界面的 Agent 任务；
+ * 推理流写入 stderr，最终回复写入 stdout，退出前等待会话持久化与资源清理。
  */
 
 import { randomUUID } from 'node:crypto'
@@ -26,7 +22,8 @@ import type { Agent, ModelSelectionRef } from '@deepseek-ai/dsh-agent'
 import type {} from '@deepseek-ai/dsh-agent-default-model'
 import { createUserMessage } from '@deepseek-ai/dsh-llm'
 import { assertNever } from '@deepseek-ai/dsh-util-values'
-import type { SessionEvent, SessionId } from '@deepseek-ai/dsh-session'
+import { SessionSeq } from '@deepseek-ai/dsh-session'
+import type { Session, SessionEvent, SessionId, SessionLogOffset } from '@deepseek-ai/dsh-session'
 // Empty type imports carry the loader Context merge for the settlement await
 // and the cmdline Context merge for the appExit host value.
 import type {} from '@deepseek-ai/cordis-plugin-loader'
@@ -69,12 +66,16 @@ export const internals: { stdout: HeadlessIo['stdout']; stderr: HeadlessIo['stde
 }
 
 /** Aggregate the last assistant text and turn outcome in one owned interval. */
-function summarize(events: readonly SessionEvent[], firstSeq: number): RunOutcome {
+function summarize(session: Session, firstSeq: SessionLogOffset): RunOutcome {
   let started = false
   let text = ''
   let reason: SessionEvent<'turn/end'>['data']['reason'] | undefined
-  for (const event of events) {
-    if (event.seq < firstSeq) continue
+  const length = session.seq
+  for (let seq = firstSeq; seq < length; seq++) {
+    const event = session.eventAt(SessionSeq(seq))
+    if (event === undefined) {
+      throw new Error(`headless summary cannot read seq ${String(seq)} below captured length ${String(length)}`)
+    }
     if (event.type === 'turn/start') {
       started = true
       continue
@@ -94,8 +95,8 @@ function summarize(events: readonly SessionEvent[], firstSeq: number): RunOutcom
 
 /**
  * Project provider-reported reasoning from one owned run to stderr as it is
- * appended, while keeping final outcome derivation on the durable log.
- * @param ctx - plugin context carrying the Session event feed.
+ * streamed, while keeping final outcome derivation on the durable log.
+ * @param ctx - plugin context carrying the live Assistant frame feed.
  * @param agent - the exact Agent whose reasoning belongs to this invocation.
  * @param stderr - progress output sink.
  * @returns a disposer that also terminates an unterminated reasoning line.
@@ -105,7 +106,6 @@ function streamReasoning(
   agent: Agent,
   stderr: HeadlessIo['stderr'],
 ): () => void {
-  let started = false
   let open = false
   let endsWithNewline = true
   const close = (): void => {
@@ -114,15 +114,17 @@ function streamReasoning(
     open = false
     endsWithNewline = true
   }
-  const dispose = ctx.on('session/event', (session, event) => {
-    if (session !== agent.session) return
-    if (event.type === 'turn/start') {
+  const dispose = ctx.on('agent/assistant-stream', ({ agent: subject, frame }) => {
+    if (subject !== agent) return
+    if (frame.type === 'start') {
       close()
-      started = true
       return
     }
-    if (!started || event.type !== 'assistant/chunk') return
-    const chunk = event.data.chunk
+    if (frame.type === 'end') {
+      close()
+      return
+    }
+    const chunk = frame.chunk
     switch (chunk.type) {
       case 'reasoning-delta':
         if (chunk.text === '') return
@@ -206,7 +208,7 @@ async function run(ctx: Context, task: string, io: HeadlessIo): Promise<void> {
     stopReasoning()
   }
   await sessions.flush(agent.session)
-  const outcome = summarize(agent.session.events, firstSeq)
+  const outcome = summarize(agent.session, firstSeq)
   io.stdout.write(outcome.text + '\n')
   if (outcome.reason?.kind === 'error') {
     io.stderr.write(`dsh: ${outcome.reason.error.code}: ${outcome.reason.error.message}\n`)

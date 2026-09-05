@@ -9,10 +9,12 @@
  */
 import { describe, expect, it } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
-import { LlmRuntime, LlmAdapter, createMessage, createUserMessage } from '@deepseek-ai/dsh-llm'
+import {
+  LlmRuntime, LlmAdapter, createMessage, createUserMessage, projectFilesToText,
+} from '@deepseek-ai/dsh-llm'
 import type { GenerateOptions, LlmImageRequestPricing, Message, StreamChunk, TokenUsage, UserMessage } from '@deepseek-ai/dsh-llm'
 import { AttachmentId } from '@deepseek-ai/dsh-attachment'
-import type { ImageAttachmentRef } from '@deepseek-ai/dsh-attachment'
+import type { FileAttachmentRef, ImageAttachmentRef } from '@deepseek-ai/dsh-attachment'
 import { Session, SessionId, canonicalHeader } from '@deepseek-ai/dsh-session'
 import type { EpochHeader } from '@deepseek-ai/dsh-session'
 import SessionProjectionRegistry from '@deepseek-ai/dsh-session-projection'
@@ -118,12 +120,14 @@ function imageMessage(name: string, text = 'look at this'): UserMessage {
   })
 }
 
-/**
- * 功能说明：处理 header 相关流程；使用场景由所在模块及调用位置决定。
- * @param model （string）：提供本次调用所需的数据；必须满足声明的类型及调用时序要求。
- * @returns EpochHeader；调用方应按声明类型处理，不应假定未声明的附加状态。
- * @example 在完成前置校验后调用 header(model)，并按返回类型处理结果。
- */
+function fileRef(name: string): FileAttachmentRef {
+  return {
+    attachmentId: AttachmentId(`sha256:${'ab'.repeat(32)}`),
+    name,
+    bytes: 2_447_000_000,
+  }
+}
+
 function header(model: string): EpochHeader {
   return canonicalHeader({ config: { provider: 'mock', model } })
 }
@@ -146,9 +150,12 @@ async function harness(pricing: (model: string) => LlmImageRequestPricing | unde
    */
   const ctx = new Context()
   new SessionProjectionRegistry(ctx)
-  /**
-   * 常量说明：llm 用于处理 llm 相关数据，作用于当前作用域；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。
-   */
+  ctx.provide('attachments', {
+    fileHostPath: (ref: FileAttachmentRef) => `/host/${ref.name}`,
+  } as never)
+  ctx.provide('fs', {
+    processPathFromHostPath: (path: string) => path.replace('/host/', '/sandbox/'),
+  } as never)
   const llm = new LlmRuntime(ctx)
   llm.registerAdapter(['mock'], new PricingAdapter(pricing))
   /**
@@ -192,6 +199,7 @@ function appendSuccessfulCall(session: Session, value: EpochHeader, usage?: Toke
   session.append('step/start', { turn: 1, step: 1 })
   session.append('request/header', { header: value, reason: 'initial' })
   session.append('assistant/message', {
+    stream: [],
     turn: 1,
     step: 1,
     message: createMessage({
@@ -204,15 +212,23 @@ function appendSuccessfulCall(session: Session, value: EpochHeader, usage?: Toke
   session.append('step/end', { turn: 1, step: 1 })
 }
 
-/**
- * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；返回值：由 TypeScript 根据实现推断的结果；
- * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调()，并按返回类型处理结果。
- */
-describe('route-aware image pricing', () => {
-  /**
-   * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；返回值：由 TypeScript 根据实现推断的结果；
-   * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调()，并按返回类型处理结果。
-   */
+describe('request projection pricing', () => {
+  it('prices file blocks as the exact handle text dispatched to the provider', async () => {
+    const { meter, session } = await harness(() => undefined)
+    const ref = fileRef('archive.zip')
+    const message = createUserMessage({
+      content: [{ type: 'file', attachment: ref }],
+      source: { kind: 'user' },
+    })
+    session.append('user/message', message, { surfaceOp: 'append' })
+
+    const measurement = meter.measure(session)
+    const projected = projectFilesToText([message], file => `/sandbox/${file.name}`)[0]
+    if (projected === undefined) throw new Error('missing projected file message')
+    expect(measurement.nodes[0]?.tokens).toBe(estimateMessage(projected))
+    expect(measurement.nodes[0]?.tokens).toBeGreaterThan(estimateMessage(message))
+  })
+
   it('prices a first multimodal request estimate with the routed visual tokens', async () => {
     /**
      * 常量说明：meter、session 用于处理 meter、session 相关数据，作用于当前作用域；初始化后不可重新赋值，

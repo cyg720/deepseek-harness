@@ -1,3 +1,7 @@
+/*
+ * 【文件职责】定义子 Agent 模型选择设置中的权限、开关和说明布局。
+ */
+
 .permission {
   display: grid;
   gap: 6px;
@@ -51,6 +55,7 @@
   width: 16px;
   height: 16px;
   border-radius: 50%;
+  corner-shape: round;
   background: var(--dsw-alias-label-primary-foreground);
   transition: transform 120ms ease;
 }
@@ -108,7 +113,7 @@
   margin: 0;
   padding: 10px;
   overflow: auto;
-  border: 1px solid var(--dsw-alias-border-l2);
+  border: 0.5px solid var(--dsw-alias-border-l4);
   border-radius: 8px;
 }
 
@@ -126,7 +131,7 @@
 .modelGroup + .modelGroup {
   margin-top: 4px;
   padding-top: 10px;
-  border-top: 1px solid var(--dsw-alias-border-l3);
+  border-top: 0.5px solid var(--dsw-alias-border-l3);
 }
 
 .providerName {

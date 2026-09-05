@@ -1,26 +1,17 @@
-/*
- * ================================ 文件注释 ================================
- * 【文件职责】live/持久化"逻辑语料"解析：把会话存储与会话持久化合并成一个
- *   live 优先的逻辑语料，供列表/加载/批量投影使用。
- * 【技术维度】机会式注入 sessionPersistence（可选）；listSessions 做 live 优先合并
- *   并对同 ID 双源做 header 兼容校验；projectMany 用限并发工作池解析批量持久化检查。
- * 【产品维度】让"历史会话"在无需复活为活体 Agent 的前提下可读可查。
- * 【逻辑维度】按代码顺序：LogicalSession/Source 类型 → SessionCorpus（listSessions/
- *   load/projectMany）→ 模块级辅助（projectSource/sourceLive/orderedResults/
- *   listPersisted/inspectPersisted/snapshotLive/compareSessions/notFound/errorMessage）。
- * 【关键边界】已知活体目标绝不 consult 持久化（可选后端故障不能让内存历史不可读）；
- *   每个持久化读取都观察取消信号。
- * 【新手阅读建议】先看 load 的 live 优先分支，再看 projectMany 的限并发工人。
- * ==========================================================================
- */
+
 
 /** Live/persisted logical-corpus resolution for session-query. */
 
+/*
+ * 【文件职责】在运行中及持久化会话之间解析同一逻辑语料，给精确读取选择脱离可变来源的材料。
+ */
+
 import type { Context, Fiber } from '@deepseek-ai/cordis'
-import type { Session, SessionEvent, SessionHeader, SessionId } from '@deepseek-ai/dsh-session'
+import type { Session, SessionEvent, SessionHeader, SessionId , SessionLogOffset } from '@deepseek-ai/dsh-session'
 import type SessionPersistence from '@deepseek-ai/dsh-session-persistence'
 import type { SessionRecord } from './types.ts'
 import { SessionQueryError } from './config.ts'
+import { readColdSessionLog, type ColdSessionLog } from './cold-read.ts'
 import { assertSessionHeadersCompatible } from './sources.ts'
 
 /** Detached source selected for one exact read. */
@@ -28,6 +19,8 @@ import { assertSessionHeadersCompatible } from './sources.ts'
 export interface LogicalSession {
   /** Cloned source header. */
   header: SessionHeader
+  /** Exact fork-inherited event count paired with {@link header}. */
+  inheritedEventCount: SessionLogOffset
   /** Cloned raw event log. */
   events: SessionEvent[]
 }
@@ -52,7 +45,7 @@ export class SessionCorpus {
 
   constructor(
     private readonly _ctx: Context,
-    private readonly _persistedInspectConcurrency: number,
+    private readonly _persistedReadConcurrency: number,
   ) {
     this._optionalPersistenceFiber = _ctx.inject(['sessionPersistence'], (childCtx: Context) => {
       const service = childCtx.sessionPersistence
@@ -123,9 +116,10 @@ export class SessionCorpus {
       signal?.throwIfAborted()
       return snapshot
     }
-    assertSessionHeadersCompatible(loaded.meta, listed)
+    assertSessionHeadersCompatible(loaded.header, listed)
     const snapshot = {
-      header: structuredClone(loaded.meta),
+      header: structuredClone(loaded.header),
+      inheritedEventCount: loaded.inheritedEventCount,
       events: loaded.events.map(event => structuredClone(event)),
     }
     signal?.throwIfAborted()
@@ -199,9 +193,9 @@ export class SessionCorpus {
           resolved.set(sessionId, projectSource(sessionId, sourceLive(attached), project, signal))
           return
         }
-        assertSessionHeadersCompatible(loaded.meta, listed)
+        assertSessionHeadersCompatible(loaded.header, listed)
         resolved.set(sessionId, projectSource(sessionId, {
-          header: loaded.meta,
+          header: loaded.header,
           events: loaded.events,
         }, project, signal))
       } catch (error: unknown) {
@@ -219,7 +213,7 @@ export class SessionCorpus {
         await resolvePersisted(unresolved[index] as SessionId)
       }
     }
-    const workerCount = Math.min(this._persistedInspectConcurrency, unresolved.length)
+    const workerCount = Math.min(this._persistedReadConcurrency, unresolved.length)
     const settlements = await Promise.allSettled(
       Array.from({ length: workerCount }, () => worker()),
     )
@@ -256,7 +250,7 @@ function projectSource<Value>(
 }
 
 function sourceLive(session: Session): LogicalSessionSource {
-  return { header: session.header, events: session.events }
+  return { header: session.header, events: session.snapshotEvents() }
 }
 
 function orderedResults<Value>(
@@ -271,7 +265,8 @@ async function listPersisted(
   signal?: AbortSignal,
 ): Promise<SessionHeader[]> {
   try {
-    return await persistence.list(signal)
+    const snapshots = await persistence.list(signal === undefined ? undefined : { signal })
+    return snapshots.map(snapshot => snapshot.header)
   } catch (error: unknown) {
     if (signal?.aborted) signal.throwIfAborted()
     throw new SessionQueryError(
@@ -286,9 +281,9 @@ async function inspectPersisted(
   persistence: SessionPersistence,
   sessionId: SessionId,
   signal?: AbortSignal,
-): Promise<Awaited<ReturnType<SessionPersistence['inspect']>>> {
+): Promise<ColdSessionLog> {
   try {
-    return await persistence.inspect(sessionId, signal)
+    return await readColdSessionLog(persistence, sessionId, signal)
   } catch (error: unknown) {
     if (signal?.aborted) signal.throwIfAborted()
     if (error instanceof Error && error.name === 'SessionPersistenceCorruptionError') {
@@ -299,7 +294,7 @@ async function inspectPersisted(
       )
     }
     throw new SessionQueryError(
-      `failed to inspect session "${sessionId}": ${errorMessage(error)}`,
+      `failed to read stored session "${sessionId}": ${errorMessage(error)}`,
       'SESSION_QUERY_PERSISTENCE_FAILED',
       { cause: error },
     )
@@ -309,7 +304,8 @@ async function inspectPersisted(
 function snapshotLive(session: Session): LogicalSession {
   return {
     header: structuredClone(session.header),
-    events: session.events.map(event => structuredClone(event)),
+    inheritedEventCount: session.inheritedEventCount,
+    events: session.snapshotEvents().map(event => structuredClone(event)),
   }
 }
 

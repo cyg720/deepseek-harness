@@ -2,13 +2,9 @@
  * Agent-scoped Schedule management tools over the durable session fold.
  * @module @deepseek-ai/dsh-schedule
  */
+
 /*
- * 文件职责：实现 tools.ts 承担的计划调度配置、协议与生命周期职责。
- * 技术维度：使用 TypeScript、Cordis 插件、配置校验、事件日志与异步资源管理。
- * 产品维度：为 Agent 提供可靠的计划调度能力。
- * 逻辑维度：解析输入，注册能力，执行核心操作，并在结束时释放所拥有的资源。
- * 关键边界：权限和配置失败必须显式；模型可见状态必须记录；清理必须达到静止状态。
- * 新手阅读建议：先看导出类型和常量，再读主流程，最后关注平台限制、恢复和清理。
+ * 【文件职责】提供作用域内的提醒管理工具，读取和修改均通过持久会话折叠及相应刷新屏障确认。
  */
 
 import type { Context } from '@deepseek-ai/cordis'
@@ -255,7 +251,7 @@ function inputError(error: ScheduleInputError): ScheduleToolError {
 /* 中文说明：函数 foldForTool 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
 function foldForTool(agent: Agent): ReturnType<typeof foldScheduleEvents> | ScheduleToolError {
   try {
-    return foldScheduleEvents(agent.session.events, agent.session.header.seedLength ?? 0)
+    return foldScheduleEvents(agent.session.ownEvents())
   } catch (error: unknown) {
     return error instanceof ScheduleLogError ? corruptLogError() : internalError()
   }

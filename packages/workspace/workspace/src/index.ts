@@ -4,18 +4,13 @@
  * domain data form.
  * @module @deepseek-ai/dsh-workspace
  */
+
 /*
- * 文件职责：实现 index.ts 覆盖的工作区实体与配置行为与生命周期。
- * 技术维度：使用 TypeScript、Vitest、Cordis 插件、Worker Thread、消息协议或领域实体。
- * 产品维度：保障 Agent 的工作区实体与配置能力稳定、可隔离且可诊断。
- * 逻辑维度：准备配置和消息，建立运行环境，执行流程，再处理事件、错误与清理。
- * 关键边界：线程消息不可信；跨线程状态必须显式传递；终止时必须等待所拥有资源停止。
- * 新手阅读建议：先看协议和类型，再读 Host/Runtime 主流程，最后关注隔离、失败与清理。
+ * 【文件职责】管理持久工作区实体、稳定顺序和会话成员关系，加入会话前验证其头部中的工作区事实。
  */
 
 import { randomUUID } from 'node:crypto'
 import { stat } from 'node:fs/promises'
-import { basename } from 'node:path'
 import { Context, Service } from '@deepseek-ai/cordis'
 import type { SessionHeader, SessionId } from '@deepseek-ai/dsh-session'
 import type {} from '@deepseek-ai/dsh-session-persistence'
@@ -24,7 +19,7 @@ import { WorkspaceEntity } from './entity.ts'
 import type { WorkspaceEntityHost } from './entity.ts'
 
 export { WorkspaceMoveInvalidError } from './entity.ts'
-import { realpathNormalize } from './paths.ts'
+import { defaultWorkspaceTitle, realpathNormalize } from './paths.ts'
 import { workspaceDomainSpec } from './spec.ts'
 import type { WorkspaceDomainState, WorkspaceRecord } from './spec.ts'
 import type { Workspace, WorkspaceId as WorkspaceIdBrand } from './types.ts'
@@ -148,12 +143,11 @@ export class WorkspaceRegistry extends Service {
     await this.recoverPendingMutation()
     this.validateStoredState(this.state)
     if (!this.state.initialized) {
-      /** 中文说明：变量 headers 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-      const headers = await this.ctx.sessionPersistence.list()
+      const headers = await this.listStoredHeaders()
       await this.replaceHeaderIndex(headers)
       await this.bootstrap(headers)
     } else if (this.table.size > 0) {
-      await this.replaceHeaderIndex(await this.ctx.sessionPersistence.list())
+      await this.replaceHeaderIndex(await this.listStoredHeaders())
     }
 
     await this.indexLiveSessions()
@@ -163,13 +157,13 @@ export class WorkspaceRegistry extends Service {
   }
 
   /**
-   * Create or reuse a workspace for an existing directory. The path is
-   * canonicalized through `fs.realpath`; a nonexistent path rejects with the
-   * original error and a non-directory rejects. Repeated calls for the same
-   * canonical path return the existing entity without changing its title.
+   * Create or reuse a workspace for an existing directory. The fully qualified
+   * path is canonicalized through `fs.realpath`; a relative, nonexistent, or
+   * non-directory path rejects. Repeated calls for the same canonical path
+   * return the existing entity without changing its title.
    * A newly created workspace is prepended to the durable registry order.
    * Different canonical paths may share a display title.
-   * @param path - Existing directory to own, in any path spelling.
+   * @param path - Existing directory to own, in a fully qualified path spelling.
    * @param title - Display title used only when a new record is created.
    * @returns the existing or newly durable workspace.
    */
@@ -293,7 +287,7 @@ export class WorkspaceRegistry extends Service {
   private async sessionKnown(id: SessionId): Promise<boolean> {
     if (this.ctx.get('sessions')?.get(id) !== undefined) return true
     if (this.headers.has(id)) return true
-    await this.indexHeaders(await this.ctx.sessionPersistence.list())
+    await this.indexHeaders(await this.listStoredHeaders())
     return this.headers.has(id)
   }
 
@@ -301,7 +295,7 @@ export class WorkspaceRegistry extends Service {
    * Resolve by canonical directory path without creating or mutating a
    * workspace. A missing path rejects during `realpath`; an existing unowned
    * directory returns `undefined`.
-   * @param path - Existing directory path in any spelling.
+   * @param path - Existing directory path in a fully qualified spelling.
    * @returns the workspace owning the canonical path, when one exists.
    */
   async resolveByPath(path: string): Promise<Workspace | undefined> {
@@ -320,9 +314,7 @@ export class WorkspaceRegistry extends Service {
       if (entity.path === canonical) return entity
     }
 
-    /** 中文说明：变量 workspaceName 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-    const workspaceName = title ?? basename(canonical)
-    /** 中文说明：变量 table 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
+    const workspaceName = title ?? defaultWorkspaceTitle(canonical)
     const table = this.requireTable()
     /** 中文说明：变量 state 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const state = this.requireState()
@@ -522,7 +514,7 @@ export class WorkspaceRegistry extends Service {
         /** 中文说明：变量 record 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
         const record: WorkspaceRecord = {
           path: group.path,
-          title: basename(group.path),
+          title: defaultWorkspaceTitle(group.path),
           sessionIds,
           createdAt,
           updatedAt: createdAt,
@@ -677,6 +669,12 @@ export class WorkspaceRegistry extends Service {
     }
   }
 
+  /** Every stored session's header, projected from the persistence snapshot listing. */
+  private async listStoredHeaders(): Promise<SessionHeader[]> {
+    const snapshots = await this.ctx.sessionPersistence.list()
+    return snapshots.map(snapshot => snapshot.header)
+  }
+
   private async indexLiveSessions(): Promise<void> {
     /** 中文说明：变量 sessions 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const sessions = this.ctx.get('sessions')
@@ -717,8 +715,7 @@ export class WorkspaceRegistry extends Service {
     const cached = this.headers.get(id)
     if (cached !== undefined) return cached
 
-    /** 中文说明：变量 headers 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-    const headers = await this.ctx.sessionPersistence.list()
+    const headers = await this.listStoredHeaders()
     await this.indexHeaders(headers)
     /** 中文说明：变量 header 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const header = this.headers.get(id)

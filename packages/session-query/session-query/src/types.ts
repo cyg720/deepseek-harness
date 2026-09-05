@@ -1,16 +1,4 @@
-/*
- * ================================ 文件注释 ================================
- * 【文件职责】会话查询域的公共记录与请求/响应类型：live 优先逻辑语料上的精确读、
- *   关系追踪、过滤与全文检索的所有公开契约。
- * 【技术维度】纯类型模块；过滤器用可判别联合（kind 字段）；搜索分页用不透明游标。
- * 【产品维度】工具层与 API 层用这些类型构建查询并解释结果。
- * 【逻辑维度】按代码顺序：表面分类 → 会话/日志/事件记录 → 血缘节点与追踪 → 事件追踪 →
- *   标题观察 → 过滤器类型 → 搜索文档/分页/请求/命中。
- * 【关键边界】过滤器数组内 AND、子句值内 OR；文本过滤是字面量（大小写不敏感、
- *   空白灵活），绝不是可执行 FTS 语法。
- * 【新手阅读建议】先读 SessionRecord/SessionLogSnapshot，再看过滤器与搜索请求族。
- * ==========================================================================
- */
+
 
 /**
  * Public records for exact reads and relationship traces over the
@@ -19,11 +7,18 @@
  * @module @deepseek-ai/dsh-session-query/types
  */
 
+/*
+ * 【文件职责】声明会话精确读取和关系追踪的公共结果，区分当前模型上下文、被替换上下文及纯日志事件。
+ */
+
 import type {
   SessionEvent,
   SessionEventType,
   SessionHeader,
   SessionId,
+  SessionLogOffset,
+  SessionSeq,
+  OptionalSessionSeq,
   SurfaceEvent,
 } from '@deepseek-ai/dsh-session'
 import type { SessionTitleSnapshot } from '@deepseek-ai/dsh-session-title'
@@ -40,7 +35,7 @@ export interface SessionRecord {
   header: SessionHeader
   /** Whether the id currently exists in `ctx.sessions`. */
   live: boolean
-  /** Whether the active persistence backend currently materializes the id. */
+  /** Whether the active persistence backend currently lists the id, including a created-but-unmaterialized session it already observes. */
   persisted: boolean
 }
 
@@ -48,8 +43,10 @@ export interface SessionRecord {
 export interface SessionSurfaceSnapshot {
   /** Cloned session header selected from the same corpus observation as `events`. */
   session: SessionHeader
+  /** Exact number of fork-inherited events in the observed log. */
+  inheritedEventCount: SessionLogOffset
   /** Highest raw-log seq included in the observation, or `null` for an empty log. */
-  capturedThroughSeq: number | null
+  capturedThroughSeq: OptionalSessionSeq
   /** Cloned current surface events in model-history order. */
   events: SurfaceEvent[]
 }
@@ -58,7 +55,9 @@ export interface SessionSurfaceSnapshot {
 export interface SessionLogSnapshot {
   /** Cloned session header selected from the same observation as `events`. */
   session: SessionHeader
-  /** Cloned contiguous raw events after persistence repair and replay validation. */
+  /** Exact number of fork-inherited events in the observed log. */
+  inheritedEventCount: SessionLogOffset
+  /** Cloned contiguous raw events after in-memory interrupted-turn balancing and replay validation. */
   events: SessionEvent[]
 }
 
@@ -67,7 +66,7 @@ export interface SessionEventRecord {
   /** Session that owns the event. */
   sessionId: SessionId
   /** Monotonic event seq within the session. */
-  seq: number
+  seq: SessionSeq
   /** Discriminant of the session event. */
   type: SessionEventType
   /** Event timestamp in Unix epoch milliseconds. */
@@ -112,7 +111,7 @@ export interface SessionEventTraceRequest {
   /** Session that owns the target event. */
   sessionId: SessionId
   /** Target event seq. */
-  seq: number
+  seq: SessionSeq
 }
 
 /** Direct surface replacements and relationships to cited source events for one event. */
@@ -120,15 +119,15 @@ export interface SessionEventTrace {
   /** Lightweight target record. */
   target: SessionEventRecord
   /** Immediate positional replacement event, when the target was shadowed. */
-  replacedBy?: number
+  replacedBy?: SessionSeq
   /** Positional replacers from the immediate replacement to the final replacement. */
-  replacementChain: number[]
+  replacementChain: SessionSeq[]
   /** Surface nodes directly removed when the target itself performed a replacement. */
-  replacedEventSeqs: number[]
+  replacedEventSeqs: SessionSeq[]
   /** Earlier events cited directly as sources, in their recorded order. */
-  sourceEventSeqs: number[]
+  sourceEventSeqs: SessionSeq[]
   /** Later events that directly cite the target as a source, in log order. */
-  derivedEventSeqs: number[]
+  derivedEventSeqs: SessionSeq[]
 }
 
 /** Event relationships bound to the same session-header observation. */
@@ -142,7 +141,7 @@ export interface SessionEventReadRequest {
   /** Session that owns the target event. */
   sessionId: SessionId
   /** Target event seq. */
-  seq: number
+  seq: SessionSeq
   /** Number of preceding raw events to include. */
   before?: number
   /** Number of following raw events to include. */
@@ -153,14 +152,16 @@ export interface SessionEventReadRequest {
 export interface SessionEventWindow {
   /** Cloned header for the live-preferred source read. */
   session: SessionHeader
+  /** Exact number of fork-inherited events in the observed log. */
+  inheritedEventCount: SessionLogOffset
   /** Full cloned target event. */
   target: SessionEvent
   /** Full cloned events from `startSeq` through `endSeq`. */
   events: SessionEvent[]
   /** First seq included in `events`. */
-  startSeq: number
+  startSeq: SessionSeq
   /** Last seq included in `events`. */
-  endSeq: number
+  endSeq: SessionSeq
 }
 
 /** Latest folded title bound to the same session-header observation. */

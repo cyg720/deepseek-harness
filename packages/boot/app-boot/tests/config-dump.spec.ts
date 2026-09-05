@@ -15,18 +15,27 @@
  * 新手阅读建议：先看最小转储用例，再关注多来源分组，最后比较离线结果与boot树。
  */
 
-import { mkdtempSync, writeFileSync } from 'node:fs'
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
-import { describe, expect, it, vi } from 'vitest'
+import { afterAll, describe, expect, it, vi } from 'vitest'
 import * as yaml from 'js-yaml'
 import { entryListSchema } from '@deepseek-ai/cordis-plugin-include'
 import { loadOverlayPatches, renderConfigDump } from '../src/index.ts'
 
 const NAME = 'dsh-test-bin'
 
-const tmp = (): string => mkdtempSync(join(tmpdir(), 'dsh-config-dump-'))
+const tempRoots: string[] = []
+afterAll(() => {
+  for (const root of tempRoots.splice(0)) rmSync(root, { recursive: true, force: true })
+})
+
+const tmp = (): string => {
+  const dir = mkdtempSync(join(tmpdir(), 'dsh-config-dump-'))
+  tempRoots.push(dir)
+  return dir
+}
 
 function writeBase(dir: string): string {
   const base = join(dir, 'base.yml')

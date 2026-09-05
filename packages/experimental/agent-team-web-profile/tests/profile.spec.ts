@@ -10,11 +10,8 @@ import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { Context } from '@deepseek-ai/cordis'
-import InvariantRegistry from '@deepseek-ai/dsh-invariants'
 import * as yaml from 'js-yaml'
 import { entryListSchema } from '@deepseek-ai/cordis-plugin-include'
-import * as WebProfileInvariant from '../src/invariant.ts'
 
 /**
  * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；返回值：由 TypeScript 根据实现推断的结果；
@@ -61,32 +58,5 @@ describe('Agent Teams Web profile bundle', () => {
     expect(parsed.flatMap(patch => patch.insert ?? [])).toEqual([
       { id: 'ui-agent-team', name: '@deepseek-ai/dsh-experimental-client-ui-agent-team' },
     ])
-  })
-
-  /**
-   * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；返回值：由 TypeScript 根据实现推断的结果；
-   * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调()，并按返回类型处理结果。
-   */
-  it('reserves package ownership without installing a runtime audit', async () => {
-    /**
-     * 常量说明：ctx 用于处理 ctx 相关数据，作用于当前作用域；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。
-     */
-    const ctx = new Context()
-    await ctx.plugin(InvariantRegistry, { enabled: true })
-    /**
-     * 常量说明：fiber 用于处理 fiber 相关数据，作用于当前作用域；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。
-     */
-    const fiber = ctx.plugin(WebProfileInvariant)
-    await fiber.await()
-    expect(WebProfileInvariant.name).toBe('agent-team-web-profile-invariant')
-    expect(WebProfileInvariant.inject).toEqual(['invariants'])
-    /**
-     * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；返回值：由 TypeScript 根据实现推断的结果；
-     * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调()，并按返回类型处理结果。
-     */
-    expect(() => {
-      Reflect.apply(ctx.emit.bind(ctx), undefined, ['unrelated/event'])
-    }).not.toThrow()
-    await fiber.dispose()
   })
 })

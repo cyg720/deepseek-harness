@@ -20,8 +20,11 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 # 中文说明：常量 RELEASE 保存本模块共享的固定值；取值由紧邻初始化或后续赋值决定。
 RELEASE = runpy.run_path(str(ROOT / "scripts" / "build-python-release.py"))
-# 中文说明：常量 MACOS_PLATFORM_TAG 保存本模块共享的固定值；取值由紧邻初始化或后续赋值决定。
-MACOS_PLATFORM_TAG = RELEASE["PLATFORMS"]["macos-arm64"][0]
+MACOS_PLATFORMS = {
+    name: details[0]
+    for name, details in RELEASE["PLATFORMS"].items()
+    if name.startswith("macos-")
+}
 
 
 # 中文说明：函数 parse_version 承担本模块的处理步骤；参数按签名传入，返回值供调用方使用；示例见本文件调用。
@@ -35,8 +38,7 @@ def parse_version(value: str) -> tuple[int, ...]:
 # 中文说明：函数 claimed_version 承担本模块的处理步骤；参数按签名传入，返回值供调用方使用；示例见本文件调用。
 def claimed_version(platform_tag: str) -> tuple[int, ...]:
     """Return the minimum macOS version encoded by a wheel platform tag."""
-    # 中文说明：变量 match 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
-    match = re.fullmatch(r"macosx_(\d+)_(\d+)_arm64", platform_tag)
+    match = re.fullmatch(r"macosx_(\d+)_(\d+)_(?:arm64|x86_64)", platform_tag)
     if match is None:
         raise ValueError(f"unsupported macOS wheel platform tag: {platform_tag!r}")
     return int(match.group(1)), int(match.group(2))
@@ -45,14 +47,22 @@ def claimed_version(platform_tag: str) -> tuple[int, ...]:
 # 中文说明：函数 parse_otool_deployment_target 承担本模块的处理步骤；参数按签名传入，返回值供调用方使用；示例见本文件调用。
 def parse_otool_deployment_target(output: str) -> tuple[int, ...]:
     """Return the newest deployment target from one or more Mach-O slices."""
-    # 中文说明：变量 versions 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
-    versions = [
-        parse_version(match.group(1))
-        # 中文说明：该循环依次处理输入数据；循环变量仅在当前循环中有效。
-        for match in re.finditer(r"^\s*minos\s+(\d+(?:\.\d+)*)\s*$", output, re.MULTILINE)
-    ]
+    versions: list[tuple[int, ...]] = []
+    command: str | None = None
+    for line in output.splitlines():
+        stripped = line.strip()
+        if re.fullmatch(r"Load command \d+", stripped):
+            command = None
+        elif stripped == "cmd LC_BUILD_VERSION":
+            command = "build"
+        elif stripped == "cmd LC_VERSION_MIN_MACOSX":
+            command = "minimum"
+        elif command == "build" and (match := re.fullmatch(r"minos\s+(\d+(?:\.\d+)*)", stripped)):
+            versions.append(parse_version(match.group(1)))
+        elif command == "minimum" and (match := re.fullmatch(r"version\s+(\d+(?:\.\d+)*)", stripped)):
+            versions.append(parse_version(match.group(1)))
     if not versions:
-        raise ValueError("otool output contains no LC_BUILD_VERSION deployment target")
+        raise ValueError("otool output contains no macOS deployment target load command")
     return max(versions)
 
 
@@ -100,8 +110,7 @@ def ensure_compatible(
 
 # 中文说明：函数 validate_deployment_targets 承担本模块的处理步骤；参数按签名传入，返回值供调用方使用；示例见本文件调用。
 def validate_deployment_targets(
-    # 中文说明：变量 executables 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
-    executables: list[Path], platform_tag: str = MACOS_PLATFORM_TAG
+    executables: list[Path], platform_tag: str
 ) -> list[tuple[Path, tuple[int, ...]]]:
     """Validate every executable and return its measured deployment target."""
     # 中文说明：变量 measured 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
@@ -116,14 +125,14 @@ def validate_deployment_targets(
 def main() -> None:
     # 中文说明：变量 parser 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--platform", choices=tuple(MACOS_PLATFORMS), required=True)
     parser.add_argument("executables", type=Path, nargs="+")
     # 中文说明：变量 args 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
     args = parser.parse_args()
-    # 中文说明：该循环依次处理输入数据；循环变量仅在当前循环中有效。
-    for executable, version in validate_deployment_targets(args.executables):
-        # 中文说明：变量 rendered 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。
+    platform_tag = MACOS_PLATFORMS[args.platform]
+    for executable, version in validate_deployment_targets(args.executables, platform_tag):
         rendered = ".".join(str(part) for part in version)
-        print(f"{executable}: macOS {rendered} <= {MACOS_PLATFORM_TAG}")
+        print(f"{executable}: macOS {rendered} <= {platform_tag}")
 
 
 if __name__ == "__main__":

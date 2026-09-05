@@ -13,7 +13,7 @@
 
 import type { Context } from '@deepseek-ai/cordis'
 import type { Agent } from '@deepseek-ai/dsh-agent'
-import { createUserMessage, type TokenUsage } from '@deepseek-ai/dsh-llm'
+import { createUserMessage, expandAssistantStream, type TokenUsage } from '@deepseek-ai/dsh-llm'
 import type { SessionEvent } from '@deepseek-ai/dsh-session'
 
 /** Result envelope consumed only by snapshot and composition tests. */
@@ -53,10 +53,21 @@ function assistantText(event: Extract<SessionEvent, { type: 'assistant/message' 
   return blocks.length === 0 ? undefined : blocks.map(block => block.text).join('')
 }
 
-/** 中文说明：函数 onlyRootAgent 承担本模块的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本模块调用。 */
-function onlyRootAgent(ctx: Context): Agent {
-  /** 中文说明：变量 agents 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-  const agents = ctx.get('agents')?.roots() ?? []
+async function onlyRootAgent(ctx: Context): Promise<Agent> {
+  const registry = ctx.get('agents')
+  if (registry === undefined) throw new Error('fixture turn requires exactly one top-level agent, found 0')
+  // Configured agents publish asynchronously (persistence create/resume runs
+  // before publication), so a settled Loader does not imply a registered
+  // agent yet; wait for the first publication instead of requiring it.
+  if (registry.roots().length === 0) {
+    await new Promise<void>((resolve) => {
+      const dispose = ctx.on('agent/created', () => {
+        dispose()
+        resolve()
+      })
+    })
+  }
+  const agents = registry.roots()
   const [agent] = agents
   if (agent === undefined || agents.length !== 1) {
     throw new Error(`fixture turn requires exactly one top-level agent, found ${agents.length}`)
@@ -77,8 +88,7 @@ function onlyRootAgent(ctx: Context): Agent {
  * @returns 中文说明：返回值的类型和用途见函数签名，供调用方继续处理。
  */
 export async function runFixtureTurn(ctx: Context, options: FixtureTurnOptions): Promise<FixtureTurnResult> {
-  /** 中文说明：变量 agent 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-  const agent = onlyRootAgent(ctx)
+  const agent = await onlyRootAgent(ctx)
   await agent.whenIdle()
 
   /** 中文说明：变量 message 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
@@ -101,13 +111,16 @@ export async function runFixtureTurn(ctx: Context, options: FixtureTurnOptions):
       received = true
     }
     options.onEvent?.(session.id, event)
-    if (event.type === 'assistant/chunk' && event.data.chunk.type === 'usage') {
-      usageByStep.set(`${event.data.turn}/${event.data.step}`, event.data.chunk.usage)
-    }
     if (event.type === 'assistant/message') {
       output = assistantText(event) ?? output
       if (event.data.usage !== undefined) {
         usageByStep.set(`${event.data.turn}/${event.data.step}`, event.data.usage)
+      }
+    } else if (event.type === 'assistant/attempt') {
+      const usage = expandAssistantStream(event.data.stream)
+        .findLast(member => member.chunk.type === 'usage')?.chunk
+      if (usage?.type === 'usage') {
+        usageByStep.set(`${event.data.turn}/${event.data.step}`, usage.usage)
       }
     }
   })

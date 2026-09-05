@@ -9,7 +9,7 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
 import { ToolCallId } from '@deepseek-ai/dsh-llm'
-import { Session, SessionId } from '@deepseek-ai/dsh-session'
+import { SESSION_FORMAT_VERSION, Session, SessionId } from '@deepseek-ai/dsh-session'
 import AgentRegistry, { Inbox } from '@deepseek-ai/dsh-agent'
 import type { Agent } from '@deepseek-ai/dsh-agent'
 import TerminalSessionService from '@deepseek-ai/dsh-terminal'
@@ -45,9 +45,10 @@ function agent(ctx: Context, cwd: string | undefined): Agent {
   const scope = ctx.plugin(() => {})
   /** 中文说明：变量 session 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const session = Session.create(id, [], {
-    version: 0,
+    version: SESSION_FORMAT_VERSION,
     id,
     createdAt: 0,
+    isSeeded: false,
     ...cwd === undefined ? {} : { cwd },
   })
   /** 中文说明：变量 value 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */

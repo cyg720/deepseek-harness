@@ -3,13 +3,10 @@
  * Runtimes know nothing about tools or sessions; consumers own those concerns.
  * @module @deepseek-ai/dsh-code-runtime
  */
+
 /*
- * 文件职责：实现代码运行时的 index 模块。
- * 技术维度：TypeScript、Cordis 插件、Worker/JSON 协议和严格类型。
- * 产品维度：为产品提供代码运行时能力。
- * 逻辑维度：解析配置或协议，执行核心流程并返回结构化结果。
- * 关键边界：跨线程和模型输入属于不可信边界；资源与事件注册必须清理。
- * 新手阅读建议：先读导出类型与配置，再跟踪入口和错误分支。
+ * 【文件职责】定义执行模型程序的代码运行时服务；
+ * 后端只处理程序和异步主机绑定，工具与会话语义由消费者持有。
  */
 
 import { Context, Service } from '@deepseek-ai/cordis'
@@ -77,8 +74,8 @@ export const DUNDER_MEMBER = /^__.+__$/
 /**
  * Reserved words of every portable target language (ECMAScript ∪ Python),
  * refused as {@link CodeBindingNamespace.global} / error-class names by all
- * backends. Python is a portability target here even though only the
- * TypeScript worker has a published backend. The portable-identifier contract
+ * backends, one per language: the released TypeScript worker thread and the
+ * experimental, private CPython subprocess. The portable-identifier contract
  * promises a namespace list valid on one backend is valid on every backend; a
  * per-language check would let `lambda` pass the TypeScript backend and fail
  * the Python one. Extending the seam with a new language means widening this
@@ -119,7 +116,8 @@ export abstract class CodeRuntime extends Service {
    * generates language-specific presentation (typed SDK stubs, usage
    * instructions) switches on it and fails loud on a language it cannot
    * present. Well-known values: `'typescript'` and `'python'`, those
-   * `dsh-tools` presents; only `'typescript'` has a published backend.
+   * `dsh-tools` presents; the TypeScript backend is released, the Python
+   * backend is experimental and private (not published).
    */
   abstract readonly language: string
 

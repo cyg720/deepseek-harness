@@ -1,32 +1,22 @@
-/** Draft-attachment thumbnail rail: scrollbar-less horizontal overflow paged
- * by edge arrows, hover-revealed per-item remove, single-click open. */
+/** Draft-attachment rail: scrollbar-less horizontal overflow paged by edge arrows. */
+
 /*
- * 文件职责：实现附件界面的 AttachmentRail 组件。
- * 技术维度：React、TypeScript、Cordis 插槽和 CSS Modules。
- * 产品维度：向用户展示并操作附件相关状态。
- * 逻辑维度：读取属性与状态，派生展示数据并响应交互。
- * 关键边界：异步状态、可访问性标签和空数据分支必须保持一致。
- * 新手阅读建议：先读 Props，再看局部状态、effect 和 JSX。
+ * 【文件职责】呈现有序的草稿附件横向列表，通过边缘按钮分页滚动；
+ * 附件数据和操作由列表拥有者提供。
  */
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import type { ReactNode } from 'react'
 import clsx from 'clsx'
 import {
-  IconChevronLeftOutline14, IconChevronRightOutline14, IconCloseFill14,
+  IconChevronLeftOutline14, IconChevronRightOutline14,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import css from './AttachmentRail.module.css'
 
-/** One rail thumbnail; strings arrive resolved (zero-cordis atom). */
-/* 中文说明：类型或类 AttachmentRailItem 约束本文件的数据或组件职责。 */
+/** One ordered draft attachment rendered by the rail owner. */
 export interface AttachmentRailItem {
   /** Stable identity for the React key. */
   id: string
-  /** Object or data URL rendered as the thumbnail. */
-  previewUrl: string
-  /** Image alt text (display name with the owner's fallback applied). */
-  alt: string
-  /** Accessible label of the item's remove control. */
-  removeLabel: string
 }
 
 /** Rail-level strings the owner resolves from its own locale namespace. */
@@ -34,8 +24,6 @@ export interface AttachmentRailItem {
 export interface AttachmentRailLabels {
   /** Accessible name of the rail group. */
   group: string
-  /** Thumbnail tooltip inviting the original-image preview. */
-  open: string
   /** Accessible label of the left paging arrow. */
   scrollLeft: string
   /** Accessible label of the right paging arrow. */
@@ -52,12 +40,12 @@ const WHEEL_LINE_PX = 16
 function pageBehavior(): ScrollBehavior {
   // jsdom (the unit lane) implements no matchMedia despite lib.dom's
   // non-optional typing; the optional call keeps that lane on the default.
-  // oxlint-disable-next-line typescript/no-unnecessary-condition
-  return window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth'
+  const matchMedia = (window as unknown as { matchMedia?: Window['matchMedia'] }).matchMedia
+  return matchMedia?.('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth'
 }
 
 /**
- * Horizontal thumbnail rail over the caller's draft attachments.
+ * Horizontal rail over the caller's ordered draft attachments.
  *
  * The rail scrolls with its scrollbar hidden; overflow is announced by edge
  * arrows recomputed from scroll geometry on scroll, item-count changes, and
@@ -65,23 +53,18 @@ function pageBehavior(): ScrollBehavior {
  * panel resizes count, not only window resizes). A vertical wheel pans the
  * rail horizontally and is consumed exclusively (non-passive listener), a
  * newly added item is revealed at the rail's end while a rail that mounts
- * over an existing draft keeps its start position, and each thumbnail opens
- * on a single click while its remove control sits inside the card and
- * reveals on hover or focus. The owner decides mounting; it renders the rail
- * only while items exist.
+ * over an existing draft keeps its start position. The owner renders each
+ * item and decides mounting; it renders the rail only while items exist.
  *
- * @param props.items - resolved thumbnails in draft order.
- * @param props.labels - rail-level strings (group name, open tooltip, arrows).
- * @param props.onOpen - single-click open of one item's original image.
- * @param props.onRemove - remove one item from the draft.
+ * @param props.items - attachments in draft order.
+ * @param props.labels - rail-level strings (group name and paging arrows).
+ * @param props.renderItem - render one attachment card in draft order.
  * @returns the rail group with its paging arrows.
  */
-/* 中文说明：函数 AttachmentRail 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
-export function AttachmentRail<T extends AttachmentRailItem>({ items, labels, onOpen, onRemove }: {
+export function AttachmentRail<T extends AttachmentRailItem>({ items, labels, renderItem }: {
   items: readonly T[]
   labels: AttachmentRailLabels
-  onOpen: (item: T) => void
-  onRemove: (item: T) => void
+  renderItem: (item: T) => ReactNode
 }) {
   /** 中文说明：当前组件的局部值 railRef，由紧邻初始化决定。 */
   const railRef = useRef<HTMLDivElement | null>(null)
@@ -194,24 +177,7 @@ export function AttachmentRail<T extends AttachmentRailItem>({ items, labels, on
         onScroll={updateEdges}
       >
         {items.map(item => (
-          <div key={item.id} className={css.item}>
-            <button
-              type="button"
-              className={css.thumbnail}
-              title={labels.open}
-              onClick={() => { onOpen(item) }}
-            >
-              <img src={item.previewUrl} alt={item.alt} />
-            </button>
-            <button
-              type="button"
-              className={css.remove}
-              aria-label={item.removeLabel}
-              onClick={() => { onRemove(item) }}
-            >
-              <IconCloseFill14 size={12} />
-            </button>
-          </div>
+          <div key={item.id} className={css.item}>{renderItem(item)}</div>
         ))}
       </div>
       {edges.right && (

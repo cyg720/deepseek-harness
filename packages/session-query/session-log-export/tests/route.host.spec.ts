@@ -10,12 +10,14 @@
 import { Context } from '@deepseek-ai/cordis'
 import { HostConnectionService } from '@deepseek-ai/dsh-client-connection'
 import type { BrowserAuth } from '@deepseek-ai/dsh-client-connection/src/browser-auth.ts'
+import { SESSION_FORMAT_VERSION } from '@deepseek-ai/dsh-session'
 import type { SessionHeader, SessionId } from '@deepseek-ai/dsh-session'
-import type { SessionRawArtifact } from '@deepseek-ai/dsh-session-persistence'
+import type { SessionHandle } from '@deepseek-ai/dsh-session-persistence'
 import { strFromU8, unzipSync } from 'fflate'
 import { describe, expect, it } from 'vitest'
 import {
   Config,
+  SESSION_LOG_FILENAME,
   SESSION_LOG_EXPORT_PATH,
   apply,
   inject,
@@ -30,28 +32,22 @@ import {
  */
 const sid = (value: string): SessionId => value as SessionId
 
-/**
- * 功能说明：处理 artifact 相关流程；使用场景由所在模块及调用位置决定。
- * @param id （string）：标识本次操作关联的唯一对象；必须满足声明的类型及调用时序要求。
- * @returns SessionRawArtifact；调用方应按声明类型处理，不应假定未声明的附加状态。
- * @example 在完成前置校验后调用 artifact(id)，并按返回类型处理结果。
- */
-function artifact(id: string): SessionRawArtifact {
-  /**
-   * 常量说明：header 用于处理 header 相关数据，作用于当前作用域；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。
-   */
+function readHandle(id: string): SessionHandle {
   const header: SessionHeader = {
-    version: 0,
+    version: SESSION_FORMAT_VERSION,
     id: sid(id),
     createdAt: 1,
+    isSeeded: false,
     cwd: '/workspace',
     delegationDepth: 0,
   }
   return {
-    meta: header,
-    filename: 'session.jsonl',
-    content: `${JSON.stringify({ type: 'session', ...header })}\n`,
-  }
+    id: header.id,
+    header,
+    access: 'read',
+    read: async () => [],
+    close: async () => {},
+  } as unknown as SessionHandle
 }
 
 /**
@@ -92,8 +88,8 @@ async function mounted(withServices: boolean): Promise<{
      * 典型用法：在完成前置校验后调用 匿名回调(id)，并按返回类型处理结果。
      */
     ctx.provide('sessionPersistence', {
-      supportsRawArtifacts: true,
-      readRaw: async (id: SessionId) => artifact(String(id)),
+      stat: async (id: SessionId) => ({ header: readHandle(String(id)).header }),
+      open: async (id: SessionId) => readHandle(String(id)),
     } as never)
     /**
      * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；返回值：由 TypeScript 根据实现推断的结果；
@@ -152,7 +148,7 @@ describe('Session log export Fetch route', () => {
      * 常量说明：files 用于处理 files 相关数据，作用于当前作用域；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。
      */
     const files = unzipSync(new Uint8Array(await response.arrayBuffer()))
-    expect(strFromU8(files['session.jsonl'] as Uint8Array)).toContain('"id":"session-1"')
+    expect(strFromU8(files[SESSION_LOG_FILENAME] as Uint8Array)).toContain('"id":"session-1"')
 
     /**
      * 常量说明：head 用于处理 head 相关数据，作用于当前作用域；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。

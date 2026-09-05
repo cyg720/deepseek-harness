@@ -1,23 +1,10 @@
-/*
- * ================================ 文件注释 ================================
- * 【文件职责】以 Cordis 伴生插件形式校验 dsh-llm-retry 的持久重试事件：
- * llm/retry 与 llm/retry-started 必须满足字段、上下文与链式关系约束。
- * 【技术维度】基于 @deepseek-ai/dsh-invariants 的 InvariantInstaller 机制；
- * 对已加载会话全量校验，并对新追加事件（internal/dispatch 钩子）增量校验；
- * 通过 providerForOpenStep 核对"调度重试的 provider 与失败请求的 provider
- * 一致"，通过历史链核对 retry 序号连续、retryId 跨链不重用。
- * 【产品维度】重试记录进入持久会话日志后会被回放/投影消费，格式与语义错误
- * 会造成错误路由；不变量在写入边界尽早暴露破坏，属于工程质量护栏。
- * 【逻辑维度】失败负载校验 → 调度记录校验 → 启动记录校验 → 会话全量校验 →
- * 安装（挂三个钩子）→ apply 注册。
- * 【关键边界】校验只读不改；llm/retry 必须在打开的 turn/step 内、retry 为
- * 正安全整数且 ≤ maxRetries、delayMs 在 0..MAX_TIMER_DELAY_MS。
- * 【新手阅读建议】先读 validateRetry 的"上下文边界 + 链一致性"两段，理解
- * 持久重试日志的合法形态。
- * ==========================================================================
- */
+
 
 /** Package-owned durable retry-event invariants. @module @deepseek-ai/dsh-llm-retry/invariant */
+
+/*
+ * 【文件职责】检查模型重试持久事件的身份和生命周期关联，保证重试链可从日志还原。
+ */
 
 import type { Context } from '@deepseek-ai/cordis'
 import type { Session, SessionEvent } from '@deepseek-ai/dsh-session'
@@ -184,9 +171,10 @@ function validateStarted(
 // 中文：校验一个已加载会话里已有的每条重试记录（每条都只对"其之前的事件"
 // 做校验）。
 function validateSession(session: Session, fail: InvariantFailure): void {
-  for (const [index, event] of session.events.entries()) {
-    if (event.type === 'llm/retry') validateRetry(session.events.slice(0, index), event, fail)
-    else if (event.type === 'llm/retry-started') validateStarted(session.events.slice(0, index), event, fail)
+  const events = session.snapshotEvents()
+  for (const [index, event] of events.entries()) {
+    if (event.type === 'llm/retry') validateRetry(events.slice(0, index), event, fail)
+    else if (event.type === 'llm/retry-started') validateStarted(events.slice(0, index), event, fail)
   }
 }
 
@@ -199,8 +187,8 @@ const install: InvariantInstaller = Object.assign((ctx: Context, fail: Invariant
   ctx.on('internal/dispatch', (_mode, eventName, args) => {
     if (eventName !== 'session/event') return
     const [session, event] = args as [Session, SessionEvent]
-    if (event.type === 'llm/retry') validateRetry(session.events, event, fail)
-    else if (event.type === 'llm/retry-started') validateStarted(session.events, event, fail)
+    if (event.type === 'llm/retry') validateRetry(session.snapshotEvents(), event, fail)
+    else if (event.type === 'llm/retry-started') validateStarted(session.snapshotEvents(), event, fail)
   }, { global: true })
 }, { inject: ['sessions'] })
 

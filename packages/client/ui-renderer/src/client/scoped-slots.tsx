@@ -2,18 +2,15 @@
  * React renderer for declarative slots. Per-entry bindings enforce child
  * authorization, and entry boundaries contain registrant failures.
  */
+
 /*
- * 文件职责：实现客户端渲染器的 scoped-slots 模块。
- * 技术维度：React、TypeScript、Context、外部 Store 订阅和 Cordis 插槽。
- * 产品维度：为界面提供正确作用域的会话与插槽渲染。
- * 逻辑维度：绑定作用域，订阅状态，向子树提供值并清理。
- * 关键边界：不能跨会话复用旧授权或旧投影；卸载必须取消订阅。
- * 新手阅读建议：先读导出类型，再看 Provider/Hook 和清理逻辑。
+ * 【文件职责】将声明式插槽绑定到 React，检查子插槽使用授权并隔离单个注册项的渲染错误。
  */
+
 import { Component, useMemo, useState, useSyncExternalStore, type FC, type ReactNode } from 'react'
 import {
   SlotOwnershipError, StaleAuthorizationError, standardHookPropName,
-  type ChainRenderOpts, type HostObservable, type LocaleFace, type RenderOpts,
+  type ChainRenderOpts, type HostObservable, type KeyedStandardSource, type LocaleFace, type RenderOpts,
   type ScopedStandardSourceBinding, type SessionAreaProps, type SessionProviderComponent, type SlotRenderer,
   type SlotRendererHost, type SlotScope, type SlotScopeAdapter, type StandardSourceBinding,
   type StoredEntry, type Translate,
@@ -134,26 +131,27 @@ function runInject(entry: StoredEntry, binding: StandardSourceBinding | undefine
   const args: unknown[] = []
   if (binding !== undefined) args.push(binding.key)
   if (actions !== undefined) args.push(actions)
-  return bindInjectHooks((inject as (...args: unknown[]) => InjectedProps)(...args))
+  return bindInjectSources((inject as (...args: unknown[]) => InjectedProps)(...args))
 }
 
-/**
- * Normalize one entry-owned inject face on its existing cache axis. Its hooks
- * compartment remains the original Observable-only contract.
- */
-/* 中文说明：函数 bindInjectHooks 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
-function bindInjectHooks(face: InjectedProps): InjectedProps {
-  /** 中文说明：模块局部值 sources，由紧邻初始化决定。 */
+/** Bind one entry-owned inject face on its existing cache axis. */
+function bindInjectSources(face: InjectedProps): InjectedProps {
   const sources = face['hooks']
-  if (sources === undefined) return face
-  /** 中文说明：模块局部值 { hooks，由紧邻初始化决定。 */
-  const { hooks: _hooks, ...rest } = face
-  /** 中文说明：模块局部值 bound，由紧邻初始化决定。 */
+  const keyedSources = face['keyedHooks']
+  if (sources === undefined && keyedSources === undefined) return face
+  const { hooks: _hooks, keyedHooks: _keyedHooks, ...rest } = face
   const bound: InjectedProps = rest
-  /** 中文说明：模块局部值 [name，由紧邻初始化决定。 */
-  for (const [name, source] of Object.entries(sources as Record<string, HostObservable<unknown>>)) {
+  for (const [name, source] of Object.entries(
+    (sources ?? {}) as Record<string, HostObservable<unknown>>,
+  )) {
     const hookName = standardHookPropName(name)
     bound[hookName] = observableHook(source)
+  }
+  for (const [name, source] of Object.entries(
+    (keyedSources ?? {}) as Record<string, KeyedStandardSource>,
+  )) {
+    const hookName = standardHookPropName(name)
+    bound[hookName] = keyedObservableHook(source)
   }
   return bound
 }

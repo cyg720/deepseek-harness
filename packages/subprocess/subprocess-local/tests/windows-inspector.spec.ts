@@ -1,12 +1,5 @@
-/**
- * 文件职责：验证 windows-inspector.spec.ts 覆盖的子进程管理行为与生命周期。
- * 技术维度：使用 TypeScript、Vitest、Cordis 插件、进程流、终端会话或快照规范化。
- * 产品维度：保障 Agent 的子进程管理能力稳定、可复现且可诊断。
- * 逻辑维度：准备输入和资源，执行核心流程，收集事件或输出，再处理错误与清理。
- * 关键边界：进程退出与取消可能竞态；外部输出不可信；清理必须等待子资源完全停止。
- * 新手阅读建议：先看类型和夹具，再读启动/收集主流程，最后关注平台差异、规范化和清理。
- */
-import { describe, expect, it } from 'vitest'
+import { spawnSync as nodeSpawnSync } from 'node:child_process'
+import { describe, expect, it, vi } from 'vitest'
 import {
   createWindowsProcessInspector,
   isInvalidHandle,
@@ -20,7 +13,11 @@ import type {
   WindowsProcessState,
 } from '@deepseek-ai/dsh-subprocess-local/src/windows-inspector.ts'
 
-/** 中文说明：函数 fakeInternals 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+vi.mock('node:child_process', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('node:child_process')>()
+  return { ...actual, spawnSync: vi.fn(actual.spawnSync) }
+})
+
 function fakeInternals() {
   /** 中文说明：变量 entries 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const entries: ProcessEntry[] = []
@@ -100,6 +97,26 @@ describe('windowsProcessTree', () => {
 })
 
 describe('WindowsProcessInspector (injected internals)', () => {
+  it('hides the default taskkill helper window for both termination tiers', () => {
+    const taskkill = vi.mocked(nodeSpawnSync)
+    taskkill.mockReturnValueOnce({} as never).mockReturnValueOnce({} as never)
+    const inspector = createWindowsProcessInspector()
+    inspector.signalGroup(77, 'SIGKILL')
+    inspector.signalGroup(78, 'SIGTERM')
+    expect(taskkill).toHaveBeenNthCalledWith(
+      1,
+      'taskkill',
+      ['/PID', '77', '/T', '/F'],
+      { stdio: 'ignore', windowsHide: true },
+    )
+    expect(taskkill).toHaveBeenNthCalledWith(
+      2,
+      'taskkill',
+      ['/PID', '78', '/T'],
+      { stdio: 'ignore', windowsHide: true },
+    )
+  })
+
   it('exposes the shell pid as the pseudo foreground group and never proves stdin waits', () => {
     /** 中文说明：变量 fake 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const fake = fakeInternals()

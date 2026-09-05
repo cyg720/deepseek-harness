@@ -10,13 +10,10 @@
  * plugin may read the same immutable snapshot.
  * @module @deepseek-ai/dsh/profile-boot
  */
+
 /*
- * 文件职责：组合配置补丁、启动完整 Cordis 应用树，并接通信号、热重载和有界退出。
- * 技术维度：使用补丁层组合、Cordis Loader/HMR、环境快照、AbortController 与进程信号。
- * 产品维度：所有 dsh 运行形态都能按相同规则加载用户配置、应用参数并安全响应配置变更。
- * 逻辑维度：准备配置目录，组合 bundle/用户/覆盖层，启动应用，随后安装双用户补丁监听。
- * 关键边界：补丁对象会被 Loader 原地修改，复用前必须克隆；信号可能在启动任意阶段到达。
- * 新手阅读建议：先读 composeProfile 的层级顺序，再沿 runProfile 的启动、服务提供和监听流程阅读。
+ * 【文件职责】统一启动 dsh profile，按声明顺序叠加 bundle、profile 和命令行补丁，并管理配置重载与有界退出。
+ * 应用参数通过 ctx.cmdlineArgs 交给插件读取。
  */
 
 import { writeFileSync } from 'node:fs'
@@ -38,6 +35,7 @@ import {
   type Profile,
 } from '@deepseek-ai/dsh-app-boot'
 import { resolveDshHome } from '@deepseek-ai/dsh-home-paths'
+import { installProxyFromEnvironment } from '@deepseek-ai/dsh-http-proxy'
 import { DSH_LAUNCH_ENVIRONMENT_KEY, type LaunchEnvironmentSnapshot } from '@deepseek-ai/dsh-launch-environment'
 import { provideCmdline, type AppReady } from '@deepseek-ai/dsh-cmdline'
 import { createProcessShutdown, type ProcessShutdown } from './process-shutdown.ts'
@@ -272,11 +270,22 @@ function suppressShutdownError(ctx: Context, signal: AbortSignal, error: unknown
  * @example `await runProfile({ environment, profile: 'web', patchFiles: [], args: [] })`
  */
 export async function runProfile(options: RunProfileOptions): Promise<{ ctx: Context; shutdown: ProcessShutdown }> {
+  // Before the first plugin mounts and before anything can issue a request: Node's fetch ignores the
+  // proxy environment on its own, so every profile would otherwise connect directly. Resolving from
+  // the launcher's snapshot — not `process.env` — is what lets a proxy declared in a `.env` layer
+  // work, which the NODE_USE_ENV_PROXY flag cannot do because Node samples the environment at start.
+  const disposeProxy = await installProxyFromEnvironment(
+    options.environment,
+    (message) => { process.stderr.write(`${NAME}: ${message}\n`) },
+  )
+
   const composed = await composeProfile(options.profile, options.patchFiles)
   const app: { current?: Context } = {}
   const appReady = createAppReady()
-  const shutdown = createProcessShutdown(async () => { await app.current?.fiber.dispose() })
-  /** 记录本次启动是否已由进程信号请求关闭。 */
+  const shutdown = createProcessShutdown(async () => {
+    await app.current?.fiber.dispose()
+    await disposeProxy()
+  })
   const signalShutdown = new AbortController()
   /** 接收信号退出码并同时标记中止和启动关闭。 */
   const interrupt = (code: number): void => {

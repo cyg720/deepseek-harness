@@ -1,25 +1,20 @@
-/**
- * 文件职责：实现 client/ui-chat 中 turn process 模块的职责，并向相邻模块提供可复用能力。
- * 技术维度：主要使用TypeScript/JavaScript 的 ESM 模块、严格类型约束与 Cordis 插件机制，
- * 通过当前文件中的类型、函数与数据结构完成实现。
- * 产品维度：支撑 DeepSeek Harness 的 client/ui-chat 能力，使上层功能能够稳定组合和扩展。
- * 逻辑维度：建议按“依赖与类型定义 → 常量和状态 → 核心函数或类 → 导出或注册入口”的顺序理解。
- * 关键边界：调用方必须遵守类型、生命周期和错误处理约定；涉及外部输入、异步任务或资源释放时需特别关注异常分支。
- * 新手阅读建议：先确认导入依赖和公开导出，再沿主要函数调用链阅读，最后结合相邻测试理解输入、输出与边界条件。
+/*
+ * 【文件职责】推导轮次过程区间及最终答案分界，控制答案之前的过程内容是否展开。
  */
+
 import type { Context } from '@deepseek-ai/cordis'
-import type { ChunkRowEvent } from '@deepseek-ai/dsh-api-session-controller/types'
 import type {
   ConversationLocation, ConversationNodeContext, ConversationNodeDefinition, TurnLocation,
 } from '@deepseek-ai/dsh-client-ui-conversation/client'
 import type {} from '@deepseek-ai/dsh-llm-retry/types'
+import type { StreamChunk } from '@deepseek-ai/dsh-llm'
+import { expandAssistantStream } from '@deepseek-ai/dsh-llm/assistant-stream'
 import { isAppendSurfaceEvent } from '@deepseek-ai/dsh-session/surface'
 import type {} from '@deepseek-ai/dsh-tools/types'
 import { hasAssistantReplyContent } from '../contract/assistant-content.ts'
-import type { AssistantChatData, FinalAssistantChatData } from '../contract/chat-nodes.ts'
+import type { AssistantChatData, ChatNode, FinalAssistantChatData } from '../contract/chat-nodes.ts'
 import {
-  decodeTurnProcess, encodeTurnProcess, isSubagentDelegationTool,
-  type TurnProcessSignature, type TurnProcessSpec,
+  isSubagentDelegationTool, sameTurnProcessSpec, type TurnProcessSpec,
 } from '../contract/turn-process.ts'
 import { CHAT_SYNTHETIC_SEQ_OFFSETS, chatNode } from './common.ts'
 import { toAssistantBlocks } from './event-projection.ts'
@@ -33,8 +28,8 @@ declare module '../contract/chat-nodes.ts' {
 
 declare module '@deepseek-ai/dsh-client-ui-conversation/client' {
   interface ConversationTurnDataMap {
-    /** Encoded process range and finalized answer boundary for this Turn. */
-    'turn-process': TurnProcessSignature
+    /** Process range and finalized answer boundary for this Turn. */
+    'turn-process': TurnProcessSpec
   }
 }
 
@@ -43,30 +38,14 @@ interface TurnProcessState {
   readonly assistantStartByStep: ReadonlyMap<number, number>
   readonly messageCountByStep: ReadonlyMap<number, number>
   readonly otherStartSeq?: number
+  readonly controlAnchorSeq?: number
+  readonly messageCount: number
   readonly toolCallCount: number
   readonly subagentCount: number
 }
 
 type ConversationEvent = Parameters<ConversationNodeDefinition['match']>[0]
 
-/**
- * 功能说明：判断是否为 Chunk Run Event 相关流程；使用场景由所在模块及调用位置决定。
- * @param event （ConversationEvent）：提供需要处理或投影的事件数据；必须满足声明的类型及调用时序要求。
- * @returns event is ChunkRowEvent；调用方应按声明类型处理，不应假定未声明的附加状态。
- * @example 在完成前置校验后调用 isChunkRunEvent(event)，并按返回类型处理结果。
- */
-function isChunkRunEvent(event: ConversationEvent): event is ChunkRowEvent {
-  return event.type === 'chunkrow/text-chunks'
-    || event.type === 'chunkrow/reasoning-chunks'
-    || event.type === 'chunkrow/tool-call-chunks'
-}
-
-/**
- * 功能说明：处理 eventTurn 相关流程；使用场景由所在模块及调用位置决定。
- * @param event （ConversationEvent）：提供需要处理或投影的事件数据；必须满足声明的类型及调用时序要求。
- * @returns number | undefined；调用方应按声明类型处理，不应假定未声明的附加状态。
- * @example 在完成前置校验后调用 eventTurn(event)，并按返回类型处理结果。
- */
 function eventTurn(event: ConversationEvent): number | undefined {
   /**
    * 常量说明：data 用于处理 data 相关数据，作用于当前作用域；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。
@@ -75,32 +54,24 @@ function eventTurn(event: ConversationEvent): number | undefined {
   return typeof data.turn === 'number' ? data.turn : undefined
 }
 
-/**
- * 功能说明：处理 visibleAssistantEvent 相关流程；使用场景由所在模块及调用位置决定。
- * @param event （ConversationEvent）：提供需要处理或投影的事件数据；必须满足声明的类型及调用时序要求。
- * @returns boolean；调用方应按声明类型处理，不应假定未声明的附加状态。
- * @example 在完成前置校验后调用 visibleAssistantEvent(event)，并按返回类型处理结果。
- */
-function visibleAssistantEvent(event: ConversationEvent): boolean {
-  if (event.type === 'assistant/chunk') {
-    /**
-     * 常量说明：chunk 用于处理 chunk 相关数据，作用于当前作用域；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。
-     */
-    const chunk = event.data.chunk
-    if (chunk.type === 'text-delta' || chunk.type === 'reasoning-delta') return chunk.text.trim() !== ''
-    if (chunk.type === 'block-start') {
-      return chunk.blockType !== 'text'
+function visibleChunk(chunk: StreamChunk): boolean {
+  if (chunk.type === 'text-delta' || chunk.type === 'reasoning-delta') return chunk.text.trim() !== ''
+  if (chunk.type === 'block-start') {
+    return chunk.blockType !== 'text'
         && chunk.blockType !== 'reasoning'
         && chunk.blockType !== 'tool-call'
-    }
-    if (chunk.type !== 'block-end') return false
-    /**
-     * 常量说明：block 用于处理 block 相关数据，作用于当前作用域；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。
-     */
-    const block = chunk.block
-    if (block.type === 'tool-call') return false
-    if (block.type === 'text' || block.type === 'reasoning') return block.text.trim() !== ''
-    return true
+  }
+  if (chunk.type !== 'block-end') return false
+  const block = chunk.block
+  if (block.type === 'tool-call') return false
+  if (block.type === 'text' || block.type === 'reasoning') return block.text.trim() !== ''
+  return true
+}
+
+function visibleAssistantEvent(event: ConversationEvent): boolean {
+  if (event.type === 'assistant/live-chunk') return visibleChunk(event.data.chunk)
+  if (event.type === 'assistant/attempt') {
+    return expandAssistantStream(event.data.stream).some(member => visibleChunk(member.chunk))
   }
   /**
    * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；参数：block（由 TypeScript
@@ -127,24 +98,10 @@ type ProcessEvidence =
  * @example 在完成前置校验后调用 processEvidence(event)，并按返回类型处理结果。
  */
 function processEvidence(event: ConversationEvent): ProcessEvidence | undefined {
-  if (isChunkRunEvent(event)) {
-    if (event.type === 'chunkrow/tool-call-chunks') return undefined
-    /**
-     * 常量说明：firstVisible 用于处理 firstVisible 相关数据，作用于当前作用域；初始化后不可重新赋值，
-     * 但对象内部是否可变仍由其类型决定。
-     */
-    /**
-     * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；参数：text（由 TypeScript
-     * 根据调用位置推断的类型）：提供本次调用所需的数据；必须满足声明的类型及调用时序要求。；返回值：由 TypeScript 根据实现推断的结果；
-     * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调(text)，并按返回类型处理结果。
-     */
-    const firstVisible = event.data.texts.findIndex(text => text.trim() !== '')
-    return firstVisible < 0
-      ? undefined
-      : { kind: 'assistant', seq: event.seq + firstVisible, step: event.data.step }
-  }
   if (visibleAssistantEvent(event)) {
-    if (event.type !== 'assistant/chunk' && event.type !== 'assistant/message') return undefined
+    if (event.type !== 'assistant/live-chunk'
+      && event.type !== 'assistant/message'
+      && event.type !== 'assistant/attempt') return undefined
     return { kind: 'assistant', seq: event.seq, step: event.data.step }
   }
   if (event.type === 'tool/call'
@@ -198,6 +155,7 @@ function fallbackState(context: ConversationNodeContext<TurnProcessState>): Turn
     turn,
     assistantStartByStep: new Map(),
     messageCountByStep: new Map(),
+    messageCount: 0,
     toolCallCount: 0,
     subagentCount: 0,
   }
@@ -256,18 +214,8 @@ function latestAnswer(turn: TurnLocation): Readonly<FinalAssistantChatData> | nu
  * @example 在完成前置校验后调用 processSpec(state, turn)，并按返回类型处理结果。
  */
 function processSpec(state: TurnProcessState, turn: TurnLocation): TurnProcessSpec | null {
-  /**
-   * 常量说明：controlAnchorSeq 用于处理 controlAnchorSeq 相关数据，作用于当前作用域；初始化后不可重新赋值，
-   * 但对象内部是否可变仍由其类型决定。
-   */
-  const controlAnchorSeq = Math.min(
-    state.otherStartSeq ?? Number.POSITIVE_INFINITY,
-    ...state.assistantStartByStep.values(),
-  )
-  if (!Number.isFinite(controlAnchorSeq)) return null
-  /**
-   * 常量说明：answer 用于处理 answer 相关数据，作用于当前作用域；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。
-   */
+  const controlAnchorSeq = state.controlAnchorSeq
+  if (controlAnchorSeq === undefined) return null
   const answer = latestAnswer(turn)
   /**
    * 常量说明：counts 用于处理 counts 相关数据，作用于当前作用域；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。
@@ -292,7 +240,7 @@ function processSpec(state: TurnProcessState, turn: TurnLocation): TurnProcessSp
    */
   const counts = {
     messageCount: answer === null
-      ? [...state.messageCountByStep.values()].reduce((total, count) => total + count, 0)
+      ? state.messageCount
       : [...state.messageCountByStep]
         .filter(([step]) => step < answer.step)
         .reduce((total, [, count]) => total + count, 0),
@@ -380,7 +328,7 @@ function updateProcessState(state: TurnProcessState, event: ConversationEvent): 
      */
     const messageCountByStep = new Map(current.messageCountByStep)
     messageCountByStep.set(event.data.step, (messageCountByStep.get(event.data.step) ?? 0) + 1)
-    current = { ...current, messageCountByStep }
+    current = { ...current, messageCountByStep, messageCount: current.messageCount + 1 }
   }
   if (event.type === 'tool/call') {
     /**
@@ -399,7 +347,13 @@ function updateProcessState(state: TurnProcessState, event: ConversationEvent): 
   const evidence = processEvidence(event)
   if (evidence === undefined) return current
   if (evidence.kind === 'other') {
-    return current.otherStartSeq === undefined ? { ...current, otherStartSeq: evidence.seq } : current
+    return current.otherStartSeq === undefined
+      ? {
+        ...current,
+        otherStartSeq: evidence.seq,
+        controlAnchorSeq: Math.min(current.controlAnchorSeq ?? Number.POSITIVE_INFINITY, evidence.seq),
+      }
+      : current
   }
   if (current.assistantStartByStep.has(evidence.step)) return current
   /**
@@ -408,7 +362,11 @@ function updateProcessState(state: TurnProcessState, event: ConversationEvent): 
    */
   const assistantStartByStep = new Map(current.assistantStartByStep)
   assistantStartByStep.set(evidence.step, evidence.seq)
-  return { ...current, assistantStartByStep }
+  return {
+    ...current,
+    assistantStartByStep,
+    controlAnchorSeq: Math.min(current.controlAnchorSeq ?? Number.POSITIVE_INFINITY, evidence.seq),
+  }
 }
 
 /** Turn-scoped process range and answer-boundary Definition.
@@ -461,9 +419,9 @@ export const turnProcessDefinition: ConversationNodeDefinition<TurnProcessState>
      */
     const turn = eventTurn(event)
     if (turn === undefined) return null
-    if (event.type === 'assistant/chunk'
+    if (event.type === 'assistant/live-chunk'
       || event.type === 'assistant/message'
-      || isChunkRunEvent(event)
+      || event.type === 'assistant/attempt'
       || event.type === 'tool/call'
       || event.type === 'tool/result'
       || event.type === 'llm/retry'
@@ -480,23 +438,20 @@ export const turnProcessDefinition: ConversationNodeDefinition<TurnProcessState>
       turn: match.event.data.turn,
       assistantStartByStep: new Map(),
       messageCountByStep: new Map(),
+      messageCount: 0,
       toolCallCount: 0,
       subagentCount: 0,
     }
   },
   update: (context, match) => updateProcessState(context.state, match.event),
   publication: (match) => {
-    if (isChunkRunEvent(match.event)) return 'animation-frame'
-    if (match.event.type === 'assistant/chunk') {
-      /**
-       * 常量说明：type 用于处理 type 相关数据，作用于当前作用域；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。
-       */
+    if (match.event.type === 'assistant/live-chunk') {
       const type = match.event.data.chunk.type
       return type === 'usage' || type === 'finish' ? 'none' : 'animation-frame'
     }
     return 'immediate'
   },
-  buildLocationData: (context, scope) => {
+  buildLocationData: (context, scope, previous) => {
     if (scope !== 'turn') return null
     /**
      * 常量说明：state 用于处理 state 相关数据，作用于当前作用域；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。
@@ -508,15 +463,29 @@ export const turnProcessDefinition: ConversationNodeDefinition<TurnProcessState>
      */
     const turn = turnLocation(context)
     if (turn === undefined) return null
-    /**
-     * 常量说明：spec 用于处理 spec 相关数据，作用于当前作用域；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。
-     */
+    const current = context.current.get('chat') as ChatNode | null | undefined
+    const latestStep = turn.steps.at(-1)
+    if (previous?.kind === 'turn'
+      && previous.key === 'turn-process'
+      && current?.kind === 'turn-process'
+      && current.data.answerAnchorSeq === null
+      && current.data.controlAnchorSeq === state.controlAnchorSeq
+      && current.data.messageCount === state.messageCount
+      && current.data.toolCallCount === state.toolCallCount
+      && current.data.subagentCount === state.subagentCount
+      && turn.status !== 'closed'
+      && latestStep?.status !== 'closed') return previous
     const spec = processSpec(state, turn)
-    return spec === null ? null : {
+    if (spec === null) return null
+    if (previous?.kind === 'turn'
+      && previous.turn === spec.turn
+      && previous.key === 'turn-process'
+      && sameTurnProcessSpec(previous.value, spec)) return previous
+    return {
       kind: 'turn',
       turn: turn.turn,
       key: 'turn-process',
-      value: encodeTurnProcess(spec),
+      value: spec,
     }
   },
   buildViewNode: (context) => {
@@ -524,15 +493,20 @@ export const turnProcessDefinition: ConversationNodeDefinition<TurnProcessState>
      * 常量说明：turn 用于处理 turn 相关数据，作用于当前作用域；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。
      */
     const turn = turnLocation(context)
-    /**
-     * 常量说明：signature 用于处理 signature 相关数据，作用于当前作用域；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。
-     */
-    const signature = turn?.data.get('turn-process')
-    if (turn === undefined || signature === undefined) return null
-    /**
-     * 常量说明：data 用于处理 data 相关数据，作用于当前作用域；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。
-     */
-    const data = decodeTurnProcess(signature)
+    const data = turn?.data.get('turn-process')
+    if (turn === undefined || data === undefined) return null
+    const current = context.current.get('chat') as ChatNode | null | undefined
+    const state = context.state
+    if (current?.kind === 'turn-process'
+      && state !== undefined
+      && current.data.answerAnchorSeq === null
+      && current.data.controlAnchorSeq === state.controlAnchorSeq
+      && current.data.messageCount === state.messageCount
+      && current.data.toolCallCount === state.toolCallCount
+      && current.data.subagentCount === state.subagentCount
+      && turn.status !== 'closed'
+      && turn.steps.at(-1)?.status !== 'closed'
+      && current.location === (context.start?.location ?? context.matches[0]?.location)) return current
     return chatNode(
       context,
       'turn-process',

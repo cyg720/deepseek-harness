@@ -1,22 +1,17 @@
-/*
- * ================================ 文件注释 ================================
- * 【文件职责】维护“动态运行时上下文”的持久化投影：追踪最近一次由 dsh-system-prompt 写入会话的用户消息快照，供步骤边界回灌给模型。
- * 【技术维度】投影模式（projection）：构造时从会话日志倒序重建状态，之后订阅 session/event 增量维护；只读不拥有提交权（commit 由调用方完成）。
- * 【产品维度】让模型每次都能看到“当前运行时状态”（如工作目录、最近变更），状态变化时自动生成新的上下文消息，无变化则不重复刷屏。
- * 【逻辑维度】SOURCE/CLEARED 常量 → isOwned/textOf 判定助手 → RuntimeContextProjection（构造重放 → project 比较并产出候选消息）。
- * 【关键边界】快照消息必须来自本插件（source.plugin === SOURCE）才会被追踪；被替换（replacement surface）后投影置空；无任何贡献时使用 CLEARED 标记。
- * 【新手阅读建议】先理解“投影”概念（重放历史 + 增量订阅），再看 project() 的三个分支（未初始化/无变化/需要更新）。
- * ==========================================================================
- */
+
 /**
  * Durable projection state for dynamic runtime context.
  * @module @deepseek-ai/dsh-agent-loop/runtime-context
  */
 
+/*
+ * 【文件职责】跟踪动态运行上下文最后保留的快照，投影状态本身不拥有日志提交操作。
+ */
+
 import { createUserMessage } from '@deepseek-ai/dsh-llm'
 import type { ContextSnapshotSection } from '@deepseek-ai/dsh-llm'
 import type { Session, UserMessage } from '@deepseek-ai/dsh-session'
-import { isReplacementSurfaceEvent } from '@deepseek-ai/dsh-session'
+import { isReplacementSurfaceEvent, SessionSeq } from '@deepseek-ai/dsh-session'
 import type { Context } from '@deepseek-ai/cordis'
 
 // 归属标识：只有 source.plugin 等于这个值的用户消息才被本投影追踪（即由 dsh-system-prompt 生成的快照）。
@@ -39,8 +34,7 @@ function textOf(message: UserMessage): string | undefined {
 // 运行时上下文投影：只追踪“最近一次被保留的快照”，不负责把它提交进会话（提交由调用方 preStep 决定）。
 export class RuntimeContextProjection {
   /** `undefined` means no snapshot ever existed; `null` means none is retained. */
-  // retained 三态：undefined = 历史上从未有过快照；null = 有过但当前不保留任何快照；{seq,text} = 正在保留的那条。
-  private retained: { seq: number; text: string | undefined } | null | undefined
+  private retained: { seq: SessionSeq; text: string | undefined } | null | undefined
 
   /**
    * Restore projection state once, then follow authoritative session events.
@@ -51,9 +45,8 @@ export class RuntimeContextProjection {
   constructor(ctx: Context, session: Session) {
     // 当前仍在“表面”（surface，即对模型可见的最终消息序列）中的节点 seq 集合，用于判断快照是否仍存活。
     const surface = new Set(session.surface.nodes)
-    // 从最新的 user/message 事件倒查：找到最近一条由本插件生成且仍在表面上的快照，恢复为保留状态。
-    for (let index = session.events.length - 1; index >= 0; index -= 1) {
-      const event = session.events[index]
+    for (let index = session.seq - 1; index >= 0; index -= 1) {
+      const event = session.eventAt(SessionSeq(index))
       if (event?.type !== 'user/message' || !isOwned(event.data)) continue
       this.retained ??= null
       if (surface.has(event.seq)) {

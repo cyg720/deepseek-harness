@@ -76,6 +76,11 @@ export async function mockServer(script: {
         response.end(behavior.body ?? '{}')
         return
       }
+      if (behavior.body !== undefined) {
+        response.writeHead(200, { 'content-type': 'application/json', ...behavior.headers })
+        response.end(behavior.body)
+        return
+      }
       response.writeHead(200, { 'content-type': 'text/event-stream' })
       /** 中文说明：变量 index 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       let index = 0

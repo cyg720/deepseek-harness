@@ -13,7 +13,9 @@ import type {
 } from '../src/client/trajectory-contract.ts'
 import { TrajectorySnapshotBuilder } from '../src/client/trajectory-snapshot-builder.ts'
 
-/** 中文说明：函数 assistantRequest 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
+const EMPTY_LOCATION_DATA_SOURCE = { getSnapshot: () => undefined, subscribe: () => () => {} }
+const EMPTY_LOCATION_DATA = { get: () => undefined, source: () => EMPTY_LOCATION_DATA_SOURCE }
+
 function assistantRequest(startSeq: number, step: number): Extract<RequestView, { purpose: 'assistant' }> {
   return {
     purpose: 'assistant',
@@ -41,9 +43,7 @@ function contribution(
 
 /** 中文说明：函数 stepLocation 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function stepLocation(turn: number, step: number): TrajectoryRequestHeaderState['location'] {
-  /** 中文说明：测试局部值 data，由紧邻初始化决定。 */
-  const data = { get: () => undefined }
-  /** 中文说明：测试局部值 stepLocation，由紧邻初始化决定。 */
+  const data = EMPTY_LOCATION_DATA
   const stepLocation = {
     turn,
     step,

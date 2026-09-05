@@ -1,23 +1,15 @@
-/*
- * ================================ 文件注释 ================================
- * 【文件职责】回合级"产物"（成功创建/修改的文件）的数据定义与读取：声明 deliverables
- *             回合数据（按工具结果累积路径）、为回合尾链提供选择器、生成文件提及解析器。
- * 【技术维度】纯客户端、不依赖模型：以变更工具的跟随式 locations 为唯一事实源；
- *             按渲染意图（diff 卡片或 kind 为 edit 的通用卡片）识别变更，而非按工具名。
- * 【产品维度】对话底部"产物"行与关闭消息中可点击的文件提及，帮助用户快速打开产出文件。
- * 【逻辑维度】producedPaths 识别路径 → deliverablesDefinition 累积到回合数据 →
- *             producedForClosing 按关闭序号取本回合路径 → selectProducedFiles 判断
- *             是否占据回合尾 → producedFileMentions 生成提及解析器。
- * 【关键边界】只统计根级调用（嵌套 Code Mode 分发不独立贡献）；失败调用不计；
- *             提及按 basename 唯一匹配，重名保持惰性以免打开错误文件。
- * 【新手阅读建议】先读 producedForClosing 与 producedPaths，再看 deliverablesDefinition 的累积逻辑。
- * ==========================================================================
- */
+
 /**
  * Turn-scoped produced-file Definition and readers. Client-only and
  * model-free: the vocabulary comes from successful first-party mutation
  * calls, never presentation data or the closing prose.
  */
+
+/*
+ * 【文件职责】从成功的内置文件变更工具调用提取轮次产物；
+ * 关闭回复中的自然语言不作为文件产生的证据。
+ */
+
 import { isAppendSurfaceEvent } from '@deepseek-ai/dsh-session/surface'
 import type { TurnTailOwnerProps } from '@deepseek-ai/dsh-client-ui-chat/client'
 import type { ConversationNodeDefinition } from '@deepseek-ai/dsh-client-ui-conversation/client'
@@ -198,14 +190,19 @@ export const deliverablesDefinition: ConversationNodeDefinition<DeliverablesStat
       ? context.state
       : { ...context.state, produced: [...context.state.produced, { seq: match.event.seq, path }] }
   },
-  buildLocationData: (context, scope) => scope !== 'turn' || context.state === undefined
-    ? null
-    : {
+  buildLocationData: (context, scope, previous) => {
+    if (scope !== 'turn' || context.state === undefined) return null
+    if (previous?.kind === 'turn'
+      && previous.turn === context.state.turn
+      && previous.key === 'deliverables'
+      && previous.value.produced === context.state.produced) return previous
+    return {
       kind: 'turn',
       turn: context.state.turn,
       key: 'deliverables',
       value: { produced: context.state.produced },
-    },
+    }
+  },
 }
 
 /**

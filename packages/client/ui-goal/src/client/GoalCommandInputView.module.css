@@ -1,10 +1,10 @@
-/* 文件职责：定义目标命令输入在轨迹中的行布局、内容栈和消息气泡样式。
- * 技术维度：使用 CSS Modules、Flexbox、响应式宽度函数和设计令牌完成消息布局。
- * 产品维度：让用户提交的目标命令以清晰、紧凑且可换行的气泡形式呈现。
- * 逻辑维度：row 控制整行，stack 限制右对齐内容宽度，bubble 负责文本容器外观。
- * 关键边界：气泡最多占可用宽度的 82%；超长无空格文本通过 anywhere 强制换行。
- * 新手阅读建议：依次观察 row、stack、bubble 如何从外到内共同形成右对齐气泡。 */
+
 /* row：把本行内容纵向排列并整体靠右对齐。 */
+
+/*
+ * 【文件职责】定义右对齐的目标命令输入气泡，使宽度与普通用户消息保持一致。
+ */
+
 .row {
   display: flex;
   flex-direction: column;
@@ -32,10 +32,10 @@
   border-radius: 22px;
   background: var(--dsw-specific-bubble);
   color: var(--dsw-alias-label-primary);
-  font: var(--dsw-font-markdown-code);
-  /* The command echo is a user message, not dense code-in-prose: keep the
-     code family from the token but read at the body size, riding the
-     Settings font-size axis like the user bubble (14/22 at the default). */
+  /* The command echo is a user message: it inherits the body face like the
+     user bubble and rides the same Settings font-size axis (14/22 at the
+     default); the `/goal` command chip, set in the code face by the shared
+     projection, is what marks the line as a command. */
   font-size: var(--dsh-content-font-size, 14px);
   line-height: calc(22px + var(--dsh-content-font-delta, 0px));
   white-space: pre-wrap;

@@ -8,18 +8,23 @@
 
 import { existsSync } from 'node:fs'
 import { lstat, readFile, readdir, realpath } from 'node:fs/promises'
-import { dirname, join, relative, resolve } from 'node:path'
+import { basename, dirname, join, relative, resolve } from 'node:path'
 import { expect, it } from 'vitest'
+import { SESSION_FORMAT_VERSION } from '@deepseek-ai/dsh-session'
 import {
+  assertSessionFixtureVersion,
   captureExpectedWorkspaceSnapshot,
   EMPTY_WORKSPACE_MARKER,
   parseSnapshotManifest,
+  parseSessionFixtureName,
   redactSessionSnapshotIds,
   scrubSystemPrompts,
   scrubToolSchemas,
+  sessionFixtureFiles,
   sessionFixtureNames,
   type SnapshotManifest,
 } from '@deepseek-ai/dsh-session-snapshot'
+import { assertV2SnapshotCorpusPolicy } from './session-snapshot-corpus-policy.ts'
 
 /**
  * 常量说明：repoRoot 用于处理 repoRoot 相关数据，作用于当前作用域；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。
@@ -227,18 +232,12 @@ it('keeps every recorded session owned, pinned, redacted, and header-scrubbed', 
     const classKey = `${manifest.composition}/${manifest.header.class}`
     expect(pinByClass.has(classKey), `${key}: missing composition/header pin ${classKey}`).toBe(true)
 
-    /**
-     * 常量说明：localSession 用于处理 localSession 相关数据，作用于当前作用域；初始化后不可重新赋值，
-     * 但对象内部是否可变仍由其类型决定。
-     */
-    const localSession = join(dir, 'session.jsonl')
+    const localEntries = await readdir(dir)
+    const localSessionNames = localEntries.filter(name => parseSessionFixtureName(name) !== undefined)
     if (manifest.session === undefined) {
-      expect(existsSync(localSession), `${key}: owner session.jsonl`).toBe(true)
+      expect(localSessionNames.length, `${key}: owner Session fixture`).toBeGreaterThan(0)
     } else {
-      expect(existsSync(localSession), `${key}: borrower must not own session.jsonl`).toBe(false)
-      /**
-       * 常量说明：target 用于处理 target 相关数据，作用于当前作用域；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。
-       */
+      expect(localSessionNames, `${key}: borrower must not own a Session fixture`).toEqual([])
       const target = resolve(dir, manifest.session.source)
       expect(existsSync(target), `${key}: session source`).toBe(true)
       /**
@@ -251,6 +250,9 @@ it('keeps every recorded session owned, pinned, redacted, and header-scrubbed', 
       const sourceKey = relative(corpusRoot, targetDir).split(/[/\\]/).join('/')
       expect(byKey.has(sourceKey), `${key}: session source must name a corpus owner`).toBe(true)
       expect(byKey.get(sourceKey)?.manifest.session, `${key}: session source cannot chain through a borrower`).toBeUndefined()
+      const [selectedParent] = sessionFixtureFiles(await readdir(targetDir))
+      expect(basename(target), `${key}: session source must name the owner's selected parent generation`)
+        .toBe(selectedParent?.name)
     }
 
     expect(existsSync(join(dir, 'replay.override.json')), `${key}: replay override presence`)
@@ -310,19 +312,11 @@ it('keeps every recorded session owned, pinned, redacted, and header-scrubbed', 
     }
 
     if (manifest.session !== undefined) continue
-    /**
-     * 常量说明：names 用于处理 names 相关数据，作用于当前作用域；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。
-     */
-    const names = sessionFixtureNames(await readdir(dir))
-    /**
-     * 常量说明：fixtures 用于处理 fixtures 相关数据，作用于当前作用域；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。
-     */
-    /**
-     * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；参数：name（由 TypeScript
-     * 根据调用位置推断的类型）：提供本次调用所需的数据；必须满足声明的类型及调用时序要求。；返回值：由 TypeScript 根据实现推断的结果；
-     * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调(name)，并按返回类型处理结果。
-     */
+    const names = sessionFixtureNames(localEntries)
     const fixtures = await Promise.all(names.map(name => readFile(join(dir, name), 'utf8')))
+    for (const name of localSessionNames) {
+      assertSessionFixtureVersion(name, await readFile(join(dir, name), 'utf8'))
+    }
     expect(redactSessionSnapshotIds(fixtures), `${key}: typed identity fixed point`).toEqual(fixtures)
     /**
      * 变量说明：index、fixture 保存当前循环的迭代状态；取值范围由循环输入决定，仅在循环作用域内使用。
@@ -346,4 +340,21 @@ it('keeps every recorded session owned, pinned, redacted, and header-scrubbed', 
       expect(existsSync(join(dir, `tool-schemas.${index}.expected.json`)), `${key}: child schema sidecar ${index}`).toBe(true)
     }
   }
+})
+
+it('keeps a current v2 majority plus the bounded declared v0/v1 migration corpus', async () => {
+  expect(SESSION_FORMAT_VERSION).toBe(2)
+  const owners = (await scenarios()).filter(scenario => scenario.manifest.session === undefined)
+  const inventory = await Promise.all(owners.map(async scenario => ({
+    key: scenario.key,
+    selectedVersions: sessionFixtureFiles(await readdir(scenario.dir)).map(file => file.version),
+    ...(scenario.manifest.sessionFormat === undefined
+      ? {}
+      : { retained: scenario.manifest.sessionFormat }),
+  })))
+
+  expect(assertV2SnapshotCorpusPolicy(inventory)).toMatchObject({
+    retainedRoles: 7,
+    retainedScenarios: 5,
+  })
 })

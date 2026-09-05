@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { Context, Service } from '@deepseek-ai/cordis'
-import SessionStore, { type Session, type SessionEvent } from '@deepseek-ai/dsh-session'
+import SessionStore, { SessionSeq, type Session, type SessionEvent } from '@deepseek-ai/dsh-session'
 import * as PermissionInvariant from '@deepseek-ai/dsh-permission-presets/invariant'
 import InvariantRegistry from '@deepseek-ai/dsh-invariants'
 
@@ -28,7 +28,7 @@ async function setup(): Promise<Context> {
 
 /** 中文：构造 permission/preset 会话事件；preset 是待校验名称，返回最小 SessionEvent。 */
 function presetEvent(preset: string): SessionEvent {
-  return { type: 'permission/preset', seq: 0, time: 0, data: { preset } }
+  return { type: 'permission/preset', seq: SessionSeq(0), time: 0, data: { preset } }
 }
 
 /** 中文：权限预设持久化不变量测试组。 */
@@ -39,7 +39,7 @@ describe('permission invariants', () => {
     const ctx = await setup()
     expect(() => { ctx.emit('session/event', {} as Session, presetEvent('safe')) }).not.toThrow()
     expect(() => { ctx.emit('session/event', {} as Session, {
-      type: 'turn/end', seq: 0, time: 0, data: {},
+      type: 'turn/end', seq: SessionSeq(0), time: 0, data: {},
     } as SessionEvent) }).not.toThrow()
     expect(() => { ctx.emit('tools/change') }).not.toThrow()
   })

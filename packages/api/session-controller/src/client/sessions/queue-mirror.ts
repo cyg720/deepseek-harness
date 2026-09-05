@@ -1,19 +1,5 @@
-/**
- * ================================ 文件注释 ================================
- * 【文件职责】会话队列（queue）的权威瞬时投影 + 持久化 steering 交接：
- *   把 Host 流式队列帧镜像为客户端队列行，并在持久化消息进入日志后
- *   撤下对应的瞬时行。
- * 【技术维度】纯类：replace 用一整帧替换投影；acceptDurable 按 messageId
- *   匹配 steering 行并移除；snapshot 返回不可变当前投影。
- * 【产品维度】用户发送的多条消息进入排队（queue）或插话（steering）时，
- *   界面需要立即显示"待处理"行；消息真正入日志后这些行必须消失，
- *   避免重复展示。
- * 【逻辑维度】previewOf/textOf 分别生成展示预览与纯文本；reset 丢弃过期
- *   世代；replace 吸收新基线；acceptDurable 交接给持久化消息。
- * 【关键边界】只有 placement 为 steering 的行参与持久化交接；acceptDurable
- *   只认 user/message 事件。
- * 【新手阅读建议】先理解会话对话模型中 QueuedMessage 的字段含义。
- * ==========================================================================
+/*
+ * 【文件职责】镜像权威临时队列，并把已持久化的 steering 输入从临时显示移交到会话历史。
  */
 
 import type { ContentBlock } from '@deepseek-ai/dsh-llm/types'
@@ -23,11 +9,11 @@ import type { QueuedMessage } from '../contract/snapshot.ts'
 
 const QUEUE_PREVIEW_CHARS = 200
 
-// Image blocks are excluded: queue presentation renders them as thumbnails
-// from `content`, so the text preview covers only what has no visual form.
+// Attachment blocks are excluded: queue presentation renders them from
+// `content`, so the text preview covers only what has no visual form.
 function previewOf(content: readonly ContentBlock[]): string {
   const flat = content
-    .filter(block => block.type !== 'image')
+    .filter(block => block.type !== 'image' && block.type !== 'file')
     .map(block => (block.type === 'text' ? block.text : `[${block.type}]`))
     .join(' ').replace(/\s+/g, ' ').trim()
   const chars = Array.from(flat)

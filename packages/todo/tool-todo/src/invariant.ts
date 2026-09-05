@@ -1,11 +1,7 @@
 /** Package-owned durable todo-snapshot invariants. @module @deepseek-ai/dsh-tool-todo/invariant */
+
 /*
- * 文件职责：实现 invariant.ts 覆盖的Todo 工具行为与测试协作。
- * 技术维度：使用 TypeScript、Vitest、Cordis 插件、快照、模拟服务器或类型生成。
- * 产品维度：通过可复现的Todo 工具能力保障 Agent 功能在集成层稳定。
- * 逻辑维度：准备夹具或输入，执行装载/生成/调用流程，再规范化并核对结果。
- * 关键边界：夹具必须确定且跨平台；模型可见状态应可重放；临时资源必须释放。
- * 新手阅读建议：先看导出类型和夹具，再读主流程，最后关注规范化、失败和清理。
+ * 【文件职责】检查待办快照在会话日志中的领域规则，保证待办状态可由持久记录重建。
  */
 
 import type { Context } from '@deepseek-ai/cordis'
@@ -75,7 +71,7 @@ function validateEvent(event: SessionEvent, trace: TurnTrace, fail: InvariantFai
 /** Validate one existing log in a single pass and return its tail trace. */
 function seedTrace(session: Session, fail: InvariantFailure): TurnTrace {
   const trace: TurnTrace = { open: false }
-  for (const event of session.events) {
+  for (const event of session.snapshotEvents()) {
     validateEvent(event, trace, fail)
     advanceTrace(trace, event)
   }

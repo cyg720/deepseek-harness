@@ -22,10 +22,8 @@ import {
 import type E2BRuntime from '@deepseek-ai/dsh-e2b'
 import type { SubprocessSpawnSpec } from '@deepseek-ai/dsh-subprocess'
 import E2BSubprocessRuntime from '@deepseek-ai/dsh-subprocess-e2b'
-import * as E2BSubprocessInvariant from '../src/invariant.ts'
 import { E2BBase64Decoder, E2B_OUTPUT_COMPLETE_FRAME, E2BOutputReader } from '../src/output.ts'
 import { E2BSubprocessHandle } from '../src/process.ts'
-import InvariantRegistry from '@deepseek-ai/dsh-invariants'
 import { describe, expect, it, vi } from 'vitest'
 
 /** 中文说明：函数 commandError 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
@@ -2085,14 +2083,5 @@ describe('E2BSubprocessRuntime', () => {
     const { ctx } = await service()
     expect(() => ctx.subprocess.spawn(spec({ argv: [] }))).toThrow(/non-empty program/)
     expect(() => ctx.subprocess.spawn(spec({ signal: AbortSignal.abort('stop') }))).toThrow(/aborted before spawn/)
-  })
-
-  it('registers the package-owned empty invariant installer', async () => {
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
-    const ctx = new Context()
-    await ctx.plugin(InvariantRegistry, { enabled: true })
-    /** 中文说明：测试局部值 fiber，由紧邻初始化决定。 */
-    const fiber = await ctx.plugin(E2BSubprocessInvariant).await()
-    await fiber.dispose()
   })
 })

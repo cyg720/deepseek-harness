@@ -8,8 +8,4 @@
  */
 import { clientBundle } from '../tsdown.client.ts'
 
-/**
- * 生成子代理界面包的构建配置；参数为包标识与 Node 端入口，返回构建配置函数。
- * 使用示例：运行 `pnpm --filter @deepseek-ai/dsh-client-ui-subagent bundle` 时自动加载。
- */
-export default clientBundle('@deepseek-ai/dsh-client-ui-subagent', ['lib/types/index.js', 'lib/types/invariant.js'])
+export default clientBundle('@deepseek-ai/dsh-client-ui-subagent', ['lib/types/index.js'])

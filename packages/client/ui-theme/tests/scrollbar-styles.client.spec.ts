@@ -8,31 +8,13 @@
  * design-platform.css, so adding, renaming, or dropping a scrollbar token
  * moves these assertions with it.
  */
-/*
- * 文件职责：验证主题与设计系统的 scrollbar-styles.client.spec.ts 行为。
- * 技术维度：Vitest、React 渲染、DOM 事件和服务替身。
- * 产品维度：防止主题与设计系统显示、导航或生命周期回归。
- * 逻辑维度：构造状态，触发交互并断言输出和清理。
- * 关键边界：全局主题、DOM 尺寸和订阅必须在用例后恢复。
- * 新手阅读建议：先读夹具，再按加载、交互和卸载场景阅读。
- */
-import { readdirSync, readFileSync } from 'node:fs'
-import { join } from 'node:path'
+import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
-
-/** One flattened CSS rule: its comma-separated selector parts and its declarations in source order. */
-/* 中文说明：类型或类 CssRule 约束模块数据或组件职责。 */
-interface CssRule {
-  selectors: string[]
-  declarations: [property: string, value: string][]
-}
+import { atRuleBlock, type CssRule, packageStylesheets, parseRules, varReferences } from './stylesheet-scan.ts'
 
 /** 中文说明：测试局部值 STYLES，由紧邻初始化决定。 */
 const STYLES = new URL('../src/styles/', import.meta.url)
-/** 中文说明：测试局部值 PACKAGES_DIR，由紧邻初始化决定。 */
-const PACKAGES_DIR = fileURLToPath(new URL('../../../', import.meta.url))
-/** 中文说明：测试局部值 read，由紧邻初始化决定。 */
 const read = (name: string): string => readFileSync(fileURLToPath(new URL(name, STYLES)), 'utf8')
 
 /** 中文说明：测试局部值 platformCss，由紧邻初始化决定。 */
@@ -58,98 +40,6 @@ const ELEVATED_REBIND = new Map([
   ['--dsh-scrollbar-thumb', '--dsw-alias-scrollbar-bg-l2'],
   ['--dsh-scrollbar-thumb-hover', '--dsw-alias-scrollbar-hover-l2'],
 ].map(([property, token]) => [property!, `var(${token!})`]))
-
-/**
- * Flatten a stylesheet into rules. Whitespace, declaration order, and trailing
- * semicolons are normalized away; nesting and at-rules are not handled, which
- * no sheet under test uses for scrollbar declarations.
- * @param css - stylesheet text.
- * @returns one entry per rule, in source order.
- */
-/* 中文说明：函数 parseRules 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
-function parseRules(css: string): CssRule[] {
-  /** 中文说明：测试局部值 withoutComments，由紧邻初始化决定。 */
-  const withoutComments = css.replace(/\/\*[\s\S]*?\*\//g, ' ')
-  /** 中文说明：测试局部值 rules，由紧邻初始化决定。 */
-  const rules: CssRule[] = []
-  // Destructuring defaults only satisfy noUncheckedIndexedAccess; both groups
-  // are unconditional in the pattern.
-  /** 中文说明：测试局部值 [，由紧邻初始化决定。 */
-  for (const [, selector = '', body = ''] of withoutComments.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
-    /** 中文说明：测试局部值 declarations，由紧邻初始化决定。 */
-    const declarations = body
-      .split(';')
-      .map(part => part.trim())
-      .filter(part => part.includes(':'))
-      .map((part): [string, string] => {
-        /** 中文说明：测试局部值 colon，由紧邻初始化决定。 */
-        const colon = part.indexOf(':')
-        return [part.slice(0, colon).trim(), part.slice(colon + 1).trim()]
-      })
-    rules.push({ selectors: selector.split(',').map(part => part.trim()), declarations })
-  }
-  return rules
-}
-
-/**
- * Half-open source span of one at-rule's block, excluding its prelude.
- * @param css - stylesheet text.
- * @param prelude - exact at-rule prelude to locate, without the opening brace.
- * @returns the block's brace offsets, or undefined when the prelude is absent.
- */
-/* 中文说明：函数 atRuleBlock 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
-function atRuleBlock(css: string, prelude: string): { start: number; end: number } | undefined {
-  /** 中文说明：测试局部值 opening，由紧邻初始化决定。 */
-  const opening = css.indexOf(`${prelude} {`)
-  if (opening === -1) return undefined
-  /** 中文说明：测试局部值 start，由紧邻初始化决定。 */
-  const start = css.indexOf('{', opening)
-  /** 中文说明：测试局部值 depth，由紧邻初始化决定。 */
-  let depth = 0
-  /** 中文说明：测试局部值 index，由紧邻初始化决定。 */
-  for (let index = start; index < css.length; index += 1) {
-    if (css[index] === '{') depth += 1
-    else if (css[index] === '}') {
-      depth -= 1
-      if (depth === 0) return { start, end: index }
-    }
-  }
-  throw new Error(`unbalanced braces after ${prelude}`)
-}
-
-/**
- * Custom-property names a value reads.
- * @param value - declaration value, possibly with nested var() calls.
- * @returns every referenced custom-property name, in source order.
- */
-/* 中文说明：函数 varReferences 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
-function varReferences(value: string): string[] {
-  return [...value.matchAll(/var\(\s*(--[\w-]+)/g)].map(([, name = '']) => name)
-}
-
-/**
- * Every CSS file shipped as package source, excluding build output and
- * installed dependencies.
- * @returns absolute paths of the stylesheets under packages/.
- */
-/* 中文说明：函数 packageStylesheets 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
-function packageStylesheets(): string[] {
-  /** 中文说明：测试局部值 found，由紧邻初始化决定。 */
-  const found: string[] = []
-  /** 中文说明：测试局部值 walk，由紧邻初始化决定。 */
-  const walk = (dir: string): void => {
-    /** 中文说明：测试局部值 entry，由紧邻初始化决定。 */
-    for (const entry of readdirSync(dir, { withFileTypes: true })) {
-      /** 中文说明：测试局部值 path，由紧邻初始化决定。 */
-      const path = join(dir, entry.name)
-      if (entry.isDirectory()) {
-        if (entry.name !== 'node_modules' && entry.name !== 'lib' && entry.name !== 'dist') walk(path)
-      } else if (entry.name.endsWith('.css')) found.push(path)
-    }
-  }
-  walk(PACKAGES_DIR)
-  return found
-}
 
 /**
  * Tokens a stylesheet reads through its rendering declarations, following its

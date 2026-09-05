@@ -1,3 +1,7 @@
+/*
+ * 【文件职责】定义终端输出块的字体、行高及圆角，消费者可重绑定局部变量适配紧凑显示。
+ */
+
 .block {
   /* 中文说明：自定义属性 --dsl-terminal-radius 保存组件复用的样式值。 */
   --dsl-terminal-radius: 12px;
@@ -66,7 +70,7 @@
    divider the IN/OUT card draws between its sections. A running card is
    banner-only, so it draws none. */
 .block:not([data-running]) .header {
-  border-bottom: 1px solid var(--dsw-alias-border-l2);
+  border-bottom: 0.5px solid var(--dsw-alias-border-l2);
 }
 
 /* One row per command line. The prompt column is the only element allowed to

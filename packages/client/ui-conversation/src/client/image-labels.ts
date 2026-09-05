@@ -1,5 +1,9 @@
 /** Attachment error and limit copy owned by the conversation input flow. */
 
+/*
+ * 【文件职责】把附件错误和大小限制转换为输入区的本地化提示，并统一显示字节数的单位。
+ */
+
 import type { ImageAttachmentLimits } from '@deepseek-ai/dsh-attachment'
 import type { Translate } from '@deepseek-ai/dsh-client-ui-slots'
 import type { ConversationKey } from './locales.ts'
@@ -32,6 +36,9 @@ export function attachmentErrorText(
 ): string {
   switch (reason) {
     case 'MODEL_DOES_NOT_SUPPORT_IMAGES': return t('image.modelUnsupported')
+    // A prompt cited a file the Host has no staged upload for (expired
+    // process, foreign id): solvable by re-adding the file.
+    case 'FILE_NOT_STAGED': return t('file.notStaged')
     case 'IMAGE_TOO_MANY_PIXELS': return t('image.tooManyPixels')
     case 'IMAGE_DIMENSION_TOO_LARGE':
       if (limits !== undefined) return t('image.dimensionTooLarge', { size: limits.maxImageDimension })

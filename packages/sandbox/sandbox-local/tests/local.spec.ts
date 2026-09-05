@@ -15,10 +15,10 @@
  * 新手阅读建议：先读辅助函数，再看正常路径，最后阅读平台差异与失败用例。
  */
 
-import { mkdtempSync, realpathSync, writeFileSync } from 'node:fs'
+import { mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
 import { LAUNCHER_FAILURE_EXIT } from '@deepseek-ai/node-addon-landlock-run'
 import { SANDBOX_UNAVAILABLE, SandboxUnavailableError } from '@deepseek-ai/dsh-sandbox'
@@ -34,7 +34,12 @@ const RO: SandboxPolicy = { mode: 'read-only', workspaceRoot: '/ws' }
 /** 中文说明：常量 WW 保存本测试共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const WW: SandboxPolicy = { mode: 'workspace-write', workspaceRoot: '/ws' }
 
-/** 中文说明：函数 setup 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/** Every temp dir created by this file (fake launchers and runner entries), removed after each test. */
+const tempDirs: string[] = []
+afterEach(() => {
+  for (const dir of tempDirs.splice(0)) rmSync(dir, { recursive: true, force: true })
+})
+
 async function setup(config: Config = {}, internals: LocalSandboxProvider['internals'] = {}) {
   /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const ctx = new Context()
@@ -53,7 +58,9 @@ async function setup(config: Config = {}, internals: LocalSandboxProvider['inter
  */
 /* 中文说明：函数 absentRunnerEntry 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function absentRunnerEntry(): string {
-  return join(mkdtempSync(join(tmpdir(), 'dsh-absent-acl-entry-')), 'runner.js')
+  const dir = mkdtempSync(join(tmpdir(), 'dsh-absent-acl-entry-'))
+  tempDirs.push(dir)
+  return join(dir, 'runner.js')
 }
 
 /** Write an executable fake `landlock-run` that answers `--probe` with `report`. */
@@ -61,7 +68,7 @@ function absentRunnerEntry(): string {
 function fakeLauncher(report = 'landlock: fully enforced'): string {
   /** 中文说明：变量 dir 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const dir = mkdtempSync(join(tmpdir(), 'dsh-fake-landlock-'))
-  /** 中文说明：变量 launcher 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
+  tempDirs.push(dir)
   const launcher = join(dir, 'landlock-run')
   writeFileSync(launcher, `#!/bin/sh\nif [ "$1" = "--probe" ]; then echo "${report}"; exit 0; fi\nexit ${LAUNCHER_FAILURE_EXIT}\n`, { mode: 0o755 })
   return launcher
@@ -72,7 +79,7 @@ function fakeLauncher(report = 'landlock: fully enforced'): string {
 function fakeSeatbeltExec(status: number): string {
   /** 中文说明：变量 dir 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const dir = mkdtempSync(join(tmpdir(), 'dsh-fake-seatbelt-'))
-  /** 中文说明：变量 exec 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
+  tempDirs.push(dir)
   const exec = join(dir, 'sandbox-exec')
   writeFileSync(exec, `#!/bin/sh\nexit ${status}\n`, { mode: 0o755 })
   return exec
@@ -368,7 +375,7 @@ describe('the default landlock probe (launcher CLI contract)', () => {
   it('reads a failing launcher as unusable: the chain ends and fails closed', async () => {
     /** 中文说明：变量 dir 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const dir = mkdtempSync(join(tmpdir(), 'dsh-fake-landlock-'))
-    /** 中文说明：变量 launcher 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
+    tempDirs.push(dir)
     const launcher = join(dir, 'landlock-run')
     writeFileSync(launcher, `#!/bin/sh\nexit ${LAUNCHER_FAILURE_EXIT}\n`, { mode: 0o755 })
     const { sandbox } = await setup({}, { platform: 'linux', probeBwrap: () => false, landlockLauncher: launcher })
@@ -392,7 +399,7 @@ describe('probeTimeoutMs config', () => {
     // cannot flip either verdict; the vitest timeout clears the patient budget.
     /** 中文说明：变量 dir 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const dir = mkdtempSync(join(tmpdir(), 'dsh-slow-landlock-'))
-    /** 中文说明：变量 launcher 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
+    tempDirs.push(dir)
     const launcher = join(dir, 'landlock-run')
     writeFileSync(launcher, '#!/bin/sh\nsleep 1\necho "landlock: fully enforced"\nexit 0\n', { mode: 0o755 })
 
@@ -508,7 +515,7 @@ describe('the windows-acl probe (runner invocation contract)', () => {
   it('prefers the built lib/runner.js entry when the resolved file exists', async () => {
     /** 中文说明：变量 dir 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const dir = mkdtempSync(join(tmpdir(), 'dsh-fake-acl-entry-'))
-    /** 中文说明：变量 builtEntry 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
+    tempDirs.push(dir)
     const builtEntry = join(dir, 'runner.js')
     writeFileSync(builtEntry, '')
     const { sandbox } = await setup({}, {

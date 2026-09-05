@@ -1,25 +1,4 @@
-/**
- * ================================ 文件注释 ================================
- * 【文件职责】JSONL 后端的磁盘格式工具箱：路径段安全编码（SessionId 是未校验的
- *   品牌字符串，入路径前必须编码——防穿越、防冲突）、项目/会话目录布局、头行的
- *   序列化与反序列化、事件批的 JSONL 文本化，以及截断修复偏移的计算
- *   （SessionLogScanner 流式扫描器）。
- * 【技术维度】注入式转义（`~XXXX` 十六进制码元转义，单射覆盖全部 UTF-16 码元，
- *   含孤立代理项）；首行 `type:'session'` 头记录 + 逐行事件记录的 JSONL 布局；
- *   打包行（chunks 存储行）的透明解码；字节级增量扫描器（跨块残片缓冲）。
- * 【产品维度】会话文件按"项目 → 会话"两级目录组织，用户能在资源管理器里直接
- *   找到某次对话；损坏日志只丢弃真正残缺的部分，尽量保住已写完的历史。
- * 【逻辑维度】按代码顺序：①编码类型与文件后缀；②HeaderLine 及双向转换、类型守卫；
- *   ③encodeSegment/projectKey/projectDir/sessionDir/logPath 路径构建；
- *   ④eventLines 序列化；⑤refuseForeignFormatVersion/parseHeaderRecord 头解析；
- *   ⑥SessionLogScanner 与 scanLog/parseHeaderMeta。
- * 【关键边界】encodeSegment 对空串抛错；projectKey 有意有损（分隔符折叠 + 截断
- *   到 251 字符），只作人类可读分组键；版本检查必须在结构解析之前完成，
- *   让未来格式得到"请升级"而非"已损坏"的错误。
- * 【新手阅读建议】先读 encodeSegment 理解路径安全，再看 HeaderLine 双向转换，
- * 最后精读 SessionLogScanner 的 write/consumeEventLine——它是崩溃恢复语义的核心。
- * ==========================================================================
- */
+
 /**
  * On-disk format helpers for the JSONL session-persistence backend: path
  * sanitization (a {@link SessionId} is an unvalidated branded string, so it
@@ -34,12 +13,28 @@
  * 布局、头行编解码与截断修复偏移计算。
  */
 
-import { join } from 'node:path'
+/*
+ * 【文件职责】处理 JSONL 文件布局、编码及修复偏移；
+ * 会话 ID 必须先编码为安全路径片段，不能直接拼接。
+ */
+
+import { isAbsolute, join } from 'node:path'
 import {
-  decodeSeqRanges, decodeStorageRecord, encodeSeqRanges, packChunkRuns, SESSION_FORMAT_VERSION,
+  decodeSeqRanges, encodeSeqRanges, SESSION_FORMAT_VERSION,
+  SessionLogOffset,
 } from '@deepseek-ai/dsh-session'
-import type { SessionEvent, SessionHeader, SessionId, StorageRecord } from '@deepseek-ai/dsh-session'
-import { SessionFormatUnsupportedError, sessionFormatVersionRefusal } from '@deepseek-ai/dsh-session-persistence'
+import type {
+  SessionEvent,
+  SessionHeader,
+  SessionId,
+  SessionLogOffset as SessionLogOffsetType,
+} from '@deepseek-ai/dsh-session'
+import { parseSessionFormatLogFilename, sessionFormatLogFilename } from '@deepseek-ai/dsh-session-format'
+import {
+  SessionFormatUnsupportedError,
+  sessionFormatVersionRefusal,
+  type SessionStorageMetadata,
+} from '@deepseek-ai/dsh-session-persistence'
 
 /** Physical encoding selected for JSONL session artifacts. */
 /* 【中文】JSONL 会话工件的物理编码：zstd 压缩帧或明文。 */
@@ -56,20 +51,47 @@ export type JsonlCompression = 'zstd' | 'none'
  * @returns zstd 返回 .jsonl.zstd；明文返回 .jsonl。
  */
 export function logSuffix(compression: JsonlCompression): '.jsonl.zstd' | '.jsonl' {
-  return compression === 'zstd' ? '.jsonl.zstd' : '.jsonl'
+  return `.jsonl${compressionSuffix(compression)}`
+}
+
+function compressionSuffix(compression: JsonlCompression): '.zstd' | '' {
+  return compression === 'zstd' ? '.zstd' : ''
 }
 
 /**
- * The first JSONL record of a session artifact: the immutable
- * {@link SessionHeader} tagged as a `session` record so a reader can tell it
- * apart from an event line.
+ * Return the canonical filename for one immutable Session format generation.
+ * Version zero retains the original suffix-only name; every later generation
+ * carries a lowercase numeric `vN` component.
+ * @param version - non-negative safe Session format version.
+ * @param compression - configured JSONL artifact encoding.
+ * @returns the generation filename inside one Session directory.
  */
-/*
- * 【中文】会话工件的首行 JSON 结构：不可变 SessionHeader 加上 type:'session'
- * 标签——读取方据此把头行与事件行区分开。可选字段缺省时直接省略（不写 null）。
+export function generationLogFilename(version: number, compression: JsonlCompression): string {
+  return `${sessionFormatLogFilename(version)}${compressionSuffix(compression)}`
+}
+
+/**
+ * Parse one canonical generation filename for the selected physical encoding.
+ * Noncanonical, temporary, uppercase, leading-zero, and version-zero-tagged names do
+ * not identify committed generations.
+ * @param filename - one entry from a Session directory.
+ * @param compression - configured JSONL artifact encoding.
+ * @returns its format version, or `undefined` when the name is not canonical.
  */
-export interface HeaderLine {
-  /** 【中文】固定为 'session' 的记录类型标签。 */
+export function parseGenerationLogFilename(
+  filename: string,
+  compression: JsonlCompression,
+): number | undefined {
+  const suffix = compressionSuffix(compression)
+  if (!filename.endsWith(suffix)) return undefined
+  return parseSessionFormatLogFilename(filename.slice(0, filename.length - suffix.length))
+}
+
+/**
+ * The current v2 physical header stored as the first JSONL record. The exact
+ * inherited cut lives on the last tagged `session/end-seed` event.
+ */
+interface HeaderLine {
   type: 'session'
   /** 【中文】日志格式版本（写入时的 SESSION_FORMAT_VERSION）。 */
   version: number
@@ -81,9 +103,7 @@ export interface HeaderLine {
   cwd?: string
   /** 【中文】父会话 id（子代理派生场景，可选）。 */
   parentSession?: SessionId
-  /** 【中文】种子事件长度（可选）。 */
-  seedLength?: number
-  /** 【中文】来源标记；目前仅 'subagent'（可选）。 */
+  isSeeded: boolean
   origin?: 'subagent'
   /** 【中文】代理委托深度，缺省按 0 处理。 */
   delegationDepth: number
@@ -91,18 +111,40 @@ export interface HeaderLine {
   agentPreset?: string
 }
 
+const HEADER_REQUIRED_KEYS = ['type', 'version', 'id', 'createdAt', 'isSeeded', 'delegationDepth'] as const
+const HEADER_OPTIONAL_KEYS = ['cwd', 'parentSession', 'origin', 'agentPreset'] as const
+const HEADER_KEYS = new Set<string>([...HEADER_REQUIRED_KEYS, ...HEADER_OPTIONAL_KEYS])
+
+/**
+ * Refuse policy fields that never belong to a released Session header.
+ * @param value - parsed physical header candidate.
+ * @returns nothing after successful validation.
+ */
+export function assertNoRetiredHeaderFields(value: unknown): void {
+  if (typeof value !== 'object' || value === null) return
+  if (Object.hasOwn(value, 'sandboxMode') || Object.hasOwn(value, 'approvalPolicy')) {
+    throw new Error('session header uses retired policy baseline fields')
+  }
+}
+
 /**
  * Build the header line object from a {@link SessionHeader}.
  * @param header - the immutable session metadata to serialize.
+ * @param inheritedEventCount - exact inherited prefix length; required for a
+ * seeded header and omitted only for an unseeded header.
  * @returns the `type: 'session'`-tagged line object, absent optional fields omitted (never null).
  */
-/*
- * 【中文】把 SessionHeader 序列化为首行对象：可选字段缺失时省略键而非写 null；
- * delegationDepth 缺省补 0，保证行结构稳定。
- * @param header - 要序列化的不可变会话头。
- * @returns 带 type:'session' 标签的行对象。
- */
-export function toHeaderLine(header: SessionHeader): HeaderLine {
+export function toHeaderLine(
+  header: SessionHeader,
+  inheritedEventCount?: SessionLogOffsetType,
+): HeaderLine {
+  if (header.isSeeded && inheritedEventCount === undefined) {
+    throw new Error('seeded session header requires an inherited event count')
+  }
+  const cut = SessionLogOffset(inheritedEventCount ?? 0)
+  if (!header.isSeeded && cut !== 0) {
+    throw new Error('unseeded session header inherited event count must be 0')
+  }
   return {
     type: 'session',
     version: header.version,
@@ -110,7 +152,7 @@ export function toHeaderLine(header: SessionHeader): HeaderLine {
     createdAt: header.createdAt,
     ...header.cwd !== undefined ? { cwd: header.cwd } : {},
     ...header.parentSession !== undefined ? { parentSession: header.parentSession } : {},
-    ...header.seedLength !== undefined ? { seedLength: header.seedLength } : {},
+    isSeeded: header.isSeeded,
     ...header.origin !== undefined ? { origin: header.origin } : {},
     delegationDepth: header.delegationDepth ?? 0,
     ...header.agentPreset !== undefined ? { agentPreset: header.agentPreset } : {},
@@ -118,30 +160,24 @@ export function toHeaderLine(header: SessionHeader): HeaderLine {
 }
 
 /**
- * Parse a header line back into a {@link SessionHeader}.
+ * Translate one current physical header into logical metadata and its cut.
  * @param line - the shape-checked first line of a log (see the `isHeaderLine` guard).
- * @returns the header, absent optional fields omitted.
+ * @returns logical Session metadata paired with the exact inherited prefix length.
  */
-/*
- * 【中文】把首行对象还原为 SessionHeader。若发现已退役的策略基线字段
- * （sandboxMode/approvalPolicy）则直接报错——旧策略体系不再被解读。
- * @param line - 已通过形状检查的首行对象（见 isHeaderLine 守卫）。
- * @returns 会话头；可选字段缺失时省略。
- */
-export function fromHeaderLine(line: HeaderLine): SessionHeader {
-  if (Object.hasOwn(line, 'sandboxMode') || Object.hasOwn(line, 'approvalPolicy')) {
-    throw new Error('session header uses retired policy baseline fields')
-  }
+function fromHeaderLine(line: HeaderLine): SessionStorageMetadata {
   return {
-    version: line.version,
-    id: line.id,
-    createdAt: line.createdAt,
-    ...line.cwd !== undefined ? { cwd: line.cwd } : {},
-    ...line.parentSession !== undefined ? { parentSession: line.parentSession } : {},
-    ...line.seedLength !== undefined ? { seedLength: line.seedLength } : {},
-    ...line.origin !== undefined ? { origin: line.origin } : {},
-    delegationDepth: line.delegationDepth,
-    ...line.agentPreset !== undefined ? { agentPreset: line.agentPreset } : {},
+    meta: {
+      version: SESSION_FORMAT_VERSION,
+      id: line.id,
+      createdAt: line.createdAt,
+      ...line.cwd !== undefined ? { cwd: line.cwd } : {},
+      ...line.parentSession !== undefined ? { parentSession: line.parentSession } : {},
+      isSeeded: line.isSeeded,
+      ...line.origin !== undefined ? { origin: line.origin } : {},
+      delegationDepth: line.delegationDepth,
+      ...line.agentPreset !== undefined ? { agentPreset: line.agentPreset } : {},
+    },
+    inheritedEventCount: SessionLogOffset(0),
   }
 }
 
@@ -155,7 +191,9 @@ export function fromHeaderLine(line: HeaderLine): SessionHeader {
  */
 function isHeaderLine(value: unknown): value is HeaderLine {
   return (
-    typeof value === 'object' && value !== null
+    typeof value === 'object' && value !== null && !Array.isArray(value)
+    && HEADER_REQUIRED_KEYS.every(key => Object.hasOwn(value, key))
+    && Object.keys(value).every(key => HEADER_KEYS.has(key))
     && (value as { type?: unknown }).type === 'session'
     && typeof (value as { version?: unknown }).version === 'number'
     && typeof (value as { id?: unknown }).id === 'string'
@@ -167,6 +205,12 @@ function isHeaderLine(value: unknown): value is HeaderLine {
     && Number.isSafeInteger((value as { delegationDepth: number }).delegationDepth)
     && (value as { delegationDepth: number }).delegationDepth >= 0
     && !Object.is((value as { delegationDepth: number }).delegationDepth, -0)
+    && ((value as { cwd?: unknown }).cwd === undefined
+      || (typeof (value as { cwd?: unknown }).cwd === 'string'
+        && isAbsolute((value as { cwd: string }).cwd)))
+    && ((value as { parentSession?: unknown }).parentSession === undefined
+      || typeof (value as { parentSession?: unknown }).parentSession === 'string')
+    && typeof (value as { isSeeded?: unknown }).isSeeded === 'boolean'
     && ((value as { origin?: unknown }).origin === undefined
       || (value as { origin?: unknown }).origin === 'subagent')
     && ((value as { agentPreset?: unknown }).agentPreset === undefined
@@ -290,12 +334,31 @@ export function sessionDir(root: string, cwd: string | undefined, id: SessionId)
 }
 
 /**
- * The append-only event-log file path for a session.
+ * Build one immutable Session format generation path.
+ * @param root - the backend's session root directory.
+ * @param cwd - the session's project directory (`undefined` → `_no-cwd`).
+ * @param id - the session id, path-encoded via {@link encodeSegment} before filesystem use.
+ * @param version - physical Session format generation.
+ * @param compression - physical artifact encoding and filename suffix.
+ * @returns the selected generation's configured JSONL artifact path.
+ */
+export function generationLogPath(
+  root: string,
+  cwd: string | undefined,
+  id: SessionId,
+  version: number,
+  compression: JsonlCompression,
+): string {
+  return join(sessionDir(root, cwd, id), generationLogFilename(version, compression))
+}
+
+/**
+ * Build the current generation's append target path for a Session.
  * @param root - the backend's session root directory.
  * @param cwd - the session's project directory (`undefined` → `_no-cwd`).
  * @param id - the session id, path-encoded via {@link encodeSegment} before filesystem use.
  * @param compression - physical artifact encoding and filename suffix.
- * @returns the session's configured JSONL artifact path.
+ * @returns the current Session format generation path.
  */
 /*
  * 【中文】会话的追加式事件日志文件完整路径：会话目录 + `session<后缀>`。
@@ -311,32 +374,17 @@ export function logPath(
   id: SessionId,
   compression: JsonlCompression,
 ): string {
-  return join(sessionDir(root, cwd, id), `session${logSuffix(compression)}`)
+  return generationLogPath(root, cwd, id, SESSION_FORMAT_VERSION, compression)
 }
 
 /**
- * Serialize an event batch as JSONL lines (no trailing newline). With
- * `packChunks` on, delta-chunk runs pack into `text-chunks` /
- * `reasoning-chunks` / `tool-call-chunks` storage rows; off writes one event
- * per line. Both modes range-encode provenance at the storage boundary.
- * Reading is layout-blind either way ({@link scanLog} always decodes rows),
- * so the switch changes only newly written bytes.
+ * Serialize a v2 event batch as JSONL lines (no trailing newline). Compact
+ * Assistant streams are nested event data; every event occupies one row.
  * @param events - the batch to serialize, in log order.
- * @param packChunks - whether to pack delta runs into storage rows.
  * @returns the batch's JSONL text; the writer adds the final newline.
  */
-/*
- * 【中文】把事件批序列化为 JSONL 文本（不含末尾换行，由写方补）。packChunks 开启
- * 时把连续的 delta 块事件打包成存储行；关闭则逐事件一行。两种布局的读取方式
- * 完全相同（scanLog 总是解行），开关只影响新写入的字节。
- * @param events - 按日志顺序排列的事件批。
- * @param packChunks - 是否把增量块打包成存储行。
- * @returns 批次的 JSONL 文本。
- */
-export function eventLines(events: readonly SessionEvent[], packChunks: boolean): string {
-  // 打包与否只改变"行"的粒度；decodeStorageRecord 读侧无条件展开。
-  const records: readonly StorageRecord[] = packChunks ? packChunkRuns(events) : events
-  return records.map(record => JSON.stringify(encodeProvenanceForStorage(record))).join('\n')
+export function eventLines(events: readonly SessionEvent[]): string {
+  return events.map(record => JSON.stringify(encodeProvenanceForStorage(record))).join('\n')
 }
 
 /**
@@ -345,15 +393,15 @@ export function eventLines(events: readonly SessionEvent[], packChunks: boolean)
  * stays verbatim.
  * @param record - one stored record (event or packed row).
  * @returns the record with its provenance in storage form (widened from the
- *   in-memory `number[]`; {@link expandProvenanceFromStorage} restores it).
+ *   in-memory `SessionSeq[]`; {@link expandProvenanceFromStorage} restores it).
  */
-function encodeProvenanceForStorage(record: StorageRecord): unknown {
+function encodeProvenanceForStorage(record: SessionEvent): unknown {
   if (!('sourceEventSeqs' in record)) return record
   return { ...record, sourceEventSeqs: encodeSeqRanges(record.sourceEventSeqs) }
 }
 
 /**
- * Expand a parsed line's storage-form provenance back to `number[]`.
+ * Expand a parsed line's storage-form provenance back to `SessionSeq[]`.
  * @param parsed - the JSON-parsed value of one stored line.
  * @returns the value with provenance expanded.
  * @throws when the record or its storage-form provenance is malformed.
@@ -373,11 +421,26 @@ function expandProvenanceFromStorage(parsed: unknown): unknown {
 /** 【中文】一次日志扫描的产出：头信息、有效事件前缀、可安全追加的字节偏移。 */
 interface SessionLogScan {
   meta: SessionHeader
+  inheritedEventCount: SessionLogOffsetType
   events: SessionEvent[]
   committedBytes: number
 }
 
-/** Parse one complete header record supplied independently from event rows. */
+/** Derive the v2 fork cut from the last lineage-tagged seed marker. */
+function inheritedCut(meta: SessionHeader, events: readonly SessionEvent[]): SessionLogOffsetType {
+  let cut: SessionLogOffsetType | undefined
+  for (const event of events) {
+    if (event.type === 'session/end-seed' && event.data.inherited === true) cut = SessionLogOffset(event.seq)
+  }
+  if (meta.isSeeded && cut === undefined) {
+    throw new Error('corrupt session log: seeded v2 header lacks an inherited end-seed marker')
+  }
+  if (!meta.isSeeded && cut !== undefined) {
+    throw new Error('corrupt session log: unseeded v2 header contains an inherited end-seed marker')
+  }
+  return cut ?? SessionLogOffset(0)
+}
+
 /**
  * Refuse a header carrying a format version this build does not read BEFORE
  * validating the current header shape or decoding any event row: a future
@@ -400,10 +463,8 @@ function refuseForeignFormatVersion(parsed: unknown): void {
   )
 }
 
-/** 【中文】解析头记录：必须是"恰好一行"（以换行结尾且中间无换行），JSON 合法，
- * 版本受支持且通过形状守卫；任何一步失败都以明确的损坏/空文件错误拒绝。 */
-function parseHeaderRecord(record: Buffer): SessionHeader {
-  // 结构检查：非空、以 0x0A 结尾、且这是唯一一个换行——保证"恰好一行"。
+/** Parse one complete header record supplied independently from event rows. */
+function parseHeaderRecord(record: Buffer): ReturnType<typeof fromHeaderLine> {
   if (record.length === 0 || record.at(-1) !== 0x0A || record.indexOf(0x0A) !== record.length - 1) {
     throw new Error('empty or header-less session log')
   }
@@ -415,6 +476,7 @@ function parseHeaderRecord(record: Buffer): SessionHeader {
   }
   // 先拒外来版本再验结构：错误语义优先于形状细节。
   refuseForeignFormatVersion(parsed)
+  assertNoRetiredHeaderFields(parsed)
   if (!isHeaderLine(parsed)) {
     throw new Error('corrupt session log: first line is not a session header')
   }
@@ -462,8 +524,8 @@ export class SessionLogScanner {
    * @param headerRecord - 完整的首条 JSONL 记录（含换行符）。
    */
   constructor(headerRecord: Buffer) {
-    this.meta = parseHeaderRecord(headerRecord)
-    // 头记录本身也算入输入与已提交字节。
+    const parsed = parseHeaderRecord(headerRecord)
+    this.meta = parsed.meta
     this.inputBytes = headerRecord.length
     this.committedBytes = headerRecord.length
   }
@@ -510,16 +572,15 @@ export class SessionLogScanner {
    * Snapshot progress before appending a recoverable torn-frame prefix.
    * @returns byte, committed-prefix, and expanded-event cursors.
    */
-  /*
-   * 【中文】快照当前进度：总输入字节、已提交字节、已展开的事件数。zstd 读路径在
-   * 追加"残帧抢救明文"之前先记下这个检查点，之后新增的事件即抢救事件。
-   * @returns 三个游标组成的对象。
-   */
-  checkpoint(): { inputBytes: number; committedBytes: number; eventCount: number } {
+  checkpoint(): {
+    inputBytes: number
+    committedBytes: number
+    eventCount: SessionLogOffsetType
+  } {
     return {
       inputBytes: this.inputBytes,
       committedBytes: this.committedBytes,
-      eventCount: this.events.length,
+      eventCount: SessionLogOffset(this.events.length),
     }
   }
 
@@ -533,7 +594,12 @@ export class SessionLogScanner {
    */
   finish(): SessionLogScan {
     this.finished = true
-    return { meta: this.meta, events: this.events, committedBytes: this.committedBytes }
+    return {
+      meta: this.meta,
+      inheritedEventCount: inheritedCut(this.meta, this.events),
+      events: this.events,
+      committedBytes: this.committedBytes,
+    }
   }
 
   /** Decode one complete event row and update the contiguous prefix. */
@@ -550,7 +616,7 @@ export class SessionLogScanner {
     this.eventLine += 1
     let decoded: SessionEvent[]
     try {
-      decoded = decodeStorageRecord(expandProvenanceFromStorage(JSON.parse(line.toString('utf8'))))
+      decoded = [expandProvenanceFromStorage(JSON.parse(line.toString('utf8'))) as SessionEvent]
     } catch {
       // 首个问题优先保留；后续同类问题不覆盖它。
       this.issue ??= new Error(`corrupt session log: unparsable committed event at line ${this.eventLine}`)
@@ -602,29 +668,4 @@ export function scanLog(buffer: Buffer): SessionLogScan {
   const scanner = new SessionLogScanner(buffer.subarray(0, headerEnd + 1))
   scanner.write(buffer.subarray(headerEnd + 1))
   return scanner.finish()
-}
-
-/**
- * Parse just the header line of a log into a {@link SessionHeader}, or
- * `undefined` if it is missing/not a header. Used by `list()` to read session
- * metadata WITHOUT parsing the whole log: a session picker scales with the
- * number of sessions, not the total size of every conversation.
- * @param firstLine - the first line of a log file (without its trailing newline).
- * @returns the parsed header, or `undefined` when the line is not a well-formed session header.
- */
-/*
- * 【中文】只解析日志头行：JSON 解析或形状校验失败一律返回 undefined（而非抛错），
- * 供 list 等场景把"不是会话日志的文件"静默跳过。
- * @param firstLine - 日志文件首行（不含末尾换行）。
- * @returns 解析出的头信息；首行非法时为 undefined。
- */
-export function parseHeaderMeta(firstLine: string): SessionHeader | undefined {
-  let parsed: unknown
-  try {
-    parsed = JSON.parse(firstLine)
-  } catch {
-    return undefined
-  }
-  if (!isHeaderLine(parsed)) return undefined
-  return fromHeaderLine(parsed)
 }

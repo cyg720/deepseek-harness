@@ -1,21 +1,4 @@
-/*
- * ================================ 文件注释 ================================
- * 【文件职责】实现测量服务的"位置化表面折叠"：measure() 服务的、压缩规划
- * 依据的逐节点定价表面。
- * 【技术维度】投影单元刻意不共享本折叠——它们的持久化检查点状态必须保持
- * O(1)，因此走 surface-projection.ts 的"影子价格协议"；而本折叠保留每个
- * 节点（seq → 定价），用于 measure() 的精确表面快照。两者通过 estimate.ts
- * 与"replace 生产者由本折叠节点派生影子价格"在构造上保持一致。
- * 【产品维度】上下文压缩（compaction）需要知道"每条消息值多少 token"来规划
- * 遮蔽；measure() 需要精确的当前表面；本折叠是这两者的权威定价来源。
- * 【逻辑维度】折叠结果类型 → foldSurfaceTokens：append 直接追加；replace
- * 按 seq 区间删除并替换。
- * 【关键边界】本折叠是"总数 + 分配都新鲜"（不就地改输入，抛错不污染状态）；
- * 替换区间必须在现有节点里可解析，否则视为日志损坏、fail loud。
- * 【新手阅读建议】先读英文模块注释理解"两个折叠为何分开"，再看
- * foldSurfaceTokens 的 append/replace 两个分支。
- * ==========================================================================
- */
+
 
 /**
  * The measurement service's positional surface fold: the per-node priced
@@ -29,28 +12,38 @@
  * fallible step read-only and {@link commitSurfaceTokens} mutates in place,
  * so a throw leaves the caller's state untouched and the same malformed
  * event fails identically on every retry.
- * Nodes also carry their durable image occurrences and image-free heuristic
- * price, so `measure()` can reprice image content for the routed model.
+ * Nodes also carry durable attachment occurrences and their structural prices,
+ * so `measure()` can price the request representation sent to the model.
  *
  * @module @deepseek-ai/dsh-token-meter/surface-fold
  */
 
+/*
+ * 【文件职责】维护逐节点计价的表面折叠，以只读计划和提交两阶段隔离可能失败的计算与状态写入。
+ */
+
 import { deriveEventMessage } from '@deepseek-ai/dsh-session'
-import type { SurfaceEvent } from '@deepseek-ai/dsh-session'
+import type { SessionSeq, SurfaceEvent } from '@deepseek-ai/dsh-session'
 import type { ContentBlock, Message } from '@deepseek-ai/dsh-llm'
 import type { ImageAttachmentRef } from '@deepseek-ai/dsh-attachment'
 import { estimateMessage, estimateStructuralBlock } from './estimate.ts'
 
+type FileAttachmentRef = Extract<ContentBlock, { type: 'file' }>['attachment']
+
 /** One priced surface node with the image occurrences route pricing replaces. */
 export interface MeterSurfaceNode {
   /** Durable sequence number of the surface event. */
-  readonly seq: number
+  readonly seq: SessionSeq
   /** Fixed-heuristic price of the node's exact message. */
   readonly heuristicTokens: number
-  /** Fixed-heuristic price with every image occurrence's structural price removed. */
-  readonly imageFreeTokens: number
+  /** Structural JSON price replaced when the routed request projects images. */
+  readonly imageStructuralTokens: number
+  /** Structural JSON price replaced when request assembly projects files to text. */
+  readonly fileStructuralTokens: number
   /** Durable image occurrences in message order; empty for image-free nodes. */
   readonly images: readonly ImageAttachmentRef[]
+  /** Durable file occurrences in message order; empty for file-free nodes. */
+  readonly files: readonly FileAttachmentRef[]
 }
 
 /** One validated surface transition that has not mutated the priced surface yet. */
@@ -67,31 +60,53 @@ export interface SurfaceTokenPlan {
   readonly target: 'append' | { readonly startIdx: number; readonly endIdx: number }
 }
 
-/** Collect image occurrences recursively and total their structural prices. */
-function collectImages(blocks: readonly ContentBlock[], images: ImageAttachmentRef[]): number {
-  let structuralTokens = 0
+/** Collect projected attachment occurrences and their structural prices. */
+function collectProjectedAttachments(
+  blocks: readonly ContentBlock[],
+  images: ImageAttachmentRef[],
+  files: FileAttachmentRef[],
+): { readonly imageTokens: number; readonly fileTokens: number } {
+  let imageTokens = 0
+  let fileTokens = 0
   for (const block of blocks) {
     if (block.type === 'image') {
       images.push(block.attachment)
-      structuralTokens += estimateStructuralBlock(block)
+      imageTokens += estimateStructuralBlock(block)
+    } else if (block.type === 'file') {
+      files.push(block.attachment)
+      fileTokens += estimateStructuralBlock(block)
     } else if (block.type === 'tool-result') {
-      structuralTokens += collectImages(block.content, images)
+      const nested = collectProjectedAttachments(block.content, images, files)
+      imageTokens += nested.imageTokens
+      fileTokens += nested.fileTokens
     }
   }
-  return structuralTokens
+  return { imageTokens, fileTokens }
 }
 
 /** Build one priced node from a surface event's derived message. */
-function analyzeNode(seq: number, message: Message | null): MeterSurfaceNode {
-  if (message === null) return { seq, heuristicTokens: 0, imageFreeTokens: 0, images: [] }
+function analyzeNode(seq: SessionSeq, message: Message | null): MeterSurfaceNode {
+  if (message === null) {
+    return {
+      seq,
+      heuristicTokens: 0,
+      imageStructuralTokens: 0,
+      fileStructuralTokens: 0,
+      images: [],
+      files: [],
+    }
+  }
   const heuristicTokens = estimateMessage(message)
   const images: ImageAttachmentRef[] = []
-  const imageStructuralTokens = collectImages(message.content, images)
+  const files: FileAttachmentRef[] = []
+  const structural = collectProjectedAttachments(message.content, images, files)
   return {
     seq,
     heuristicTokens,
-    imageFreeTokens: heuristicTokens - imageStructuralTokens,
+    imageStructuralTokens: structural.imageTokens,
+    fileStructuralTokens: structural.fileTokens,
     images,
+    files,
   }
 }
 

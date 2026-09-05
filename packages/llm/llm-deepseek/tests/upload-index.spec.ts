@@ -1,15 +1,7 @@
-/**
- * 文件职责：验证DeepSeek LLM的 upload-index.spec.ts 行为与网络边界。
- * 技术维度：TypeScript、Fetch、SSE、OAuth/密钥认证、模型目录和运行时模式校验。
- * 产品维度：让 Agent 能稳定调用供应商模型、发现能力并接收流式结果。
- * 逻辑维度：构造请求或模拟服务器，驱动适配器并断言事件与错误。
- * 关键边界：网络响应属于不可信输入；密钥和令牌不得记录；取消必须终止请求与流。
- * 新手阅读建议：先读 config/auth/catalog，再看 adapter/stream，最后阅读错误和重放测试。
- */
-import { mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vitest'
 import { AttachmentId, ImageVariantId } from '@deepseek-ai/dsh-attachment'
 import { DeepSeekFileId } from '../src/file-id.ts'
 import { deepSeekFileScope, DeepSeekUploadIndex } from '../src/upload-index.ts'
@@ -18,6 +10,12 @@ import { deepSeekFileScope, DeepSeekUploadIndex } from '../src/upload-index.ts'
 const ATTACHMENT = AttachmentId(`sha256:${'a'.repeat(64)}`)
 /** 中文说明：测试局部值 VARIANT，由紧邻初始化决定。 */
 const VARIANT = ImageVariantId(`sha256:${'b'.repeat(64)}`)
+
+/** Every temp index root created by this file, removed after each test. */
+const roots: string[] = []
+afterEach(async () => {
+  for (const root of roots.splice(0)) await rm(root, { recursive: true, force: true })
+})
 
 describe('DeepSeekUploadIndex', () => {
   it('normalizes trailing endpoint slashes in the credential scope', () => {
@@ -28,7 +26,7 @@ describe('DeepSeekUploadIndex', () => {
   it('isolates API-key namespaces and reuses only records above the refresh margin', async () => {
     /** 中文说明：测试局部值 dir，由紧邻初始化决定。 */
     const dir = await mkdtemp(join(tmpdir(), 'dsh-upload-index-'))
-    /** 中文说明：测试局部值 index，由紧邻初始化决定。 */
+    roots.push(dir)
     const index = new DeepSeekUploadIndex(join(dir, 'index.json'))
     /** 中文说明：测试局部值 first，由紧邻初始化决定。 */
     const first = deepSeekFileScope('https://api.deepseek.com', 'first-key')
@@ -54,7 +52,7 @@ describe('DeepSeekUploadIndex', () => {
   it('keeps a reusable cross-process winner and removes only an exact generation', async () => {
     /** 中文说明：测试局部值 dir，由紧邻初始化决定。 */
     const dir = await mkdtemp(join(tmpdir(), 'dsh-upload-index-'))
-    /** 中文说明：测试局部值 index，由紧邻初始化决定。 */
+    roots.push(dir)
     const index = new DeepSeekUploadIndex(join(dir, 'index.json'))
     /** 中文说明：测试局部值 scope，由紧邻初始化决定。 */
     const scope = deepSeekFileScope('https://api.deepseek.com', 'key')
@@ -77,7 +75,7 @@ describe('DeepSeekUploadIndex', () => {
   it('treats a corrupt upload cache as empty and repairs it on the next commit', async () => {
     /** 中文说明：测试局部值 dir，由紧邻初始化决定。 */
     const dir = await mkdtemp(join(tmpdir(), 'dsh-upload-index-'))
-    /** 中文说明：测试局部值 path，由紧邻初始化决定。 */
+    roots.push(dir)
     const path = join(dir, 'index.json')
     await writeFile(path, '{bad', 'utf8')
     /** 中文说明：测试局部值 index，由紧邻初始化决定。 */
@@ -154,7 +152,7 @@ describe('DeepSeekUploadIndex', () => {
   ])('treats an invalid persisted index as empty %#', async (text) => {
     /** 中文说明：测试局部值 dir，由紧邻初始化决定。 */
     const dir = await mkdtemp(join(tmpdir(), 'dsh-upload-index-'))
-    /** 中文说明：测试局部值 path，由紧邻初始化决定。 */
+    roots.push(dir)
     const path = join(dir, 'index.json')
     await writeFile(path, text, 'utf8')
     /** 中文说明：测试局部值 index，由紧邻初始化决定。 */
@@ -167,7 +165,7 @@ describe('DeepSeekUploadIndex', () => {
   it('rejects duplicate persisted mappings as a corrupt cache', async () => {
     /** 中文说明：测试局部值 dir，由紧邻初始化决定。 */
     const dir = await mkdtemp(join(tmpdir(), 'dsh-upload-index-'))
-    /** 中文说明：测试局部值 path，由紧邻初始化决定。 */
+    roots.push(dir)
     const path = join(dir, 'index.json')
     /** 中文说明：测试局部值 scope，由紧邻初始化决定。 */
     const scope = deepSeekFileScope('https://api.deepseek.com', 'key')
@@ -185,7 +183,7 @@ describe('DeepSeekUploadIndex', () => {
   it('drops expired records on commit and clears only the selected namespace', async () => {
     /** 中文说明：测试局部值 dir，由紧邻初始化决定。 */
     const dir = await mkdtemp(join(tmpdir(), 'dsh-upload-index-'))
-    /** 中文说明：测试局部值 index，由紧邻初始化决定。 */
+    roots.push(dir)
     const index = new DeepSeekUploadIndex(join(dir, 'index.json'))
     /** 中文说明：测试局部值 first，由紧邻初始化决定。 */
     const first = deepSeekFileScope('https://api.deepseek.com', 'first')
@@ -211,7 +209,7 @@ describe('DeepSeekUploadIndex', () => {
   it('propagates non-cache filesystem read failures', async () => {
     /** 中文说明：测试局部值 dir，由紧邻初始化决定。 */
     const dir = await mkdtemp(join(tmpdir(), 'dsh-upload-index-'))
-    /** 中文说明：测试局部值 path，由紧邻初始化决定。 */
+    roots.push(dir)
     const path = join(dir, 'directory')
     await mkdir(path)
     /** 中文说明：测试局部值 index，由紧邻初始化决定。 */

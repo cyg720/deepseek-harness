@@ -1,22 +1,4 @@
-/**
- * ================================ 文件注释 ================================
- * 【文件职责】Windows 进程表操作：为终端就绪、信号与拆解提供 Toolhelp32 快照枚举、
- * GetProcessTimes 创建时间身份与进程句柄等待态存活判断；shell pid 充当伪进程组
- * （Windows 无 POSIX 组）；taskkill 做树信号。koffi 绑定惰性加载，非 Windows 进程
- * 永不触碰 Win32 库；决策逻辑全部经可注入边界，可在任意宿主确定性测试。
- * 【技术维度】koffi FFI 绑定 kernel32.dll（CreateToolhelp32Snapshot/OpenProcess/
- * GetProcessTimes/WaitForSingleObject/CloseHandle）；NativePtr 品牌类型防止原生指针
- * 静默进入数值上下文；结构体布局有大小断言防 ABI 破坏。
- * 【产品维度】Windows 上 PTY 会话拆解与信号的正确性基础：身份围栏防 PID 复用误杀、
- * taskkill /T 树终止、SIGINT 经终端句柄的 \x03 输入投递（不经本层）。
- * 【逻辑维度】进程表快照（Toolhelp32）→ 进程状态（创建时间 + 等待态）→ 树遍历
- * （子先序）→ 存活/信号 → 工厂创建。
- * 【关键边界】无法读取的进程按"探测漏检"容忍（安全侧）；Windows 无前台组/会话概念，
- * 用 shell pid 伪组；koffi 类型注册全局唯一，惰性且缓存。
- * 【新手阅读建议】先看 windowsProcessTree（与 POSIX 版同契约的树遍历），再看
- * windowsProcessState 的"创建时间 + 等待态"存活判定，最后看 koffi 绑定的惰性解析。
- * ==========================================================================
- */
+
 
 /**
  * Windows process-table operations for terminal readiness, signalling, and
@@ -27,6 +9,10 @@
  * non-Windows processes never touch Win32 libraries; all decision logic takes
  * an injectable internals boundary so suites can pin it on any host.
  * @module dsh-subprocess-local/windows-inspector
+ */
+
+/*
+ * 【文件职责】通过 Toolhelp32、创建时间和进程句柄状态识别 Windows 进程树，延迟加载 Win32 绑定并隐藏清理辅助进程窗口。
  */
 
 import { spawnSync } from 'node:child_process'
@@ -192,8 +178,10 @@ function taskkillTree(pid: number, force: boolean): void {
   if (pid <= 0) return
   // Outcome deliberately unchecked: an already-absent tree, exit races, and a
   // missing taskkill binary are as tolerable here as ESRCH is for POSIX.
-  // 结果刻意不检查：树已不存在、退出竞态、taskkill 缺失都与 POSIX 的 ESRCH 一样可容忍。
-  spawnSync('taskkill', ['/PID', String(pid), '/T', ...(force ? ['/F'] : [])], { stdio: 'ignore' })
+  spawnSync('taskkill', ['/PID', String(pid), '/T', ...(force ? ['/F'] : [])], {
+    stdio: 'ignore',
+    windowsHide: true,
+  })
 }
 
 declare const nativePtr: unique symbol

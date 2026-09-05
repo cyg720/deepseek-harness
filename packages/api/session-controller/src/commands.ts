@@ -1,25 +1,25 @@
 /** Session commands whose activation policy is explicit at each Remote method. */
 
 /*
- * 文件说明：文件职责：实现 api/session-controller 中 commands 模块的职责，
- * 并向相邻模块提供可复用能力。；技术维度：主要使用TypeScript/JavaScript 的 ESM 模块、严格类型约束与 Cordis
- * 插件机制，通过当前文件中的类型、函数与数据结构完成实现。；产品维度：支撑 DeepSeek Harness 的
- * api/session-controller 能力，使上层功能能够稳定组合和扩展。；逻辑维度：建议按“依赖与类型定义 → 常量和状态 →
- * 核心函数或类 → 导出或注册入口”的顺序理解。；关键边界：调用方必须遵守类型、生命周期和错误处理约定；
- * 涉及外部输入、异步任务或资源释放时需特别关注异常分支。；新手阅读建议：先确认导入依赖和公开导出，再沿主要函数调用链阅读，
- * 最后结合相邻测试理解输入、输出与边界条件。
+ * 【文件职责】执行 Session Controller 委托的业务命令；
+ * 每个 Remote 方法明确决定是否需要激活 Agent。
  */
 
 import { randomUUID } from 'node:crypto'
 import type { Context } from '@deepseek-ai/cordis'
 import { brandString } from '@deepseek-ai/dsh-brand'
 import type { Agent, ModelSelection as AgentModelSelection } from '@deepseek-ai/dsh-agent'
-import { AttachmentError, admitPromptContent } from '@deepseek-ai/dsh-attachment'
-import type { ImageAttachmentRef } from '@deepseek-ai/dsh-attachment'
+import { AttachmentError } from '@deepseek-ai/dsh-attachment'
+import type {
+  AttachmentAdmissionPart, FileAttachmentRef, ImageAttachmentRef,
+} from '@deepseek-ai/dsh-attachment'
+import type { FileUploadReceiptId } from '@deepseek-ai/dsh-client-file-upload/types'
+import type {} from '@deepseek-ai/dsh-client-file-upload'
 import {
-  ReasoningEffortId, createUserMessage, freezeMessage,
+  ReasoningEffortId, createUserMessage, expandAssistantStream, freezeMessage,
 } from '@deepseek-ai/dsh-llm'
 import type { MessageSource } from '@deepseek-ai/dsh-llm'
+import { SessionLogOffset, SessionSeq } from '@deepseek-ai/dsh-session'
 import type { SessionEvent, SessionHeader, SessionId, UserMessage } from '@deepseek-ai/dsh-session'
 import { SessionQueryError, type SessionObservation } from '@deepseek-ai/dsh-session-query'
 import { SessionTitleInvalidError } from '@deepseek-ai/dsh-session-title'
@@ -53,12 +53,13 @@ import type {
   SessionSelectModelValue,
   SessionUpdateQueueRequest,
   SessionUpdateQueueValue,
+  SessionRequestId,
 } from './types.ts'
 
 interface SessionReadState {
   readonly id: SessionId
   readonly header: SessionHeader
-  readonly events: SessionEvent[]
+  readonly events: readonly SessionEvent[]
 }
 
 /** Implements Session business commands delegated by the Session Controller Remote service. */
@@ -195,9 +196,11 @@ export class SessionCommandController {
    * @returns the new Session identity.
    */
   async fork(request: SessionForkRequest): Promise<SessionForkValue> {
-    if (request.atSeq !== undefined
-      && (!Number.isInteger(request.atSeq) || request.atSeq < 0)) {
-      throw new RemoteError('gateway/bad-request', 'atSeq must be a non-negative integer', {})
+    let atSeq: ReturnType<typeof SessionSeq> | undefined
+    try {
+      atSeq = request.atSeq === undefined ? undefined : SessionSeq(request.atSeq)
+    } catch {
+      throw new RemoteError('gateway/bad-request', 'atSeq must be a non-negative safe integer', {})
     }
     let observed: SessionObservation
     try {
@@ -217,7 +220,6 @@ export class SessionCommandController {
     }
     using source = observed
     const lastSeq = source.events.at(-1)?.seq ?? -1
-    const atSeq = request.atSeq
     const anchoredBoundary = atSeq === undefined
       ? undefined
       : source.events.find(event => event.type === 'turn/end' && event.seq >= atSeq)
@@ -234,8 +236,10 @@ export class SessionCommandController {
         { sessionId: request.sessionId },
       )
     }
-    let cut = boundary.seq + 1
-    while (cut < source.events.length && source.events[cut]?.type !== 'turn/start') cut++
+    let cut = SessionLogOffset(boundary.seq + 1)
+    while (cut < source.events.length && source.events[cut]?.type !== 'turn/start') {
+      cut = SessionLogOffset(cut + 1)
+    }
     let workspace: Workspace | undefined
     try {
       workspace = await this.forkWorkspace(source.header)
@@ -253,10 +257,11 @@ export class SessionCommandController {
       await this.ctx.agents.create({
         sessionId: childId,
         seed: source.events.slice(0, cut),
+        inheritedEventCount: cut,
         meta: {
           ...(source.header.cwd === undefined ? {} : { cwd: source.header.cwd }),
           parentSession: source.header.id,
-          seedLength: cut,
+          isSeeded: true,
           ...(composition.agentPreset === undefined
             ? {}
             : { agentPreset: composition.agentPreset }),
@@ -302,6 +307,7 @@ export class SessionCommandController {
       )
     }
     const agent = await this.resolveAgent(request.sessionId)
+    if (hasPromptRequest(agent, request.requestId)) return { accepted: true }
     const selection = this.agents.selectionFor(agent).current
     if (!routeServed(this.ctx, selection.provider)) {
       throw new RemoteError(
@@ -329,10 +335,23 @@ export class SessionCommandController {
             )
           }
         }
-        const content = await admitPromptContent(this.ctx.attachments, request.content)
+        const admission = resolvePromptFileReceipts(
+          request.content,
+          receiptId => this.ctx.fileUploads.resolve(agent, receiptId),
+        )
+        const content = await this.ctx.attachments.admitPromptContent(admission.content)
         const message: UserMessage = createUserMessage({ content, source })
+        if (this.ctx.agents.get(agent.id) !== agent) {
+          throw new RemoteError(
+            'session/not-found',
+            `session "${agent.id}" was disposed during prompt admission`,
+            { sessionId: agent.id },
+          )
+        }
+        using binding = this.ctx.fileUploads.bindPrompt(agent, admission.receiptIds, request.requestId)
         if (request.mode === 'steer') agent.steer(message)
         else agent.followup(message)
+        binding.commit()
       } catch (error) {
         if (remoteErrorOf(error) !== undefined) throw error
         if (error instanceof AttachmentError) {
@@ -426,6 +445,12 @@ export class SessionCommandController {
       }))
     } else {
       agent.inbox.remove(request.itemId)
+      if (request.action.kind === 'remove') {
+        const source = message.source
+        if (source.kind === 'user' && 'rpcId' in source) {
+          this.ctx.fileUploads.retirePrompt(agent, source.rpcId)
+        }
+      }
       if (request.action.kind === 'steer') agent.steer(message)
     }
     return { accepted: true }
@@ -483,7 +508,7 @@ export class SessionCommandController {
   private async readSessionState(sessionId: SessionId): Promise<SessionReadState> {
     const attached = this.ctx.sessions.get(sessionId)
     if (attached !== undefined) {
-      return { id: attached.id, header: attached.header, events: [...attached.events] }
+      return { id: attached.id, header: attached.header, events: attached.snapshotEvents() }
     }
     const inspected = await inspectApiSession(this.ctx, sessionId)
     return { id: inspected.meta.id, header: inspected.meta, events: inspected.events }
@@ -502,6 +527,39 @@ export class SessionCommandController {
   }
 }
 
+function resolvePromptFileReceipts(
+  content: SessionPromptRequest['content'],
+  stagedFile: (receiptId: FileUploadReceiptId) => FileAttachmentRef | undefined,
+): { readonly content: AttachmentAdmissionPart[]; readonly receiptIds: readonly FileUploadReceiptId[] } {
+  const receiptIds = new Set<FileUploadReceiptId>()
+  const resolved = content.map((part): AttachmentAdmissionPart => {
+    if (part.type !== 'file') return part
+    const attachment = stagedFile(part.receiptId)
+    if (attachment === undefined) {
+      throw new RemoteError(
+        'session/attachment-invalid',
+        'File was not uploaded for this session.',
+        { reason: 'FILE_NOT_STAGED' },
+      )
+    }
+    receiptIds.add(part.receiptId)
+    return { type: 'file', attachment }
+  })
+  return { content: resolved, receiptIds: [...receiptIds] }
+}
+
+function hasPromptRequest(agent: Agent, requestId: SessionRequestId): boolean {
+  const matches = (message: UserMessage): boolean => {
+    const source = message.source
+    return source.kind === 'user' && 'rpcId' in source && source.rpcId === requestId
+  }
+  if (agent.inbox.nextTurn.some(matches) || agent.inbox.nextStep.some(matches)) return true
+  return agent.session.snapshotEvents().some((event) => {
+    if (event.type !== 'user/message') return false
+    const source = event.data.source
+    return source.kind === 'user' && 'rpcId' in source && source.rpcId === requestId
+  })
+}
 function imageBlockIn(
   content: unknown,
   match: (ref: ImageAttachmentRef) => boolean,
@@ -530,7 +588,6 @@ function imageInEvent(
     readonly content?: unknown
     readonly message?: { readonly content?: unknown }
     readonly inserted?: readonly { readonly content?: unknown }[]
-    readonly chunk?: { readonly type?: unknown; readonly block?: unknown }
   }
   const direct = imageBlockIn(data.content, match)
   if (direct !== undefined) return direct
@@ -540,9 +597,14 @@ function imageInEvent(
     const found = imageBlockIn(inserted.content, match)
     if (found !== undefined) return found
   }
-  return event.type === 'assistant/chunk' && data.chunk?.type === 'block-end'
-    ? imageBlockIn([data.chunk.block], match)
-    : undefined
+  if (event.type === 'assistant/message' || event.type === 'assistant/attempt') {
+    for (const { chunk } of expandAssistantStream(event.data.stream)) {
+      if (chunk.type !== 'block-end') continue
+      const found = imageBlockIn([chunk.block], match)
+      if (found !== undefined) return found
+    }
+  }
+  return undefined
 }
 
 function referencedImage(

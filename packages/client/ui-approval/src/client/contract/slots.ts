@@ -1,10 +1,7 @@
-/** Approval composer and optional correlated-detail contracts.
- * @remarks 文件说明：文件职责：实现 client/ui-approval 中 slots 模块的职责，并向相邻模块提供可复用能力。；
- * 技术维度：主要使用TypeScript/JavaScript 的 ESM 模块、严格类型约束与 Cordis 插件机制，
- * 通过当前文件中的类型、函数与数据结构完成实现。；产品维度：支撑 DeepSeek Harness 的 client/ui-approval 能力，
- * 使上层功能能够稳定组合和扩展。；逻辑维度：建议按“依赖与类型定义 → 常量和状态 → 核心函数或类 → 导出或注册入口”的顺序理解。；
- * 关键边界：调用方必须遵守类型、生命周期和错误处理约定；涉及外部输入、异步任务或资源释放时需特别关注异常分支。；
- * 新手阅读建议：先确认导入依赖和公开导出，再沿主要函数调用链阅读，最后结合相邻测试理解输入、输出与边界条件。 */
+/*
+ * 【文件职责】声明审批输入区与关联详情的插槽参数，确保待审批请求在组合界面中保留关联身份。
+ */
+
 import type { ToolCallId } from '@deepseek-ai/dsh-llm'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import type {
@@ -91,11 +88,9 @@ let nextApprovalKey = 0
  * 核心功能：通过成员字段保存状态，并由公开方法提供受类型约束的操作入口。；使用场景：由 client/ui-approval
  * 在对应插件或业务生命周期内创建和调用。 */
 export class PendingApproval {
-  /** Domain discriminator used by Session pending-interaction consumers.
-   * @remarks 中文说明：常量说明：kind 用于处理 kind 相关数据，作用于成员；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。 */
-  readonly kind = 'approval' as const
-  /** Opaque render identity and one-shot remount axis.
-   * @remarks 中文说明：常量说明：key 用于处理 key 相关数据，作用于成员；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。 */
+  /** Domain discriminator used by Session pending-interaction consumers. */
+  readonly kind: 'approval'
+  /** Opaque render identity and one-shot remount axis. */
   readonly key: string
   /** Tool requesting the decision.
    * @remarks 中文说明：常量说明：toolName 用于处理 toolName 相关数据，作用于成员；初始化后不可重新赋值，
@@ -149,6 +144,7 @@ export class PendingApproval {
    * PendingApproval(sessionId, request) 创建实例，并在所属生命周期内使用。
    */
   constructor(readonly sessionId: SessionId, request: ApprovalPresentationRequest) {
+    this.kind = 'approval'
     nextApprovalKey += 1
     this.key = `approval:${String(nextApprovalKey)}`
     this.toolName = request.toolName

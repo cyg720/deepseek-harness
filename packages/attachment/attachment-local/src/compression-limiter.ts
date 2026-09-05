@@ -1,12 +1,21 @@
 /** Instance-owned concurrency bound for native image transformations. */
-/*
- * 文件职责：限制单个附件服务实例同时执行的原生图片压缩任务数量。
- * 技术维度：使用 Promise、FIFO 等待队列和显式计数实现轻量异步信号量。
- * 产品维度：避免批量图片处理耗尽 CPU 或原生资源，同时保持任务提交顺序。
- * 逻辑维度：有空位时立即启动，否则排队；任务成功或失败都释放槽位并唤醒队首。
- * 关键边界：concurrency 必须为正数；任何拒绝值都会释放槽位，非 Error 值会被包装。
- * 新手阅读建议：先看 active 与 waiting，再沿 start、release、成功和失败分支跟踪一个任务。
+
+
+/**
+ * Preserve Error rejections and normalize non-Error native binding values.
+ * @param reason - rejection reason returned by a compression task.
+ * @returns an Error suitable for promise rejection.
  */
+
+/*
+ * 【文件职责】限制单个附件后端实例的原生图片转换并发，并统一原生绑定抛出的非 Error 拒绝值。
+ */
+
+export function compressionFailure(reason: unknown): Error {
+  return reason instanceof Error
+    ? reason
+    : new Error('Image compression task rejected with a non-Error value.', { cause: reason })
+}
 
 /** FIFO limiter for asynchronous compression work. */
 /* 异步压缩工作的先进先出并发限制器；每个实例拥有独立计数和队列。 */
@@ -53,9 +62,7 @@ export class CompressionLimiter {
           // task 拒绝原因；释放槽位后保留 Error，或把其他值包装为 Error。
           (error: unknown) => {
             release()
-            reject(error instanceof Error
-              ? error
-              : new Error('Image compression task rejected with a non-Error value.', { cause: error }))
+            reject(compressionFailure(error))
           },
         )
       }

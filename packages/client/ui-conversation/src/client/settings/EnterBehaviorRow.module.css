@@ -1,18 +1,18 @@
 /* Composer Enter preference row: title/description plus selector pill. */
-/* 文件职责：定义对话输入框 Enter 键行为设置行、说明文字和选择胶囊样式。
- * 技术维度：使用 CSS Modules、Flexbox、设计令牌和悬停伪类组织设置控件。
- * 产品维度：让用户清楚选择 Enter 是发送还是换行，并获得一致的交互反馈。
- * 逻辑维度：row 排列文字与控件，rowText 堆叠标题说明，selector 展示选择，chevron 固定图标。
- * 关键边界：样式不保存偏好或处理键盘事件；移动空间不足时文字区可收缩但选择器保持内容尺寸。
- * 新手阅读建议：先看 rowText 的 flex:1 与 min-width:0，再看 selector 如何形成 36 像素胶囊。 */
+
 
 /* row：设置项整行，水平排列说明和选择器并用底边框分隔。 */
+
+/*
+ * 【文件职责】定义 Enter 行为设置的标题、说明和选择按钮样式。
+ */
+
 .row {
   display: flex;
   align-items: center;
   gap: 8px;
   padding: 16px 0;
-  border-bottom: 1px solid var(--dsw-alias-border-l2);
+  border-bottom: 0.5px solid var(--dsw-alias-border-l2);
 }
 
 /* rowText：可收缩的纵向文字区，右侧留出与选择器的视觉距离。 */

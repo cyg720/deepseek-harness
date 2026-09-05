@@ -1,21 +1,4 @@
-/*
- * ================================ 文件注释 ================================
- * 【文件职责】存储后端的"契约词汇表"：定义后端（backend）必须满足的接口——一个后端
- * 拥有一个介质（文件树根目录、数据库文件等），在上面暴露若干操作组（facets）；
- * 本文件还定义 KV 能力（kv facet）与打开后的单元（unit）接口。
- * 【技术维度】纯接口模块：StorageBackend 可选地提供 kv facet（不提供的后端直接省略，
- * 解析时 fail loud）；KvUnit 是"打开后的单元"，对本层而言值是不透明 JSON（无 schema、
- * 无事件、无领域含义），保证后端只关心持久化不关心语义。
- * 【产品维度】这是"插件化存储"的关键契约：只要实现这些接口，就能接入新介质
- * （已有 JSON 与 SQLite 两种实现），上层领域层无需感知差异。
- * 【逻辑维度】按出现顺序：UNIT_NAME_RE（命名约束）→ StorageBackend（后端总接口）→
- * KvFacet（KV 能力：open 单元）→ KvUnitDescriptor（单元静态身份）→ KvUnit（单元接口）。
- * 【关键边界】单元不序列化并发写——写顺序是调用方责任（领域层按单元跑一条写链），
- * 单元只保证单次调用在介质上原子、解析后持久（崩溃后重开仍能看到）；关闭后调用抛 closed。
- * 【新手阅读建议】先看 KvUnit 的四个操作理解"持久化层"的承诺，再看 KvUnitDescriptor
- * 理解单元的静态身份，最后读 KvFacet.open 的三种失败语义。
- * ==========================================================================
- */
+
 /**
  * Backend-facing vocabulary of the storage hub: a backend owns one medium
  * (a file-tree root, a database file) and exposes operation groups over it.
@@ -33,6 +16,11 @@
  * 单元名与表名的合法格式：小写字母开头，只含小写字母/数字/下划线。
  * 该约束保证名字既可安全用作文件名，也可不加转义地用作 SQL 标识符片段（双保险）。
  */
+
+/*
+ * 【文件职责】定义存储后端的介质与操作组接口，统一实现者在命名、读取、写入和持久化方面的义务。
+ */
+
 export const UNIT_NAME_RE = /^[a-z][a-z0-9_]*$/
 
 /**
@@ -108,11 +96,21 @@ export interface KvUnitDescriptor {
    * Medium layout. `single` (the default) keeps the whole unit in one
    * document; `per-record` keeps each record in its own document, so a unit
    * whose records are large or sparse never rewrites the rest on one write,
-   * and a version bump discards stale records instead of rejecting the whole
-   * unit. Backends that only serve one layout accept the other's units as
-   * foreign documents.
+   * and an unaccepted version stamp discards only that record instead of
+   * rejecting the whole unit. Backends that only serve one layout accept the
+   * other's units as foreign documents.
    */
   readonly layout?: 'single' | 'per-record'
+  /**
+   * Older unit versions whose stored records are also readable under the
+   * declaring owner's current record schemas (the owner vouches for that —
+   * typically by declaring the fields old records lack as optional). Reads of
+   * a `per-record` unit accept documents stamped with any listed version, and
+   * the legacy whole-unit bootstrap accepts a legacy file stamped with one;
+   * writes always stamp {@link version}. `single`-layout reads stay
+   * exact-version.
+   */
+  readonly compatibleVersions?: readonly number[]
 }
 
 /**
@@ -173,6 +171,19 @@ export interface KvUnit {
    * @returns 持久化完成后解析。
    */
   deleteRecord(table: string, key: string): Promise<void>
+
+  /**
+   * Move one record's stored document out of the unit's readable set,
+   * preserving its bytes for inspection instead of deleting them. Backends
+   * whose medium has no per-record document to move (the `single` layout, a
+   * row store) omit this member, and the caller falls back to its
+   * reject-loud path. Absent after the move: a later {@link loadAll} reads
+   * the key as missing and a later {@link putRecord} recreates it fresh.
+   * @param table - Declared table name.
+   * @param key - Record key.
+   * @returns the medium location the document was moved to (diagnostics).
+   */
+  backupRecord?(table: string, key: string): Promise<string>
 
   /**
    * Write the global singleton durably. Only valid when the descriptor

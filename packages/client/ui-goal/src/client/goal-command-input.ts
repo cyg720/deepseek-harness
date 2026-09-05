@@ -1,22 +1,16 @@
-/**
- * ================================ 文件注释 ================================
- * 【文件职责】定义 /goal 命令输入在对话流中的投影：把结构化的持久命令运行
- *             推导成可见的命令行数据，供聊天节点渲染。
- * 【技术维度】ConversationNodeDefinition 声明合并：把 'command-input' 键挂进
- *             ChatNodeDataMap；match 只认 name 为 goal 的 command/run 事件。
- * 【产品维度】对话时间线里能看到用户输入的 /goal 命令行，独立于模型消息投影。
- * 【逻辑维度】goalCommandText 从事件推导可见文本 → goalCommandInputDefinition
- *             match/start/update/buildViewNode 完成节点生命周期。
- * 【关键边界】只匹配 /goal 命令；buildViewNode 用 seq - 0.1 作为锚点排在助手消息前。
- * 【新手阅读建议】先看 goalCommandText，再看定义的四段生命周期。
- * ==========================================================================
+/*
+ * 【文件职责】将 goal 命令的持久运行记录投影为用户命令输入，独立于发送给模型的普通消息。
  */
+
 import type { SessionEvent } from '@deepseek-ai/dsh-session/types'
 import type { CommandId } from '@deepseek-ai/dsh-commands/brand'
 import type {} from '@deepseek-ai/dsh-commands/types'
 import type {
   ConversationNodeDefinition,
 } from '@deepseek-ai/dsh-client-ui-conversation/client'
+
+/** The command name whose runs this projection owns. */
+export const GOAL_COMMAND = 'goal'
 
 /** Goal-owned human command input projected independently of model messages. */
 // 目标命令输入投影数据：命令 id、可见文本与时间，独立于模型消息渲染。
@@ -51,7 +45,7 @@ export function goalCommandText(event: SessionEvent<'command/run'>): string {
 export const goalCommandInputDefinition: ConversationNodeDefinition<GoalCommandInputState> = {
   kind: 'goal-command-input',
   target: 'chat',
-  match: event => event.type === 'command/run' && event.data.name === 'goal'
+  match: event => event.type === 'command/run' && event.data.name === GOAL_COMMAND
     ? { id: String(event.data.commandId), role: 'start' }
     : null,
   start: (_context, match) => {

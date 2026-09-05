@@ -1,12 +1,12 @@
 /* Plugins section: compact tabs plus the configurable plugin card list. */
-/* 文件职责：定义插件设置页的标题、说明、分类标签、卡片列表和空状态样式。
- * 技术维度：使用 CSS Module、弹性布局、data-active 状态、伪元素下划线和 focus-visible。
- * 产品维度：让用户按类别浏览可配置插件，并通过鼠标或键盘清晰识别当前标签。
- * 逻辑维度：section 组织页面，tabs/tab 管理切换，panel/cards 展示卡片，empty 显示无内容反馈。
- * 关键边界：内容最大宽度 760px；活动与键盘焦点共享下划线但焦点额外保留轮廓。
- * 新手阅读建议：先看 section/heading/intro，再跟踪 tab 三种状态，最后看 panel/cards/empty。 */
+
 
 /* 插件设置分区根容器；纵向排列且最大宽度 760px。 */
+
+/*
+ * 【文件职责】定义插件设置标签页与可配置插件卡片列表的间距。
+ */
+
 .section {
   display: flex;
   flex-direction: column;
@@ -34,7 +34,7 @@
   display: flex;
   align-items: flex-end;
   gap: 22px;
-  border-bottom: 1px solid var(--dsw-alias-border-l2);
+  border-bottom: 0.5px solid var(--dsw-alias-border-l2);
   margin-top: 2px;
 }
 

@@ -1,10 +1,11 @@
-/* 文件职责：定义附件图片全屏预览的覆盖层、独立遮罩、图片和关闭按钮样式。
- * 技术维度：使用 CSS Modules、固定定位、Grid 居中、层叠顺序和背景模糊。
- * 产品维度：让用户在不离开会话的情况下查看大图，并始终能找到关闭控件。
- * 逻辑维度：backdrop 建立全屏舞台，mask 单独模糊页面，image 限制预览尺寸，close 固定右上角。
- * 关键边界：遮罩必须独立于 backdrop，否则预览图片和关闭按钮也会被模糊。
- * 新手阅读建议：先比较 backdrop 与 mask 的层级，再看 image 的视口高度限制。 */
+
 /* backdrop：覆盖整个视口并用 Grid 居中预览图片。 */
+
+/*
+ * 【文件职责】定义图片灯箱遮罩与预览位置；
+ * 模糊效果放在独立遮罩层，避免同时模糊图片及关闭按钮。
+ */
+
 .backdrop {
   position: fixed;
   inset: 0;
@@ -47,8 +48,9 @@
   place-items: center;
   width: 36px;
   height: 36px;
-  border: 1px solid var(--dsw-alias-border-l2-darkmode-thin);
+  border: 0.5px solid var(--dsw-alias-border-l2-darkmode-thin);
   border-radius: 999px;
+  corner-shape: round;
   background: var(--dsw-specific-input-major);
   color: var(--dsw-alias-label-primary);
   cursor: pointer;

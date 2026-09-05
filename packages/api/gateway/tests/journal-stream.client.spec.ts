@@ -35,7 +35,7 @@ interface PageRequest {
   readonly limit?: number
 }
 
-type JournalFrame = RemoteJournalFrame<Entry, number, Page>
+type JournalFrame = RemoteJournalFrame<Entry, number, Page, string>
 type ScriptedFrame = JournalFrame
 
 interface Generation {
@@ -142,28 +142,7 @@ const STREAM_FACTORY = {
   },
 }
 
-/**
- * 类说明：FixtureJournal 用于集中封装 处理 FixtureJournal 相关状态与行为。
- * 核心功能：通过成员字段保存状态，并由公开方法提供受类型约束的操作入口。
- * 使用场景：由 api/gateway 在对应插件或业务生命周期内创建和调用。
- */
-class FixtureJournal extends RemoteJournalStream<Page, Entry, number, PageRequest> {
-  /**
-   * 功能说明：处理 FixtureJournal 相关流程；使用场景由所在模块及调用位置决定。
-   * @param generations （Generation[]）：提供本次调用所需的数据；必须满足声明的类型及调用时序要求。
-   * @param pages （PageSource[]）：提供本次调用所需的数据；必须满足声明的类型及调用时序要求。
-   * @param calls （string[]）：提供本次调用所需的数据；必须满足声明的类型及调用时序要求。
-   * @param pageRequests （PageRequest[]）：提供调用方提交的请求信息；必须满足声明的类型及调用时序要求。
-   * @param pageCursors （number[]）：提供本次调用所需的数据；必须满足声明的类型及调用时序要求。
-   * @param followRequests （PageRequest[]）：提供调用方提交的请求信息；必须满足声明的类型及调用时序要求。
-   * @param changes （RemoteJournalChange<Page, Entry>[]）：提供本次调用所需的数据；
-   * 必须满足声明的类型及调用时序要求。
-   * @param failed （(error: unknown) => void）：提供本次调用所需的数据；必须满足声明的类型及调用时序要求。
-   * @param factory （RemoteStreamFactory）：提供本次调用所需的数据；必须满足声明的类型及调用时序要求。
-   * @returns 当前类实例；调用方应按声明类型处理，不应假定未声明的附加状态。
-   * @example 通过 new FixtureJournal(generations, pages, calls, pageRequests,
-   * pageCursors, followRequests, changes, failed, factory) 创建实例，并在所属生命周期内使用。
-   */
+class FixtureJournal extends RemoteJournalStream<Page, Entry, number, PageRequest, string> {
   constructor(
     private readonly generations: Generation[],
     private readonly pages: PageSource[],
@@ -171,7 +150,7 @@ class FixtureJournal extends RemoteJournalStream<Page, Entry, number, PageReques
     private readonly pageRequests: PageRequest[],
     private readonly pageCursors: number[],
     private readonly followRequests: PageRequest[],
-    changes: RemoteJournalChange<Page, Entry>[],
+    changes: RemoteJournalChange<Page, Entry, string>[],
     failed: (error: unknown) => void,
     factory: RemoteStreamFactory = STREAM_FACTORY,
   ) {
@@ -307,8 +286,8 @@ function journalFixture(
   pages: PageSource[],
   factory: RemoteStreamFactory = STREAM_FACTORY,
 ): {
-  readonly journal: RemoteJournalStream<Page, Entry, number, PageRequest>
-  readonly changes: RemoteJournalChange<Page, Entry>[]
+  readonly journal: RemoteJournalStream<Page, Entry, number, PageRequest, string>
+  readonly changes: RemoteJournalChange<Page, Entry, string>[]
   readonly failed: ReturnType<typeof vi.fn>
   readonly calls: string[]
   readonly pageRequests: PageRequest[]
@@ -334,13 +313,7 @@ function journalFixture(
    * 但对象内部是否可变仍由其类型决定。
    */
   const followRequests: PageRequest[] = []
-  /**
-   * 常量说明：changes 用于处理 changes 相关数据，作用于当前作用域；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。
-   */
-  const changes: RemoteJournalChange<Page, Entry>[] = []
-  /**
-   * 常量说明：failed 用于处理 failed 相关数据，作用于当前作用域；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。
-   */
+  const changes: RemoteJournalChange<Page, Entry, string>[] = []
   const failed = vi.fn()
   /**
    * 常量说明：journal 用于处理 journal 相关数据，作用于当前作用域；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。
@@ -436,363 +409,397 @@ function controlledFactory(
   }
 }
 
-describe('RemoteJournalStream', /*
- * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；返回值：由 TypeScript 根据实现推断的结果；
- * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调()，并按返回类型处理结果。
- */ () => {
-    it('replaces from pages whose entries cover contiguous cursor ranges', /*
+describe('RemoteJournalStream', () => {
+  it('publishes cursorless notifications without advancing the durable page cursor', async () => {
+    const live = Promise.withResolvers<ScriptedFrame>()
+    const fixture = journalFixture(
+      [{ frames: [opened(-1, page('empty', [])), { type: 'notification', notification: 'partial' }, live.promise], hold: true }],
+      [page('older', [])],
+    )
+
+    await fixture.journal.open({})
+    await vi.waitFor(() => { expect(fixture.changes).toHaveLength(2) })
+    await fixture.journal.prepend({})
+    live.resolve({ type: 'entry', entry: { seq: 0 } })
+    await vi.waitFor(() => { expect(fixture.changes).toHaveLength(4) })
+
+    expect(fixture.pageCursors).toEqual([-1])
+    expect(fixture.changes.map(change => change.type)).toEqual([
+      'replace', 'notification', 'prepend', 'append',
+    ])
+    await fixture.journal.dispose()
+  })
+
+  it('defers notifications behind a durable gap until replacement commits', async () => {
+    const repair = Promise.withResolvers<Page>()
+    const fixture = journalFixture(
+      [{
+        frames: [
+          opened(0, page('initial', [0])),
+          { type: 'entry', entry: { seq: 2 } },
+          { type: 'notification', notification: 'after-gap' },
+        ],
+        hold: true,
+      }],
+      [repair.promise],
+    )
+
+    await fixture.journal.open({})
+    await vi.waitFor(() => { expect(fixture.pageCursors).toEqual([2]) })
+    expect(fixture.changes.map(change => change.type)).toEqual(['replace'])
+    repair.resolve(page('repair', [0, 1, 2]))
+    await vi.waitFor(() => { expect(fixture.changes).toHaveLength(3) })
+
+    expect(fixture.changes.map(change => change.type)).toEqual([
+      'replace', 'replace', 'notification',
+    ])
+    await fixture.journal.dispose()
+  })
+
+  it('replaces from pages whose entries cover contiguous cursor ranges', async () => {
+    const snapshot = rangedPage(
+      'ranged',
+      [rangedEntry(0, 2), rangedEntry(3, 5)],
+      true,
+    )
+    const fixture = journalFixture(
+      [{ frames: [opened(5, snapshot)], hold: true }],
+      [],
+    )
+
+    await fixture.journal.open({})
+
+    expect(fixture.changes).toEqual([{
+      type: 'replace',
+      page: snapshot,
+      entries: snapshot.entries,
+      hasMore: true,
+    }])
+    await fixture.journal.dispose()
+  })
+
+  it('rejects an inverted cursor range', /*
  * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；返回值：由 TypeScript 根据实现推断的结果；
  * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调()，并按返回类型处理结果。
  */ async () => {
-        /**
-     * 常量说明：snapshot 用于处理 snapshot 相关数据，作用于当前作用域；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。
-     */
-        const snapshot = rangedPage(
-          'ranged',
-          [rangedEntry(0, 2), rangedEntry(3, 5)],
-          true,
-        )
-        /**
+      /**
      * 常量说明：fixture 用于处理 fixture 相关数据，作用于当前作用域；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。
      */
-        const fixture = journalFixture(
-          [{ frames: [opened(5, snapshot)], hold: true }],
-          [],
-        )
+      const fixture = journalFixture(
+        [{ frames: [opened(2, rangedPage('inverted', [rangedEntry(3, 2)]))], hold: true }],
+        [],
+      )
 
-        await fixture.journal.open({})
+      await expect(fixture.journal.open({})).rejects.toThrow(
+        'fixture journal entry has an inverted cursor range',
+      )
+      expect(fixture.changes).toEqual([])
+    })
 
-        expect(fixture.changes).toEqual([{
-          type: 'replace',
-          page: snapshot,
-          entries: snapshot.entries,
-          hasMore: true,
-        }])
-        await fixture.journal.dispose()
-      })
-
-    it('rejects an inverted cursor range', /*
+  it('opens from the follow snapshot, removes overlap, appends live entries, and prepends history', /*
  * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；返回值：由 TypeScript 根据实现推断的结果；
  * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调()，并按返回类型处理结果。
  */ async () => {
-        /**
+      /**
      * 常量说明：fixture 用于处理 fixture 相关数据，作用于当前作用域；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。
      */
-        const fixture = journalFixture(
-          [{ frames: [opened(2, rangedPage('inverted', [rangedEntry(3, 2)]))], hold: true }],
-          [],
-        )
+      const fixture = journalFixture(
+        [{
+          frames: [
+            opened(3, page('tail', [2, 3], true)),
+            { type: 'entry', entry: { seq: 3 } },
+            { type: 'entry', entry: { seq: 4 } },
+          ],
+          hold: true,
+        }],
+        [page('older', [0, 1])],
+      )
 
-        await expect(fixture.journal.open({})).rejects.toThrow(
-          'fixture journal entry has an inverted cursor range',
-        )
-        expect(fixture.changes).toEqual([])
-      })
-
-    it('opens from the follow snapshot, removes overlap, appends live entries, and prepends history', /*
- * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；返回值：由 TypeScript 根据实现推断的结果；
- * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调()，并按返回类型处理结果。
- */ async () => {
-        /**
-     * 常量说明：fixture 用于处理 fixture 相关数据，作用于当前作用域；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。
-     */
-        const fixture = journalFixture(
-          [{
-            frames: [
-              opened(3, page('tail', [2, 3], true)),
-              { type: 'entry', entry: { seq: 3 } },
-              { type: 'entry', entry: { seq: 4 } },
-            ],
-            hold: true,
-          }],
-          [page('older', [0, 1])],
-        )
-
-        await fixture.journal.open({ limit: 2 })
-        await vi.waitFor(/*
+      await fixture.journal.open({ limit: 2 })
+      await vi.waitFor(/*
  * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；返回值：由 TypeScript 根据实现推断的结果；
  * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调()，并按返回类型处理结果。
  */ () => { expect(fixture.changes).toHaveLength(2) })
-        await fixture.journal.prepend({ before: 2, limit: 2 })
+      await fixture.journal.prepend({ before: 2, limit: 2 })
 
-        expect(fixture.calls.slice(0, 2)).toEqual(['follow', 'page'])
-        expect(fixture.pageRequests).toEqual([{ before: 2, limit: 2 }])
-        expect(fixture.pageCursors).toEqual([4])
-        expect(fixture.changes).toEqual([
-          { type: 'replace', page: page('tail', [2, 3], true), entries: entries(2, 3), hasMore: true },
-          { type: 'append', entry: { seq: 4 } },
-          { type: 'prepend', page: page('older', [0, 1]), entries: entries(0, 1), hasMore: false },
-        ])
-        await fixture.journal.dispose()
-        await fixture.journal.dispose()
-      })
+      expect(fixture.calls.slice(0, 2)).toEqual(['follow', 'page'])
+      expect(fixture.pageRequests).toEqual([{ before: 2, limit: 2 }])
+      expect(fixture.pageCursors).toEqual([4])
+      expect(fixture.changes).toEqual([
+        { type: 'replace', page: page('tail', [2, 3], true), entries: entries(2, 3), hasMore: true },
+        { type: 'append', entry: { seq: 4 } },
+        { type: 'prepend', page: page('older', [0, 1]), entries: entries(0, 1), hasMore: false },
+      ])
+      await fixture.journal.dispose()
+      await fixture.journal.dispose()
+    })
 
-    it('exposes its shared cancellation signal', /*
+  it('exposes its shared cancellation signal', /*
  * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；返回值：由 TypeScript 根据实现推断的结果；
  * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调()，并按返回类型处理结果。
  */ async () => {
-        /**
+      /**
      * 常量说明：fixture 用于处理 fixture 相关数据，作用于当前作用域；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。
      */
-        const fixture = journalFixture(
-          [{ frames: [opened(-1, page('empty', []))], hold: true }],
-          [],
-        )
+      const fixture = journalFixture(
+        [{ frames: [opened(-1, page('empty', []))], hold: true }],
+        [],
+      )
 
-        expect(fixture.journal.signal.aborted).toBe(false)
-        await fixture.journal.open({})
-        await fixture.journal.dispose()
-        expect(fixture.journal.signal.aborted).toBe(true)
-      })
+      expect(fixture.journal.signal.aborted).toBe(false)
+      await fixture.journal.open({})
+      await fixture.journal.dispose()
+      expect(fixture.journal.signal.aborted).toBe(true)
+    })
 
-    it('classifies normal endings before initial and resumed opening cursors', /*
+  it('classifies normal endings before initial and resumed opening cursors', /*
  * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；返回值：由 TypeScript 根据实现推断的结果；
  * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调()，并按返回类型处理结果。
  */ async () => {
-        /**
+      /**
      * 常量说明：initial 用于处理 initial 相关数据，作用于当前作用域；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。
      */
-        const initial = journalFixture([{ frames: [] }], [])
-        await expect(initial.journal.open({})).rejects.toThrow(
-          'fixture journal ended before its opening cursor',
-        )
+      const initial = journalFixture([{ frames: [] }], [])
+      await expect(initial.journal.open({})).rejects.toThrow(
+        'fixture journal ended before its opening cursor',
+      )
 
-        /**
+      /**
      * 常量说明：finish 用于处理 finish 相关数据，作用于当前作用域；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。
      */
-        const finish = Promise.withResolvers<undefined>()
-        /**
+      const finish = Promise.withResolvers<undefined>()
+      /**
      * 常量说明：resumed 用于处理 resumed 相关数据，作用于当前作用域；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。
      */
-        const resumed = journalFixture(
-          [
-            { frames: [opened(0, page('initial', [0]))], waitAfterFrames: finish.promise },
-            { frames: [] },
-          ],
-          [],
-        )
-        await resumed.journal.open({})
-        finish.resolve(undefined)
-        await vi.waitFor(/*
+      const resumed = journalFixture(
+        [
+          { frames: [opened(0, page('initial', [0]))], waitAfterFrames: finish.promise },
+          { frames: [] },
+        ],
+        [],
+      )
+      await resumed.journal.open({})
+      finish.resolve(undefined)
+      await vi.waitFor(/*
  * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；返回值：由 TypeScript 根据实现推断的结果；
  * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调()，并按返回类型处理结果。
  */ () => { expect(resumed.failed).toHaveBeenCalledOnce() })
-        expect(resumed.failed.mock.calls[0]?.[0]).toMatchObject({
-          message: 'resumed fixture journal ended before its opening cursor',
-        })
-        await resumed.journal.dispose()
+      expect(resumed.failed.mock.calls[0]?.[0]).toMatchObject({
+        message: 'resumed fixture journal ended before its opening cursor',
       })
+      await resumed.journal.dispose()
+    })
 
-    it('prepends into an empty window and accepts its first live entry', /*
+  it('prepends into an empty window and accepts its first live entry', /*
  * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；返回值：由 TypeScript 根据实现推断的结果；
  * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调()，并按返回类型处理结果。
  */ async () => {
-        /**
+      /**
      * 常量说明：empty 用于处理 empty 相关数据，作用于当前作用域；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。
      */
-        const empty = journalFixture(
-          [{ frames: [opened(-1, page('empty', []))], hold: true }],
-          [page('older', [0]), page('oldest', [])],
-        )
-        await empty.journal.open({})
-        await empty.journal.prepend({})
-        expect(empty.changes.at(-1)).toEqual({
-          type: 'prepend', page: page('older', [0]), entries: entries(0), hasMore: false,
-        })
-        await empty.journal.prepend({})
-        expect(empty.changes.at(-1)).toEqual({
-          type: 'prepend', page: page('oldest', []), entries: [], hasMore: false,
-        })
-        await empty.journal.dispose()
+      const empty = journalFixture(
+        [{ frames: [opened(-1, page('empty', []))], hold: true }],
+        [page('older', [0]), page('oldest', [])],
+      )
+      await empty.journal.open({})
+      await empty.journal.prepend({})
+      expect(empty.changes.at(-1)).toEqual({
+        type: 'prepend', page: page('older', [0]), entries: entries(0), hasMore: false,
+      })
+      await empty.journal.prepend({})
+      expect(empty.changes.at(-1)).toEqual({
+        type: 'prepend', page: page('oldest', []), entries: [], hasMore: false,
+      })
+      await empty.journal.dispose()
 
-        /**
+      /**
      * 常量说明：live 用于处理 live 相关数据，作用于当前作用域；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。
      */
-        const live = Promise.withResolvers<ScriptedFrame>()
-        /**
+      const live = Promise.withResolvers<ScriptedFrame>()
+      /**
      * 常量说明：followed 用于处理 followed 相关数据，作用于当前作用域；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。
      */
-        const followed = journalFixture(
-          [{ frames: [opened(-1, page('empty', [])), live.promise], hold: true }],
-          [],
-        )
-        await followed.journal.open({})
-        live.resolve({ type: 'entry', entry: { seq: 0 } })
-        await vi.waitFor(/*
+      const followed = journalFixture(
+        [{ frames: [opened(-1, page('empty', [])), live.promise], hold: true }],
+        [],
+      )
+      await followed.journal.open({})
+      live.resolve({ type: 'entry', entry: { seq: 0 } })
+      await vi.waitFor(/*
  * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；返回值：由 TypeScript 根据实现推断的结果；
  * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调()，并按返回类型处理结果。
  */ () => { expect(followed.changes).toHaveLength(2) })
-        expect(followed.changes.at(-1)).toEqual({ type: 'append', entry: { seq: 0 } })
-        await followed.journal.dispose()
-      })
+      expect(followed.changes.at(-1)).toEqual({ type: 'append', entry: { seq: 0 } })
+      await followed.journal.dispose()
+    })
 
-    it('prepends at the first cursor and rejects a partially overlapping ranged entry', /*
+  it('prepends at the first cursor and rejects a partially overlapping ranged entry', /*
  * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；返回值：由 TypeScript 根据实现推断的结果；
  * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调()，并按返回类型处理结果。
  */ async () => {
-        /**
+      /**
      * 常量说明：initial 用于处理 initial 相关数据，作用于当前作用域；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。
      */
-        const initial = rangedPage('initial', [rangedEntry(4, 6)], true)
-        /**
+      const initial = rangedPage('initial', [rangedEntry(4, 6)], true)
+      /**
      * 常量说明：older 用于处理 older 相关数据，作用于当前作用域；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。
      */
-        const older = rangedPage('older', [rangedEntry(0, 3)])
-        /**
+      const older = rangedPage('older', [rangedEntry(0, 3)])
+      /**
      * 常量说明：fixture 用于处理 fixture 相关数据，作用于当前作用域；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。
      */
-        const fixture = journalFixture(
-          [{ frames: [opened(6, initial)], hold: true }],
-          [older],
-        )
+      const fixture = journalFixture(
+        [{ frames: [opened(6, initial)], hold: true }],
+        [older],
+      )
 
-        await fixture.journal.open({})
-        await fixture.journal.prepend({ before: 4 })
+      await fixture.journal.open({})
+      await fixture.journal.prepend({ before: 4 })
 
-        expect(fixture.pageCursors).toEqual([6])
-        expect(fixture.changes.at(-1)).toEqual({
-          type: 'prepend', page: older, entries: older.entries, hasMore: false,
-        })
-        await fixture.journal.dispose()
+      expect(fixture.pageCursors).toEqual([6])
+      expect(fixture.changes.at(-1)).toEqual({
+        type: 'prepend', page: older, entries: older.entries, hasMore: false,
+      })
+      await fixture.journal.dispose()
 
-        /**
+      /**
      * 常量说明：overlap 用于处理 overlap 相关数据，作用于当前作用域；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。
      */
-        const overlap = rangedPage('overlap', [rangedEntry(0, 4)], true)
-        /**
+      const overlap = rangedPage('overlap', [rangedEntry(0, 4)], true)
+      /**
      * 常量说明：overlapping 用于处理 overlapping 相关数据，作用于当前作用域；初始化后不可重新赋值，
      * 但对象内部是否可变仍由其类型决定。
      */
-        const overlapping = journalFixture(
-          [{ frames: [opened(6, initial)], hold: true }],
-          [overlap],
-        )
-        await overlapping.journal.open({})
+      const overlapping = journalFixture(
+        [{ frames: [opened(6, initial)], hold: true }],
+        [overlap],
+      )
+      await overlapping.journal.open({})
 
-        await expect(overlapping.journal.prepend({ before: 4 })).rejects.toThrow(
-          'history page is discontinuous',
-        )
-        expect(overlapping.changes.at(-1)).toEqual({
-          type: 'prepend', page: overlap, entries: [], hasMore: false,
-        })
-        await overlapping.journal.dispose()
+      await expect(overlapping.journal.prepend({ before: 4 })).rejects.toThrow(
+        'history page is discontinuous',
+      )
+      expect(overlapping.changes.at(-1)).toEqual({
+        type: 'prepend', page: overlap, entries: [], hasMore: false,
       })
+      await overlapping.journal.dispose()
+    })
 
-    it('deduplicates complete ranged entries and rejects partial live overlap', /*
+  it('deduplicates complete ranged entries and rejects partial live overlap', /*
  * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；返回值：由 TypeScript 根据实现推断的结果；
  * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调()，并按返回类型处理结果。
  */ async () => {
-        /**
+      /**
      * 常量说明：initial 用于处理 initial 相关数据，作用于当前作用域；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。
      */
-        const initial = rangedPage('initial', [rangedEntry(0, 2)])
-        /**
+      const initial = rangedPage('initial', [rangedEntry(0, 2)])
+      /**
      * 常量说明：fixture 用于处理 fixture 相关数据，作用于当前作用域；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。
      */
-        const fixture = journalFixture(
-          [{
-            frames: [
-              opened(2, initial),
-              { type: 'entry', entry: rangedEntry(0, 2) },
-              { type: 'entry', entry: rangedEntry(3, 5) },
-              { type: 'entry', entry: rangedEntry(5, 7) },
-            ],
-            hold: true,
-          }],
-          [],
-        )
+      const fixture = journalFixture(
+        [{
+          frames: [
+            opened(2, initial),
+            { type: 'entry', entry: rangedEntry(0, 2) },
+            { type: 'entry', entry: rangedEntry(3, 5) },
+            { type: 'entry', entry: rangedEntry(5, 7) },
+          ],
+          hold: true,
+        }],
+        [],
+      )
 
-        await fixture.journal.open({})
-        await vi.waitFor(/*
+      await fixture.journal.open({})
+      await vi.waitFor(/*
  * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；返回值：由 TypeScript 根据实现推断的结果；
  * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调()，并按返回类型处理结果。
  */ () => { expect(fixture.failed).toHaveBeenCalledOnce() })
 
-        expect(fixture.changes).toHaveLength(2)
-        expect(fixture.changes.at(-1)).toEqual({
-          type: 'append', entry: rangedEntry(3, 5),
-        })
-        expect(fixture.failed.mock.calls[0]?.[0]).toMatchObject({
-          message: 'fixture journal emitted a partially overlapping entry',
-        })
-        await fixture.journal.dispose()
+      expect(fixture.changes).toHaveLength(2)
+      expect(fixture.changes.at(-1)).toEqual({
+        type: 'append', entry: rangedEntry(3, 5),
       })
+      expect(fixture.failed.mock.calls[0]?.[0]).toMatchObject({
+        message: 'fixture journal emitted a partially overlapping entry',
+      })
+      await fixture.journal.dispose()
+    })
 
-    it('repairs a replacement generation through one tail page and drops replay overlap', /*
+  it('repairs a replacement generation through one tail page and drops replay overlap', /*
  * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；返回值：由 TypeScript 根据实现推断的结果；
  * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调()，并按返回类型处理结果。
  */ async () => {
-        /**
+      /**
      * 常量说明：lost 用于处理 lost 相关数据，作用于当前作用域；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。
      */
-        const lost = new RemoteStreamCarrierError('carrier lost')
-        /**
+      const lost = new RemoteStreamCarrierError('carrier lost')
+      /**
      * 常量说明：fixture 用于处理 fixture 相关数据，作用于当前作用域；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。
      */
-        const fixture = journalFixture(
-          [
-            {
-              frames: [
-                opened(1, page('initial', [0, 1])),
-                { type: 'entry', entry: { seq: 2 } },
-              ],
-              terminal: lost,
-            },
-            {
-              frames: [
-                opened(4, page('replacement', [0, 1, 2, 3, 4])),
-                { type: 'entry', entry: { seq: 3 } },
-                { type: 'entry', entry: { seq: 4 } },
-              ],
-              hold: true,
-            },
-          ],
-          [],
-        )
+      const fixture = journalFixture(
+        [
+          {
+            frames: [
+              opened(1, page('initial', [0, 1])),
+              { type: 'entry', entry: { seq: 2 } },
+            ],
+            terminal: lost,
+          },
+          {
+            frames: [
+              opened(4, page('replacement', [0, 1, 2, 3, 4])),
+              { type: 'entry', entry: { seq: 3 } },
+              { type: 'entry', entry: { seq: 4 } },
+            ],
+            hold: true,
+          },
+        ],
+        [],
+      )
 
-        await fixture.journal.open({ limit: 5 })
-        await vi.waitFor(/*
+      await fixture.journal.open({ limit: 5 })
+      await vi.waitFor(/*
  * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；返回值：由 TypeScript 根据实现推断的结果；
  * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调()，并按返回类型处理结果。
  */ () => { expect(fixture.changes).toHaveLength(3) })
 
-        expect(fixture.changes.map(/*
+      expect(fixture.changes.map(/*
  * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；参数：change（由 TypeScript
  * 根据调用位置推断的类型）：提供本次调用所需的数据；必须满足声明的类型及调用时序要求。；返回值：由 TypeScript 根据实现推断的结果；
  * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调(change)，并按返回类型处理结果。
  */ change => change.type)).toEqual(['replace', 'append', 'replace'])
-        expect(fixture.changes[2]).toMatchObject({
-          type: 'replace', page: { marker: 'replacement' }, entries: entries(0, 1, 2, 3, 4),
-        })
-        expect(fixture.followRequests).toEqual([{ limit: 5 }, { limit: 5 }])
-        expect(fixture.pageCursors).toEqual([])
-        expect(fixture.failed).not.toHaveBeenCalled()
-        await fixture.journal.dispose()
+      expect(fixture.changes[2]).toMatchObject({
+        type: 'replace', page: { marker: 'replacement' }, entries: entries(0, 1, 2, 3, 4),
       })
+      expect(fixture.followRequests).toEqual([{ limit: 5 }, { limit: 5 }])
+      expect(fixture.pageCursors).toEqual([])
+      expect(fixture.failed).not.toHaveBeenCalled()
+      await fixture.journal.dispose()
+    })
 
-    it('restarts a page aborted with its carrier generation', /*
+  it('restarts a page aborted with its carrier generation', /*
  * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；返回值：由 TypeScript 根据实现推断的结果；
  * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调()，并按返回类型处理结果。
  */ async () => {
-        /**
+      /**
      * 常量说明：fixture 用于处理 fixture 相关数据，作用于当前作用域；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。
      */
-        const fixture = journalFixture(
-          [
-            {
-              frames: [
-                opened(1, page('initial', [0, 1])),
-                { type: 'entry', entry: { seq: 3 } },
-              ],
-              terminal: new RemoteStreamCarrierError('carrier lost during page'),
-            },
-            {
-              frames: [opened(3, page('replacement', [0, 1, 2, 3]))],
-              hold: true,
-            },
-          ],
-          [
-            /*
+      const fixture = journalFixture(
+        [
+          {
+            frames: [
+              opened(1, page('initial', [0, 1])),
+              { type: 'entry', entry: { seq: 3 } },
+            ],
+            terminal: new RemoteStreamCarrierError('carrier lost during page'),
+          },
+          {
+            frames: [opened(3, page('replacement', [0, 1, 2, 3]))],
+            hold: true,
+          },
+        ],
+        [
+          /*
          * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；参数：signal（由 TypeScript
          * 根据调用位置推断的类型）：传递取消或终止信号；必须满足声明的类型及调用时序要求。；返回值：由 TypeScript 根据实现推断的结果；
          * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调(signal)，并按返回类型处理结果。
@@ -803,204 +810,204 @@ describe('RemoteJournalStream', /*
  * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调(_resolve, reject)，
  * 并按返回类型处理结果。
  */ (_resolve, reject) => {
-                /**
+              /**
            * 常量说明：aborted 用于处理 aborted 相关数据，作用于当前作用域；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。
            * 功能说明：处理 aborted 相关流程；使用场景由所在模块及调用位置决定。
            * @returns void；调用方应按声明类型处理，不应假定未声明的附加状态。
            * @example 在完成前置校验后调用 aborted()，并按返回类型处理结果。
            */
-                const aborted = (): void => { reject(new Error('page aborted')) }
-                signal.addEventListener('abort', aborted, { once: true })
-                if (signal.aborted) aborted()
-              }),
-          ],
-        )
+              const aborted = (): void => { reject(new Error('page aborted')) }
+              signal.addEventListener('abort', aborted, { once: true })
+              if (signal.aborted) aborted()
+            }),
+        ],
+      )
 
-        await fixture.journal.open({ limit: 3 })
-        await vi.waitFor(/*
+      await fixture.journal.open({ limit: 3 })
+      await vi.waitFor(/*
  * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；返回值：由 TypeScript 根据实现推断的结果；
  * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调()，并按返回类型处理结果。
  */ () => { expect(fixture.changes).toHaveLength(2) })
 
-        expect(fixture.changes).toEqual([
-          {
-            type: 'replace',
-            page: page('initial', [0, 1]),
-            entries: entries(0, 1),
-            hasMore: false,
-          },
-          {
-            type: 'replace',
-            page: page('replacement', [0, 1, 2, 3]),
-            entries: entries(0, 1, 2, 3),
-            hasMore: false,
-          },
-        ])
-        expect(fixture.pageCursors).toEqual([3])
-        expect(fixture.followRequests).toEqual([{ limit: 3 }, { limit: 3 }])
-        expect(fixture.failed).not.toHaveBeenCalled()
-        await fixture.journal.dispose()
-      })
+      expect(fixture.changes).toEqual([
+        {
+          type: 'replace',
+          page: page('initial', [0, 1]),
+          entries: entries(0, 1),
+          hasMore: false,
+        },
+        {
+          type: 'replace',
+          page: page('replacement', [0, 1, 2, 3]),
+          entries: entries(0, 1, 2, 3),
+          hasMore: false,
+        },
+      ])
+      expect(fixture.pageCursors).toEqual([3])
+      expect(fixture.followRequests).toEqual([{ limit: 3 }, { limit: 3 }])
+      expect(fixture.failed).not.toHaveBeenCalled()
+      await fixture.journal.dispose()
+    })
 
-    it('repairs a live gap before publishing another change', /*
+  it('repairs a live gap before publishing another change', /*
  * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；返回值：由 TypeScript 根据实现推断的结果；
  * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调()，并按返回类型处理结果。
  */ async () => {
-        /**
+      /**
      * 常量说明：fixture 用于处理 fixture 相关数据，作用于当前作用域；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。
      */
-        const fixture = journalFixture(
-          [{
-            frames: [
-              opened(1, page('initial', [0, 1])),
-              { type: 'entry', entry: { seq: 4 } },
-            ],
-            hold: true,
-          }],
-          [page('repair', [0, 1, 2, 3, 4])],
-        )
+      const fixture = journalFixture(
+        [{
+          frames: [
+            opened(1, page('initial', [0, 1])),
+            { type: 'entry', entry: { seq: 4 } },
+          ],
+          hold: true,
+        }],
+        [page('repair', [0, 1, 2, 3, 4])],
+      )
 
-        await fixture.journal.open({})
-        await vi.waitFor(/*
+      await fixture.journal.open({})
+      await vi.waitFor(/*
  * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；返回值：由 TypeScript 根据实现推断的结果；
  * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调()，并按返回类型处理结果。
  */ () => { expect(fixture.changes).toHaveLength(2) })
 
-        expect(fixture.changes.map(/*
+      expect(fixture.changes.map(/*
  * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；参数：change（由 TypeScript
  * 根据调用位置推断的类型）：提供本次调用所需的数据；必须满足声明的类型及调用时序要求。；返回值：由 TypeScript 根据实现推断的结果；
  * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调(change)，并按返回类型处理结果。
  */ change => change.type)).toEqual(['replace', 'replace'])
-        expect(fixture.changes[1]).toMatchObject({ page: { marker: 'repair' } })
-        expect(fixture.pageCursors).toEqual([4])
-        await fixture.journal.dispose()
-      })
+      expect(fixture.changes[1]).toMatchObject({ page: { marker: 'repair' } })
+      expect(fixture.pageCursors).toEqual([4])
+      await fixture.journal.dispose()
+    })
 
-    it('reports a page failure during live-gap repair', /*
+  it('reports a page failure during live-gap repair', /*
  * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；返回值：由 TypeScript 根据实现推断的结果；
  * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调()，并按返回类型处理结果。
  */ async () => {
-        /**
+      /**
      * 常量说明：fixture 用于处理 fixture 相关数据，作用于当前作用域；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。
      */
-        const fixture = journalFixture(
-          [{
-            frames: [
-              opened(0, page('initial', [0])),
-              { type: 'entry', entry: { seq: 2 } },
-            ],
-            hold: true,
-          }],
-          [/*
+      const fixture = journalFixture(
+        [{
+          frames: [
+            opened(0, page('initial', [0])),
+            { type: 'entry', entry: { seq: 2 } },
+          ],
+          hold: true,
+        }],
+        [/*
  * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；返回值：由 TypeScript 根据实现推断的结果；
  * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调()，并按返回类型处理结果。
  */ () => Promise.reject(new Error('repair page failed'))],
-        )
+      )
 
-        await fixture.journal.open({})
-        await vi.waitFor(/*
+      await fixture.journal.open({})
+      await vi.waitFor(/*
  * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；返回值：由 TypeScript 根据实现推断的结果；
  * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调()，并按返回类型处理结果。
  */ () => { expect(fixture.failed).toHaveBeenCalledOnce() })
 
-        expect(fixture.failed.mock.calls[0]?.[0]).toMatchObject({ message: 'repair page failed' })
-        expect(fixture.changes).toHaveLength(1)
-        await fixture.journal.dispose()
-      })
+      expect(fixture.failed.mock.calls[0]?.[0]).toMatchObject({ message: 'repair page failed' })
+      expect(fixture.changes).toHaveLength(1)
+      await fixture.journal.dispose()
+    })
 
-    it('replaces a superseded live-gap repair with the next generation', /*
+  it('replaces a superseded live-gap repair with the next generation', /*
  * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；返回值：由 TypeScript 根据实现推断的结果；
  * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调()，并按返回类型处理结果。
  */ async () => {
-        /**
+      /**
      * 常量说明：gap 用于处理 gap 相关数据，作用于当前作用域；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。
      */
-        const gap = Promise.withResolvers<ScriptedFrame>()
-        /**
+      const gap = Promise.withResolvers<ScriptedFrame>()
+      /**
      * 常量说明：fixture 用于处理 fixture 相关数据，作用于当前作用域；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。
      */
-        const fixture = journalFixture(
-          [
-            {
-              frames: [opened(1, page('initial', [0, 1])), gap.promise],
-              terminal: new RemoteStreamCarrierError('generation lost'),
-            },
-            { frames: [opened(4, page('replacement', [0, 1, 2, 3, 4]))], hold: true },
-          ],
-          [
-            /*
+      const fixture = journalFixture(
+        [
+          {
+            frames: [opened(1, page('initial', [0, 1])), gap.promise],
+            terminal: new RemoteStreamCarrierError('generation lost'),
+          },
+          { frames: [opened(4, page('replacement', [0, 1, 2, 3, 4]))], hold: true },
+        ],
+        [
+          /*
          * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；返回值：由 TypeScript 根据实现推断的结果；
          * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调()，并按返回类型处理结果。
          */ () => new Promise<Page>(/*
  * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；返回值：由 TypeScript 根据实现推断的结果；
  * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调()，并按返回类型处理结果。
  */ () => {}),
-          ],
-        )
+        ],
+      )
 
-        await fixture.journal.open({ limit: 5 })
-        gap.resolve({ type: 'entry', entry: { seq: 4 } })
-        await vi.waitFor(/*
+      await fixture.journal.open({ limit: 5 })
+      gap.resolve({ type: 'entry', entry: { seq: 4 } })
+      await vi.waitFor(/*
  * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；返回值：由 TypeScript 根据实现推断的结果；
  * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调()，并按返回类型处理结果。
  */ () => { expect(fixture.changes).toHaveLength(2) })
-        expect(fixture.changes.at(-1)).toMatchObject({
-          type: 'replace', page: { marker: 'replacement' }, entries: entries(0, 1, 2, 3, 4),
-        })
-        await fixture.journal.dispose()
+      expect(fixture.changes.at(-1)).toMatchObject({
+        type: 'replace', page: { marker: 'replacement' }, entries: entries(0, 1, 2, 3, 4),
       })
+      await fixture.journal.dispose()
+    })
 
-    it('replaces a superseded second repair page with the next generation', /*
+  it('replaces a superseded second repair page with the next generation', /*
  * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；返回值：由 TypeScript 根据实现推断的结果；
  * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调()，并按返回类型处理结果。
  */ async () => {
-        /**
+      /**
      * 常量说明：firstLive 用于处理 firstLive 相关数据，作用于当前作用域；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。
      */
-        const firstLive = Promise.withResolvers<ScriptedFrame>()
-        /**
+      const firstLive = Promise.withResolvers<ScriptedFrame>()
+      /**
      * 常量说明：secondLive 用于处理 secondLive 相关数据，作用于当前作用域；初始化后不可重新赋值，
      * 但对象内部是否可变仍由其类型决定。
      */
-        const secondLive = Promise.withResolvers<ScriptedFrame>()
-        /**
+      const secondLive = Promise.withResolvers<ScriptedFrame>()
+      /**
      * 常量说明：secondConsumed 用于处理 secondConsumed 相关数据，作用于当前作用域；初始化后不可重新赋值，
      * 但对象内部是否可变仍由其类型决定。
      */
-        const secondConsumed = Promise.withResolvers<undefined>()
-        /**
+      const secondConsumed = Promise.withResolvers<undefined>()
+      /**
      * 常量说明：firstRepair 用于处理 firstRepair 相关数据，作用于当前作用域；初始化后不可重新赋值，
      * 但对象内部是否可变仍由其类型决定。
      */
-        const firstRepair = Promise.withResolvers<Page>()
-        /**
+      const firstRepair = Promise.withResolvers<Page>()
+      /**
      * 常量说明：finish 用于处理 finish 相关数据，作用于当前作用域；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。
      */
-        const finish = Promise.withResolvers<undefined>()
-        /**
+      const finish = Promise.withResolvers<undefined>()
+      /**
      * 常量说明：fixture 用于处理 fixture 相关数据，作用于当前作用域；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。
      */
-        const fixture = journalFixture(
-          [
-            {
-              frames: [
-                opened(1, page('initial', [0, 1])),
-                firstLive.promise,
-                secondLive.promise,
-              ],
-              waitAfterFrames: finish.promise,
-              terminal: new RemoteStreamCarrierError('generation lost'),
-              afterFrame: /*
+      const fixture = journalFixture(
+        [
+          {
+            frames: [
+              opened(1, page('initial', [0, 1])),
+              firstLive.promise,
+              secondLive.promise,
+            ],
+            waitAfterFrames: finish.promise,
+            terminal: new RemoteStreamCarrierError('generation lost'),
+            afterFrame: /*
  * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；参数：index（由 TypeScript
  * 根据调用位置推断的类型）：提供本次调用所需的数据；必须满足声明的类型及调用时序要求。；返回值：由 TypeScript 根据实现推断的结果；
  * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调(index)，并按返回类型处理结果。
  */ (index) => { if (index === 2) secondConsumed.resolve(undefined) },
-            },
-            { frames: [opened(5, page('replacement', [0, 1, 2, 3, 4, 5]))], hold: true },
-          ],
-          [
-            firstRepair.promise,
-            /*
+          },
+          { frames: [opened(5, page('replacement', [0, 1, 2, 3, 4, 5]))], hold: true },
+        ],
+        [
+          firstRepair.promise,
+          /*
          * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；参数：signal（由 TypeScript
          * 根据调用位置推断的类型）：传递取消或终止信号；必须满足声明的类型及调用时序要求。；返回值：由 TypeScript 根据实现推断的结果；
          * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调(signal)，并按返回类型处理结果。
@@ -1011,532 +1018,532 @@ describe('RemoteJournalStream', /*
  * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调(_resolve, reject)，
  * 并按返回类型处理结果。
  */ (_resolve, reject) => {
-                signal.addEventListener('abort', /*
+              signal.addEventListener('abort', /*
  * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；返回值：由 TypeScript 根据实现推断的结果；
  * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调()，并按返回类型处理结果。
  */ () => { reject(new Error('page aborted')) }, { once: true })
-              }),
-          ],
-        )
+            }),
+        ],
+      )
 
-        await fixture.journal.open({})
-        firstLive.resolve({ type: 'entry', entry: { seq: 3 } })
-        await vi.waitFor(/*
+      await fixture.journal.open({})
+      firstLive.resolve({ type: 'entry', entry: { seq: 3 } })
+      await vi.waitFor(/*
  * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；返回值：由 TypeScript 根据实现推断的结果；
  * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调()，并按返回类型处理结果。
  */ () => { expect(fixture.pageCursors).toEqual([3]) })
-        secondLive.resolve({ type: 'entry', entry: { seq: 5 } })
-        await secondConsumed.promise
-        firstRepair.resolve(page('first-repair', [0, 1, 2, 3]))
-        await vi.waitFor(/*
+      secondLive.resolve({ type: 'entry', entry: { seq: 5 } })
+      await secondConsumed.promise
+      firstRepair.resolve(page('first-repair', [0, 1, 2, 3]))
+      await vi.waitFor(/*
  * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；返回值：由 TypeScript 根据实现推断的结果；
  * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调()，并按返回类型处理结果。
  */ () => { expect(fixture.pageCursors).toEqual([3, 5]) })
-        finish.resolve(undefined)
-        await vi.waitFor(/*
+      finish.resolve(undefined)
+      await vi.waitFor(/*
  * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；返回值：由 TypeScript 根据实现推断的结果；
  * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调()，并按返回类型处理结果。
  */ () => { expect(fixture.changes).toHaveLength(2) })
 
-        expect(fixture.pageCursors).toEqual([3, 5])
-        expect(fixture.changes).toEqual([
-          {
-            type: 'replace',
-            page: page('initial', [0, 1]),
-            entries: entries(0, 1),
-            hasMore: false,
-          },
-          {
-            type: 'replace',
-            page: page('replacement', [0, 1, 2, 3, 4, 5]),
-            entries: entries(0, 1, 2, 3, 4, 5),
-            hasMore: false,
-          },
-        ])
-        await fixture.journal.dispose()
-      })
+      expect(fixture.pageCursors).toEqual([3, 5])
+      expect(fixture.changes).toEqual([
+        {
+          type: 'replace',
+          page: page('initial', [0, 1]),
+          entries: entries(0, 1),
+          hasMore: false,
+        },
+        {
+          type: 'replace',
+          page: page('replacement', [0, 1, 2, 3, 4, 5]),
+          entries: entries(0, 1, 2, 3, 4, 5),
+          hasMore: false,
+        },
+      ])
+      await fixture.journal.dispose()
+    })
 
-    it('rereads the tail when queued entries advance beyond the first repair page', /*
+  it('rereads the tail when queued entries advance beyond the first repair page', /*
  * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；返回值：由 TypeScript 根据实现推断的结果；
  * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调()，并按返回类型处理结果。
  */ async () => {
-        /**
+      /**
      * 常量说明：firstLive 用于处理 firstLive 相关数据，作用于当前作用域；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。
      */
-        const firstLive = Promise.withResolvers<ScriptedFrame>()
-        /**
+      const firstLive = Promise.withResolvers<ScriptedFrame>()
+      /**
      * 常量说明：secondLive 用于处理 secondLive 相关数据，作用于当前作用域；初始化后不可重新赋值，
      * 但对象内部是否可变仍由其类型决定。
      */
-        const secondLive = Promise.withResolvers<ScriptedFrame>()
-        /**
+      const secondLive = Promise.withResolvers<ScriptedFrame>()
+      /**
      * 常量说明：secondConsumed 用于处理 secondConsumed 相关数据，作用于当前作用域；初始化后不可重新赋值，
      * 但对象内部是否可变仍由其类型决定。
      */
-        const secondConsumed = Promise.withResolvers<undefined>()
-        /**
+      const secondConsumed = Promise.withResolvers<undefined>()
+      /**
      * 常量说明：firstRepair 用于处理 firstRepair 相关数据，作用于当前作用域；初始化后不可重新赋值，
      * 但对象内部是否可变仍由其类型决定。
      */
-        const firstRepair = Promise.withResolvers<Page>()
-        /**
+      const firstRepair = Promise.withResolvers<Page>()
+      /**
      * 常量说明：fixture 用于处理 fixture 相关数据，作用于当前作用域；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。
      */
-        const fixture = journalFixture(
-          [{
-            frames: [
-              opened(1, page('initial', [0, 1])),
-              firstLive.promise,
-              secondLive.promise,
-            ],
-            hold: true,
-            afterFrame: /*
+      const fixture = journalFixture(
+        [{
+          frames: [
+            opened(1, page('initial', [0, 1])),
+            firstLive.promise,
+            secondLive.promise,
+          ],
+          hold: true,
+          afterFrame: /*
  * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；参数：index（由 TypeScript
  * 根据调用位置推断的类型）：提供本次调用所需的数据；必须满足声明的类型及调用时序要求。；返回值：由 TypeScript 根据实现推断的结果；
  * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调(index)，并按返回类型处理结果。
  */ (index) => { if (index === 2) secondConsumed.resolve(undefined) },
-          }],
-          [firstRepair.promise, page('repair', [0, 1, 2, 3, 4, 5])],
-        )
+        }],
+        [firstRepair.promise, page('repair', [0, 1, 2, 3, 4, 5])],
+      )
 
-        await fixture.journal.open({ limit: 4 })
-        firstLive.resolve({ type: 'entry', entry: { seq: 3 } })
-        await vi.waitFor(/*
+      await fixture.journal.open({ limit: 4 })
+      firstLive.resolve({ type: 'entry', entry: { seq: 3 } })
+      await vi.waitFor(/*
  * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；返回值：由 TypeScript 根据实现推断的结果；
  * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调()，并按返回类型处理结果。
  */ () => { expect(fixture.pageCursors).toEqual([3]) })
-        secondLive.resolve({ type: 'entry', entry: { seq: 5 } })
-        await secondConsumed.promise
-        firstRepair.resolve(page('first-repair', [0, 1, 2, 3]))
-        await vi.waitFor(/*
+      secondLive.resolve({ type: 'entry', entry: { seq: 5 } })
+      await secondConsumed.promise
+      firstRepair.resolve(page('first-repair', [0, 1, 2, 3]))
+      await vi.waitFor(/*
  * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；返回值：由 TypeScript 根据实现推断的结果；
  * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调()，并按返回类型处理结果。
  */ () => { expect(fixture.changes).toHaveLength(2) })
 
-        expect(fixture.pageCursors).toEqual([3, 5])
-        expect(fixture.changes.at(-1)).toEqual({
-          type: 'replace',
-          page: page('repair', [0, 1, 2, 3, 4, 5]),
-          entries: entries(0, 1, 2, 3, 4, 5),
-          hasMore: false,
-        })
-        await fixture.journal.dispose()
+      expect(fixture.pageCursors).toEqual([3, 5])
+      expect(fixture.changes.at(-1)).toEqual({
+        type: 'replace',
+        page: page('repair', [0, 1, 2, 3, 4, 5]),
+        entries: entries(0, 1, 2, 3, 4, 5),
+        hasMore: false,
       })
+      await fixture.journal.dispose()
+    })
 
-    it('merges contiguous entries that arrive while a replacement page is loading', /*
+  it('merges contiguous entries that arrive while a replacement page is loading', /*
  * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；返回值：由 TypeScript 根据实现推断的结果；
  * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调()，并按返回类型处理结果。
  */ async () => {
-        /**
+      /**
      * 常量说明：firstLive 用于处理 firstLive 相关数据，作用于当前作用域；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。
      */
-        const firstLive = Promise.withResolvers<ScriptedFrame>()
-        /**
+      const firstLive = Promise.withResolvers<ScriptedFrame>()
+      /**
      * 常量说明：secondLive 用于处理 secondLive 相关数据，作用于当前作用域；初始化后不可重新赋值，
      * 但对象内部是否可变仍由其类型决定。
      */
-        const secondLive = Promise.withResolvers<ScriptedFrame>()
-        /**
+      const secondLive = Promise.withResolvers<ScriptedFrame>()
+      /**
      * 常量说明：secondConsumed 用于处理 secondConsumed 相关数据，作用于当前作用域；初始化后不可重新赋值，
      * 但对象内部是否可变仍由其类型决定。
      */
-        const secondConsumed = Promise.withResolvers<undefined>()
-        /**
+      const secondConsumed = Promise.withResolvers<undefined>()
+      /**
      * 常量说明：repair 用于处理 repair 相关数据，作用于当前作用域；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。
      */
-        const repair = Promise.withResolvers<Page>()
-        /**
+      const repair = Promise.withResolvers<Page>()
+      /**
      * 常量说明：fixture 用于处理 fixture 相关数据，作用于当前作用域；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。
      */
-        const fixture = journalFixture(
-          [{
-            frames: [
-              opened(1, page('initial', [0, 1])),
-              firstLive.promise,
-              secondLive.promise,
-            ],
-            hold: true,
-            afterFrame: /*
+      const fixture = journalFixture(
+        [{
+          frames: [
+            opened(1, page('initial', [0, 1])),
+            firstLive.promise,
+            secondLive.promise,
+          ],
+          hold: true,
+          afterFrame: /*
  * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；参数：index（由 TypeScript
  * 根据调用位置推断的类型）：提供本次调用所需的数据；必须满足声明的类型及调用时序要求。；返回值：由 TypeScript 根据实现推断的结果；
  * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调(index)，并按返回类型处理结果。
  */ (index) => { if (index === 2) secondConsumed.resolve(undefined) },
-          }],
-          [repair.promise],
-        )
+        }],
+        [repair.promise],
+      )
 
-        await fixture.journal.open({})
-        firstLive.resolve({ type: 'entry', entry: { seq: 3 } })
-        await vi.waitFor(/*
+      await fixture.journal.open({})
+      firstLive.resolve({ type: 'entry', entry: { seq: 3 } })
+      await vi.waitFor(/*
  * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；返回值：由 TypeScript 根据实现推断的结果；
  * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调()，并按返回类型处理结果。
  */ () => { expect(fixture.pageCursors).toEqual([3]) })
-        secondLive.resolve({ type: 'entry', entry: { seq: 4 } })
-        await secondConsumed.promise
-        repair.resolve(page('repair', [0, 1, 2, 3]))
-        await vi.waitFor(/*
+      secondLive.resolve({ type: 'entry', entry: { seq: 4 } })
+      await secondConsumed.promise
+      repair.resolve(page('repair', [0, 1, 2, 3]))
+      await vi.waitFor(/*
  * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；返回值：由 TypeScript 根据实现推断的结果；
  * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调()，并按返回类型处理结果。
  */ () => { expect(fixture.changes).toHaveLength(2) })
 
-        expect(fixture.changes.at(-1)).toEqual({
-          type: 'replace',
-          page: page('repair', [0, 1, 2, 3]),
-          entries: entries(0, 1, 2, 3, 4),
-          hasMore: false,
-        })
-        await fixture.journal.dispose()
+      expect(fixture.changes.at(-1)).toEqual({
+        type: 'replace',
+        page: page('repair', [0, 1, 2, 3]),
+        entries: entries(0, 1, 2, 3, 4),
+        hasMore: false,
       })
+      await fixture.journal.dispose()
+    })
 
-    it('rejects a partially overlapping ranged entry queued during repair', /*
+  it('rejects a partially overlapping ranged entry queued during repair', /*
  * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；返回值：由 TypeScript 根据实现推断的结果；
  * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调()，并按返回类型处理结果。
  */ async () => {
-        /**
+      /**
      * 常量说明：firstLive 用于处理 firstLive 相关数据，作用于当前作用域；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。
      */
-        const firstLive = Promise.withResolvers<ScriptedFrame>()
-        /**
+      const firstLive = Promise.withResolvers<ScriptedFrame>()
+      /**
      * 常量说明：secondLive 用于处理 secondLive 相关数据，作用于当前作用域；初始化后不可重新赋值，
      * 但对象内部是否可变仍由其类型决定。
      */
-        const secondLive = Promise.withResolvers<ScriptedFrame>()
-        /**
+      const secondLive = Promise.withResolvers<ScriptedFrame>()
+      /**
      * 常量说明：secondConsumed 用于处理 secondConsumed 相关数据，作用于当前作用域；初始化后不可重新赋值，
      * 但对象内部是否可变仍由其类型决定。
      */
-        const secondConsumed = Promise.withResolvers<undefined>()
-        /**
+      const secondConsumed = Promise.withResolvers<undefined>()
+      /**
      * 常量说明：repair 用于处理 repair 相关数据，作用于当前作用域；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。
      */
-        const repair = Promise.withResolvers<Page>()
-        /**
+      const repair = Promise.withResolvers<Page>()
+      /**
      * 常量说明：fixture 用于处理 fixture 相关数据，作用于当前作用域；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。
      */
-        const fixture = journalFixture(
-          [{
-            frames: [
-              opened(1, page('initial', [0, 1])),
-              firstLive.promise,
-              secondLive.promise,
-            ],
-            hold: true,
-            afterFrame: /*
+      const fixture = journalFixture(
+        [{
+          frames: [
+            opened(1, page('initial', [0, 1])),
+            firstLive.promise,
+            secondLive.promise,
+          ],
+          hold: true,
+          afterFrame: /*
  * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；参数：index（由 TypeScript
  * 根据调用位置推断的类型）：提供本次调用所需的数据；必须满足声明的类型及调用时序要求。；返回值：由 TypeScript 根据实现推断的结果；
  * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调(index)，并按返回类型处理结果。
  */ (index) => { if (index === 2) secondConsumed.resolve(undefined) },
-          }],
-          [repair.promise],
-        )
+        }],
+        [repair.promise],
+      )
 
-        await fixture.journal.open({})
-        firstLive.resolve({ type: 'entry', entry: rangedEntry(3, 5) })
-        await vi.waitFor(/*
+      await fixture.journal.open({})
+      firstLive.resolve({ type: 'entry', entry: rangedEntry(3, 5) })
+      await vi.waitFor(/*
  * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；返回值：由 TypeScript 根据实现推断的结果；
  * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调()，并按返回类型处理结果。
  */ () => { expect(fixture.pageCursors).toEqual([5]) })
-        secondLive.resolve({ type: 'entry', entry: rangedEntry(5, 7) })
-        await secondConsumed.promise
-        repair.resolve(rangedPage('repair', [rangedEntry(0, 2), rangedEntry(3, 5)]))
+      secondLive.resolve({ type: 'entry', entry: rangedEntry(5, 7) })
+      await secondConsumed.promise
+      repair.resolve(rangedPage('repair', [rangedEntry(0, 2), rangedEntry(3, 5)]))
 
-        await vi.waitFor(/*
+      await vi.waitFor(/*
  * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；返回值：由 TypeScript 根据实现推断的结果；
  * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调()，并按返回类型处理结果。
  */ () => { expect(fixture.failed).toHaveBeenCalledOnce() })
-        expect(fixture.changes).toHaveLength(1)
-        expect(fixture.failed.mock.calls[0]?.[0]).toMatchObject({
-          message: 'fixture journal replacement contains a partially overlapping entry',
-        })
-        await fixture.journal.dispose()
+      expect(fixture.changes).toHaveLength(1)
+      expect(fixture.failed.mock.calls[0]?.[0]).toMatchObject({
+        message: 'fixture journal replacement contains a partially overlapping entry',
       })
+      await fixture.journal.dispose()
+    })
 
-    it('rejects when queued entries advance beyond the second repair page', /*
+  it('rejects when queued entries advance beyond the second repair page', /*
  * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；返回值：由 TypeScript 根据实现推断的结果；
  * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调()，并按返回类型处理结果。
  */ async () => {
-        /**
+      /**
      * 常量说明：firstLive 用于处理 firstLive 相关数据，作用于当前作用域；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。
      */
-        const firstLive = Promise.withResolvers<ScriptedFrame>()
-        /**
+      const firstLive = Promise.withResolvers<ScriptedFrame>()
+      /**
      * 常量说明：secondLive 用于处理 secondLive 相关数据，作用于当前作用域；初始化后不可重新赋值，
      * 但对象内部是否可变仍由其类型决定。
      */
-        const secondLive = Promise.withResolvers<ScriptedFrame>()
-        /**
+      const secondLive = Promise.withResolvers<ScriptedFrame>()
+      /**
      * 常量说明：thirdLive 用于处理 thirdLive 相关数据，作用于当前作用域；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。
      */
-        const thirdLive = Promise.withResolvers<ScriptedFrame>()
-        /**
+      const thirdLive = Promise.withResolvers<ScriptedFrame>()
+      /**
      * 常量说明：secondConsumed 用于处理 secondConsumed 相关数据，作用于当前作用域；初始化后不可重新赋值，
      * 但对象内部是否可变仍由其类型决定。
      */
-        const secondConsumed = Promise.withResolvers<undefined>()
-        /**
+      const secondConsumed = Promise.withResolvers<undefined>()
+      /**
      * 常量说明：thirdConsumed 用于处理 thirdConsumed 相关数据，作用于当前作用域；初始化后不可重新赋值，
      * 但对象内部是否可变仍由其类型决定。
      */
-        const thirdConsumed = Promise.withResolvers<undefined>()
-        /**
+      const thirdConsumed = Promise.withResolvers<undefined>()
+      /**
      * 常量说明：firstRepair 用于处理 firstRepair 相关数据，作用于当前作用域；初始化后不可重新赋值，
      * 但对象内部是否可变仍由其类型决定。
      */
-        const firstRepair = Promise.withResolvers<Page>()
-        /**
+      const firstRepair = Promise.withResolvers<Page>()
+      /**
      * 常量说明：secondRepair 用于处理 secondRepair 相关数据，作用于当前作用域；初始化后不可重新赋值，
      * 但对象内部是否可变仍由其类型决定。
      */
-        const secondRepair = Promise.withResolvers<Page>()
-        /**
+      const secondRepair = Promise.withResolvers<Page>()
+      /**
      * 常量说明：fixture 用于处理 fixture 相关数据，作用于当前作用域；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。
      */
-        const fixture = journalFixture(
-          [{
-            frames: [
-              opened(1, page('initial', [0, 1])),
-              firstLive.promise,
-              secondLive.promise,
-              thirdLive.promise,
-            ],
-            hold: true,
-            afterFrame: /*
+      const fixture = journalFixture(
+        [{
+          frames: [
+            opened(1, page('initial', [0, 1])),
+            firstLive.promise,
+            secondLive.promise,
+            thirdLive.promise,
+          ],
+          hold: true,
+          afterFrame: /*
  * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；参数：index（由 TypeScript
  * 根据调用位置推断的类型）：提供本次调用所需的数据；必须满足声明的类型及调用时序要求。；返回值：由 TypeScript 根据实现推断的结果；
  * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调(index)，并按返回类型处理结果。
  */ (index) => {
-              if (index === 2) secondConsumed.resolve(undefined)
-              if (index === 3) thirdConsumed.resolve(undefined)
-            },
-          }],
-          [firstRepair.promise, secondRepair.promise],
-        )
+            if (index === 2) secondConsumed.resolve(undefined)
+            if (index === 3) thirdConsumed.resolve(undefined)
+          },
+        }],
+        [firstRepair.promise, secondRepair.promise],
+      )
 
-        await fixture.journal.open({})
-        firstLive.resolve({ type: 'entry', entry: { seq: 3 } })
-        await vi.waitFor(/*
+      await fixture.journal.open({})
+      firstLive.resolve({ type: 'entry', entry: { seq: 3 } })
+      await vi.waitFor(/*
  * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；返回值：由 TypeScript 根据实现推断的结果；
  * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调()，并按返回类型处理结果。
  */ () => { expect(fixture.pageCursors).toEqual([3]) })
-        secondLive.resolve({ type: 'entry', entry: { seq: 5 } })
-        await secondConsumed.promise
-        firstRepair.resolve(page('first-repair', [0, 1, 2, 3]))
-        await vi.waitFor(/*
+      secondLive.resolve({ type: 'entry', entry: { seq: 5 } })
+      await secondConsumed.promise
+      firstRepair.resolve(page('first-repair', [0, 1, 2, 3]))
+      await vi.waitFor(/*
  * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；返回值：由 TypeScript 根据实现推断的结果；
  * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调()，并按返回类型处理结果。
  */ () => { expect(fixture.pageCursors).toEqual([3, 5]) })
-        thirdLive.resolve({ type: 'entry', entry: { seq: 7 } })
-        await thirdConsumed.promise
-        secondRepair.resolve(page('second-repair', [0, 1, 2, 3, 4, 5]))
+      thirdLive.resolve({ type: 'entry', entry: { seq: 7 } })
+      await thirdConsumed.promise
+      secondRepair.resolve(page('second-repair', [0, 1, 2, 3, 4, 5]))
 
-        await vi.waitFor(/*
+      await vi.waitFor(/*
  * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；返回值：由 TypeScript 根据实现推断的结果；
  * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调()，并按返回类型处理结果。
  */ () => { expect(fixture.failed).toHaveBeenCalledOnce() })
-        expect(fixture.failed.mock.calls[0]?.[0]).toMatchObject({
-          message: 'fixture journal page did not reach its opening cursor',
-        })
-        await fixture.journal.dispose()
+      expect(fixture.failed.mock.calls[0]?.[0]).toMatchObject({
+        message: 'fixture journal page did not reach its opening cursor',
       })
+      await fixture.journal.dispose()
+    })
 
-    it('reports a resumed generation that emits an entry before its cursor', /*
+  it('reports a resumed generation that emits an entry before its cursor', /*
  * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；返回值：由 TypeScript 根据实现推断的结果；
  * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调()，并按返回类型处理结果。
  */ async () => {
-        /**
+      /**
      * 常量说明：finish 用于处理 finish 相关数据，作用于当前作用域；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。
      */
-        const finish = Promise.withResolvers<undefined>()
-        /**
+      const finish = Promise.withResolvers<undefined>()
+      /**
      * 常量说明：fixture 用于处理 fixture 相关数据，作用于当前作用域；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。
      */
-        const fixture = journalFixture(
-          [
-            {
-              frames: [opened(0, page('initial', [0]))],
-              waitAfterFrames: finish.promise,
-              terminal: new RemoteStreamCarrierError('lost'),
-            },
-            { frames: [{ type: 'entry', entry: { seq: 1 } }] },
-          ],
-          [],
-        )
+      const fixture = journalFixture(
+        [
+          {
+            frames: [opened(0, page('initial', [0]))],
+            waitAfterFrames: finish.promise,
+            terminal: new RemoteStreamCarrierError('lost'),
+          },
+          { frames: [{ type: 'entry', entry: { seq: 1 } }] },
+        ],
+        [],
+      )
 
-        await fixture.journal.open({})
-        finish.resolve(undefined)
-        await vi.waitFor(/*
+      await fixture.journal.open({})
+      finish.resolve(undefined)
+      await vi.waitFor(/*
  * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；返回值：由 TypeScript 根据实现推断的结果；
  * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调()，并按返回类型处理结果。
  */ () => { expect(fixture.failed).toHaveBeenCalledOnce() })
-        expect(fixture.failed.mock.calls[0]?.[0]).toMatchObject({
-          message: 'resumed fixture journal emitted an entry before its opening cursor',
-        })
-        await fixture.journal.dispose()
+      expect(fixture.failed.mock.calls[0]?.[0]).toMatchObject({
+        message: 'resumed fixture journal emitted an entry before its opening cursor',
       })
+      await fixture.journal.dispose()
+    })
 
-    it('reports a duplicate opening cursor after the initial page is published', /*
+  it('reports a duplicate opening cursor after the initial page is published', /*
  * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；返回值：由 TypeScript 根据实现推断的结果；
  * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调()，并按返回类型处理结果。
  */ async () => {
-        /**
+      /**
      * 常量说明：duplicate 用于处理 duplicate 相关数据，作用于当前作用域；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。
      */
-        const duplicate = Promise.withResolvers<ScriptedFrame>()
-        /**
+      const duplicate = Promise.withResolvers<ScriptedFrame>()
+      /**
      * 常量说明：fixture 用于处理 fixture 相关数据，作用于当前作用域；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。
      */
-        const fixture = journalFixture(
-          [{ frames: [opened(0, page('initial', [0])), duplicate.promise], hold: true }],
-          [],
-        )
+      const fixture = journalFixture(
+        [{ frames: [opened(0, page('initial', [0])), duplicate.promise], hold: true }],
+        [],
+      )
 
-        await fixture.journal.open({})
-        duplicate.resolve(opened(0, page('duplicate', [0])))
-        await vi.waitFor(/*
+      await fixture.journal.open({})
+      duplicate.resolve(opened(0, page('duplicate', [0])))
+      await vi.waitFor(/*
  * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；返回值：由 TypeScript 根据实现推断的结果；
  * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调()，并按返回类型处理结果。
  */ () => { expect(fixture.failed).toHaveBeenCalledOnce() })
-        expect(fixture.failed.mock.calls[0]?.[0]).toMatchObject({
-          message: 'fixture journal emitted more than one opening cursor',
-        })
-        await fixture.journal.dispose()
+      expect(fixture.failed.mock.calls[0]?.[0]).toMatchObject({
+        message: 'fixture journal emitted more than one opening cursor',
       })
+      await fixture.journal.dispose()
+    })
 
-    it('reports a follow failure after publishing its opening snapshot', /*
+  it('reports a follow failure after publishing its opening snapshot', /*
  * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；返回值：由 TypeScript 根据实现推断的结果；
  * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调()，并按返回类型处理结果。
  */ async () => {
-        /**
+      /**
      * 常量说明：failedFollow 用于处理 failedFollow 相关数据，作用于当前作用域；初始化后不可重新赋值，
      * 但对象内部是否可变仍由其类型决定。
      */
-        const failedFollow = journalFixture(
-          [{ frames: [opened(0, page('initial', [0]))], terminal: new Error('follow failed') }],
-          [],
-        )
-        await failedFollow.journal.open({})
-        await vi.waitFor(/*
+      const failedFollow = journalFixture(
+        [{ frames: [opened(0, page('initial', [0]))], terminal: new Error('follow failed') }],
+        [],
+      )
+      await failedFollow.journal.open({})
+      await vi.waitFor(/*
  * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；返回值：由 TypeScript 根据实现推断的结果；
  * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调()，并按返回类型处理结果。
  */ () => { expect(failedFollow.failed).toHaveBeenCalledOnce() })
-        expect(failedFollow.failed.mock.calls[0]?.[0]).toMatchObject({ message: 'follow failed' })
-        expect(failedFollow.changes).toHaveLength(1)
-        await failedFollow.journal.dispose()
-      })
+      expect(failedFollow.failed.mock.calls[0]?.[0]).toMatchObject({ message: 'follow failed' })
+      expect(failedFollow.changes).toHaveLength(1)
+      await failedFollow.journal.dispose()
+    })
 
-    it('rejects an iterator that ends before its opening cursor', /*
+  it('rejects an iterator that ends before its opening cursor', /*
  * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；返回值：由 TypeScript 根据实现推断的结果；
  * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调()，并按返回类型处理结果。
  */ async () => {
-        /**
+      /**
      * 常量说明：factory 用于处理 factory 相关数据，作用于当前作用域；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。
      */
-        const factory = controlledFactory(/*
+      const factory = controlledFactory(/*
  * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；返回值：由 TypeScript 根据实现推断的结果；
  * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调()，并按返回类型处理结果。
  */ () => Promise.resolve({ done: true, value: undefined }))
-        /**
+      /**
      * 常量说明：fixture 用于处理 fixture 相关数据，作用于当前作用域；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。
      */
-        const fixture = journalFixture([], [], factory)
+      const fixture = journalFixture([], [], factory)
 
-        await expect(fixture.journal.open({})).rejects.toThrow(
-          'ended before its opening cursor',
-        )
-      })
+      await expect(fixture.journal.open({})).rejects.toThrow(
+        'ended before its opening cursor',
+      )
+    })
 
-    it('suppresses a consumer failure after disposal begins', /*
+  it('suppresses a consumer failure after disposal begins', /*
  * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；返回值：由 TypeScript 根据实现推断的结果；
  * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调()，并按返回类型处理结果。
  */ async () => {
-        /**
+      /**
      * 常量说明：generation 用于处理 generation 相关数据，作用于当前作用域；初始化后不可重新赋值，
      * 但对象内部是否可变仍由其类型决定。
      */
-        const generation = new AbortController()
-        /**
+      const generation = new AbortController()
+      /**
      * 常量说明：next 用于处理 next 相关数据，作用于当前作用域；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。
      */
-        const next = Promise.withResolvers<IteratorResult<RemoteStreamItem<JournalFrame>>>()
-        /**
+      const next = Promise.withResolvers<IteratorResult<RemoteStreamItem<JournalFrame>>>()
+      /**
      * 常量说明：results 用于处理 results 相关数据，作用于当前作用域；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。
      */
-        const results = [
-          Promise.resolve<IteratorResult<RemoteStreamItem<JournalFrame>>>({
-            done: false,
-            value: remoteItem(1, opened(0, page('initial', [0])), generation.signal),
-          }),
-          next.promise,
-        ]
-        /**
+      const results = [
+        Promise.resolve<IteratorResult<RemoteStreamItem<JournalFrame>>>({
+          done: false,
+          value: remoteItem(1, opened(0, page('initial', [0])), generation.signal),
+        }),
+        next.promise,
+      ]
+      /**
      * 常量说明：fixture 用于处理 fixture 相关数据，作用于当前作用域；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。
      */
-        const fixture = journalFixture(
-          [],
-          [],
-          controlledFactory(/*
+      const fixture = journalFixture(
+        [],
+        [],
+        controlledFactory(/*
  * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；返回值：由 TypeScript 根据实现推断的结果；
  * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调()，并按返回类型处理结果。
  */ () => results.shift() ?? Promise.resolve({ done: true, value: undefined })),
-        )
+      )
 
-        await fixture.journal.open({})
-        /**
+      await fixture.journal.open({})
+      /**
      * 常量说明：closing 用于处理 closing 相关数据，作用于当前作用域；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。
      */
-        const closing = fixture.journal.dispose()
-        next.resolve({
-          done: false,
-          value: remoteItem(1, opened(0, page('duplicate', [0])), generation.signal),
-        })
-        await closing
-        expect(fixture.failed).not.toHaveBeenCalled()
+      const closing = fixture.journal.dispose()
+      next.resolve({
+        done: false,
+        value: remoteItem(1, opened(0, page('duplicate', [0])), generation.signal),
       })
+      await closing
+      expect(fixture.failed).not.toHaveBeenCalled()
+    })
 
-    it.each([
-      { name: 'ends', final: { done: true as const, value: undefined }, message: 'ended while replacing' },
-      {
-        name: 'emits another opening cursor',
-        final: undefined,
-        message: 'more than one opening cursor',
-      },
-    ])('reports when an aborted repair generation $name', /*
+  it.each([
+    { name: 'ends', final: { done: true as const, value: undefined }, message: 'ended while replacing' },
+    {
+      name: 'emits another opening cursor',
+      final: undefined,
+      message: 'more than one opening cursor',
+    },
+  ])('reports when an aborted repair generation $name', /*
  * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；参数：{ final, message }（由 TypeScript
  * 根据调用位置推断的类型）：提供本次调用所需的数据；必须满足声明的类型及调用时序要求。；返回值：由 TypeScript 根据实现推断的结果；
  * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调({ final, message })，
  * 并按返回类型处理结果。
  */ async ({ final, message }) => {
-        /**
+      /**
      * 常量说明：generation 用于处理 generation 相关数据，作用于当前作用域；初始化后不可重新赋值，
      * 但对象内部是否可变仍由其类型决定。
      */
-        const generation = new AbortController()
-        /**
+      const generation = new AbortController()
+      /**
      * 常量说明：gap 用于处理 gap 相关数据，作用于当前作用域；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。
      */
-        const gap = Promise.withResolvers<IteratorResult<RemoteStreamItem<JournalFrame>>>()
-        /**
+      const gap = Promise.withResolvers<IteratorResult<RemoteStreamItem<JournalFrame>>>()
+      /**
      * 常量说明：replacement 用于处理 replacement 相关数据，作用于当前作用域；初始化后不可重新赋值，
      * 但对象内部是否可变仍由其类型决定。
      */
-        const replacement = Promise.withResolvers<IteratorResult<RemoteStreamItem<JournalFrame>>>()
-        /**
+      const replacement = Promise.withResolvers<IteratorResult<RemoteStreamItem<JournalFrame>>>()
+      /**
      * 常量说明：results 用于处理 results 相关数据，作用于当前作用域；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。
      */
-        const results = [
-          Promise.resolve<IteratorResult<RemoteStreamItem<JournalFrame>>>({
-            done: false,
-            value: remoteItem(1, opened(0, page('initial', [0])), generation.signal),
-          }),
-          gap.promise,
-          replacement.promise,
-        ]
-        /**
+      const results = [
+        Promise.resolve<IteratorResult<RemoteStreamItem<JournalFrame>>>({
+          done: false,
+          value: remoteItem(1, opened(0, page('initial', [0])), generation.signal),
+        }),
+        gap.promise,
+        replacement.promise,
+      ]
+      /**
      * 常量说明：fixture 用于处理 fixture 相关数据，作用于当前作用域；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。
      */
-        const fixture = journalFixture(
-          [],
-          [/*
+      const fixture = journalFixture(
+        [],
+        [/*
  * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；参数：signal（由 TypeScript
  * 根据调用位置推断的类型）：传递取消或终止信号；必须满足声明的类型及调用时序要求。；返回值：由 TypeScript 根据实现推断的结果；
  * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调(signal)，并按返回类型处理结果。
@@ -1547,89 +1554,89 @@ describe('RemoteJournalStream', /*
  * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调(_resolve, reject)，
  * 并按返回类型处理结果。
  */ (_resolve, reject) => {
-                signal.addEventListener('abort', /*
+              signal.addEventListener('abort', /*
  * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；返回值：由 TypeScript 根据实现推断的结果；
  * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调()，并按返回类型处理结果。
  */ () => { reject(new Error('page aborted')) }, { once: true })
-              })],
-          controlledFactory(/*
+            })],
+        controlledFactory(/*
  * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；返回值：由 TypeScript 根据实现推断的结果；
  * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调()，并按返回类型处理结果。
  */ () => results.shift() ?? Promise.resolve({ done: true, value: undefined })),
-        )
+      )
 
-        await fixture.journal.open({})
-        gap.resolve({
-          done: false,
-          value: remoteItem(1, { type: 'entry', entry: { seq: 2 } }, generation.signal),
-        })
-        await vi.waitFor(/*
+      await fixture.journal.open({})
+      gap.resolve({
+        done: false,
+        value: remoteItem(1, { type: 'entry', entry: { seq: 2 } }, generation.signal),
+      })
+      await vi.waitFor(/*
  * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；返回值：由 TypeScript 根据实现推断的结果；
  * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调()，并按返回类型处理结果。
  */ () => { expect(fixture.pageCursors).toEqual([2]) })
-        generation.abort()
-        if (final === undefined) {
-          replacement.resolve({
-            done: false,
-            value: remoteItem(1, opened(2, page('duplicate', [0, 1, 2])), generation.signal),
-          })
-        } else {
-          replacement.resolve(final)
-        }
-        await vi.waitFor(/*
+      generation.abort()
+      if (final === undefined) {
+        replacement.resolve({
+          done: false,
+          value: remoteItem(1, opened(2, page('duplicate', [0, 1, 2])), generation.signal),
+        })
+      } else {
+        replacement.resolve(final)
+      }
+      await vi.waitFor(/*
  * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；返回值：由 TypeScript 根据实现推断的结果；
  * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调()，并按返回类型处理结果。
  */ () => { expect(fixture.failed).toHaveBeenCalledOnce() })
-        /**
+      /**
      * 常量说明：failure 用于处理 failure 相关数据，作用于当前作用域；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。
      */
-        const failure: unknown = fixture.failed.mock.calls[0]?.[0]
-        expect(failure).toBeInstanceOf(Error)
-        if (!(failure instanceof Error)) throw new Error('journal failure was not an Error')
-        expect(failure.message).toContain(message)
-        await fixture.journal.dispose()
-      })
+      const failure: unknown = fixture.failed.mock.calls[0]?.[0]
+      expect(failure).toBeInstanceOf(Error)
+      if (!(failure instanceof Error)) throw new Error('journal failure was not an Error')
+      expect(failure.message).toContain(message)
+      await fixture.journal.dispose()
+    })
 
-    it('discards old-generation entries while waiting for the replacement opening', /*
+  it('discards old-generation entries while waiting for the replacement opening', /*
  * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；返回值：由 TypeScript 根据实现推断的结果；
  * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调()，并按返回类型处理结果。
  */ async () => {
-        /**
+      /**
      * 常量说明：generation 用于处理 generation 相关数据，作用于当前作用域；初始化后不可重新赋值，
      * 但对象内部是否可变仍由其类型决定。
      */
-        const generation = new AbortController()
-        /**
+      const generation = new AbortController()
+      /**
      * 常量说明：gap 用于处理 gap 相关数据，作用于当前作用域；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。
      */
-        const gap = Promise.withResolvers<IteratorResult<RemoteStreamItem<JournalFrame>>>()
-        /**
+      const gap = Promise.withResolvers<IteratorResult<RemoteStreamItem<JournalFrame>>>()
+      /**
      * 常量说明：stale 用于处理 stale 相关数据，作用于当前作用域；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。
      */
-        const stale = Promise.withResolvers<IteratorResult<RemoteStreamItem<JournalFrame>>>()
-        /**
+      const stale = Promise.withResolvers<IteratorResult<RemoteStreamItem<JournalFrame>>>()
+      /**
      * 常量说明：replacement 用于处理 replacement 相关数据，作用于当前作用域；初始化后不可重新赋值，
      * 但对象内部是否可变仍由其类型决定。
      */
-        const replacement = Promise.withResolvers<IteratorResult<RemoteStreamItem<JournalFrame>>>()
-        /**
+      const replacement = Promise.withResolvers<IteratorResult<RemoteStreamItem<JournalFrame>>>()
+      /**
      * 常量说明：results 用于处理 results 相关数据，作用于当前作用域；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。
      */
-        const results = [
-          Promise.resolve<IteratorResult<RemoteStreamItem<JournalFrame>>>({
-            done: false,
-            value: remoteItem(1, opened(0, page('initial', [0])), generation.signal),
-          }),
-          gap.promise,
-          stale.promise,
-          replacement.promise,
-        ]
-        /**
+      const results = [
+        Promise.resolve<IteratorResult<RemoteStreamItem<JournalFrame>>>({
+          done: false,
+          value: remoteItem(1, opened(0, page('initial', [0])), generation.signal),
+        }),
+        gap.promise,
+        stale.promise,
+        replacement.promise,
+      ]
+      /**
      * 常量说明：fixture 用于处理 fixture 相关数据，作用于当前作用域；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。
      */
-        const fixture = journalFixture(
-          [],
-          [/*
+      const fixture = journalFixture(
+        [],
+        [/*
  * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；参数：signal（由 TypeScript
  * 根据调用位置推断的类型）：传递取消或终止信号；必须满足声明的类型及调用时序要求。；返回值：由 TypeScript 根据实现推断的结果；
  * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调(signal)，并按返回类型处理结果。
@@ -1640,297 +1647,297 @@ describe('RemoteJournalStream', /*
  * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调(_resolve, reject)，
  * 并按返回类型处理结果。
  */ (_resolve, reject) => {
-                signal.addEventListener('abort', /*
+              signal.addEventListener('abort', /*
  * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；返回值：由 TypeScript 根据实现推断的结果；
  * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调()，并按返回类型处理结果。
  */ () => { reject(new Error('page aborted')) }, { once: true })
-              })],
-          controlledFactory(/*
+            })],
+        controlledFactory(/*
  * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；返回值：由 TypeScript 根据实现推断的结果；
  * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调()，并按返回类型处理结果。
  */ () => results.shift() ?? Promise.resolve({ done: true, value: undefined })),
-        )
+      )
 
-        await fixture.journal.open({})
-        gap.resolve({
-          done: false,
-          value: remoteItem(1, { type: 'entry', entry: { seq: 2 } }, generation.signal),
-        })
-        await vi.waitFor(/*
+      await fixture.journal.open({})
+      gap.resolve({
+        done: false,
+        value: remoteItem(1, { type: 'entry', entry: { seq: 2 } }, generation.signal),
+      })
+      await vi.waitFor(/*
  * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；返回值：由 TypeScript 根据实现推断的结果；
  * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调()，并按返回类型处理结果。
  */ () => { expect(fixture.pageCursors).toEqual([2]) })
-        generation.abort()
-        stale.resolve({
-          done: false,
-          value: remoteItem(1, { type: 'entry', entry: { seq: 1 } }, generation.signal),
-        })
-        replacement.resolve({
-          done: false,
-          value: remoteItem(2, opened(2, page('replacement', [0, 1, 2])), new AbortController().signal),
-        })
+      generation.abort()
+      stale.resolve({
+        done: false,
+        value: remoteItem(1, { type: 'entry', entry: { seq: 1 } }, generation.signal),
+      })
+      replacement.resolve({
+        done: false,
+        value: remoteItem(2, opened(2, page('replacement', [0, 1, 2])), new AbortController().signal),
+      })
 
-        await vi.waitFor(/*
+      await vi.waitFor(/*
  * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；返回值：由 TypeScript 根据实现推断的结果；
  * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调()，并按返回类型处理结果。
  */ () => { expect(fixture.changes).toHaveLength(2) })
-        expect(fixture.changes.at(-1)).toMatchObject({ page: { marker: 'replacement' } })
-        await fixture.journal.dispose()
-      })
+      expect(fixture.changes.at(-1)).toMatchObject({ page: { marker: 'replacement' } })
+      await fixture.journal.dispose()
+    })
 
-    it.each([
-      {
-        name: 'rejects',
-        settle: /*
+  it.each([
+    {
+      name: 'rejects',
+      settle: /*
  * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；参数：_resolve（(value:
  * IteratorResult<RemoteStreamItem<JournalFrame>>) => …）：提供本次调用所需的数据；
  * 必须满足声明的类型及调用时序要求。；参数：reject（(reason?: unknown) => void）：提供本次调用所需的数据；
  * 必须满足声明的类型及调用时序要求。；返回值：由 TypeScript 根据实现推断的结果；调用方应按声明类型处理，不应假定未声明的附加状态。；
  * 典型用法：在完成前置校验后调用 匿名回调(_resolve, reject)，并按返回类型处理结果。
  */ (
-          _resolve: (value: IteratorResult<RemoteStreamItem<JournalFrame>>) => void,
-          reject: (reason?: unknown) => void,
-        ) => { reject(new Error('replacement follow failed')) },
-        message: 'replacement follow failed',
-      },
-      {
-        name: 'ends',
-        settle: /*
+        _resolve: (value: IteratorResult<RemoteStreamItem<JournalFrame>>) => void,
+        reject: (reason?: unknown) => void,
+      ) => { reject(new Error('replacement follow failed')) },
+      message: 'replacement follow failed',
+    },
+    {
+      name: 'ends',
+      settle: /*
  * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；参数：resolve（(value:
  * IteratorResult<RemoteStreamItem<JournalFrame>>) => …）：提供本次调用所需的数据；
  * 必须满足声明的类型及调用时序要求。；返回值：由 TypeScript 根据实现推断的结果；调用方应按声明类型处理，不应假定未声明的附加状态。；
  * 典型用法：在完成前置校验后调用 匿名回调(resolve)，并按返回类型处理结果。
  */ (resolve: (value: IteratorResult<RemoteStreamItem<JournalFrame>>) => void) => {
-          resolve({ done: true, value: undefined })
-        },
-        message: 'ended while reading its replacement page',
+        resolve({ done: true, value: undefined })
       },
-      {
-        name: 'opens twice',
-        settle: /*
+      message: 'ended while reading its replacement page',
+    },
+    {
+      name: 'opens twice',
+      settle: /*
  * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；参数：resolve（(value:
  * IteratorResult<RemoteStreamItem<JournalFrame>>) => …）：提供本次调用所需的数据；
  * 必须满足声明的类型及调用时序要求。；返回值：由 TypeScript 根据实现推断的结果；调用方应按声明类型处理，不应假定未声明的附加状态。；
  * 典型用法：在完成前置校验后调用 匿名回调(resolve)，并按返回类型处理结果。
  */ (resolve: (value: IteratorResult<RemoteStreamItem<JournalFrame>>) => void) => {
-          resolve({
-            done: false,
-            value: remoteItem(1, opened(2, page('duplicate', [0, 1, 2])), new AbortController().signal),
-          })
-        },
-        message: 'more than one opening cursor',
+        resolve({
+          done: false,
+          value: remoteItem(1, opened(2, page('duplicate', [0, 1, 2])), new AbortController().signal),
+        })
       },
-    ])('reports when a follow $name during live-gap repair', /*
+      message: 'more than one opening cursor',
+    },
+  ])('reports when a follow $name during live-gap repair', /*
  * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；参数：{ settle, message }（由 TypeScript
  * 根据调用位置推断的类型）：提供本次调用所需的数据；必须满足声明的类型及调用时序要求。；返回值：由 TypeScript 根据实现推断的结果；
  * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调({ settle, message })，
  * 并按返回类型处理结果。
  */ async ({ settle, message }) => {
-        /**
+      /**
      * 常量说明：generation 用于处理 generation 相关数据，作用于当前作用域；初始化后不可重新赋值，
      * 但对象内部是否可变仍由其类型决定。
      */
-        const generation = new AbortController()
-        /**
+      const generation = new AbortController()
+      /**
      * 常量说明：gap 用于处理 gap 相关数据，作用于当前作用域；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。
      */
-        const gap = Promise.withResolvers<IteratorResult<RemoteStreamItem<JournalFrame>>>()
-        /**
+      const gap = Promise.withResolvers<IteratorResult<RemoteStreamItem<JournalFrame>>>()
+      /**
      * 常量说明：next 用于处理 next 相关数据，作用于当前作用域；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。
      */
-        const next = Promise.withResolvers<IteratorResult<RemoteStreamItem<JournalFrame>>>()
-        /**
+      const next = Promise.withResolvers<IteratorResult<RemoteStreamItem<JournalFrame>>>()
+      /**
      * 常量说明：results 用于处理 results 相关数据，作用于当前作用域；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。
      */
-        const results = [
-          Promise.resolve<IteratorResult<RemoteStreamItem<JournalFrame>>>({
-            done: false,
-            value: remoteItem(1, opened(0, page('initial', [0])), generation.signal),
-          }),
-          gap.promise,
-          next.promise,
-        ]
-        /**
+      const results = [
+        Promise.resolve<IteratorResult<RemoteStreamItem<JournalFrame>>>({
+          done: false,
+          value: remoteItem(1, opened(0, page('initial', [0])), generation.signal),
+        }),
+        gap.promise,
+        next.promise,
+      ]
+      /**
      * 常量说明：fixture 用于处理 fixture 相关数据，作用于当前作用域；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。
      */
-        const fixture = journalFixture(
-          [],
-          [/*
+      const fixture = journalFixture(
+        [],
+        [/*
  * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；返回值：由 TypeScript 根据实现推断的结果；
  * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调()，并按返回类型处理结果。
  */ () => new Promise<Page>(/*
  * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；返回值：由 TypeScript 根据实现推断的结果；
  * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调()，并按返回类型处理结果。
  */ () => {})],
-          controlledFactory(/*
+        controlledFactory(/*
  * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；返回值：由 TypeScript 根据实现推断的结果；
  * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调()，并按返回类型处理结果。
  */ () => results.shift() ?? Promise.resolve({ done: true, value: undefined })),
-        )
+      )
 
-        await fixture.journal.open({})
-        gap.resolve({
-          done: false,
-          value: remoteItem(1, { type: 'entry', entry: { seq: 2 } }, generation.signal),
-        })
-        await vi.waitFor(/*
+      await fixture.journal.open({})
+      gap.resolve({
+        done: false,
+        value: remoteItem(1, { type: 'entry', entry: { seq: 2 } }, generation.signal),
+      })
+      await vi.waitFor(/*
  * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；返回值：由 TypeScript 根据实现推断的结果；
  * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调()，并按返回类型处理结果。
  */ () => { expect(fixture.pageCursors).toEqual([2]) })
-        settle(next.resolve, next.reject)
+      settle(next.resolve, next.reject)
 
-        await vi.waitFor(/*
+      await vi.waitFor(/*
  * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；返回值：由 TypeScript 根据实现推断的结果；
  * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调()，并按返回类型处理结果。
  */ () => { expect(fixture.failed).toHaveBeenCalledOnce() })
-        /**
+      /**
      * 常量说明：failure 用于处理 failure 相关数据，作用于当前作用域；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。
      */
-        const failure: unknown = fixture.failed.mock.calls[0]?.[0]
-        expect(failure).toBeInstanceOf(Error)
-        if (!(failure instanceof Error)) throw new Error('journal failure was not an Error')
-        expect(failure.message).toContain(message)
-        await fixture.journal.dispose()
-      })
+      const failure: unknown = fixture.failed.mock.calls[0]?.[0]
+      expect(failure).toBeInstanceOf(Error)
+      if (!(failure instanceof Error)) throw new Error('journal failure was not an Error')
+      expect(failure.message).toContain(message)
+      await fixture.journal.dispose()
+    })
 
-    it('rejects malformed opening and page sequences', /*
+  it('rejects malformed opening and page sequences', /*
  * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；返回值：由 TypeScript 根据实现推断的结果；
  * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调()，并按返回类型处理结果。
  */ async () => {
-        /**
+      /**
      * 常量说明：beforeOpening 用于处理 beforeOpening 相关数据，作用于当前作用域；初始化后不可重新赋值，
      * 但对象内部是否可变仍由其类型决定。
      */
-        const beforeOpening = journalFixture(
-          [{ frames: [{ type: 'entry', entry: { seq: 0 } }] }],
-          [],
-        )
-        await expect(beforeOpening.journal.open({})).rejects.toThrow('entry before its opening cursor')
+      const beforeOpening = journalFixture(
+        [{ frames: [{ type: 'entry', entry: { seq: 0 } }] }],
+        [],
+      )
+      await expect(beforeOpening.journal.open({})).rejects.toThrow('entry before its opening cursor')
 
-        /**
+      /**
      * 常量说明：discontinuousPage 用于处理 discontinuousPage 相关数据，作用于当前作用域；初始化后不可重新赋值，
      * 但对象内部是否可变仍由其类型决定。
      */
-        const discontinuousPage = journalFixture(
-          [{ frames: [opened(3, page('bad', [0, 2, 3]))], hold: true }],
-          [],
-        )
-        await expect(discontinuousPage.journal.open({})).rejects.toThrow('page contains discontinuous entries')
+      const discontinuousPage = journalFixture(
+        [{ frames: [opened(3, page('bad', [0, 2, 3]))], hold: true }],
+        [],
+      )
+      await expect(discontinuousPage.journal.open({})).rejects.toThrow('page contains discontinuous entries')
 
-        /**
+      /**
      * 常量说明：shortPage 用于处理 shortPage 相关数据，作用于当前作用域；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。
      */
-        const shortPage = journalFixture(
-          [{ frames: [opened(3, page('short', [0, 1]))], hold: true }],
-          [],
-        )
-        await expect(shortPage.journal.open({})).rejects.toThrow('page did not end at its requested cursor')
+      const shortPage = journalFixture(
+        [{ frames: [opened(3, page('short', [0, 1]))], hold: true }],
+        [],
+      )
+      await expect(shortPage.journal.open({})).rejects.toThrow('page did not end at its requested cursor')
 
-        /**
+      /**
      * 常量说明：longPage 用于处理 longPage 相关数据，作用于当前作用域；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。
      */
-        const longPage = journalFixture(
-          [{ frames: [opened(1, page('long', [0, 1, 2]))], hold: true }],
-          [],
-        )
-        await expect(longPage.journal.open({})).rejects.toThrow('page did not end at its requested cursor')
-      })
+      const longPage = journalFixture(
+        [{ frames: [opened(1, page('long', [0, 1, 2]))], hold: true }],
+        [],
+      )
+      await expect(longPage.journal.open({})).rejects.toThrow('page did not end at its requested cursor')
+    })
 
-    it('reports duplicate and regressed generation cursors as terminal failures', /*
+  it('reports duplicate and regressed generation cursors as terminal failures', /*
  * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；返回值：由 TypeScript 根据实现推断的结果；
  * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调()，并按返回类型处理结果。
  */ async () => {
-        /**
+      /**
      * 常量说明：duplicate 用于处理 duplicate 相关数据，作用于当前作用域；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。
      */
-        const duplicate = journalFixture(
-          [{
-            frames: [
-              opened(1, page('initial', [0, 1])),
-              opened(1, page('duplicate', [0, 1])),
-            ],
-          }],
-          [],
-        )
-        await duplicate.journal.open({})
-        await vi.waitFor(/*
+      const duplicate = journalFixture(
+        [{
+          frames: [
+            opened(1, page('initial', [0, 1])),
+            opened(1, page('duplicate', [0, 1])),
+          ],
+        }],
+        [],
+      )
+      await duplicate.journal.open({})
+      await vi.waitFor(/*
  * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；返回值：由 TypeScript 根据实现推断的结果；
  * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调()，并按返回类型处理结果。
  */ () => { expect(duplicate.failed).toHaveBeenCalledOnce() })
-        /**
+      /**
      * 常量说明：duplicateFailure 用于处理 duplicateFailure 相关数据，作用于当前作用域；初始化后不可重新赋值，
      * 但对象内部是否可变仍由其类型决定。
      */
-        const duplicateFailure: unknown = duplicate.failed.mock.calls[0]?.[0]
-        expect(duplicateFailure).toBeInstanceOf(Error)
-        if (!(duplicateFailure instanceof Error)) throw new Error('expected duplicate-cursor failure')
-        expect(duplicateFailure.message).toContain('more than one opening cursor')
+      const duplicateFailure: unknown = duplicate.failed.mock.calls[0]?.[0]
+      expect(duplicateFailure).toBeInstanceOf(Error)
+      if (!(duplicateFailure instanceof Error)) throw new Error('expected duplicate-cursor failure')
+      expect(duplicateFailure.message).toContain('more than one opening cursor')
 
-        /**
+      /**
      * 常量说明：regressed 用于处理 regressed 相关数据，作用于当前作用域；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。
      */
-        const regressed = journalFixture(
-          [
-            {
-              frames: [opened(1, page('initial', [0, 1])), { type: 'entry', entry: { seq: 2 } }],
-              terminal: new RemoteStreamCarrierError('lost'),
-            },
-            { frames: [opened(1, page('regressed', [0, 1]))] },
-          ],
-          [],
-        )
-        await regressed.journal.open({})
-        await vi.waitFor(/*
+      const regressed = journalFixture(
+        [
+          {
+            frames: [opened(1, page('initial', [0, 1])), { type: 'entry', entry: { seq: 2 } }],
+            terminal: new RemoteStreamCarrierError('lost'),
+          },
+          { frames: [opened(1, page('regressed', [0, 1]))] },
+        ],
+        [],
+      )
+      await regressed.journal.open({})
+      await vi.waitFor(/*
  * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；返回值：由 TypeScript 根据实现推断的结果；
  * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调()，并按返回类型处理结果。
  */ () => { expect(regressed.failed).toHaveBeenCalledOnce() })
-        /**
+      /**
      * 常量说明：regressedFailure 用于处理 regressedFailure 相关数据，作用于当前作用域；初始化后不可重新赋值，
      * 但对象内部是否可变仍由其类型决定。
      */
-        const regressedFailure: unknown = regressed.failed.mock.calls[0]?.[0]
-        expect(regressedFailure).toBeInstanceOf(Error)
-        if (!(regressedFailure instanceof Error)) throw new Error('expected regressed-cursor failure')
-        expect(regressedFailure.message).toContain('behind the last applied entry')
-      })
+      const regressedFailure: unknown = regressed.failed.mock.calls[0]?.[0]
+      expect(regressedFailure).toBeInstanceOf(Error)
+      if (!(regressedFailure instanceof Error)) throw new Error('expected regressed-cursor failure')
+      expect(regressedFailure.message).toContain('behind the last applied entry')
+    })
 
-    it('rejects a discontinuous older page after publishing the fail-soft pagination state', /*
+  it('rejects a discontinuous older page after publishing the fail-soft pagination state', /*
  * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；返回值：由 TypeScript 根据实现推断的结果；
  * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调()，并按返回类型处理结果。
  */ async () => {
-        /**
+      /**
      * 常量说明：fixture 用于处理 fixture 相关数据，作用于当前作用域；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。
      */
-        const fixture = journalFixture(
-          [{ frames: [opened(4, page('initial', [3, 4], true))], hold: true }],
-          [page('older', [0, 1], true)],
-        )
-        await fixture.journal.open({})
+      const fixture = journalFixture(
+        [{ frames: [opened(4, page('initial', [3, 4], true))], hold: true }],
+        [page('older', [0, 1], true)],
+      )
+      await fixture.journal.open({})
 
-        await expect(fixture.journal.prepend({ before: 3 })).rejects.toThrow('history page is discontinuous')
-        expect(fixture.changes.at(-1)).toEqual({
-          type: 'prepend', page: page('older', [0, 1], true), entries: [], hasMore: false,
-        })
-        await fixture.journal.dispose()
+      await expect(fixture.journal.prepend({ before: 3 })).rejects.toThrow('history page is discontinuous')
+      expect(fixture.changes.at(-1)).toEqual({
+        type: 'prepend', page: page('older', [0, 1], true), entries: [], hasMore: false,
       })
+      await fixture.journal.dispose()
+    })
 
-    it('guards lifecycle operations before and after open', /*
+  it('guards lifecycle operations before and after open', /*
  * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；返回值：由 TypeScript 根据实现推断的结果；
  * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调()，并按返回类型处理结果。
  */ async () => {
-        /**
+      /**
      * 常量说明：fixture 用于处理 fixture 相关数据，作用于当前作用域；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。
      */
-        const fixture = journalFixture(
-          [{ frames: [opened(-1, page('empty', []))], hold: true }],
-          [],
-        )
+      const fixture = journalFixture(
+        [{ frames: [opened(-1, page('empty', []))], hold: true }],
+        [],
+      )
 
-        await expect(fixture.journal.prepend({})).rejects.toThrow('is not open')
-        await fixture.journal.open({})
-        await expect(fixture.journal.open({})).rejects.toThrow('already opened')
-        fixture.journal.restart()
-        await fixture.journal.dispose()
-        await expect(fixture.journal.prepend({})).rejects.toThrow('is not open')
-      })
-  })
+      await expect(fixture.journal.prepend({})).rejects.toThrow('is not open')
+      await fixture.journal.open({})
+      await expect(fixture.journal.open({})).rejects.toThrow('already opened')
+      fixture.journal.restart()
+      await fixture.journal.dispose()
+      await expect(fixture.journal.prepend({})).rejects.toThrow('is not open')
+    })
+})

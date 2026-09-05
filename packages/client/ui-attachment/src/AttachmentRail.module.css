@@ -1,11 +1,8 @@
-/**
- * 文件职责：实现 client/ui-attachment 中 AttachmentRail module 模块的职责，并向相邻模块提供可复用能力。
- * 技术维度：主要使用CSS Modules、层叠样式与项目统一的设计变量，通过当前文件中的类型、函数与数据结构完成实现。
- * 产品维度：支撑 DeepSeek Harness 的 client/ui-attachment 能力，使上层功能能够稳定组合和扩展。
- * 逻辑维度：建议按“依赖与类型定义 → 常量和状态 → 核心函数或类 → 导出或注册入口”的顺序理解。
- * 关键边界：调用方必须遵守类型、生命周期和错误处理约定；涉及外部输入、异步任务或资源释放时需特别关注异常分支。
- * 新手阅读建议：先确认导入依赖和公开导出，再沿主要函数调用链阅读，最后结合相邻测试理解输入、输出与边界条件。
+/*
+ * 【文件职责】定义附件横向滚动轨道与边缘按钮；
+ * 隐藏原生滚动条，由按钮对溢出内容分页。
  */
+
 .root {
   position: relative;
   min-width: 0;
@@ -13,6 +10,7 @@
 
 .rail {
   display: flex;
+  align-items: stretch;
   gap: 10px;
   overflow-x: auto;
   overflow-y: hidden;
@@ -32,9 +30,7 @@
 }
 
 .item {
-  position: relative;
-  flex: 0 0 64px;
-  width: 64px;
+  flex: none;
   height: 64px;
 }
 
@@ -43,7 +39,7 @@
   height: 64px;
   padding: 0;
   overflow: hidden;
-  border: 1px solid var(--dsw-alias-border-l2-darkmode-thin);
+  border: 0.5px solid var(--dsw-alias-border-l2-darkmode-thin);
   border-radius: 16px;
   background: var(--dsw-alias-interactive-bg-hover);
   cursor: zoom-in;
@@ -68,6 +64,7 @@
   padding: 0;
   border: none;
   border-radius: 50%;
+  corner-shape: round;
   background: var(--dsw-alias-button-contrast-fill);
   color: var(--dsw-alias-label-primary-inverted);
   cursor: pointer;
@@ -92,7 +89,6 @@
     transition: none;
   }
 }
-
 .arrow {
   position: absolute;
   top: 50%;
@@ -102,11 +98,13 @@
   width: 24px;
   height: 24px;
   padding: 0;
-  border: 1px solid var(--dsw-alias-border-l2-darkmode-thin);
+  border: 0;
+  --dsw-elevation-stroke-color: var(--dsw-alias-border-l2-darkmode-thin);
   border-radius: 999px;
+  corner-shape: round;
   background: var(--dsw-specific-input-major);
   color: var(--dsw-alias-label-secondary);
-  box-shadow: var(--dsw-shadow-lv2);
+  box-shadow: var(--dsw-elevation-panel);
   cursor: pointer;
   transform: translateY(-50%);
 }

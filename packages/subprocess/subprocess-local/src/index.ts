@@ -1,21 +1,4 @@
-/**
- * ================================ 文件注释 ================================
- * 【文件职责】子进程能力缝的本地 Service Provider（LocalSubprocessRuntime）：每次 spawn
- * 都是按规格 stdio 配置的分离进程树；正常拆解终止并等待整树退出；Node 同步退出阶段
- * 强制终止服务仍拥有的所有树。
- * 【技术维度】继承 SubprocessRuntime；spawn 委托 spawn.ts 的 spawnSubprocess；
- * 终端用 node-pty（terminal.ts 的 LocalTerminalHandle）；可执行文件解析按 PATH/
- * PATHEXT 候选（含 Windows 大小写不敏感环境读取）；进程表检查经 process-inspector.ts。
- * 【产品维度】所有子进程能力的本地地基：可执行文件解析、环境擦除、树范围终止、
- * 宿主退出兜底，无需配置（部署级选择都在调用方）。
- * 【逻辑维度】构造时挂宿主 exit 监听与拆解 → spawn/spawnTerminal 登记句柄 →
- * 拆解时 terminate + waitForExit 整树 → 宿主退出时同步 force-stop。
- * 【关键边界】无配置（所有配置与上限随规格而来）；live/terminals 两集合在等待期间
- * 保持权威（短退出边界仍可 force-kill）；释放所有权以整树消失为准。
- * 【新手阅读建议】先看 spawn 的所有权管理（live 集合与整树等待），再看
- * resolveExecutable 的候选解析，最后看 spawnTerminal 的 node-pty 组装。
- * ==========================================================================
- */
+
 
 /**
  * Local Service Provider for the subprocess capability seam. Each spawn is a detached
@@ -25,6 +8,10 @@
  * limit arrives on the spec, so the deployment-varying choices stay with the
  * caller's config (the bash executor's, the LSP host's, …).
  * @module @deepseek-ai/dsh-subprocess-local
+ */
+
+/*
+ * 【文件职责】提供本地进程树服务，释放时终止并等待仍存活的子树，Node 同步退出阶段强制停止残留进程。
  */
 
 import { constants } from 'node:fs'
@@ -65,8 +52,7 @@ export class LocalSubprocessRuntime extends SubprocessRuntime {
   /** Live terminals retained through normal quiescence or host-exit finalization. */
   /* 存活终端集合：保留到正常静默或宿主退出兜底。 */
   private terminals = new Set<LocalTerminalHandle>()
-  /** Test hook: spill and platform knobs forwarded to spawnSubprocess. */
-  /* 测试钩子：透传给 spawnSubprocess 的溢出/平台旋钮。 */
+  /** Test hook: process, spill, and platform operations forwarded to spawnSubprocess. */
   internals: SpawnInternals = {}
   /** Test hook for platform process inspection; production resolves lazily on terminal spawn. */
   /* 测试钩子：平台进程检查器；生产环境在终端 spawn 时惰性解析。 */

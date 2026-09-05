@@ -1,25 +1,4 @@
-/**
- * ================================ 文件注释 ================================
- * 【文件职责】本地子进程服务的进程管道：分离进程树 spawn（逐流 stdio 配置）、
- * 尾部保留收集与溢出文件、树范围信号（POSIX 组 / Windows taskkill）、
- * SIGTERM→SIGKILL 升级。本层只对 abort 信号作反应；调用方拥有截止时间、
- * 拆解梯级与原因分类。
- * 【技术维度】node:child_process spawn + detached；OutputCollector 实现有界内存尾部
- * 收集（溢出文件随机名 + O_EXCL + 0700 防预测/符号链接植入）；整树存活轮询经
- * sleepTick 保持事件循环；单一整树退出观察者（observeTreeExit）作为永久"不再发信号"
- * 边界（防 PID 复用）。
- * 【产品维度】bash/pwsh 执行与 LSP 等的基础：输出不爆内存、辅助进程不逃逸树、
- * 凭据擦除（childEnv）、拆解幂等。
- * 【逻辑维度】childEnv 建环境 → spawnSubprocess 校验并 spawn → collectStream 建收集器 →
- * treeAlive/observeTreeExit 观测整树 → terminate 升级终止 → done 落定（drain 边界）→
- * waitForExit 整树等待。
- * 【关键边界】graceTimer 刻意不在落定时清除（SIGKILL 升级必须能达树幸存者）；
- * 失败 spawn 用 pid -1 使信号为空操作；管道模式下流归调用方，绝不在此缓冲。
- * 【新手阅读建议】先看 OutputCollector 的 push/readFrom（尾部保留 + 偏移读取），
- * 再看 treeAlive/observeTreeExit（整树存活与 PID 复用防线），最后看 terminate 的升级
- * 与 done 的落定。
- * ==========================================================================
- */
+
 
 /**
  * Process plumbing for the local subprocess service: detached process-tree
@@ -30,10 +9,15 @@
  * @module dsh-subprocess-local/spawn
  */
 
-import { type ChildProcess, spawn, spawnSync } from 'node:child_process'
+/*
+ * 【文件职责】实现本地进程启动、输出尾部及溢出收集、进程树信号和终止升级；
+ * 期限和停止原因由调用者持有。
+ */
+
+import { type ChildProcess, type SpawnOptions, spawn, spawnSync } from 'node:child_process'
 import type { Readable } from 'node:stream'
 import { randomBytes } from 'node:crypto'
-import { closeSync, mkdtempSync, openSync, unlinkSync, writeSync } from 'node:fs'
+import { closeSync, mkdtempSync, openSync, rmdirSync, unlinkSync, writeSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { setTimeout as sleepMs } from 'node:timers/promises'
@@ -48,6 +32,12 @@ import type {
   SubprocessSpawnSpec,
 } from '@deepseek-ai/dsh-subprocess'
 import { linuxProcessGroupHasLiveMembers } from './process-inspector.ts'
+
+type SpawnProcess = (
+  program: string,
+  args: readonly string[],
+  options: SpawnOptions,
+) => ChildProcess
 
 /**
  * Build a child environment: explicit caller entries override the scrubbed
@@ -76,9 +66,10 @@ export function childEnv(extra?: Readonly<NodeJS.ProcessEnv>): NodeJS.ProcessEnv
   return Object.fromEntries(entries)
 }
 
-/** Injectable knobs so tests can exercise spill and platform behavior deterministically. */
-/* 可注入旋钮：让测试可以确定性地演练溢出与平台行为。 */
+/** Injectable process, spill, and platform operations. */
 export interface SpawnInternals {
+  /** Process spawner (defaults to `node:child_process` `spawn`). */
+  spawn?: SpawnProcess
   /** Directory for spill files (defaults to the OS temp dir). */
   /* 溢出文件目录（缺省为 OS 临时目录）。 */
   spillDir?: string
@@ -128,7 +119,10 @@ let defaultSpillDir: string | undefined
 /**
  * The default spill location: a private (0700) per-process directory under
  * the OS tmpdir, created lazily. Predictable world-readable paths would let
- * other local users read command output or pre-create symlinks.
+ * other local users read command output or pre-create symlinks. At a
+ * JavaScript-observable process exit the directory is removed only when it
+ * holds no completed spill file (spill files are retained as full-output
+ * recovery artifacts until an external cleanup).
  */
 /*
  * 默认溢出位置：OS 临时目录下私密（0700）的按进程目录，惰性创建。可预测的全局
@@ -138,6 +132,17 @@ function privateSpillDir(): string {
   defaultSpillDir ??= mkdtempSync(join(tmpdir(), 'dsh-subprocess-'))
   return defaultSpillDir
 }
+
+// The per-process spill directory is removed at process exit when it holds no
+// completed spill file: a directory that never spilled is empty and is safe to
+// remove, while a directory holding completed spill files keeps them (their
+// content is retained until an external cleanup). A SIGKILLed process cannot
+// run this at all; its residue is left to OS temp hygiene.
+/* v8 ignore next 4 -- exit listeners run after the coverage dump; removal is verified by the CI /tmp residue measurement. */
+process.once('exit', () => {
+  if (defaultSpillDir === undefined) return
+  try { rmdirSync(defaultSpillDir) } catch { /* best-effort: ENOENT/ENOTEMPTY/EBUSY/EPERM must not change the exit code. */ }
+})
 
 /**
  * Collects one stream with a bounded in-memory tail. With a spill cap, on
@@ -377,9 +382,10 @@ export function taskkillProcessTree(pid: number): void {
   // Outcome deliberately unchecked: an already-absent tree (status 128), exit
   // races, and a missing taskkill binary (spawnSync reports, never throws) are
   // as tolerable here as ESRCH is for a POSIX group signal.
-  // 结果刻意不检查：树已不存在（状态 128）、退出竞态、taskkill 缺失（spawnSync
-  // 只报告不抛错）都与 POSIX 组信号的 ESRCH 一样可容忍。
-  spawnSync('taskkill', ['/PID', String(pid), '/T', '/F'], { stdio: 'ignore' })
+  spawnSync('taskkill', ['/PID', String(pid), '/T', '/F'], {
+    stdio: 'ignore',
+    windowsHide: true,
+  })
 }
 
 /**
@@ -444,6 +450,7 @@ export function spawnSubprocess(spec: SubprocessSpawnSpec, internals: SpawnInter
   }
   const spillDir = internals.spillDir ?? privateSpillDir()
   const platform = internals.platform ?? process.platform
+  const spawnProcess = internals.spawn ?? spawn
   const taskkill = internals.taskkill ?? taskkillProcessTree
   const linuxGroupHasLiveMembers = internals.linuxProcessGroupHasLiveMembers ?? linuxProcessGroupHasLiveMembers
 
@@ -462,7 +469,7 @@ export function spawnSubprocess(spec: SubprocessSpawnSpec, internals: SpawnInter
   const stdinMode = spec.stdio.stdin
 
   const env = childEnv(spec.env)
-  const child = spawn(program, args, {
+  const child = spawnProcess(program, args, {
     cwd: spec.cwd,
     env,
     stdio: [
@@ -473,6 +480,7 @@ export function spawnSubprocess(spec: SubprocessSpawnSpec, internals: SpawnInter
     // `detached` gives teardown a tree root on POSIX (its own process group);
     // Windows terminates by root pid through taskkill /T instead.
     detached: platform !== 'win32',
+    windowsHide: platform === 'win32',
   })
 
   const collectStream = (mode: SubprocessOutputMode, stream: Readable | null, label: string): OutputCollector | undefined => {

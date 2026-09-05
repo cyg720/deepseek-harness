@@ -6,12 +6,8 @@
  */
 
 /*
- * 文件职责：实现 types.ts 覆盖的工作区类型与行为职责。
- * 技术维度：使用 TypeScript、JavaScript、Vitest、Node.js 文件系统或构建工具。
- * 产品维度：通过工作区类型与行为保障项目开发、发布和 Agent 工作区行为一致。
- * 逻辑维度：解析参数和文件，执行检查或转换，再输出结果并处理错误。
- * 关键边界：脚本可能修改构建产物；路径和子进程输出不可信；失败必须以非零状态显式报告。
- * 新手阅读建议：先看命令入口和参数，再读文件遍历或转换，最后关注错误码和平台差异。
+ * 【文件职责】声明稳定工作区 ID 和消费者接口；
+ * ID 与可被规范化改写的路径分离，构造函数由运行时入口提供。
  */
 
 import type { Branded } from '@deepseek-ai/dsh-brand'
@@ -48,7 +44,7 @@ export interface Workspace {
    */
   readonly path: string
 
-  /** Display title. Defaults to `basename(path)` at create; duplicates are allowed. */
+  /** Display title. Defaults to the final path segment, or a filesystem root's own spelling; duplicates are allowed. */
   readonly title: string
 
   /** ISO-8601 creation instant, stamped at create and never rewritten. */

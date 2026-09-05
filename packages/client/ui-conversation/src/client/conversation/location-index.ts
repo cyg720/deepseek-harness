@@ -1,11 +1,16 @@
+/*
+ * 【文件职责】维护会话的 Turn/Step 时间线及事件位置索引，并跟踪 Context 对位置数据的发布。
+ */
+
 import {
-  type SessionEventLike, type SessionEventLikeEntry,
+  type AssistantLiveChunkEvent, type SessionEventLike, type SessionEventLikeEntry,
 } from '@deepseek-ai/dsh-api-session-controller/client'
+import { notifySubscribers } from '@deepseek-ai/dsh-client-store'
 import type { SessionEvent } from '@deepseek-ai/dsh-session/types'
 import type {
   ConversationLocation, ConversationLocationData,
-  ConversationLocationDataStore, ConversationStepDataMap, ConversationTimelineSnapshot,
-  ConversationTurnDataMap, StepLocation, TurnLocation,
+  ConversationLocationDataSource, ConversationLocationDataStore, ConversationStepDataMap,
+  ConversationTimelineSnapshot, ConversationTurnDataMap, StepLocation, TurnLocation,
 } from '../contract/conversation.ts'
 
 /** 位置数据的内部记录：属主 + 值（键由外部 Map 键控）。 */
@@ -22,20 +27,58 @@ export interface ConversationLocationDataChange {
   readonly next: ConversationLocationData | null
 }
 
-/** 可变的位置数据存储：按键持有 { 属主, 值 }，属主冲突抛错。 */
+class MutableLocationDataSource implements ConversationLocationDataSource<unknown> {
+  private readonly listeners = new Set<() => void>()
+  private published: unknown
+
+  constructor(
+    private readonly store: MutableLocationDataStore,
+    private readonly key: string,
+  ) {
+    this.published = store.get(key)
+  }
+
+  readonly getSnapshot = (): unknown => this.store.get(this.key)
+
+  readonly subscribe = (listener: () => void): (() => void) => {
+    this.listeners.add(listener)
+    return () => { this.listeners.delete(listener) }
+  }
+
+  publish(): void {
+    const next = this.getSnapshot()
+    if (this.published === next) return
+    this.published = next
+    notifySubscribers(this.listeners, `[ui-conversation] Location data ${this.key}`)
+  }
+}
+
 class MutableLocationDataStore {
   private entries = new Map<string, OwnedLocationData>()
+  private readonly sources = new Map<string, MutableLocationDataSource>()
+  private readonly dirtyKeys = new Set<string>()
+
+  constructor(private readonly markDirty: (store: MutableLocationDataStore) => void) {}
 
   /** 按键读取值（不关心属主）。 */
   get(key: string): unknown {
     return this.entries.get(key)?.value
   }
 
-  /** 仅当属主匹配时移除；不匹配返回 false。 */
+  source(key: string): ConversationLocationDataSource<unknown> {
+    let source = this.sources.get(key)
+    if (source === undefined) {
+      source = new MutableLocationDataSource(this, key)
+      this.sources.set(key, source)
+    }
+    return source
+  }
+
   remove(owner: string, key: string): boolean {
     const current = this.entries.get(key)
     if (current?.owner !== owner) return false
     this.entries.delete(key)
+    this.changed(key)
     return true
   }
 
@@ -47,23 +90,33 @@ class MutableLocationDataStore {
     }
     if (current?.value === value) return false
     this.entries.set(key, { owner, value })
+    this.changed(key)
     return true
   }
 
   /** 整体替换条目集；内容完全相同时返回 false（引用稳定）。 */
   replace(entries: ReadonlyMap<string, OwnedLocationData>): boolean {
-    let changed = this.entries.size !== entries.size
-    if (!changed) {
-      for (const [key, value] of entries) {
-        const current = this.entries.get(key)
-        if (current?.owner !== value.owner || current.value !== value.value) {
-          changed = true
-          break
-        }
-      }
+    const changedKeys: string[] = []
+    for (const key of new Set([...this.entries.keys(), ...entries.keys()])) {
+      const current = this.entries.get(key)
+      const next = entries.get(key)
+      if (current?.owner !== next?.owner || current?.value !== next?.value) changedKeys.push(key)
     }
-    if (changed) this.entries = new Map(entries)
-    return changed
+    if (changedKeys.length === 0) return false
+    this.entries = new Map(entries)
+    for (const key of changedKeys) this.changed(key)
+    return true
+  }
+
+  publish(): void {
+    const dirty = [...this.dirtyKeys]
+    this.dirtyKeys.clear()
+    for (const key of dirty) this.sources.get(key)?.publish()
+  }
+
+  private changed(key: string): void {
+    this.dirtyKeys.add(key)
+    this.markDirty(this)
   }
 }
 
@@ -140,14 +193,15 @@ function sameLocation(left: ConversationLocation | undefined, right: Conversatio
 /** Session-owned Turn/Step timeline and event-to-Location index. */
 /* 会话拥有的轮次/步骤时间线与事件到位置索引。 */
 export class ConversationLocationIndex {
-  private coordinates = new Map<number, Coordinates>() // 事件 seq -> 坐标
-  private locations = new Map<number, ConversationLocation>() // 事件 seq -> 已解析位置
-  private seqsByTurn = new Map<number, Set<number>>() // 轮次号 -> 其中事件 seq 集合
-  private timeline: ConversationTimelineSnapshot = { turnOrder: [], turns: new Map() } // 引用稳定的时间线快照
-  private readonly turnDataStores = new Map<number, MutableLocationDataStore>() // 轮次号 -> 位置数据存储
-  private readonly stepDataStores = new Map<string, MutableLocationDataStore>() // "轮次:步骤" -> 位置数据存储
-  private currentTurn: number | undefined // 当前游标轮次（坐标推导回退）
-  private currentStep: number | undefined // 当前游标步骤
+  private coordinates = new Map<number, Coordinates>()
+  private locations = new Map<number, ConversationLocation>()
+  private seqsByTurn = new Map<number, Set<number>>()
+  private timeline: ConversationTimelineSnapshot = { turnOrder: [], turns: new Map() }
+  private readonly turnDataStores = new Map<number, MutableLocationDataStore>()
+  private readonly stepDataStores = new Map<string, MutableLocationDataStore>()
+  private readonly dirtyDataStores = new Set<MutableLocationDataStore>()
+  private currentTurn: number | undefined
+  private currentStep: number | undefined
 
   /**
    * Return the current reference-stable timeline.
@@ -219,6 +273,13 @@ export class ConversationLocationIndex {
       changed = this.storeFor(next).set(change.owner, next.key, next.value) || changed
     }
     return changed
+  }
+
+  /** Publish committed Location-data changes to their keyed sources. */
+  publishData(): void {
+    const dirty = [...this.dirtyDataStores]
+    this.dirtyDataStores.clear()
+    for (const store of dirty) store.publish()
   }
 
   /**
@@ -478,11 +539,7 @@ export class ConversationLocationIndex {
    * Index one non-boundary tail event without rescanning the window.
    * @param event - contiguous appended event.
    */
-  /*
-   * 索引一个非边界尾部事件，不重扫窗口。
-   * @param event 连续追加的事件。
-   */
-  appendNonBoundary(event: SessionEvent): void {
+  appendNonBoundary(event: SessionEventLike): void {
     const explicit = payloadCoordinates(event)
     if (explicit.session === true) {
       this.coordinates.set(event.seq, {})
@@ -504,7 +561,38 @@ export class ConversationLocationIndex {
     this.locations.set(event.seq, this.resolve(event.seq))
   }
 
-  /** 记录某轮次下的一个事件 seq（供 appendBoundary 复查用）。 */
+  /**
+   * Remove indexed Assistant transients without rebuilding the Turn/Step timeline.
+   * @param events - transient events retired by one Assistant settlement.
+   */
+  removeAssistantTransients(events: readonly AssistantLiveChunkEvent[]): void {
+    for (const event of events) {
+      const turn = this.coordinates.get(event.seq)?.turn
+      if (turn !== undefined) {
+        const seqs = this.seqsByTurn.get(turn)
+        seqs?.delete(event.seq)
+        if (seqs?.size === 0) this.seqsByTurn.delete(turn)
+      }
+      this.coordinates.delete(event.seq)
+      this.locations.delete(event.seq)
+    }
+  }
+
+  /**
+   * Index one durable Assistant settlement inserted before an already visible tail.
+   * @param event - message or attempt settlement with explicit Turn and Step coordinates.
+   */
+  insertAssistantSettlement(
+    event: SessionEvent<'assistant/message'> | SessionEvent<'assistant/attempt'>,
+  ): void {
+    this.coordinates.set(event.seq, {
+      turn: event.data.turn,
+      step: event.data.step,
+    })
+    this.indexTurnSeq(event.data.turn, event.seq)
+    this.locations.set(event.seq, this.resolve(event.seq))
+  }
+
   private indexTurnSeq(turn: number, seq: number): void {
     const current = this.seqsByTurn.get(turn) ?? new Set<number>()
     current.add(seq)
@@ -523,19 +611,22 @@ export class ConversationLocationIndex {
 
   /** 按需创建并缓存轮次数据存储（保持读取器身份稳定）。 */
   private mutableTurnData(turn: number): MutableLocationDataStore {
-    const current = this.turnDataStores.get(turn) ?? new MutableLocationDataStore()
+    const current = this.turnDataStores.get(turn) ?? this.createDataStore()
     this.turnDataStores.set(turn, current)
     return current
   }
 
   /** 按需创建并缓存步骤数据存储（保持读取器身份稳定）。 */
   private mutableStepData(key: string): MutableLocationDataStore {
-    const current = this.stepDataStores.get(key) ?? new MutableLocationDataStore()
+    const current = this.stepDataStores.get(key) ?? this.createDataStore()
     this.stepDataStores.set(key, current)
     return current
   }
 
-  /** 按数据形状定位其属主存储。 */
+  private createDataStore(): MutableLocationDataStore {
+    return new MutableLocationDataStore(store => this.dirtyDataStores.add(store))
+  }
+
   private storeFor(data: ConversationLocationData): MutableLocationDataStore {
     return data.kind === 'turn'
       ? this.mutableTurnData(data.turn)

@@ -12,19 +12,24 @@
  * 新手阅读建议：先看 canonicalPath 两种输入，再比较 read-only 和 workspace-write 的根目录集合。
  */
 
-import { realpathSync } from 'node:fs'
+import { mkdtempSync, realpathSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { mkdtempSync } from 'node:fs'
 import { join } from 'node:path'
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vitest'
 import { canonicalPath, writableRoots } from '@deepseek-ai/dsh-sandbox'
 
-// 规范路径测试套件。
+/** Every temp root created by this file, removed after each test. */
+const roots: string[] = []
+afterEach(() => {
+  for (const root of roots.splice(0)) rmSync(root, { recursive: true, force: true })
+})
+
 describe('canonicalPath', () => {
   // 验证存在路径通过 native realpath 解析。
   it('resolves symlinks (an existing path realpaths)', () => {
     // 系统临时区中新建的真实目录。
     const dir = mkdtempSync(join(tmpdir(), 'dsh-roots-'))
+    roots.push(dir)
     expect(canonicalPath(dir)).toBe(realpathSync.native(dir))
   })
 
@@ -45,13 +50,12 @@ describe('writableRoots', () => {
   it('workspace-write grants the workspace root plus the platform temp areas, canonical and deduplicated', () => {
     // 模拟工作区的临时真实目录。
     const ws = mkdtempSync(join(tmpdir(), 'dsh-ws-'))
-    // 推导出的规范可写根目录数组。
-    const roots = writableRoots({ mode: 'workspace-write', workspaceRoot: ws })
-    expect(roots).toContain(realpathSync.native(ws))
-    expect(roots).toContain(canonicalPath('/tmp'))
-    expect(roots).toContain(realpathSync.native(tmpdir()))
+    roots.push(ws)
+    const writable = writableRoots({ mode: 'workspace-write', workspaceRoot: ws })
+    expect(writable).toContain(realpathSync.native(ws))
+    expect(writable).toContain(canonicalPath('/tmp'))
+    expect(writable).toContain(realpathSync.native(tmpdir()))
     // Deduplicated after canonicalization (/tmp and os.tmpdir() may coincide).
-    // 规范化后去重，因为 /tmp 和 os.tmpdir() 在某些平台可能指向同一路径。
-    expect(new Set(roots).size).toBe(roots.length)
+    expect(new Set(writable).size).toBe(writable.length)
   })
 })

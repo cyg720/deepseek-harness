@@ -29,7 +29,7 @@ export const inject = ['agents', 'sessionPersistence', 'subagents']
  *  - `PLACEHOLDER_CHILD_ID` in a scripted `send_message` is remapped to the real
  *    child so both follow-ups queue onto the same live inbox in FIFO order.
  *  - The unknown-id `send_message` (`UNKNOWN_CHILD_ID`) resolves through a
- *    persistence load fenced behind both accepted follow-ups, so the transcript
+ *    persistence stat fenced behind both accepted follow-ups, so the transcript
  *    records the same order on every runner.
  *  - The child's final continuation turn fails its durability checkpoint with a
  *    fixed message, so the scenario proves child-first disposal survives a failed
@@ -82,13 +82,7 @@ export function apply(ctx: Context): void {
    * 但对象内部是否可变仍由其类型决定。
    */
   const persistence = ctx.sessionPersistence
-  /**
-   * 常量说明：load 用于加载 load 相关数据，作用于当前作用域；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。
-   */
-  const load = persistence.load.bind(persistence)
-  /**
-   * 常量说明：agents 用于处理 agents 相关数据，作用于当前作用域；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。
-   */
+  const stat = persistence.stat.bind(persistence)
   const agents = ctx.agents
   /**
    * 常量说明：create 用于创建 create 相关数据，作用于当前作用域；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。
@@ -129,14 +123,9 @@ export function apply(ctx: Context): void {
 
   // The unavailable-child lookup is real asynchronous I/O. Fence it behind both
   // authored follow-ups so runner speed cannot reorder the exact log.
-  /**
-   * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；参数：id（由 TypeScript
-   * 根据调用位置推断的类型）：标识本次操作关联的唯一对象；必须满足声明的类型及调用时序要求。；返回值：由 TypeScript 根据实现推断的结果；
-   * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调(id)，并按返回类型处理结果。
-   */
-  persistence.load = async (id) => {
+  persistence.stat = async (id, options) => {
     if (id === UNKNOWN_CHILD_ID) await followupsAccepted.promise
-    return load.call(persistence, id)
+    return stat(id, options)
   }
   /**
    * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；返回值：由 TypeScript 根据实现推断的结果；
@@ -148,7 +137,7 @@ export function apply(ctx: Context): void {
    */
   ctx.effect(() => () => {
     agents.create = create
-    persistence.load = load
+    persistence.stat = stat
     followupsAccepted.resolve(undefined)
     parentTurnClosed.resolve(undefined)
   }, 'subagent snapshot ordering')
@@ -186,25 +175,10 @@ export function apply(ctx: Context): void {
    * 常量说明：subagents 用于处理 subagents 相关数据，作用于当前作用域；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。
    */
   const subagents = ctx.subagents as unknown as {
-    followup: (authority: unknown, childId: SessionId, content: unknown, options: unknown) => Promise<unknown>
+    sendMessage: (authority: unknown, childId: SessionId, content: unknown, options: unknown) => Promise<unknown>
   }
-  /**
-   * 常量说明：deliver 用于处理 deliver 相关数据，作用于当前作用域；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。
-   */
-  const deliver = subagents.followup.bind(subagents)
-  /**
-   * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；参数：authority（由 TypeScript
-   * 根据调用位置推断的类型）：提供本次调用所需的数据；必须满足声明的类型及调用时序要求。；参数：childId（由 TypeScript
-   * 根据调用位置推断的类型）：提供本次调用所需的数据；必须满足声明的类型及调用时序要求。；参数：content（由 TypeScript
-   * 根据调用位置推断的类型）：提供本次调用所需的数据；必须满足声明的类型及调用时序要求。；参数：options（由 TypeScript
-   * 根据调用位置推断的类型）：提供本次操作使用的配置选项；必须满足声明的类型及调用时序要求。；返回值：由 TypeScript 根据实现推断的结果；
-   * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调(authority, childId,
-   * content, options)，并按返回类型处理结果。
-   */
-  subagents.followup = (authority, childId, content, options) => {
-    /**
-     * 常量说明：mapped 用于处理 mapped 相关数据，作用于当前作用域；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。
-     */
+  const deliver = subagents.sendMessage.bind(subagents)
+  subagents.sendMessage = (authority, childId, content, options) => {
     const mapped = childId === PLACEHOLDER_CHILD_ID && realChildId !== undefined
       ? SessionId(realChildId)
       : childId

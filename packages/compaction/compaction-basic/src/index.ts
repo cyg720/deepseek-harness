@@ -5,12 +5,7 @@
  */
 
 /*
- * 文件职责：实现上下文压缩的 index 模块。
- * 技术维度：TypeScript、Cordis 插件、Worker/JSON 协议和严格类型。
- * 产品维度：为产品提供上下文压缩能力。
- * 逻辑维度：解析配置或协议，执行核心流程并返回结构化结果。
- * 关键边界：跨线程和模型输入属于不可信边界；资源与事件注册必须清理。
- * 新手阅读建议：先读导出类型与配置，再跟踪入口和错误分支。
+ * 【文件职责】实现可回放的基本压缩后端，以记录到日志的事务组织摘要与历史替换。
  */
 
 import { Context } from '@deepseek-ai/cordis'
@@ -18,7 +13,7 @@ import z from '@deepseek-ai/schemastery'
 import { CompactionEngine, ManualCompactionError } from '@deepseek-ai/dsh-compaction'
 import type { CompactionResult, CompactionTrigger } from '@deepseek-ai/dsh-compaction'
 import type { TokenMeter } from '@deepseek-ai/dsh-token-meter'
-import type { Session } from '@deepseek-ai/dsh-session'
+import type { Session, SessionSeq } from '@deepseek-ai/dsh-session'
 import { CONTEXT_WINDOW_EXCEEDED_CODE } from '@deepseek-ai/dsh-llm'
 import type { LlmCallConfig } from '@deepseek-ai/dsh-llm'
 import { assertNever } from '@deepseek-ai/dsh-util-values'
@@ -351,8 +346,8 @@ export class BasicCompactionEngine extends CompactionEngine {
    * @returns the successful durable compaction result.
    */
   override async compactRegion(
-    start: number,
-    end: number,
+    start: SessionSeq,
+    end: SessionSeq,
     agent: Agent,
     signal?: AbortSignal,
   ): Promise<CompactionResult> {

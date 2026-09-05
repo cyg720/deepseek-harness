@@ -14,8 +14,7 @@ import { execa } from 'execa'
 import { Context } from '@deepseek-ai/cordis'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import SessionStore, {
-  SessionId, TOOL_OUTCOME_UNKNOWN,
-  /** 中文说明：type SessionEvent 定义本测试所需的数据或行为，用于表达会话检查点恢复场景。 */
+  SessionId, TOOL_OUTCOME_UNKNOWN, interruptedTurnClosers,
   type SessionEvent,
 } from '@deepseek-ai/dsh-session'
 import JsonlSessionPersistence from '@deepseek-ai/dsh-session-persistence-jsonl'
@@ -89,14 +88,22 @@ async function crashAt(mode: 'request' | 'tool'): Promise<{ root: string; marker
   }
 }
 
-/** 中文说明：函数 load 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+// Read the crashed durable log and balance it the way a resuming reader does:
+// the stored events stay untouched; `interruptedTurnClosers` supplies the
+// in-memory closers for the interrupted tail turn.
 async function load(root: string): Promise<SessionEvent[]> {
   /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const ctx = new Context()
   await ctx.plugin(SessionStore)
   await ctx.plugin(JsonlSessionPersistence, { root, compression: 'none' })
   try {
-    return [...(await ctx.sessionPersistence.load(sessionId)).events]
+    const handle = await ctx.sessionPersistence.open(sessionId, 'read')
+    try {
+      const events = await handle.read()
+      return [...events, ...interruptedTurnClosers(events)]
+    } finally {
+      await handle.close()
+    }
   } finally {
     await ctx.fiber.dispose()
   }

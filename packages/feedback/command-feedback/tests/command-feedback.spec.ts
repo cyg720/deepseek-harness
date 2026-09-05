@@ -118,7 +118,7 @@ async function run(test: Harness, suffix = ''): Promise<{ kind: string; text?: s
 /** Authoritative feedback payloads in log order. */
 /* 中文说明：函数 feedbackTexts 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function feedbackTexts(session: Session): string[] {
-  return session.events
+  return session.snapshotEvents()
     .filter(event => event.type === 'feedback/record')
     .map(event => event.data.text)
 }
@@ -155,17 +155,16 @@ describe('/feedback human command', () => {
       text: `Feedback recorded for session ${test.session.id}\nAnonymous user: ${USER_ID}. Session sharing is not configured.`,
     })
     expect(feedbackTexts(test.session)).toEqual(['the diff view is unreadable'])
-    /** 中文说明：测试局部值 commandRun，由紧邻初始化决定。 */
-    const commandRun = test.session.events.find(event => event.type === 'command/run')
+    const commandRun = test.session.snapshotEvents().find(event => event.type === 'command/run')
     expect(commandRun?.type === 'command/run' && Object.hasOwn(commandRun.data, 'args')).toBe(false)
-    expect(JSON.stringify(test.session.events).match(/the diff view is unreadable/gu)).toHaveLength(1)
+    expect(JSON.stringify(test.session.snapshotEvents()).match(/the diff view is unreadable/gu)).toHaveLength(1)
   })
 
   it('exports a command-independent feedback producer', async () => {
     /** 中文说明：测试局部值 test，由紧邻初始化决定。 */
     const test = await harness()
     commandFeedback.recordFeedback(test.session, '  recorded outside a command  ')
-    expect(test.session.events.map(event => event.type)).toEqual(['feedback/record'])
+    expect(test.session.snapshotEvents().map(event => event.type)).toEqual(['feedback/record'])
     expect(feedbackTexts(test.session)).toEqual(['recorded outside a command'])
     expect(() => { commandFeedback.recordFeedback(test.session, ' \n\t ') })
       .toThrow('feedback text must not be empty')
@@ -176,7 +175,7 @@ describe('/feedback human command', () => {
     /** 中文说明：测试局部值 test，由紧邻初始化决定。 */
     const test = await harness()
     await run(test, ' nothing else happens')
-    expect(test.session.events.map(event => event.type)).toEqual([
+    expect(test.session.snapshotEvents().map(event => event.type)).toEqual([
       'command/run', 'feedback/record', 'command/done',
     ])
   })
@@ -248,12 +247,11 @@ describe('/feedback human command', () => {
     /** 中文说明：测试局部值 test，由紧邻初始化决定。 */
     const test = await harness()
     await run(test, ' invisible to the model')
-    /** 中文说明：测试局部值 event，由紧邻初始化决定。 */
-    for (const event of test.session.events) {
+    for (const event of test.session.snapshotEvents()) {
       expect('surfaceOp' in event).toBe(false)
       expect(test.session.deriveEventMessage(event)).toBeNull()
     }
-    expect(foldSurface(test.session.events).nodes).toEqual([])
+    expect(foldSurface(test.session.snapshotEvents()).nodes).toEqual([])
     expect(test.session.surface.nodes).toEqual([])
     expect(test.session.deriveMessages()).toEqual([])
   })
@@ -270,11 +268,9 @@ describe('/feedback human command', () => {
     await expect(run(test, '   \n\t ')).resolves.toEqual(expected)
     expect(getOrCreateAnonymousUserId).not.toHaveBeenCalled()
     expect(feedbackTexts(test.session)).toEqual([])
-    /** 中文说明：测试局部值 done，由紧邻初始化决定。 */
-    const done = test.session.events.filter(event => event.type === 'command/done')
+    const done = test.session.snapshotEvents().filter(event => event.type === 'command/done')
     expect(done.map(event => event.data.kind)).toEqual(['error', 'error'])
-    /** 中文说明：测试局部值 event，由紧邻初始化决定。 */
-    for (const event of test.session.events) {
+    for (const event of test.session.snapshotEvents()) {
       if (event.type === 'command/run') expect(Object.hasOwn(event.data, 'args')).toBe(false)
     }
   })
@@ -287,6 +283,6 @@ describe('/feedback human command', () => {
     controller.abort(new Error('user cancelled the command'))
     await expect(test.ctx.commands.execute(test.agent, '/feedback too late', [], controller.signal))
       .rejects.toThrow('user cancelled the command')
-    expect(test.session.events).toEqual([])
+    expect(test.session.snapshotEvents()).toEqual([])
   })
 })

@@ -38,6 +38,7 @@ const loaderUrl = options['loader-url']
 const failures = []
 /** 中文说明：变量 manifests 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const manifests = globSync('packages/*/*/package.json', { cwd: packagesRoot }).sort()
+let companionCount = 0
 const { default: Loader } = await import(loaderUrl)
 /** 中文说明：变量 loader 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const loader = Object.create(Loader.prototype)
@@ -56,7 +57,10 @@ for (const manifestPath of manifests) {
   }
   /** 中文说明：变量 invariantExport 保存本脚本当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const invariantExport = manifest.exports?.['./invariant']
+  if (invariantExport === undefined) continue
+  companionCount += 1
   if (typeof invariantExport !== 'object'
+    || invariantExport === null
     || invariantExport.default !== './lib/invariant.js'
     || !manifest.files?.includes('lib/invariant.js')) {
     failures.push(`${packageName}: manifest does not publish ./lib/invariant.js as ./invariant`)
@@ -102,7 +106,7 @@ if (failures.length > 0) {
   process.exit(1)
 }
 
-console.log(`verify-built-package-invariants: ${manifests.length} compiled companion(s) passed plain-Node Loader checks.`)
+console.log(`verify-built-package-invariants: ${companionCount} compiled companion(s) passed plain-Node Loader checks.`)
 
 /** 中文说明：函数 copyDeclaredLibFiles 承担本脚本的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本脚本调用。 */
 function copyDeclaredLibFiles(packageDir, stagedPackageDir, files) {

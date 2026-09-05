@@ -5,25 +5,9 @@
  * @module @deepseek-ai/dsh-tool-fs/src/edit
  */
 
-/**
- * ================================ 文件注释 ================================
- * 【文件职责】面向模型的"字面编辑"工具，默认要求唯一匹配。它从单意图槽取可选守卫，
- * 直接调用 ctx.fs.editText（不单独 stat），然后记录观察到的版本；没有策略时是
- * 无条件原子编辑。
- * 【技术维度】defineTool 注册：schema 校验四个参数（+可选升级字段）；execute 流程 =
- * 解析策略 → 解析目标 → waterfall 取版本守卫 → editText（带信号与策略）→ 发
- * observed 事件 → 返回 { path, before, after }；意图槽本身可能抛 FS_NOT_OBSERVED
- * （未读文件），与提供者守卫失败一起进补救；展示层 presentCall/presentResult 负责
- * diff 卡片。
- * 【产品维度】模型做"精准小改动"的标准工具：字面替换 + 默认唯一匹配（多处命中时
- * 要求更具体的 old_string 或 replace_all），读后编辑由观察态策略强制。
- * 【逻辑维度】按出现顺序：EditInput（校验后输入）→ EditToolArgs（含升级字段参数）→
- * parseEditArgs（约束校验）→ formatEditOutput（结果文案）→ applyEditTool（注册）。
- * 【关键边界】old_string 必须非空且与 new_string 不同（相同 = 必然空操作）；
- * 版本守卫先于字面匹配（过期内容报 STALE 而非 NOT_FOUND）；replaceAll 默认 false。
- * 【新手阅读建议】先看 parseEditArgs 的三个约束，再看 execute 的意图槽与错误链，
- * 最后看 presentCall 的 oldText 约定（匹配 claude-agent-acp 的 Edit 臂）。
- * ==========================================================================
+/*
+ * 【文件职责】实现默认要求唯一匹配的字面文本编辑；
+ * 可选策略提供写入意图，文件服务执行原子编辑并返回版本。
  */
 
 import type { Context } from '@deepseek-ai/cordis'
@@ -153,9 +137,9 @@ export function applyEditTool(ctx: Context, sandbox: FsSandboxController): void 
         )
       } catch (error: unknown) {
         // A sandbox denial becomes the shared [sandbox: …] marker (the model
-        // recognizes it from bash); stale/not-observed failures gain their
-        // model-facing remedy; anything else passes through.
-        throw remediateFsError(sandbox.mapError(error, sandboxPolicy))
+        // recognizes it from bash); guarded mutation failures receive their
+        // stable model-facing diagnostic; anything else passes through.
+        throw remediateFsError(sandbox.mapError(error, sandboxPolicy), target.displayPath)
       }
       ctx.emit('fs/observed', target, { kind: 'present', version: outcome.version }, exec)
       return {

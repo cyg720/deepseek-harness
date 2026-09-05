@@ -5,9 +5,12 @@
  * @module @deepseek-ai/dsh-scope/scoped-events.generated
  */
 
+/* 【文件职责】根据作用域事件声明生成路由主体解析器；无法提取主体的事件只验证作用域载体。 */
+
 type ScopedSubjectResolver = (args: readonly unknown[]) => unknown
 
 const scopedSubjectResolvers: Readonly<Record<string, ScopedSubjectResolver | null>> = Object.freeze({
+  'agent/assistant-stream': args => (args[0] as Record<string, unknown>)['agent'],
   'agent/created': args => (args[0] as Record<string, unknown>)['agent'],
   'agent/disposed': args => (args[0] as Record<string, unknown>)['agent'],
   'agent/error': args => (args[0] as Record<string, unknown>)['agent'],

@@ -1,22 +1,4 @@
-/*
- * ================================ 文件注释 ================================
- * 【文件职责】实现 token-meter 投影单元共享的 O(1) 表面 token 折叠。
- * 【技术维度】投影状态必须保持有界（持久化投影缓存会检查点每个单元的整个
- * 状态，若携带定价表面（每条模型可见消息一个节点）会让检查点随会话无限增长）。
- * 因此替换走压缩缝合层的"影子价格协议"：表面 replace 事件紧邻其前的计量事件
- * （compaction/summary 或 compaction/prune）声明被替换区间的启发式价格，折叠
- * 只维护运行总量 + 至多一个待处理 claim，绝不保留逐节点价格。
- * 【产品维度】压缩会遮蔽一段表面：影子价格让 O(1) 状态也能准确反映压缩带来的
- * token 减少，从而让占用展示在压缩瞬间正确收缩。
- * 【逻辑维度】影子价格 claim 类型 → 折叠结果类型 → foldSurfaceProjection
- * （计量事件武装 claim → 表面事件消费 claim 或按 append 增量）。
- * 【关键边界】无 claim 的 replace 按零增量折叠（有界状态无法重建被替换区间，
- * 牺牲精确性换取回放可行）；claim 范围与实际 replace 不一致是活跃生产者的
- * 契约违反，必须 fail loud。
- * 【新手阅读建议】先读英文模块注释理解"为何投影不能携带完整表面"，再看
- * foldSurfaceProjection 的三路分支。
- * ==========================================================================
- */
+
 
 /**
  * The O(1) surface-token fold shared by the token-meter projection units.
@@ -37,7 +19,12 @@
  * @module @deepseek-ai/dsh-token-meter/surface-projection
  */
 
-import { deriveEventMessage, isSurfaceEvent } from '@deepseek-ai/dsh-session'
+/*
+ * 【文件职责】用常量大小状态维护表面 token 投影；
+ * 替换范围的价格取自紧邻替换记录的持久计量事实。
+ */
+
+import { deriveEventMessage, isSurfaceEvent, SessionSeq } from '@deepseek-ai/dsh-session'
 import type { SessionEvent } from '@deepseek-ai/dsh-session'
 // Type-only: the `compaction/*` SessionEventMap merges (shadow-price events).
 import type {} from '@deepseek-ai/dsh-compaction'
@@ -54,11 +41,9 @@ import { estimateMessage } from './estimate.ts'
  */
 export interface ShadowPriceClaim {
   /** Declared inclusive first surface-node seq of the priced range. */
-  // 中文：被定价区间的首个表面节点 seq（含）。
-  start: number
+  start: SessionSeq
   /** Declared inclusive last surface-node seq of the priced range. */
-  // 中文：被定价区间的最后一个表面节点 seq（含）。
-  end: number
+  end: SessionSeq
   /** Heuristic tokens of the priced range under the fixed estimator. */
   // 中文：固定估计器下该区间的启发式 token 数。
   tokens: number
@@ -118,7 +103,11 @@ export function foldSurfaceProjection(
     const { shadowedRange, shadowedTokenCount } = event.data
     return {
       deltaTokens: 0,
-      claim: { start: shadowedRange.start, end: shadowedRange.end, tokens: shadowedTokenCount },
+      claim: {
+        start: SessionSeq(shadowedRange.start),
+        end: SessionSeq(shadowedRange.end),
+        tokens: shadowedTokenCount,
+      },
     }
   }
   // 中文：非表面事件：零增量、无 claim。

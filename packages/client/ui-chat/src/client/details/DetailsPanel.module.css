@@ -2,23 +2,20 @@
    scrolling body of Input/Output code sections. Panel width/squeeze belongs
    to layout; this fills whatever the column gives. */
 /* 中文：详情页第三列采用“标题栏加滚动输入/输出代码区”的最小填充布局；列宽和压缩由外层布局负责。 */
-/*
- * 中文说明：
- * - 文件职责：定义会话详情侧栏的根容器、标题、关闭按钮、滚动正文和代码块样式。
- * - 技术维度：使用 CSS Modules、Flex/Grid、设计令牌和 data-error 属性选择器。
- * - 产品维度：让用户查看工具或消息的输入输出详情，并清晰识别错误内容。
- * - 逻辑维度：根容器纵向布局，固定标题栏，正文占满剩余空间并滚动，内部按节展示代码。
- * - 关键边界：本文件不决定侧栏宽度；高度 100% 依赖父布局提供可计算高度。
- * - 新手阅读建议：先看 root 的纵向 Flex，再看 body 的滚动条件，最后比较普通与错误代码颜色。
- */
+
 
 /* 详情侧栏根节点，填满所属列并绘制左侧分隔线。 */
+
+/*
+ * 【文件职责】定义详情栏的标题和可滚动内容，具体栏宽由外层布局拥有。
+ */
+
 .root {
   display: flex;
   flex-direction: column;
   height: 100%;
   min-width: 0;
-  border-left: 1px solid var(--dsw-alias-border-l2);
+  border-left: 0.5px solid var(--dsw-alias-border-l2);
   background: var(--dsw-alias-bg-base);
 }
 
@@ -30,7 +27,7 @@
   justify-content: space-between;
   gap: 8px;
   padding: 14px 12px 12px;
-  border-bottom: 1px solid var(--dsw-alias-border-l2);
+  border-bottom: 0.5px solid var(--dsw-alias-border-l2);
 }
 
 /* figma I54:42735;43:41479: 14/20 wt500. */
@@ -54,6 +51,7 @@
   height: 28px;
   border: none;
   border-radius: 999px;
+  corner-shape: round;
   background: transparent;
   color: var(--dsw-alias-label-secondary);
   cursor: pointer;

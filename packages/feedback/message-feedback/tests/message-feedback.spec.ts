@@ -81,10 +81,9 @@ describe('MessageFeedbackService public contract', () => {
 
     /** 中文说明：测试局部值 fixture，由紧邻初始化决定。 */
     const fixture = messageFixture('corrupt-session')
-    persistence.setDurable({ meta: fixture.session.header, events: fixture.session.events })
-    /** 中文说明：测试局部值 corruption，由紧邻初始化决定。 */
+    persistence.setDurable({ meta: fixture.session.header, events: fixture.session.snapshotEvents() })
     const corruption = new Error('stored log checksum mismatch')
-    persistence.inspectFailure = corruption
+    persistence.readFailure = corruption
     await expect(ctx.messageFeedback.list({ sessionId: fixture.session.id })).rejects.toBe(corruption)
   })
 
@@ -97,7 +96,7 @@ describe('MessageFeedbackService public contract', () => {
     const listed = Promise.withResolvers<undefined>()
     /** 中文说明：测试局部值 release，由紧邻初始化决定。 */
     const release = Promise.withResolvers<undefined>()
-    persistence.onListSnapshots = async () => {
+    persistence.onStat = async () => {
       listed.resolve(undefined)
       await release.promise
     }
@@ -109,7 +108,8 @@ describe('MessageFeedbackService public contract', () => {
     release.resolve(undefined)
 
     await expect(pending).resolves.toEqual({ ok: true, value: { items: [] } })
-    expect(persistence.inspectCalls).toBe(1)
+    expect(persistence.statCalls).toBe(1)
+    expect(persistence.readCalls).toBe(0)
   })
 
   it('returns session-not-found from mutations and conflicts on an observed version for an absent item', async () => {
@@ -225,8 +225,7 @@ describe('MessageFeedbackService public contract', () => {
     persistence.persist(fixture.session)
     /** 中文说明：测试局部值 messageId，由紧邻初始化决定。 */
     const messageId = fixture.assistantMessageIds[0]
-    /** 中文说明：测试局部值 before，由紧邻初始化决定。 */
-    const before = persistence.inspectCalls
+    const before = persistence.statCalls + persistence.readCalls
 
     await expect(ctx.messageFeedback.put({
       sessionId: fixture.session.id,
@@ -245,7 +244,7 @@ describe('MessageFeedbackService public contract', () => {
       ok: false,
       error: { code: 'note-too-large', maxBytes: 4, actualBytes: 6 },
     })
-    expect(persistence.inspectCalls).toBe(before)
+    expect(persistence.statCalls + persistence.readCalls).toBe(before)
 
     expectItem(await ctx.messageFeedback.put({
       sessionId: fixture.session.id,
@@ -256,8 +255,7 @@ describe('MessageFeedbackService public contract', () => {
     }))
   })
 
-  it('accepts only non-empty append-origin assistant projections as targets', async () => {
-    /** 中文说明：测试局部值 { ctx, persistence }，由紧邻初始化决定。 */
+  it('accepts only non-empty assistant projections as targets', async () => {
     const { ctx, persistence } = await harness()
     /** 中文说明：测试局部值 fixture，由紧邻初始化决定。 */
     const fixture = messageFixture('targets')
@@ -266,7 +264,6 @@ describe('MessageFeedbackService public contract', () => {
     const rejectedTargets: MessageId[] = [
       fixture.userMessageId,
       fixture.emptyAssistantMessageId,
-      fixture.replacementAssistantMessageId,
     ]
     /** 中文说明：测试局部值 messageId，由紧邻初始化决定。 */
     for (const messageId of rejectedTargets) {
@@ -305,8 +302,12 @@ describe('MessageFeedbackService public contract', () => {
     const rawCtx = new Context()
     rawCtx.provide('sessions', { get: () => undefined } as never)
     rawCtx.provide('sessionPersistence', {
-      listSnapshots: () => Promise.resolve([{ header: fixture.session.header, revision: 'test' }]),
-      inspect: () => Promise.resolve({ meta: fixture.session.header, events: fixture.session.events }),
+      stat: () => Promise.resolve({ header: fixture.session.header, revision: 'test' }),
+      open: () => Promise.resolve({
+        header: fixture.session.header,
+        read: () => Promise.resolve(fixture.session.snapshotEvents()),
+        close: () => Promise.resolve(),
+      }),
     } as never)
     /** 中文说明：测试局部值 raw，由紧邻初始化决定。 */
     const raw = new MessageFeedbackService(rawCtx, { maxNoteBytes: 1 })
@@ -512,7 +513,7 @@ describe('MessageFeedbackService item concurrency', () => {
     /** 中文说明：测试局部值 replacement，由紧邻初始化决定。 */
     const replacement = Session.create(
       old.session.id,
-      old.session.events,
+      old.session.snapshotEvents(),
       { ...old.session.header, createdAt: 20, cwd: '/new' },
     )
     persistence.persist(replacement)
@@ -556,7 +557,7 @@ describe('MessageFeedbackService item concurrency', () => {
     let physicalReads = 0
     /** 中文说明：测试局部值 committed，由紧邻初始化决定。 */
     let committed = 0
-    persistence.onReadFrom = async () => {
+    persistence.onRead = async () => {
       physicalReads += 1
       if (physicalReads !== 1) return
       started.resolve(undefined)
@@ -595,25 +596,24 @@ describe('MessageFeedbackService item concurrency', () => {
     expectItem(await first)
     expectItem(await second)
     await disposal
-    expect(physicalReads).toBe(2)
+    expect(physicalReads).toBe(4)
     expect(committed).toBe(2)
   })
 })
 
 describe('MessageFeedbackService durability ordering', () => {
-  it('rejects a logical target missing from the cold physical durable prefix', async () => {
-    /** 中文说明：测试局部值 { ctx, persistence }，由紧邻初始化决定。 */
+  it('rejects a live target missing from the re-read physical durable prefix', async () => {
     const { ctx, persistence } = await harness()
-    /** 中文说明：测试局部值 fixture，由紧邻初始化决定。 */
-    const fixture = messageFixture('cold-prefix')
-    persistence.logical.set(fixture.session.id, {
-      meta: fixture.session.header,
-      events: fixture.session.events,
+    const session = ctx.sessions.create(SessionId('live-prefix'), {
+      meta: { createdAt: 50, cwd: '/prefix' },
     })
-    persistence.setDurable({ meta: fixture.session.header, events: [] })
+    const fixture = appendMessageFixture(session)
+    ctx.on('session/flush', () => {
+      persistence.setDurable({ meta: session.header, events: [] })
+    })
 
     await expect(ctx.messageFeedback.put({
-      sessionId: fixture.session.id,
+      sessionId: session.id,
       messageId: fixture.assistantMessageIds[0],
       rating: 'positive',
       ifVersion: null,
@@ -621,12 +621,12 @@ describe('MessageFeedbackService durability ordering', () => {
       ok: false,
       error: {
         code: 'target-not-found',
-        sessionId: fixture.session.id,
+        sessionId: session.id,
         messageId: fixture.assistantMessageIds[0],
       },
     })
-    expect(persistence.readFromCalls).toBe(1)
-    await expect(ctx.messageFeedback.list({ sessionId: fixture.session.id })).resolves.toEqual({
+    expect(persistence.readCalls).toBe(1)
+    await expect(ctx.messageFeedback.list({ sessionId: session.id })).resolves.toEqual({
       ok: true,
       value: { items: [] },
     })
@@ -650,7 +650,7 @@ describe('MessageFeedbackService durability ordering', () => {
     ctx.on('domain/changed', (change) => {
       if (change.domain === 'message_feedback') order.push('sidecar:durable')
     })
-    persistence.onReadFrom = () => { order.push('session:verified') }
+    persistence.onRead = () => { order.push('session:verified') }
 
     expectItem(await ctx.messageFeedback.put({
       sessionId: session.id,
@@ -659,7 +659,7 @@ describe('MessageFeedbackService durability ordering', () => {
       ifVersion: null,
     }))
     expect(order).toEqual(['session:durable', 'session:verified', 'sidecar:durable'])
-    expect(persistence.readFromCalls).toBe(1)
+    expect(persistence.readCalls).toBe(1)
     expect(persistence.durable.get(session.id)?.events).toContainEqual(
       expect.objectContaining({ type: 'assistant/message' }),
     )
@@ -757,7 +757,7 @@ describe('MessageFeedbackService durability ordering', () => {
     expect(ctx.sessions.get(session.id)).toBeUndefined()
     release.resolve(undefined)
     expectItem(await pending)
-    expect(persistence.readFromCalls).toBe(1)
+    expect(persistence.readCalls).toBe(1)
     await expect(ctx.messageFeedback.list({ sessionId: session.id })).resolves.toMatchObject({
       ok: true,
       value: { items: [{ messageId: fixture.assistantMessageIds[0] }] },

@@ -29,7 +29,7 @@ import {
 } from './scaffold.ts'
 import { connectFreshWorkspace, expandOwningTurnProcess, newEnglishPage, saveFailureShot } from './support.ts'
 
-const FIXTURE = fileURLToPath(new URL('../../../snapshots/web/cordis-tool-round/session.jsonl', import.meta.url))
+const FIXTURE = fileURLToPath(new URL('../../../snapshots/web/cordis-tool-round/session.v2.jsonl', import.meta.url))
 const UI_EXPECTED = fileURLToPath(new URL('../../../snapshots/web/cordis-tool-round/ui.expected.md', import.meta.url))
 const MODE = webSnapshotMode()
 /** 一个完整生命周期应按序调用的四个 Cordis 工具。 */

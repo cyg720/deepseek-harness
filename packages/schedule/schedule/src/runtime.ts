@@ -2,13 +2,9 @@
  * Disposable live timer projection for one exact root agent.
  * @module @deepseek-ai/dsh-schedule
  */
+
 /*
- * 文件职责：实现 runtime.ts 承担的计划调度配置、协议与生命周期职责。
- * 技术维度：使用 TypeScript、Cordis 插件、配置校验、事件日志与异步资源管理。
- * 产品维度：为 Agent 提供可靠的计划调度能力。
- * 逻辑维度：解析输入，注册能力，执行核心操作，并在结束时释放所拥有的资源。
- * 关键边界：权限和配置失败必须显式；模型可见状态必须记录；清理必须达到静止状态。
- * 新手阅读建议：先看导出类型和常量，再读主流程，最后关注平台限制、恢复和清理。
+ * 【文件职责】为一个确定的根 Agent 持有可释放计时器，唤醒后重新检查时间与所有权再派发提醒。
  */
 
 import type { Context } from '@deepseek-ai/cordis'
@@ -229,10 +225,7 @@ export class ScheduleRuntime {
   /** Fold the current exact runtime suffix and contain a corrupt durable stream. */
   private readFolded(): FoldedSchedules | undefined {
     try {
-      return foldScheduleEvents(
-        this.agent.session.events,
-        this.agent.session.header.seedLength ?? 0,
-      )
+      return foldScheduleEvents(this.agent.session.ownEvents())
     } catch (error: unknown) {
       this.faulted = true
       /** 中文说明：变量 detail 保存本模块当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */

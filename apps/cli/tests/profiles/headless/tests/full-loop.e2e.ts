@@ -45,15 +45,12 @@ describe.skipIf(!process.env.DEEPSEEK_API_KEY)('full loop: real model + real bas
     workdir = await mkdtemp(join(tmpdir(), 'dsh-full-loop-e2e-'))
     /** 装载在临时目录上的完整编码 Harness。 */
     ctx = await codingHarness(workdir, { persona: SYSTEM_PROMPT })
-    /** 使用真实 DeepSeek 模型的父代理。 */
-    const agent = ctx.agentLoop.create(SessionId('e2e-loop'), { provider: 'deepseek-official', model: 'deepseek-v4-flash' })
+    const agent = await ctx.agentLoop.create(SessionId('e2e-loop'), { provider: 'deepseek-official', model: 'deepseek-v4-flash' })
 
     agent.followup(createUserMessage({ content: [{ type: 'text', text: 'Run `echo e2e-ok` with the bash tool and tell me its exact output.' }], source: { kind: 'user' } }))
     await waitForIdle(ctx, agent)
 
-    /** 代理会话事件的稳定数组副本。 */
-    const events = [...agent.session.events]
-    /** 会话中的全部工具调用事件。 */
+    const events = agent.session.snapshotEvents()
     const calls = events.filter(event => event.type === 'tool/call')
     expect(calls.length).toBeGreaterThan(0)
     expect(calls.some(event => event.data.name === 'bash')).toBe(true)

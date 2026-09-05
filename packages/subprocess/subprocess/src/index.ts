@@ -1,20 +1,4 @@
-/*
- * ================================ 文件注释 ================================
- * 【文件职责】子进程能力缝（ctx.subprocess）的 Service Definition：执行世界可执行文件
- * 查找、完全指定的受管进程树（原始或收集式 stdio）、以及一个终端进程原语。命令默认值、
- * shell 语义、截止时间、协议帧、终端就绪与展示归消费者。本地实现见 dsh-subprocess-local。
- * 【技术维度】抽象 Service + 模块增强；SENSITIVE_ENV_PATTERN 与 scrubbedParentEnv 提供
- * 统一的"凭据/DSH_* 擦除"基线（导出为普通函数，非服务路由的 spawner 也能共用）。
- * 【产品维度】所有子进程能力（bash/pwsh 执行、PTY 会话、钩子桥）的公共地基：
- * 凭据不隐式泄漏、终止按进程树范围、输出有界可恢复。
- * 【逻辑维度】定义擦除规则 → 声明 ctx.subprocess 服务 → 定义抽象契约
- * （resolveExecutable / spawn / spawnTerminal）。
- * 【关键边界】本缝不应用默认值（完全指定是显式契约）；终止动词唯一（terminate 升级）；
- * 实现只此一个，重复注册会抛错；执行世界与挂载的 FS 提供者共享。
- * 【新手阅读建议】先读 types.ts 的 SubprocessSpawnSpec 与 SubprocessHandle 理解契约形状，
- * 再回到本文件的三个抽象方法，最后对照 subprocess-local 的实现。
- * ==========================================================================
- */
+
 
 /**
  * Service Definition for the subprocess capability seam (`ctx.subprocess`): execution-world executable lookup,
@@ -26,7 +10,13 @@
  * @module @deepseek-ai/dsh-subprocess
  */
 
+/*
+ * 【文件职责】定义执行环境中的可执行文件查找和完整进程规格；
+ * 命令默认值、期限及显示逻辑由消费者决定。
+ */
+
 import { Context, Service } from '@deepseek-ai/cordis'
+import { proxyEnvironmentForChild } from '@deepseek-ai/dsh-http-proxy'
 import { DSH_ENV_PREFIX } from './types.ts'
 import type { SubprocessHandle, SubprocessSpawnSpec } from './types.ts'
 import type { SubprocessTerminalHandle, SubprocessTerminalSpawnSpec } from './types.ts'
@@ -78,6 +68,9 @@ export const SENSITIVE_ENV_PATTERN = /KEY|PASSWORD|SECRET|TOKEN/i
  * deliberate lowercase `dsh_*` names on POSIX are implausible. Exported as a plain function so spawners
  * that cannot route through the service (node-pty backends, SDK-managed
  * transports) share the one scrub definition.
+ *
+ * When a proxy is active the result also carries the resolved proxy names and the flag a child Node
+ * needs to honor them, so a child inherits the same routing as its parent.
  * @returns a fresh environment object safe to hand to a child spawn.
  */
 /*
@@ -94,6 +87,14 @@ export function scrubbedParentEnv(): Record<string, string> {
   const env: Record<string, string> = {}
   for (const [key, value] of Object.entries(process.env)) {
     if (value !== undefined && !SENSITIVE_ENV_PATTERN.test(key) && !key.toUpperCase().startsWith(DSH_ENV_PREFIX)) env[key] = value
+  }
+  // A child Node ignores the inherited proxy variables unless the flag this adds is set, so an MCP
+  // stdio server or subagent CLI would connect directly while its parent proxies. The same overlay
+  // restores each proxy name to what the user exported, undoing this process's own normalization —
+  // `undefined` removes a name the user never set.
+  for (const [name, value] of Object.entries(proxyEnvironmentForChild())) {
+    if (value === undefined) Reflect.deleteProperty(env, name)
+    else env[name] = value
   }
   return env
 }

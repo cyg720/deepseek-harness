@@ -10,12 +10,7 @@
  */
 
 /*
- * 文件职责：把 Harness 代理会话通过标准输入输出上的 ACP JSON-RPC 暴露给可信自动化客户端。
- * 技术维度：使用 Cordis 插件生命周期、Agent Client Protocol SDK、异步结算门和会话事件流桥接代理运行时。
- * 产品维度：支持自动化工具创建独立会话、发送文本或图片、接收已提交输出、取消任务并回答一次性权限请求。
- * 逻辑维度：挂载连接与事件监听，维护每会话状态，实现 ACP 方法，关联提示与轮次，最后按顺序排空并释放资源。
- * 关键边界：仅支持单一绝对工作区且不接收 MCP 配置；每会话同时只有一个提示；桥接层只发送已提交内容。
- * 新手阅读建议：先看 SessionRecord 状态字段，再看 makeAgent 的协议方法，随后理解事件关联，最后阅读 quiesce 清理顺序。
+ * 【文件职责】通过标准输入输出提供自动化 ACP 服务，把可信程序客户端的提示、取消和权限决策映射到持久化会话。
  */
 
 import type { Context } from '@deepseek-ai/cordis'
@@ -234,7 +229,8 @@ export function apply(ctx: Context, config: AcpConfig): void {
       try {
         const configOptions = await record.configOptions(signal)
         assertOpen()
-        await persistence.ensureMaterialized(record.agent.session)
+        // The attached log writer's flush materializes an empty session durably.
+        await ctx.sessions.flush(record.agent.session)
         assertOpen()
         return { sessionId, configOptions }
       } catch (error: unknown) {
@@ -253,7 +249,7 @@ export function apply(ctx: Context, config: AcpConfig): void {
       }
       activating.add(sessionId)
       return (async (): Promise<ResumeSessionResponse> => {
-        const persisted = (await persistence.list(signal)).find(header => header.id === sessionId)
+        const persisted = (await persistence.stat(sessionId, { signal }))?.header
         if (persisted === undefined || persisted.origin === 'subagent' || persisted.parentSession !== undefined) {
           throw invalidParams(`session is not resumable: ${sessionId}`)
         }
@@ -308,8 +304,8 @@ export function apply(ctx: Context, config: AcpConfig): void {
       } catch (error: unknown) {
         throw invalidParams((error as Error).message)
       }
-      const listed = await persistence.list(signal)
-      const filtered = await Promise.all(listed.map(async (header) => {
+      const listed = await persistence.list({ signal })
+      const filtered = await Promise.all(listed.map(async ({ header }) => {
         if (
           sessions.has(header.id)
             || activating.has(header.id)

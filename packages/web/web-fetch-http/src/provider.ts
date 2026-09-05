@@ -1,19 +1,4 @@
-/*
- * ================================ 文件注释 ================================
- * 【文件职责】本文件实现 ctx.web 的本地 HTTP(S) 抓取提供者：校验 URL、只跟随同源重定向、
- *             强制时间与大小限制、分类并解码文本，展示层交给 dsh-tool-web。
- * 【技术维度】实现 WebFetchProvider 接口；用 fetch 原生客户端 + AbortSignal 超时（deadline）；
- *             redirect: 'manual' 自行处理重定向；分块读取并做字节/字符双重截断。
- * 【产品维度】提供一个"匿名公共抓取"实现：不带浏览器 cookie、不携带任何环境凭据，
- *             适合抓取公开网页给模型阅读。
- * 【逻辑维度】HttpFetchLimits → HttpFetchProvider 类（fetch → followAndRead → requestOnce /
- *             readBody → readCapped）→ 三个模块级辅助函数（重定向状态/解析/错误翻译）。
- * 【关键边界】未实现 SSRF/内网保护，不可在能触达敏感内网的环境启用；重定向必须同源，
- *             否则拒绝；Content-Length 超限直接拒绝，流式增长超限则截断保留可用正文。
- * 【新手阅读建议】先读 fetch() 看整体流程，再读 followAndRead 看重定向循环，
- *             最后读 readCapped 看字节截断的边界处理。
- * ==========================================================================
- */
+
 /**
  * Safe HTTP(S) retrieval for `ctx.web`: validates and pins public IP destinations, follows
  * only same-origin redirects, enforces time and size limits, classifies and decodes text,
@@ -22,11 +7,17 @@
  * @module @deepseek-ai/dsh-web-fetch-http/provider
  */
 
+/*
+ * 【文件职责】安全获取公共 HTTP(S) 文本，限制同源跳转、时间和体积；
+ * 请求不携带浏览器 Cookie 或环境凭据。
+ */
+
 import { WebError } from '@deepseek-ai/dsh-web'
 import type { WebFetchBody, WebFetchProvider, WebFetchRequest, WebFetchResult } from '@deepseek-ai/dsh-web'
 import { deadline, timeoutOf } from '@deepseek-ai/dsh-timeout'
 import type { Response } from 'undici'
-import { publicHttpNetwork } from './network.ts'
+import { proxyRouteFor } from '@deepseek-ai/dsh-http-proxy'
+import { isNonPublicIpLiteral, publicHttpNetwork } from './network.ts'
 import type { PublicAddress } from './network.ts'
 import { classifyContentType, decoderForCharset, isSameOrigin, parseCharset, validateFetchUrl } from './policy.ts'
 
@@ -142,12 +133,28 @@ export class HttpFetchProvider implements WebFetchProvider {
   }
 
   private async requestOnce(url: URL, signal: AbortSignal) {
+    const headers = {
+      'user-agent': this.limits.userAgent,
+      'accept': 'text/html,application/xhtml+xml,text/*;q=0.9,application/json;q=0.8',
+    }
     try {
+      // A proxied hop skips public-address resolution and pinning: the proxy performs the origin's
+      // DNS, so there is no local address to validate, and pinning one would connect directly and
+      // bypass the proxy. A hop the policy bypasses — every loopback and every `NO_PROXY` entry —
+      // still takes the resolved-and-pinned path unchanged.
+      //
+      // One route decides both the branch and the dispatcher, so a mount or disposal between two
+      // reads cannot return a direct, unpinned agent for a URL this branch cleared as proxied.
+      //
+      // An IP literal the address checks would refuse never takes it. The proxy would resolve
+      // nothing — the address is already stated — so the shortcut would spend the checks for
+      // nothing and let a proxy on this machine reach the very service they keep out of reach.
+      const route = proxyRouteFor(url)
+      if (route.proxied && !isNonPublicIpLiteral(url.hostname)) {
+        return await publicHttpNetwork.requestVia(route.dispatcher, url, headers, signal)
+      }
       const addresses = await this.resolveAddresses(url.hostname, signal)
-      return await publicHttpNetwork.request(url, addresses, {
-        'user-agent': this.limits.userAgent,
-        'accept': 'text/html,application/xhtml+xml,text/*;q=0.9,application/json;q=0.8',
-      }, signal)
+      return await publicHttpNetwork.request(url, addresses, headers, signal)
     } catch (error: unknown) {
       if (error instanceof WebError) throw error
       throw translateAbortOrNetwork(error, signal)

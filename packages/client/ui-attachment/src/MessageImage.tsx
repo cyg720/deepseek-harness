@@ -1,11 +1,7 @@
-/**
- * 文件职责：实现附件界面的 MessageImage 组件。
- * 技术维度：React、TypeScript、Cordis 插槽和 CSS Modules。
- * 产品维度：向用户展示并操作附件相关状态。
- * 逻辑维度：读取属性与状态，派生展示数据并响应交互。
- * 关键边界：异步状态、可访问性标签和空数据分支必须保持一致。
- * 新手阅读建议：先读 Props，再看局部状态、effect 和 JSX。
+/*
+ * 【文件职责】将持久图片引用解析为会话授权的浏览器 URL，并兼容尚未持久化的本地提交预览。
  */
+
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { ImageAttachmentRef } from '@deepseek-ai/dsh-attachment'
 import { ImageLightbox } from './ImageLightbox.tsx'
@@ -153,17 +149,16 @@ export function MessageImage({ image, load, variant, labels }: {
 }
 
 /** Wrapping image group shared by user and assistant history: a lone image
- * renders large, several render as 64px square tiles (DeepSeek Chat rule). */
-/* 中文说明：函数 ImageGallery 的参数见签名，返回结果供相邻流程使用；调用示例见本文件。 */
-export function ImageGallery({ images, load, align, labels }: {
+ * renders large unless its owning mixed-attachment row requests compact tiles. */
+export function ImageGallery({ images, load, align, compact = false, labels }: {
   images: readonly MessageImageSpec[]
   load: ImageLoader
   align: 'start' | 'end'
+  compact?: boolean
   labels: MessageImageLabels
 }) {
   if (images.length === 0) return null
-  /** 中文说明：当前组件的局部值 variant，由紧邻初始化决定。 */
-  const variant = images.length === 1 ? 'single' : 'tile'
+  const variant = compact || images.length > 1 ? 'tile' : 'single'
   return (
     <div className={css.gallery} data-align={align}>
       {images.map((image, index) => (

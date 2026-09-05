@@ -1,20 +1,4 @@
-/*
- * ================================ 文件注释 ================================
- * 【文件职责】合并会话查询服务的 Service Definition：精确读、关系追踪、过滤器与全文检索。
- *   提供 ctx.sessionQuery 抽象服务；后端（如 sqlite）实现全文观察、对账、排序、
- *   游标生成与查询执行。
- * 【技术维度】Cordis Service；抽象基类 SessionQueryEngine 提供与后端无关的确定性行为
- *   （列表/读取/过滤/标题折叠/事件窗口/血缘追踪），后端只补全文检索部分。
- * 【产品维度】把"会话日志历史"变成可查询/可搜索/可追溯的产品能力：列表、单条读取、
- *   语义文档过滤、血缘与事件关系追踪。
- * 【逻辑维度】按代码顺序：类型导出 → SessionQueryEngine（构造配置校验、searchSessions/
- *   searchEvents 抽象、listSessions/readSession/filterSessions/readTitle*、listEvents/
- *   filterEvents/readSurface/traceSession/traceEvent/readEvent + 私有辅助）。
- * 【关键边界】readWindowMax 与 persistedInspectConcurrency 在构造时校验；
- *   持久化读取失败映射为 SESSION_QUERY_PERSISTENCE_FAILED 等稳定错误码。
- * 【新手阅读建议】先读 types.ts 的请求/响应类型，再看 SessionQueryEngine 的公开方法。
- * ==========================================================================
- */
+
 
 /**
  * Service Definition for combined session-history reads, traces, filters, and full-text search.
@@ -22,8 +6,18 @@
  * @module @deepseek-ai/dsh-session-query
  */
 
+/*
+ * 【文件职责】定义历史精确读取、筛选、关系追踪和全文检索服务，后端只实现全文观察、索引与排序部分。
+ */
+
 import { Context, Service } from '@deepseek-ai/cordis'
-import { Session, snapshotSessionEvent, type SessionId } from '@deepseek-ai/dsh-session'
+import {
+  Session,
+  SessionSeq,
+  snapshotSessionEvent,
+  type SessionId,
+  type SessionSeq as SessionSeqType,
+} from '@deepseek-ai/dsh-session'
 import { foldSessionTitle } from '@deepseek-ai/dsh-session-title'
 import type { SessionTitleSnapshot } from '@deepseek-ai/dsh-session-title'
 import type {
@@ -50,6 +44,7 @@ import type {
 } from './types.ts'
 import {
   SESSION_QUERY_DEFAULT_PERSISTED_INSPECT_CONCURRENCY,
+  SESSION_QUERY_DEFAULT_PREPARED_SESSION_CACHE_SIZE,
   SESSION_QUERY_READ_WINDOW_MAX,
   SessionQueryError,
   type Config,
@@ -74,9 +69,12 @@ export { SessionSearchCursor } from './cursor.ts'
 export type { Config, SessionQueryErrorCode } from './config.ts'
 export {
   SESSION_QUERY_DEFAULT_PERSISTED_INSPECT_CONCURRENCY,
+  SESSION_QUERY_DEFAULT_PREPARED_SESSION_CACHE_SIZE,
   SESSION_QUERY_READ_WINDOW_MAX,
   SessionQueryError,
 } from './config.ts'
+export { readColdSessionLog } from './cold-read.ts'
+export type { ColdSessionLog } from './cold-read.ts'
 export { extractSessionEventText } from './extraction.ts'
 export { buildSessionEventRecords, buildSessionEventSearchDocuments } from './documents.ts'
 export {
@@ -120,16 +118,24 @@ export abstract class SessionQueryEngine extends Service {
         'SESSION_QUERY_INVALID_CONFIG',
       )
     }
-    const persistedInspectConcurrency = config.persistedInspectConcurrency
+    const persistedReadConcurrency = config.persistedReadConcurrency
       ?? SESSION_QUERY_DEFAULT_PERSISTED_INSPECT_CONCURRENCY
-    if (!Number.isSafeInteger(persistedInspectConcurrency) || persistedInspectConcurrency < 1) {
+    if (!Number.isSafeInteger(persistedReadConcurrency) || persistedReadConcurrency < 1) {
       throw new SessionQueryError(
-        'session-query: persistedInspectConcurrency must be a positive safe integer',
+        'session-query: persistedReadConcurrency must be a positive safe integer',
         'SESSION_QUERY_INVALID_CONFIG',
       )
     }
-    this._corpus = new SessionCorpus(ctx, persistedInspectConcurrency)
-    this._observations = new SessionObservationReader(ctx)
+    const preparedSessionCacheSize = config.preparedSessionCacheSize
+      ?? SESSION_QUERY_DEFAULT_PREPARED_SESSION_CACHE_SIZE
+    if (!Number.isSafeInteger(preparedSessionCacheSize) || preparedSessionCacheSize < 1) {
+      throw new SessionQueryError(
+        'session-query: preparedSessionCacheSize must be a positive safe integer',
+        'SESSION_QUERY_INVALID_CONFIG',
+      )
+    }
+    this._corpus = new SessionCorpus(ctx, persistedReadConcurrency)
+    this._observations = new SessionObservationReader(ctx, preparedSessionCacheSize)
   }
 
   /**
@@ -186,9 +192,15 @@ export abstract class SessionQueryEngine extends Service {
   // 触发校验 → 返回克隆的 header 与原始事件快照。
   async readSession(sessionId: SessionId): Promise<SessionLogSnapshot> {
     const loaded = await this._corpus.load(sessionId)
-    Session.create(sessionId, loaded.events, loaded.header)
+    Session.create(
+      sessionId,
+      loaded.events,
+      loaded.header,
+      loaded.inheritedEventCount,
+    )
     return {
       session: structuredClone(loaded.header),
+      inheritedEventCount: loaded.inheritedEventCount,
       events: loaded.events.map(snapshotSessionEvent),
     }
   }
@@ -307,6 +319,7 @@ export abstract class SessionQueryEngine extends Service {
     const loaded = await this._corpus.load(sessionId)
     return {
       session: structuredClone(loaded.header),
+      inheritedEventCount: loaded.inheritedEventCount,
       capturedThroughSeq: loaded.events.at(-1)?.seq ?? null,
       events: tracing.currentSurfaceEvents(sessionId, loaded.events),
     }
@@ -357,7 +370,7 @@ export abstract class SessionQueryEngine extends Service {
 
   private async _readEvent(
     sessionId: SessionId,
-    seq: number,
+    seq: SessionSeqType,
     before: number,
     after: number,
     signal?: AbortSignal,
@@ -371,8 +384,8 @@ export abstract class SessionQueryEngine extends Service {
         'SESSION_QUERY_EVENT_NOT_FOUND',
       )
     }
-    const startSeq = Math.max(0, seq - before)
-    const endSeq = Math.min(loaded.events.length - 1, seq + after)
+    const startSeq = SessionSeq(Math.max(0, seq - before))
+    const endSeq = SessionSeq(Math.min(loaded.events.length - 1, seq + after))
     const targetSnapshot = snapshotSessionEvent(target)
     const events = loaded.events.slice(startSeq, endSeq + 1)
       .map(event => event === target
@@ -380,6 +393,7 @@ export abstract class SessionQueryEngine extends Service {
         : snapshotSessionEvent(event))
     return {
       session: structuredClone(loaded.header),
+      inheritedEventCount: loaded.inheritedEventCount,
       target: targetSnapshot,
       events,
       startSeq,

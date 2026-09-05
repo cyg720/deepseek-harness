@@ -1,19 +1,9 @@
-/**
- * Remote namespaces the Session cluster calls. One parameter for one concept:
- * the generated surface a Session and its manager reach the Host through.
- *
- * @module @deepseek-ai/dsh-api-session-controller/client/sessions/remotes
- * @remarks 文件说明：文件职责：实现 api/session-controller 中 remotes 模块的职责，
- * 并向相邻模块提供可复用能力。；技术维度：主要使用TypeScript/JavaScript 的 ESM 模块、严格类型约束与 Cordis
- * 插件机制，通过当前文件中的类型、函数与数据结构完成实现。；产品维度：支撑 DeepSeek Harness 的
- * api/session-controller 能力，使上层功能能够稳定组合和扩展。；逻辑维度：建议按“依赖与类型定义 → 常量和状态 →
- * 核心函数或类 → 导出或注册入口”的顺序理解。；关键边界：调用方必须遵守类型、生命周期和错误处理约定；
- * 涉及外部输入、异步任务或资源释放时需特别关注异常分支。；新手阅读建议：先确认导入依赖和公开导出，再沿主要函数调用链阅读，
- * 最后结合相邻测试理解输入、输出与边界条件。
+/*
+ * 【文件职责】限定 Session 及其管理器可调用的 Remote 命名空间，集中声明客户端所需的主机操作。
  */
 
-import type { EncodedImageAttachment } from '@deepseek-ai/dsh-attachment/types'
 import type { ClientRemote } from '@deepseek-ai/dsh-api-gateway/client'
+import type { CommandSubmitAttachment } from '@deepseek-ai/dsh-commands/types'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import type {
   SubagentCatalog, SubagentInterruptReceipt, SubagentPromptReceipt, SubagentPromptRequest,
@@ -37,7 +27,7 @@ export interface SessionCommandsRemote {
   execute(
     agentId: SessionId,
     line: string,
-    images: readonly EncodedImageAttachment[],
+    attachments: readonly CommandSubmitAttachment[],
     signal?: AbortSignal,
   ): Promise<RemoteResult<object | undefined>>
 }

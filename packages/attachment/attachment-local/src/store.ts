@@ -1,15 +1,12 @@
 /** Content-addressed, owner-private local attachment storage. */
+
 /*
- * 文件职责：以SHA-256内容寻址方式在本地私有目录中准备、持久提交、读取并校验规范化图片。
- * 技术维度：使用Node.js文件句柄、硬链接、fsync、权限位和原子临时文件实现崩溃安全的去重发布。
- * 产品维度：保证会话日志中的附件引用在进程或机器重启后仍指向完整、不可被静默替换的图片字节。
- * 逻辑维度：验证来源并规范化，构造引用，持久化目录链，写临时文件后硬链接发布，读取时重算摘要和元数据。
- * 关键边界：引用仅接受sha256加64位小写十六进制；目录权限为私有；Windows跳过目录fsync但保留文件原子性。
- * 新手阅读建议：先看 prepareImageFile 如何生成引用，再看 commitPreparedImageFile 的发布顺序，最后读 readImageFile 的验证链。
+ * 【文件职责】管理按内容寻址的私有附件对象；
+ * 附件引用决定不可变对象位置，读取时仍须验证对象内容。
  */
 
 import { createHash, randomUUID } from 'node:crypto'
-import { constants } from 'node:fs'
+import { constants, createReadStream } from 'node:fs'
 import { chmod, link, mkdir, open, readFile, unlink } from 'node:fs/promises'
 import { dirname, join, parse, resolve } from 'node:path'
 import {
@@ -229,65 +226,212 @@ export async function commitPreparedImageFile(
   if (digest(normalized) !== sha256 || normalized.byteLength !== prepared.ref.bytes) {
     throw new AttachmentError('Prepared attachment bytes do not match their reference.', 'ATTACHMENT_CORRUPT')
   }
-  // 最终对象所在的摘要前缀分桶目录。
-  const bucket = join(root, 'objects', sha256.slice(0, 2))
-  // 与对象存储位于同一附件根下的私有暂存目录。
+  await publishImmutableObject(root, normalizedImagePath(root, prepared.ref), normalized, sha256)
+  return prepared.ref
+}
+
+/**
+ * Publish one immutable content-addressed object below a versioned attachment
+ * root: staged write, fsync, hard-link into place, digest-verified EEXIST
+ * deduplication, read-only mode, and durable directory entries from the
+ * target's parent up to (excluding) `root`.
+ * @param root - absolute `DSH_HOME/attachments/v1` root.
+ * @param target - absolute final object path below `root`.
+ * @param data - exact object bytes whose digest is `sha256`.
+ * @param sha256 - hex digest the stored bytes must match on deduplication.
+ */
+export async function publishImmutableObject(
+  root: string,
+  target: string,
+  data: Uint8Array,
+  sha256: string,
+): Promise<void> {
+  const staged = await stageImmutableObject(root, (function* (): Iterable<Uint8Array> {
+    yield data
+  })())
+  if (staged.sha256 !== sha256) {
+    await removeTemporary(staged.path)
+    throw new AttachmentError('Attachment bytes do not match their publication digest.', 'ATTACHMENT_CORRUPT')
+  }
+  await publishStagedObject(root, target, staged)
+}
+
+/** Digest and byte count produced while streaming one immutable object to disk. */
+export interface StreamedImmutableObject {
+  readonly sha256: string
+  readonly bytes: number
+}
+
+/**
+ * Stream one immutable object from bounded chunks into a staging file, then
+ * publish it at a digest-derived target without collecting the complete object in memory.
+ * @param root - absolute `DSH_HOME/attachments/v1` root.
+ * @param data - exact object bytes in order.
+ * @param targetFor - derive the final absolute target from the completed digest and byte count.
+ * @param signal - optional cancellation for source reads and storage writes.
+ * @returns digest and exact byte count of the published object.
+ */
+export async function publishImmutableObjectStream(
+  root: string,
+  data: AsyncIterable<Uint8Array>,
+  targetFor: (sha256: string, bytes: number) => string,
+  signal?: AbortSignal,
+): Promise<StreamedImmutableObject> {
+  const staged = await stageImmutableObject(root, data, signal)
+  let target: string
+  try {
+    target = targetFor(staged.sha256, staged.bytes)
+  } catch (error) {
+    /* v8 ignore start -- The local target callback constructs a validated reference from this function's digest. */
+    await removeTemporary(staged.path)
+    throw error
+    /* v8 ignore stop */
+  }
+  await publishStagedObject(root, target, staged)
+  return { sha256: staged.sha256, bytes: staged.bytes }
+}
+
+/**
+ * Publish another durable hard-link name for an existing immutable object.
+ * @param root - absolute versioned attachment root.
+ * @param source - existing content-addressed object below `root`.
+ * @param target - new alias below `root`.
+ * @param sha256 - expected object digest for an existing-target race.
+ */
+export async function publishImmutableAlias(
+  root: string,
+  source: string,
+  target: string,
+  sha256: string,
+): Promise<void> {
+  const parent = dirname(target)
+  try {
+    const boundary = await ensureDurableHome(dirname(dirname(resolve(root))))
+    await ensureDurableDirectory(parent, boundary)
+    try {
+      await link(source, target)
+    } catch (error) {
+      /* v8 ignore next -- Private same-filesystem directories make EEXIST the only recoverable link race. */
+      if (!(error instanceof Error && 'code' in error && error.code === 'EEXIST')) throw error
+      if (await digestFile(target) !== sha256) {
+        throw new AttachmentError('Stored attachment failed integrity verification.', 'ATTACHMENT_CORRUPT')
+      }
+    }
+    await chmod(target, 0o400)
+    const stop = resolve(root)
+    for (let level = parent; level !== stop; level = dirname(level)) {
+      await syncDirectory(level)
+      /* v8 ignore next -- filesystem-root guard: targets sit below root, so the walk reaches `stop` first. */
+      if (dirname(level) === level) break
+    }
+  } catch (error) {
+    if (error instanceof AttachmentError) throw error
+    throw new AttachmentError('Unable to persist attachment.', 'ATTACHMENT_WRITE_FAILED', { cause: error })
+  }
+}
+
+interface StagedImmutableObject extends StreamedImmutableObject {
+  readonly path: string
+  readonly boundary: string
+}
+
+async function stageImmutableObject(
+  root: string,
+  data: AsyncIterable<Uint8Array> | Iterable<Uint8Array>,
+  signal?: AbortSignal,
+): Promise<StagedImmutableObject> {
   const staging = join(root, 'tmp')
   // Establish DSH_HOME itself against the filesystem root once per process.
   // Every process performs that proof independently, so observing a directory
   // another process created can never be mistaken for durable publication.
   // 当前进程确认耐久的DSH_HOME边界。
   const boundary = await ensureDurableHome(dirname(dirname(resolve(root))))
-  await ensureDurableDirectory(bucket, boundary)
   await ensureDurableDirectory(staging, boundary)
   // 使用随机名称且以独占方式创建的暂存文件路径。
   const temporary = join(staging, randomUUID())
-  const target = normalizedImagePath(root, prepared.ref)
   let handle
   try {
     handle = await open(temporary, constants.O_CREAT | constants.O_EXCL | constants.O_WRONLY, 0o600)
-    await handle.writeFile(normalized)
+    const hash = createHash('sha256')
+    let bytes = 0
+    for await (const chunk of data) {
+      signal?.throwIfAborted()
+      await handle.writeFile(chunk)
+      hash.update(chunk)
+      bytes += chunk.byteLength
+    }
+    signal?.throwIfAborted()
     await handle.sync()
+    signal?.throwIfAborted()
     await handle.close()
     handle = undefined
-    try {
-      await link(temporary, target)
-    } catch (error) {
-      /* v8 ignore next -- Private same-filesystem directories make EEXIST the only recoverable link race. */
-      if (!(error instanceof Error && 'code' in error && error.code === 'EEXIST')) throw error
-      // 并发写入者已发布的现有对象字节。
-      const existing = new Uint8Array(await readFile(target))
-      if (digest(existing) !== sha256) throw new AttachmentError('Stored attachment failed integrity verification.', 'ATTACHMENT_CORRUPT')
-    }
-    // Windows shares the read-only attribute across hard links and refuses to
-    // unlink either name once it is set, so discard the staging name first.
-    await unlink(temporary)
-    // The target remains the sole link for a new object; this also restores
-    // read-only mode when the deduplication path observes an existing object.
-    await chmod(target, 0o400)
-    // Persist the target entry and close a concurrent bucket-creation window
-    // before the reference can reach a session checkpoint. The dedup path
-    // repeats both syncs because it may observe another writer's link before
-    // that writer reaches its own durability boundary.
-    await syncDirectory(bucket)
-    await syncDirectory(join(root, 'objects'))
+    return { path: temporary, boundary, sha256: hash.digest('hex'), bytes }
   } catch (error) {
-    /* v8 ignore next -- A descriptor can remain open only when the underlying write/sync/close operation fails. */
+    /* v8 ignore next -- A descriptor remains open only when write, sync, or close fails. */
     if (handle !== undefined) await handle.close().catch(
       /* v8 ignore next -- Close failure is superseded by the storage operation that entered cleanup. */
       () => {},
     )
-    await unlink(temporary).catch(
-      /* v8 ignore next -- The callback requires a second independent staging-unlink failure. */
-      (cleanupError: unknown) => {
-        /* v8 ignore next -- Cleanup is best-effort only for a staging file already removed by a failed operation. */
-        if (!(cleanupError instanceof Error && 'code' in cleanupError && cleanupError.code === 'ENOENT')) throw cleanupError
-      },
-    )
-    if (error instanceof AttachmentError) throw error
-    throw new AttachmentError('Unable to persist image attachment.', 'ATTACHMENT_WRITE_FAILED', { cause: error })
+    await removeTemporary(temporary)
+    if (error instanceof AttachmentError || signal?.aborted === true) throw error
+    throw new AttachmentError('Unable to persist attachment.', 'ATTACHMENT_WRITE_FAILED', { cause: error })
   }
-  return prepared.ref
+}
+
+async function publishStagedObject(
+  root: string,
+  target: string,
+  staged: StagedImmutableObject,
+): Promise<void> {
+  const parent = dirname(target)
+  try {
+    await ensureDurableDirectory(parent, staged.boundary)
+    try {
+      await link(staged.path, target)
+    } catch (error) {
+      /* v8 ignore next -- Private same-filesystem directories make EEXIST the only recoverable link race. */
+      if (!(error instanceof Error && 'code' in error && error.code === 'EEXIST')) throw error
+      if (await digestFile(target) !== staged.sha256) {
+        throw new AttachmentError('Stored attachment failed integrity verification.', 'ATTACHMENT_CORRUPT')
+      }
+    }
+    // Windows shares the read-only attribute across hard links and refuses to
+    // unlink either name once it is set, so discard the staging name first.
+    await unlink(staged.path)
+    // The target remains the sole link for a new object; this also restores
+    // read-only mode when the deduplication path observes an existing object.
+    await chmod(target, 0o400)
+    // Persist the target entry and close every concurrent parent-creation
+    // window before the reference can reach a session checkpoint. The dedup
+    // path repeats these syncs because it may observe another writer's link
+    // before that writer reaches its own durability boundary.
+    const stop = resolve(root)
+    for (let level = parent; level !== stop; level = dirname(level)) {
+      await syncDirectory(level)
+      /* v8 ignore next -- filesystem-root guard: targets sit below root, so the walk reaches `stop` first. */
+      if (dirname(level) === level) break
+    }
+  } catch (error) {
+    await removeTemporary(staged.path)
+    if (error instanceof AttachmentError) throw error
+    throw new AttachmentError('Unable to persist attachment.', 'ATTACHMENT_WRITE_FAILED', { cause: error })
+  }
+}
+
+async function digestFile(path: string): Promise<string> {
+  const hash = createHash('sha256')
+  for await (const chunk of createReadStream(path) as AsyncIterable<Buffer>) hash.update(chunk)
+  return hash.digest('hex')
+}
+
+async function removeTemporary(path: string): Promise<void> {
+  await unlink(path).catch(
+    /* v8 ignore next -- Cleanup can observe a staging name already removed after successful linking. */
+    (cleanupError: unknown) => {
+      /* v8 ignore next -- Any cleanup failure except an absent staging name must remain visible. */
+      if (!(cleanupError instanceof Error && 'code' in cleanupError && cleanupError.code === 'ENOENT')) throw cleanupError
+    },
+  )
 }
 
 /**

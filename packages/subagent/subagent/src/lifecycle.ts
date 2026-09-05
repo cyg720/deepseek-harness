@@ -1,22 +1,4 @@
-/*
- * ================================ 文件注释 ================================
- * 【文件职责】子代理生命周期事件的发布实现：包含的发射器（emitter）、一次性运行的观察器、
- *   可续聊 Activation 的观察器。公开载荷类型在 types.ts，本模块只保留实现与包内私有的
- *   ActivationObserver 契约。
- * 【技术维度】createLifecycleEmitter 用 ctx.events.dispatch 手动派发并逐个隔离监听器异常；
- *   observeRun 用 run.result.then 挂终止观察；createActivationObserver 记录日志边界
- *   （boundary）只统计本 epoch 的后缀，避免冷恢复把旧回合算进来。
- * 【产品维度】一次性与续聊子代理对外呈现同一套 start/end 事件对，观察者无需关心子代理
- *   是 resident、被唤醒还是冷恢复的。
- * 【逻辑维度】按代码顺序：ActivationTerminal → ActivationObserver → LifecycleEmitter →
- *   createLifecycleEmitter → observeRun → createActivationObserver → epochStopReason →
- *   renderThrown。
- * 【关键边界】创建在"驻留前"失败不发任何生命周期边（不虚构生命周期）；
- *   拆解失败（teardown failure）覆盖本 epoch 自身的结果并扣留输出。
- * 【新手阅读建议】先看 observeRun 的 start→end 配对，再看 createActivationObserver 的
- *   start/capture/settle 顺序契约。
- * ==========================================================================
- */
+
 
 /**
  * Lifecycle-edge publication for both subagent shapes: the contained emitter,
@@ -34,12 +16,17 @@
  * @module @deepseek-ai/dsh-subagent/lifecycle
  */
 
+/*
+ * 【文件职责】统一发布一次性及可继续子 Agent 的生命周期边，隔离观察者错误并保持内部控制接口私有。
+ */
+
 import { randomUUID } from 'node:crypto'
 import type { Context } from '@deepseek-ai/cordis'
 import type { Agent } from '@deepseek-ai/dsh-agent'
 import type { ContentBlock } from '@deepseek-ai/dsh-llm'
 import { foldConsumedWork } from '@deepseek-ai/dsh-agent'
-import type { SessionEvent, SessionId } from '@deepseek-ai/dsh-session'
+import { SessionLogOffset } from '@deepseek-ai/dsh-session'
+import type { SessionEvent, SessionId, SessionLogOffset as SessionLogOffsetType } from '@deepseek-ai/dsh-session'
 import { finalAssistantOutput } from './assistant-output.ts'
 import { SubagentRunId } from './types.ts'
 import type { SubagentResult, SubagentRun, SubagentRunEndInfo, SubagentRunInfo } from './types.ts'
@@ -216,7 +203,7 @@ export function createActivationObserver(
   // A cold resume replays earlier turns, so this epoch's telemetry must come
   // from the suffix it actually produced — never the whole session, which
   // would report a previous epoch's answer when this one opened no turn.
-  let boundary = 0
+  let boundary: SessionLogOffsetType = SessionLogOffset(0)
   // Assigned by `capture()`, which the disposal path always runs before
   // `settle()`; a resident epoch therefore always has its facts by then.
   let captured: ActivationTerminal = { stopReason: 'completed' }
@@ -227,11 +214,11 @@ export function createActivationObserver(
     : { stopReason: 'error' }
   return {
     start: (child: Agent): void => {
-      boundary = child.session.events.length
+      boundary = child.session.seq
       emit('subagent/start', identity, parent)
     },
     capture: (child: Agent): void => {
-      const own = child.session.events.slice(boundary)
+      const own = child.session.snapshotEvents(boundary)
       const output = finalAssistantOutput(own)
       captured = {
         stopReason: epochStopReason(own),

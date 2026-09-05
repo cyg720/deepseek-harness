@@ -12,8 +12,7 @@ import Loader from '@deepseek-ai/cordis-plugin-loader'
 import { agentEvents, type Agent } from '@deepseek-ai/dsh-agent'
 import LlmRuntime, { ToolCallId, type GenerateOptions, LlmAdapter, type StreamChunk } from '@deepseek-ai/dsh-llm'
 import SessionStore, { SessionId } from '@deepseek-ai/dsh-session'
-import type { SessionEvent, SessionHeader } from '@deepseek-ai/dsh-session'
-import SessionPersistence from '@deepseek-ai/dsh-session-persistence'
+import SessionPersistence, { type SessionHandle, type SessionPersistenceSnapshot } from '@deepseek-ai/dsh-session-persistence'
 import SystemPrompt from '@deepseek-ai/dsh-system-prompt'
 import ToolRuntime, { TOOL_ABORTED_BEFORE_DISPATCH } from '@deepseek-ai/dsh-tools'
 import * as checkpointPolicy from '../src/index.ts'
@@ -21,27 +20,14 @@ import * as checkpointPolicy from '../src/index.ts'
 /** 中文说明：变量 contexts 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const contexts: Context[] = []
 
-/** 中文说明：class TestPersistence 定义本测试所需的数据或行为，用于表达会话持久化场景。 */
+// The policy only requires the service's presence; it flushes through
+// `ctx.sessions`, so no handle is ever opened in these tests.
 class TestPersistence extends SessionPersistence {
-  override readonly supportsRawArtifacts = false
-
-  locate(_meta: SessionHeader): undefined { return undefined }
-  create(_meta: SessionHeader): Promise<void> { return Promise.resolve() }
-  append(_id: SessionId, _events: readonly SessionEvent[]): Promise<void> { return Promise.resolve() }
-  load(_id: SessionId): Promise<{ meta: SessionHeader; events: SessionEvent[] }> {
-    return Promise.reject(new Error('not used'))
-  }
-  inspect(_id: SessionId): Promise<{ meta: SessionHeader; events: SessionEvent[] }> {
-    return Promise.reject(new Error('not used'))
-  }
-  borrowSession(_id: SessionId, _signal?: AbortSignal): ReturnType<SessionPersistence['borrowSession']> {
-    return Promise.reject(new Error('not used'))
-  }
-  readFrom(_id: SessionId, _fromSeq: number): Promise<{ meta: SessionHeader; events: SessionEvent[] }> {
-    return Promise.reject(new Error('not used'))
-  }
-  list(): Promise<SessionHeader[]> { return Promise.resolve([]) }
-  listSnapshots(): Promise<never[]> { return Promise.resolve([]) }
+  create(): Promise<SessionHandle> { return Promise.reject(new Error('not used')) }
+  open(): Promise<SessionHandle> { return Promise.reject(new Error('not used')) }
+  flush(): Promise<void> { return Promise.resolve() }
+  stat(): Promise<SessionPersistenceSnapshot | undefined> { return Promise.resolve(undefined) }
+  list(): Promise<readonly SessionPersistenceSnapshot[]> { return Promise.resolve([]) }
 }
 
 /** 中文说明：class RecordingAdapter 定义本测试所需的数据或行为，用于表达会话持久化场景。 */

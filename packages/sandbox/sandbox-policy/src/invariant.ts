@@ -1,12 +1,7 @@
 /** Package-owned session-event invariants for sandbox policy. @module @deepseek-ai/dsh-sandbox-policy/invariant */
+
 /*
- * 中文说明：
- * - 文件职责：为沙箱策略包拥有的会话事件注册运行时不变量校验。
- * - 技术维度：使用 Cordis 伴生插件、会话事件回放、全局 dispatch 监听和类型收窄。
- * - 产品维度：阻止未知沙箱模式进入会话日志，避免恢复会话时产生错误权限状态。
- * - 逻辑维度：先校验已有会话的历史事件，再监听新追加事件，并将安装器登记到不变量服务。
- * - 关键边界：只处理 sandbox/mode，其他包的事件明确忽略；需要 sessions 与 invariants 服务。
- * - 新手阅读建议：先读 validateEvent 的唯一规则，再看 install 如何覆盖历史与实时两条路径。
+ * 【文件职责】检查沙箱策略相关的会话事件，约束策略事实与持久记录的关系。
  */
 
 import type { Context } from '@deepseek-ai/cordis'
@@ -39,8 +34,7 @@ function validateEvent(event: SessionEvent, fail: InvariantFailure): void {
 const install: InvariantInstaller = Object.assign((ctx: Context, fail: InvariantFailure) => {
   /** session 是当前已载入的单个会话。 */
   for (const session of ctx.sessions.list()) {
-    /** event 是该会话的一条历史事件。 */
-    for (const event of session.events) validateEvent(event, fail)
+    for (const event of session.snapshotEvents()) validateEvent(event, fail)
   }
   ctx.on('internal/dispatch', (_mode, eventName, args) => {
     if (eventName !== 'session/event') return

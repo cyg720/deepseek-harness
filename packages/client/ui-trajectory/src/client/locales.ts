@@ -2,6 +2,11 @@
 
 /** Dictionary namespace owned by this plugin. */
 // 本插件拥有的字典命名空间名。
+
+/*
+ * 【文件职责】集中定义完整轨迹视图使用的本地化文案。
+ */
+
 export const NS = 'trajectory'
 
 /** Simplified Chinese dictionary (the key-set source of truth). */
@@ -175,6 +180,7 @@ export const zh = {
   'layout.compacted': '上下文已压缩',
   'layout.toolCallOnly': '仅工具调用',
   'layout.imageOnly': '图片 ×{count}',
+  'layout.fileAttachments': '文件 ×{count}',
   'layout.initialSystemPrompt': '初始系统提示词',
   'layout.systemPromptUpdated': '系统提示词已更新',
   'layout.toolsUpdated': '工具已更新',
@@ -367,6 +373,7 @@ export const en: Record<TrajectoryKey, string> = {
   'layout.compacted': 'Context compacted',
   'layout.toolCallOnly': 'Tool call only',
   'layout.imageOnly': 'Images ×{count}',
+  'layout.fileAttachments': 'Files ×{count}',
   'layout.initialSystemPrompt': 'Initial System Prompt',
   'layout.systemPromptUpdated': 'System Prompt Updated',
   'layout.toolsUpdated': 'Tools Updated',

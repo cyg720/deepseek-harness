@@ -6,15 +6,7 @@
  */
 
 /*
- * ================================ 文件注释 ================================
- * 【文件职责】dsh-agent 插件本体：AgentRegistry 服务（ctx.agents）维护在线 agent 注册表，并提供进程内“发起者（initiator）”作用域链；智能体的具体创建由 AgentLoop 工厂实现。
- * 【技术维度】Cordis Service + AsyncLocalStorage 传播发起者；事件带作用域载体（Scoped<Agent>）分发；factory 经 getTraceable 重定向到调用者上下文，使所有权跟随调用者。
- * 【产品维度】这是所有 agent 能力的中枢：创建/恢复/查询 agent、事件订阅、以及“当前由哪个 agent 发起”的因果归属，供日志、指标、宿主归因使用。
- * 【逻辑维度】类型与事件声明（AgentSetup/Handle/Factory/Events 合并）→ AgentRegistry（注册表 + enter/announce 两段式发布）
- * → 发起者管理（withInitiator/runWithInitiator/关闭与排空）。
- * 【关键边界】注册表是权威碰撞边界：同 id 只能有一个 live 条目；enter 与 announce 分离以支持异步工厂的“先 setup 后发布”；发起者链在 teardown 时排空但不等待自身排空。
- * 【新手阅读建议】先读 AgentFactory 接口了解“创建者”契约，再看 AgentRegistry 的 enter/announce/detachEntered 顺序发布逻辑，最后看发起者（initiator）三个公开方法。
- * ==========================================================================
+ * 【文件职责】提供实时 Agent 注册、工厂委托及进程内发起者作用域，具体创建与驱动由 agent-loop 承担。
  */
 
 import { Context, FiberState, getTraceable, Service, symbols } from '@deepseek-ai/cordis'
@@ -23,7 +15,7 @@ import { AsyncLocalStorage } from 'node:async_hooks'
 import { isPromise } from 'node:util/types'
 import { scopeTarget } from '@deepseek-ai/dsh-scope'
 import type { Scoped } from '@deepseek-ai/dsh-scope'
-import type { SessionEvent, SessionId } from '@deepseek-ai/dsh-session'
+import type { SessionEvent, SessionId, SessionLogOffset } from '@deepseek-ai/dsh-session'
 import type { Agent } from './types.ts'
 import type { AgentOptions } from './runtime-types.ts'
 
@@ -85,9 +77,9 @@ export interface CreateAgentOptions {
   readonly sessionId: SessionId
   /**
    * Session creation metadata: validated absolute `cwd`, `parentSession`
-   * fork lineage, the `seedLength` seed boundary, the coarse `origin`
+   * fork lineage, the `isSeeded` fork marker, the coarse `origin`
    * classification, and the `delegationDepth` recursion budget. Mirrors the
-   * `cwd`/`parentSession`/`seedLength`/`origin`/`delegationDepth` fields of
+   * `cwd`/`parentSession`/`isSeeded`/`origin`/`delegationDepth` fields of
    * {@link CreateSessionOptions.meta} in dsh-session (the internal-only
    * `createdAt`, used when reconstructing a persisted session, is deliberately
    * excluded — a factory caller never sets it). This is durable session data,
@@ -97,11 +89,13 @@ export interface CreateAgentOptions {
   readonly meta?: {
     readonly cwd?: string
     readonly parentSession?: SessionId
-    readonly seedLength?: number
+    readonly isSeeded?: boolean
     readonly origin?: 'subagent'
     readonly delegationDepth?: number
     readonly agentPreset?: string
   }
+  /** Exact fork-inherited prefix length when the session metadata sets `isSeeded`. */
+  readonly inheritedEventCount?: SessionLogOffset
   /**
    * Initial replay/fork history. A fork supplies a balanced completed-turn
    * prefix of the parent's log. The complete seed must be contiguous from seq
@@ -204,11 +198,12 @@ export interface AgentFactory {
    */
   createAgent(ownerCtx: Context, options: CreateAgentOptions): Promise<AgentHandle>
   /**
-   * Prepare a persisted session and resume an agent on it. Async because it awaits
-   * both `ctx.sessionPersistence.prepare` and the optional unpublished setup
-   * transaction; must be called after that service exists (consumers inject
-   * `sessionPersistence`). Publication follows the same setup-commit and
-   * ordered boundary as {@link createAgent}.
+   * Resume an agent on a persisted session. Async because it opens the
+   * persisted session for write, reads and repairs the log, publishes it, and
+   * awaits the optional unpublished setup transaction; must be called after
+   * `ctx.sessionPersistence` exists (consumers inject `sessionPersistence`).
+   * Publication follows the same setup-commit and ordered boundary as
+   * {@link createAgent}.
    * @param ownerCtx - caller-bound context that owns load, setup, and the live handle.
    * @param options - persisted identity, configuration, and optional setup.
    * @returns the owned handle after setup, both announcements, and loop start complete.

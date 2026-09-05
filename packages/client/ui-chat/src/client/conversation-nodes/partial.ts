@@ -1,5 +1,12 @@
+/*
+ * 【文件职责】累积实时助手片段并维护块级不可变数据；
+ * 仅在片段会影响显示时发布新快照。
+ */
+
 import type { StreamChunk } from '@deepseek-ai/dsh-llm/types'
-import type { AssistantBlock, PartialAssistant } from '../contract/snapshot.ts'
+import type {
+  AssistantBlock, PartialAssistant,
+} from '@deepseek-ai/dsh-client-ui-conversation/client'
 import { emptyAssistantBlock, toAssistantBlock } from './event-projection.ts'
 
 /**
@@ -20,8 +27,7 @@ export function isVisibleAssistantChunk(type: string): boolean {
     || type === 'block-end'
 }
 
-/** assistant/chunk accumulator: folds StreamChunks into AssistantBlock[] with block-level immutability. */
-/* assistant/chunk 累加器：把 StreamChunk 折叠成 AssistantBlock[]，块级不可变。 */
+/** Live Assistant-frame accumulator: folds StreamChunks into AssistantBlock[] with block-level immutability. */
 export class PartialAccumulator {
   // Sparse on purpose: block-start may arrive out of order, leaving holes until compaction.
   // 有意稀疏：block-start 可能乱序到达，压实前会留下空洞。

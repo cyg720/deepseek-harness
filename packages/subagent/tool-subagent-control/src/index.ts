@@ -1,6 +1,6 @@
 /**
  * The globally named `send_message` and `interrupt_agent` tools: thin
- * model-facing adapters over `ctx.subagents.followup()` and
+ * model-facing adapters over `ctx.subagents.sendMessage()` and
  * `ctx.subagents.interrupt()`. They perform no lifecycle routing of their own —
  * residency, cold resume, and interrupt authorization belong to the subagent
  * service — and they live apart from the provider-bound
@@ -10,12 +10,7 @@
  */
 
 /*
- * 文件职责：实现 index.ts 覆盖的子代理工具行为与生命周期。
- * 技术维度：使用 TypeScript、Vitest、Cordis 插件、进程流、终端会话或快照规范化。
- * 产品维度：保障 Agent 的子代理工具能力稳定、可复现且可诊断。
- * 逻辑维度：准备输入和资源，执行核心流程，收集事件或输出，再处理错误与清理。
- * 关键边界：进程退出与取消可能竞态；外部输出不可信；清理必须等待子资源完全停止。
- * 新手阅读建议：先看类型和夹具，再读启动/收集主流程，最后关注平台差异、规范化和清理。
+ * 【文件职责】把 send_message 和 interrupt_agent 工具委托给子 Agent 服务，驻留、冷恢复及授权由服务统一处理。
  */
 
 import type { Context } from '@deepseek-ai/cordis'
@@ -24,6 +19,7 @@ import { defineTool } from '@deepseek-ai/dsh-tools'
 import type { ContentBlock } from '@deepseek-ai/dsh-llm'
 import type { SessionId } from '@deepseek-ai/dsh-session'
 import type {} from '@deepseek-ai/dsh-subagent'
+import { markAdjacentAgentSendMessageTool } from '@deepseek-ai/dsh-subagent/internal'
 
 export const name = 'tool-subagent-control'
 export const inject = ['tools', 'subagents']
@@ -33,24 +29,23 @@ export const inject = ['tools', 'subagents']
  * @param ctx - context carrying the tool registry and subagent service.
  */
 export function apply(ctx: Context): void {
-  ctx.tools.register(defineTool({
+  ctx.tools.register(markAdjacentAgentSendMessageTool(defineTool({
     name: 'send_message',
     description:
-      'Send a message to a background subagent by its subagent id, continuing the same conversation. It '
-      + 'becomes the subagent\'s next turn: if it is still working, the message waits until its current turn '
-      + 'finishes, so it cannot redirect work already underway. This call returns no answer from the '
-      + 'subagent — only confirmation that the message was delivered — so use it to give it more work. A '
-      + 'failure means the message was NOT delivered.',
+      'Send a message to a direct continuable child by its agent id. If you are a resident continuable child, '
+      + 'you may also target your direct parent. If the target is still working, the message steers its nearest step; '
+      + 'if it is idle, the message starts a turn. This call returns no answer from the agent — only confirmation '
+      + 'that the message was delivered. A failure means the message was NOT delivered.',
     parameters: {
-      subagent_id: {
+      agent_id: {
         type: 'string',
         required: true,
-        description: 'The subagent id returned when the background subagent was started.',
+        description: 'The agent id of your direct continuable child, or your direct parent when you are a resident continuable child.',
       },
       message: {
         type: 'string',
         required: true,
-        description: 'The message to deliver to the subagent.',
+        description: 'The message to deliver to the agent.',
       },
     },
     output: {
@@ -63,28 +58,24 @@ export function apply(ctx: Context): void {
       },
       render: (args, _value) => [{
         type: 'text',
-        text: `message queued as the next turn for subagent ${args.subagent_id}`,
+        text: `message delivered to agent ${args.agent_id}`,
       }],
     },
     async execute(args, exec) {
-      const parent = exec.agent
-      if (!parent) {
-        // Parent authority requires an exact live calling agent.
+      const sender = exec.agent
+      if (!sender) {
         throw new Error('send_message requires a calling agent (exec.agent was undefined)')
       }
       const message: ContentBlock[] = [{ type: 'text', text: args.message }]
-      const messageId = await ctx.subagents.followup(
-        parent,
-        brandString<SessionId>(args.subagent_id),
+      const messageId = await ctx.subagents.sendMessage(
+        sender,
+        brandString<SessionId>(args.agent_id),
         message,
-        {
-          source: { kind: 'coordinator', form: 'relay', senderSessionId: parent.id },
-          signal: exec.signal,
-        },
+        { signal: exec.signal },
       )
       return { messageId }
     },
-  }))
+  })))
 
   ctx.tools.register(defineTool({
     name: 'interrupt_agent',

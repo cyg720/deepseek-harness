@@ -1,18 +1,8 @@
-/**
- * Frozen input-machine contract. Types
- * only. Three-tier visibility: business packages see InputState via the
- * InputZone currency; the scoped input events carry the mutation verbs; the
- * conversation wiring layer alone sees the full SessionInput. The draft text
- * and its reference chips live in the shell's Lexical editor; the machine
- * here is the submit plane (phase, claim, attempt) alone.
- * @remarks 文件说明：文件职责：实现 client/ui-conversation 中 input 模块的职责，并向相邻模块提供可复用能力。
- * ；技术维度：主要使用TypeScript/JavaScript 的 ESM 模块、严格类型约束与 Cordis 插件机制，
- * 通过当前文件中的类型、函数与数据结构完成实现。；产品维度：支撑 DeepSeek Harness 的
- * client/ui-conversation 能力，使上层功能能够稳定组合和扩展。；逻辑维度：建议按“依赖与类型定义 → 常量和状态 →
- * 核心函数或类 → 导出或注册入口”的顺序理解。；关键边界：调用方必须遵守类型、生命周期和错误处理约定；
- * 涉及外部输入、异步任务或资源释放时需特别关注异常分支。；新手阅读建议：先确认导入依赖和公开导出，再沿主要函数调用链阅读，
- * 最后结合相邻测试理解输入、输出与边界条件。
+/*
+ * 【文件职责】定义输入提交状态机的事件和状态；
+ * 草稿文本由 Lexical 编辑器持有，状态机只管理提交认领与尝试。
  */
+
 import type { Context } from '@deepseek-ai/cordis'
 import type { ObservableSnapshot, SnapshotStore } from '@deepseek-ai/dsh-client-store'
 import type { Branded } from '@deepseek-ai/dsh-brand'
@@ -27,11 +17,19 @@ export interface TokenSpan {
   readonly draftRev: number
 }
 
-/** Base64 image payload passed to a claimed command submission. */
-export interface SubmitImageAttachment {
-  readonly mediaType: 'image/png' | 'image/jpeg' | 'image/webp' | 'image/gif'
-  readonly data: string
-  readonly name?: string
+/** Attachment payload passed to a claimed command submission. */
+export type SubmitAttachment =
+  | {
+    readonly type: 'image'
+    readonly mediaType: 'image/png' | 'image/jpeg' | 'image/webp' | 'image/gif'
+    readonly data: string
+    readonly name?: string
+  }
+  | { readonly type: 'file'; readonly receiptId: string }
+
+/** Command serialization result for one ordered attachment draft. */
+export interface DraftAttachmentSerializationResult {
+  readonly attachments: readonly SubmitAttachment[]
 }
 
 /** Settled result of a command or default composer submission. */
@@ -44,12 +42,12 @@ export interface SubmitOutcome {
 export interface CommandClaim {
   readonly token: string
   readonly hint?: string
-  readonly images?: boolean
+  readonly attachments?: boolean
   /**
    * Submit the claimed command.
    * @param args - command text after the claimed token.
    * @param actx - current Session scope.
-   * @param images - serialized draft images accepted by the claim.
+   * @param attachments - serialized draft attachments accepted by the claim.
    * @returns command settlement.
    * @remarks 中文说明：功能说明：处理 submit 相关流程；使用场景由所在模块及调用位置决定。；
    * 参数说明：args（string）：提供本次调用所需的数据；必须满足声明的类型及调用时序要求。；
@@ -58,7 +56,7 @@ export interface CommandClaim {
    * 返回值：Promise<SubmitOutcome>；调用方应按声明类型处理，不应假定未声明的附加状态。；
    * 使用示例：典型用法：在完成前置校验后调用 submit(args, actx, images)，并按返回类型处理结果。
    */
-  submit(args: string, actx: Context, images: readonly SubmitImageAttachment[]): Promise<SubmitOutcome>
+  submit(args: string, actx: Context, attachments: readonly SubmitAttachment[]): Promise<SubmitOutcome>
 }
 
 /** Structured reference inserted by an input-trigger source. */
@@ -166,7 +164,7 @@ export interface InputTriggerController {
   adjudicate(
     line: string,
     signal: AbortSignal,
-    envelope: { readonly images: number },
+    envelope: { readonly attachments: number },
   ): Promise<PickOutcome>
   /** @param source - source name. @param hit - synthetic trigger hit.
    * @remarks 中文说明：功能说明：处理 toggleSource 相关流程；使用场景由所在模块及调用位置决定。；
@@ -222,7 +220,7 @@ declare module '@deepseek-ai/cordis' {
   }
 }
 
-/** Browser-runtime identity of one unsent image draft. */
+/** Browser-runtime identity of one unsent attachment draft. */
 export type DraftAttachmentId = Branded<'DraftAttachmentId'>
 
 /**
@@ -254,23 +252,12 @@ export interface SessionInput extends InputTarget {
    * 参数说明：text（string）：提供本次调用所需的数据；必须满足声明的类型及调用时序要求。；返回值：void；调用方应按声明类型处理，
    * 不应假定未声明的附加状态。；使用示例：典型用法：在完成前置校验后调用 setDraft(text)，并按返回类型处理结果。 */
   setDraft(text: string): void
-  /** Append ordered browser-owned image ids; busy admission phases refuse.
-   * @remarks 中文说明：功能说明：处理 addImages 相关流程；使用场景由所在模块及调用位置决定。；参数说明：ids（readonly
-   * DraftAttachmentId[]）：提供本次调用所需的数据；必须满足声明的类型及调用时序要求。；返回值：boolean；
-   * 调用方应按声明类型处理，不应假定未声明的附加状态。；使用示例：典型用法：在完成前置校验后调用 addImages(ids)，并按返回类型处理结果。 */
-  addImages(ids: readonly DraftAttachmentId[]): boolean
-  /** Remove one browser-owned image id; busy admission phases refuse.
-   * @remarks 中文说明：功能说明：移除 Image 相关流程；使用场景由所在模块及调用位置决定。；
-   * 参数说明：id（DraftAttachmentId）：标识本次操作关联的唯一对象；必须满足声明的类型及调用时序要求。；返回值：void；
-   * 调用方应按声明类型处理，不应假定未声明的附加状态。；使用示例：典型用法：在完成前置校验后调用 removeImage(id)，
-   * 并按返回类型处理结果。 */
-  removeImage(id: DraftAttachmentId): void
-  /** Drop ids whose browser-owned objects no longer exist.
-   * @remarks 中文说明：功能说明：处理 pruneImages 相关流程；使用场景由所在模块及调用位置决定。；
-   * 参数说明：ids（readonly DraftAttachmentId[]）：提供本次调用所需的数据；必须满足声明的类型及调用时序要求。；
-   * 返回值：void；调用方应按声明类型处理，不应假定未声明的附加状态。；使用示例：典型用法：在完成前置校验后调用 pruneImages(ids)，
-   * 并按返回类型处理结果。 */
-  pruneImages(ids: readonly DraftAttachmentId[]): void
+  /** Append ordered browser-owned attachment ids; busy admission phases refuse. */
+  addAttachments(ids: readonly DraftAttachmentId[]): boolean
+  /** Remove one browser-owned attachment id; busy admission phases refuse. @returns whether the id was removed. */
+  removeAttachment(id: DraftAttachmentId): boolean
+  /** Drop ids whose browser-owned objects no longer exist. */
+  pruneAttachments(ids: readonly DraftAttachmentId[]): void
   /**
    * THE complexity sink: enter adjudication, submit transaction, and the default sink live inside.
    * @param mode - delivery intent retained through asynchronous adjudication and serialization.
@@ -318,26 +305,13 @@ export interface InputActions {
    * 参数说明：text（string）：提供本次调用所需的数据；必须满足声明的类型及调用时序要求。；返回值：void；调用方应按声明类型处理，
    * 不应假定未声明的附加状态。；使用示例：典型用法：在完成前置校验后调用 setDraft(text)，并按返回类型处理结果。 */
   setDraft(text: string): void
-  /** Append ordered browser-owned image ids; busy admission phases refuse.
-   * @remarks 中文说明：功能说明：处理 addImages 相关流程；使用场景由所在模块及调用位置决定。；参数说明：ids（readonly
-   * DraftAttachmentId[]）：提供本次调用所需的数据；必须满足声明的类型及调用时序要求。；返回值：boolean；
-   * 调用方应按声明类型处理，不应假定未声明的附加状态。；使用示例：典型用法：在完成前置校验后调用 addImages(ids)，并按返回类型处理结果。 */
-  addImages(ids: readonly DraftAttachmentId[]): boolean
-  /** Remove one browser-owned image id; busy admission phases refuse.
-   * @remarks 中文说明：功能说明：移除 Image 相关流程；使用场景由所在模块及调用位置决定。；
-   * 参数说明：id（DraftAttachmentId）：标识本次操作关联的唯一对象；必须满足声明的类型及调用时序要求。；返回值：void；
-   * 调用方应按声明类型处理，不应假定未声明的附加状态。；使用示例：典型用法：在完成前置校验后调用 removeImage(id)，
-   * 并按返回类型处理结果。 */
-  removeImage(id: DraftAttachmentId): void
-  /** Drop ids whose browser-owned objects no longer exist.
-   * @remarks 中文说明：功能说明：处理 pruneImages 相关流程；使用场景由所在模块及调用位置决定。；
-   * 参数说明：ids（readonly DraftAttachmentId[]）：提供本次调用所需的数据；必须满足声明的类型及调用时序要求。；
-   * 返回值：void；调用方应按声明类型处理，不应假定未声明的附加状态。；使用示例：典型用法：在完成前置校验后调用 pruneImages(ids)，
-   * 并按返回类型处理结果。 */
-  pruneImages(ids: readonly DraftAttachmentId[]): void
-  /** Enter submission (adjudication / claim transaction / default sink inside).
-   * @remarks 中文说明：功能说明：处理 submit 相关流程；使用场景由所在模块及调用位置决定。；返回值：void；调用方应按声明类型处理，
-   * 不应假定未声明的附加状态。；使用示例：典型用法：在完成前置校验后调用 submit()，并按返回类型处理结果。 */
+  /** Append ordered browser-owned attachment ids; busy admission phases refuse. */
+  addAttachments(ids: readonly DraftAttachmentId[]): boolean
+  /** Remove one browser-owned attachment id; busy admission phases refuse. */
+  removeAttachment(id: DraftAttachmentId): void
+  /** Drop ids whose browser-owned objects no longer exist. */
+  pruneAttachments(ids: readonly DraftAttachmentId[]): void
+  /** Enter submission (adjudication / claim transaction / default sink inside). */
   submit(): void
 }
 
@@ -450,13 +424,13 @@ export interface Occurrence {
 export interface InputState {
   /** Clipboard-text projection of the editor document (chips expanded to their clipboard form). */
   readonly draft: string
-  /** Ordered runtime-only image ids; bytes and URLs stay in ConversationController. */
-  readonly imageIds: readonly DraftAttachmentId[]
+  /** Ordered runtime-only attachment ids; browser objects stay in ConversationController. */
+  readonly attachmentIds: readonly DraftAttachmentId[]
   /** Monotonic editor revision (span CAS compares against this). */
   readonly draftRev: number
   readonly phase: 'plain' | 'adjudicating' | 'claimed' | 'submitting'
   /** Present exactly while claimed/submitting (claim snapshot during flight; submit closure withheld). */
-  readonly claim?: { readonly token: string; readonly hint?: string; readonly images?: boolean }
+  readonly claim?: { readonly token: string; readonly hint?: string; readonly attachments?: boolean }
   /** Reference occurrence view of the editor's chips, sorted by offset. */
   readonly occurrences: readonly Occurrence[]
   /** Read-only transient inbox projection from Session control, including pending steering. */
@@ -498,7 +472,7 @@ export type InputEvent =
   | { readonly type: 'submit-settled'; readonly attempt: SubmitAttempt; readonly ok: boolean; readonly draft: string; readonly outcome?: SubmitOutcome; readonly message?: string }
   /** Settlement of one optimistic default send, independent of the frozen command slot. */
   | { readonly type: 'sink-settled'; readonly attempt: SubmitAttempt; readonly ok: boolean; readonly outcome?: SubmitOutcome; readonly message?: string }
-  /** Commit an image-only send whose empty draft did not need an attempt. */
+  /** Commit an attachment-only send whose empty draft did not need an attempt. */
   | { readonly type: 'send-committed' }
   | { readonly type: 'release' }
 
@@ -521,7 +495,7 @@ export type InputEffect =
    * Clear the committed draft in the editor and cut undo history. A string
    * snapshot keeps a pure suffix typed during the Host round-trip (content
    * appended after the sent snapshot survives; interleaved edits cannot be
-   * separated and clear whole); null clears unconditionally (image-only
+   * separated and clear whole); null clears unconditionally (attachment-only
    * sends have no draft to retain).
    */
   | { readonly type: 'commit-draft'; readonly retainSuffixOf: string | null }

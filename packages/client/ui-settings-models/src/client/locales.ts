@@ -1,17 +1,12 @@
-/*
- * ================================ 文件注释 ================================
- * 【文件职责】模型设置分区的双语字典（以 en 为键集基准），含欢迎与引导文案。
- * 【技术维度】en 是键集基准（ModelsKey 由其推导），zh 受映射类型约束保证键一致；
- *             欢迎文案直接引用 onboarding-copy.ts 的常量。
- * 【产品维度】模型设置页的提供方/密钥/模型编辑、自定义提供方与引导对话框文案。
- * 【逻辑维度】en 定义键 → ModelsKey 推导 → zh 逐键补齐。
- * 【关键边界】en 是键的单一事实来源（本包与多数包相反）。
- * 【新手阅读建议】纯数据文件。
- * ==========================================================================
- */
+
 /** Copy dictionaries for the Models settings section. */
 
 /** English strings (the key-set source of truth for this pair). */
+
+/*
+ * 【文件职责】集中保存模型设置区域的中英文文案，以英文字典约束完整键集合。
+ */
+
 export const en = {
   nav: 'Models',
   title: 'Models',
@@ -81,6 +76,8 @@ export const en = {
   fetchEmpty: 'The provider listed no models. Add them by hand.',
   fetchTitle: 'Choose models to add',
   fetchDescription: 'These are the models this provider has available. Choose the ones to add.',
+  fetchSearch: 'Search models',
+  fetchNoMatches: 'No matching models.',
   fetchSelectAll: 'Select all',
   fetchDeselectAll: 'Deselect all',
   fetchAdopt: 'Add selected',
@@ -185,6 +182,8 @@ export const zh: { [Key in keyof typeof en]: string } = {
   fetchEmpty: '该提供方没有列出任何模型，请手动添加。',
   fetchTitle: '选择要添加的模型',
   fetchDescription: '以下是模型提供方的可用模型，勾选要添加的模型。',
+  fetchSearch: '搜索模型',
+  fetchNoMatches: '没有匹配的模型。',
   fetchSelectAll: '全选',
   fetchDeselectAll: '取消全选',
   fetchAdopt: '添加所选',

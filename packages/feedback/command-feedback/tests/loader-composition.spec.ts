@@ -126,15 +126,13 @@ describe('/feedback real Loader composition through cordis.yml', () => {
     })
 
     // The domain event owns the payload; generic command bookkeeping omits it.
-    expect(owner.session.events.map(event => event.type))
+    expect(owner.session.snapshotEvents().map(event => event.type))
       .toEqual(['command/run', 'feedback/record', 'command/done', 'command/run', 'command/done'])
-    /** 中文说明：测试局部值 run，由紧邻初始化决定。 */
-    const run = owner.session.events.find(event => event.type === 'command/run')
+    const run = owner.session.snapshotEvents().find(event => event.type === 'command/run')
     expect(run?.type === 'command/run' && Object.hasOwn(run.data, 'args')).toBe(false)
-    /** 中文说明：测试局部值 feedback，由紧邻初始化决定。 */
-    const feedback = owner.session.events.find(event => event.type === 'feedback/record')
+    const feedback = owner.session.snapshotEvents().find(event => event.type === 'feedback/record')
     expect(feedback?.type === 'feedback/record' && feedback.data.text).toBe('the diff view is unreadable')
-    expect(JSON.stringify(owner.session.events).match(/the diff view is unreadable/gu)).toHaveLength(1)
+    expect(JSON.stringify(owner.session.snapshotEvents()).match(/the diff view is unreadable/gu)).toHaveLength(1)
 
     // Nothing reached the model.
     expect(owner.session.deriveMessages()).toEqual([])

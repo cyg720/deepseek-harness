@@ -1,5 +1,10 @@
-import type { ConversationNode } from '../contract/snapshot.ts'
-import type { ConversationPromptSnapshot } from '@deepseek-ai/dsh-client-ui-conversation/client'
+/*
+ * 【文件职责】从会话表面替换记录重建不可变的模型上下文代次，供 Chat 解释上下文变化。
+ */
+
+import type {
+  ConversationNode, ConversationPromptSnapshot,
+} from '@deepseek-ai/dsh-client-ui-conversation/client'
 
 /** Operation that started a new append-only model context. */
 /* 开启一个新的追加式模型上下文的操作类型：压缩（compaction）、回退（rewind）、重写（rewrite）。 */

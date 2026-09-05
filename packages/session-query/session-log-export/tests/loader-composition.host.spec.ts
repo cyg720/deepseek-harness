@@ -80,7 +80,7 @@ describe('session-log-download real Loader composition', () => {
     /** 中文说明：变量 execution 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const execution = await context.commands.execute(agent, '/export', [], new AbortController().signal)
     expect(execution?.result).toEqual({ kind: 'success', text: 'Session log download requested.' })
-    expect(session.events.map(event => event.type)).toEqual(['command/run', 'command/done'])
+    expect(session.snapshotEvents().map(event => event.type)).toEqual(['command/run', 'command/done'])
     expect(session.deriveMessages()).toEqual([])
   })
 })

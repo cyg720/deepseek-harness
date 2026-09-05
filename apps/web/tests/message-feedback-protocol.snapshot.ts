@@ -20,8 +20,7 @@ import {
 } from './scaffold.ts'
 
 const SNAPSHOT_DIR = fileURLToPath(new URL('../../../snapshots/web/message-feedback-protocol', import.meta.url))
-const SESSION_FIXTURE = join(SNAPSHOT_DIR, 'session.jsonl')
-/** 归一化协议交换的预期快照。 */
+const SESSION_FIXTURE = join(SNAPSHOT_DIR, 'session.v2.jsonl')
 const PROTOCOL_EXPECTED = join(SNAPSHOT_DIR, 'protocol.expected.json')
 /** 注入主机时使用的稳定会话标识。 */
 const SESSION_ID = 'message-feedback-protocol'
@@ -130,6 +129,6 @@ describe('message feedback Host Remote protocol', () => {
 
     expect(exchanges.every(exchange => exchange.status === 200)).toBe(true)
     await compareOrRefreshGolden(PROTOCOL_EXPECTED, normalizeProtocol(exchanges, version), scaffold.mode)
-    await assertFixtureInventory(SNAPSHOT_DIR, ['protocol.expected.json', 'session.jsonl'])
+    await assertFixtureInventory(SNAPSHOT_DIR, ['protocol.expected.json', 'session.v2.jsonl'])
   })
 })

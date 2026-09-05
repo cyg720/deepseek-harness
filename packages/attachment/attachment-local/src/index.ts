@@ -1,11 +1,7 @@
 /** Local durable attachment backend rooted below `DSH_HOME`. @module @deepseek-ai/dsh-attachment-local */
+
 /*
- * 文件职责：实现以 DSH_HOME 为根的本地持久附件服务，并协调图片准入、规范化、缓存和并发限制。
- * 技术维度：使用 Cordis 服务、Schemastery 配置、内容寻址文件存储、AbortSignal 和共享 Promise 合并重复请求。
- * 产品维度：让会话图片可跨进程重放，并为不同模型路由生成受字节与像素预算约束的请求版本。
- * 逻辑维度：解析部署配置，建立限制与存储根，提交规范化图片，读取并校验附件，再按变体标识复用在途转换。
- * 关键边界：压缩并发限制为1至8；取消只在最后一个等待者离开时中止共享任务；根目录格式固定为 attachments/v1。
- * 新手阅读建议：先看 Config 与默认值，再看 LocalAttachmentStore 的保存和读取方法，最后理解 SharedRequest 的合并取消语义。
+ * 【文件职责】实现 DSH_HOME 下的本地持久附件后端，按配置校验输入大小并提供图片及普通文件存储。
  */
 
 import { join, resolve } from 'node:path'
@@ -13,17 +9,23 @@ import { Context } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
 import { AttachmentStore } from '@deepseek-ai/dsh-attachment'
 import type {
+  FileAttachmentRef,
   ImageAttachmentLimits,
   ImageAttachmentRef,
   ImageRequestPolicy,
   RequestImageAttachment,
+  SaveFileAttachment,
+  SaveFileStreamAttachment,
   SaveImageAttachment,
   StoredImageAttachment,
 } from '@deepseek-ai/dsh-attachment'
 import { resolveDshHome } from '@deepseek-ai/dsh-home-paths'
 import type { NormalizationPolicy } from './normalization.ts'
-import { CompressionLimiter } from './compression-limiter.ts'
+import { CompressionLimiter, compressionFailure } from './compression-limiter.ts'
 import { commitPreparedImageFile, normalizedImagePath, prepareImageFile, readImageFile, validateImageFile } from './store.ts'
+import {
+  readFileStreamVerbatim, saveFileStreamVerbatim, saveFileVerbatim, storedFilePath,
+} from './file-store.ts'
 import { readRequestImageFile, requestImageVariantId } from './request-image.ts'
 
 export { canPassThroughNormalization, normalizeImage } from './normalization.ts'
@@ -173,9 +175,7 @@ class SharedRequest<T> {
       }, (error: unknown) => {
         signal.removeEventListener('abort', abort)
         release(false)
-        // CompressionLimiter normalizes task rejections before this handler.
-        // oxlint-disable-next-line typescript/prefer-promise-reject-errors
-        reject(error)
+        reject(compressionFailure(error))
       })
     })
   }
@@ -292,6 +292,22 @@ export class LocalAttachmentStore extends AttachmentStore {
 
   override imageHostPath(ref: ImageAttachmentRef): string {
     return normalizedImagePath(this.root, ref)
+  }
+
+  override async saveFile(input: SaveFileAttachment): Promise<FileAttachmentRef> {
+    return saveFileVerbatim(this.root, input)
+  }
+
+  override async saveFileStream(input: SaveFileStreamAttachment): Promise<FileAttachmentRef> {
+    return saveFileStreamVerbatim(this.root, input)
+  }
+
+  override readFileStream(ref: FileAttachmentRef, signal?: AbortSignal): AsyncIterable<Uint8Array> {
+    return readFileStreamVerbatim(this.root, ref, signal)
+  }
+
+  override fileHostPath(ref: FileAttachmentRef): string {
+    return storedFilePath(this.root, ref)
   }
 
   override async readImageRequest(

@@ -1,24 +1,52 @@
-/** Wire types for lossless incremental DeepSeek session-log upload.
- * @remarks 文件说明：文件职责：实现 session/session-log-deepseek 中 types 模块的职责，
- * 并向相邻模块提供可复用能力。；技术维度：主要使用TypeScript/JavaScript 的 ESM 模块、严格类型约束与 Cordis
- * 插件机制，通过当前文件中的类型、函数与数据结构完成实现。；产品维度：支撑 DeepSeek Harness 的
- * session/session-log-deepseek 能力，使上层功能能够稳定组合和扩展。；逻辑维度：建议按“依赖与类型定义 → 常量和状态
- * → 核心函数或类 → 导出或注册入口”的顺序理解。；关键边界：调用方必须遵守类型、生命周期和错误处理约定；
- * 涉及外部输入、异步任务或资源释放时需特别关注异常分支。；新手阅读建议：先确认导入依赖和公开导出，再沿主要函数调用链阅读，
- * 最后结合相邻测试理解输入、输出与边界条件。 */
+/*
+ * 【文件职责】声明无损增量日志上传的外部请求字段，头部值保持原始 JSON 标量表示。
+ */
 
-import type { SessionEvent, SessionHeader } from '@deepseek-ai/dsh-session'
+import type { SessionEvent } from '@deepseek-ai/dsh-session'
+import type { JsonValue } from '@deepseek-ai/dsh-util-values'
+
+/** Session header fields serialized as raw JSON primitives on the external request wire. */
+export interface DeepSeekSessionLogWireHeader {
+  readonly version: number
+  readonly id: string
+  readonly createdAt: number
+  readonly cwd?: string
+  readonly parentSession?: string
+  /** Exact inherited prefix length; absent for an unseeded Session. */
+  readonly seedLength?: number
+  readonly origin?: 'subagent'
+  readonly delegationDepth?: number
+  readonly agentPreset?: string
+}
+
+/** Raw-number surface mutation serialized on the external request wire. */
+export type DeepSeekSessionLogWireSurfaceOp =
+  | 'append'
+  | { readonly op: 'replace'; readonly start: number; readonly end: number }
+
+/** One complete canonical event translated to raw JSON primitives for upload. */
+export interface DeepSeekSessionLogWireEvent {
+  readonly type: SessionEvent['type']
+  readonly seq: number
+  readonly time: number
+  readonly data: JsonValue
+  readonly ignorable?: true
+  readonly sourceEventSeqs?: readonly number[]
+  readonly surfaceOp?: DeepSeekSessionLogWireSurfaceOp
+}
 
 /** Versioned incremental session-log field carried by an official DeepSeek request. */
 export interface DeepSeekSessionLogExtension {
   readonly version: 1
-  readonly session: SessionHeader
+  /** Session format generation represented by this suffix. */
+  readonly sessionFormatVersion: number
+  readonly session: DeepSeekSessionLogWireHeader
   /** Highest sequence durably recorded as accepted before this request, or `-1`. */
   readonly afterSeq: number
   /** Highest sequence represented by {@link events}. */
   readonly throughSeq: number
   /** Complete canonical event envelopes for every sequence from `afterSeq + 1` through `throughSeq`. */
-  readonly events: readonly SessionEvent[]
+  readonly events: readonly DeepSeekSessionLogWireEvent[]
 }
 
 declare module '@deepseek-ai/dsh-deepseek-llm-api-extensions/types' {
@@ -33,8 +61,10 @@ declare module '@deepseek-ai/dsh-session/types' {
     'session-log-deepseek/delivery-accepted': {
       /** Session identity the accepted delivery carried; inherited fork markers retain the parent's id. */
       sessionId: import('@deepseek-ai/dsh-session/types').SessionId
+      /** Accepted Session format generation; absence identifies version 0. */
+      sessionFormatVersion?: number
       /** Last canonical event included in the accepted request. */
-      throughSeq: number
+      throughSeq: import('@deepseek-ai/dsh-session/types').SessionSeq
     }
   }
 }

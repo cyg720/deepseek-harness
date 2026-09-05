@@ -1,15 +1,5 @@
-/**
- * Page half of the postMessage tunnel. It
- * turns fetch-shaped calls into `req` frames and rebuilds Responses from the
- * worker's `res` / `res-head`+`res-chunk`+`res-end` frames, so every consumer
- * (boot payload, bundle transport, ApiClient, Typert RPC) speaks plain HTTP.
- * @remarks 文件说明：文件职责：实现 experimental/webworker-runtime 中 client 模块的职责，
- * 并向相邻模块提供可复用能力。；技术维度：主要使用TypeScript/JavaScript 的 ESM 模块、严格类型约束与 Cordis
- * 插件机制，通过当前文件中的类型、函数与数据结构完成实现。；产品维度：支撑 DeepSeek Harness 的
- * experimental/webworker-runtime 能力，使上层功能能够稳定组合和扩展。；逻辑维度：建议按“依赖与类型定义 →
- * 常量和状态 → 核心函数或类 → 导出或注册入口”的顺序理解。；关键边界：调用方必须遵守类型、生命周期和错误处理约定；
- * 涉及外部输入、异步任务或资源释放时需特别关注异常分支。；新手阅读建议：先确认导入依赖和公开导出，再沿主要函数调用链阅读，
- * 最后结合相邻测试理解输入、输出与边界条件。
+/*
+ * 【文件职责】在页面端把 Fetch 调用转为 postMessage 请求帧，并从 Worker 响应帧重建 Response。
  */
 
 import type { IndexInjection } from '@deepseek-ai/dsh-host-webserver'
@@ -233,14 +223,14 @@ async function localizeSourceMap(source: string, bundleUrl: string, fetch: Tunne
   }
 }
 
-/** Normalize a RequestInit body to a transferable ArrayBuffer.
- * @remarks 中文说明：功能说明：处理 toBodyBuffer 相关流程；使用场景由所在模块及调用位置决定。；
- * 参数说明：body（RequestInit['body']）：提供本次调用所需的数据；必须满足声明的类型及调用时序要求。；
- * 返回值：ArrayBuffer | undefined；调用方应按声明类型处理，不应假定未声明的附加状态。；
- * 使用示例：典型用法：在完成前置校验后调用 toBodyBuffer(body)，并按返回类型处理结果。 */
-function toBodyBuffer(body: RequestInit['body']): ArrayBuffer | undefined {
+/** Keep opaque Blobs and transferable streams intact; normalize other bodies to bytes. */
+function toTunnelBody(
+  body: RequestInit['body'],
+): ArrayBuffer | Blob | ReadableStream<Uint8Array> | undefined {
   if (body === undefined || body === null) return undefined
   if (typeof body === 'string') return encoder.encode(body).buffer
+  if (body instanceof Blob) return body
+  if (body instanceof ReadableStream) return body as ReadableStream<Uint8Array>
   if (body instanceof ArrayBuffer) return body
   if (ArrayBuffer.isView(body)) {
     return body.buffer.slice(body.byteOffset, body.byteOffset + body.byteLength)
@@ -390,18 +380,14 @@ export class WorkerTunnel {
      * 常量说明：id 用于处理 id 相关数据，作用于当前作用域；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。
      */
     const id = this.nextId++
-    /**
-     * 常量说明：frame 用于处理 frame 相关数据，作用于当前作用域；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。
-     */
+    const body = init?.body === undefined || init.body === null ? undefined : toTunnelBody(init.body)
     const frame: RequestFrame = {
       t: 'req',
       id,
       method: init?.method ?? 'GET',
       url: new URL(input, globalThis.location.origin).toString(),
       headers: Object.fromEntries(new Headers(init?.headers).entries()),
-      ...(init?.body === undefined || init.body === null
-        ? {}
-        : { body: toBodyBuffer(init.body) }),
+      ...(body === undefined ? {} : { body }),
     }
     /**
      * 常量说明：response 用于处理 response 相关数据，作用于当前作用域；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。
@@ -417,7 +403,8 @@ export class WorkerTunnel {
       this.unary.set(id, { resolve, reject })
     })
     this.inFlight.set(id, `${frame.method} ${frame.url}`)
-    this.worker.postMessage(frame)
+    if (body instanceof ReadableStream) this.worker.postMessage(frame, [body])
+    else this.worker.postMessage(frame)
     if (signal === undefined || signal === null) return await response
     /**
      * 常量说明：raced 用于处理 raced 相关数据，作用于当前作用域；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。

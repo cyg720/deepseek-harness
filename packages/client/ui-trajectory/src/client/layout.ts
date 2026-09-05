@@ -1,27 +1,13 @@
-/*
- * ================================ 文件注释 ================================
- * 【文件职责】轨迹列表的"折叠"（fold）：把会话快照折叠成 回合 → 组（Message / Step N /
- *             Compaction）→ 展开后的单元格；补全消息助手块、为 Message 附着用量、
- *             计算自有时长、接入流式 partial 与运行中的工具调用、生成组描述（时长 + 工具
- *             直方图）。
- * 【技术维度】纯函数式投影；多个预索引（结果 / 调用 id / 后续 assistant / 调用开始时间）；
- *             统一的有序布局条目（node / compaction / system / request）按 seq 排序；
- *             prevAbsTime 游标推算时长。
- * 【产品维度】轨迹列表按回合和步骤分组展示，用户能看清"这轮做了什么、每步花了多久、
- *             调了哪些工具"，长会话依然可读。
- * 【逻辑维度】1) 模型接口与内部桶结构；2) deriveTrajectoryLayout 主折叠（四类条目分支、
- *             partial、runningCalls、孤儿 turn-0 折叠、schema 附着）；3) 助手块展开与
- *             子调用内联（expandAssistant / withSubCalls / expandSubCalls）；4) 各类
- *             摘要与详情提取；5) 回合归属与放置辅助。
- * 【关键边界】孤儿工具折进 Turn 1；partial 用假节点流式展开；tool-result 只在本轮
- *             没有对应 assistant 调用块时单独成行；图片源仅允许安全协议（data:image / blob / http(s)）。
- * 【新手阅读建议】先读 deriveTrajectoryLayout 的条目分派循环，再看 expandAssistant。
- * ==========================================================================
- */
+
 /**
  * Trajectory list fold: expand assistant blocks, attach usage to Message,
  * own-duration times, in-flight partial/runningCalls, and group descriptions.
  */
+
+/*
+ * 【文件职责】将助手块、用量、耗时及运行中的调用折叠为轨迹列表，保留其所属轮次与 Step 分组。
+ */
+
 import type {
   AssistantBlock,
   AssistantMessageNode,
@@ -148,10 +134,15 @@ function inputCellDetail(node: InputNode, t: TrajectoryTranslate): Pick<
   const preview = previewContent(node.content)
   const previewMarkdown = preview === '' ? undefined : preview
   const images = imageBlockCount(node.content)
-  return {
-    text: previewMarkdown === undefined && images > 0
+  const files = fileBlockCount(node.content)
+  const attachmentSummary = [
+    previewMarkdown === undefined && images > 0
       ? t('layout.imageOnly', { count: images })
-      : '',
+      : undefined,
+    files > 0 ? t('layout.fileAttachments', { count: files }) : undefined,
+  ].filter((value): value is string => value !== undefined).join(' · ')
+  return {
+    text: attachmentSummary,
     ...(previewMarkdown === undefined ? {} : { previewMarkdown }),
     sourceSeq: node.seq,
     messageSource: node.source,
@@ -887,6 +878,10 @@ function sourceBlock(value: unknown): TrajectorySourceBlock {
 
 function imageBlockCount(content: readonly { type: string }[]): number {
   return content.filter(block => block.type === 'image').length
+}
+
+function fileBlockCount(content: readonly { type: string }[]): number {
+  return content.filter(block => block.type === 'file').length
 }
 
 function stringifySourceValue(value: unknown): string {

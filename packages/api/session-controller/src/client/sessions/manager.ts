@@ -2,17 +2,13 @@
 // dispatch entry + list state, constructed and held by ClientSessions (one per browser client).
 // List data never enters zustand; React connects via subscribe/getListSnapshot.
 
-/**
- * 文件职责：管理客户端会话清单、当前会话、历史分页、实时事件订阅和命令操作。
- * 技术维度：Cordis 服务、响应式 Store、异步并发控制、AbortController、会话投影与 API 客户端。
- * 产品维度：驱动会话侧栏和对话页，支持创建、切换、重命名、归档、提示与模型选择。
- * 逻辑维度：初始化列表，按需加载历史，接收实时事件并更新投影；公开命令负责远程调用与本地状态同步。
- * 关键边界：会话切换和销毁必须取消旧请求；历史与实时事件要按序去重；失败不能覆盖较新的状态。
- * 新手阅读建议：先看 Manager 的公开状态与构造过程，再读会话选择/历史加载，最后阅读各产品命令和事件处理。
+/*
+ * 【文件职责】管理会话列表、按需会话实例及 Remote 更新；
+ * 首次数据到达状态与当前拉取活动分别记录。
  */
 
 import type { SubagentAddress, SubagentCatalog } from '@deepseek-ai/dsh-subagent/client'
-import type { SessionId } from '@deepseek-ai/dsh-session/types'
+import { SessionSeq, type SessionId, type SessionSeqCursor } from '@deepseek-ai/dsh-session/types'
 import type { WorkspaceId } from '@deepseek-ai/dsh-workspace/types'
 import type {
   SessionControlBaseline,
@@ -34,6 +30,10 @@ import { Notifier } from './notifier.ts'
 import { ProjectionValueStore } from './projection-store.ts'
 import { Session } from './session.ts'
 import type { SessionRemotes } from './remotes.ts'
+
+function sessionSeqCursor(value: number): SessionSeqCursor {
+  return value === -1 ? -1 : SessionSeq(value)
+}
 
 /**
  * List arrival lifecycle, orthogonal to the pull-activity `state` axis:
@@ -507,7 +507,7 @@ export class SessionManager {
             if (block === undefined) continue
             const store = this.projectionStore(s.sessionId)
             const values = block.values as Record<string, unknown>
-            for (const key of Object.keys(values)) store.apply(key, values[key], block.asOfSeq)
+            for (const key of Object.keys(values)) store.apply(key, values[key], sessionSeqCursor(block.asOfSeq))
           }
         } else {
           this.listState = 'error'
@@ -599,7 +599,7 @@ export class SessionManager {
    * @returns the fork result (the child session id).
    */
   async fork(
-    opts: { sessionId: SessionId; atSeq?: number },
+    opts: { sessionId: SessionId; atSeq?: SessionSeq },
   ): Promise<RemoteResult<{ sessionId: SessionId }>> {
     const source = this.summaries.find(s => s.sessionId === opts.sessionId)
     const result = await this.remote.session.fork({
@@ -670,7 +670,7 @@ export class SessionManager {
       return
     }
     if (frame.type === 'projection') {
-      this.projectionStore(frame.sessionId).apply(frame.key, frame.value, frame.seq)
+      this.projectionStore(frame.sessionId).apply(frame.key, frame.value, SessionSeq(frame.seq))
       this.notifier.markDirty()
       return
     }
@@ -697,8 +697,9 @@ export class SessionManager {
 
     for (const [sessionId, block] of Object.entries(baseline.projections)) {
       const store = this.projectionStore(sessionId as SessionId)
-      store.truncate(block.asOfSeq)
-      store.seed(block)
+      const asOfSeq = sessionSeqCursor(block.asOfSeq)
+      store.truncate(asOfSeq)
+      store.seed({ ...block, asOfSeq })
     }
     for (const [sessionId, session] of this.sessions) {
       session.replaceControl(this.queues.get(sessionId) ?? [])
@@ -717,7 +718,7 @@ export class SessionManager {
     if (projections !== undefined) {
       const store = this.projectionStore(summary.sessionId)
       for (const [key, value] of Object.entries(projections.values)) {
-        store.apply(key, value, projections.asOfSeq)
+        store.apply(key, value, sessionSeqCursor(projections.asOfSeq))
       }
     }
     if (summary.origin === 'subagent' && summary.parentSessionId !== undefined) {

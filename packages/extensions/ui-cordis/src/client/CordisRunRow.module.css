@@ -1,11 +1,7 @@
-/**
- * 文件职责：定义Cordis 扩展界面的 CordisRunRow.module.css 样式。
- * 技术维度：CSS Modules、主题变量和状态选择器。
- * 产品维度：保证Cordis 扩展界面在配置、运行、失败和清理场景中可理解且可靠。
- * 逻辑维度：按容器、字段、操作与状态组织规则。
- * 关键边界：沙箱与宿主 Context 不可混用；反馈追加新记录，不改写既有会话历史。
- * 新手阅读建议：先读类型和夹具，再按注册、执行、错误与卸载流程阅读。
+/*
+ * 【文件职责】定义 Cordis 执行卡片的摘要、错误和内容布局。
  */
+
 .card {
   display: flex;
   flex-direction: column;
@@ -39,6 +35,7 @@
   height: 2px;
   margin: 0 8px;
   border-radius: 50%;
+  corner-shape: round;
   background: var(--dsw-alias-state-business-primary);
 }
 
@@ -89,6 +86,7 @@
   padding: 0;
   border: none;
   border-radius: 999px;
+  corner-shape: round;
   background: transparent;
   color: var(--dsw-alias-label-tertiary);
   cursor: pointer;
@@ -116,7 +114,7 @@
 .business {
   min-width: 0;
   overflow: hidden;
-  border: 1px solid var(--dsw-alias-border-l2);
+  border: 0.5px solid var(--dsw-alias-border-l4);
   border-radius: 12px;
   background: var(--dsw-alias-bg-base);
 }
@@ -125,7 +123,7 @@
   margin: 0;
   padding: 10px 12px;
   overflow: auto;
-  border: 1px solid var(--dsw-alias-border-l2);
+  border: 0.5px solid var(--dsw-alias-border-l4);
   border-radius: 8px;
   background: var(--dsw-alias-markdown-code-block);
   color: var(--dsw-alias-label-secondary);

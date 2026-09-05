@@ -11,6 +11,12 @@
  * @module @deepseek-ai/dsh-session-turn-outline/types
  */
 
+/*
+ * 【文件职责】声明独立于客户端加载窗口的轮次大纲及其投影键，主机和客户端共享同一类型来源。
+ */
+
+import type { SessionSeq } from '@deepseek-ai/dsh-session/types'
+
 export {}
 
 /** One started turn's outline facts, independent of what a client has paged in. */
@@ -18,7 +24,7 @@ export interface TurnOutlineEntry {
   /** Host-assigned turn number (the `turn/start` payload). */
   readonly turn: number
   /** The turn's `turn/start` event seq — paging a window back through this seq loads the whole turn. */
-  readonly seq: number
+  readonly seq: SessionSeq
   /** Bounded first-human-prompt preview (one rail-card line); `''` until an eligible prompt lands. */
   readonly prompt: string
   /** Bounded final-response preview (up to three rail-card lines); `''` until the turn ends with assistant text. */

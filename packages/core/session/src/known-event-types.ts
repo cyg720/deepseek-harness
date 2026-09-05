@@ -5,6 +5,8 @@
  * @module @deepseek-ai/dsh-session/known-event-types
  */
 
+/* 【文件职责】生成当前构建识别的会话事件集合；未知且未标记可忽略的持久事件必须拒绝读取。 */
+
 /**
  * Every `SessionEventMap` member declared in this repository — the event
  * vocabulary this build understands. The persistence read path refuses to
@@ -25,7 +27,7 @@ export const KNOWN_SESSION_EVENT_TYPES: ReadonlySet<string> = new Set([
   'approval/asked',
   'approval/decided',
   'approval/policy',
-  'assistant/chunk',
+  'assistant/attempt',
   'assistant/message',
   'command/done',
   'command/run',

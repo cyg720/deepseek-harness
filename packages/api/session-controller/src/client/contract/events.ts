@@ -1,25 +1,42 @@
-/** Observable contiguous Session event window consumed by domain assemblers.
- * @remarks 文件说明：文件职责：实现 api/session-controller 中 events 模块的职责，
- * 并向相邻模块提供可复用能力。；技术维度：主要使用TypeScript/JavaScript 的 ESM 模块、严格类型约束与 Cordis
- * 插件机制，通过当前文件中的类型、函数与数据结构完成实现。；产品维度：支撑 DeepSeek Harness 的
- * api/session-controller 能力，使上层功能能够稳定组合和扩展。；逻辑维度：建议按“依赖与类型定义 → 常量和状态 →
- * 核心函数或类 → 导出或注册入口”的顺序理解。；关键边界：调用方必须遵守类型、生命周期和错误处理约定；
- * 涉及外部输入、异步任务或资源释放时需特别关注异常分支。；新手阅读建议：先确认导入依赖和公开导出，再沿主要函数调用链阅读，
- * 最后结合相邻测试理解输入、输出与边界条件。 */
-import { notifySubscribers, type ObservableSnapshot } from '@deepseek-ai/dsh-client-store'
-import type { SessionEvent } from '@deepseek-ai/dsh-session/types'
-import type { ChunkRowEvent } from '../../types.ts'
+/*
+ * 【文件职责】定义连续会话事件窗口；
+ * 客户端临时助手片段通过逻辑序号定位，不能作为持久化事件写回日志。
+ */
 
-/** Standard Session event or compact historical Assistant run. */
-export type SessionEventLike = SessionEvent | ChunkRowEvent
+import { notifySubscribers, type ObservableSnapshot } from '@deepseek-ai/dsh-client-store'
+import type { LlmAttemptId, StreamChunk } from '@deepseek-ai/dsh-llm'
+import type { SessionEvent } from '@deepseek-ai/dsh-session/types'
+
+/** Client-only live chunk presentation; `seq` orders the transient row between durable Session seqs. */
+export interface AssistantLiveChunkEvent {
+  readonly type: 'assistant/live-chunk'
+  readonly seq: number
+  readonly time: number
+  readonly data: {
+    readonly attemptId: LlmAttemptId
+    readonly turn: number
+    readonly step: number
+    readonly chunk: StreamChunk
+  }
+}
+
+/** Current durable Session event or one client-only live chunk presentation. */
+export type SessionEventLike = SessionEvent | AssistantLiveChunkEvent
 
 /** Client history entry retaining its coarse transport discriminator. */
 export type SessionEventLikeEntry =
   | { readonly type: 'event'; readonly event: SessionEvent }
-  | { readonly type: 'chunks'; readonly event: ChunkRowEvent }
+  | { readonly type: 'transient'; readonly event: AssistantLiveChunkEvent }
 
 /** Scalar live entry accepted by append-only Client paths. */
 export type SessionLiveEventEntry = Extract<SessionEventLikeEntry, { readonly type: 'event' }>
+/** Durable Assistant event that atomically supersedes one attempt's transient rows. */
+export interface SessionAssistantSettlementEntry {
+  readonly type: 'event'
+  readonly event: SessionEvent<'assistant/message'> | SessionEvent<'assistant/attempt'>
+}
+/** Client-only Assistant frame admitted outside durable cursor algebra. */
+export type SessionTransientEventEntry = Extract<SessionEventLikeEntry, { readonly type: 'transient' }>
 
 interface EventWindowLeaf {
   readonly kind: 'leaf'
@@ -137,7 +154,12 @@ function windowSnapshot(
 export type SessionEventChange =
   | { readonly kind: 'replace'; readonly entries: readonly SessionEventLikeEntry[] }
   | { readonly kind: 'prepend'; readonly entries: readonly SessionEventLikeEntry[] }
-  | { readonly kind: 'append'; readonly entries: readonly SessionLiveEventEntry[] }
+  | { readonly kind: 'append'; readonly entries: readonly SessionEventLikeEntry[] }
+  | {
+    readonly kind: 'settle-assistant'
+    readonly attemptId: LlmAttemptId
+    readonly entry?: SessionAssistantSettlementEntry
+  }
 
 /** Current contiguous event window and its latest synchronous delta. */
 export interface SessionEventWindow {
@@ -233,10 +255,7 @@ export class MutableSessionEventSource implements SessionEventSource {
    * 参数说明：entry（SessionLiveEventEntry）：提供本次调用所需的数据；必须满足声明的类型及调用时序要求。；返回值：void；
    * 调用方应按声明类型处理，不应假定未声明的附加状态。；使用示例：典型用法：在完成前置校验后调用 append(entry)，并按返回类型处理结果。
    */
-  append(entry: SessionLiveEventEntry): void {
-    /**
-     * 常量说明：entries 用于处理 entries 相关数据，作用于当前作用域；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。
-     */
+  append(entry: SessionEventLikeEntry): void {
     const entries = [entry]
     this.window = concat(this.window, leaf(entries))
     this.publish(this.snapshot.hasMore, {
@@ -246,12 +265,27 @@ export class MutableSessionEventSource implements SessionEventSource {
   }
 
   /**
-   * 功能说明：处理 publish 相关流程；使用场景由所在模块及调用位置决定。
-   * @param hasMore （boolean）：提供本次调用所需的数据；必须满足声明的类型及调用时序要求。
-   * @param change （SessionEventChange）：提供本次调用所需的数据；必须满足声明的类型及调用时序要求。
-   * @returns void；调用方应按声明类型处理，不应假定未声明的附加状态。
-   * @example 在完成前置校验后调用 publish(hasMore, change)，并按返回类型处理结果。
+   * Replace one attempt's transient rows with its committed durable settlement.
+   * @param attemptId - process-local attempt whose live rows are now redundant.
+   * @param entry - durable settlement committed for that attempt.
    */
+  settleAssistant(attemptId: LlmAttemptId, entry?: SessionAssistantSettlementEntry): void {
+    const entries = materialize(this.window).filter(candidate => (
+      candidate.type !== 'transient' || candidate.event.data.attemptId !== attemptId
+    ))
+    if (entry !== undefined) {
+      const index = entries.findIndex(candidate => candidate.event.seq > entry.event.seq)
+      if (index < 0) entries.push(entry)
+      else entries.splice(index, 0, entry)
+    }
+    this.window = leaf(entries)
+    this.publish(this.snapshot.hasMore, {
+      kind: 'settle-assistant',
+      attemptId,
+      ...(entry === undefined ? {} : { entry }),
+    })
+  }
+
   private publish(
     hasMore: boolean,
     change: SessionEventChange,

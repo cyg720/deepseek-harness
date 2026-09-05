@@ -1,19 +1,19 @@
 /* Language row (figma 'Setting-Cell': gap 8, pad 16/0, hairline separator;
  * the section column removes the separator on its last child). */
-/* 文件职责：定义语言设置行的文字区域和语言选择胶囊样式。
- * 技术维度：使用 CSS Modules、Flexbox、设计令牌和悬停伪类复现 Figma 设置单元。
- * 产品维度：让用户清晰查看并切换界面语言，同时与其他设置项保持一致布局。
- * 逻辑维度：row 排列内容，rowText 承载标题，selector 形成选择控件，chevron 固定箭头。
- * 关键边界：最后一行分隔线由外层分区移除；样式不负责保存或应用语言选择。
- * 新手阅读建议：先看 rowText 如何占据剩余空间，再看 selector 的固定高度和圆角。 */
+
 
 /* row：语言设置整行，带底部分隔线。 */
+
+/*
+ * 【文件职责】定义语言设置行的标签、分隔线与选择按钮样式，保持与其他通用设置行一致的间距。
+ */
+
 .row {
   display: flex;
   align-items: center;
   gap: 8px;
   padding: 16px 0;
-  border-bottom: 1px solid var(--dsw-alias-border-l2);
+  border-bottom: 0.5px solid var(--dsw-alias-border-l2);
 }
 
 /* rowText：可收缩的文字列，并为右侧选择器预留间距。 */

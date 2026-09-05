@@ -8,7 +8,6 @@
  * 新手阅读建议：先确认导入依赖和公开导出，再沿主要函数调用链阅读，最后结合相邻测试理解输入、输出与边界条件。
  */
 import { Context } from '@deepseek-ai/cordis'
-import InvariantRegistry from '@deepseek-ai/dsh-invariants'
 import type {
   AgentContext,
   ISessions,
@@ -28,7 +27,6 @@ import {
   UiSession,
 } from '../src/client/index.ts'
 import { apply as nodeApply } from '../src/index.ts'
-import * as SessionInvariant from '../src/invariant.ts'
 
 interface SessionsBench {
   readonly sessions: ISessions
@@ -1296,22 +1294,7 @@ describe('ui-session apply', () => {
     expect(slots.installScope).toHaveBeenCalledWith('session', ctx.uiSession.adapter)
   })
 
-  /**
-   * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；返回值：由 TypeScript 根据实现推断的结果；
-   * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调()，并按返回类型处理结果。
-   */
-  it('keeps the Host loader half inert and registers the invariant companion', async () => {
-    /**
-     * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；返回值：由 TypeScript 根据实现推断的结果；
-     * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调()，并按返回类型处理结果。
-     */
+  it('keeps the Host loader half inert', () => {
     expect(() => { nodeApply() }).not.toThrow()
-    /**
-     * 常量说明：ctx 用于处理 ctx 相关数据，作用于当前作用域；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。
-     */
-    const ctx = new Context()
-    await ctx.plugin(InvariantRegistry, { enabled: true })
-
-    await expect(ctx.plugin(SessionInvariant).await()).resolves.toBeDefined()
   })
 })

@@ -6,17 +6,15 @@
  * `.agents/notes/implemented/feature/2026-06-18-compaction-capability-seam.md`.
  * @module @deepseek-ai/dsh-compaction/types
  */
-/**
- * 文件职责：实现上下文压缩的 types.ts 模块。
- * 技术维度：TypeScript、Cordis 插件、会话事件和严格判别联合。
- * 产品维度：控制模型请求中的上下文压缩信息。
- * 逻辑维度：读取日志或文件状态，计算投影并记录/注入结果。
- * 关键边界：不能静默丢失必需事件；裁剪和替换必须保持日志可重放。
- * 新手阅读建议：先读导出类型与配置，再跟踪事件和投影流程。
+
+/*
+ * 【文件职责】声明压缩结果与日志事件；
+ * 压缩事件记录事务事实，进入模型表面的摘要由独立替换消息承载。
  */
 
 import type { ContentBlock, TokenUsage } from '@deepseek-ai/dsh-llm'
 import type { CommandId } from '@deepseek-ai/dsh-commands/brand'
+import type { SessionSeq } from '@deepseek-ai/dsh-session/types'
 import type { CompactionId } from './brand.ts'
 
 export type { CompactionId }
@@ -43,8 +41,8 @@ declare module '@deepseek-ai/dsh-session/types' {
       compactionId: CompactionId
       sourceCommandId?: CommandId
       summary: ContentBlock[]
-      shadowedRange: { start: number; end: number }
-      shadowedSeqs: number[]
+      shadowedRange: { start: SessionSeq; end: SessionSeq }
+      shadowedSeqs: SessionSeq[]
       shadowedTokenCount: number
       /** The provider route that wrote the summary. */
       provider: string
@@ -89,9 +87,9 @@ declare module '@deepseek-ai/dsh-session/types' {
      */
     'compaction/prune': {
       /** The replaced range's first and last surface-node seqs (a surface-position span, like {@link CompactionResult.shadowedRange}). */
-      shadowedRange: { start: number; end: number }
+      shadowedRange: { start: SessionSeq; end: SessionSeq }
       /** The seqs of all shadowed surface nodes, in surface order. */
-      shadowedSeqs: number[]
+      shadowedSeqs: SessionSeq[]
       /** Heuristic price of the shadowed content under the token-meter's fixed estimator. */
       shadowedTokenCount: number
     }
@@ -106,11 +104,11 @@ export interface CompactionResult {
   /** Human command that initiated this compaction, when it was manual. */
   sourceCommandId?: CommandId
   /** The seq of the appended `compaction/start` event. */
-  startSeq: number
+  startSeq: SessionSeq
   /** The seq of the appended `compaction/summary` event. */
-  summarySeq: number
+  summarySeq: SessionSeq
   /** The seq of the appended `compaction/end` event. */
-  endSeq: number
+  endSeq: SessionSeq
   /** The summary content blocks produced by the backend. */
   summary: ContentBlock[]
   /**
@@ -121,9 +119,9 @@ export interface CompactionResult {
    * can be GREATER than `end`. {@link CompactionResult.shadowedSeqs} is the
    * authoritative set of shadowed nodes, in surface order.
    */
-  shadowedRange: { start: number; end: number }
+  shadowedRange: { start: SessionSeq; end: SessionSeq }
   /** The seqs of all shadowed surface nodes, in surface order. */
-  shadowedSeqs: number[]
+  shadowedSeqs: SessionSeq[]
   /** Estimated token count of the shadowed content. */
   shadowedTokenCount: number
 }

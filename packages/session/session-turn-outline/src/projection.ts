@@ -23,9 +23,13 @@
  * 中文导读：本模块折叠轮次开始、首个人类提示和最终助手响应，生成聊天侧栏使用的完整轮次大纲。
  */
 
+/*
+ * 【文件职责】从轮次开始、首条人类提示及最终助手回复生成完整轮次大纲，帮助客户端定位尚未分页加载的轮次。
+ */
+
 import { z } from 'zod'
 import type { ZodType } from 'zod'
-import type { SessionEvent } from '@deepseek-ai/dsh-session'
+import { SessionSeq, type SessionEvent } from '@deepseek-ai/dsh-session'
 import type { ProjectionDefinition } from '@deepseek-ai/dsh-session-projection'
 import type { TurnOutlineEntry, TurnOutlineState } from './types.ts'
 
@@ -64,7 +68,7 @@ function preview(content: MessageContent, limit: number): string {
 
 const turnOutlineEntriesSchema: ZodType<readonly TurnOutlineEntry[]> = z.array(z.object({
   turn: z.number().int().nonnegative(),
-  seq: z.number().int().nonnegative(),
+  seq: z.number().int().nonnegative().transform(SessionSeq),
   prompt: z.string().max(PROMPT_PREVIEW_LIMIT),
   response: z.string().max(RESPONSE_PREVIEW_LIMIT),
 }).strict()).superRefine((turns, context) => {

@@ -1,18 +1,10 @@
-/*
- * ================================ 文件注释 ================================
- * 【文件职责】Agent Teams 的公共身份、持久记录与服务请求值：Team 隐式锚定在一个
- *   顶级 Session 上，成员/任务/消息都有持久快照与运行时增强视图。
- * 【技术维度】纯类型模块 + 品牌化 ID 构造函数；session 事件载荷（team/member 等）
- *   在此声明合并进 SessionEventMap。
- * 【产品维度】工具层与宿主消费的团队数据契约。
- * 【逻辑维度】按代码顺序：三个品牌 ID → 成员快照/视图 → 任务快照/视图 → 消息快照/
- *   来源 → Config → 各请求/结果类型 → 会话事件声明合并。
- * 【关键边界】任务与消息"整值"持久化（每次变更写完整快照）；revision 单调递增。
- * 【新手阅读建议】先看成员/任务/消息三组快照+视图，再看请求类型。
- * ==========================================================================
- */
+
 
 /** Public Agent Teams identities, durable records, and service request values. */
+
+/*
+ * 【文件职责】声明 Agent Teams 的品牌身份、持久记录和服务请求，统一跨会话协调的数据。
+ */
 
 import type { Branded } from '@deepseek-ai/dsh-brand'
 import type { ContentBlock } from '@deepseek-ai/dsh-llm/types'
@@ -122,7 +114,6 @@ export interface TeamMessageSnapshot {
   readonly senderId: SessionId
   readonly senderName: string
   readonly targetId: SessionId
-  readonly delivery: 'quiet' | 'wakeup'
   readonly content: ContentBlock[]
 }
 
@@ -174,7 +165,6 @@ export interface SpawnTeammateResult {
 export interface SendTeamMessageRequest {
   readonly target: string
   readonly content: ContentBlock[]
-  readonly delivery: 'quiet' | 'wakeup'
   readonly signal: AbortSignal
 }
 
@@ -234,14 +224,14 @@ export interface TeamWaitResult {
 declare module '@deepseek-ai/dsh-session/types' {
   interface SessionEventMap {
     /** Whole teammate lifecycle value, stored only in the Team Lead Session. */
-    'team/member': { version: 1; teamId: TeamId; member: TeamMemberSnapshot }
+    'team/member': { version: 2; teamId: TeamId; member: TeamMemberSnapshot }
     /** Whole shared-task value, stored only in the Team Lead Session. */
-    'team/task': { version: 1; teamId: TeamId; task: TeamTaskSnapshot }
+    'team/task': { version: 2; teamId: TeamId; task: TeamTaskSnapshot }
     /** Durable mailbox enqueue, stored before delivery is attempted. */
-    'team/message/queued': { version: 1; teamId: TeamId; message: TeamMessageSnapshot }
+    'team/message/queued': { version: 2; teamId: TeamId; message: TeamMessageSnapshot }
     /** Durable acknowledgement that the target Session recorded the message. */
     'team/message/delivered': {
-      version: 1
+      version: 2
       teamId: TeamId
       messageId: TeamMessageId
       targetId: SessionId

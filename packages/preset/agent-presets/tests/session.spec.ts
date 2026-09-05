@@ -1,7 +1,7 @@
 /** The Session projection that records which preset a Session runs. */
 
 import { describe, expect, it } from 'vitest'
-import { SessionId } from '@deepseek-ai/dsh-session'
+import { SESSION_FORMAT_VERSION, SessionId, SessionSeq } from '@deepseek-ai/dsh-session'
 import type { SessionEvent, SessionHeader } from '@deepseek-ai/dsh-session'
 import { agentPresetProjectionDefinition } from '../src/session.ts'
 
@@ -9,17 +9,17 @@ import { agentPresetProjectionDefinition } from '../src/session.ts'
 /* 中文说明：函数 header 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 function header(agentPreset?: string): SessionHeader {
   return {
-    version: 0,
+    version: SESSION_FORMAT_VERSION,
     id: SessionId('s'),
     createdAt: 1,
+    isSeeded: false,
     delegationDepth: 0,
     ...agentPreset === undefined ? {} : { agentPreset },
   }
 }
 
 /** One logged selection, as `agentPreset.select` appends it. */
-/* 中文说明：函数 selected 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
-function selected(agentPreset: string, seq: number): SessionEvent {
+function selected(agentPreset: string, seq: SessionSeq): SessionEvent {
   return { type: 'agent-preset/selected', seq, time: seq, data: { agentPreset } }
 }
 
@@ -34,11 +34,11 @@ describe('agent preset selection projection', () => {
     let state = definition.init(header('standard'))
     expect(state).toBe('standard')
 
-    state = definition.apply(state, selected('minimal', 0))
+    state = definition.apply(state, selected('minimal', SessionSeq(0)))
     state = definition.apply(state, {
-      type: 'turn/end', seq: 1, time: 1, data: { turn: 1, reason: { kind: 'completed' } },
+      type: 'turn/end', seq: SessionSeq(1), time: 1, data: { turn: 1, reason: { kind: 'completed' } },
     })
-    state = definition.apply(state, selected('cordis', 2))
+    state = definition.apply(state, selected('cordis', SessionSeq(2)))
 
     expect(definition.wire.view(state)).toBe('cordis')
     expect(definition.stateSchema.parse(state)).toBe('cordis')

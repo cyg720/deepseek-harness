@@ -1,11 +1,8 @@
 /** Turn-aware trajectory event ledger with a local record inspector. */
+
 /*
- * 文件职责：实现运行轨迹的 TrajectoryTable 组件。
- * 技术维度：React、TypeScript、Cordis 插槽和 CSS Modules。
- * 产品维度：向用户展示运行轨迹参数、结果和状态。
- * 逻辑维度：接收类型化数据，选择专用视图并渲染层级与详情。
- * 关键边界：组件不执行工具；未知或失败结果必须保留可诊断信息。
- * 新手阅读建议：先读 Props，再看视图选择、派生值和 JSX。
+ * 【文件职责】呈现按轮次组织的轨迹事件表，并提供本地记录检查；
+ * 文本选择中的点击不应触发行操作。
  */
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
@@ -2112,6 +2109,7 @@ export function TrajectoryTable({
     overscan: VIRTUAL_OVERSCAN_ROWS,
     scrollMargin: virtualScrollMargin,
     scrollEndThreshold: BOTTOM_FOLLOW_THRESHOLD_PX,
+    followOnAppend: 'auto',
   })
   /** 中文说明：视图局部值 virtualIndexByRecordId，由紧邻初始化决定。 */
   const virtualIndexByRecordId = useMemo(() => {
@@ -2561,8 +2559,7 @@ export function TrajectoryTable({
       return
     }
     if (!followsTableTail.current) return
-    if (virtualizationEnabled) rowVirtualizer.scrollToEnd({ behavior: 'auto' })
-    else pane.scrollTop = pane.scrollHeight
+    if (!virtualizationEnabled) pane.scrollTop = pane.scrollHeight
   }, [
     historyLoading,
     historyStartSeq,

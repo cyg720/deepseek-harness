@@ -9,20 +9,17 @@
 import { describe, expect, it } from 'vitest'
 import { createUserMessage, ToolCallId , createMessage, createToolResultMessage } from '@deepseek-ai/dsh-llm'
 import { toolPairingBalancedAfter, toolPairingBalancedBefore } from '@deepseek-ai/dsh-compaction'
-import { Session, SessionId } from '@deepseek-ai/dsh-session'
-import type { SessionEvent } from '@deepseek-ai/dsh-session'
+import { Session, SessionId, SessionSeq } from '@deepseek-ai/dsh-session'
+import type { SessionEvent, SessionSeq as SessionSeqType } from '@deepseek-ai/dsh-session'
 
 /** 中文说明：测试局部值 SURFACE，由紧邻初始化决定。 */
 const SURFACE = { surfaceOp: 'append' as const }
 
-/** 中文说明：函数 seqOf 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
-function seqOf(session: Session, type: SessionEvent['type'], nth = 0): number {
-  return session.events.filter(event => event.type === type)[nth]!.seq
+function seqOf(session: Session, type: SessionEvent['type'], nth = 0): SessionSeqType {
+  return session.snapshotEvents().filter(event => event.type === type)[nth]!.seq
 }
 
-/** 中文说明：函数 surfaceSeq 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
-function surfaceSeq(session: Session, seq: number): number {
-  /** 中文说明：测试局部值 current，由紧邻初始化决定。 */
+function surfaceSeq(session: Session, seq: SessionSeqType): SessionSeqType {
   const current = session.surface.nodes.find(candidate => candidate === seq)
   if (current === undefined) throw new Error(`seq ${seq} is not on the surface`)
   return current
@@ -47,6 +44,7 @@ function closedToolStep(): Session {
     source: { kind: 'user' },
   }), SURFACE)
   session.append('assistant/message', {
+    stream: [],
     turn: 1,
     step: 1,
     message: createMessage({
@@ -84,6 +82,7 @@ describe('tool-pairing boundaries', () => {
     /** 中文说明：测试局部值 open，由紧邻初始化决定。 */
     const open = Session.create(SessionId('open-tool-step'))
     open.append('assistant/message', {
+      stream: [],
       turn: 1,
       step: 1,
       message: createMessage({
@@ -102,6 +101,7 @@ describe('tool-pairing boundaries', () => {
     /** 中文说明：测试局部值 session，由紧邻初始化决定。 */
     const session = Session.create(SessionId('multiple-calls'))
     session.append('assistant/message', {
+      stream: [],
       turn: 1,
       step: 1,
       message: createMessage({
@@ -141,6 +141,7 @@ describe('tool-pairing boundaries', () => {
     /** 中文说明：测试局部值 midStep，由紧邻初始化决定。 */
     const midStep = Session.create(SessionId('neutral-mid-step'))
     midStep.append('assistant/message', {
+      stream: [],
       turn: 1,
       step: 1,
       message: createMessage({
@@ -216,8 +217,7 @@ describe('tool-pairing surface identity', () => {
   it('rejects missing seqs before and after, including an empty surface', () => {
     /** 中文说明：测试局部值 session，由紧邻初始化决定。 */
     const session = Session.create(SessionId('missing-membership'))
-    /** 中文说明：测试局部值 missing，由紧邻初始化决定。 */
-    const missing = 999
+    const missing = SessionSeq(999)
     expect(() => toolPairingBalancedBefore(session, missing)).toThrow(/surface seq 999 not found/)
     expect(() => toolPairingBalancedAfter(session, missing)).toThrow(/surface seq 999 not found/)
 
@@ -234,15 +234,16 @@ describe('tool-pairing cache refresh', () => {
     /** 中文说明：测试局部值 events，由紧邻初始化决定。 */
     const events: SessionEvent[] = [
       {
-        type: 'user/message', seq: 0, time: 0,
+        type: 'user/message', seq: SessionSeq(0), time: 0,
         data: createUserMessage({
           content: [{ type: 'text', text: 'user' }], source: { kind: 'user' },
         }),
         surfaceOp: 'append',
       },
       {
-        type: 'assistant/message', seq: 1, time: 1,
+        type: 'assistant/message', seq: SessionSeq(1), time: 1,
         data: {
+          stream: [],
           turn: 1,
           step: 1,
           message: createMessage({
@@ -257,7 +258,7 @@ describe('tool-pairing cache refresh', () => {
         surfaceOp: 'append',
       },
       {
-        type: 'tool/result', seq: 2, time: 2,
+        type: 'tool/result', seq: SessionSeq(2), time: 2,
         data: {
           turn: 1, step: 1,
           message: createToolResultMessage({
@@ -269,22 +270,9 @@ describe('tool-pairing cache refresh', () => {
         surfaceOp: 'append',
       },
     ]
-    /** 中文说明：测试局部值 nodes，由紧邻初始化决定。 */
-    const nodes: number[] = [0, 1, 2]
-    /** 中文说明：测试局部值 generation，由紧邻初始化决定。 */
+    const nodes: SessionSeqType[] = [SessionSeq(0), SessionSeq(1), SessionSeq(2)]
     let generation = 0
-    /** 中文说明：测试局部值 eventCollectionReads，由紧邻初始化决定。 */
-    let eventCollectionReads = 0
-    /** 中文说明：测试局部值 eventIndexReads，由紧邻初始化决定。 */
-    let eventIndexReads = 0
-    /** 中文说明：测试局部值 trackedEvents，由紧邻初始化决定。 */
-    const trackedEvents = new Proxy(events, {
-      get(target, property, receiver) {
-        if (typeof property === 'string' && /^\d+$/.test(property)) eventIndexReads += 1
-        return Reflect.get(target, property, receiver) as unknown
-      },
-    })
-    /** 中文说明：测试局部值 surface，由紧邻初始化决定。 */
+    let eventReads = 0
     const surface = {
       get nodes() { return nodes },
       get replaceGeneration() { return generation },
@@ -292,44 +280,41 @@ describe('tool-pairing cache refresh', () => {
     /** 中文说明：测试局部值 session，由紧邻初始化决定。 */
     const session = {
       surface,
-      get events() {
-        eventCollectionReads += 1
-        return trackedEvents
+      eventAt(seq: number) {
+        eventReads += 1
+        return events[seq]
       },
     } as unknown as Session
 
     expect(toolPairingBalancedAfter(session, nodes[2]!)).toBe(true)
-    expect(eventCollectionReads).toBe(1)
-    expect(eventIndexReads).toBe(3)
+    expect(eventReads).toBe(3)
 
     expect(toolPairingBalancedBefore(session, nodes[0]!)).toBe(true)
     expect(toolPairingBalancedAfter(session, nodes[1]!)).toBe(false)
-    expect(eventCollectionReads).toBe(1)
-    expect(eventIndexReads).toBe(3)
+    expect(eventReads).toBe(3)
 
     events.push({
-      type: 'turn/end', seq: 3, time: 3, data: { turn: 1, reason: { kind: 'completed' } },
+      type: 'turn/end', seq: SessionSeq(3), time: 3, data: { turn: 1, reason: { kind: 'completed' } },
     })
     expect(toolPairingBalancedAfter(session, nodes[2]!)).toBe(true)
-    expect(eventCollectionReads).toBe(1)
-    expect(eventIndexReads).toBe(3)
+    expect(eventReads).toBe(3)
 
     events.push({
-      type: 'user/message', seq: 4, time: 4,
+      type: 'user/message', seq: SessionSeq(4), time: 4,
       data: createUserMessage({
         content: [{ type: 'text', text: 'tail' }], source: { kind: 'user' },
       }),
       surfaceOp: 'append',
     })
-    nodes.push(4)
+    nodes.push(SessionSeq(4))
     expect(toolPairingBalancedAfter(session, nodes[3]!)).toBe(true)
-    expect(eventCollectionReads).toBe(2)
-    expect(eventIndexReads).toBe(4)
+    expect(eventReads).toBe(4)
 
     events.push(
       {
-        type: 'assistant/message', seq: 5, time: 5,
+        type: 'assistant/message', seq: SessionSeq(5), time: 5,
         data: {
+          stream: [],
           turn: 2,
           step: 1,
           message: createMessage({
@@ -344,7 +329,7 @@ describe('tool-pairing cache refresh', () => {
         surfaceOp: 'append',
       },
       {
-        type: 'tool/result', seq: 6, time: 6,
+        type: 'tool/result', seq: SessionSeq(6), time: 6,
         data: {
           turn: 2, step: 1,
           message: createToolResultMessage({
@@ -356,46 +341,42 @@ describe('tool-pairing cache refresh', () => {
         surfaceOp: 'append',
       },
     )
-    nodes.push(5, 6)
+    nodes.push(SessionSeq(5), SessionSeq(6))
     expect(toolPairingBalancedAfter(session, nodes[5]!)).toBe(true)
-    expect(eventCollectionReads).toBe(3)
-    expect(eventIndexReads).toBe(6)
+    expect(eventReads).toBe(6)
 
     events.push({
-      type: 'user/message', seq: 7, time: 7,
+      type: 'user/message', seq: SessionSeq(7), time: 7,
       data: createUserMessage({
         content: [{ type: 'text', text: 'replacement' }], source: { kind: 'user' },
       }),
-      surfaceOp: { op: 'replace', start: 0, end: 6 },
+      surfaceOp: { op: 'replace', start: SessionSeq(0), end: SessionSeq(6) },
     })
-    nodes.splice(0, nodes.length, 7)
+    nodes.splice(0, nodes.length, SessionSeq(7))
     generation += 1
     expect(toolPairingBalancedAfter(session, nodes[0]!)).toBe(true)
-    expect(eventCollectionReads).toBe(4)
-    expect(eventIndexReads).toBe(7)
+    expect(eventReads).toBe(7)
   })
 
   it('rebuilds defensively when a same-generation surface entry count regresses', () => {
     /** 中文说明：测试局部值 events，由紧邻初始化决定。 */
     const events: SessionEvent[] = [
       {
-        type: 'user/message', seq: 0, time: 0,
+        type: 'user/message', seq: SessionSeq(0), time: 0,
         data: createUserMessage({
           content: [], source: { kind: 'user' },
         }), surfaceOp: 'append',
       },
       {
-        type: 'user/message', seq: 1, time: 1,
+        type: 'user/message', seq: SessionSeq(1), time: 1,
         data: createUserMessage({
           content: [], source: { kind: 'user' },
         }), surfaceOp: 'append',
       },
     ]
-    /** 中文说明：测试局部值 nodes，由紧邻初始化决定。 */
-    const nodes: number[] = [0, 1]
-    /** 中文说明：测试局部值 session，由紧邻初始化决定。 */
+    const nodes: SessionSeqType[] = [SessionSeq(0), SessionSeq(1)]
     const session = {
-      events,
+      eventAt: (seq: number) => events[seq],
       surface: { nodes, replaceGeneration: 0 },
     } as unknown as Session
     expect(toolPairingBalancedAfter(session, nodes[1]!)).toBe(true)
@@ -439,30 +420,26 @@ describe('tool-pairing corrupt surfaces', () => {
   })
 
   it('throws when a current surface seq has no matching event or indexes the wrong event', () => {
-    /** 中文说明：测试局部值 missingSeq，由紧邻初始化决定。 */
-    const missingSeq = 1
-    /** 中文说明：测试局部值 missing，由紧邻初始化决定。 */
+    const missingSeq = SessionSeq(1)
     const missing = {
-      events: [{
-        type: 'user/message', seq: 0, time: 0,
+      eventAt: (seq: number) => [{
+        type: 'user/message', seq: SessionSeq(0), time: 0,
         data: createUserMessage({
           content: [], source: { kind: 'user' },
         }), surfaceOp: 'append',
-      } satisfies SessionEvent],
+      } satisfies SessionEvent][seq],
       surface: { nodes: [missingSeq], replaceGeneration: 0 },
     } as unknown as Session
     expect(() => toolPairingBalancedBefore(missing, missingSeq)).toThrow(/no matching session event/)
 
-    /** 中文说明：测试局部值 mismatchedSeq，由紧邻初始化决定。 */
-    const mismatchedSeq = 0
-    /** 中文说明：测试局部值 mismatched，由紧邻初始化决定。 */
+    const mismatchedSeq = SessionSeq(0)
     const mismatched = {
-      events: [{
-        type: 'user/message', seq: 99, time: 0,
+      eventAt: (seq: number) => [{
+        type: 'user/message', seq: SessionSeq(99), time: 0,
         data: createUserMessage({
           content: [], source: { kind: 'user' },
         }), surfaceOp: 'append',
-      } satisfies SessionEvent],
+      } satisfies SessionEvent][seq],
       surface: { nodes: [mismatchedSeq], replaceGeneration: 0 },
     } as unknown as Session
     expect(() => toolPairingBalancedBefore(mismatched, mismatchedSeq)).toThrow(/no matching session event/)

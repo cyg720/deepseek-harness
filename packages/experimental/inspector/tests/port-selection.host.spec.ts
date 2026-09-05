@@ -7,13 +7,52 @@
  * 新手阅读建议：先确认导入依赖和公开导出，再沿主要函数调用链阅读，最后结合相邻测试理解输入、输出与边界条件。 */
 
 import { createServer, type Server } from 'node:http'
+import type { AddressInfo } from 'node:net'
 import { afterEach, describe, expect, it } from 'vitest'
 import { startInspector, type InspectorHandle } from '../src/host/bridge/controller.ts'
 
-/**
- * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；返回值：由 TypeScript 根据实现推断的结果；
- * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调()，并按返回类型处理结果。
- */
+async function closeServer(server: Server): Promise<void> {
+  if (!server.listening) return
+  await new Promise<void>((resolve) => { server.close(() => { resolve() }) })
+}
+
+async function listen(server: Server, port: number): Promise<AddressInfo> {
+  return await new Promise<AddressInfo>((resolve, reject) => {
+    const onError = (error: Error): void => { reject(error) }
+    server.once('error', onError)
+    server.listen(port, '127.0.0.1', () => {
+      server.off('error', onError)
+      const address = server.address()
+      if (address === null || typeof address === 'string') {
+        reject(new Error('test server did not bind a TCP port'))
+        return
+      }
+      resolve(address)
+    })
+  })
+}
+
+async function bindWithAvailableSuccessor(): Promise<Server> {
+  for (let attempt = 0; attempt < 32; attempt += 1) {
+    const candidate = createServer()
+    const address = await listen(candidate, 0)
+    if (address.port === 65_535) {
+      await closeServer(candidate)
+      continue
+    }
+    const probe = createServer()
+    try {
+      await listen(probe, address.port + 1)
+      return candidate
+    } catch {
+      await closeServer(candidate)
+    } finally {
+      await closeServer(probe)
+    }
+  }
+  throw new Error('test could not reserve an occupied port with a bindable successor')
+}
+
 describe('Inspector endpoint port selection', () => {
   /**
    * 变量说明：blocker 用于处理 blocker 相关数据，作用于当前作用域；其值可能随流程推进而变化，读写时需遵守声明类型和所在生命周期。
@@ -32,18 +71,7 @@ describe('Inspector endpoint port selection', () => {
   afterEach(async () => {
     await inspector?.close()
     inspector = undefined
-    if (blocker?.listening === true) {
-      /**
-       * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；参数：resolve（由 TypeScript
-       * 根据调用位置推断的类型）：提供本次调用所需的数据；必须满足声明的类型及调用时序要求。；返回值：由 TypeScript 根据实现推断的结果；
-       * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调(resolve)，并按返回类型处理结果。
-       */
-      /**
-      * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；返回值：由 TypeScript 根据实现推断的结果；
-      * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调()，并按返回类型处理结果。
-      */
-      await new Promise<void>((resolve) => { blocker!.close(() => { resolve() }) })
-    }
+    if (blocker !== undefined) await closeServer(blocker)
     blocker = undefined
   })
 
@@ -52,29 +80,7 @@ describe('Inspector endpoint port selection', () => {
    * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调()，并按返回类型处理结果。
    */
   it('advances from an occupied starting port and publishes the selected port', async () => {
-    blocker = createServer()
-    /**
-     * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；参数：resolve（由 TypeScript
-     * 根据调用位置推断的类型）：提供本次调用所需的数据；必须满足声明的类型及调用时序要求。；参数：reject（由 TypeScript
-     * 根据调用位置推断的类型）：提供本次调用所需的数据；必须满足声明的类型及调用时序要求。；返回值：由 TypeScript 根据实现推断的结果；
-     * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调(resolve, reject)，
-     * 并按返回类型处理结果。
-     */
-    await new Promise<void>((resolve, reject) => {
-      blocker!.once('error', reject)
-      /**
-       * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；返回值：由 TypeScript 根据实现推断的结果；
-       * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调()，并按返回类型处理结果。
-       */
-      blocker!.listen(0, '127.0.0.1', () => {
-        blocker!.off('error', reject)
-        resolve()
-      })
-    })
-    /**
-     * 常量说明：occupiedAddress 用于处理 occupiedAddress 相关数据，作用于当前作用域；初始化后不可重新赋值，
-     * 但对象内部是否可变仍由其类型决定。
-     */
+    blocker = await bindWithAvailableSuccessor()
     const occupiedAddress = blocker.address()
     if (occupiedAddress === null || typeof occupiedAddress === 'string') {
       throw new Error('test server did not bind a TCP port')

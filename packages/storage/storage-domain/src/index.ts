@@ -1,24 +1,4 @@
-/*
- * ================================ 文件注释 ================================
- * 【文件职责】storage-domain 包的入口与"领域数据形态"（ctx.storage.domain）的挂载点：
- * 提供插件定义（name/inject/Config/apply）与 DomainFacility——按路由把声明好的领域
- * 打开到某个存储后端上，并强制"同名字同时间只能打开一个"。
- * 【技术维度】Cordis 插件形态：Config 用 schemastery 描述；通过 ctx.inject 等待路由
- * 到的后端服务全部就绪再挂载；open 流程 = 校验重名 → 解析后端路由 → 要求 kv 能力 →
- * 打开单元 → loadAll 并逐条按 zod schema 校验 → 构造 DomainImpl；返回时做唯一一次
- * 类型擦除（DomainImpl 是未类型化的运行时，Domain<S> 是带 spec 类型的视图）。
- * 【产品维度】这是上层组件使用领域数据的入口：声明领域后，只要本插件已加载，
- * ctx.storage.domain.open(spec) 就能获得一个类型完备、事件完备的领域句柄。
- * 【逻辑维度】按出现顺序：export 桶（对外再导出）→ 声明合并（挂到 StorageForms 与
- * Context 上）→ name/inject（插件元信息）→ Config 接口与 Config 常量（路由配置）→
- * DomainFacility（领域门面：open/get/closeAll）→ parseRecord（校验包装）→ apply（挂载）。
- * 【关键边界】哪个后端服务哪个领域由 routes 决定（默认走 backend），路由到未注册后端
- * 会在 open 时以 backend-not-found 失败；打开失败必须释放名字保留（reserved）；
- * 生命周期：调用方拥有返回的句柄并负责 close，facility 卸载时兜底关闭所有遗留领域。
- * 【新手阅读建议】先看 Config 理解路由，再看 DomainFacility.open 的失败顺序清单，
- * 最后看 apply 理解插件如何挂载与卸载。
- * ==========================================================================
- */
+
 /**
  * Domain data form (`ctx.storage.domain`): schema-validated, change-emitting
  * KV domains over storage backends. The single implementation of the domain
@@ -30,6 +10,10 @@
 /*
  * 模块总览：本文件是领域层的门面与插件入口。消费者只依赖本包，绝不直接碰后端；
  * 类型化访问（ctx.storage.domain.open(spec)）与运行时实现（DomainImpl）在这里汇合。
+ */
+
+/*
+ * 【文件职责】提供经过 schema 校验的领域键值存储及变更通知，消费者通过领域层访问后端而不直接操作存储介质。
  */
 
 import type { Context } from '@deepseek-ai/cordis'
@@ -136,7 +120,10 @@ export class DomainFacility {
    * (`facet-unsupported`); open the unit projected from the spec (backend
    * `version-mismatch`/`malformed-medium` pass through); load and validate
    * every stored record against the spec's zod schemas (`invalid-record`
-   * with the offending table and key); construct the domain.
+   * with the offending table and key — unless the spec declares
+   * `invalidRecords: 'backup-and-skip'` and the unit can move documents aside, in
+   * which case the failing record is backed up, logged, and skipped);
+   * construct the domain.
    *
    * Lifecycle: the CALLER owns the returned handle and closes it via
    * `Domain.close()` (typically as its own `ctx.effect` disposer) — the
@@ -180,7 +167,23 @@ export class DomainFacility {
         for (const [table, tableSpec] of Object.entries(spec.tables)) {
           const records = new Map<string, unknown>()
           for (const [key, raw] of Object.entries(snapshot.tables[table] ?? {})) {
-            records.set(key, parseRecord(spec.name, table, key, () => tableSpec.valueSchema.parse(raw)))
+            let parsed: unknown
+            try {
+              parsed = parseRecord(spec.name, table, key, () => tableSpec.valueSchema.parse(raw))
+            } catch (error) {
+              // Backup-and-skip policy (disposable derived data): move the record's
+              // document aside, log the concrete failure, and open without the
+              // record. Backends that cannot move a document keep the loud path.
+              if (spec.invalidRecords !== 'backup-and-skip' || unit.backupRecord === undefined) throw error
+              const moved = await unit.backupRecord(table, key)
+              // parseRecord always wraps the zod failure as the cause.
+              this.ctx.logger.error(
+                `domain '${spec.name}': stored record '${key}' in table '${table}' failed schema validation; `
+                + `moved to '${moved}' and treated as absent. Cause: ${String((error as DomainError).cause)}`,
+              )
+              continue
+            }
+            records.set(key, parsed)
           }
           tables.set(table, records)
         }

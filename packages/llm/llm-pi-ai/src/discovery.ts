@@ -13,21 +13,18 @@
  * metadata the surface offers for adoption. `settings.yaml` remains the only
  * thing that decides what a route serves.
  *
- * Only OpenAI-compatible protocols are interrogated. Their listing is the one
- * shape a gateway, a self-hosted server, and the official endpoints all agree
- * on, which is the case this action exists for; every other protocol reports
- * that it cannot be interrogated so the surface falls back to hand-entry
- * rather than guessing a response shape.
+ * OpenAI-compatible and Anthropic Messages protocols are interrogated through
+ * their native model-listing endpoints. The parser accepts the standard
+ * `data` array and the enriched `models` map some compatible gateways expose.
+ * Every other protocol reports that it cannot be interrogated so the surface
+ * falls back to hand-entry rather than guessing its response fields.
  *
  * @module dsh-llm-pi-ai/discovery
  */
+
 /*
- * 文件职责：实现Pi AI LLM的 discovery.ts 模块。
- * 技术维度：TypeScript、Fetch、SSE、OAuth/密钥认证、模型目录和运行时模式校验。
- * 产品维度：让 Agent 能稳定调用供应商模型、发现能力并接收流式结果。
- * 逻辑维度：解析配置和认证，转换请求，消费流并映射模型事件。
- * 关键边界：网络响应属于不可信输入；密钥和令牌不得记录；取消必须终止请求与流。
- * 新手阅读建议：先读 config/auth/catalog，再看 adapter/stream，最后阅读错误和重放测试。
+ * 【文件职责】为模型设置发现候选：内置提供者读取 pi-ai 目录，自定义路由查询端点；
+ * 结果不自动修改配置。
  */
 
 import { INVALID_CREDENTIAL_CODE, LlmError, normalizeApiKey } from '@deepseek-ai/dsh-llm'
@@ -36,18 +33,26 @@ import { attributionHeaders } from '@deepseek-ai/dsh-llm'
 import { catalogModels } from './catalog.ts'
 
 /**
- * Protocols whose model listing this module can read: the two that speak
- * OpenAI's `GET /models` shape with bearer auth. Azure is absent despite its
- * OpenAI lineage — it authenticates with an `api-key` header and requires an
- * `api-version` query — and Codex authenticates through OAuth; guessing at
- * either would report an authentication failure as a provider with no models.
- * pi-ai's remaining protocols are absent for the same reason.
+ * Protocols whose model listing this module can read. OpenAI protocols use
+ * bearer auth at `GET {baseURL}/models`; Anthropic Messages uses `x-api-key`
+ * and `anthropic-version` at its native `GET /v1/models`. Azure is absent
+ * despite its OpenAI lineage — it authenticates with an `api-key` header and
+ * requires an `api-version` query — and Codex authenticates through OAuth;
+ * guessing at either would report an authentication failure as a provider
+ * with no models. pi-ai's remaining protocols are absent for the same reason.
  */
 /* 中文说明：适配器局部值 LISTABLE_PROTOCOLS，由紧邻初始化决定。 */
 const LISTABLE_PROTOCOLS: ReadonlySet<string> = new Set([
+  'anthropic-messages',
   'openai-completions',
   'openai-responses',
 ])
+
+/** Stable API version required by Anthropic's model-listing endpoint. */
+const ANTHROPIC_VERSION = '2023-06-01'
+
+/** Largest model-list page accepted by Anthropic's public endpoint; discovery reads one page and does not follow `has_more`. */
+const ANTHROPIC_MODEL_LIMIT = 1000
 
 /**
  * Endpoint replies larger than this are refused. The endpoint is whatever URL
@@ -59,17 +64,34 @@ const LISTABLE_PROTOCOLS: ReadonlySet<string> = new Set([
 /* 中文说明：适配器局部值 MAX_RESPONSE_BYTES，由紧邻初始化决定。 */
 const MAX_RESPONSE_BYTES = 4 * 1024 * 1024
 
-/** One entry of an OpenAI-compatible `GET /models` reply. */
-/* 中文说明：类型或类 ListingEntry 约束模型请求、认证或流事件职责。 */
+/** Capacity fields nested by enriched model-directory replies. */
+interface ListingLimit {
+  context?: unknown
+  output?: unknown
+}
+
+/** Per-route capacities OpenRouter nests under each entry. */
+interface ListingTopProvider {
+  max_completion_tokens?: unknown
+}
+
+/** One entry of a supported `GET /models` reply. */
 interface ListingEntry {
   id?: unknown
   /** Common gateway extensions; absent from the official listings. */
   name?: unknown
   display_name?: unknown
+  displayName?: unknown
+  contextWindow?: unknown
   context_window?: unknown
   context_length?: unknown
+  max_input_tokens?: unknown
+  maxOutputTokens?: unknown
   max_tokens?: unknown
   max_output_tokens?: unknown
+  maxTokens?: unknown
+  limit?: ListingLimit | null
+  top_provider?: ListingTopProvider | null
 }
 
 /** A positive integer field of a listing entry, or `undefined` when absent or unusable. */
@@ -93,14 +115,21 @@ function label(...candidates: readonly unknown[]): string | undefined {
 }
 
 /**
- * Join the endpoint base with the listing path. The base is treated as a
- * prefix rather than a URL to resolve against, so a deployment path such as
- * `https://gateway.example/openai/v1` keeps its segments instead of losing
- * them to `URL` resolution.
+ * Join the endpoint base with the protocol's listing path. The base is
+ * treated as a prefix rather than a URL to resolve against, so a deployment
+ * path such as `https://gateway.example/openai/v1` keeps its segments instead
+ * of losing them to `URL` resolution. OpenAI protocols list at
+ * `{baseURL}/models`. Anthropic lists at `{root}/v1/models`, where the root is
+ * the base without trailing slashes and without one trailing `/v1` segment:
+ * gateway documentation publishes both spellings of the same root. Only this
+ * listing URL normalizes that segment; model requests receive the configured
+ * `baseURL` unchanged.
  */
-/* 中文说明：函数 listingUrl 的参数见签名，返回结果供模型流程使用；示例见本文件。 */
-function listingUrl(baseURL: string): string {
-  return `${baseURL.replace(/\/+$/, '')}/models`
+function listingUrl(baseURL: string, api: string): string {
+  const base = baseURL.replace(/\/+$/, '')
+  if (api !== 'anthropic-messages') return `${base}/models`
+  const root = base.endsWith('/v1') ? base.slice(0, -3) : base
+  return `${root}/v1/models?limit=${String(ANTHROPIC_MODEL_LIMIT)}`
 }
 
 /**
@@ -157,38 +186,65 @@ async function readBounded(response: Response, url: string): Promise<string> {
 }
 
 /**
- * Read one OpenAI-compatible listing reply. Entries without a usable id are
- * skipped rather than failing the whole interrogation: a single malformed row
- * should not deny the user the rest of a working endpoint's catalog.
+ * Read one supported model-listing reply. The standard `data` array takes
+ * precedence when both supported formats are present. An enriched `models`
+ * map uses each property key as the endpoint-facing id; its nested `id` is
+ * only a fallback for an empty key because gateways may put a canonical model
+ * identity there instead of the alias they accept on requests. Only
+ * object-valued map entries are models; primitive properties are ignored
+ * because they may be directory metadata rather than model records.
+ *
+ * Entries without a usable id are skipped rather than failing the whole
+ * interrogation: a single malformed row should not deny the user the rest of
+ * a working endpoint's catalog. Missing names fall back to the adopted id so
+ * the Web form receives a complete human-readable row.
  */
 /* 中文说明：函数 readListing 的参数见签名，返回结果供模型流程使用；示例见本文件。 */
 function readListing(body: unknown): LlmDiscoveredModel[] {
-  /** 中文说明：适配器局部值 data，由紧邻初始化决定。 */
-  const data = (body as { data?: unknown } | null)?.data
-  if (!Array.isArray(data)) {
-    throw new LlmError(
-      'the endpoint\'s model listing has no "data" array; enter this provider\'s models by hand',
-      'DISCOVERY_FAILED',
-    )
+  const listing = body as { data?: unknown; models?: unknown } | null
+  const data = listing?.data
+  let listed: { readonly key?: string; readonly raw: unknown }[]
+  if (Array.isArray(data)) {
+    const rows = data as readonly unknown[]
+    listed = rows.map(raw => ({ raw }))
+  } else {
+    const models = listing?.models
+    if (models === null || typeof models !== 'object' || Array.isArray(models)) {
+      throw new LlmError(
+        'the endpoint\'s model listing has neither a "data" array nor a "models" object; '
+        + 'enter this provider\'s models by hand',
+        'DISCOVERY_FAILED',
+      )
+    }
+    listed = Object.entries(models as Record<string, unknown>)
+      .filter(([, raw]) => raw !== null && typeof raw === 'object' && !Array.isArray(raw))
+      .map(([key, raw]) => ({ key, raw }))
   }
   /** 中文说明：适配器局部值 models，由紧邻初始化决定。 */
   const models: LlmDiscoveredModel[] = []
-  /** 中文说明：适配器局部值 raw，由紧邻初始化决定。 */
-  for (const raw of data) {
-    /** 中文说明：适配器局部值 entry，由紧邻初始化决定。 */
+  for (const { key, raw } of listed) {
     const entry = raw as ListingEntry | null
-    /** 中文说明：适配器局部值 id，由紧邻初始化决定。 */
-    const id = label(entry?.id)
+    const id = label(key, entry?.id)
     if (id === undefined) continue
-    /** 中文说明：适配器局部值 name，由紧邻初始化决定。 */
-    const name = label(entry?.name, entry?.display_name)
-    /** 中文说明：适配器局部值 contextWindow，由紧邻初始化决定。 */
-    const contextWindow = capacity(entry?.context_window, entry?.context_length)
-    /** 中文说明：适配器局部值 maxTokens，由紧邻初始化决定。 */
-    const maxTokens = capacity(entry?.max_output_tokens, entry?.max_tokens)
+    const name = label(entry?.name, entry?.display_name, entry?.displayName) ?? id
+    const contextWindow = capacity(
+      entry?.contextWindow,
+      entry?.context_window,
+      entry?.context_length,
+      entry?.max_input_tokens,
+      entry?.limit?.context,
+    )
+    const maxTokens = capacity(
+      entry?.maxOutputTokens,
+      entry?.max_output_tokens,
+      entry?.maxTokens,
+      entry?.max_tokens,
+      entry?.limit?.output,
+      entry?.top_provider?.max_completion_tokens,
+    )
     models.push({
       id,
-      ...name === undefined ? {} : { name },
+      name,
       ...contextWindow === undefined ? {} : { contextWindow },
       ...maxTokens === undefined ? {} : { maxTokens },
     })
@@ -217,14 +273,20 @@ function usableProbeKey(raw: string): string {
   )
 }
 
+/** Host-owned profile inputs that a configuration draft deliberately omits. */
+export interface StoredModelDiscoveryProfile {
+  /** Deployment headers configured on the named route. */
+  readonly headers: Readonly<Record<string, string>> | undefined
+  /** Resolve the named route's credential only when the draft carries none. */
+  readonly resolveApiKey: () => Promise<string | undefined>
+}
+
 /**
  * Interrogate one draft provider endpoint for the models it advertises.
  * @param request - the endpoint, protocol, and one-shot credential to use.
- * @param storedApiKey - the credential the named route already stored, asked
- *   for only when the draft carries none and only on the path that reaches the
- *   network. A configuration surface never holds a stored secret — it edits a
- *   redacted descriptor — so without this an already-configured route would be
- *   interrogated unauthenticated and answer 401.
+ * @param storedProfile - Host-owned headers and lazy credential resolution for
+ *   the named route. It is read only on the path that reaches the network; the
+ *   credential is resolved only when the draft carries none.
  * @returns the advertised models in endpoint order.
  * @throws LlmError when the protocol has no readable listing, the endpoint
  *   refuses or fails the request, or the reply is not a model listing.
@@ -237,7 +299,7 @@ function usableProbeKey(raw: string): string {
  */
 export async function discoverModels(
   request: LlmModelDiscoveryOperation,
-  storedApiKey?: () => Promise<string | undefined>,
+  storedProfile?: () => StoredModelDiscoveryProfile | undefined,
 ): Promise<readonly LlmDiscoveredModel[]> {
   // A catalog route already has its answer, and a better one: the installed
   // entries carry context windows and output caps no listing endpoint reports.
@@ -274,29 +336,30 @@ export async function discoverModels(
       'DISCOVERY_UNSUPPORTED',
     )
   }
-  /** 中文说明：适配器局部值 url，由紧邻初始化决定。 */
-  const url = listingUrl(request.baseURL)
-  // A key typed into the form wins: it is the one the user is testing, and it
-  // may be the replacement for exactly the stored key that is failing. The
-  // stored one is only asked for here, past the catalog short-circuit and the
-  // protocol check, so a route answered from the registry costs no credential
-  // lookup — and no diagnostic about a credential it never needed.
-  // A probe carrying no key stays unauthenticated, which is how a route that
-  // relies on the provider's own ambient discovery is meant to be asked.
-  /** 中文说明：适配器局部值 supplied，由紧邻初始化决定。 */
-  const supplied = request.apiKey ?? await storedApiKey?.()
-  /** 中文说明：适配器局部值 apiKey，由紧邻初始化决定。 */
+  const url = listingUrl(request.baseURL, api)
+  // A key typed into the form wins: it may replace the stored key that is
+  // failing. The stored profile is asked past the catalog and protocol checks,
+  // and its credential resolver remains lazy so a typed key cannot fail over a
+  // stored credential it supersedes. A route may still authenticate through a
+  // deployment-owned Authorization header when neither key exists.
+  const stored = storedProfile?.()
+  const supplied = request.apiKey ?? await stored?.resolveApiKey()
   const apiKey = supplied === undefined ? undefined : usableProbeKey(supplied)
   /** 中文说明：适配器局部值 response: Response，由紧邻初始化决定。 */
   let response: Response
   try {
+    const headers = new Headers(stored?.headers === undefined ? undefined : Object.entries(stored.headers))
+    headers.set('accept', 'application/json')
+    if (api === 'anthropic-messages') {
+      headers.set('anthropic-version', ANTHROPIC_VERSION)
+      if (apiKey !== undefined) headers.set('x-api-key', apiKey)
+    } else if (apiKey !== undefined) {
+      headers.set('authorization', `Bearer ${apiKey}`)
+    }
+    for (const [name, value] of Object.entries(attributionHeaders())) headers.set(name, value)
     response = await fetch(url, {
       method: 'GET',
-      headers: {
-        accept: 'application/json',
-        ...apiKey === undefined ? {} : { authorization: `Bearer ${apiKey}` },
-        ...attributionHeaders(),
-      },
+      headers,
       ...request.signal === undefined ? {} : { signal: request.signal },
     })
   } catch (error: unknown) {

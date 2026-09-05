@@ -9,12 +9,8 @@
  */
 
 /*
- * 文件职责：实现 index.ts 覆盖的子代理工具行为与生命周期。
- * 技术维度：使用 TypeScript、Vitest、Cordis 插件、进程流、终端会话或快照规范化。
- * 产品维度：保障 Agent 的子代理工具能力稳定、可复现且可诊断。
- * 逻辑维度：准备输入和资源，执行核心流程，收集事件或输出，再处理错误与清理。
- * 关键边界：进程退出与取消可能竞态；外部输出不可信；清理必须等待子资源完全停止。
- * 新手阅读建议：先看类型和夹具，再读启动/收集主流程，最后关注平台差异、规范化和清理。
+ * 【文件职责】通过配置的提供者执行模型委托；
+ * 前台收集后释放运行实例，后台按配置使用一次性任务或可继续子 Agent。
  */
 
 import type { Context } from '@deepseek-ai/cordis'
@@ -25,6 +21,7 @@ import type { Agent, AgentOptions } from '@deepseek-ai/dsh-agent'
 import { ReasoningEffortId } from '@deepseek-ai/dsh-llm'
 import type { ContentBlock } from '@deepseek-ai/dsh-llm'
 import type { JsonValue } from '@deepseek-ai/dsh-util-values'
+import { SessionSeq } from '@deepseek-ai/dsh-session'
 import {
   assertSubagentMaxDepth,
   parentAgentOptionsForDelegation,
@@ -50,8 +47,6 @@ import {
 
 export const name = 'tool-subagent'
 export const inject = ['tools', 'subagents', 'systemPrompt', 'sessionProjections']
-
-/** Prompt order after bounded delegation policy and before child reporting. */
 
 /** Config: which registered provider this tool delegates to, plus child defaults. */
 export interface Config {
@@ -386,7 +381,7 @@ export function apply(ctx: Context, config: Config): void {
           // a separately installed capability, so this promise holds whenever the
           // continuable background path is reachable at all.
           ? continuable
-            ? ' This tool runs in the background by default, immediately returns a durable subagent id, and keeps the child conversation available for later turns. When that run settles, the runtime sends the parent a notice containing its outcome and any final assistant message; `send_message` starts a later turn in the same child conversation. Set `run_in_background: false` only when your next action depends on receiving the result.'
+            ? ' This tool runs in the background by default, immediately returns a durable subagent id, and keeps the child conversation available for later turns. When that run settles, the runtime sends the parent a notice containing its outcome and any final assistant message; `send_message` steers the child\'s nearest step while it is running and starts a turn while it is idle. Set `run_in_background: false` only when your next action depends on receiving the result.'
             : ' This call waits for the result by default. Set `run_in_background: true` to return a job id; collect with `job_output` and stop with `job_kill`.'
           : ' This call waits for the subagent and returns its result.') + choiceDescription,
         parameters: {
@@ -626,6 +621,8 @@ export function apply(ctx: Context, config: Config): void {
   }
 
   const selectForAgent = (agent: NonNullable<Context['agent']>): ModelSelectionPolicy | undefined => {
+    const freshSession = agent.session.firstLiveSeq === 0
+      && agent.session.eventAt(SessionSeq(0))?.type !== 'session/end-seed'
     let allowedModels = subagentModelSelectionPolicy(ctx.sessionProjections, agent.session)
     if (allowedModels === undefined) {
       const parentId = agent.session.header.origin === 'subagent'
@@ -636,7 +633,7 @@ export function apply(ctx: Context, config: Config): void {
         allowedModels = parent === undefined
           ? undefined
           : subagentModelSelectionPolicy(ctx.sessionProjections, parent.session)
-      } else if (agent.session.firstLiveSeq === 0) {
+      } else if (freshSession) {
         const current = settings.current()
         allowedModels = current.enabled ? current.allowedModels : undefined
       }

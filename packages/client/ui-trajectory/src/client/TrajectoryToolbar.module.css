@@ -1,11 +1,7 @@
-/**
- * 文件职责：定义 TrajectoryToolbar 的局部样式。
- * 技术维度：CSS Modules、网格/滚动布局和状态选择器。
- * 产品维度：让运行轨迹信息在复杂状态下仍易读。
- * 逻辑维度：按容器、工具栏、内容和状态组织规则。
- * 关键边界：长列表需保持滚动性能，颜色不能单独表达状态。
- * 新手阅读建议：对照组件按 DOM 与状态层级阅读。
+/*
+ * 【文件职责】定义固定在轨迹顶部的工具栏，滚动时保持操作区域可见。
  */
+
 .root {
   position: sticky;
   top: 0;
@@ -13,7 +9,7 @@
   box-sizing: border-box;
   width: 100%;
   height: var(--dsh-trajectory-toolbar-height);
-  border-bottom: 1px solid var(--dsw-alias-border-l2);
+  border-bottom: 0.5px solid var(--dsw-alias-border-l2);
   background: var(--dsw-alias-bg-layer-1);
 }
 
@@ -130,6 +126,7 @@
   width: 6px;
   height: 6px;
   border-radius: 50%;
+  corner-shape: round;
   background: var(--dsw-alias-bg-layer-1);
   transition: transform 120ms var(--ds-ease-in-out);
 }
@@ -181,7 +178,7 @@
   margin-left: auto;
   padding: 0 6px;
   gap: 4px;
-  border: 1px solid var(--dsw-alias-border-l2);
+  border: 0.5px solid var(--dsw-alias-border-l4);
   border-radius: 4px;
   color: var(--dsw-alias-label-caption);
   background: var(--dsw-alias-bg-layer-2);

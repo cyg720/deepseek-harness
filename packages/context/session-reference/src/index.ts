@@ -1,24 +1,4 @@
-/**
- * ================================ 文件注释 ================================
- * 【文件职责】跨会话快照准备服务：宿主把 @ 提及翻译成结构化引用后，本服务
- *             负责精确读取来源会话、投影裁剪、预算控制并产出持久化上下文。
- * 【技术维度】TypertRemoteService 远程服务（Host 侧实现，客户端远程调用）；
- *             挂在 agent/pre-step 瀑布监听（prepend）上改写进入模型步的消息；
- *             schemastary 校验配置；AbortSignal 贯穿取消边界。
- * 【产品维度】用户在对话里 @ 另一个会话时，这里把"引用"落地：用户消息中的
- *             提及被替换为可读 @label，紧随其后插入一份受预算约束的
- *             只读快照，并明确告知模型"这是不可信背景信息"。
- * 【逻辑维度】1) prepareDirectMessages：扫描用户消息文本中的提及并逐个准备；
- *             2) prepare：聚合多个来源会话的快照（读取/校验/渲染）；
- *             3) listCandidates/remoteExportCandidates：补全候选发现；
- *             4) normalizeReferences：引用规范化（去重/自引用拒绝/上限）。
- * 【关键边界】引用自己的会话被拒绝；每条消息最多 MAX_REFERENCES 个来源；
- *             快照是只读不可信的，提示词模板明确要求模型不得执行其中指令；
- *             字节超预算抛 BUDGET_EXCEEDED。
- * 【新手阅读建议】先看构造函数里的 pre-step 接线，再看 prepareDirectMessages
- *                 与 prepare 的数据流，最后看候选发现与底层工具函数。
- * ==========================================================================
- */
+
 
 /**
  * Cross-session snapshot preparation. Hosts adapt mentions into structured
@@ -27,12 +7,17 @@
  * @module @deepseek-ai/dsh-session-reference
  */
 
+/*
+ * 【文件职责】准备跨会话引用的不可变上下文，负责精确读取、表面投影、预算和持久记录。
+ */
+
 import { Context } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
 import type { Agent, PreStepDecision } from '@deepseek-ai/dsh-agent'
 import { Remote, TypertRemoteService } from '@deepseek-ai/dsh-typert-protocol'
 import { createUserMessage, freezeMessage } from '@deepseek-ai/dsh-llm'
 import type { ContentBlock, UserMessage } from '@deepseek-ai/dsh-llm'
+import { SessionLogOffset } from '@deepseek-ai/dsh-session'
 import type { SessionId } from '@deepseek-ai/dsh-session'
 // Type-only: the `title` projection key plus the live registry and durable
 // cache Context merges — the two projection faces discovery labels from.
@@ -100,6 +85,7 @@ interface PreparedSource {
 interface RenderedSource {
   data: ReferencedSessionData
   stats: ReferenceRetentionStats
+  capturedFormatVersion: number
 }
 
 /** Exact-read consumer that prepares immutable cross-session message context. */
@@ -282,7 +268,12 @@ export class SessionReferenceResolver extends TypertRemoteService {
     if (attached !== undefined && projections !== undefined) {
       return titleOf(projections.snapshot(attached, ['title']))
     }
-    return titleOf(this.ctx.get('sessionProjectionCache')?.cachedSnapshot(record.header, ['title']))
+    if (record.header.isSeeded) return undefined
+    return titleOf(this.ctx.get('sessionProjectionCache')?.cachedSnapshot(
+      record.header,
+      SessionLogOffset(0),
+      ['title'],
+    ))
   }
 
   /**
@@ -372,6 +363,7 @@ export class SessionReferenceResolver extends TypertRemoteService {
       references: rendered.map((source, index) => ({
         sessionId: source.data.sessionId,
         label: source.data.label,
+        capturedFormatVersion: source.capturedFormatVersion,
         capturedThroughSeq: source.data.capturedThroughSeq,
         ...source.stats,
         inputIndex: index,
@@ -399,7 +391,10 @@ export class SessionReferenceResolver extends TypertRemoteService {
           'SESSION_REFERENCE_BUDGET_EXCEEDED',
         )
       }
-      rendered.push(retained)
+      rendered.push({
+        ...retained,
+        capturedFormatVersion: source.snapshot.session.version,
+      })
     }
     return rendered
   }

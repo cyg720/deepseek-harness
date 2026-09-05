@@ -18,7 +18,7 @@ import { defineConfig } from 'tsdown'
  * 使用示例：运行 `pnpm --filter @deepseek-ai/dsh-sandbox-windows-acl bundle`。
  */
 export default defineConfig({
-  entry: { index: 'lib/types/index.js', invariant: 'lib/types/invariant.js', runner: 'lib/types/runner.js' },
+  entry: { index: 'lib/types/index.js', runner: 'lib/types/runner.js' },
   outDir: 'lib',
   format: ['esm'],
   platform: 'node',

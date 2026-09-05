@@ -23,12 +23,8 @@
  */
 
 /*
- * 文件职责：实现 index.ts 承担的计划模式配置、装载与运行时协作职责。
- * 技术维度：使用 TypeScript、Cordis 插件、事件日志、配置解析和异步生命周期管理。
- * 产品维度：让 Agent 能按用户配置启用计划模式并保持会话行为一致。
- * 逻辑维度：解析输入配置，注册插件能力，处理事件，并在卸载时清理资源。
- * 关键边界：配置错误应尽早失败；模型可见状态必须写入日志；注册必须可撤销。
- * 新手阅读建议：先看导出类型和配置，再读插件入口与事件处理，最后关注校验和清理。
+ * 【文件职责】将计划模式作为会话日志状态管理；
+ * 用户选择在下一次获准的轮内 pre-step 生效，沙箱和审批策略独立执行。
  */
 
 import { Context, Service } from '@deepseek-ai/cordis'
@@ -234,11 +230,11 @@ export class PlanModeController extends Service {
       commandCtx.commands.register({
         name: 'plan',
         description: 'Enter or leave plan mode',
-        input: { hint: '[off|message]', images: true },
+        input: { hint: '[off|message]', attachments: true },
         handler: ({ agent, rawInput, attachments }) => {
           const message = rawInput.trim()
           if (message === 'off' && attachments.length > 0) {
-            return { kind: 'error', text: 'Image attachments cannot accompany /plan off.' }
+            return { kind: 'error', text: 'Attachments cannot accompany /plan off.' }
           }
           if (message === 'off') {
             switch (this.set(agent, false)) {

@@ -12,11 +12,11 @@
  * 新手阅读建议：先看加载器的四类输入，再看writeTree生成的插件，最后跟踪HMR成功与失败代际。
  */
 
-import { mkdirSync, mkdtempSync, unlinkSync, writeFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, rmSync, unlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterAll, afterEach, describe, expect, it } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
 import Hmr from '@deepseek-ai/cordis-plugin-hmr'
 import Include, { type PatchOptions } from '@deepseek-ai/cordis-plugin-include'
@@ -32,8 +32,16 @@ import {
 // 用户补丁错误消息使用的固定测试入口名。
 const NAME = 'dsh-test-bin'
 
-/** 创建用户补丁测试使用的隔离临时目录。 */
-const tmp = (): string => mkdtempSync(join(tmpdir(), 'dsh-user-patches-'))
+const tempRoots: string[] = []
+afterAll(() => {
+  for (const root of tempRoots.splice(0)) rmSync(root, { recursive: true, force: true })
+})
+
+const tmp = (): string => {
+  const dir = mkdtempSync(join(tmpdir(), 'dsh-user-patches-'))
+  tempRoots.push(dir)
+  return dir
+}
 
 /** 在10秒内轮询条件，超时后抛出调用者提供的诊断。 */
 async function eventually(test: () => boolean, message: string): Promise<void> {

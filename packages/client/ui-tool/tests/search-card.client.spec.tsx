@@ -198,6 +198,7 @@ describe('searchCardModel', () => {
 describe('chat row search body (GenericToolCard fallback)', () => {
   /** 中文说明：测试局部值 ownerProps，由紧邻初始化决定。 */
   const ownerProps = (block: RunningToolCall | ToolResultNode, toolName: string): GenericToolCardProps => ({
+    loadImage: vi.fn(() => Promise.reject(new Error('not used'))),
     callId: 'c1', toolName, block, openFile: vi.fn(), t,
   })
   /** The whole summary row is the expand toggle (ToolRow's unified interaction). */
@@ -427,9 +428,9 @@ describe('DetailsPanel Output section (search)', () => {
         useInput={(() => { throw new Error('unused') })}
         inputActions={{
           setDraft: () => {},
-          addImages: () => true,
-          removeImage: () => {},
-          pruneImages: () => {},
+          addAttachments: () => true,
+          removeAttachment: () => {},
+          pruneAttachments: () => {},
           submit: () => {},
         }}
         useProjection={(() => undefined)}

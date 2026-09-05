@@ -1,20 +1,13 @@
-/*
- * ================================ 文件注释 ================================
- * 【文件职责】共享的事件元数据与语义文档投影：把原始日志投影成轻量"表面感知"
- *   事件记录与可搜索的语义文档。
- * 【技术维度】用 dsh-session 的 foldSurface 对事件做"当前/被遮蔽/仅日志"三态分类；
- *   语义文本经 extraction.ts 提取（结构性事件被剔除）。
- * 【产品维度】全文检索与事件过滤共用的第一方文档形状。
- * 【逻辑维度】buildSessionEventRecords → buildSessionEventSearchDocuments → classifySurface。
- * 【关键边界】表面折叠失败映射为 SESSION_QUERY_INVALID_SURFACE。
- * 【新手阅读建议】对照 types.ts 的 SessionEventSurface 三态阅读 classifySurface。
- * ==========================================================================
- */
+
 
 /** Shared event metadata and semantic-document projection. */
 
+/*
+ * 【文件职责】把原始日志投影为带表面状态的轻量事件元数据，按事件序号保持顺序。
+ */
+
 import { foldSurface } from '@deepseek-ai/dsh-session'
-import type { SessionEvent, SessionId } from '@deepseek-ai/dsh-session'
+import type { SessionEvent, SessionId, SessionSeq } from '@deepseek-ai/dsh-session'
 import type { SessionEventRecord, SessionEventSearchDocument, SessionEventSurface } from './types.ts'
 import { SessionQueryError } from './config.ts'
 import { extractSessionEventText } from './extraction.ts'
@@ -67,7 +60,7 @@ export function buildSessionEventSearchDocuments(
   return documents
 }
 
-function classifySurface(events: readonly SessionEvent[]): Map<number, SessionEventSurface> {
+function classifySurface(events: readonly SessionEvent[]): Map<SessionSeq, SessionEventSurface> {
   let folded: ReturnType<typeof foldSurface>
   try {
     folded = foldSurface(events)
@@ -79,7 +72,7 @@ function classifySurface(events: readonly SessionEvent[]): Map<number, SessionEv
       { cause: error },
     )
   }
-  const result = new Map<number, SessionEventSurface>()
+  const result = new Map<SessionSeq, SessionEventSurface>()
   for (const seq of folded.nodes) result.set(seq, 'current')
   for (const replacement of folded.replacements) {
     for (const seq of replacement.shadowedSeqs) result.set(seq, 'shadowed')

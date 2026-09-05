@@ -1,3 +1,7 @@
+/*
+ * 【文件职责】定义斜杠触发候选菜单，左右贴齐输入卡片并在其上方定位。
+ */
+
 .menu {
   position: absolute;
   bottom: calc(100% + 4px);
@@ -17,10 +21,11 @@
   padding: 4px;
   display: flex;
   flex-direction: column;
-  border: 1px solid var(--dsw-alias-border-inverted);
-  border-radius: 12px;
+  border: 0;
+  border-radius: 20px;
   background: var(--dsw-specific-menu);
-  box-shadow: var(--dsw-shadow-lv3);
+  --dsw-elevation-stroke-color: var(--dsw-alias-border-l1);
+  box-shadow: var(--dsw-elevation-prominent);
 }
 
 .viewport {
@@ -198,7 +203,7 @@
   margin-bottom: 2px;
   /* l1, not border-inverted (the menu frame's dark-only stroke): the divider
      needs to survive light mode too; in dark both resolve to white/0.06. */
-  border-bottom: 1px solid var(--dsw-alias-border-l1);
+  border-bottom: 0.5px solid var(--dsw-alias-border-l1);
 }
 /* Crumbs sit outside the listbox and take no keyboard highlight, so unlike
    .item they carry their own :hover tint with nothing to compete with. */

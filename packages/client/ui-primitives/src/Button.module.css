@@ -1,13 +1,13 @@
 /* Capsule geometry from the figma Button component (1:155 instances:
  * h36, pad 14/7, gap 4, r18; the wide New Session form is r24 at h38 —
  * owners with the wide form set their own radius/width). */
-/* 文件职责：定义基础按钮的胶囊几何、尺寸、视觉变体、交互状态和前置图标布局。
- * 技术维度：使用 CSS Module、主题令牌和 :hover/:active/:disabled 组合选择器。
- * 产品维度：为主操作、幽灵操作、描边取消和工具栏按钮提供一致且可访问的反馈。
- * 逻辑维度：button 提供公共基础，md/sm 控制尺寸，各变体设置颜色，icon 约束 16px 图标。
- * 关键边界：宽版新会话表单由所有者覆盖圆角/宽度；禁用按钮不能触发 hover/active 背景。
- * 新手阅读建议：先看 button/md/sm，再比较 primary/ghost/outline/toolbar，最后看 icon。 */
+
 /* 所有按钮共享的内联弹性胶囊基础。 */
+
+/*
+ * 【文件职责】定义基础按钮的胶囊形状和交互状态，较宽业务按钮可由拥有者覆盖宽度与半径。
+ */
+
 .button {
   display: inline-flex;
   align-items: center;
@@ -69,7 +69,7 @@
 /* Dialog Cancel (figma 451:18655): bordered capsule on transparent fill. */
 /* 对话框取消使用透明填充和细边框。 */
 .outline {
-  border: 1px solid var(--dsw-alias-border-l2);
+  border: 0.5px solid var(--dsw-alias-border-l3);
   background: transparent;
 }
 

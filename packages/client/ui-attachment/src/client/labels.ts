@@ -1,20 +1,11 @@
-/**
- * ================================ 文件注释 ================================
- * 【文件职责】把对话（conversation）命名空间下的图片相关文案解析成各附件组件的
- *             标签对象：灯箱、消息图片、拖放覆盖层、草稿附件栏。
- * 【技术维度】纯函数式文案装配：接收命名空间翻译函数 t，返回组件需要的结构化标签，
- *             不依赖任何运行时状态。
- * 【产品维度】保证附件相关 UI 的所有可见文字（打开原图、加载失败、拖放提示等）
- *             都走统一的翻译体系，支持多语言。
- * 【逻辑维度】lightboxLabels → messageImageLabels（内嵌灯箱标签）→ dropOverlayLabels
- *             → attachmentRailLabels，四个函数分别装配一个组件的标签。
- * 【关键边界】文案键全部来自 conversation 命名空间；labels 类型来自各组件的 props 类型。
- * 【新手阅读建议】先看最底部的 attachmentRailLabels，再看 messageImageLabels 如何复用 lightboxLabels。
- * ==========================================================================
+/*
+ * 【文件职责】从 Conversation 文案命名空间生成灯箱和历史图片组件需要的本地化标签。
  */
+
 import type { TranslateNS } from '@deepseek-ai/dsh-client-ui-slots'
 import type { AttachmentRailLabels } from '../AttachmentRail.tsx'
 import type { DropOverlayLabels } from '../DropOverlay.tsx'
+import type { FileCardLabels } from '../FileCard.tsx'
 import type { ImageLightboxLabels } from '../ImageLightbox.tsx'
 import type { MessageImageLabels } from '../MessageImage.tsx'
 
@@ -57,23 +48,38 @@ export function dropOverlayLabels(
   accepting: boolean,
   limits?: { readonly count: number; readonly size: string },
 ): DropOverlayLabels {
-  if (!accepting) return { title: t('image.dropBlocked') }
+  if (!accepting) return { title: t('attachment.dropBlocked') }
   return {
-    title: t('image.dropTitle'),
-    desc: limits === undefined ? undefined : t('image.dropDesc', limits),
+    title: t('attachment.dropTitle'),
+    desc: limits === undefined ? undefined : t('attachment.dropDesc', limits),
   }
 }
 
 /**
- * Resolve draft-image rail strings from the conversation namespace.
+ * Resolve pending-file card strings from the conversation namespace.
+ * @param t - conversation namespace translator.
+ * @param name - browser file name interpolated into remove/retry labels.
+ * @returns translated file-card labels.
+ */
+export function fileCardLabels(t: TranslateNS<'conversation'>, name: string): FileCardLabels {
+  return {
+    label: t('file.pending'),
+    remove: t('file.remove', { name }),
+    uploading: t('file.uploading'),
+    failed: t('file.uploadFailed'),
+    retry: t('file.retry', { name }),
+  }
+}
+
+/**
+ * Resolve the mixed draft-attachment rail strings from the conversation namespace.
  * @param t - conversation namespace translator.
  * @returns translated attachment-rail labels.
  */
 export function attachmentRailLabels(t: TranslateNS<'conversation'>): AttachmentRailLabels {
   return {
-    group: t('image.pending'),
-    open: t('image.openOriginal'),
-    scrollLeft: t('image.scrollLeft'),
-    scrollRight: t('image.scrollRight'),
+    group: t('attachment.pending'),
+    scrollLeft: t('attachment.scrollLeft'),
+    scrollRight: t('attachment.scrollRight'),
   }
 }

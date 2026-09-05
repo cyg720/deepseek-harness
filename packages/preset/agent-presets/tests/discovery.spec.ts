@@ -1,8 +1,8 @@
-import { mkdtemp, mkdir, symlink, writeFile } from 'node:fs/promises'
+import { mkdtemp, mkdir, rm, symlink, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { COMPOSITION_FILE, discoverPresets, scanRoot } from '@deepseek-ai/dsh-agent-presets'
 
 /** 中文说明：函数值 fsHarness 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
@@ -36,6 +36,12 @@ const SYSTEM = { path: join(FIXTURES, 'system'), trust: 'system' as const }
 /** 中文说明：常量 USER 保存本测试共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const USER = { path: join(FIXTURES, 'user'), trust: 'user' as const }
 
+/** Every temp root created by this file, removed after each test. */
+const roots: string[] = []
+afterEach(async () => {
+  for (const root of roots.splice(0)) await rm(root, { recursive: true, force: true })
+})
+
 beforeEach(() => {
   fsHarness.nextReadError = undefined
 })
@@ -44,7 +50,7 @@ describe('display order', () => {
   it('puts declared order first, then everything else by id', async () => {
     /** 中文说明：变量 root 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const root = await mkdtemp(join(tmpdir(), 'dsh-order-'))
-    /** 中文说明：该循环依次处理预设数据；循环变量仅在当前循环中有效。 */
+    roots.push(root)
     for (const [id, order] of [['zulu', 1], ['alpha', 2]] as const) {
       await mkdir(join(root, id), { recursive: true })
       await writeFile(join(root, id, COMPOSITION_FILE), '[]\n')
@@ -66,7 +72,7 @@ describe('display order', () => {
   it('breaks a tie between equal declared orders by id', async () => {
     /** 中文说明：变量 root 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const root = await mkdtemp(join(tmpdir(), 'dsh-order-tie-'))
-    /** 中文说明：该循环依次处理预设数据；循环变量仅在当前循环中有效。 */
+    roots.push(root)
     for (const id of ['yankee', 'alpha']) {
       await mkdir(join(root, id), { recursive: true })
       await writeFile(join(root, id, COMPOSITION_FILE), '[]\n')
@@ -106,6 +112,7 @@ describe('preset discovery', () => {
   it('skips a directory whose name no preset id could ever claim', async () => {
     /** 中文说明：变量 root 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const root = await mkdtemp(join(tmpdir(), 'dsh-presets-oddname-'))
+    roots.push(root)
     await mkdir(join(root, '.hidden'))
     await mkdir(join(root, 'Has_Caps'))
     await mkdir(join(root, 'usable'))
@@ -143,6 +150,7 @@ describe('preset discovery', () => {
   it('ignores a plain file sitting beside the preset directories', async () => {
     /** 中文说明：变量 root 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const root = await mkdtemp(join(tmpdir(), 'dsh-presets-'))
+    roots.push(root)
     await writeFile(join(root, 'stray.yml'), '- id: x\n')
     await mkdir(join(root, 'real'))
     await writeFile(join(root, 'real', COMPOSITION_FILE), '[]\n')
@@ -155,7 +163,7 @@ describe('preset discovery', () => {
   it('reports a root it cannot read rather than treating it as empty', async () => {
     /** 中文说明：变量 root 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const root = await mkdtemp(join(tmpdir(), 'dsh-presets-'))
-    /** 中文说明：变量 notADirectory 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
+    roots.push(root)
     const notADirectory = join(root, 'file-as-root')
     await writeFile(notADirectory, 'not a directory\n')
 
@@ -185,6 +193,7 @@ describe('composition health', () => {
   async function scanned(composition: string): Promise<string | undefined> {
     /** 中文说明：变量 root 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const root = await mkdtemp(join(tmpdir(), 'dsh-presets-health-'))
+    roots.push(root)
     await mkdir(join(root, 'probe'))
     await writeFile(join(root, 'probe', COMPOSITION_FILE), composition)
     const [preset] = await scanRoot({ path: root, trust: 'user' }, HARNESS)
@@ -228,6 +237,7 @@ describe('composition health', () => {
   it('reports a composition that stats but cannot be read', async () => {
     /** 中文说明：变量 root 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const root = await mkdtemp(join(tmpdir(), 'dsh-presets-unreadable-'))
+    roots.push(root)
     await mkdir(join(root, 'sealed'))
     /** 中文说明：变量 path 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const path = join(root, 'sealed', COMPOSITION_FILE)
@@ -256,6 +266,7 @@ describe('rows naming a plugin that cannot be resolved', () => {
   /** One directory under a fresh root holding `composition`, scanned. */
   async function scanned(composition: string): Promise<string | undefined> {
     const root = await mkdtemp(join(tmpdir(), 'dsh-presets-resolve-'))
+    roots.push(root)
     await mkdir(join(root, 'probe'))
     await writeFile(join(root, 'probe', COMPOSITION_FILE), composition)
     const [preset] = await scanRoot({ path: root, trust: 'user' }, HARNESS)
@@ -293,6 +304,7 @@ describe('rows naming a plugin that cannot be resolved', () => {
 
   it('resolves a preset-relative row against the preset\'s own directory', async () => {
     const root = await mkdtemp(join(tmpdir(), 'dsh-presets-relative-'))
+    roots.push(root)
     await mkdir(join(root, 'probe'))
     await writeFile(join(root, 'probe', 'own-plugin.mjs'), 'export function apply() {}\n')
     await writeFile(join(root, 'probe', COMPOSITION_FILE), '- id: own\n  name: ./own-plugin.mjs\n- id: gone\n  name: ./deleted.mjs\n')
@@ -332,6 +344,7 @@ describe('rows naming a plugin that cannot be resolved', () => {
     // The fast path, and the one that has to answer alone: this package has a
     // directory and nothing to import, so a resolver would reject it.
     const home = await mkdtemp(join(tmpdir(), 'dsh-presets-installed-'))
+    roots.push(home)
     await mkdir(join(home, 'node_modules', '@scope', 'pkg'), { recursive: true })
     await writeFile(join(home, 'node_modules', '@scope', 'pkg', 'package.json'), '{"name":"@scope/pkg"}\n')
     await mkdir(join(home, 'presets', 'probe'), { recursive: true })
@@ -347,6 +360,7 @@ describe('rows naming a plugin that cannot be resolved', () => {
     // What a stale profile install leaves behind: the name is still in
     // `node_modules`, pointing at a checkout that is gone.
     const home = await mkdtemp(join(tmpdir(), 'dsh-presets-dangling-'))
+    roots.push(home)
     await mkdir(join(home, 'node_modules', '@scope'), { recursive: true })
     await symlink(join(home, 'deleted-checkout'), join(home, 'node_modules', '@scope', 'pkg'))
     await mkdir(join(home, 'presets', 'probe'), { recursive: true })

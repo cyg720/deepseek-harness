@@ -67,8 +67,11 @@ const COPY_SUFFIX = /(?:aria|copy|description|empty|heading|label|labels|message
  * 作用于当前作用域；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。
  */
 const IMMUTABLE_LANGUAGE_TOKENS = new Set([
+  'B',
   'Function',
+  'GB',
   'K',
+  'KB',
   'M',
   'MB',
   'Symbol',

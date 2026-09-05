@@ -1,5 +1,11 @@
+/*
+ * 【文件职责】呈现网页检索来源；
+ * 提供者只返回 URL 时使用主机名作标签，并仅为安全的 HTTP(S) 地址生成外链。
+ */
+
 import clsx from 'clsx'
 import { MarkdownText, type MarkdownLabels } from './markdown/MarkdownText.tsx'
+import { LinkIcon } from './LinkIcon.tsx'
 import css from './WebBlock.module.css'
 
 /**
@@ -121,6 +127,7 @@ function SafeLink({ url, label, className }: { url: string; label: string; class
   if (href === undefined) return <span className={className}>{label}</span>
   return (
     <a className={className} href={href} target="_blank" rel="noopener noreferrer">
+      <LinkIcon kind="url" className={css.linkIcon} />
       {label}
     </a>
   )

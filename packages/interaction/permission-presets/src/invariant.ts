@@ -1,11 +1,7 @@
 /** Package-owned permission-preset event invariants. @module @deepseek-ai/dsh-permission-presets/invariant */
+
 /*
- * 文件职责：验证已加载和新追加的 permission/preset 事件始终引用当前可解析的 preset。
- * 技术维度：使用 Cordis 全局内部事件监听、会话遍历和 dsh-invariants 失败回调。
- * 产品维度：防止会话日志包含未知权限方案，导致恢复后安全设置无法解释。
- * 逻辑维度：validateEvent 检查单事件；install 先扫描现有会话，再监听 session/event；apply 注册伴生插件。
- * 关键边界：无关事件直接忽略；校验依据当前 permissionPresets.names，安装器依赖 presets 与 sessions 服务。
- * 新手阅读建议：先看 validateEvent 的唯一失败条件，再看 install 的历史/实时两条输入，最后看 apply。
+ * 【文件职责】检查权限预设变更的持久事件，约束策略选择与会话记录之间的关系。
  */
 
 import type { Context } from '@deepseek-ai/cordis'
@@ -35,8 +31,7 @@ function validateEvent(ctx: Context, event: SessionEvent, fail: InvariantFailure
 const install: InvariantInstaller = Object.assign((ctx: Context, fail: InvariantFailure) => {
   // 当前已加载会话。
   for (const session of ctx.sessions.list()) {
-    // 当前会话中的持久事件。
-    for (const event of session.events) validateEvent(ctx, event, fail)
+    for (const event of session.snapshotEvents()) validateEvent(ctx, event, fail)
   }
   ctx.on('internal/dispatch', (_mode, eventName, args) => {
     if (eventName !== 'session/event') return

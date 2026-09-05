@@ -1,21 +1,12 @@
-/**
- * Public-network resolution and address-pinned HTTP transport for `web-fetch-http`.
- * One DNS answer set is validated before Undici receives it through a custom lookup,
- * so the connection cannot resolve the hostname again to a private address.
- *
- * @module @deepseek-ai/dsh-web-fetch-http/network
- * @remarks 文件说明：文件职责：实现 web/web-fetch-http 中 network 模块的职责，并向相邻模块提供可复用能力。；
- * 技术维度：主要使用TypeScript/JavaScript 的 ESM 模块、严格类型约束与 Cordis 插件机制，
- * 通过当前文件中的类型、函数与数据结构完成实现。；产品维度：支撑 DeepSeek Harness 的 web/web-fetch-http 能力，
- * 使上层功能能够稳定组合和扩展。；逻辑维度：建议按“依赖与类型定义 → 常量和状态 → 核心函数或类 → 导出或注册入口”的顺序理解。；
- * 关键边界：调用方必须遵守类型、生命周期和错误处理约定；涉及外部输入、异步任务或资源释放时需特别关注异常分支。；
- * 新手阅读建议：先确认导入依赖和公开导出，再沿主要函数调用链阅读，最后结合相邻测试理解输入、输出与边界条件。
+/*
+ * 【文件职责】校验 DNS 地址集合并固定后续连接地址，避免传输再次解析主机名而连接到未获准的私有地址。
  */
 
 import { lookup as systemLookup } from 'node:dns/promises'
 import type { LookupAddress, LookupOptions } from 'node:dns'
 import { isIP } from 'node:net'
-import type { Response } from 'undici'
+import type { Dispatcher, Response } from 'undici'
+
 import ipaddr from 'ipaddr.js'
 import { WebError } from '@deepseek-ai/dsh-web'
 
@@ -292,22 +283,34 @@ function embeddedIpv4Address(bytes: readonly number[], prefixLength: Nat64Prefix
 }
 
 /**
- * Fetch through an Undici agent whose lookup callback returns only the already
- * validated address set. The URL hostname remains intact for HTTP Host and TLS SNI.
+ * Whether a hostname is an IP literal that {@link resolvePublicAddresses} would refuse.
  *
- * @param url - validated HTTP(S) URL.
+ * A proxied hop skips those checks because the proxy resolves the origin, but a literal needs no
+ * resolution: the address is already stated, and handing it to a proxy running on this machine
+ * would reach exactly the loopback or private service the checks exist to keep out of reach.
+ *
+ * @param hostname - a URL's hostname, bracketed or not.
+ * @returns true when the host is a literal address no request may be sent to.
+ */
+export function isNonPublicIpLiteral(hostname: string): boolean {
+  const unbracketed = stripIpv6Brackets(hostname)
+  return isIP(unbracketed) !== 0 && !isPublicIpAddress(unbracketed)
+}
+
+/**
+ * Fetch through an agent whose lookup callback returns only the already validated address set. The
+ * URL hostname remains intact for HTTP Host and TLS SNI.
+ *
+ * The agent is this request's own because the address set is: pinning is how this package refuses a
+ * DNS answer that changes between validation and connection, and it may not apply process-wide —
+ * an operator-configured MCP server or model endpoint on loopback is a supported destination, and
+ * only the URLs this tool fetches are the model's to choose.
+ *
+ * @param url - validated HTTP(S) URL the policy does not route through a proxy.
  * @param addresses - public addresses returned by {@link resolvePublicAddresses}.
  * @param headers - request headers.
  * @param signal - request and body-read cancellation signal.
- * @returns a response plus the dispatcher disposer its consumer must call.
- * @remarks 中文说明：功能说明：处理 requestPinned 相关流程；使用场景由所在模块及调用位置决定。；
- * 参数说明：url（URL）：提供本次调用所需的数据；必须满足声明的类型及调用时序要求。；参数说明：addresses（readonly
- * PublicAddress[]）：提供本次调用所需的数据；必须满足声明的类型及调用时序要求。；
- * 参数说明：headers（Record<string, string>）：提供本次调用所需的数据；必须满足声明的类型及调用时序要求。；
- * 参数说明：signal（AbortSignal）：传递取消或终止信号；必须满足声明的类型及调用时序要求。；
- * 返回值：Promise<PinnedResponse>；调用方应按声明类型处理，不应假定未声明的附加状态。；
- * 使用示例：典型用法：在完成前置校验后调用 requestPinned(url, addresses, headers, signal)，
- * 并按返回类型处理结果。
+ * @returns a response plus the disposer its consumer must call.
  */
 export async function requestPinned(
   url: URL,
@@ -315,29 +318,15 @@ export async function requestPinned(
   headers: Record<string, string>,
   signal: AbortSignal,
 ): Promise<PinnedResponse> {
-  // Keep the Node-only transport out of browser-worker startup. The preview
-  // can load the provider and fail loud at its DNS stub without evaluating
-  // Undici; a real request on Node resolves this maintained dependency here.
-  /**
-   * 常量说明：Agent、fetch 用于处理 Agent、fetch 相关数据，作用于当前作用域；初始化后不可重新赋值，
-   * 但对象内部是否可变仍由其类型决定。
-   */
+  // Keep the Node-only transport out of browser-worker startup. The preview can load the provider
+  // and fail loud at its DNS stub without evaluating Undici; a real request resolves it here.
   const { Agent, fetch } = await import('undici')
-  /**
-   * 常量说明：dispatcher 用于处理 dispatcher 相关数据，作用于当前作用域；初始化后不可重新赋值，
-   * 但对象内部是否可变仍由其类型决定。
-   */
-  const dispatcher = new Agent({
-    autoSelectFamily: true,
-    connect: { lookup: createPinnedLookup(addresses) },
-  })
-  /**
-   * 变量说明：error 保存当前捕获的异常；使用前应按项目约定缩小其类型。
-   */
+  // Reached only where `proxyRouteFor` reported no proxy for this URL, and the pinned lookup this
+  // agent carries is per-request state the process-wide dispatcher cannot hold.
+  // proxy-exempt: pinning one request's validated addresses, on a URL the policy routes directly.
+  const dispatcher = new Agent({ autoSelectFamily: true, connect: { lookup: createPinnedLookup(addresses) } })
   try {
-    /**
-     * 常量说明：response 用于处理 response 相关数据，作用于当前作用域；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。
-     */
+    // proxy-exempt: the agent above, whose lifetime is this one request.
     const response = await fetch(url, { method: 'GET', redirect: 'manual', headers, signal, dispatcher })
     /**
      * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；返回值：由 TypeScript 根据实现推断的结果；
@@ -350,12 +339,38 @@ export async function requestPinned(
   }
 }
 
-/** Production network operations kept as an object so provider tests can replace resolution only.
- * @remarks 中文说明：常量说明：publicHttpNetwork 用于处理 publicHttpNetwork 相关数据，
- * 作用于当前作用域；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。 */
+/**
+ * Fetch through the dispatcher the proxy policy already installed, letting the proxy resolve the
+ * origin.
+ *
+ * No address set is pinned because none exists to pin: the proxy performs the lookup, and a
+ * connection pinned to a locally resolved address would reach the origin directly and defeat the
+ * proxy. The dispatcher is the process-wide one, so hops share its connection pool and no caller
+ * closes it.
+ *
+ * @param dispatcher - the route's dispatcher, from `proxyRouteFor`.
+ * @param url - validated HTTP(S) URL the policy routes through a proxy.
+ * @param headers - request headers.
+ * @param signal - request and body-read cancellation signal.
+ * @returns a response plus a disposer that releases nothing, so both paths close alike.
+ */
+export async function requestVia(
+  dispatcher: Dispatcher,
+  url: URL,
+  headers: Record<string, string>,
+  signal: AbortSignal,
+): Promise<PinnedResponse> {
+  const { fetch } = await import('undici')
+  // proxy-exempt: the dispatcher is the installed policy's own, handed over by `proxyRouteFor`.
+  const response = await fetch(url, { method: 'GET', redirect: 'manual', headers, signal, dispatcher })
+  return { response, close: () => Promise.resolve() }
+}
+
+/** Production network operations kept as an object so provider tests can replace resolution only. */
 export const publicHttpNetwork = {
   resolve: resolvePublicAddresses,
   request: requestPinned,
+  requestVia,
 }
 
 type LookupCallback = (

@@ -1,20 +1,4 @@
-/*
- * ================================ 文件注释 ================================
- * 【文件职责】JSON 单元文件的"磁盘格式"：定义内存态（UnitState）与文件内容之间的
- * 序列化/反序列化，以及读取时的形状与版本校验。
- * 【技术维度】文件永远是"当前净状态"：美化打印（pretty-print，缩进 2 空格）保持可读，
- * 键顺序来自插入顺序（稳定）；parse 分四步校验：合法 JSON → 顶层对象 → 单元头
- * （名字匹配、version 是数字）→ version 一致 → 每张表是普通对象。
- * 【产品维度】"人类可读"是这个后端存在的理由：运维/调试可直接打开 .json 文件查看
- * 领域数据，甚至手工修补后再加载。
- * 【逻辑维度】按出现顺序：UnitState（内存权威态）→ serialize（内存态 → 文件文本）→
- * parse（文件文本 → 内存态，含校验）。
- * 【关键边界】global 在"从未写入"时为 null（与领域层的哨兵语义一致）；tables 字段缺失
- * 时按空表处理；解析失败统一抛 StorageError（malformed-medium/version-mismatch）。
- * 【新手阅读建议】先看 serialize 的输出结构（unit/global/tables），再看 parse 的校验链，
- * 理解"写出什么格式、读入时检查什么"是对称的。
- * ==========================================================================
- */
+
 /**
  * On-disk JSON unit format: the file is always the current net state, kept
  * human-readable (pretty-printed, stable key order from insertion) — that
@@ -28,6 +12,11 @@
 /*
  * 模块总览：文件内容永远是"当前净状态"，不写追加日志。保持人类可读是
  * JSON 后端区别于 SQLite 后端的核心卖点。
+ */
+
+/*
+ * 【文件职责】定义可读 JSON 存储格式；
+ * single 保存整个单元，per-record 为各记录保存独立的带版本文档。
  */
 
 import { StorageError } from '@deepseek-ai/dsh-storage'
@@ -146,16 +135,18 @@ export function serializeRecord(version: number, value: unknown): string {
 
 /**
  * Parse one per-record document, validating its version stamp. A document
- * that is malformed or stamped with a different version is FOREIGN and reads
- * as absent — the per-record contract: one bad or stale record file must not
- * brick the whole unit, and a version bump discards stale records instead of
- * migrating them (the whole-unit format rejects instead, because there is
- * exactly one document).
+ * that is malformed or stamped with an unaccepted version is FOREIGN and
+ * reads as absent — the per-record contract: one bad or stale record file
+ * must not brick the whole unit, and an unaccepted version stamp discards the
+ * record instead of migrating it (the whole-unit format rejects instead,
+ * because there is exactly one document).
  * @param text - Raw per-record document content.
- * @param version - Expected unit version; a mismatch discards the document.
+ * @param versions - Accepted unit versions (the current one plus the
+ * descriptor's compatibleVersions); any other stamp discards the
+ * document.
  * @returns the record value, or `undefined` for a foreign document.
  */
-export function parseRecord(text: string, version: number): unknown {
+export function parseRecord(text: string, versions: readonly number[]): unknown {
   let document: unknown
   try {
     document = JSON.parse(text)
@@ -164,6 +155,6 @@ export function parseRecord(text: string, version: number): unknown {
   }
   if (typeof document !== 'object' || document === null) return undefined
   const { version: stamped, record } = document as Record<string, unknown>
-  if (stamped !== version) return undefined
+  if (typeof stamped !== 'number' || !versions.includes(stamped)) return undefined
   return record
 }

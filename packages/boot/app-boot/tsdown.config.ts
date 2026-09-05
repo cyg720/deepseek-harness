@@ -13,7 +13,7 @@ import { defineConfig } from 'tsdown'
  * 新手阅读建议：先看 entry 和 outDir，再重点理解 deps.alwaysBundle 为何只列 Include。
  */
 export default defineConfig({
-  entry: ['lib/types/index.js', 'lib/types/invariant.js'],
+  entry: ['lib/types/index.js'],
   outDir: 'lib',
   format: ['esm'],
   platform: 'node',

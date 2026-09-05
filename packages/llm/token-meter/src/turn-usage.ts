@@ -1,12 +1,8 @@
-/**
- * 文件职责：实现 llm/token-meter 中 turn usage 模块的职责，并向相邻模块提供可复用能力。
- * 技术维度：主要使用TypeScript/JavaScript 的 ESM 模块、严格类型约束与 Cordis 插件机制，
- * 通过当前文件中的类型、函数与数据结构完成实现。
- * 产品维度：支撑 DeepSeek Harness 的 llm/token-meter 能力，使上层功能能够稳定组合和扩展。
- * 逻辑维度：建议按“依赖与类型定义 → 常量和状态 → 核心函数或类 → 导出或注册入口”的顺序理解。
- * 关键边界：调用方必须遵守类型、生命周期和错误处理约定；涉及外部输入、异步任务或资源释放时需特别关注异常分支。
- * 新手阅读建议：先确认导入依赖和公开导出，再沿主要函数调用链阅读，最后结合相邻测试理解输入、输出与边界条件。
+/*
+ * 【文件职责】汇总已完成轮次内各模型尝试的提供者用量，保留提供者和模型路由信息。
  */
+
+import { expandAssistantStream } from '@deepseek-ai/dsh-llm/assistant-stream'
 import type { AssistantMessage, TokenUsage } from '@deepseek-ai/dsh-llm/types'
 import type {} from '@deepseek-ai/dsh-llm-retry/types'
 import type { SessionEvent } from '@deepseek-ai/dsh-session/types'
@@ -110,13 +106,14 @@ function messageRoute(message: AssistantMessage): TurnTokenUsageRoute | undefine
   return provider.length > 0 && model.length > 0 ? { provider, model } : undefined
 }
 
-/**
- * 功能说明：规范化 Usage 相关流程；使用场景由所在模块及调用位置决定。
- * @param usage （TokenUsage）：提供本次调用所需的数据；必须满足声明的类型及调用时序要求。
- * @param route （TurnTokenUsageRoute）：提供本次调用所需的数据；必须满足声明的类型及调用时序要求。
- * @returns NormalizedAttempt | undefined；调用方应按声明类型处理，不应假定未声明的附加状态。
- * @example 在完成前置校验后调用 normalizeUsage(usage, route)，并按返回类型处理结果。
- */
+function streamUsage(stream: SessionEvent<'assistant/message'>['data']['stream']): TokenUsage | undefined {
+  let sample: TokenUsage | undefined
+  for (const member of expandAssistantStream(stream)) {
+    if (member.chunk.type === 'usage') sample = member.chunk.usage
+  }
+  return sample
+}
+
 function normalizeUsage(usage: TokenUsage, route?: TurnTokenUsageRoute): NormalizedAttempt | undefined {
   /**
    * 常量说明：inputTokens、outputTokens、cacheReadTokens、cacheWriteTokens、reasoning
@@ -421,20 +418,20 @@ export function deriveTurnTokenUsage(events: readonly SessionEvent[]): TurnToken
       else state = { kind: 'open', turn, step: event.data.step }
       continue
     }
-    if (event.type === 'assistant/chunk') {
+    if (event.type === 'assistant/attempt') {
       if (event.data.turn !== turn
         || state.kind !== 'open'
         || !sameAttempt(state, event.data.turn, event.data.step)) {
         invalid = true
         continue
       }
-      if (event.data.chunk.type === 'usage') {
-        state = { ...state, sample: event.data.chunk.usage }
-      } else if (event.data.chunk.type === 'finish'
-        && (event.data.chunk.reason.kind === 'error' || event.data.chunk.reason.kind === 'aborted')) {
-        if (!closeOpen()) invalid = true
-        else state = { kind: 'finishClosed', turn, step: event.data.step }
+      let sample: TokenUsage | undefined = state.sample
+      for (const member of expandAssistantStream(event.data.stream)) {
+        if (member.chunk.type === 'usage') sample = member.chunk.usage
       }
+      state = { kind: 'open', turn, step: event.data.step, ...(sample === undefined ? {} : { sample }) }
+      if (!closeOpen()) invalid = true
+      else state = { kind: 'finishClosed', turn, step: event.data.step }
       continue
     }
     if (event.type === 'assistant/message') {
@@ -444,7 +441,8 @@ export function deriveTurnTokenUsage(events: readonly SessionEvent[]): TurnToken
         invalid = true
         continue
       }
-      if (event.data.usage !== undefined) state = { ...state, sample: event.data.usage }
+      const sample = event.data.usage ?? streamUsage(event.data.stream)
+      if (sample !== undefined) state = { ...state, sample }
       if (!closeOpen(messageRoute(event.data.message))) invalid = true
       else state = { kind: 'settled', turn, step: event.data.step, by: 'message' }
       continue

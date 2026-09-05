@@ -1,22 +1,4 @@
-/*
- * ================================ 文件注释 ================================
- * 【文件职责】会话引用的公开请求/候选/准备记录类型。全部是类型定义，
- *             且 import 只走 type-only 子路径，使生成的 Remote 客户端可以
- *             在不加载 Host 运行时代码的情况下消费本模块。
- * 【技术维度】纯类型模块；通过声明合并把 SessionReferenceSource 挂进
- *             dsh-llm 的 MessageSourceMap（消息来源类型注册表）。
- * 【产品维度】描述"引用另一个会话"这一能力的数据契约：引用谁、候选长什么样、
- *             准备好的上下文如何携带。
- * 【逻辑维度】按数据流排列：输入（SessionReferenceInput）→ 发现候选
- *             （SessionReferenceCandidate/MentionCandidate）→ 准备结果
- *             （PreparedReferencedMessage/SessionReferenceSource）→ 展示投影
- *             （ReferencedConversationItem）。
- * 【关键边界】SessionReferenceSource 的附加上下文被视为不可信快照，模型只可
- *             作为背景信息使用；本文件不含任何运行时逻辑。
- * 【新手阅读建议】按"输入 → 候选 → 结果"的顺序读类型，先把握引用链路的
- *                 数据形态，再去看实现它的 index.ts。
- * ==========================================================================
- */
+
 
 /**
  * Public session-reference request, candidate, and preparation records.
@@ -25,9 +7,13 @@
  * @module @deepseek-ai/dsh-session-reference/types
  */
 
+/*
+ * 【文件职责】声明会话引用请求、候选和准备结果，使用纯类型导入以供生成的浏览器 Remote 安全消费。
+ */
+
 import type { UserMessage } from '@deepseek-ai/dsh-llm/message'
 import type { ContentBlock } from '@deepseek-ai/dsh-llm/types'
-import type { SessionId } from '@deepseek-ai/dsh-session/types'
+import type { OptionalSessionSeq, SessionId } from '@deepseek-ai/dsh-session/types'
 
 /** Durable source session, cited event seqs, and snapshot facts for prepared cross-session context. */
 /* 已准备的跨会话上下文：记录来源会话、引用的事件序号与快照事实，随消息持久化。 */
@@ -40,7 +26,9 @@ export interface SessionReferenceSource {
   references: {
     sessionId: string
     label: string
-    capturedThroughSeq: number | null
+    /** Source Session format generation; absence identifies version 0. */
+    capturedFormatVersion?: number
+    capturedThroughSeq: OptionalSessionSeq
     compacted: boolean
     originalMessages: number
     retainedMessages: number

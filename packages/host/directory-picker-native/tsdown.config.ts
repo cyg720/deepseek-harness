@@ -16,7 +16,7 @@ import { defineConfig } from 'tsdown'
 export default defineConfig([
   // 主入口：输出目录选择服务实现与不变量伴生模块的 Node ESM。
   {
-    entry: ['lib/types/index.js', 'lib/types/invariant.js'],
+    entry: ['lib/types/index.js'],
     outDir: 'lib',
     format: ['esm'],
     platform: 'node',

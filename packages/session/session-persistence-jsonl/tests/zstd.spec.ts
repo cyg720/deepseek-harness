@@ -13,10 +13,13 @@ import type { FileHandle } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { performance } from 'node:perf_hooks'
-import SessionStore, { SessionId } from '@deepseek-ai/dsh-session'
-import type { SessionEvent } from '@deepseek-ai/dsh-session'
+import { SESSION_FORMAT_VERSION, SessionSeq, SessionId } from '@deepseek-ai/dsh-session'
+import type { SessionEvent, SessionHeader } from '@deepseek-ai/dsh-session'
+import type { SessionPersistence } from '@deepseek-ai/dsh-session-persistence'
 import JsonlSessionPersistence from '@deepseek-ai/dsh-session-persistence-jsonl'
-import { logPath, scanLog, sessionDir, toHeaderLine, type JsonlCompression } from '../src/format.ts'
+import {
+  generationLogPath, logPath, scanLog, sessionDir, toHeaderLine, type JsonlCompression,
+} from '../src/format.ts'
 import {
   compressZstdFrame, createZstdFrameDecoder, decompressZstdFrame, decompressZstdPrefix, scanZstdFrames,
   /** 中文说明：type ZstdFrameDecoder 定义本测试所需的数据或行为，用于表达会话持久化场景。 */
@@ -24,8 +27,9 @@ import {
 } from '../src/zstd.ts'
 import { NodePrivateZstdFrameDecoder } from '../src/zstd-private-decoder.ts'
 import { PublicZstdFrameDecoder } from '../src/zstd-public-decoder.ts'
-import { runPersistenceContract, meta, oneTurnLog } from '../../session-persistence/tests/contract.ts'
-import { runCoordinatorContract, type CoordinatorFixture } from '../../session-persistence/tests/coordinator-contract.ts'
+import {
+  runPersistenceContract, meta, oneTurnLog, releasedV1OneTurnLog,
+} from '../../session-persistence/tests/contract.ts'
 
 /** 中文说明：常量 MAGIC 保存本测试共享的固定值；取值依据紧邻初始化，使用时不要修改。 */
 const MAGIC = Buffer.from([0x28, 0xB5, 0x2F, 0xFD])
@@ -61,7 +65,6 @@ async function mount(root: string, compression?: JsonlCompression): Promise<Cont
   /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const ctx = new Context()
   contexts.push(ctx)
-  await ctx.plugin(SessionStore)
   await ctx.plugin(JsonlSessionPersistence, {
     root,
     ...(compression === undefined ? {} : { compression }),
@@ -69,7 +72,36 @@ async function mount(root: string, compression?: JsonlCompression): Promise<Cont
   return ctx
 }
 
-/** 中文说明：函数 decodeCompleteFrames 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/** Create + append + close: persist one whole log through the write handle. */
+async function writeLog(persistence: SessionPersistence, m: SessionHeader, events: readonly SessionEvent[]): Promise<void> {
+  const handle = await persistence.create(m)
+  try {
+    await handle.append(events)
+  } finally {
+    await handle.close()
+  }
+}
+
+/** Open a read handle, read the whole log, and close. */
+async function readAll(persistence: SessionPersistence, id: SessionId): Promise<{ meta: SessionHeader; events: readonly SessionEvent[] }> {
+  const handle = await persistence.open(id, 'read')
+  try {
+    return { meta: handle.header, events: await handle.read() }
+  } finally {
+    await handle.close()
+  }
+}
+
+/** Append one contiguous batch through a temporary write handle. */
+async function appendBatch(persistence: SessionPersistence, id: SessionId, events: readonly SessionEvent[]): Promise<void> {
+  const handle = await persistence.open(id, 'write')
+  try {
+    await handle.append(events)
+  } finally {
+    await handle.close()
+  }
+}
+
 async function decodeCompleteFrames(buffer: Buffer): Promise<Buffer> {
   const { frames, tornStart } = scanZstdFrames(buffer)
   expect(tornStart).toBeUndefined()
@@ -82,12 +114,19 @@ async function decodeCompleteFrames(buffer: Buffer): Promise<Buffer> {
   return Buffer.concat(plaintext)
 }
 
-/** 中文说明：函数 tornFrame 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
-async function tornFrame(
-  plaintext: string,
-  accepts: (decoded: string) => boolean,
-): Promise<Buffer> {
-  /** 中文说明：变量 frame 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
+function releasedV0Header(header: SessionHeader): Record<string, unknown> {
+  return {
+    type: 'session',
+    version: 0,
+    id: header.id,
+    createdAt: header.createdAt,
+    ...(header.cwd === undefined ? {} : { cwd: header.cwd }),
+    delegationDepth: header.delegationDepth ?? 0,
+  }
+}
+
+/** Truncate one compressed frame so a scan reports it torn and the recovered plaintext satisfies `accepts`. */
+async function tornFrame(plaintext: string, accepts: (decoded: string) => boolean = () => true): Promise<Buffer> {
   const frame = await compressZstdFrame(plaintext)
   /** 中文说明：变量 candidateEnds 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const candidateEnds = [
@@ -156,38 +195,35 @@ afterEach(async () => {
 runPersistenceContract('jsonl-zstd', async () => {
   /** 中文说明：变量 root 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const root = await mkdtemp(join(tmpdir(), 'dsh-jsonl-zstd-contract-'))
-  /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-  const ctx = new Context()
-  await ctx.plugin(SessionStore)
-  /** 中文说明：变量 fiber 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-  const fiber = await ctx.plugin(JsonlSessionPersistence, { root })
+  const instance = async (): Promise<{ persistence: SessionPersistence; dispose: () => Promise<void> }> => {
+    const ctx = new Context()
+    const fiber = await ctx.plugin(JsonlSessionPersistence, { root })
+    return {
+      persistence: ctx.sessionPersistence,
+      dispose: async () => { await fiber.dispose() },
+    }
+  }
+  const primary = await instance()
   return {
-    persistence: ctx.sessionPersistence,
+    persistence: primary.persistence,
     dispose: async () => {
-      await fiber.dispose()
+      await primary.dispose()
       await rm(root, { recursive: true, force: true })
     },
-  }
-})
-
-runCoordinatorContract('jsonl-zstd', async (): Promise<CoordinatorFixture> => {
-  /** 中文说明：变量 root 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-  const root = await mkdtemp(join(tmpdir(), 'dsh-jsonl-zstd-coordinator-'))
-  return {
-    mount: async ctx => ctx.plugin(JsonlSessionPersistence, { root }),
+    reopen: instance,
+    // A torn final frame: the batch's append never resolved, so the whole
+    // frame is an uncommitted crash fragment for the write path to truncate.
     corruptTail: async (id, cwd) => {
       /** 中文说明：变量 line 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const line = JSON.stringify({
         type: 'assistant/chunk',
-        seq: 8,
+        seq: SessionSeq(8),
         time: 9,
         data: { turn: 2, step: 1, chunk: { type: 'text-delta', index: 0, text: deterministicNoise(300_000) } },
       }) + '\n'
-      /** 中文说明：函数值 partial 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
-      const partial = await tornFrame(line, decoded => decoded.length > 0 && !decoded.endsWith('\n'))
+      const partial = await tornFrame(line, decoded => !decoded.includes('\n'))
       await appendFile(logPath(root, cwd, id, 'zstd'), partial)
     },
-    cleanup: async () => { await rm(root, { recursive: true, force: true }) },
   }
 })
 
@@ -424,14 +460,15 @@ describe('JsonlSessionPersistence: default Zstandard encoding', () => {
   it('materializes an explicitly durable empty session as one header frame', async () => {
     const root = await freshRoot()
     const ctx = await mount(root)
-    const session = ctx.sessions.create(SessionId('empty-zstd'), { meta: { cwd: '/work' } })
+    const m = meta('empty-zstd', '/work')
+    const handle = await ctx.sessionPersistence.create(m)
+    await handle.flush()
+    await handle.close()
 
-    await ctx.sessionPersistence.ensureMaterialized(session)
-
-    const buffer = await readFile(logPath(root, '/work', session.id, 'zstd'))
+    const buffer = await readFile(logPath(root, '/work', m.id, 'zstd'))
     expect(scanZstdFrames(buffer).frames).toHaveLength(1)
-    expect((await decodeCompleteFrames(buffer)).toString()).toBe(`${JSON.stringify(toHeaderLine(session.header))}\n`)
-    await expect(ctx.sessionPersistence.load(session.id)).resolves.toEqual({ meta: session.header, events: [] })
+    expect((await decodeCompleteFrames(buffer)).toString()).toBe(`${JSON.stringify(toHeaderLine(m))}\n`)
+    await expect(readAll(ctx.sessionPersistence, m.id)).resolves.toMatchObject({ events: [] })
   })
 
   it('writes .jsonl.zstd by default with one header frame and one first-batch frame', async () => {
@@ -441,8 +478,7 @@ describe('JsonlSessionPersistence: default Zstandard encoding', () => {
     const ctx = await mount(root)
     /** 中文说明：变量 header 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const header = meta('default-zstd', '/work')
-    await ctx.sessionPersistence.create(header)
-    await ctx.sessionPersistence.append(header.id, oneTurnLog())
+    await writeLog(ctx.sessionPersistence, header, oneTurnLog())
 
     /** 中文说明：变量 path 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const path = logPath(root, header.cwd, header.id, 'zstd')
@@ -450,7 +486,6 @@ describe('JsonlSessionPersistence: default Zstandard encoding', () => {
     const buffer = await readFile(path)
     expect(buffer.subarray(0, 4)).toEqual(MAGIC)
     await expect(stat(logPath(root, header.cwd, header.id, 'none'))).rejects.toThrow()
-    expect(ctx.sessionPersistence.locate(header)).toEqual({ kind: 'jsonl', path })
 
     /** 中文说明：变量 scan 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const scan = scanZstdFrames(buffer)
@@ -462,48 +497,47 @@ describe('JsonlSessionPersistence: default Zstandard encoding', () => {
       ...oneTurnLog().map(e => JSON.stringify(e)),
       '',
     ].join('\n'))
-    expect((await ctx.sessionPersistence.load(header.id)).events).toEqual(oneTurnLog())
+    expect((await readAll(ctx.sessionPersistence, header.id)).events).toEqual(oneTurnLog())
   })
 
-  it('readRaw decodes the compressed artifact back to the original JSONL text', async () => {
-    /** 中文说明：变量 root 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
+  it('publishes v2 beside an unchanged compressed v0 source before returning a read handle', async () => {
     const root = await freshRoot()
     /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await mount(root)
-    /** 中文说明：变量 header 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-    const header = meta('raw-read-zstd', '/work')
-    await ctx.sessionPersistence.create(header)
-    await ctx.sessionPersistence.append(header.id, oneTurnLog())
+    const header = meta('zstd-v0-read', '/work')
+    const sourcePath = generationLogPath(root, header.cwd, header.id, 0, 'zstd')
+    const currentPath = logPath(root, header.cwd, header.id, 'zstd')
+    const source = Buffer.concat([
+      await compressZstdFrame(`${JSON.stringify(releasedV0Header(header))}\n`),
+      await compressZstdFrame(`${releasedV1OneTurnLog().map(event => JSON.stringify(event)).join('\n')}\n`),
+    ])
+    await mkdir(sessionDir(root, header.cwd, header.id), { recursive: true })
+    await writeFile(sourcePath, source)
 
-    /** 中文说明：变量 raw 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-    const raw = await ctx.sessionPersistence.readRaw(header.id)
-    expect(raw).toBeDefined()
-    // The logical name drops the physical encoding suffix.
-    expect(raw!.filename).toBe('session.jsonl')
-    expect(raw!.meta.id).toBe(header.id)
-    expect(raw!.content).toBe([
-      JSON.stringify(toHeaderLine(header)),
-      ...oneTurnLog().map(e => JSON.stringify(e)),
-      '',
-    ].join('\n'))
-    /** 中文说明：变量 scanned 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-    const scanned = scanLog(Buffer.from(raw!.content))
-    expect(scanned.events.map(event => event.type)).toEqual(oneTurnLog().map(event => event.type))
+    await expect(readAll(ctx.sessionPersistence, header.id)).resolves.toEqual({
+      meta: { ...header, delegationDepth: 0 },
+      events: oneTurnLog(),
+    })
+
+    expect(await readFile(sourcePath)).toEqual(source)
+    const current = (await decodeCompleteFrames(await readFile(currentPath))).toString().split('\n')
+    expect(JSON.parse(current[0] as string)).toMatchObject({
+      id: header.id,
+      version: SESSION_FORMAT_VERSION,
+    })
   })
 
-  it('readRaw rejects a present zstd artifact that carries no frame', async () => {
-    /** 中文说明：变量 root 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
+
+  it('a read rejects a present zstd artifact that carries no frame', async () => {
     const root = await freshRoot()
     /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await mount(root)
     /** 中文说明：变量 header 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const header = meta('raw-zero-frame', '/work')
-    await ctx.sessionPersistence.create(header)
-    await ctx.sessionPersistence.append(header.id, oneTurnLog())
+    await writeLog(ctx.sessionPersistence, header, oneTurnLog())
     // The path still exists, so zero frames is corruption rather than absence.
     await writeFile(logPath(root, '/work', header.id, 'zstd'), Buffer.alloc(0))
-    await expect(ctx.sessionPersistence.readRaw(header.id))
-      .rejects.toThrow('empty or header-less Zstandard session log')
+    await expect(readAll(ctx.sessionPersistence, header.id)).rejects.toThrow()
   })
 
   it('resolves the default when a programmatic wrapper bypasses Loader schema normalization', async () => {
@@ -512,48 +546,28 @@ describe('JsonlSessionPersistence: default Zstandard encoding', () => {
     /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = new Context()
     contexts.push(ctx)
-    await ctx.plugin(SessionStore)
-    /** 中文说明：变量 backend 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     let backend!: JsonlSessionPersistence
-    await ctx.plugin(Object.assign((inner: Context) => {
+    await ctx.plugin((inner: Context) => {
       backend = new JsonlSessionPersistence(inner, { root })
-    }, { inject: ['sessions'] }))
-    /** 中文说明：变量 header 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
+    })
     const header = meta('direct-default')
     /** 中文说明：变量 path 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const path = logPath(root, header.cwd, header.id, 'zstd')
-    expect(backend.locate(header)).toEqual({
-      kind: 'jsonl',
-      path,
-    })
 
-    /** 中文说明：变量 base 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-    const base = oneTurnLog()
-    /** 中文说明：变量 events 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-    const events: SessionEvent[] = [
-      ...base.slice(0, 3),
-      ...Array.from({ length: 3 }, (_, index): SessionEvent => ({
-        type: 'assistant/chunk',
-        seq: 3 + index,
-        time: 4 + index,
-        data: { turn: 1, step: 1, chunk: { type: 'text-delta', index: 0, text: `part-${index}` } },
-      })),
-      ...base.slice(3).map((event): SessionEvent => ({
-        ...event,
-        seq: event.seq + 3,
-        time: event.time + 3,
-      })),
-    ]
-    await backend.create(header)
-    await backend.append(header.id, events)
+    const events = oneTurnLog()
+    await writeLog(backend, header, events)
 
     /** 中文说明：变量 plaintext 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const plaintext = (await decodeCompleteFrames(await readFile(path))).toString()
     /** 中文说明：变量 recordTypes 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const recordTypes = plaintext.trimEnd().split('\n')
       .map(line => (JSON.parse(line) as { type: string }).type)
-    expect(recordTypes).toContain('text-chunks')
-    expect((await backend.load(header.id)).events).toEqual(events)
+    expect(recordTypes).not.toContain('text-chunks')
+    const assistant = plaintext.trimEnd().split('\n')
+      .map(line => JSON.parse(line) as { type: string; data?: { stream?: Array<{ type: string }> } })
+      .find(record => record.type === 'assistant/message')
+    expect(assistant?.data?.stream?.some(record => record.type === 'text-chunks')).toBe(true)
+    expect((await readAll(backend, header.id)).events).toEqual(events)
   })
 
   it('appends one frame per durable batch without rewriting prior bytes', async () => {
@@ -563,24 +577,23 @@ describe('JsonlSessionPersistence: default Zstandard encoding', () => {
     const ctx = await mount(root)
     /** 中文说明：变量 header 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const header = meta('append-frame')
-    await ctx.sessionPersistence.create(header)
-    await ctx.sessionPersistence.append(header.id, oneTurnLog())
-    /** 中文说明：变量 path 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
+    const handle = await ctx.sessionPersistence.create(header)
+    await handle.append(oneTurnLog())
     const path = logPath(root, header.cwd, header.id, 'zstd')
     /** 中文说明：变量 before 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const before = await readFile(path)
-    /** 中文说明：变量 secondTurn 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-    const secondTurn = [
-      { type: 'turn/start', seq: 6, time: 7, data: { turn: 2 } },
-      { type: 'turn/end', seq: 7, time: 8, data: { turn: 2, reason: { kind: 'completed' } } },
-    ] as SessionEvent[]
-    await ctx.sessionPersistence.append(header.id, secondTurn)
+    const secondTurn: SessionEvent[] = [
+      { type: 'turn/start', seq: SessionSeq(6), time: 7, data: { turn: 2 } },
+      { type: 'turn/end', seq: SessionSeq(7), time: 8, data: { turn: 2, reason: { kind: 'completed' } } },
+    ]
+    await handle.append(secondTurn)
+    await handle.close()
 
     /** 中文说明：变量 after 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const after = await readFile(path)
     expect(after.subarray(0, before.length)).toEqual(before)
     expect(scanZstdFrames(after).frames).toHaveLength(3)
-    expect((await ctx.sessionPersistence.load(header.id)).events).toEqual([...oneTurnLog(), ...secondTurn])
+    expect((await readAll(ctx.sessionPersistence, header.id)).events).toEqual([...oneTurnLog(), ...secondTurn])
   })
 
   it('lists from a multi-chunk header frame without decoding a corrupt event frame', async () => {
@@ -590,9 +603,7 @@ describe('JsonlSessionPersistence: default Zstandard encoding', () => {
     const ctx = await mount(root)
     /** 中文说明：变量 header 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const header = meta('large-header', `/work/${'x'.repeat(24_000)}`)
-    await ctx.sessionPersistence.create(header)
-    await ctx.sessionPersistence.append(header.id, oneTurnLog())
-    /** 中文说明：变量 path 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
+    await writeLog(ctx.sessionPersistence, header, oneTurnLog())
     const path = logPath(root, header.cwd, header.id, 'zstd')
     /** 中文说明：变量 buffer 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const buffer = Buffer.from(await readFile(path))
@@ -601,8 +612,8 @@ describe('JsonlSessionPersistence: default Zstandard encoding', () => {
     buffer[eventFrame.end - 1] = buffer[eventFrame.end - 1]! ^ 0xFF
     await writeFile(path, buffer)
 
-    expect((await ctx.sessionPersistence.list()).map(item => item.id)).toEqual([header.id])
-    await expect(ctx.sessionPersistence.load(header.id)).rejects.toThrow(/frame at byte .* failed validation/)
+    expect((await ctx.sessionPersistence.list()).map(item => item.header.id)).toEqual([header.id])
+    await expect(readAll(ctx.sessionPersistence, header.id)).rejects.toThrow(/frame at byte .* failed validation/)
   })
 
   it('stops multi-frame inspection when cancellation arrives at a slice deadline', async () => {
@@ -670,8 +681,7 @@ describe('JsonlSessionPersistence: default Zstandard encoding', () => {
       const ctx = await mount(root, compression)
       /** 中文说明：变量 header 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const header = meta(`cancel-${compression}-header-read`, '/work')
-      await ctx.sessionPersistence.create(header)
-      await ctx.sessionPersistence.append(header.id, oneTurnLog())
+      await writeLog(ctx.sessionPersistence, header, oneTurnLog())
       await ctx.sessionPersistence.list()
       /** 中文说明：变量 path 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
       const path = logPath(root, header.cwd, header.id, compression)
@@ -700,56 +710,114 @@ describe('JsonlSessionPersistence: default Zstandard encoding', () => {
         return result
       })
 
-      await expect(ctx.sessionPersistence.list(controller.signal)).rejects.toBe(reason)
+      await expect(ctx.sessionPersistence.list({ signal: controller.signal })).rejects.toBe(reason)
       expect(read).toHaveBeenCalledTimes(1)
     },
   )
 
-  it('preserves complete records from a torn frame and re-encodes them with crash closers', async () => {
-    /** 中文说明：变量 root 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
+  it('recovers complete records from a torn final frame and rewrites them on the next append', async () => {
     const root = await freshRoot()
     /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await mount(root)
     /** 中文说明：变量 header 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const header = meta('recover-torn', '/proj')
     const warn = vi.spyOn(ctx.logger, 'warn').mockImplementation(() => undefined)
-    await ctx.sessionPersistence.create(header)
-    await ctx.sessionPersistence.append(header.id, oneTurnLog())
-    /** 中文说明：变量 path 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
+    await writeLog(ctx.sessionPersistence, header, oneTurnLog())
     const path = logPath(root, header.cwd, header.id, 'zstd')
     /** 中文说明：变量 committed 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const committed = await readFile(path)
-    /** 中文说明：变量 openTurn 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-    const openTurn = [
-      { type: 'turn/start', seq: 6, time: 7, data: { turn: 2 } },
-      { type: 'step/start', seq: 7, time: 8, data: { turn: 2, step: 1 } },
-      { type: 'assistant/chunk', seq: 8, time: 9, data: { turn: 2, step: 1, chunk: { type: 'text-delta', index: 0, text: deterministicNoise(300_000) } } },
-    ] as SessionEvent[]
-    /** 中文说明：函数值 plaintext 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
+    const openTurn: SessionEvent[] = [
+      { type: 'turn/start', seq: SessionSeq(6), time: 7, data: { turn: 2 } },
+      { type: 'step/start', seq: SessionSeq(7), time: 8, data: { turn: 2, step: 1 } },
+      {
+        type: 'assistant/attempt',
+        seq: SessionSeq(8),
+        time: 9,
+        data: {
+          turn: 2,
+          step: 1,
+          stream: [{ type: 'text-chunks', time0: 9, index: 0, dt: [], texts: [deterministicNoise(300_000)] }],
+        },
+      },
+    ]
     const plaintext = openTurn.map(e => JSON.stringify(e)).join('\n') + '\n'
-    /** 中文说明：函数值 partial 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
-    const partial = await tornFrame(plaintext, (decoded) => {
-      /** 中文说明：变量 newlines 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
+    await appendFile(path, await tornFrame(plaintext, (decoded) => {
       const newlines = decoded.match(/\n/g)?.length ?? 0
       return newlines >= 2 && !decoded.endsWith('\n')
-    })
-    await appendFile(path, partial)
+    }))
 
-    /** 中文说明：变量 loaded 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-    const loaded = await ctx.sessionPersistence.load(header.id)
-    expect(loaded.events.map(event => event.seq)).toEqual([0, 1, 2, 3, 4, 5, 6, 7, 8, 9])
+    // Complete JSONL records already flushed into the torn frame are real
+    // emitted events: reads recover them, while the half-written chunk stays
+    // invisible and the file keeps its bytes until the write path repairs it.
+    const loaded = await readAll(ctx.sessionPersistence, header.id)
+    expect(loaded.events.map(event => event.seq)).toEqual([0, 1, 2, 3, 4, 5, 6, 7])
     expect(loaded.events[6]).toEqual(openTurn[0])
     expect(loaded.events[7]).toEqual(openTurn[1])
-    expect(loaded.events.some(event => event.type === 'assistant/chunk' && event.seq === 8)).toBe(false)
-    expect(loaded.events[8]?.type).toBe('step/end')
-    expect(loaded.events[9]?.type).toBe('turn/end')
+
+    // The first append truncates the torn bytes and rewrites the recovered
+    // records durably before the new batch, continuing at their next-seq.
+    const closers: SessionEvent[] = [
+      { type: 'step/end', seq: SessionSeq(8), time: 10, data: { turn: 2, step: 1 } },
+      { type: 'turn/end', seq: SessionSeq(9), time: 11, data: { turn: 2, reason: { kind: 'interrupted' } } },
+    ]
+    await appendBatch(ctx.sessionPersistence, header.id, closers)
     expect(warn).toHaveBeenCalledWith('session-persistence-jsonl: session "recover-torn" recovered from a torn tail; incomplete tail bytes were discarded')
 
     /** 中文说明：变量 repaired 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const repaired = await readFile(path)
     expect(repaired.subarray(0, committed.length)).toEqual(committed)
     expect(scanZstdFrames(repaired).tornStart).toBeUndefined()
-    expect(scanLog(await decodeCompleteFrames(repaired)).events).toEqual(loaded.events)
+    expect(scanLog(await decodeCompleteFrames(repaired)).events)
+      .toEqual([...oneTurnLog(), openTurn[0]!, openTurn[1]!, ...closers])
+  })
+
+  it('retries the torn-tail rewrite when its first durable write fails', async () => {
+    const root = await freshRoot()
+    const ctx = await mount(root)
+    const header = meta('retry-torn-rewrite', '/proj')
+    vi.spyOn(ctx.logger, 'warn').mockImplementation(() => undefined)
+    await writeLog(ctx.sessionPersistence, header, oneTurnLog())
+    const path = logPath(root, header.cwd, header.id, 'zstd')
+    const recovered: SessionEvent[] = [
+      { type: 'turn/start', seq: SessionSeq(6), time: 7, data: { turn: 2 } },
+      { type: 'step/start', seq: SessionSeq(7), time: 8, data: { turn: 2, step: 1 } },
+      {
+        type: 'assistant/attempt',
+        seq: SessionSeq(8),
+        time: 9,
+        data: {
+          turn: 2,
+          step: 1,
+          stream: [{ type: 'text-chunks', time0: 9, index: 0, dt: [], texts: [deterministicNoise(300_000)] }],
+        },
+      },
+    ]
+    await appendFile(path, await tornFrame(recovered.map(e => JSON.stringify(e)).join('\n') + '\n', (decoded) => {
+      const newlines = decoded.match(/\n/g)?.length ?? 0
+      return newlines >= 2 && !decoded.endsWith('\n')
+    }))
+
+    const handle = await ctx.sessionPersistence.open(header.id, 'write')
+    try {
+      const failure = new Error('rewrite refused')
+      const service = ctx.sessionPersistence as unknown as { persistBatch: () => Promise<void> }
+      vi.spyOn(service, 'persistBatch').mockRejectedValueOnce(failure)
+      const closers: SessionEvent[] = [
+        { type: 'step/end', seq: SessionSeq(8), time: 10, data: { turn: 2, step: 1 } },
+        { type: 'turn/end', seq: SessionSeq(9), time: 11, data: { turn: 2, reason: { kind: 'interrupted' } } },
+      ]
+      // The rewrite of the recovered records fails first; the retained repair
+      // state makes the retried append rewrite them exactly once.
+      await expect(handle.append(closers)).rejects.toBe(failure)
+      await handle.append(closers)
+    } finally {
+      await handle.close()
+    }
+
+    const repaired = await readFile(path)
+    expect(scanZstdFrames(repaired).tornStart).toBeUndefined()
+    expect(scanLog(await decodeCompleteFrames(repaired)).events.map(e => e.seq))
+      .toEqual([0, 1, 2, 3, 4, 5, 6, 7, 8, 9])
   })
 
   it('drops a frame torn in its header before it has produced plaintext', async () => {
@@ -759,45 +827,47 @@ describe('JsonlSessionPersistence: default Zstandard encoding', () => {
     const ctx = await mount(root)
     /** 中文说明：变量 header 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const header = meta('partial-magic')
-    await ctx.sessionPersistence.create(header)
-    await ctx.sessionPersistence.append(header.id, oneTurnLog())
-    /** 中文说明：变量 path 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
+    await writeLog(ctx.sessionPersistence, header, oneTurnLog())
     const path = logPath(root, header.cwd, header.id, 'zstd')
     /** 中文说明：变量 committed 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const committed = await readFile(path)
     await appendFile(path, MAGIC.subarray(0, 2))
 
-    expect((await ctx.sessionPersistence.load(header.id)).events).toEqual(oneTurnLog())
-    expect(await readFile(path)).toEqual(committed)
+    expect((await readAll(ctx.sessionPersistence, header.id)).events).toEqual(oneTurnLog())
+    // Reads never repair: the torn bytes stay until a write-path append.
+    expect(await readFile(path)).toEqual(Buffer.concat([committed, MAGIC.subarray(0, 2)]))
   })
 
-  it('recovers complete events when EOF tears only the final frame checksum', async () => {
-    /** 中文说明：变量 root 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
+  it('recovers a final frame torn at its checksum byte in full', async () => {
     const root = await freshRoot()
     /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await mount(root)
     /** 中文说明：变量 header 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const header = meta('partial-checksum')
-    await ctx.sessionPersistence.create(header)
-    await ctx.sessionPersistence.append(header.id, oneTurnLog())
-    /** 中文说明：变量 path 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
+    await writeLog(ctx.sessionPersistence, header, oneTurnLog())
     const path = logPath(root, header.cwd, header.id, 'zstd')
-    /** 中文说明：变量 secondTurn 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-    const secondTurn = [
-      { type: 'turn/start', seq: 6, time: 7, data: { turn: 2 } },
-      { type: 'turn/end', seq: 7, time: 8, data: { turn: 2, reason: { kind: 'completed' } } },
-    ] as SessionEvent[]
-    /** 中文说明：函数值 frame 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
+    const committed = await readFile(path)
+    const secondTurn: SessionEvent[] = [
+      { type: 'turn/start', seq: SessionSeq(6), time: 7, data: { turn: 2 } },
+      { type: 'turn/end', seq: SessionSeq(7), time: 8, data: { turn: 2, reason: { kind: 'completed' } } },
+    ]
     const frame = await compressZstdFrame(secondTurn.map(e => JSON.stringify(e)).join('\n') + '\n')
     await appendFile(path, frame.subarray(0, -1))
 
-    /** 中文说明：变量 loaded 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-    const loaded = await ctx.sessionPersistence.load(header.id)
+    // One missing checksum byte leaves the frame structurally torn, but its
+    // complete records decode in full: reads recover them, and the next
+    // append rewrites them as a complete checksummed frame.
+    const loaded = await readAll(ctx.sessionPersistence, header.id)
     expect(loaded.events).toEqual([...oneTurnLog(), ...secondTurn])
-    /** 中文说明：变量 repaired 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
+    const thirdTurn: SessionEvent[] = [
+      { type: 'turn/start', seq: SessionSeq(8), time: 9, data: { turn: 3 } },
+      { type: 'turn/end', seq: SessionSeq(9), time: 10, data: { turn: 3, reason: { kind: 'completed' } } },
+    ]
+    await appendBatch(ctx.sessionPersistence, header.id, thirdTurn)
     const repaired = await readFile(path)
+    expect(repaired.subarray(0, committed.length)).toEqual(committed)
     expect(scanZstdFrames(repaired).tornStart).toBeUndefined()
-    expect(scanLog(await decodeCompleteFrames(repaired)).events).toEqual(loaded.events)
+    expect(scanLog(await decodeCompleteFrames(repaired)).events).toEqual([...oneTurnLog(), ...secondTurn, ...thirdTurn])
   })
 
   it('rejects a complete frame containing a torn JSONL record', async () => {
@@ -807,13 +877,12 @@ describe('JsonlSessionPersistence: default Zstandard encoding', () => {
     const ctx = await mount(root)
     /** 中文说明：变量 header 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const header = meta('complete-bad-jsonl')
-    await ctx.sessionPersistence.create(header)
-    await ctx.sessionPersistence.append(header.id, oneTurnLog())
+    await writeLog(ctx.sessionPersistence, header, oneTurnLog())
     await appendFile(
       logPath(root, header.cwd, header.id, 'zstd'),
       await compressZstdFrame('{"type":"turn/start"'),
     )
-    await expect(ctx.sessionPersistence.load(header.id)).rejects.toThrow(/complete frame contains a torn JSONL record/)
+    await expect(readAll(ctx.sessionPersistence, header.id)).rejects.toThrow(/complete frame contains a torn JSONL record/)
   })
 
   it('rolls back a checksummed append frame when fsync fails', async () => {
@@ -823,19 +892,15 @@ describe('JsonlSessionPersistence: default Zstandard encoding', () => {
     const ctx = await mount(root)
     /** 中文说明：变量 header 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const header = meta('zstd-fsync-rollback')
-    await ctx.sessionPersistence.create(header)
-    await ctx.sessionPersistence.append(header.id, oneTurnLog())
-    /** 中文说明：变量 path 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
+    const handle = await ctx.sessionPersistence.create(header)
+    await handle.append(oneTurnLog())
     const path = logPath(root, header.cwd, header.id, 'zstd')
     /** 中文说明：变量 before 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const before = await readFile(path)
 
-    /** 中文说明：变量 handle 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-    const handle = await open(path, 'r')
-    /** 中文说明：函数值 prototype 封装本测试的局部步骤；参数和返回值由右侧签名约束；示例见本文件调用。 */
-    const prototype = Object.getPrototypeOf(handle) as { sync: () => Promise<void> }
-    await handle.close()
-    /** 中文说明：变量 realSync 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
+    const probe = await open(path, 'r')
+    const prototype = Object.getPrototypeOf(probe) as { sync: () => Promise<void> }
+    await probe.close()
     const realSync = prototype.sync
     /** 中文说明：变量 failed 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     let failed = false
@@ -847,16 +912,16 @@ describe('JsonlSessionPersistence: default Zstandard encoding', () => {
       }
       return realSync.call(this)
     })
-    /** 中文说明：变量 secondTurn 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-    const secondTurn = [
-      { type: 'turn/start', seq: 6, time: 7, data: { turn: 2 } },
-      { type: 'turn/end', seq: 7, time: 8, data: { turn: 2, reason: { kind: 'completed' } } },
-    ] as SessionEvent[]
-    await expect(ctx.sessionPersistence.append(header.id, secondTurn)).rejects.toThrow(/simulated Zstandard fsync failure/)
+    const secondTurn: SessionEvent[] = [
+      { type: 'turn/start', seq: SessionSeq(6), time: 7, data: { turn: 2 } },
+      { type: 'turn/end', seq: SessionSeq(7), time: 8, data: { turn: 2, reason: { kind: 'completed' } } },
+    ]
+    await expect(handle.append(secondTurn)).rejects.toThrow(/simulated Zstandard fsync failure/)
     expect(await readFile(path)).toEqual(before)
     spy.mockRestore()
-    await ctx.sessionPersistence.append(header.id, secondTurn)
-    expect((await ctx.sessionPersistence.load(header.id)).events).toEqual([...oneTurnLog(), ...secondTurn])
+    await handle.append(secondTurn)
+    await handle.close()
+    expect((await readAll(ctx.sessionPersistence, header.id)).events).toEqual([...oneTurnLog(), ...secondTurn])
   })
 
   it('skips empty, incomplete, and non-header compressed artifacts while rejecting malformed header frames', async () => {
@@ -886,7 +951,7 @@ describe('JsonlSessionPersistence: default Zstandard encoding', () => {
       '',
     ].join('\n')))
     await expect(ctx.sessionPersistence.list()).rejects.toThrow(/first frame is not exactly one header line/)
-    await expect(ctx.sessionPersistence.load(SessionId('two-lines')))
+    await expect(ctx.sessionPersistence.open(twoLinesId, 'read'))
       .rejects.toThrow(/first frame is not exactly one header line/)
   })
 
@@ -906,9 +971,9 @@ describe('JsonlSessionPersistence: default Zstandard encoding', () => {
     /** 中文说明：变量 ctx 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const ctx = await mount(root)
 
-    await expect(ctx.sessionPersistence.load(SessionId('partial-only')))
+    await expect(ctx.sessionPersistence.open(SessionId('partial-only'), 'read'))
       .rejects.toThrow(/empty or header-less Zstandard session log/)
-    await expect(ctx.sessionPersistence.load(SessionId('empty-header')))
+    await expect(ctx.sessionPersistence.open(SessionId('empty-header'), 'read'))
       .rejects.toThrow(/first frame is not exactly one header line/)
     await expect(ctx.sessionPersistence.list()).rejects.toThrow(/header frame failed validation/)
   })
@@ -920,11 +985,7 @@ describe('JsonlSessionPersistence: encoding selection', () => {
     const rawRoot = await freshRoot('dsh-jsonl-raw-mismatch-')
     /** 中文说明：变量 raw 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const raw = await mount(rawRoot, 'none')
-    /** 中文说明：变量 rawHeader 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-    const rawHeader = meta('raw-log')
-    await raw.sessionPersistence.create(rawHeader)
-    await raw.sessionPersistence.append(rawHeader.id, oneTurnLog())
-    /** 中文说明：变量 defaultBackend 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
+    await writeLog(raw.sessionPersistence, meta('raw-log'), oneTurnLog())
     const defaultBackend = await mount(rawRoot)
     await expect(defaultBackend.sessionPersistence.list()).rejects.toThrow(/configured for compression "zstd"/)
 
@@ -932,11 +993,7 @@ describe('JsonlSessionPersistence: encoding selection', () => {
     const zstdRoot = await freshRoot('dsh-jsonl-zstd-mismatch-')
     /** 中文说明：变量 zstd 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const zstd = await mount(zstdRoot)
-    /** 中文说明：变量 zstdHeader 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-    const zstdHeader = meta('zstd-log')
-    await zstd.sessionPersistence.create(zstdHeader)
-    await zstd.sessionPersistence.append(zstdHeader.id, oneTurnLog())
-    /** 中文说明：变量 rawBackend 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
+    await writeLog(zstd.sessionPersistence, meta('zstd-log'), oneTurnLog())
     const rawBackend = await mount(zstdRoot, 'none')
     await expect(rawBackend.sessionPersistence.list()).rejects.toThrow(/configured for compression "none"/)
   })
@@ -956,9 +1013,8 @@ describe('JsonlSessionPersistence: encoding selection', () => {
       ...oneTurnLog().map(e => JSON.stringify(e)),
       '',
     ].join('\n'))
-    await expect(ctx.sessionPersistence.load(loadHeader.id)).rejects.toThrow(/uses \.jsonl/)
-    await expect((ctx.sessionPersistence as JsonlSessionPersistence).loadStored(loadHeader.id))
-      .rejects.toThrow(/uses \.jsonl/)
+    await expect(ctx.sessionPersistence.open(loadHeader.id, 'read')).rejects.toThrow(/uses \.jsonl/)
+    await expect(ctx.sessionPersistence.open(loadHeader.id, 'write')).rejects.toThrow(/uses \.jsonl/)
     await expect(ctx.sessionPersistence.list()).rejects.toThrow(/uses \.jsonl/)
   })
 
@@ -970,14 +1026,15 @@ describe('JsonlSessionPersistence: encoding selection', () => {
     await ctx.sessionPersistence.list()
     /** 中文说明：变量 header 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const header = meta('late-raw-materialize', '/late')
-    await ctx.sessionPersistence.create(header)
+    const handle = await ctx.sessionPersistence.create(header)
     await mkdir(sessionDir(root, header.cwd, header.id), { recursive: true })
     await writeFile(logPath(root, header.cwd, header.id, 'none'), [
       JSON.stringify(toHeaderLine(header)),
       ...oneTurnLog().map(e => JSON.stringify(e)),
       '',
     ].join('\n'))
-    await expect(ctx.sessionPersistence.append(header.id, oneTurnLog())).rejects.toThrow(/uses \.jsonl/)
+    await expect(handle.append(oneTurnLog())).rejects.toThrow(/uses \.jsonl/)
+    await handle.close()
     expect((await readdir(sessionDir(root, header.cwd, header.id))).some(name => name.endsWith('.jsonl.zstd'))).toBe(false)
   })
 })

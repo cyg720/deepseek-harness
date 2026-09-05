@@ -1,12 +1,9 @@
 /** Host HTTP bridge for browser-client RPC. */
+
 /*
- * 文件职责：组装客户端连接插件，在宿主 Web 服务器上挂载 HTTP API、共享 RPC 和两条 WebSocket 下行路由。
- * 技术维度：使用 Cordis 插件生命周期、Schemastery 配置、Node HTTP 桥、Fetch 处理器及 WebSocket 升级路由。
- * 产品维度：为 Web 客户端提供统一连接入口，同时保护设置、凭据和宿主桌面等高权限能力。
- * 逻辑维度：解析配置并校验容量，创建连接服务，组合共享处理器，注册 HTTP 路由，再在 API Proxy 可用时注册下行流。
- * 关键边界：可信宿主列表只防 DNS 重绑定而非身份认证；高权限方法必须保持回环同源；图片上限必须装得进请求体。
- * 新手阅读建议：先看 Config 和 apply 主流程，再读 PRIVILEGED_METHODS 的安全原因，最后跟进 HTTP 与 WebSocket 两类路由。
+ * 【文件职责】把浏览器 RPC 的 HTTP 入口挂入 Host 插件树，传输处理交由 Connection 服务实现。
  */
+
 import type { Context } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
 import type {} from '@deepseek-ai/dsh-attachment'
@@ -30,6 +27,7 @@ export type {
   ConnectionRpcHandler,
   ConnectionRequestRejection,
   ConnectionRpcResult,
+  ConnectionRequestBodyMode,
   ConnectionTrustRequest,
   ClientRequest,
   HostConnectionHandle,

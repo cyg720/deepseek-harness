@@ -824,6 +824,8 @@ function renderRuntimeApi(
     ' * @module @deepseek-ai/dsh-tool-cordis/api-catalog',
     ' */',
     '',
+    '/* 【文件职责】从源码声明和 JSDoc 生成服务、事件及 Context API 目录，供 cordis_inspect 查询。 */',
+    '',
     '/* jscpd:ignore-start */',
     '/** One named parameter in a Service method or Event listener. */',
     'export interface ApiParameter {',

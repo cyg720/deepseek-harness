@@ -8,8 +8,4 @@
  */
 import { clientBundle } from '../tsdown.client.ts'
 
-/**
- * 生成工作流运行界面包的构建配置；参数是包标识及 Node 端入口，返回配置函数。
- * 使用示例：运行 `pnpm --filter @deepseek-ai/dsh-client-ui-workflow-run bundle` 时自动加载。
- */
-export default clientBundle('@deepseek-ai/dsh-client-ui-workflow-run', ['lib/types/index.js', 'lib/types/invariant.js'])
+export default clientBundle('@deepseek-ai/dsh-client-ui-workflow-run', ['lib/types/index.js'])

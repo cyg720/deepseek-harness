@@ -1,22 +1,4 @@
-/*
- * ================================ 文件注释 ================================
- * 【文件职责】定义 DeepSeek chat-completions 线上格式（wire format，OpenAI
- * 兼容）的类型集合：请求体、消息、工具、流式块与用量、错误体。纯类型文件。
- * 【技术维度】以官方 API 文档为准（create-chat-completion、thinking_mode、
- * tool_calls），并对照内部端点的真实流（2026-06）交叉校验；消息按 role 判别
- * 联合，SSE 负载与请求字段一一建模。
- * 【产品维度】这是 DeepSeek 适配器与 provider 之间的"翻译字典"：所有线上
- * 字段名（如 reasoning_effort、reasoning_content、prompt_cache_hit_tokens）
- * 都集中在这里，便于跟随官方 API 演进。
- * 【逻辑维度】请求体 → 各类消息 → 工具 → 流式块（chunk/delta/工具片段）→
- * 用量 → 错误体。
- * 【关键边界】thinking 开关在线上是顶层字段（不在 extra_body 内）；用量中
- * prompt_tokens 含缓存命中（mapUsage 会扣除以保持互斥约定）；助手历史消息
- * 回放 content 为 ""（某些网关拒绝 null）。
- * 【新手阅读建议】对照"请求→响应"顺序读：先 WireRequest 与 WireMessage，
- * 再 WireChunk/WireDelta 理解流式增量，最后看 WireUsage 的缓存口径。
- * ==========================================================================
- */
+
 
 /**
  * DeepSeek chat-completions wire format (OpenAI-compatible). Types only.
@@ -31,6 +13,11 @@
 
 /** Request body for `POST {baseURL}/chat/completions`. */
 // 中文：POST {baseURL}/chat/completions 的请求体。
+
+/*
+ * 【文件职责】声明 DeepSeek chat-completions 请求和响应的线格式，供提供者适配层与通用模型类型转换。
+ */
+
 export interface WireRequest {
   // 中文：模型 id。
   model: string
@@ -207,17 +194,17 @@ export interface WireToolCallDelta {
   /** Disambiguates parallel tool calls; stable across a call's deltas. */
   // 中文：区分并行工具调用；在一次调用的各 delta 间保持稳定。
   index: number
-  /** Present on the first delta of each call only. */
-  // 中文：只在每次调用的首个 delta 上出现。
-  id?: string
+  /**
+   * Carried by the first delta of each call. Gateways observed in the wild
+   * repeat it on continuation deltas as `''` or `null`; both mean "unchanged".
+   */
+  id?: string | null
   type?: 'function'
   function?: {
-    /** Present on the first delta of each call only. */
-    // 中文：只在每次调用的首个 delta 上出现。
-    name?: string
+    /** Carried by the first delta of each call, with the same `''`/`null` repetition as {@link WireToolCallDelta.id}. */
+    name?: string | null
     /** Argument JSON fragment (concatenate across deltas). */
-    // 中文：参数 JSON 片段（跨 delta 拼接）。
-    arguments?: string
+    arguments?: string | null
   }
 }
 

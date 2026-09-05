@@ -143,7 +143,7 @@ describe('webCardModel', () => {
 describe('chat row web body', () => {
   /** 中文说明：测试局部值 ownerProps，由紧邻初始化决定。 */
   const ownerProps = (block: RunningToolCall | ToolResultNode, toolName: string): ToolCallOwnerProps => ({
-    callId: block.callId, toolName, block, openFile: vi.fn(),
+    callId: block.callId, toolName, block, openFile: vi.fn(), loadImage: vi.fn(() => Promise.reject(new Error('not used'))),
   })
   // WebRow reads only toolName/block off the full runtime share plus the locale
   // seat; the standard kit is unused, so the cast supplies the owner slice and
@@ -259,9 +259,9 @@ describe('DetailsPanel web Output section', () => {
         useInput={(() => { throw new Error('unused') })}
         inputActions={{
           setDraft: () => {},
-          addImages: () => true,
-          removeImage: () => {},
-          pruneImages: () => {},
+          addAttachments: () => true,
+          removeAttachment: () => {},
+          pruneAttachments: () => {},
           submit: () => {},
         }}
         useProjection={(() => undefined)}

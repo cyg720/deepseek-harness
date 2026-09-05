@@ -14,17 +14,24 @@
  * 新手阅读建议：先看夹具和公开类型，再读正常流程，最后关注中文输入、失败与清理场景。
  */
 
-import { mkdtemp, mkdir, writeFile } from 'node:fs/promises'
+import { mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vitest'
 import { METADATA_FILE, readPresetMetadata, renderPresetMetadata } from '../src/metadata.ts'
+
+/** Every temp preset directory created by this file, removed after each test. */
+const tempDirs: string[] = []
+afterEach(async () => {
+  for (const dir of tempDirs.splice(0)) await rm(dir, { recursive: true, force: true })
+})
 
 /** A preset directory holding exactly the given metadata text. */
 /* 中文说明：函数 presetDir 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
 async function presetDir(content?: string): Promise<string> {
   /** 中文说明：变量 dir 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
   const dir = await mkdtemp(join(tmpdir(), 'dsh-preset-meta-'))
+  tempDirs.push(dir)
   await mkdir(dir, { recursive: true })
   if (content !== undefined) await writeFile(join(dir, METADATA_FILE), content)
   return dir

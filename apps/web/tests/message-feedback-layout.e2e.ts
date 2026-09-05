@@ -53,7 +53,7 @@ const GEOMETRY_EXPECTED = join(SNAPSHOT_DIR, 'geometry.expected.md')
 /** 当前快照模式。 */
 const MODE = webSnapshotMode()
 /** Borrowed read-only: this scenario needs any settled assistant message to rate. */
-const SEED = fileURLToPath(new URL('../../../snapshots/web/seeded-history/session.jsonl', import.meta.url))
+const SEED = fileURLToPath(new URL('../../../snapshots/web/seeded-history/session.v2.jsonl', import.meta.url))
 const SEED_ID = 'message-feedback-layout-e2e'
 /** Viewport widths from full-screen desktop down to a narrow window. */
 /* 从全屏桌面到窄窗口的视口宽度，单位为 CSS 像素。 */

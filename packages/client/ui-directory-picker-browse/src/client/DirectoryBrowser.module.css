@@ -2,6 +2,11 @@
 /* Short viewports clamp the card: header/footer are flex-none and the
  * columns scroll, so shrinking the height keeps Open/Cancel reachable
  * instead of clipping them below a fixed overlay. */
+
+/*
+ * 【文件职责】定义目录选择对话框的列滚动及高度约束，短视口中仍保留可访问的确认和取消区域。
+ */
+
 .dialog.dialog {
   width: min(680px, 100%);
   height: min(500px, calc(100dvh - 32px));
@@ -31,7 +36,7 @@
   gap: 8px;
   flex: none;
   padding: 16px 14px 8px 24px;
-  border-bottom: 1px solid var(--dsw-alias-border-l3);
+  border-bottom: 0.5px solid var(--dsw-alias-border-l3);
 }
 
 .title {
@@ -217,7 +222,7 @@
 
 .divider {
   flex: none;
-  width: 1px;
+  width: 0.5px;
   background: var(--dsw-alias-border-l3);
 }
 
@@ -325,7 +330,7 @@
   gap: 8px;
   flex: none;
   padding: 16px 24px;
-  border-top: 1px solid var(--dsw-alias-border-l3);
+  border-top: 0.5px solid var(--dsw-alias-border-l3);
 }
 
 /* Show-hidden toggle: a subtle fixed-label text button left of the gap;
@@ -402,7 +407,7 @@
   width: 100%;
   height: 44px;
   padding: 7px 14px;
-  border: 1px solid var(--dsw-alias-border-l2);
+  border: 0.5px solid var(--dsw-alias-border-l4);
   border-radius: 22px;
   outline: none;
   background: transparent;

@@ -78,7 +78,8 @@ describe('Connection exact Fetch routes', () => {
      */
     const dispose = connection.fetch.register({
       path: '/api/session.export',
-      methods: ['GET', 'HEAD'],
+      methods: ['GET', 'HEAD', 'POST'],
+      requestBody: 'streaming',
       fetch: route,
     })
     /**
@@ -92,6 +93,12 @@ describe('Connection exact Fetch routes', () => {
     const response = await shared.fetch(new Request(
       'http://host/api/session.export?sessionId=session-1',
     ))
+    expect(shared.requestBodyMode({
+      method: 'POST', url: new URL('http://host/api/session.export'),
+    })).toBe('streaming')
+    expect(shared.requestBodyMode({
+      method: 'DELETE', url: new URL('http://host/api/session.export'),
+    })).toBe('buffered')
     expect(response.status).toBe(200)
     expect(await response.json()).toEqual({ query: 'session-1' })
     expect(route).toHaveBeenCalledOnce()
@@ -99,7 +106,8 @@ describe('Connection exact Fetch routes', () => {
      * 常量说明：post 用于处理 post 相关数据，作用于当前作用域；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。
      */
     const post = await shared.fetch(new Request('http://host/api/session.export', { method: 'POST' }))
-    expect(post.status).toBe(404)
+    expect(post.status).toBe(200)
+    expect(route).toHaveBeenCalledTimes(2)
 
     await dispose()
     /**
@@ -128,17 +136,9 @@ describe('Connection exact Fetch routes', () => {
      */
     const fetch = async (): Promise<Response> => new Response()
 
-    /**
-     * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；返回值：由 TypeScript 根据实现推断的结果；
-     * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调()，并按返回类型处理结果。
-     */
-    expect(() => connection.fetch.register({ path: '/outside', methods: ['GET'], fetch }))
+    expect(() => connection.fetch.register({ path: '/outside', methods: ['GET'], requestBody: 'buffered', fetch }))
       .toThrow('invalid exact Fetch route')
-    /**
-     * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；返回值：由 TypeScript 根据实现推断的结果；
-     * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调()，并按返回类型处理结果。
-     */
-    expect(() => connection.fetch.register({ path: '/api/session.export', methods: [], fetch }))
+    expect(() => connection.fetch.register({ path: '/api/session.export', methods: [], requestBody: 'buffered', fetch }))
       .toThrow('declares no methods')
     /**
      * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；返回值：由 TypeScript 根据实现推断的结果；
@@ -146,12 +146,14 @@ describe('Connection exact Fetch routes', () => {
      */
     expect(() => connection.fetch.register({
       path: '/api/session.export', methods: ['GET', 'GET'], fetch,
+      requestBody: 'buffered',
     })).toThrow('repeats a method')
     /**
      * 常量说明：dispose 用于处理 dispose 相关数据，作用于当前作用域；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。
      */
     const dispose = connection.fetch.register({
       path: '/api/session.export', methods: ['GET'], fetch,
+      requestBody: 'buffered',
     })
     /**
      * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；返回值：由 TypeScript 根据实现推断的结果；
@@ -159,6 +161,7 @@ describe('Connection exact Fetch routes', () => {
      */
     expect(() => connection.fetch.register({
       path: '/api/session.export', methods: ['HEAD'], fetch,
+      requestBody: 'buffered',
     })).toThrow('already registered')
     await dispose()
     /**
@@ -167,6 +170,7 @@ describe('Connection exact Fetch routes', () => {
      */
     expect(() => connection.fetch.register({
       path: '/api/session.export', methods: ['HEAD'], fetch,
+      requestBody: 'buffered',
     })).not.toThrow()
     await disposeFiber()
   })

@@ -2,13 +2,9 @@
  * `--surface` / `--text-*` names, which nothing in this app defines, would
  * render the light-mode literals written as their fallbacks and stay light
  * under the dark theme. */
-/**
- * 文件职责：定义 ModelsSection 的局部样式。
- * 技术维度：CSS Modules、表单布局、状态颜色和响应式规则。
- * 产品维度：让模型设置信息和操作清晰可辨。
- * 逻辑维度：按卡片、字段、操作与状态组织样式。
- * 关键边界：错误、禁用与敏感字段必须有明确视觉区分。
- * 新手阅读建议：对照同名 TSX 按表单结构阅读。
+
+/*
+ * 【文件职责】定义模型设置区域样式，颜色通过已声明的主题 token 解析以支持深浅主题。
  */
 
 .section {
@@ -61,8 +57,8 @@
 /* A configured provider: outlined on the panel fill, so the filled editor
    card it expands into reads as the nested object. */
 .rowCard {
-  border: 1px solid var(--dsw-alias-border-l2);
-  border-radius: 12px;
+  border: 0.5px solid var(--dsw-alias-border-l4);
+  border-radius: 16px;
   padding: 12px 14px;
   display: flex;
   flex-direction: column;
@@ -96,7 +92,7 @@
 .rowTag {
   flex: none;
   padding: 1px 6px;
-  border: 1px solid var(--dsw-alias-border-l3);
+  border: 0.5px solid var(--dsw-alias-border-l3);
   border-radius: 4px;
   font-size: 11px;
   line-height: 16px;
@@ -110,6 +106,7 @@
   width: 8px;
   height: 8px;
   border-radius: 50%;
+  corner-shape: round;
 }
 
 .credentialDotConfigured {
@@ -159,7 +156,7 @@
 
 .secondaryButton,
 .addButton {
-  border: 1px solid var(--dsw-alias-border-l2);
+  border: 0.5px solid var(--dsw-alias-border-l3);
   background: transparent;
   color: var(--dsw-alias-label-primary);
 }
@@ -331,7 +328,7 @@
   gap: 6px;
   height: 44px;
   border: 1px dashed var(--dsw-alias-border-l3);
-  border-radius: 12px;
+  border-radius: 16px;
 }
 
 .addCard,
@@ -353,7 +350,7 @@
 }
 
 .customized {
-  border-top: 1px solid var(--dsw-alias-border-l2);
+  border-top: 0.5px solid var(--dsw-alias-border-l2);
   padding-top: 10px;
 }
 
@@ -414,7 +411,7 @@
   flex-direction: column;
   gap: 10px;
   padding-top: 12px;
-  border-top: 1px solid var(--dsw-alias-border-l2);
+  border-top: 0.5px solid var(--dsw-alias-border-l2);
 }
 
 .modelCatalogHeading {
@@ -458,8 +455,8 @@
 }
 
 .modelEntry {
-  border: 1px solid var(--dsw-alias-border-l2);
-  border-radius: 8px;
+  border: 0.5px solid var(--dsw-alias-border-l4);
+  border-radius: 10px;
   padding: 6px;
 }
 
@@ -536,7 +533,7 @@
   gap: 4px;
   height: 28px;
   padding: 0 10px;
-  border: 1px solid var(--dsw-alias-border-l2);
+  border: 0.5px solid var(--dsw-alias-border-l3);
   border-radius: 14px;
   background: transparent;
   color: var(--dsw-alias-label-primary);
@@ -555,7 +552,7 @@
   width: 100%;
   height: 32px;
   padding: 0 10px;
-  border: 1px solid var(--dsw-alias-border-l2);
+  border: 0.5px solid var(--dsw-alias-border-l4);
   border-radius: 8px;
   font: inherit;
   font-size: 14px;
@@ -650,10 +647,16 @@ select.input {
   --dsh-scrollbar-thumb-hover: var(--dsw-alias-scrollbar-hover-l2);
 }
 
-.candidateActions {
+.candidateToolbar {
   display: flex;
-  justify-content: flex-end;
+  align-items: center;
+  gap: 8px;
   margin-bottom: 6px;
+}
+
+.candidateSearch {
+  min-width: 0;
+  flex: 1 1 240px;
 }
 
 .candidateList {
@@ -684,4 +687,12 @@ select.input {
   font-family: var(--ds-font-family-code);
   font-size: 13px;
   overflow-wrap: anywhere;
+}
+
+.candidateEmpty {
+  margin: 24px 0;
+  color: var(--dsw-alias-label-secondary);
+  font-size: 13px;
+  line-height: 20px;
+  text-align: center;
 }

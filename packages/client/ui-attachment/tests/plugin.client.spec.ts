@@ -25,6 +25,7 @@ async function bench() {
       'conversation.input.attachments': { kind: 'single', scope: 'session-maybe' },
       'conversation.message.images': { kind: 'single', scope: 'session' },
       'conversation.trajectory.images': { kind: 'single', scope: 'session' },
+      'tool.call.images': { kind: 'single', scope: 'session' },
     },
   } as never, () => null)
   // 被测客户端插件 fiber。
@@ -55,11 +56,16 @@ describe('attachment plugin', () => {
       locale: 'conversation',
       component: MessageImages,
     }])
+    expect(ctx.slots.entries('tool.call.images')).toMatchObject([{
+      locale: 'conversation',
+      component: MessageImages,
+    }])
 
     await fiber.dispose()
 
     expect(ctx.slots.entries('conversation.input.attachments')).toHaveLength(0)
     expect(ctx.slots.entries('conversation.message.images')).toHaveLength(0)
     expect(ctx.slots.entries('conversation.trajectory.images')).toHaveLength(0)
+    expect(ctx.slots.entries('tool.call.images')).toHaveLength(0)
   })
 })

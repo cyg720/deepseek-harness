@@ -1,18 +1,11 @@
-/*
- * ================================ 文件注释 ================================
- * 【文件职责】会话查询消费者的第一方语义文本提取：从会话事件中抽出可搜索的
- *   纯文本（结构性边界、流式块、请求信封与未知合并事件不贡献文本）。
- * 【技术维度】按事件类型分派；对工具调用/结果、todo 写入、回合结束原因等做
- *   字段级拼接；未知类型走 default 返回空串（合并可扩展纪律）。
- * 【产品维度】决定"哪些事件内容能进全文索引"的唯一规则。
- * 【逻辑维度】extractSessionEventText → turnEndText/contentText/blockText/joinText。
- * 【关键边界】语义与结构刻意区分：结构事件不索引，未知事件不因载荷碰巧含字符串
- *   而变得可搜索。
- * 【新手阅读建议】对照各 case 理解"什么算语义文本"。
- * ==========================================================================
- */
+
 
 /** First-party semantic text extraction for session-query consumers. */
+
+/*
+ * 【文件职责】从第一方事件提取可检索语义文本；
+ * 结构事件、嵌入原始流和未知扩展事件不贡献搜索正文。
+ */
 
 import type { SessionEvent } from '@deepseek-ai/dsh-session'
 // Type-only: includes the first-party todo event consumed below.
@@ -21,7 +14,7 @@ import type {} from '@deepseek-ai/dsh-tool-todo'
 /**
  * Extract searchable semantic text from one first-party session event.
  *
- * Structural boundaries, raw stream chunks, request envelopes, and unknown
+ * Structural boundaries, embedded raw streams, request envelopes, and unknown
  * declaration-merged events contribute no text.
  * @param event - event to inspect.
  * @returns newline-joined semantic text, or an empty string when non-searchable.
@@ -49,7 +42,7 @@ export function extractSessionEventText(event: SessionEvent): string {
     case 'turn/start':
     case 'step/start':
     case 'step/end':
-    case 'assistant/chunk':
+    case 'assistant/attempt':
     case 'request/header':
       return ''
     // SessionEventMap is merge-extensible. Unknown events remain

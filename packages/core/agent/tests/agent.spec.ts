@@ -154,14 +154,13 @@ describe('Inbox', () => {
     const nextStep = createUserMessage({ content: [{ type: 'text', text: 'step' }], source: { kind: 'user' } })
     inbox.append('next-turn', nextTurn)
     inbox.append('next-step', nextStep)
-    /** 中文说明：测试局部值 beforeClear，由紧邻初始化决定，仅在当前场景使用。 */
-    const beforeClear = session.events.length
+    const beforeClear = session.snapshotEvents().length
 
     inbox.clear()
 
     expect(inbox.hasPending).toBe(false)
     expect(discarded).toEqual([nextStep, nextTurn])
-    expect(session.events.slice(beforeClear).map(event => event.type === 'agent/inbox/spliced'
+    expect(session.snapshotEvents().slice(beforeClear).map(event => event.type === 'agent/inbox/spliced'
       ? event.data
       : event.type)).toEqual([
       { target: 'next-step', start: 0, removedCount: 1, inserted: [], outcome: 'canceled' },
@@ -169,7 +168,7 @@ describe('Inbox', () => {
     ])
 
     inbox.clear()
-    expect(session.events).toHaveLength(beforeClear + 2)
+    expect(session.snapshotEvents()).toHaveLength(beforeClear + 2)
   })
 })
 

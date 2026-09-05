@@ -1,13 +1,7 @@
 /** Session-specific adapters for Gateway-owned Remote stream lifecycles. */
 
 /*
- * 文件说明：文件职责：实现 api/session-controller 中 transport 模块的职责，
- * 并向相邻模块提供可复用能力。；技术维度：主要使用TypeScript/JavaScript 的 ESM 模块、严格类型约束与 Cordis
- * 插件机制，通过当前文件中的类型、函数与数据结构完成实现。；产品维度：支撑 DeepSeek Harness 的
- * api/session-controller 能力，使上层功能能够稳定组合和扩展。；逻辑维度：建议按“依赖与类型定义 → 常量和状态 →
- * 核心函数或类 → 导出或注册入口”的顺序理解。；关键边界：调用方必须遵守类型、生命周期和错误处理约定；
- * 涉及外部输入、异步任务或资源释放时需特别关注异常分支。；新手阅读建议：先确认导入依赖和公开导出，再沿主要函数调用链阅读，
- * 最后结合相邻测试理解输入、输出与边界条件。
+ * 【文件职责】将会话专用分页参数和事件流适配到 Gateway 的通用可重连日志生命周期。
  */
 
 import type {} from '@deepseek-ai/dsh-api-session-controller/remote'
@@ -22,6 +16,8 @@ import {
 } from '@deepseek-ai/dsh-api-gateway/client'
 import type {
   SessionAddress,
+  SessionAssistantStreamBaseline,
+  SessionAssistantStreamFrame,
   SessionControlFrame,
   SessionHistoryRecord,
   SessionPage,
@@ -50,6 +46,7 @@ export type SessionRemote = ClientRemote['session']
 /** Opening metadata carried only by a follow snapshot, never by loadOlder pages. */
 interface SessionJournalPage extends SessionPage {
   readonly projections?: SessionProjectionBaseline
+  readonly assistantStream?: SessionAssistantStreamBaseline
 }
 
 /** One complete publication from the Session journal stream. */
@@ -61,27 +58,25 @@ export type SessionJournalChange =
     readonly hasMore: boolean
   }
   | { readonly type: 'append'; readonly entry: SessionLiveEventEntry }
+  | { readonly type: 'assistant-stream'; readonly frame: SessionAssistantStreamFrame }
 
 function toSessionJournalChange(
-  change: RemoteJournalChange<SessionJournalPage, SessionHistoryRecord>,
+  change: RemoteJournalChange<
+    SessionJournalPage, SessionHistoryRecord, SessionAssistantStreamFrame
+  >,
 ): SessionJournalChange {
   switch (change.type) {
     case 'replace':
     case 'prepend':
       return { ...change, entries: historyEntries(change.entries) }
     case 'append': {
-      if (change.entry.type !== 'event') {
-        throw new RemoteError(
-          'gateway/internal',
-          'session live stream emitted a packed history record',
-          {},
-        )
-      }
       return {
         type: 'append',
         entry: change.entry as unknown as SessionLiveEventEntry,
       }
     }
+    case 'notification':
+      return { type: 'assistant-stream', frame: change.notification }
   }
 }
 
@@ -146,7 +141,8 @@ export class SessionEventStream extends RemoteJournalStream<
   SessionJournalPage,
   SessionHistoryRecord,
   number,
-  ClientSessionPageRequest
+  ClientSessionPageRequest,
+  SessionAssistantStreamFrame
 > {
   /**
    * @param remote - generated Session namespace and Gateway stream factory.
@@ -179,12 +175,24 @@ export class SessionEventStream extends RemoteJournalStream<
   protected override async * follow(
     request: ClientSessionPageRequest,
     signal: AbortSignal,
-  ): AsyncIterable<RemoteJournalFrame<SessionHistoryRecord, number, SessionJournalPage>> {
+  ): AsyncIterable<RemoteJournalFrame<
+    SessionHistoryRecord, number, SessionJournalPage, SessionAssistantStreamFrame
+  >> {
+    let assistantRevision: number | undefined
     for await (const frame of this.remote.session.follow({
       address: this.address,
+      assistantStream: true,
       ...(request.maxMessages === undefined ? {} : { maxMessages: request.maxMessages }),
     }, signal)) {
       if (frame.type === 'snapshot') {
+        if (frame.assistantStream === undefined) {
+          throw new RemoteError(
+            'gateway/internal',
+            'session assistant stream omitted its opted-in opening baseline',
+            {},
+          )
+        }
+        assistantRevision = frame.assistantStream.revision
         yield {
           type: 'opened',
           cursor: frame.cursor,
@@ -192,8 +200,20 @@ export class SessionEventStream extends RemoteJournalStream<
             records: frame.records,
             hasMore: frame.hasMore,
             projections: frame.projections,
+            assistantStream: frame.assistantStream,
           },
         }
+        continue
+      }
+      if (frame.type === 'assistant-stream') {
+        const expected = (assistantRevision ?? 0) + 1
+        if (frame.frame.revision !== expected) {
+          throw new RemoteStreamCarrierError(
+            `session assistant stream skipped revision ${String(expected)}`,
+          )
+        }
+        assistantRevision = frame.frame.revision
+        yield { type: 'notification', notification: frame.frame }
         continue
       }
       yield { type: 'entry', entry: frame }

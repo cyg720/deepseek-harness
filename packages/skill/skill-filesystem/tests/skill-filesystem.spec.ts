@@ -1,12 +1,4 @@
-/**
- * 文件职责：验证 skill-filesystem.spec.ts 覆盖的技能发现与装载行为与生命周期。
- * 技术维度：使用 TypeScript、Vitest、Cordis 插件、文件存储或受控子进程协议。
- * 产品维度：保障 Agent 的技能发现与装载能力稳定、安全且可诊断。
- * 逻辑维度：准备或解析输入，执行核心流程，再处理结果、错误与资源清理。
- * 关键边界：外部进程和持久化数据不可信；敏感环境需净化；清理必须等待资源完全停止。
- * 新手阅读建议：先看导出类型和夹具，再读主流程，最后关注协议错误、恢复和清理。
- */
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vitest'
 import { mkdir, readdir, readFile, rename, rm, stat, symlink, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import { tmpdir } from 'node:os'
@@ -15,9 +7,16 @@ import SkillRegistry from '@deepseek-ai/dsh-skill'
 import { FileSystem, FsError, FsVersion, type FsDirEntry, type FsEditOutcome, type FsEditRequest, type FsInfo, type FsPathInfo, type FsTarget, type FsWriteOutcome } from '@deepseek-ai/dsh-fs'
 import * as SkillFileSystem from '../src/index.ts'
 
-/** 中文说明：函数 tempDir 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/** Every temp dir created by this file, removed after each test. */
+const tempDirs: string[] = []
+afterEach(async () => {
+  for (const dir of tempDirs.splice(0)) await rm(dir, { recursive: true, force: true })
+})
+
 async function tempDir(name: string): Promise<string> {
-  return await import('node:fs/promises').then(fs => fs.mkdtemp(join(tmpdir(), `dsh-${name}-`)))
+  const dir = await import('node:fs/promises').then(fs => fs.mkdtemp(join(tmpdir(), `dsh-${name}-`)))
+  tempDirs.push(dir)
+  return dir
 }
 
 /** 中文说明：函数 writeSkill 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */

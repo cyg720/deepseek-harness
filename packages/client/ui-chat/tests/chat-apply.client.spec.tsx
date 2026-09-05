@@ -8,8 +8,9 @@
  * 新手阅读建议：先确认导入依赖和公开导出，再沿主要函数调用链阅读，最后结合相邻测试理解输入、输出与边界条件。
  */
 import { describe, expect, it, vi } from 'vitest'
+import { act, render } from '@testing-library/react'
 import {
-  chatSnapshot, SlotTestRuntime, TestRemote, stubSettingsScope, usePinnedBrowserLanguages,
+  SlotTestRuntime, TestRemote, stubSettingsScope, usePinnedBrowserLanguages,
 } from '@deepseek-ai/dsh-client-test-runtime'
 import { LocaleRuntime } from '@deepseek-ai/dsh-client-locale/client'
 import { resolveSlotLabel } from '@deepseek-ai/dsh-client-ui-slots'
@@ -19,11 +20,14 @@ import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import {
   apply as applyConversation, inject as injectConversation,
 } from '@deepseek-ai/dsh-client-ui-conversation/client'
+import type {
+  ConversationLocationDataSource, ConversationLocationDataStore, ConversationTurnDataMap,
+} from '@deepseek-ai/dsh-client-ui-conversation/client'
 import {
   apply as applyChat, EMPTY_CHAT_SNAPSHOT, inject as injectChat,
 } from '@deepseek-ai/dsh-client-ui-chat/client'
 import type {
-  ChatNodeTurnDataInjected, ChatSnapshot, TranscriptViewRowInjected, UseChat,
+  ChatNodeTurnDataInjected, ChatSnapshot, TranscriptViewRowInjected, UseChatNodeTurnData,
 } from '@deepseek-ai/dsh-client-ui-chat/client'
 import { CHAT_SETTINGS_NAMESPACE, type ChatSettings } from '../src/chat-settings.ts'
 
@@ -313,14 +317,7 @@ describe('Chat apply wiring', () => {
     await b.runtime.dispose()
   })
 
-  /**
-   * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；返回值：由 TypeScript 根据实现推断的结果；
-   * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调()，并按返回类型处理结果。
-   */
-  it('binds Turn data through the Chat selector hook for Turn and Step locations', async () => {
-    /**
-     * 常量说明：b 用于处理 b 相关数据，作用于当前作用域；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。
-     */
+  it('binds Turn data directly to its keyed Location source', async () => {
     const b = await bench()
     /**
      * 常量说明：spec 用于处理 spec 相关数据，作用于当前作用域；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。
@@ -328,90 +325,46 @@ describe('Chat apply wiring', () => {
     const spec = b.runtime.slots.spec('conversation.chat.node') as unknown as {
       inject: ChatNodeTurnDataInjected
     }
-    /**
-     * 变量说明：snapshot 用于处理 snapshot 相关数据，作用于当前作用域；其值可能随流程推进而变化，读写时需遵守声明类型和所在生命周期。
-     */
-    let snapshot: ChatSnapshot = chatSnapshot()
-    /**
-     * 常量说明：useChat 用于组合使用 Chat 相关数据，作用于当前作用域；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。
-     */
-    /**
-     * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；参数：selector（(value: ChatSnapshot) =>
-     * unknown）：提供本次调用所需的数据；必须满足声明的类型及调用时序要求。；返回值：由 TypeScript 根据实现推断的结果；
-     * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调(selector)，并按返回类型处理结果。
-     */
-    const useChat = ((selector: (value: ChatSnapshot) => unknown) => selector(snapshot)) as UseChat
-    /**
-     * 常量说明：useTurnData 用于组合使用 Turn Data 相关数据，作用于当前作用域；初始化后不可重新赋值，
-     * 但对象内部是否可变仍由其类型决定。
-     */
+    let value: number | undefined = 42
+    const listeners = new Set<() => void>()
+    const source: ConversationLocationDataSource<number | undefined> = {
+      getSnapshot: () => value,
+      subscribe: (listener) => {
+        listeners.add(listener)
+        return () => { listeners.delete(listener) }
+      },
+    }
+    const data = {
+      get: () => value,
+      source: () => source,
+    } as unknown as ConversationLocationDataStore<ConversationTurnDataMap>
+    const useChat = vi.fn(() => { throw new Error('Turn data must not read the Chat snapshot') })
     const useTurnData = spec.inject.hooks.turnData(
-      { useChat } as Parameters<typeof spec.inject.hooks.turnData>[0],
-      'node-1',
+      { useChat } as unknown as Parameters<typeof spec.inject.hooks.turnData>[0],
+      data,
     )
-    /**
-     * 常量说明：data 用于处理 data 相关数据，作用于当前作用域；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。
-     */
-    /**
-     * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；参数：key（string）：提供本次调用所需的数据；
-     * 必须满足声明的类型及调用时序要求。；返回值：由 TypeScript 根据实现推断的结果；调用方应按声明类型处理，不应假定未声明的附加状态。；
-     * 典型用法：在完成前置校验后调用 匿名回调(key)，并按返回类型处理结果。
-     */
-    const data = { get: (key: string) => key === 'metric' ? 42 : undefined }
-    /**
-     * 常量说明：turn 用于处理 turn 相关数据，作用于当前作用域；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。
-     */
-    const turn = { data }
+    const Probe = ({ useData }: { useData: UseChatNodeTurnData }) => (
+      <output>{useData('metric') ?? 'missing'}</output>
+    )
+    const view = render(<Probe useData={useTurnData} />)
 
-    /**
-     * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；返回值：由 TypeScript 根据实现推断的结果；
-     * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调()，并按返回类型处理结果。
-     */
-    /**
-     * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；返回值：由 TypeScript 根据实现推断的结果；
-     * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调()，并按返回类型处理结果。
-     */
-    snapshot = chatSnapshot({
-      nodes: { get: () => ({ location: { kind: 'turn', turn } }), values: () => [] } as never,
-    })
-    expect(useTurnData('metric')).toBe(42)
-    /**
-     * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；返回值：由 TypeScript 根据实现推断的结果；
-     * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调()，并按返回类型处理结果。
-     */
-    /**
-     * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；返回值：由 TypeScript 根据实现推断的结果；
-     * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调()，并按返回类型处理结果。
-     */
-    snapshot = chatSnapshot({
-      nodes: { get: () => ({ location: { kind: 'step', turn } }), values: () => [] } as never,
-    })
-    expect(useTurnData('metric')).toBe(42)
-    /**
-     * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；返回值：由 TypeScript 根据实现推断的结果；
-     * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调()，并按返回类型处理结果。
-     */
-    /**
-     * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；返回值：由 TypeScript 根据实现推断的结果；
-     * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调()，并按返回类型处理结果。
-     */
-    snapshot = chatSnapshot({
-      nodes: { get: () => ({ location: { kind: 'session' } }), values: () => [] } as never,
-    })
-    expect(useTurnData('metric')).toBeUndefined()
-    /**
-     * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；返回值：由 TypeScript 根据实现推断的结果；
-     * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调()，并按返回类型处理结果。
-     */
-    /**
-     * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；返回值：由 TypeScript 根据实现推断的结果；
-     * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调()，并按返回类型处理结果。
-     */
-    snapshot = chatSnapshot({
-      nodes: { get: () => undefined, values: () => [] },
-    })
-    expect(useTurnData('metric')).toBeUndefined()
+    expect(view.getByText('42')).toBeTruthy()
+    expect(useChat).not.toHaveBeenCalled()
 
+    act(() => {
+      value = 43
+      for (const listener of [...listeners]) listener()
+    })
+    expect(view.getByText('43')).toBeTruthy()
+
+    view.rerender(<Probe useData={spec.inject.hooks.turnData(
+      { useChat } as unknown as Parameters<typeof spec.inject.hooks.turnData>[0],
+      undefined,
+    )} />)
+    expect(view.getByText('missing')).toBeTruthy()
+    expect(useChat).not.toHaveBeenCalled()
+
+    view.unmount()
     await b.runtime.dispose()
   })
 })

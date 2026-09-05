@@ -1,13 +1,7 @@
-/**
- * 文件职责：实现 experimental/client-ui-agent-team 中 TeamAction module 模块的职责，
- * 并向相邻模块提供可复用能力。
- * 技术维度：主要使用CSS Modules、层叠样式与项目统一的设计变量，通过当前文件中的类型、函数与数据结构完成实现。
- * 产品维度：支撑 DeepSeek Harness 的 experimental/client-ui-agent-team 能力，
- * 使上层功能能够稳定组合和扩展。
- * 逻辑维度：建议按“依赖与类型定义 → 常量和状态 → 核心函数或类 → 导出或注册入口”的顺序理解。
- * 关键边界：调用方必须遵守类型、生命周期和错误处理约定；涉及外部输入、异步任务或资源释放时需特别关注异常分支。
- * 新手阅读建议：先确认导入依赖和公开导出，再沿主要函数调用链阅读，最后结合相邻测试理解输入、输出与边界条件。
+/*
+ * 【文件职责】定义实验性团队入口、成员及任务操作面板的样式。
  */
+
 .root {
   position: relative;
 }
@@ -64,10 +58,11 @@
   max-height: min(680px, calc(100vh - 120px));
   padding: 10px;
   overflow: auto;
-  border: 1px solid var(--dsw-alias-border-l2);
+  border: 0;
   border-radius: 12px;
   background: var(--dsw-specific-menu);
-  box-shadow: var(--dsw-shadow-lv3);
+  --dsw-elevation-stroke-color: var(--dsw-alias-border-l1);
+  box-shadow: var(--dsw-elevation-prominent);
 }
 
 .toolbar,
@@ -115,7 +110,7 @@
   gap: 8px;
   min-width: 0;
   padding: 8px;
-  border: 1px solid var(--dsw-alias-border-l1);
+  border: 0.5px solid var(--dsw-alias-border-l1);
   border-radius: 8px;
   background: transparent;
   color: var(--dsw-alias-label-primary);
@@ -163,7 +158,7 @@
 .task,
 .form {
   padding: 9px;
-  border: 1px solid var(--dsw-alias-border-l1);
+  border: 0.5px solid var(--dsw-alias-border-l1);
   border-radius: 9px;
   background: var(--dsw-alias-bg-base);
 }
@@ -204,7 +199,7 @@
 .form input,
 .form textarea {
   box-sizing: border-box;
-  border: 1px solid var(--dsw-alias-border-l2);
+  border: 0.5px solid var(--dsw-alias-border-l4);
   border-radius: 6px;
   background: var(--dsw-alias-bg-base);
   color: var(--dsw-alias-label-primary);

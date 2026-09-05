@@ -8,7 +8,9 @@
  * 新手阅读建议：先确认导入依赖和公开导出，再沿主要函数调用链阅读，最后结合相邻测试理解输入、输出与边界条件。
  */
 import { describe, expect, it } from 'vitest'
-import { decodeSeqRanges, encodeSeqRanges } from '@deepseek-ai/dsh-session'
+import { decodeSeqRanges, encodeSeqRanges, SessionSeq } from '@deepseek-ai/dsh-session'
+
+const seqs = (values: readonly number[]) => values.map(SessionSeq)
 
 /**
  * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；返回值：由 TypeScript 根据实现推断的结果；
@@ -33,7 +35,7 @@ describe('sourceEventSeqs ranges', () => {
     [3, 2],
     [Number.MAX_SAFE_INTEGER - 1, 0, Number.MAX_SAFE_INTEGER - 2],
   ].map(values => [values]))('round-trips %j', (values) => {
-    expect(decodeSeqRanges(encodeSeqRanges(values))).toEqual(values)
+    expect(decodeSeqRanges(encodeSeqRanges(seqs(values)))).toEqual(values)
   })
 
   /**
@@ -41,9 +43,9 @@ describe('sourceEventSeqs ranges', () => {
    * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调()，并按返回类型处理结果。
    */
   it('encodes only profitable increasing runs', () => {
-    expect(encodeSeqRanges([1, 3, 4, 5, 7])).toEqual([1, [3, 5], 7])
-    expect(encodeSeqRanges([1, 3, 4, 7])).toEqual([1, 3, 4, 7])
-    expect(encodeSeqRanges([3, 2])).toEqual([3, 2])
+    expect(encodeSeqRanges(seqs([1, 3, 4, 5, 7]))).toEqual([1, [3, 5], 7])
+    expect(encodeSeqRanges(seqs([1, 3, 4, 7]))).toEqual([1, 3, 4, 7])
+    expect(encodeSeqRanges(seqs([3, 2]))).toEqual([3, 2])
   })
 
   /**
@@ -51,16 +53,7 @@ describe('sourceEventSeqs ranges', () => {
    * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调()，并按返回类型处理结果。
    */
   it('does not impose a persistence-only provenance length limit', () => {
-    /**
-     * 常量说明：values 用于处理 values 相关数据，作用于当前作用域；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。
-     */
-    /**
-     * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；参数：_（由 TypeScript
-     * 根据调用位置推断的类型）：提供本次调用所需的数据；必须满足声明的类型及调用时序要求。；参数：index（由 TypeScript
-     * 根据调用位置推断的类型）：提供本次调用所需的数据；必须满足声明的类型及调用时序要求。；返回值：由 TypeScript 根据实现推断的结果；
-     * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调(_, index)，并按返回类型处理结果。
-     */
-    const values = Array.from({ length: 1_000_001 }, (_, index) => index)
+    const values = Array.from({ length: 1_000_001 }, (_, index) => SessionSeq(index))
     expect(encodeSeqRanges(values)).toEqual([[0, 1_000_000]])
   })
 

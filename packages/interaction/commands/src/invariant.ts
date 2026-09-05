@@ -5,18 +5,7 @@
  */
 
 /*
- * ================================ 文件注释 ================================
- * 【文件职责】dsh-commands 包的"不变量伴随插件"：校验命令生命周期事件在同一会话日志内按
- *   commandId 正确配对——run 不重复、done 必有先前 run 且 sourceEventSeq 指向合法的前置域事件。
- * 【技术维度】先扫描 ctx.sessions 的存量日志，再订阅 internal/dispatch 捕获新追加事件；
- *   安装级作用域（install-scoped）保证重装时从干净状态重新扫描。
- * 【产品维度】invariants 是仓库的运行时自检机制：一旦命令事件配对关系被破坏，演示/测试立即失败。
- * 【逻辑维度】apply 注册 → 扫描存量会话 → 订阅新事件 → validateEvent 逐条校验 run/done 配对
- *   与 sourceEventSeq 合法性。
- * 【关键边界】sourceEventSeq 必须指向非命令类的更早事件；校验器强依赖会话日志语义，
- *   改动事件结构需同步更新本文件。
- * 【新手阅读建议】对照 index.ts 的 execute 里 appendLifecycle 的调用点阅读。
- * ==========================================================================
+ * 【文件职责】按同一会话中的 commandId 配对命令生命周期记录，检查持久命令日志的关联完整性。
  */
 
 import type { Context } from '@deepseek-ai/cordis'
@@ -53,7 +42,7 @@ const install: InvariantInstaller = Object.assign((ctx: Context, fail: Invariant
       fail(`command/done ${JSON.stringify(event.data.commandId)} pairs no prior command/run in this log`)
     }
     const source = event.data.sourceEventSeq
-    const sourceEvent = source === undefined ? undefined : session.events[source]
+    const sourceEvent = source === undefined ? undefined : session.eventAt(source)
     if (source !== undefined
       && (event.data.kind !== 'success'
         || !Number.isSafeInteger(source) || source < 0 || source >= event.seq
@@ -64,7 +53,7 @@ const install: InvariantInstaller = Object.assign((ctx: Context, fail: Invariant
     }
   }
   for (const session of ctx.sessions.list()) {
-    for (const event of session.events) validateEvent(session, event)
+    for (const event of session.snapshotEvents()) validateEvent(session, event)
   }
   ctx.on('internal/dispatch', (_mode, eventName, args) => {
     if (eventName !== 'session/event') return

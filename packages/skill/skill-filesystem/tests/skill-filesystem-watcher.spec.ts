@@ -11,7 +11,7 @@ import type { Stats } from 'node:fs'
 import { mkdir, realpath, rm, symlink, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
 import SkillRegistry from '@deepseek-ai/dsh-skill'
 
@@ -111,9 +111,16 @@ vi.mock('chokidar', () => ({
 /** 中文说明：变量 SkillFileSystem 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const SkillFileSystem = await import('../src/index.ts')
 
-/** 中文说明：函数 tempDir 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */
+/** Every temp dir created by this file, removed after each test. */
+const tempDirs: string[] = []
+afterEach(async () => {
+  for (const dir of tempDirs.splice(0)) await rm(dir, { recursive: true, force: true })
+})
+
 async function tempDir(name: string): Promise<string> {
-  return await import('node:fs/promises').then(fs => fs.mkdtemp(join(tmpdir(), `dsh-${name}-`)))
+  const dir = await import('node:fs/promises').then(fs => fs.mkdtemp(join(tmpdir(), `dsh-${name}-`)))
+  tempDirs.push(dir)
+  return dir
 }
 
 /** 中文说明：函数 writeSkill 承担本测试的处理步骤；参数按签名传入，返回值供后续流程使用；示例见本文件调用。 */

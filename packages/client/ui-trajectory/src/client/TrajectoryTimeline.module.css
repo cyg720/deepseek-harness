@@ -1,17 +1,13 @@
-/**
- * 文件职责：定义 TrajectoryTimeline 的局部样式。
- * 技术维度：CSS Modules、网格/滚动布局和状态选择器。
- * 产品维度：让运行轨迹信息在复杂状态下仍易读。
- * 逻辑维度：按容器、工具栏、内容和状态组织规则。
- * 关键边界：长列表需保持滚动性能，颜色不能单独表达状态。
- * 新手阅读建议：对照组件按 DOM 与状态层级阅读。
+/*
+ * 【文件职责】定义轨迹时间线的绘图区与提示层级，使其独立于事件表的叠放关系。
  */
+
 .root {
   position: relative;
   z-index: 1;
   isolation: isolate;
   flex: none;
-  border-bottom: 1px solid var(--dsw-alias-border-l2);
+  border-bottom: 0.5px solid var(--dsw-alias-border-l2);
   user-select: none;
 }
 
@@ -29,7 +25,7 @@
 
 .labels {
   position: relative;
-  border-right: 1px solid var(--dsw-alias-border-l1);
+  border-right: 0.5px solid var(--dsw-alias-border-l1);
   color: var(--dsw-alias-label-caption);
   font: var(--dsw-font-xs-13);
   font-size: 10px;
@@ -154,7 +150,7 @@
   top: 0;
   bottom: 0;
   left: var(--trajectory-turn-left);
-  width: 1px;
+  width: 0.5px;
   background: var(--dsw-alias-border-l2);
 }
 

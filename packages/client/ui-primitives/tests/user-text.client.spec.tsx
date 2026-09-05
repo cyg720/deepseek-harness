@@ -14,16 +14,13 @@ import { describe, expect, it } from 'vitest'
 import { render } from '@testing-library/react'
 import { projectUserText } from '../src/user-text.tsx'
 
-/**
- * 常量说明：project 用于处理 project 相关数据，作用于当前作用域；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。
- * 功能说明：处理 project 相关流程；使用场景由所在模块及调用位置决定。
- * @param text （string）：提供本次调用所需的数据；必须满足声明的类型及调用时序要求。
- * @param labels （readonly string[]）：提供本次调用所需的数据；必须满足声明的类型及调用时序要求。
- * @returns 由 TypeScript 根据实现推断的结果；调用方应按声明类型处理，不应假定未声明的附加状态。
- * @example 在完成前置校验后调用 project(text, labels)，并按返回类型处理结果。
- */
-const project = (text: string, labels: readonly string[] = []) =>
-  render(<div data-host>{projectUserText(text, labels)}</div>).container.querySelector('[data-host]')!
+const project = (
+  text: string,
+  labels: readonly string[] = [],
+  slashNames: readonly string[] = [],
+  slashKind: 'skill' | 'command' = 'skill',
+) =>
+  render(<div data-host>{projectUserText(text, labels, slashNames, slashKind)}</div>).container.querySelector('[data-host]')!
 
 /**
  * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；返回值：由 TypeScript 根据实现推断的结果；
@@ -35,10 +32,7 @@ describe('projectUserText', () => {
    * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调()，并按返回类型处理结果。
    */
   it('keeps a decorated single-line message on one line: every part is inline', () => {
-    /**
-     * 常量说明：host 用于处理 host 相关数据，作用于当前作用域；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。
-     */
-    const host = project('反反复复 /dsh-acp-test @执行几个命令测试', ['执行几个命令测试'])
+    const host = project('反反复复 /dsh-acp-test @执行几个命令测试', ['执行几个命令测试'], ['dsh-acp-test'])
     expect(host.querySelectorAll('div').length).toBe(0)
     expect(host.textContent).toBe('反反复复 /dsh-acp-test 执行几个命令测试')
     /**
@@ -140,32 +134,39 @@ describe('projectUserText', () => {
     expect(host.querySelectorAll('[data-ref-chip="session"]').length).toBe(2)
   })
 
-  /**
-   * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；返回值：由 TypeScript 根据实现推断的结果；
-   * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调()，并按返回类型处理结果。
-   */
-  it('strips trailing punctuation and skips degenerate tokens', () => {
-    /**
-     * 常量说明：host 用于处理 host 相关数据，作用于当前作用域；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。
-     */
-    const host = project('用 /plan。 试试 @。')
-    /**
-     * 常量说明：chips 用于处理 chips 相关数据，作用于当前作用域；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。
-     */
-    const chips = [...host.querySelectorAll('[data-ref-chip]')]
-    /**
-     * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；参数：c（由 TypeScript
-     * 根据调用位置推断的类型）：提供本次调用所需的数据；必须满足声明的类型及调用时序要求。；返回值：由 TypeScript 根据实现推断的结果；
-     * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调(c)，并按返回类型处理结果。
-     */
-    expect(chips.map(c => c.textContent)).toEqual(['/plan'])
+  it('keeps a punctuation-glued slash token plain and skips degenerate tokens', () => {
+    // The host skill gesture ends at whitespace or the text end, so `/plan。`
+    // never loads a skill; the bubble must not suggest otherwise.
+    const host = project('用 /plan。 试试 @。', [], ['plan'])
+    expect(host.querySelectorAll('[data-ref-chip]').length).toBe(0)
     expect(host.textContent).toBe('用 /plan。 试试 @。')
   })
 
-  /**
-   * 功能说明：处理 匿名回调 相关流程；使用场景由所在模块及调用位置决定。；返回值：由 TypeScript 根据实现推断的结果；
-   * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调()，并按返回类型处理结果。
-   */
+  it('decorates a slash token only when the host resolved it as a skill in that step', () => {
+    const bare = project('/123')
+    expect(bare.querySelectorAll('[data-ref-chip]').length).toBe(0)
+    expect(bare.textContent).toBe('/123')
+    const unresolved = project('用 /plan 看看')
+    expect(unresolved.querySelectorAll('[data-ref-chip]').length).toBe(0)
+    const resolved = project('用 /plan 看看', [], ['plan'])
+    expect([...resolved.querySelectorAll('[data-ref-chip]')].map(c => [c.getAttribute('data-ref-chip'), c.textContent]))
+      .toEqual([['skill', '/plan']])
+  })
+
+  it('marks a resolved slash token as a command chip when the caller says so', () => {
+    const host = project('/goal ship it\nsecond line', [], ['goal'], 'command')
+    const chips = [...host.querySelectorAll('[data-ref-chip]')]
+    expect(chips.map(c => [c.getAttribute('data-ref-chip'), c.textContent])).toEqual([['command', '/goal']])
+    expect(host.textContent).toBe('/goal ship it\nsecond line')
+  })
+
+  it('leaves slash paths undecorated even for a resolved name: a /name token ends at whitespace', () => {
+    const text = '测试一下ui，不用管我：\n/nfs-hg/xxx/yyy 与 /root-dir/ 和 /plan.md'
+    const host = project(text, [], ['nfs-hg', 'root-dir', 'plan'])
+    expect(host.querySelectorAll('[data-ref-chip]').length).toBe(0)
+    expect(host.textContent).toBe(text)
+  })
+
   it('prefers the longer recall label when one nests inside another', () => {
     /**
      * 常量说明：host 用于处理 host 相关数据，作用于当前作用域；初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。

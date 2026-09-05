@@ -24,7 +24,7 @@ import {
   /** 中文说明：类型或类 ManualCompactAgentContext 约束协议数据或模块职责。 */
   type ManualCompactAgentContext,
 } from '@deepseek-ai/dsh-compaction'
-import { Session, SessionId } from '@deepseek-ai/dsh-session'
+import { Session, SessionId, SessionSeq } from '@deepseek-ai/dsh-session'
 import * as commandCompact from '@deepseek-ai/dsh-command-compact'
 
 /** 中文说明：测试局部值 COMPACTION_ID，由紧邻初始化决定。 */
@@ -33,12 +33,12 @@ const COMPACTION_ID = CompactionId('command-compact-test')
 /** 中文说明：测试局部值 RESULT，由紧邻初始化决定。 */
 const RESULT: CompactionResult = {
   compactionId: COMPACTION_ID,
-  startSeq: 1,
-  summarySeq: 2,
-  endSeq: 3,
+  startSeq: SessionSeq(1),
+  summarySeq: SessionSeq(2),
+  endSeq: SessionSeq(3),
   summary: [{ type: 'text', text: 'summary' }],
-  shadowedRange: { start: 1, end: 7 },
-  shadowedSeqs: [1, 3, 7],
+  shadowedRange: { start: SessionSeq(1), end: SessionSeq(7) },
+  shadowedSeqs: [SessionSeq(1), SessionSeq(3), SessionSeq(7)],
   shadowedTokenCount: 42,
 }
 
@@ -147,8 +147,7 @@ function expectLastLifecycle(
   args: string,
   outcome: CommandResult,
 ): string {
-  /** 中文说明：测试局部值 lifecycle，由紧邻初始化决定。 */
-  const lifecycle = test.agent.session.events
+  const lifecycle = test.agent.session.snapshotEvents()
     .filter(event => event.type === 'command/run' || event.type === 'command/done')
     .slice(-2)
   /** 中文说明：测试局部值 runEvent，由紧邻初始化决定。 */

@@ -1,16 +1,20 @@
-/* 文件职责：定义助手推理行的折叠标题、运行扫光、摘要和展开正文样式。
- * 技术维度：使用 CSS Module、data 状态选择器、伪元素渐变动画和减少动态媒体查询。
- * 产品维度：让用户区分正在思考与已完成状态，并可查看较长推理内容。
- * 逻辑维度：root/row 组织布局，running 伪元素显示扫光，其余选择器排版标题、摘要和正文。
- * 关键边界：扫光层不得截获指针事件；减少动态设置下必须关闭动画。
- * 新手阅读建议：先看 running 状态伪元素，再阅读标题行各部分，最后看正文和动画降级。 */
+
 /* 推理组件根容器；纵向排列标题行和可选正文。 */
+
+/*
+ * 【文件职责】定义推理行的折叠高度及运行中扫光效果，展开状态决定内容区域的布局约束。
+ */
+
 .root {
   display: flex;
   flex-direction: column;
 }
 
-/* 标题行裁切运行扫光，relative 为伪元素提供定位范围。 */
+.root:not([data-expanded]) {
+  contain: size layout;
+  height: calc(24px + var(--dsh-content-font-delta, 0px));
+}
+
 .row {
   position: relative;
   overflow: hidden;
@@ -74,12 +78,26 @@
   color: var(--dsw-alias-label-tertiary);
   font-size: var(--dsh-content-font-size-secondary, 13px);
   line-height: calc(20px + var(--dsh-content-font-delta-secondary, 0px));
-  text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-/* 跟随流末尾时直接裁切摘要，避免省略号在内容持续增长时闪烁。 */
+.summaryText {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .summary[data-follow-end] {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.summary[data-follow-end] .summaryText {
+  flex: 0 0 auto;
+  width: max-content;
+  min-width: 100%;
+  overflow: visible;
+  text-align: start;
   text-overflow: clip;
 }
 

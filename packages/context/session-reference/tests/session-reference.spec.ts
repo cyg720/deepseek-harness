@@ -11,7 +11,7 @@ import { Context } from '@deepseek-ai/cordis'
 import { agentEvents, type Agent } from '@deepseek-ai/dsh-agent'
 import { CompactionId, compactCheckpointSource } from '@deepseek-ai/dsh-compaction'
 import { createUserMessage, ToolCallId , createMessage, createToolResultMessage } from '@deepseek-ai/dsh-llm'
-import SessionStore, { Session, SessionId } from '@deepseek-ai/dsh-session'
+import SessionStore, { Session, SessionId, SessionSeq } from '@deepseek-ai/dsh-session'
 import SessionProjectionRegistry from '@deepseek-ai/dsh-session-projection'
 import SessionQueryEngine from '@deepseek-ai/dsh-session-query'
 import SessionTitleService from '@deepseek-ai/dsh-session-title'
@@ -68,7 +68,7 @@ async function harness(config: Config = {}): Promise<Context> {
 function withProjectionCache(ctx: Context, rows: Record<string, string | null>): void {
   ctx.provide('sessionProjectionCache', {
     cachedSnapshot: (meta: { id: SessionId }) => (
-      meta.id in rows ? { asOfSeq: 0, values: { title: rows[meta.id] } } : undefined
+      meta.id in rows ? { asOfSeq: SessionSeq(0), values: { title: rows[meta.id] } } : undefined
     ),
   })
 }
@@ -101,6 +101,7 @@ function appendConversation(session: Session): void {
   const oldAssistant = session.append(
     'assistant/message',
     {
+      stream: [],
       turn: 1,
       step: 1,
       message: createMessage({
@@ -170,6 +171,7 @@ function appendConversation(session: Session): void {
   session.append(
     'assistant/message',
     {
+      stream: [],
       turn: 2,
       step: 1,
       message: createMessage({
@@ -208,6 +210,7 @@ function appendConversation(session: Session): void {
   session.append(
     'assistant/message',
     {
+      stream: [],
       turn: 2,
       step: 2,
       message: createMessage({
@@ -221,10 +224,16 @@ function appendConversation(session: Session): void {
     },
     { surfaceOp: 'append' },
   )
-  session.append('assistant/chunk', {
+  session.append('assistant/attempt', {
     turn: 2,
     step: 2,
-    chunk: { type: 'text-delta', index: 0, text: 'unfinished answer' },
+    stream: [{
+      type: 'text-chunks',
+      time0: 0,
+      index: 0,
+      dt: [],
+      texts: ['unfinished answer'],
+    }],
   })
 }
 
@@ -377,9 +386,15 @@ describe('session reference discovery and preparation', () => {
   it('labels a session no projection answers for by its id, still without a log read', async () => {
     const ctx = await harness()
     const target = ctx.sessions.create(SessionId('target'), { meta: { cwd: '/same' } })
-    const seeded = { id: SessionId('seeded'), createdAt: 10, cwd: '/same' }
+    const seeded = {
+      version: 0,
+      id: SessionId('seeded'),
+      createdAt: 10,
+      cwd: '/same',
+      isSeeded: true,
+    }
     // Persisted before the cache was composed: the title lives only in its log.
-    withProjectionCache(ctx, {})
+    withProjectionCache(ctx, { seeded: 'Unsafe body-free title' })
     vi.spyOn(ctx.sessionQuery, 'listSessions').mockResolvedValue([
       { header: seeded, live: false, persisted: true },
     ] as never)
@@ -588,6 +603,31 @@ describe('session reference discovery and preparation', () => {
     expect(context.content[0].text).not.toContain('later source mutation')
   })
 
+  it('records the current source format generation without rebasing its frozen sequence', async () => {
+    const ctx = await harness()
+    const target = ctx.sessions.create(SessionId('target'))
+    const source = ctx.sessions.create(SessionId('source'))
+    appendConversation(source)
+    const snapshot = await ctx.sessionQuery.readSurface(source.id)
+    vi.spyOn(ctx.sessionQuery, 'readSurface').mockResolvedValue(snapshot)
+
+    const prepared = await ctx.sessionReferenceResolver.prepare(
+      fakeAgent(target),
+      [{ type: 'text', text: 'use @source' }],
+      [{ sessionId: source.id }],
+    )
+
+    const captured = prepared.additionalContext?.source
+    expect(captured).toMatchObject({
+      kind: 'session-reference',
+      references: [{
+        sessionId: source.id,
+        capturedFormatVersion: snapshot.session.version,
+        capturedThroughSeq: snapshot.capturedThroughSeq,
+      }],
+    })
+  })
+
   it('excludes injected context when projecting a referenced session', async () => {
     /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
     const ctx = await harness()
@@ -762,6 +802,7 @@ describe('session reference discovery and preparation', () => {
     source.append(
       'assistant/message',
       {
+        stream: [],
         turn: 3,
         step: 1,
         message: createMessage({
@@ -887,6 +928,7 @@ describe('session reference discovery and preparation', () => {
     const later = source.append(
       'assistant/message',
       {
+        stream: [],
         turn: 1,
         step: 1,
         message: createMessage({
@@ -918,7 +960,7 @@ describe('session reference discovery and preparation', () => {
     expect(JSON.stringify(before)).toContain('durable referenced fact')
     expect(JSON.stringify(before)).toContain('use @source')
     expect(JSON.stringify(before)).not.toContain('later source mutation')
-    expect(Session.create(SessionId('replayed-target'), target.events).deriveMessages()).toEqual(before)
+    expect(Session.create(SessionId('replayed-target'), target.snapshotEvents()).deriveMessages()).toEqual(before)
   })
 
   it('rejects direct invalid configuration before service publication', async () => {

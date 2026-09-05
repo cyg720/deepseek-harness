@@ -1,16 +1,4 @@
-/*
- * ================================ 文件注释 ================================
- * 【文件职责】ui-input-trigger 包在浏览器侧的插件入口：挂载 InputTriggerService、
- *             注册菜单字典，并把 MenuView 注册进输入覆盖层槽位。
- * 【技术维度】Cordis 浏览器插件：ctx.plugin 挂服务、声明合并把 inputTriggers 挂到
- *             Context、把 'slash.menu' 挂到 LocaleNamespaceMap；覆盖层按会话注入。
- * 【产品维度】'/' 与 '@' 触发菜单在输入浮层中的呈现。
- * 【逻辑维度】1) 挂载服务；2) 注册字典；3) 注入 slots/inputTriggers/sessions
- *             作用域，按会话把 MenuView 注册进 overlay（会话 id → 控制器）。
- * 【关键边界】冻结管线契约在 ./contract.ts；源只能通过 ctx.inputTriggers 注册。
- * 【新手阅读建议】先读 core/ 下的纯核心与 service.ts，再看本文件的接线。
- * ==========================================================================
- */
+
 /**
  * Slash trigger plugin, browser half: the InputTriggerService (`ctx.inputTriggers`) owning
  * trigger detection, the candidate menu, and the pick pipeline; MenuView
@@ -18,6 +6,11 @@
  * contract in ./contract.ts; sources register through ctx.inputTriggers alone.
  */
 // Type-only: pulls the locale plugin's Context merge (ctx.locale).
+
+/*
+ * 【文件职责】注册斜杠触发服务和候选菜单，统一触发识别、候选来源与选择提交过程。
+ */
+
 import type {} from '@deepseek-ai/dsh-client-locale/client'
 import type { Context as ClientContext } from '@deepseek-ai/cordis'
 import type {} from '@deepseek-ai/dsh-api-session-controller/client'
@@ -38,7 +31,7 @@ export type {
   ArbitrateKey, ArbitrateOutcome, BeginCommandRequest, CandidateRequest, ClientSessionContext,
   CommandClaim, ConsumeTokenRequest, HeaderRequest, InsertReferenceRequest, PickOutcome, PickVia,
   ReferenceCodec, ReferenceInsert, InputTriggerCandidate, InputTriggerCrumb, InputTriggerPick,
-  InputTriggerSource, SubmitEnvelope, SubmitImageAttachment, SubmitOutcome, TokenSpan, TriggerChar,
+  InputTriggerSource, SubmitAttachment, SubmitEnvelope, SubmitOutcome, TokenSpan, TriggerChar,
   TriggerGuard, TriggerPosition,
 } from '../types.ts'
 export type { DetectTrigger, ExactMatch, MenuEvent, MenuReduce, MenuState, TriggerHit } from '../core/contract.ts'

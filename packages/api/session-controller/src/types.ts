@@ -1,23 +1,16 @@
 /** Browser-safe request, result, and lifecycle vocabulary for the Session Remote service. */
 
 /*
- * 文件说明：文件职责：实现 api/session-controller 中 types 模块的职责，并向相邻模块提供可复用能力。
- * ；技术维度：主要使用TypeScript/JavaScript 的 ESM 模块、严格类型约束与 Cordis 插件机制，
- * 通过当前文件中的类型、函数与数据结构完成实现。；产品维度：支撑 DeepSeek Harness 的
- * api/session-controller 能力，使上层功能能够稳定组合和扩展。；逻辑维度：建议按“依赖与类型定义 → 常量和状态 →
- * 核心函数或类 → 导出或注册入口”的顺序理解。；关键边界：调用方必须遵守类型、生命周期和错误处理约定；
- * 涉及外部输入、异步任务或资源释放时需特别关注异常分支。；新手阅读建议：先确认导入依赖和公开导出，再沿主要函数调用链阅读，
- * 最后结合相邻测试理解输入、输出与边界条件。
+ * 【文件职责】声明浏览器可安全导入的会话请求、结果和生命周期类型，包含冷会话列表所需的持久化摘要。
  */
 
 import type {
   AttachmentIdType, ImageAttachmentLimits, ImageAttachmentRef, ImageMediaType,
 } from '@deepseek-ai/dsh-attachment'
 import type { Branded } from '@deepseek-ai/dsh-brand'
-import type { MessageId } from '@deepseek-ai/dsh-llm/brand'
-import type { ContentBlock } from '@deepseek-ai/dsh-llm/types'
-import type { ChunkRow } from '@deepseek-ai/dsh-session/chunk-rows'
-import type { SessionHeader, SessionId, SurfaceOp } from '@deepseek-ai/dsh-session/types'
+import type { LlmAttemptId, MessageId } from '@deepseek-ai/dsh-llm/brand'
+import type { ContentBlock } from '@deepseek-ai/dsh-llm'
+import type { SessionId, SessionSeqCursor } from '@deepseek-ai/dsh-session/types'
 import type { SessionProjectionMap } from '@deepseek-ai/dsh-session-projection/types'
 import type { JobId } from '@deepseek-ai/dsh-jobs/brand'
 import type { JsonValue } from '@deepseek-ai/dsh-util-values'
@@ -78,7 +71,11 @@ export interface SessionProjectionBaseline {
 export type SessionProjectionValues = Partial<SessionProjectionMap>
   & Readonly<Record<string, SessionProjectionValue>>
 
-/** Browser-submitted prompt content; the Host promotes image bytes to durable references. */
+/**
+ * Browser-submitted prompt content; the Host promotes image bytes to durable
+ * references. File parts carry the opaque receipt returned by a preceding
+ * `uploadFile` call on the same Session.
+ */
 export type PromptContentPart =
   | { readonly type: 'text'; readonly text: string }
   | {
@@ -87,6 +84,7 @@ export type PromptContentPart =
     readonly data: string
     readonly name?: string
   }
+  | { readonly type: 'file'; readonly receiptId: Branded<'file-upload-receipt-id'> }
 
 /** Complete model selection for one Session. */
 export interface ModelSelection {
@@ -394,24 +392,27 @@ export interface SessionEventEntry {
   readonly event: SessionWireEvent
 }
 
-/** Event-shaped wire representation of one packed chunk row. */
-export type ChunkRowEvent = {
-  [Kind in ChunkRow['type']]: {
-    readonly type: `chunkrow/${Kind}`
-    readonly seq: number
-    readonly time: number
-    readonly data: Extract<ChunkRow, { readonly type: Kind }>['data']
-  }
-}[ChunkRow['type']]
-
-/** One lossless run of consecutive Assistant delta events in a history page. */
-export interface SessionChunkRun {
-  readonly type: 'chunks'
-  readonly event: ChunkRowEvent
+/** Current logical Session metadata carried on the browser wire. */
+export interface SessionWireHeader {
+  readonly version: number
+  readonly id: SessionId
+  readonly createdAt: number
+  readonly cwd?: string
+  readonly parentSession?: SessionId
+  /** Whether the Session contains a fork-inherited prefix. */
+  readonly isSeeded: boolean
+  readonly origin?: 'subagent'
+  readonly delegationDepth?: number
+  readonly agentPreset?: string
 }
 
-/** One history-page record: a raw event or a packed Assistant delta run. */
-export type SessionHistoryRecord = SessionEventEntry | SessionChunkRun
+/** Browser wire form of one Session surface operation. */
+export type SessionWireSurfaceOp =
+  | 'append'
+  | { readonly op: 'replace'; readonly start: number; readonly end: number }
+
+/** One history-page record. V2 embeds compact Assistant streams inside events. */
+export type SessionHistoryRecord = SessionEventEntry
 
 /** Session event wire form; durable readers own recognition of merge-extensible event names. */
 export interface SessionWireEvent {
@@ -421,7 +422,7 @@ export interface SessionWireEvent {
   readonly data: JsonValue
   readonly ignorable?: true
   readonly sourceEventSeqs?: number[]
-  readonly surfaceOp?: SurfaceOp
+  readonly surfaceOp?: SessionWireSurfaceOp
 }
 
 /** One message-aligned backwards-history request. */
@@ -437,7 +438,61 @@ export interface SessionPageRequest {
 export interface SessionFollowRequest {
   readonly address: SessionAddress
   readonly maxMessages?: number
+  /** Include process-local assistant presentation frames for the Web client. */
+  readonly assistantStream?: true
 }
+
+/** One active assistant attempt in a reconnect opening snapshot. */
+export interface SessionAssistantStreamAttempt {
+  readonly attemptId: LlmAttemptId
+  /** Last durable Session seq observed when this attempt started. */
+  readonly startedAfterSeq: SessionSeqCursor
+  readonly turn: number
+  readonly step: number
+  /** Dense position expected for the next live chunk frame. */
+  readonly nextIndex: number
+  /** Compact detached stream accumulated at this opening revision. */
+  readonly stream: readonly JsonValue[]
+}
+
+/** Complete process-local assistant state at one follow opening. */
+export interface SessionAssistantStreamBaseline {
+  readonly revision: number
+  readonly activeAttempt?: SessionAssistantStreamAttempt
+}
+
+/** Browser wire form of one process-local assistant frame. */
+export type SessionAssistantStreamFrame =
+  | {
+    readonly type: 'start'
+    readonly attemptId: LlmAttemptId
+    readonly revision: number
+    readonly startedAfterSeq: SessionSeqCursor
+    readonly turn: number
+    readonly step: number
+  }
+  | {
+    readonly type: 'chunk'
+    readonly attemptId: LlmAttemptId
+    readonly revision: number
+    readonly index: number
+    readonly time: number
+    readonly chunk: JsonValue
+  }
+  | {
+    readonly type: 'end'
+    readonly attemptId: LlmAttemptId
+    readonly revision: number
+    /** Number of chunk frames represented by this terminal marker. */
+    readonly index: number
+    readonly outcome:
+      | {
+        readonly kind: 'committed'
+        readonly eventType: 'assistant/message' | 'assistant/attempt'
+        readonly seq: number
+      }
+      | { readonly kind: 'abandoned' }
+  }
 
 /** One contiguous backwards page of a Session log. */
 export interface SessionPage {
@@ -445,17 +500,19 @@ export interface SessionPage {
   readonly hasMore: boolean
 }
 
-/** Complete opening window followed by ordered events appended after its cursor. */
+/** Complete opening window followed by ordered durable events and opted-in assistant frames. */
 export type SessionFollowFrame =
   | {
     readonly type: 'snapshot'
-    readonly header: SessionHeader
+    readonly header: SessionWireHeader
     readonly cursor: number
     readonly records: readonly SessionHistoryRecord[]
     readonly hasMore: boolean
     readonly projections: SessionProjectionBaseline
+    readonly assistantStream?: SessionAssistantStreamBaseline
   }
   | SessionEventEntry
+  | { readonly type: 'assistant-stream'; readonly frame: SessionAssistantStreamFrame }
 
 /** One pending inbox occurrence in the authoritative queue snapshot. */
 export interface SessionQueuedItem {

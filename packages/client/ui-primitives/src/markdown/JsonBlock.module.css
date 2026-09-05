@@ -1,10 +1,10 @@
-/* 文件职责：定义 Markdown 中可折叠 JSON 区块的容器、切换按钮和代码正文样式。
- * 技术维度：使用 CSS Modules、设计令牌、滚动容器和等宽字体呈现结构化数据。
- * 产品维度：让用户在对话内容中按需展开 JSON，并在有限空间内浏览较长数据。
- * 逻辑维度：root 控制外边距，toggle 提供展开入口，body 承载可滚动的 JSON 正文。
- * 关键边界：正文最大高度为 200 像素；展开状态和按钮可访问性由组件逻辑负责。
- * 新手阅读建议：先看 toggle 的透明按钮样式，再看 body 如何通过 max-height 与 overflow 控制长内容。 */
+
 /* root：JSON 区块外层，只负责与相邻 Markdown 内容保持垂直间距。 */
+
+/*
+ * 【文件职责】定义可展开 JSON 数据的入口和内容间距。
+ */
+
 .root {
   margin: 4px 0;
 }
@@ -33,7 +33,7 @@
   max-height: 200px;
   overflow: auto;
   background: var(--dsw-alias-markdown-code-block);
-  border: 1px solid var(--dsw-alias-border-l1);
+  border: 0.5px solid var(--dsw-alias-border-l1);
   border-radius: 6px;
   font-family: var(--ds-font-family-code);
   font-size: 11px;

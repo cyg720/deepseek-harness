@@ -16,8 +16,6 @@ import E2BRuntime, {
   SandboxNotFoundError,
   quoteE2BShellArg,
 } from '@deepseek-ai/dsh-e2b'
-import * as E2BInvariant from '../src/invariant.ts'
-import InvariantRegistry from '@deepseek-ai/dsh-invariants'
 
 /** 中文说明：测试局部值 sdk，由紧邻初始化决定。 */
 const sdk = vi.hoisted(() => ({
@@ -288,17 +286,8 @@ describe('E2BRuntime', () => {
   })
 })
 
-describe('E2B helpers and invariant companion', () => {
+describe('E2B helpers', () => {
   it('quotes opaque shell arguments without interpolation', () => {
     expect(quoteE2BShellArg("a'b $HOME")).toBe("'a'\"'\"'b $HOME'")
-  })
-
-  it('registers the package-owned empty invariant installer', async () => {
-    /** 中文说明：测试局部值 ctx，由紧邻初始化决定。 */
-    const ctx = new Context()
-    await ctx.plugin(InvariantRegistry, { enabled: true })
-    /** 中文说明：测试局部值 fiber，由紧邻初始化决定。 */
-    const fiber = await ctx.plugin(E2BInvariant).await()
-    await fiber.dispose()
   })
 })

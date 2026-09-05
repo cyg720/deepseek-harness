@@ -1,11 +1,7 @@
-/**
- * 文件职责：定义 AgentPresetSection 组件的局部样式。
- * 技术维度：CSS Modules、布局、颜色变量、状态选择器和响应式规则。
- * 产品维度：提供清晰一致的界面层级、反馈和交互状态。
- * 逻辑维度：按容器、内容、操作和状态类组织样式。
- * 关键边界：类名由组件引用；主题值应复用设计变量并注意窄屏布局。
- * 新手阅读建议：先对照同名 TSX，再按 DOM 层级寻找对应类。
+/*
+ * 【文件职责】定义 Agent preset 管理卡片和分组样式，使说明与操作在卡片内共同呈现。
  */
+
 .section {
   display: flex;
   flex-direction: column;
@@ -62,23 +58,25 @@
 }
 
 .card {
-  border: 1px solid var(--dsw-alias-border-l2);
-  border-radius: 12px;
+  border: 0.5px solid var(--dsw-alias-border-l4);
+  border-radius: 20px;
   display: flex;
   flex-direction: column;
-  background: var(--dsw-alias-bg-layer-3);
+  background: transparent;
   transition: border-color .16s, background .16s;
 }
 
 
 .card:hover:not(.cardActive) {
-  border-color: var(--dsw-alias-label-dimmed);
+  background: var(--dsw-alias-interactive-bg-hover);
 }
 
-/* The default preset reads as selected, not merely badged. */
+/* The default preset reads as selected exactly like the Appearance cubes:
+   platform fill + the bluish-400 border (static token — the bluish-400 step
+   has no alias-layer name). */
 .cardActive {
-  background: var(--dsw-alias-bg-layer-2);
-  border-color: var(--dsw-alias-label-primary);
+  background: var(--dsw-alias-bg-module-platform);
+  border-color: var(--dsw-static-neutral-bluish-400);
 }
 
 /* A broken preset reads as damaged before anything else: the card cannot be
@@ -93,6 +91,7 @@
 
 .brokenBadge {
   border-radius: 999px;
+  corner-shape: round;
   padding: 1px 8px;
   font-size: 11px;
   line-height: 17px;
@@ -206,6 +205,7 @@
 .badge,
 .inUse {
   border-radius: 999px;
+  corner-shape: round;
   padding: 1px 8px;
   font-size: 11px;
   line-height: 17px;
@@ -214,7 +214,7 @@
 }
 
 .badge {
-  border: 1px solid var(--dsw-alias-border-l2);
+  border: 0.5px solid var(--dsw-alias-border-l4);
   color: var(--dsw-alias-label-tertiary);
 }
 
@@ -248,7 +248,7 @@
   margin-top: auto;
   font-family: var(--dsw-font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
   font-size: 11px;
-  color: var(--dsw-alias-label-dimmed);
+  color: var(--dsw-alias-label-tertiary);
 }
 
 .cardFoot {
@@ -256,7 +256,7 @@
   justify-content: flex-end;
   gap: 2px;
   padding: 6px 10px;
-  border-top: 1px solid var(--dsw-alias-border-l2);
+  border-top: 0.5px solid var(--dsw-alias-border-l2);
 }
 
 /* Icon-only actions: the label rides `title` so the row stays quiet until
@@ -376,7 +376,7 @@
 .input {
   box-sizing: border-box;
   padding: 9px 12px;
-  border: 1px solid var(--dsw-alias-border-l2);
+  border: 0.5px solid var(--dsw-alias-border-l4);
   border-radius: 10px;
   font: inherit;
   font-size: 13px;
@@ -409,7 +409,7 @@
   padding: 12px;
   max-height: min(52vh, 480px);
   overflow: auto;
-  border: 1px solid var(--dsw-alias-border-l2);
+  border: 0.5px solid var(--dsw-alias-border-l4);
   border-radius: 10px;
   background: var(--dsw-alias-bg-layer-2);
   color: var(--dsw-alias-label-secondary);
@@ -453,7 +453,7 @@
   gap: 6px;
   height: 44px;
   border: 1px dashed var(--dsw-alias-border-l3);
-  border-radius: 12px;
+  border-radius: 20px;
   font: inherit;
   font-size: 14px;
   line-height: 22px;

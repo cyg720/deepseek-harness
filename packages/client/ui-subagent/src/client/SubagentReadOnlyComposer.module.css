@@ -1,10 +1,10 @@
-/* 文件职责：定义子代理只读输入区的居中提示框及其强调文字样式。
- * 技术维度：使用 CSS Modules、Flexbox 和产品设计令牌完成局部布局与配色。
- * 产品维度：明确告诉用户子代理会话不可直接输入，避免把只读区域误认为可编辑输入框。
- * 逻辑维度：frame 负责提示框整体布局，frame strong 单独提升重点文字的视觉层级。
- * 关键边界：这里只控制外观；只读限制必须由组件逻辑实际执行，不能依赖样式保障。
- * 新手阅读建议：先看 frame 的盒模型，再看 strong 如何在同一提示中形成层级。 */
+
 /* frame：只读提示的外框，负责居中、间距、边框、背景和基础文字样式。 */
+
+/*
+ * 【文件职责】定义子 Agent 只读输入区的状态框和提示排列。
+ */
+
 .frame {
   display: flex;
   align-items: center;
@@ -13,7 +13,7 @@
   margin: 0 24px 20px;
   min-height: 54px;
   padding: 10px 16px;
-  border: 1px solid var(--dsw-alias-border-l2);
+  border: 0.5px solid var(--dsw-alias-border-l4);
   border-radius: 14px;
   background: var(--dsw-alias-bg-layer-1);
   color: var(--dsw-alias-label-tertiary);

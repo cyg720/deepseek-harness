@@ -7,30 +7,21 @@
  *
  * @module @deepseek-ai/dsh-session/surface
  */
+
 /*
- * ================================ 文件注释 ================================
- * 【文件职责】在会话事件日志之上实现“表面（surface）”层：一个由产生 LLM 消息的事件构成的有序视图；
- *           并提供类型守卫（isSurfaceEvent 等）、单事件投影规则（deriveEventMessage）、全量折叠
- *           （foldSurface）与增量管理器（SurfaceManager）。
- * 【技术维度】TypeScript 类型谓词收窄（event is SurfaceEvent）；append/replace 两种表面操作的
- *            “先规划后提交”两阶段折叠；浏览器安全约束——禁止 node:* 内置模块导入（web 客户端经
- *            vite 打包消费此子路径导出），连深比较都自实现了 isDeepEqualJson 以替代 node:util。
- * 【产品维度】模型可见的对话内容由表面派生：compaction（历史压缩）用 replace 操作“遮蔽”旧消息区间，
- *            让后续请求基于精简历史；人类回放转录则只用 append 来源事件，避免看到被替换抹掉的内容。
- * 【逻辑维度】按代码顺序：SURFACE_EVENT_TYPES 集合与三个类型守卫；deriveEventMessage 单事件投影规则；
- *            折叠数据结构（SurfaceFoldState/SurfacePlan 等）；私有校验函数（surfaceOpOf/
- *            assertProvenance/replacementRange/assertToolResultRewrite）；plan→apply 两阶段应用；
- *            全量入口 foldSurface；增量入口 SurfaceManager（validateNext 先验证、入账时复用计划）。
- * 【关键边界】表面合格事件必须带 surfaceOp，非表面事件带了会抛错；replace 的 start/end 必须存在于
- *            当前表面且顺序正确；sourceEventSeqs 必须覆盖全部被遮蔽节点；tool/result 替换只允许改
- *            content 内容本身；所有校验在真正改动状态之前完成，失败不留半套用的变更。
- * 【新手阅读建议】先读 deriveEventMessage 理解“事件→消息”的投影规则，再看 foldSurface 主循环体会
- *            折叠流程，最后读 SurfaceManager 理解增量场景下 validateNext/_processDelta 如何复用同一套计划逻辑。
- * ==========================================================================
+ * 【文件职责】从追加式日志维护有序模型消息表面，处理追加和替换；
+ * 此模块可在浏览器使用，不能依赖 Node 运行时。
  */
 
 import type { Message } from '@deepseek-ai/dsh-llm'
-import type { SessionEvent, SurfaceEvent, SurfaceEventType, SurfaceOp } from './types.ts'
+import { SessionLogOffset, SessionSeq } from './types.ts'
+import type {
+  SessionEvent,
+  SessionSeqCursor,
+  SurfaceEvent,
+  SurfaceEventType,
+  SurfaceOp,
+} from './types.ts'
 
 /** Runtime counterpart of the message-producing event union. */
 // 产生消息的事件联合的运行时对应集合（与 types.ts 中的 SurfaceEventType 保持一致）。
@@ -114,7 +105,7 @@ export function isReplacementSurfaceEvent(
 
 /**
  * Project a single event into the LLM message it derives to, or null when it
- * produces none — a non-surface event (chunk, boundary, log-only record) or an
+ * produces none — a non-surface event (attempt, boundary, log-only record) or an
  * empty-content assistant/message (which exists only to host usage). This is
  * THE per-node projection rule: `Session.deriveMessages` folds it over the
  * live surface, external reconstructors and pure projections fold the same
@@ -136,7 +127,7 @@ export function isReplacementSurfaceEvent(
  */
 export function deriveEventMessage(event: SessionEvent): Message | null {
   // Intentionally non-exhaustive: only message-producing events derive
-  // history; turn/step boundaries, chunks, usage, and errors are trace/replay
+  // history; turn/step boundaries, failed attempts, and errors are trace/replay
   // data.
   // 有意不穷举：只有产生消息的事件才派生历史；turn/step 边界、chunk、usage 与错误属于追踪/重放数据。
   switch (event.type) {
@@ -166,7 +157,7 @@ export function deriveEventMessage(event: SessionEvent): Message | null {
       return event.data.message
     }
     default:
-      // A non-surface event (boundary, chunk, log-only record) projects to
+      // A non-surface event (boundary, attempt, log-only record) projects to
       // no message. Merge-extensible union: no assertNever here.
       // 非表面事件（边界标记、chunk、纯日志记录）不投影出消息。可合并扩展联合：此处不用 assertNever。
       return null
@@ -177,25 +168,20 @@ export function deriveEventMessage(event: SessionEvent): Message | null {
 /* 折叠会话表面过程中观察到的一次替换操作。 */
 export interface SurfaceFoldReplacement {
   /** Seq of the event that replaced the prior surface range. */
-  /* 执行替换的事件 seq。 */
-  seq: number
+  seq: SessionSeq
   /** Declared inclusive start seq of the replaced surface range. */
-  /* 声明的被替换表面区间起点（含端点）。 */
-  start: number
+  start: SessionSeq
   /** Declared inclusive end seq of the replaced surface range. */
-  /* 声明的被替换表面区间终点（含端点）。 */
-  end: number
+  end: SessionSeq
   /** Actual surface entries removed by the operation, in surface order. */
-  // 实际被该操作移除的表面条目 seq，按表面顺序排列。
-  shadowedSeqs: number[]
+  shadowedSeqs: SessionSeq[]
 }
 
 /** Complete result of replaying the surface operations in a session log. */
 /* 重放一段会话日志中全部表面操作的完整结果。 */
 export interface SurfaceFoldResult {
   /** Current surface event sequences in model-visible order. */
-  /* 当前表面事件 seq，按模型可见顺序。 */
-  nodes: number[]
+  nodes: SessionSeq[]
   /** Replacement operations in event order. */
   /* 按事件顺序排列的替换操作列表。 */
   replacements: SurfaceFoldReplacement[]
@@ -205,8 +191,7 @@ export interface SurfaceFoldResult {
 /* 产生消息的会话事件的只读活跃投影（对外接口）。 */
 export interface SessionSurface {
   /** Current surface event sequences in model-visible order. */
-  /* 当前表面事件 seq，按模型可见顺序。 */
-  readonly nodes: readonly number[]
+  readonly nodes: readonly SessionSeq[]
   /** Monotonic count of committed positional replacements. */
   /* 已提交位置替换的单调计数；变化即表示表面发生过改写，派生缓存需重建。 */
   readonly replaceGeneration: number
@@ -215,9 +200,7 @@ export interface SessionSurface {
 /** Mutable state shared by complete and incremental folds. */
 /* 完整折叠与增量折叠共享的可变内部状态。 */
 interface SurfaceFoldState {
-  // 当前表面节点 seq 列表。
-  nodes: number[]
-  // 已提交位置替换的计数。
+  nodes: SessionSeq[]
   replaceGeneration: number
 }
 
@@ -234,7 +217,7 @@ interface SurfaceReplacePlan extends SurfaceFoldReplacement {
 /** One validated surface transition that has not mutated fold state yet. */
 /* 一种已校验、尚未改动状态的表面过渡：追加或替换。 */
 type SurfacePlan =
-  | { kind: 'append'; seq: number }
+  | { kind: 'append'; seq: SessionSeq }
   | SurfaceReplacePlan
 
 /** Create an empty surface fold state. */
@@ -244,9 +227,11 @@ function createFoldState(): SurfaceFoldState {
 }
 
 /** Whether a runtime value is a non-negative safe event sequence. */
-/* 判断运行时值是否为非负安全整数范围内的事件序号。 */
-function isEventSeq(value: unknown): value is number {
-  return typeof value === 'number' && Number.isSafeInteger(value) && value >= 0
+function isEventSeq(value: unknown): value is SessionSeq {
+  return typeof value === 'number'
+    && Number.isSafeInteger(value)
+    && value >= 0
+    && !Object.is(value, -0)
 }
 
 /** Whether a runtime value is the exact positional-replacement shape. */
@@ -293,20 +278,21 @@ function surfaceOpOf(event: SessionEvent): SurfaceOp | undefined {
 /* 对照先前日志条目与替换区间，校验事件引用的源事件 seq：必须是更早事件的非重复安全整数集合；替换时还必须覆盖全部被遮蔽节点。 */
 function assertProvenance(
   event: SessionEvent,
-  shadowedSeqs: readonly number[],
+  shadowedSeqs: readonly SessionSeq[],
 ): void {
   const raw = (event as SessionEvent & { sourceEventSeqs?: unknown }).sourceEventSeqs
-  // 已引用源 seq 的去重集合。
-  const sources = new Set<number>()
+  if (event.type === 'assistant/message' && raw !== undefined) {
+    throw new Error('assistant/message embeds its source stream and cannot carry sourceEventSeqs')
+  }
+  const sources = new Set<SessionSeq>()
   if (raw !== undefined) {
     if (!Array.isArray(raw)) {
       throw new Error(`sourceEventSeqs on event at seq ${event.seq} must be an array when present`)
     }
-    if (raw.length === 0 && event.type !== 'assistant/message') {
-      throw new Error('sourceEventSeqs must not be empty except on assistant/message')
+    if (raw.length === 0) {
+      throw new Error('sourceEventSeqs must not be empty')
     }
-    // 第一个不早于当前事件的源 seq（用于精确报错）。
-    let nonEarlierSource: number | undefined
+    let nonEarlierSource: SessionSeq | undefined
     for (const source of raw) {
       if (!isEventSeq(source)) {
         throw new Error(`session event "${event.type}" sourceEventSeqs must densely contain non-negative safe integers`)
@@ -378,9 +364,9 @@ function isDeepEqualJson(a: unknown, b: unknown): boolean {
 /* 限制 tool/result 的替换：只能改写当前某一个 tool/result，且除 content 内容本身外其余部分必须与原事件完全一致。 */
 function assertToolResultRewrite(
   event: SessionEvent,
-  shadowedSeqs: readonly number[],
+  shadowedSeqs: readonly SessionSeq[],
   events: readonly SessionEvent[],
-  baseSeq: number,
+  baseSeq: SessionLogOffset,
 ): void {
   if (event.type !== 'tool/result') return
   if (shadowedSeqs.length !== 1) {
@@ -415,9 +401,9 @@ function assertToolResultRewrite(
 function planSurfaceEvent(
   state: SurfaceFoldState,
   event: SessionEvent,
-  expectedSeq: number,
+  expectedSeq: SessionSeq,
   events: readonly SessionEvent[],
-  baseSeq: number,
+  baseSeq: SessionLogOffset,
 ): SurfacePlan | undefined {
   if (event.seq !== expectedSeq) {
     throw new Error(`session event seq ${event.seq} is not contiguous; expected ${expectedSeq}`)
@@ -445,9 +431,9 @@ function planSurfaceEvent(
 function applySurfaceEvent(
   state: SurfaceFoldState,
   event: SessionEvent,
-  expectedSeq: number,
+  expectedSeq: SessionSeq,
   events: readonly SessionEvent[],
-  baseSeq: number,
+  baseSeq: SessionLogOffset,
 ): SurfaceFoldReplacement | undefined {
   const plan = planSurfaceEvent(state, event, expectedSeq, events, baseSeq)
   return applySurfacePlan(state, plan)
@@ -491,7 +477,13 @@ export function foldSurface(events: readonly SessionEvent[]): SurfaceFoldResult 
   // 收集过程中发生的每次替换，随结果一并返回。
   const replacements: SurfaceFoldReplacement[] = []
   for (const [index, event] of events.entries()) {
-    const replacement = applySurfaceEvent(state, event, index, events, 0)
+    const replacement = applySurfaceEvent(
+      state,
+      event,
+      SessionSeq(index),
+      events,
+      SessionLogOffset(0),
+    )
     if (replacement !== undefined) replacements.push(replacement)
   }
   return { nodes: [...state.nodes], replacements }
@@ -508,11 +500,9 @@ export class SurfaceManager implements SessionSurface {
   // 共享的折叠过渡状态；不保留替换历史。
   private _state = createFoldState()
   /** Last processed absolute seq. */
-  // 最近一次已处理的绝对 seq。
-  private _lastProcessedSeq: number
+  private _lastProcessedSeq: SessionSeqCursor
   /** Candidate already validated by `validateNext`, pending exact log admission. */
-  // 已被 validateNext 校验、等待精确日志准入的候选事件及其计划。
-  private _pendingPlan: { event: SessionEvent; expectedSeq: number; plan: SurfacePlan | undefined } | undefined
+  private _pendingPlan: { event: SessionEvent; expectedSeq: SessionSeq; plan: SurfacePlan | undefined } | undefined
 
   /**
    * @param log - Contiguous complete log or loaded event window.
@@ -524,9 +514,9 @@ export class SurfaceManager implements SessionSurface {
    */
   constructor(
     private log: readonly SessionEvent[],
-    private readonly baseSeq = 0,
+    private readonly baseSeq: SessionLogOffset = SessionLogOffset(0),
   ) {
-    this._lastProcessedSeq = baseSeq - 1
+    this._lastProcessedSeq = baseSeq === 0 ? -1 : SessionSeq(baseSeq - 1)
   }
 
   /**
@@ -540,7 +530,7 @@ export class SurfaceManager implements SessionSurface {
    */
   validateNext(event: SessionEvent): void {
     if (this._lastProcessedSeq < this.baseSeq + this.log.length - 1) this._processDelta()
-    const expectedSeq = this.baseSeq + this.log.length
+    const expectedSeq = SessionSeq(this.baseSeq + this.log.length)
     this._pendingPlan = {
       event,
       expectedSeq,
@@ -556,8 +546,7 @@ export class SurfaceManager implements SessionSurface {
   }
 
   /** Surface event sequences in model-visible order. */
-  /* 按模型可见顺序排列的表面事件 seq。 */
-  get nodes(): readonly number[] {
+  get nodes(): readonly SessionSeq[] {
     if (this._lastProcessedSeq < this.baseSeq + this.log.length - 1) this._processDelta()
     return this._state.nodes
   }
@@ -574,10 +563,10 @@ export class SurfaceManager implements SessionSurface {
       if (pending?.event === event && pending.expectedSeq === seq) {
         applySurfacePlan(this._state, pending.plan)
       } else {
-        applySurfaceEvent(this._state, event, seq, this.log, this.baseSeq)
+        applySurfaceEvent(this._state, event, SessionSeq(seq), this.log, this.baseSeq)
       }
       if (pending !== undefined && pending.expectedSeq <= seq) this._pendingPlan = undefined
-      this._lastProcessedSeq = seq
+      this._lastProcessedSeq = SessionSeq(seq)
     }
   }
 }

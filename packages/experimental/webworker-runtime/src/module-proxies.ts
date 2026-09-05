@@ -15,20 +15,10 @@
  * @module @deepseek-ai/dsh-experimental-webworker-runtime/src/module-proxies
  */
 
-/**
- * Module proxy table — the ONLY platform fork of the worker host. Every entry
- * replaces a Node builtin or an external npm package; workspace and vendored
- * modules are always mounted as-is. Keys are exact module specifiers.
- * @remarks 文件说明：文件职责：实现 experimental/webworker-runtime 中 module proxies
- * 模块的职责，并向相邻模块提供可复用能力。；技术维度：主要使用TypeScript/JavaScript 的 ESM 模块、严格类型约束与
- * Cordis 插件机制，通过当前文件中的类型、函数与数据结构完成实现。；产品维度：支撑 DeepSeek Harness 的
- * experimental/webworker-runtime 能力，使上层功能能够稳定组合和扩展。；逻辑维度：建议按“依赖与类型定义 →
- * 常量和状态 → 核心函数或类 → 导出或注册入口”的顺序理解。；关键边界：调用方必须遵守类型、生命周期和错误处理约定；
- * 涉及外部输入、异步任务或资源释放时需特别关注异常分支。；新手阅读建议：先确认导入依赖和公开导出，再沿主要函数调用链阅读，
- * 最后结合相邻测试理解输入、输出与边界条件。
- * @remarks 中文说明：常量说明：MODULE_PROXIES 用于处理 MODULE_PROXIES 相关数据，作用于当前作用域；
- * 初始化后不可重新赋值，但对象内部是否可变仍由其类型决定。
+/*
+ * 【文件职责】统一声明 Worker 中替换的 Node 内置模块和外部包，同时供构建别名与运行时模块表使用。
  */
+
 export const MODULE_PROXIES: Record<string, string> = {
   // VFS-backed real implementations.
   'node:fs': './node/builtin_modules/implemented/fs.ts',
@@ -74,6 +64,7 @@ export const MODULE_PROXIES: Record<string, string> = {
   'node:worker_threads': './node/builtin_modules/mock/worker_threads.ts',
   'node:sqlite': './node/builtin_modules/mock/sqlite.ts',
   // External npm replacements, named after the package each stands in for.
+  'fs-ext': './node/external_packages/fs-ext.ts',
   'koffi': './node/external_packages/koffi.ts',
   'sharp': './node/external_packages/sharp.ts',
   'node-pty': './node/external_packages/node-pty.ts',

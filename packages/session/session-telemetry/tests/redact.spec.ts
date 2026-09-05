@@ -94,8 +94,7 @@ describe('session-telemetry/record waterfall', () => {
     session.append('user/message', createUserMessage({
       content: [{ type: 'text', text: FIXTURE_SECRET }], source: { kind: 'user' },
     }), { surfaceOp: 'append' })
-    /** 中文说明：变量 logged 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
-    const logged = session.events[0]!.data as { content: { text: string }[] }
+    const logged = session.snapshotEvents()[0]!.data as { content: { text: string }[] }
     expect(logged.content[0]!.text).toBe(FIXTURE_SECRET)
   })
 
@@ -154,6 +153,6 @@ describe('session-telemetry/record waterfall', () => {
       content: [{ type: 'text', text: 'hi' }], source: { kind: 'user' },
     }), { surfaceOp: 'append' })
     expect(backend.records).toHaveLength(0)
-    expect(session.events).toHaveLength(1)
+    expect(session.snapshotEvents()).toHaveLength(1)
   })
 })

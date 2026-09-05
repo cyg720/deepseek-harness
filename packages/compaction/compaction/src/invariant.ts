@@ -1,16 +1,13 @@
 /** Package-owned compaction log-stream invariants. @module @deepseek-ai/dsh-compaction/invariant */
+
 /*
- * 文件职责：实现上下文压缩的 invariant.ts 模块。
- * 技术维度：TypeScript、Cordis 插件、会话事件和严格判别联合。
- * 产品维度：控制模型请求中的上下文压缩信息。
- * 逻辑维度：读取日志或文件状态，计算投影并记录/注入结果。
- * 关键边界：不能静默丢失必需事件；裁剪和替换必须保持日志可重放。
- * 新手阅读建议：先读导出类型与配置，再跟踪事件和投影流程。
+ * 【文件职责】检查压缩事务在持久日志中的关联关系，确保开始、摘要及结束记录满足领域约定。
  */
 
 import type { Context } from '@deepseek-ai/cordis'
-import { isReplacementSurfaceEvent } from '@deepseek-ai/dsh-session'
+import { isReplacementSurfaceEvent, SessionSeq } from '@deepseek-ai/dsh-session'
 import type { Session, SessionEvent } from '@deepseek-ai/dsh-session'
+import { SurfaceManager } from '@deepseek-ai/dsh-session/surface'
 import type { InvariantFailure, InvariantInstaller } from '@deepseek-ai/dsh-invariants'
 import type { CompactionId } from './brand.ts'
 import { isCompactCheckpointSource } from './checkpoint.ts'
@@ -31,7 +28,7 @@ export const inject = ['invariants']
 interface CompactionTrace {
   compactionId: CompactionId
   sourceCommandId: string | undefined
-  startSeq: number
+  startSeq: SessionSeq
   turn: number | null
   summarized: boolean
 }
@@ -40,12 +37,14 @@ interface CompactionTrace {
 interface SessionTrace {
   openTurn: number | null
   compaction: CompactionTrace | undefined
+  surfaceEvents: SessionEvent[]
+  surface: SurfaceManager
 }
 
 /** 中文说明：类型或类 CompactionTransition 约束上下文或压缩数据职责。 */
 type CompactionTransition =
-  | { kind: 'start'; compactionId: CompactionId; sourceCommandId: string | undefined; startSeq: number; turn: number | null }
-  | { kind: 'summary'; compactionId: CompactionId; sourceCommandId: string | undefined; startSeq: number; turn: number | null }
+  | { kind: 'start'; compactionId: CompactionId; sourceCommandId: string | undefined; startSeq: SessionSeq; turn: number | null }
+  | { kind: 'summary'; compactionId: CompactionId; sourceCommandId: string | undefined; startSeq: SessionSeq; turn: number | null }
   | { kind: 'end' }
   | { kind: 'end-seed' }
 
@@ -53,6 +52,44 @@ type CompactionTransition =
 /* 中文说明：函数 validateId 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function validateId(value: unknown, label: string, fail: InvariantFailure): asserts value is string {
   if (typeof value !== 'string' || value.length === 0) fail(`${label} must be a non-empty string`)
+}
+
+/** Validate a durable event-sequence identity at this package's event boundary. */
+function validateSeq(value: unknown, label: string, fail: InvariantFailure): SessionSeq {
+  if (typeof value !== 'number') return fail(`${label} must be a non-negative safe integer event seq`)
+  try {
+    return SessionSeq(value)
+  } catch {
+    return fail(`${label} must be a non-negative safe integer event seq`)
+  }
+}
+
+/** Validate one shadowed surface span and its complete ordered identity list. */
+function validateShadowedSeqs(
+  trace: SessionTrace,
+  event: SessionEvent<'compaction/summary' | 'compaction/prune'>,
+  fail: InvariantFailure,
+): void {
+  const eventType = event.type
+  const { data } = event
+  const start = validateSeq(data.shadowedRange.start, `${eventType} shadowedRange.start`, fail)
+  const end = validateSeq(data.shadowedRange.end, `${eventType} shadowedRange.end`, fail)
+  const seqs = data.shadowedSeqs.map((seq, index) => validateSeq(seq, `${eventType} shadowedSeqs[${index}]`, fail))
+  if (seqs.length === 0) fail(`${eventType} shadowedSeqs must be non-empty`)
+  if (seqs[0] !== start || seqs.at(-1) !== end) {
+    fail(`${eventType} shadowedRange must match the first and last shadowedSeqs`)
+  }
+  const surface = trace.surface.nodes
+  const startIndex = surface.indexOf(start)
+  const endIndex = surface.indexOf(end)
+  if (startIndex < 0 || endIndex < startIndex) {
+    fail(`${eventType} shadowed seqs must name an earlier current surface span`)
+  }
+  const expected = surface.slice(startIndex, endIndex + 1)
+  if (expected.length !== seqs.length
+    || expected.some((seq, index) => seq !== seqs[index])) {
+    fail(`${eventType} shadowedSeqs must list every node in the current surface span`)
+  }
 }
 
 /** Keep the optional initiating command identity stable across one transaction. */
@@ -95,12 +132,9 @@ function validateCheckpoint(
 /* 中文说明：函数 inheritedOrphanStartSeqs 的参数见签名，返回结果供相邻流程使用；示例见本文件。 */
 function inheritedOrphanStartSeqs(
   events: readonly SessionEvent[],
-): ReadonlySet<number> {
-  /** 中文说明：上下文局部值 stale，由紧邻初始化决定。 */
-  const stale = new Set<number>()
-  /** 中文说明：上下文局部值 解构结果，由紧邻初始化决定。 */
-  let openStartSeq: number | undefined
-  /** 中文说明：上下文局部值 event，由紧邻初始化决定。 */
+): ReadonlySet<SessionSeq> {
+  const stale = new Set<SessionSeq>()
+  let openStartSeq: SessionSeq | undefined
   for (const event of events) {
     if (event.type === 'compaction/start') {
       openStartSeq = event.seq
@@ -170,6 +204,10 @@ function validateCompactionEvent(
   fail: InvariantFailure,
 ): CompactionTransition | undefined {
   if (event.type === 'session/end-seed') return { kind: 'end-seed' }
+  if (event.type === 'compaction/prune') {
+    validateShadowedSeqs(trace, event, fail)
+    return undefined
+  }
   if (event.type === 'user/message'
     && isReplacementSurfaceEvent(event)
     && isCompactCheckpointSource(event.data.source)) {
@@ -212,12 +250,7 @@ function validateCompactionEvent(
     validateSourceCommandId('compaction/summary', event.data.sourceCommandId, open.sourceCommandId, fail)
     validateOwner(open.turn, trace.openTurn, event.type, fail)
     if (open.summarized) fail('compaction/summary repeated within one compaction')
-    /** 中文说明：上下文局部值 seqs，由紧邻初始化决定。 */
-    const seqs = event.data.shadowedSeqs
-    if (seqs.length === 0) fail('compaction/summary shadowedSeqs must be non-empty')
-    if (seqs[0] !== event.data.shadowedRange.start || seqs.at(-1) !== event.data.shadowedRange.end) {
-      fail('compaction/summary shadowedRange must match the first and last shadowedSeqs')
-    }
+    validateShadowedSeqs(trace, event, fail)
     if (!Number.isSafeInteger(event.data.shadowedTokenCount) || event.data.shadowedTokenCount < 0) {
       fail('compaction/summary shadowedTokenCount must be a non-negative safe integer')
     }
@@ -285,13 +318,17 @@ const install: InvariantInstaller = Object.assign((ctx: Context, fail: Invariant
   const staged = new WeakMap<SessionEvent, { session: Session; transition: CompactionTransition }>()
   /** 中文说明：上下文局部值 seed，由紧邻初始化决定。 */
   const seed = (session: Session): SessionTrace => {
-    /** 中文说明：上下文局部值 trace，由紧邻初始化决定。 */
-    const trace: SessionTrace = { openTurn: null, compaction: undefined }
+    const surfaceEvents: SessionEvent[] = []
+    const trace: SessionTrace = {
+      openTurn: null,
+      compaction: undefined,
+      surfaceEvents,
+      surface: new SurfaceManager(surfaceEvents),
+    }
     traces.set(session, trace)
-    /** 中文说明：上下文局部值 staleOrphanStartSeqs，由紧邻初始化决定。 */
-    const staleOrphanStartSeqs = inheritedOrphanStartSeqs(session.events)
-    /** 中文说明：上下文局部值 event，由紧邻初始化决定。 */
-    for (const event of session.events) {
+    const events = session.snapshotEvents()
+    const staleOrphanStartSeqs = inheritedOrphanStartSeqs(events)
+    for (const event of events) {
       // Constructor-seed repair boundaries can precede the end-seed marker
       // that proves an inherited orphan stale. Replay that inherited prefix
       // without letting the soon-to-be-cleared bracket veto its repair.
@@ -305,6 +342,7 @@ const install: InvariantInstaller = Object.assign((ctx: Context, fail: Invariant
       const transition = validateCompactionEvent(trace, event, fail)
       if (transition !== undefined) trace.compaction = applyCompactionTransition(transition)
       applyTurnBoundary(trace, event)
+      trace.surfaceEvents.push(event)
     }
     return trace
   }
@@ -318,17 +356,22 @@ const install: InvariantInstaller = Object.assign((ctx: Context, fail: Invariant
     /** 中文说明：上下文局部值 trace，由紧邻初始化决定。 */
     const trace = traceFor(session)
     validateTurnBoundary(trace, event, fail)
-    if (applyTurnBoundary(trace, event)) return
-    if (event.type !== 'session/end-seed'
+    const changedTurn = applyTurnBoundary(trace, event)
+    if (!changedTurn && event.type !== 'session/end-seed'
       && event.type !== 'compaction/start'
       && event.type !== 'compaction/summary'
-      && event.type !== 'compaction/end') return
-    /** 中文说明：上下文局部值 candidate，由紧邻初始化决定。 */
-    const candidate = staged.get(event)
-    /* v8 ignore next -- internal/dispatch stages every compaction event */
-    if (candidate === undefined || candidate.session !== session) return fail('compaction event published without pre-commit validation')
-    staged.delete(event)
-    trace.compaction = applyCompactionTransition(candidate.transition)
+      && event.type !== 'compaction/end') {
+      trace.surfaceEvents.push(event)
+      return
+    }
+    if (!changedTurn) {
+      const candidate = staged.get(event)
+      /* v8 ignore next -- internal/dispatch stages every compaction event */
+      if (candidate === undefined || candidate.session !== session) return fail('compaction event published without pre-commit validation')
+      staged.delete(event)
+      trace.compaction = applyCompactionTransition(candidate.transition)
+    }
+    trace.surfaceEvents.push(event)
   }, { global: true })
   ctx.on('internal/dispatch', (_mode, eventName, args) => {
     if (eventName !== 'session/event') return

@@ -1,10 +1,7 @@
-/** Browser Chat target plugin.
- * @remarks 文件说明：文件职责：实现 client/ui-chat 中 index 模块的职责，并向相邻模块提供可复用能力。；
- * 技术维度：主要使用TypeScript/JavaScript 的 ESM 模块、严格类型约束与 Cordis 插件机制，
- * 通过当前文件中的类型、函数与数据结构完成实现。；产品维度：支撑 DeepSeek Harness 的 client/ui-chat 能力，
- * 使上层功能能够稳定组合和扩展。；逻辑维度：建议按“依赖与类型定义 → 常量和状态 → 核心函数或类 → 导出或注册入口”的顺序理解。；
- * 关键边界：调用方必须遵守类型、生命周期和错误处理约定；涉及外部输入、异步任务或资源释放时需特别关注异常分支。；
- * 新手阅读建议：先确认导入依赖和公开导出，再沿主要函数调用链阅读，最后结合相邻测试理解输入、输出与边界条件。 */
+/*
+ * 【文件职责】导出浏览器 Chat 插件入口及允许第三方声明合并的渲染数据类型。
+ */
+
 export { apply, inject } from './apply.ts'
 export type {} from './conversation-nodes/assistant.ts'
 export type {} from './conversation-nodes/command.ts'
@@ -21,7 +18,8 @@ export type {} from './conversation-nodes/turn-tail.ts'
 
 export type {
   AssistantBlock, AssistantMessageNode, AssistantProvenanceView, AssistantRequestConfig,
-  AssistantTiming, ChatLocationNodeIndex, ChatNodeStore, ChatSnapshot, ChatTurnNavigationIndex,
+  AssistantTiming, ChatLocationNodeIndex, ChatNodeProcessSource, ChatNodeSource, ChatNodeStore,
+  ChatSnapshot, ChatTurnNavigationIndex, ChatTurnProcessPresentation,
   CommandNode, CompactionSummaryNode, ContextMessageNode, ConversationNode,
   LegacyConversationSlice, ModelRetryNode, PartialAssistant, RunningToolCall,
   SteeringMessageNode, ToolCallBlock, ToolResultNode, TurnErrorNode, TurnMaxTokensNode,
@@ -43,7 +41,7 @@ export type {
   TurnProcessOwnerProps, TurnTailOwnerProps, UseChat, UseChatNodeTurnData,
 } from './contract/slots.ts'
 export type {
-  TurnProcessGeneration, TurnProcessSignature, TurnProcessSpec,
+  TurnProcessSpec,
 } from './contract/turn-process.ts'
 export type { ChatKey } from './locale.ts'
 export type { ConversationContext, ConversationContextOriginKind } from './model/conversation-context.ts'

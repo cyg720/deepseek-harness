@@ -4,12 +4,7 @@
  */
 
 /*
- * 文件职责：实现 index.ts 承担的计划调度配置、协议与生命周期职责。
- * 技术维度：使用 TypeScript、Cordis 插件、配置校验、事件日志与异步资源管理。
- * 产品维度：为 Agent 提供可靠的计划调度能力。
- * 逻辑维度：解析输入，注册能力，执行核心操作，并在结束时释放所拥有的资源。
- * 关键边界：权限和配置失败必须显式；模型可见状态必须记录；清理必须达到静止状态。
- * 新手阅读建议：先看导出类型和常量，再读主流程，最后关注平台限制、恢复和清理。
+ * 【文件职责】在 Agent 作用域内提供持久的一次性及固定频率提醒，提醒状态由会话日志派生。
  */
 
 import type { Context } from '@deepseek-ai/cordis'
@@ -64,7 +59,7 @@ export function apply(ctx: Context): void {
       const cleanup: OwnerCleanup = agent.ctx.effect(() => {
         const disposeTools = registerScheduleTools(ctx, agent.ctx, agent, () => { runtime.requestDrive() })
         const stopStatus = agent.ctx.on('agent/status', ({ status }) => {
-          if (status === 'idle' && agent.session.events.some(event => event.type === 'schedule/change')) {
+          if (status === 'idle' && agent.session.snapshotEvents().some(event => event.type === 'schedule/change')) {
             runtime.requestDrive()
           }
         })

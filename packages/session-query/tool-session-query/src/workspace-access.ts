@@ -5,25 +5,13 @@
  */
 
 /*
- * ================================ 文件注释 ================================
- * 【文件职责】调用者身份、工作区授权与可见血缘投影：所有会话查询工具的核心授权层。
- * 【技术维度】授权规则 = 同 cwd（工作区）或调用者自身；目标/批量 ID/观察头都经
- *   授权检查；血缘树投影成"授权保留 + 越界 null 占位"的稀疏结构（显式栈无递归）。
- * 【产品维度】保证模型只能读到自己工作区内的会话历史。
- * 【逻辑维度】Caller/标题/后代投影类型 → 授权函数族（callerOf/targetId/
- *   authorizeTarget/recordAuthorized/authorizeSessionIds/readTitles）→ 后代投影
- *   （authorizeDescendants/visitDescendants/descendantIds）→ workspaceAccess 聚合导出。
- * 【关键边界】标题不可用时以 untitled + unavailableCode 呈现（UNAUTHORIZED 透传）；
- *   授权失败抛 SESSION_QUERY_TOOL_UNAUTHORIZED。
- * 【新手阅读建议】先读 headerAuthorized 的"同 cwd"规则，再看 authorizeDescendants。
- * ==========================================================================
+ * 【文件职责】从调用者身份执行工作区授权并投影可见血缘，权限判断使用调用会话自己的轮次边界。
  */
 
 import type { Context } from '@deepseek-ai/cordis'
 import { brandString } from '@deepseek-ai/dsh-brand'
 import { HarnessError } from '@deepseek-ai/dsh-llm'
 import {
-  type SessionEvent,
   type SessionHeader,
   type SessionId as SessionIdValue,
 } from '@deepseek-ai/dsh-session'
@@ -39,7 +27,6 @@ import { serviceBoundary } from './service-boundary.ts'
 interface Caller {
   readonly id: SessionIdValue
   readonly header: SessionHeader
-  readonly events: readonly SessionEvent[]
   /** The caller's own-session boundary fold (the `turnBoundary` projection). */
   readonly boundary: TurnBoundaryProjection | undefined
 }
@@ -81,7 +68,6 @@ function callerOf(exec: ToolRunContext, ctx: Context): Caller {
   return {
     id: agent.session.id,
     header: agent.session.header,
-    events: agent.session.events,
     boundary: ctx.sessionProjections.stateOf(agent.session, 'turnBoundary'),
   }
 }

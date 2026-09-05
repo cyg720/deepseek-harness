@@ -1,24 +1,16 @@
-/* Turn-tail produced-files summary: one measured chip lane plus an optional
-   native-folder action below it. */
-/* 中文：轮次尾部产物摘要包含一行经过测量的文件胶囊，以及可选的原生文件夹操作。 */
-/*
- * 中文说明：
- * - 文件职责：定义轮次产出文件摘要的标签、单行文件胶囊、溢出计数、打开文件夹和隐藏测量探针。
- * - 技术维度：使用 CSS Modules、Grid/Flex、文本省略、焦点样式和 contain 隔离测量层。
- * - 产品维度：让用户快速打开本轮生成文件，并在空间不足时明确知道还有多少文件未显示。
- * - 逻辑维度：根网格安排标签和文件行，文件行限制单行，第二行可显示文件夹操作，隐藏层负责宽度探测。
- * - 关键边界：单文件最大宽度 320px；测量探针不可影响布局、滚动宽度或无障碍树。
- * - 新手阅读建议：先看 root 两列两行网格，再看 row/file/more 的溢出策略，最后理解 measure/probe。
- */
+/* Turn-tail produced-files summary with an optional native-folder action. */
 
 /* 产出文件摘要根网格，第一列标签、第二列内容。 */
+
+/*
+ * 【文件职责】定义轮次末尾产生文件的摘要列表和可选目录操作。
+ */
+
 .root {
-  position: relative;
   display: grid;
   grid-template-columns: max-content minmax(0, 1fr);
-  align-items: center;
+  align-items: start;
   column-gap: 8px;
-  row-gap: 6px;
   margin-top: 16px;
   font-size: 13px;
   line-height: 22px;
@@ -31,41 +23,73 @@
   color: var(--dsw-alias-label-tertiary);
 }
 
-/* 第一行右侧的文件胶囊单行容器。 */
-.row {
+.lane {
+  --produced-file-gap: 8px;
+
   grid-column: 2;
   grid-row: 1;
+  display: grid;
+  row-gap: 6px;
+  min-width: 0;
+  container-type: inline-size;
+}
+
+.row {
   display: flex;
   flex-wrap: nowrap;
   align-items: center;
-  gap: 8px;
+  gap: var(--produced-file-gap);
   min-width: 0;
   overflow: hidden;
 }
 
-/* One produced file. A link by behavior (it opens the file), a chip by shape:
-   full paths are long, while the measured lane stays on one row. */
-/* 中文：单个文件行为像链接、外形像胶囊；长路径在 320px 内省略，整行保持不换行。 */
+/* File names render at natural width and only shrink (with ellipsis) when
+   the row truly runs out of space; the container-query bands still budget
+   96px per chip when deciding how many chips to show. Same link language as
+   markdown anchors and file mentions: link-blue at rest with no underline,
+   dotted underline on hover; the leading glyph names the file's category
+   and rides the link color. */
 .file {
-  flex: 0 0 auto;
-  max-width: 320px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  flex: 0 1 auto;
+  min-width: 0;
   margin: 0;
-  padding: 0 8px;
+  padding: 0;
   border: none;
-  border-radius: 6px;
-  background: var(--dsw-alias-interactive-bg-hover);
-  color: var(--dsw-alias-label-secondary);
+  border-radius: 4px;
+  background: none;
+  color: var(--dsw-alias-link);
   font: inherit;
+  font-weight: 500;
+  text-decoration: none;
   cursor: pointer;
 }
 
-/* 文件胶囊悬停时提高强调并显示下划线。 */
-.file:hover {
-  color: var(--dsw-alias-label-primary);
-  text-decoration: underline;
+/* Flex centering tracks box centers, but the 22px text box carries its
+   glyphs below center (the baseline sits low in the leading); the nudge
+   drops the glyph onto the text's visual center. */
+.fileIcon {
+  flex: none;
+  width: 1.1em;
+  height: 1.1em;
+  position: relative;
+  top: 1.2px;
+}
+
+.fileName {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.file:hover,
+.file:focus-visible {
+  text-decoration: underline dotted;
+  text-underline-offset: 3px;
 }
 
 /* 文件和打开文件夹按钮共享的键盘焦点内描边。 */
@@ -79,15 +103,123 @@
 /* 中文：未显示文件数量提示，确保单行溢出不会静默丢失信息。 */
 .more {
   flex: 0 0 auto;
+  display: none;
   white-space: nowrap;
   color: var(--dsw-alias-label-tertiary);
 }
 
-/* 第二行打开原生文件夹的文字按钮。 */
+.more[data-shown='6'] {
+  display: inline;
+}
+
 .showFolder {
-  grid-column: 2;
-  grid-row: 2;
+  display: none;
+}
+
+.lane:has(.more[data-shown='6']) > .showFolder {
+  display: flex;
+}
+
+/* Each band budgets 96px per chip, 8px gaps, and 64px for the remainder. */
+@container (max-width: 687px) {
+  .file:nth-of-type(6),
+  .more[data-shown='6'] {
+    display: none;
+  }
+
+  .more[data-shown='5'] {
+    display: inline;
+  }
+
+  .showFolder {
+    display: none;
+  }
+
+  .lane:has(.more[data-shown='5']) > .showFolder {
+    display: flex;
+  }
+}
+
+@container (max-width: 583px) {
+  .file:nth-of-type(5),
+  .more[data-shown='5'] {
+    display: none;
+  }
+
+  .more[data-shown='4'] {
+    display: inline;
+  }
+
+  .showFolder {
+    display: none;
+  }
+
+  .lane:has(.more[data-shown='4']) > .showFolder {
+    display: flex;
+  }
+}
+
+@container (max-width: 479px) {
+  .file:nth-of-type(4),
+  .more[data-shown='4'] {
+    display: none;
+  }
+
+  .more[data-shown='3'] {
+    display: inline;
+  }
+
+  .showFolder {
+    display: none;
+  }
+
+  .lane:has(.more[data-shown='3']) > .showFolder {
+    display: flex;
+  }
+}
+
+@container (max-width: 375px) {
+  .file:nth-of-type(3),
+  .more[data-shown='3'] {
+    display: none;
+  }
+
+  .more[data-shown='2'] {
+    display: inline;
+  }
+
+  .showFolder {
+    display: none;
+  }
+
+  .lane:has(.more[data-shown='2']) > .showFolder {
+    display: flex;
+  }
+}
+
+@container (max-width: 271px) {
+  .file:nth-of-type(2),
+  .more[data-shown='2'] {
+    display: none;
+  }
+
+  .more[data-shown='1'] {
+    display: inline;
+  }
+
+  .showFolder {
+    display: none;
+  }
+
+  .lane:has(.more[data-shown='1']) > .showFolder {
+    display: flex;
+  }
+}
+
+.showFolder {
   justify-self: start;
+  align-items: center;
+  gap: 5px;
   margin: 0;
   padding: 0 2px;
   border: none;
@@ -103,24 +235,4 @@
 .showFolder:hover {
   color: var(--dsw-alias-label-secondary);
   text-decoration: underline;
-}
-
-/* Exact browser-native probes for every candidate shown count. They share the
-   visible styles but never affect layout, accessibility, or scroll width. */
-/* 中文：为每个候选显示数量建立浏览器原生测量探针；复用可见样式但不进入布局和无障碍树。 */
-.measure {
-  position: absolute;
-  width: 0;
-  height: 0;
-  overflow: hidden;
-  visibility: hidden;
-  pointer-events: none;
-  contain: strict;
-}
-
-/* 测量层内的绝对定位探针，宽度按内容自然展开。 */
-.probe {
-  position: absolute;
-  inset: 0 auto auto 0;
-  width: max-content;
 }

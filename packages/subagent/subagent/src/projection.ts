@@ -1,20 +1,4 @@
-/*
- * ================================ 文件注释 ================================
- * 【文件职责】子代理身份（模式/标签）与进行中回合耗时的纯会话投影实现：把会话事件流
- *   折叠成持久可查的摘要值，注册进 session-projection 注册表。
- * 【技术维度】Zod 定义状态与视图 schema；每个投影定义（ProjectionDefinition）包含
- *   init/apply/wire/stateVersion；描述符事件到达时重置累计状态（fork seed 可能回放
- *   祖先描述符，最后一次重置才是子代理自己的权威计时原点）。
- * 【产品维度】枚举子代理（mode/label）与展示回合耗时都直接读投影值，无需重放整个日志；
- *   损坏/未知版本的描述符折叠为 null/undefined 而不抛错，保证投影永不破坏查询。
- * 【逻辑维度】按代码顺序：TimingState → 三个 schema → 声明合并 → subagentTimingProjectionDefinition
- *   → IdentityState → identity schema → descriptorIdentity → subagentIdentityProjectionDefinition。
- * 【关键边界】投影 fold 绝不抛错（损坏数据折成无值）；stateVersion 升级意味着旧检查点
- *   行必须重新折叠。
- * 【新手阅读建议】对照两个 ProjectionDefinition 的 apply 分支理解折叠规则；投影词汇见
- *   projection-types.ts。
- * ==========================================================================
- */
+
 
 /**
  * Pure session projections for subagent identity (mode/label) and active-turn
@@ -23,7 +7,12 @@
  * @module @deepseek-ai/dsh-subagent/projection
  */
 
+/*
+ * 【文件职责】从会话日志纯折叠子 Agent 模式、标签和活动轮次耗时。
+ */
+
 import { z } from 'zod'
+import { SessionSeq } from '@deepseek-ai/dsh-session'
 import type { ProjectionDefinition } from '@deepseek-ai/dsh-session-projection'
 import type { SessionEvent } from '@deepseek-ai/dsh-session'
 import { foldSubagentDescriptor } from './descriptor.ts'
@@ -146,12 +135,12 @@ const identityValueSchema = z.discriminatedUnion('mode', [
   z.object({
     mode: z.literal('one-shot'),
     label: z.string().optional(),
-    seq: z.number().int().nonnegative(),
+    seq: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER).transform(SessionSeq),
   }).strict(),
   z.object({
     mode: z.literal('continuable'),
     label: z.string(),
-    seq: z.number().int().nonnegative(),
+    seq: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER).transform(SessionSeq),
   }).strict(),
 ]) as unknown as z.ZodType<SubagentIdentityProjection>
 

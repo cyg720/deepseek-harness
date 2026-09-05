@@ -39,8 +39,7 @@ describe.skipIf(!process.env.DEEPSEEK_API_KEY)('fs tools with-key smoke', () => 
     ctx = await fsHarness(workdir, SYSTEM)
     // agentLoop.create prepares a session with no cwd, so the provider default
     // (config.cwd = workdir) is the workspace.
-    /** 中文说明：测试局部值 agent，由紧邻初始化决定。 */
-    const agent = ctx.agentLoop.create(SessionId('fs-e2e'), { provider: 'deepseek-official', model: 'deepseek-v4-flash' })
+    const agent = await ctx.agentLoop.create(SessionId('fs-e2e'), { provider: 'deepseek-official', model: 'deepseek-v4-flash' })
 
     agent.followup(createUserMessage({
       content: [{ type: 'text', text:
@@ -56,8 +55,7 @@ describe.skipIf(!process.env.DEEPSEEK_API_KEY)('fs tools with-key smoke', () => 
     expect(content).not.toContain('draft')
 
     // The log records real read/write/edit tool calls (not bash).
-    /** 中文说明：测试局部值 calls，由紧邻初始化决定。 */
-    const calls = [...agent.session.events].filter(e => e.type === 'tool/call').map(e => e.data.name)
+    const calls = agent.session.snapshotEvents().filter(e => e.type === 'tool/call').map(e => e.data.name)
     expect(calls).toContain('write')
     expect(calls).toContain('read')
     expect(calls).toContain('edit')

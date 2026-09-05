@@ -1,18 +1,4 @@
-/*
- * ================================ 文件注释 ================================
- * 【文件职责】InputMachine：纯函数式的每会话输入状态机。事件进、效果出；零 React / DOM /
- *             cordis / 环境时钟依赖。包私有——SessionInput shell 是唯一调用者与效果执行者。
- * 【技术维度】判别联合事件（InputEvent）+ 纯 reducer（dispatch）；每事务原子完成"草稿编辑 +
- *             出现次数重排 + 撤销日志入栈"，并递增 draftRev；撤销环深度上限 100；
- *             SubmitAttempt 自持 AbortController。
- * 【产品维度】输入框撤销 / 重做、粘贴升级、提交仲裁、引用 chip 的全部行为逻辑。
- * 【逻辑维度】1) 常量与工具（占位符、引用投影、diff 编辑恢复）；2) 撤销单元 Transaction；
- *             3) InputMachine 类（草稿 / 出现次数 / 阶段 / 撤销日志 / 提交尝试状态机）。
- * 【关键边界】draft 持有引用的完整内联显示文本；draftRev 相等 ⟹ 草稿相同 ⟹ span CAS
- *             可化简为版本相等检查；过期提交尝试丢弃（同状态零效果）。
- * 【新手阅读建议】先读模块头的英文说明，再读 dispatch 的 reducer 结构。
- * ==========================================================================
- */
+
 /**
  * SubmitMachine: the pure per-session submit-plane state machine.
  * Events in, effects out; zero React / DOM / cordis. Package-private; the
@@ -22,6 +8,12 @@
  * at Enter, so the editor can clear immediately and accept another message
  * while earlier admissions remain in flight.
  */
+
+/*
+ * 【文件职责】实现不依赖 React、DOM 或 Cordis 的提交状态机；
+ * 普通消息按下 Enter 后可与下一份草稿独立存在。
+ */
+
 import type { InputSubmitMode } from '../contract/composer-submission.ts'
 import type { CommandClaim, InputEffect, InputEvent, InputState, SubmitAttempt } from '../contract/input.ts'
 
@@ -70,7 +62,7 @@ export class SubmitMachine {
           claim: {
             token: c.token,
             ...(c.hint !== undefined ? { hint: c.hint } : {}),
-            ...(c.images === true ? { images: true } : {}),
+            ...(c.attachments === true ? { attachments: true } : {}),
           },
         }
         : {}),
@@ -231,7 +223,7 @@ export class SubmitMachine {
     return [{ type: 'notice', level: ev.ok && ev.outcome?.kind !== 'error' ? 'info' : 'error', text }]
   }
 
-  /** Clear after an accepted image-only send; it has no text suffix to retain. */
+  /** Clear after an accepted attachment-only send; it has no text suffix to retain. */
   private onSendCommitted(): readonly InputEffect[] {
     if (this.phase !== 'plain') return []
     this.claim = undefined

@@ -7,40 +7,30 @@
  * must stub); implementation-internal entry points (history staging, wire-frame
  * dispatch) stay on the class, invisible out here.
  */
+
 /*
- * ================================ 文件注释 ================================
- * 【文件职责】定义会话对外的"脸"（face）：功能包通过本接口使用会话，
- *   不直接接触具体 Session 类——读侧用 useSession（可观察快照），
- *   写侧只允许调用本文件列出的行为动词。
- * 【技术维度】纯类型模块：ISession 是行为接口，SessionFace 是行为 + 快照
- *   读侧的复合类型；实现类（SessionRuntime）以结构化类型满足它。
- * 【产品维度】把"功能包能对会话做什么"收敛成显式清单：新增能力必须
- *   显式拓宽本接口，同时每个测试夹具都必须 stub 它，防止隐式越权。
- * 【逻辑维度】ProjectionsFace 提供按键投影读取；ISession 提供
- *   prompt/readAttachment/updateQueue/cancel/rename/loadOlder/command；
- *   SessionFace 合并会话快照读侧。
- * 【关键边界】运行时内部入口（历史 staging、wire-frame 分发）留在类上，
- *   不暴露在接口外；prompt 的 mode 只允许 'queue'/'steer' 两值。
- * 【新手阅读建议】从 SessionFace 入手理解读/写两侧的划分。
- * ==========================================================================
+ * 【文件职责】定义功能插件可访问的会话接口，将可观察快照和业务操作与内部历史装载、帧分发实现隔离。
  */
 
-import type { AttachmentIdType, ImageAttachmentRef } from '@deepseek-ai/dsh-attachment'
+import type { AttachmentIdType, FileAttachmentRef, ImageAttachmentRef } from '@deepseek-ai/dsh-attachment'
 import type { MessageId } from '@deepseek-ai/dsh-llm/brand'
-import type { SessionId } from '@deepseek-ai/dsh-session/types'
+import type { SessionId, SessionSeq } from '@deepseek-ai/dsh-session/types'
 import type { RemoteResult } from '@deepseek-ai/dsh-typert-protocol'
 import type { ObservableSnapshot } from '@deepseek-ai/dsh-client-store'
 import type { PromptContentPart, QueueAction, SessionRequestId } from '../../types.ts'
-import type { PendingSubmissionImage, SessionSnapshot } from './snapshot.ts'
+import type { PendingSubmissionAttachment, SessionSnapshot } from './snapshot.ts'
 
 /**
  * Why a local submission echo left the snapshot: `observed` when its durable
  * `user/message` event or host queue occurrence arrived (with the admitted
- * image references in prompt order), `failed` when the prompt was rejected,
+ * attachment references in prompt order), `failed` when the prompt was rejected,
  * threw, or was aborted before acceptance.
  */
 export type PendingSubmissionRetirement =
-  | { readonly reason: 'observed'; readonly attachments: readonly ImageAttachmentRef[] }
+  | {
+    readonly reason: 'observed'
+    readonly attachments: readonly (ImageAttachmentRef | FileAttachmentRef)[]
+  }
   | { readonly reason: 'failed' }
 
 /** Input registering one local submission echo ahead of its prompt call. */
@@ -49,8 +39,8 @@ export interface BeginSubmissionInput {
   readonly mode: 'queue' | 'steer'
   /** Prompt text exactly as the upcoming prompt will send it. */
   readonly text: string
-  /** Ordered image previews matching the upcoming prompt's image parts. */
-  readonly images: readonly PendingSubmissionImage[]
+  /** Ordered image previews and durable file metadata matching the upcoming prompt attachments. */
+  readonly attachments: readonly PendingSubmissionAttachment[]
   /** Settlement callback fired exactly once when the echo retires. */
   readonly onRetire?: (retirement: PendingSubmissionRetirement) => void
 }
@@ -131,7 +121,7 @@ export interface ISession {
    * @param title - raw title text (the host normalizes acceptance).
    * @returns the normalized accepted title and its event seq, or the business error.
    */
-  rename(title: string): Promise<RemoteResult<{ title: string; seq: number }>>
+  rename(title: string): Promise<RemoteResult<{ title: string; seq: SessionSeq }>>
   /**
    * Extend the history window backwards (older messages pagination).
    * @returns completion; failures land in snapshot.openState/loadingOlder.
@@ -145,7 +135,7 @@ export interface ISession {
    * @param seq - durable event seq the window must reach (a turn's `turn/start` seq).
    * @returns completion once covered, exhausted, superseded, or failed soft.
    */
-  loadThrough(seq: number): Promise<void>
+  loadThrough(seq: SessionSeq): Promise<void>
   /**
    * Execute one slash-command line against this session's agent — pure
    * admission semantics (the host executor durably logs the lifecycle).

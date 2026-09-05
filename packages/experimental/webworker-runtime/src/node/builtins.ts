@@ -1,33 +1,8 @@
-/**
- * The Node-compatibility table, in one place. Two consumers share it, and they
- * must resolve to the same module instances:
- *   - the worker vite build aliases these specifiers for code bundled statically
- *     into the worker (vendored loader, Connection, …);
- *   - the worker module loader answers `require('node:fs')` from VFS-loaded
- *     modules out of this table, before bare-name resolution.
- * Anything absent here fails loudly at resolution instead of resolving to an
- * empty module. `process` is deliberately absent: the worker host installs that
- * global itself and fills it into this table at assembly time.
- *
- * Import paths carry the classification: `./implemented/<module>.ts` backs the
- * module's real semantics over a worker data source, while `./mock/<module>.ts`
- * is a structural placeholder whose calls report the missing capability. File
- * names match their Node module specifiers exactly, nesting included.
- *
- * Every value is a {@link StaticModuleFactory}, so the loader reads a table
- * entry only when a `require` names that specifier. What a factory defers is the
- * table read, not module evaluation: each one answers a namespace object of the
- * static ESM graph below, which the worker bundle evaluates at load like any
- * other import. Deferring a shim's own start-up cost therefore belongs inside
- * that shim, on the path that first needs it.
- * @remarks 文件说明：文件职责：实现 experimental/webworker-runtime 中 builtins 模块的职责，
- * 并向相邻模块提供可复用能力。；技术维度：主要使用TypeScript/JavaScript 的 ESM 模块、严格类型约束与 Cordis
- * 插件机制，通过当前文件中的类型、函数与数据结构完成实现。；产品维度：支撑 DeepSeek Harness 的
- * experimental/webworker-runtime 能力，使上层功能能够稳定组合和扩展。；逻辑维度：建议按“依赖与类型定义 →
- * 常量和状态 → 核心函数或类 → 导出或注册入口”的顺序理解。；关键边界：调用方必须遵守类型、生命周期和错误处理约定；
- * 涉及外部输入、异步任务或资源释放时需特别关注异常分支。；新手阅读建议：先确认导入依赖和公开导出，再沿主要函数调用链阅读，
- * 最后结合相邻测试理解输入、输出与边界条件。
+/*
+ * 【文件职责】提供构建和动态模块加载共用的 Node 兼容模块实例；
+ * 未声明的模块在解析时显式失败。
  */
+
 import * as nodeAsyncHooks from './builtin_modules/implemented/async_hooks.ts'
 import * as nodeBuffer from './builtin_modules/implemented/buffer.ts'
 import * as nodeCrypto from './builtin_modules/implemented/crypto.ts'
@@ -52,6 +27,7 @@ import * as nodeNet from './builtin_modules/mock/net.ts'
 import * as nodeSqlite from './builtin_modules/mock/sqlite.ts'
 import * as nodeVm from './builtin_modules/mock/vm.ts'
 import * as nodeWorkerThreads from './builtin_modules/mock/worker_threads.ts'
+import * as fsExt from './external_packages/fs-ext.ts'
 import * as koffi from './external_packages/koffi.ts'
 import * as nodePty from './external_packages/node-pty.ts'
 import * as piAi from './external_packages/pi-ai.ts'
@@ -220,6 +196,7 @@ const BUILTINS: Record<string, StaticModuleFactory> = {
  * 调用方应按声明类型处理，不应假定未声明的附加状态。；典型用法：在完成前置校验后调用 匿名回调()，并按返回类型处理结果。
  */
 const EXTERNALS: Record<string, StaticModuleFactory> = {
+  'fs-ext': () => fsExt,
   'koffi': () => koffi,
   'sharp': () => sharp,
   'node-pty': () => nodePty,

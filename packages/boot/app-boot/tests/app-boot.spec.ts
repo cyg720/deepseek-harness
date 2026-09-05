@@ -1,16 +1,8 @@
-/**
- * 文件职责：验证应用启动胶水的配置路径、环境分层、失败守卫、Loader激活和系统提示来源段。
- * 技术维度：使用Vitest、临时文件、真实Cordis上下文与可控进程替身执行启动单元和集成测试。
- * 产品维度：确保所有入口共享一致启动规则，并在配置或插件失败时快速退出且保留清晰诊断。
- * 逻辑维度：按路径、环境、补丁、失败处理、条目校验和完整boot场景分组测试。
- * 关键边界：测试会临时修改cwd和process.env，均在用例内恢复；不会启动真实模型服务。
- * 新手阅读建议：先看resolveConfigPath和loadEnv基础用例，再阅读installFailLoud，最后看boot装配场景。
- */
-import { mkdtempSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve, sep } from 'node:path'
 import { pathToFileURL } from 'node:url'
-import { describe, expect, it, vi } from 'vitest'
+import { afterAll, describe, expect, it, vi } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
 import SystemPrompt, { renderPrompt } from '@deepseek-ai/dsh-system-prompt'
 import {
@@ -22,8 +14,16 @@ import {
 // 所有启动诊断断言使用的固定测试入口名。
 const NAME = 'dsh-test-bin'
 
-/** 创建并返回一个隔离临时目录。 */
-const tmp = (): string => mkdtempSync(join(tmpdir(), 'dsh-app-boot-'))
+const tempRoots: string[] = []
+afterAll(() => {
+  for (const root of tempRoots.splice(0)) rmSync(root, { recursive: true, force: true })
+})
+
+const tmp = (): string => {
+  const dir = mkdtempSync(join(tmpdir(), 'dsh-app-boot-'))
+  tempRoots.push(dir)
+  return dir
+}
 
 describe('resolveConfigPath', () => {
   it('resolves relative to the given cwd outside replay mode', () => {
@@ -155,6 +155,83 @@ describe('loadLayeredEnv', () => {
       expect(process.env[NAMES[1]]).toBeUndefined()
     } finally {
       clear()
+      vi.unstubAllEnvs()
+    }
+  })
+
+  const PROXY = ['HTTP_PROXY', 'http_proxy', 'HTTPS_PROXY', 'https_proxy', 'NO_PROXY', 'no_proxy'] as const
+  function clearProxy(): void {
+    for (const name of PROXY) Reflect.deleteProperty(process.env, name)
+  }
+
+  it('accepts the proxy names from the Harness-home .env, below an exported one', () => {
+    const home = tmp()
+    const project = tmp()
+    // Both casings, because a shell profile writes either and the rejection matches both. Each
+    // spelling gets its own name here: Windows folds `https_proxy` and `HTTPS_PROXY` into one
+    // variable, so which spelling a value lands under is the platform's to decide — that the file
+    // supplies it, and that the launching shell outranks the file, is not.
+    writeFileSync(join(home, '.env'), 'HTTP_PROXY=http://from-home:8080\nno_proxy=example.com\nHTTPS_PROXY=http://from-home:8443\n')
+    clear(); clearProxy()
+    vi.stubEnv('DSH_HOME', home)
+    vi.stubEnv('HTTPS_PROXY', 'http://exported:8080')
+    try {
+      const snapshot = loadLayeredEnv(NAME, project, vi.fn())
+      expect(snapshot.get('HTTP_PROXY')).toEqual({ value: 'http://from-home:8080', source: 'user-env', path: join(home, '.env') })
+      expect(snapshot.get('no_proxy')).toEqual({ value: 'example.com', source: 'user-env', path: join(home, '.env') })
+      // The launching shell still outranks the file for the same variable.
+      expect(snapshot.get('HTTPS_PROXY')).toEqual({ value: 'http://exported:8080', source: 'process' })
+      expect(process.env.HTTP_PROXY).toBe('http://from-home:8080')
+      expect(process.env.HTTPS_PROXY).toBe('http://exported:8080')
+    } finally {
+      clear(); clearProxy()
+      vi.unstubAllEnvs()
+    }
+  })
+
+  it('still refuses every other bootstrap name in the Harness-home .env', () => {
+    const home = tmp()
+    const project = tmp()
+    // A CA path sits in the same network group as the proxy names and changes what is trusted,
+    // not where traffic goes; the exemption must not widen to it.
+    writeFileSync(join(home, '.env'), 'SSL_CERT_FILE=/tmp/ca.pem\n')
+    clear()
+    vi.stubEnv('DSH_HOME', home)
+    try {
+      expect(() => loadLayeredEnv(NAME, project, vi.fn())).toThrow(/only the launching environment may set/)
+    } finally {
+      clear()
+      vi.unstubAllEnvs()
+    }
+  })
+
+  it('names the Harness-home file as the way out when a project .env sets a proxy', () => {
+    const home = tmp()
+    const project = tmp()
+    writeFileSync(join(project, '.env'), 'HTTP_PROXY=http://attacker.example\n')
+    clear(); clearProxy()
+    vi.stubEnv('DSH_HOME', home)
+    try {
+      expect(() => loadLayeredEnv(NAME, project, vi.fn()))
+        .toThrow(`export HTTP_PROXY, or put it in ${join(home, '.env')}, which does not travel with a repository`)
+      expect(process.env.HTTP_PROXY).toBeUndefined()
+    } finally {
+      clear(); clearProxy()
+      vi.unstubAllEnvs()
+    }
+  })
+
+  it('treats the invoking directory as the Harness home when they are the same directory', () => {
+    const home = tmp()
+    writeFileSync(join(home, '.env'), 'HTTP_PROXY=http://from-home:8080\n')
+    clear(); clearProxy()
+    vi.stubEnv('DSH_HOME', home)
+    try {
+      // Launched from inside the home itself, its one file is read as the project layer; the
+      // exemption follows the directory, not the layer name.
+      expect(loadLayeredEnv(NAME, home, vi.fn()).get('HTTP_PROXY')?.value).toBe('http://from-home:8080')
+    } finally {
+      clear(); clearProxy()
       vi.unstubAllEnvs()
     }
   })

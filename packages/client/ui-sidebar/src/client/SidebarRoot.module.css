@@ -5,13 +5,9 @@
    while the sliding column (AppFrame grid tracks) clips it; the rail layout
    (.collapsed) only applies after the fade settles, so nothing reflows
    mid-slide. */
-/**
- * 文件职责：定义 SidebarRoot 的样式与设计变量。
- * 技术维度：CSS、CSS Modules、主题变量和浏览器滚动条选择器。
- * 产品维度：保持侧栏在不同主题和平台下清晰一致。
- * 逻辑维度：按变量、容器、内容、交互和状态组织规则。
- * 关键边界：全局样式影响整个应用；局部类名须与组件同步。
- * 新手阅读建议：先看变量层，再对照组件和状态选择器。
+
+/*
+ * 【文件职责】定义侧栏列及折叠时的滑动与淡入淡出，展开内容的布局尺寸在动画中保持稳定。
  */
 
 .root {
@@ -198,6 +194,7 @@
   height: 28px;
   border: none;
   border-radius: 50%;
+  corner-shape: round;
   padding: 0;
   background: transparent;
   cursor: pointer;
@@ -268,7 +265,7 @@
   padding: 8px 16px;
   margin: 0 2px 8px;
   box-sizing: border-box;
-  border: 1px solid var(--dsw-alias-border-l2);
+  border: 0.5px solid var(--dsw-alias-border-l3);
   border-radius: 12px;
   background: var(--dsw-alias-button-elevated-fill);
   color: var(--dsw-alias-label-primary);

@@ -17,11 +17,11 @@
  * 新手阅读建议：先看夹具和公开类型，再读正常流程，最后关注中文输入、失败与清理场景。
  */
 
-import { mkdirSync, mkdtempSync, realpathSync, symlinkSync, writeFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { spawnSync } from 'node:child_process'
-import { describe, expect, it } from 'vitest'
+import { afterAll, afterEach, describe, expect, it } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
 import { PwshLocalExecutor, ENCODING_PREAMBLE, candidatePwshPaths, resolvePwshPath } from '@deepseek-ai/dsh-pwsh-local'
 import LocalSubprocessRuntime from '@deepseek-ai/dsh-subprocess-local'
@@ -32,6 +32,16 @@ import type { ShellProcess } from '@deepseek-ai/dsh-shell'
 
 /** 中文说明：变量 spillDir 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const spillDir = mkdtempSync(join(tmpdir(), 'dsh-pwsh-exec-spec-'))
+
+afterAll(() => {
+  rmSync(spillDir, { recursive: true, force: true })
+})
+
+/** Per-test temp dirs, removed after each test. */
+const tempDirs: string[] = []
+afterEach(() => {
+  for (const dir of tempDirs.splice(0)) rmSync(dir, { recursive: true, force: true })
+})
 
 // The probe follows the executor's own resolution (Program Files installs on
 // Windows are found even when bare `pwsh` is not on PATH).
@@ -135,7 +145,7 @@ describe('resolvePwshPath and candidatePwshPaths (pure, every platform)', () => 
   it('returns the first EXISTING win32 candidate, else pwsh', () => {
     /** 中文说明：变量 dir 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const dir = mkdtempSync(join(tmpdir(), 'dsh-pwsh-resolve-'))
-    /** 中文说明：变量 store 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
+    tempDirs.push(dir)
     const store = join(dir, 'store')
     mkdirSync(store, { recursive: true })
     writeFileSync(join(store, 'pwsh.exe'), '')
@@ -154,7 +164,7 @@ describe('resolvePwshPath and candidatePwshPaths (pure, every platform)', () => 
     // dangling symlink reproduces that split on every platform.
     /** 中文说明：变量 dir 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const dir = mkdtempSync(join(tmpdir(), 'dsh-pwsh-resolve-link-'))
-    /** 中文说明：变量 store 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
+    tempDirs.push(dir)
     const store = join(dir, 'store')
     mkdirSync(store, { recursive: true })
     /** 中文说明：变量 link 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
@@ -167,7 +177,7 @@ describe('resolvePwshPath and candidatePwshPaths (pure, every platform)', () => 
   it('skips a directory candidate and falls through to the PATH-resolution default', () => {
     /** 中文说明：变量 dir 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const dir = mkdtempSync(join(tmpdir(), 'dsh-pwsh-resolve-dir-'))
-    /** 中文说明：变量 store 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
+    tempDirs.push(dir)
     const store = join(dir, 'store')
     mkdirSync(join(store, 'pwsh.exe'), { recursive: true })
     expect(resolvePwshPath(undefined, {
@@ -234,6 +244,7 @@ describe.skipIf(!hasPwsh)('PwshLocalExecutor.run', () => {
     const first = mkdtempSync(join(tmpdir(), 'dsh-pwsh-cwd-a-'))
     /** 中文说明：变量 second 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const second = mkdtempSync(join(tmpdir(), 'dsh-pwsh-cwd-b-'))
+    tempDirs.push(first, second)
     const { bash } = await setup({ cwd: first })
     /** 中文说明：变量 fromConfig 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const fromConfig = await bash.run(bash.resolve({ command: '(Get-Location).Path' }))

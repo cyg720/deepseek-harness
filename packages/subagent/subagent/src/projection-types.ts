@@ -1,24 +1,16 @@
-/*
- * ================================ 文件注释 ================================
- * 【文件职责】纯类型、客户端安全的子代理投影词汇：子代理"身份"（模式 + 创建标签）与
- *   "进行中回合耗时"两个投影值的形状定义，并通过声明合并挂进 SessionProjectionMap。
- * 【技术维度】无任何运行时逻辑的类型模块；使用声明合并扩展
- *   @deepseek-ai/dsh-session-projection 的投影注册表映射。
- * 【产品维度】会话投影（projection）是"从会话日志折叠出的持久摘要"，这里定义子代理相关摘要的
- *   形状，供枚举子代理（list-children）与 API 代理在浏览器端复用同一套类型。
- * 【逻辑维度】按代码顺序：SubagentTimingProjection（耗时）→ SubagentIdentityProjection（身份，区分
- *   one-shot/continuable 两臂）→ 声明合并把两者注册进 SessionProjectionMap。
- * 【关键边界】identity 的 seq 字段用于证明身份来自子代理"自己的日志后缀"而非 fork seed 回放；
- *   null 哨兵表示"无有效描述符"，可被 JSON 无损序列化。
- * 【新手阅读建议】先读 SubagentIdentityProjection 的 union 两臂，再看 projection.ts 如何折叠产生它。
- * ==========================================================================
- */
+
 
 /**
  * Pure client-safe subagent projection vocabulary.
  *
  * @module @deepseek-ai/dsh-subagent/projection-types
  */
+
+/*
+ * 【文件职责】声明浏览器安全的子 Agent 投影数据，包括描述符所关联子会话的活动轮次计时。
+ */
+
+import type { SessionSeq } from '@deepseek-ai/dsh-session/types'
 
 /** Durable active-turn timing for one descriptor-backed child session. */
 // 中文：子代理"进行中回合耗时"投影：settledMs 是已结束回合累计的毫秒数，
@@ -52,11 +44,11 @@ export type SubagentIdentityProjection =
     label?: string
     /**
      * Seq of the `subagent/descriptor` event this identity was folded from.
-     * `seq >= header.seedLength` proves the identity comes from the child's
+     * `session.isOwnSeq(seq)` proves the identity comes from the child's
      * OWN log suffix — where a descriptor is immutable once appended — and
      * not from a fork seed's replayed ancestor descriptor.
      */
-    seq: number
+    seq: SessionSeq
   }
   | {
     /** A resumable conversation. */
@@ -64,7 +56,7 @@ export type SubagentIdentityProjection =
     /** Durable creation label from the child's descriptor. */
     label: string
     /** Seq of the folded descriptor event; see the one-shot arm for the own-suffix proof. */
-    seq: number
+    seq: SessionSeq
   }
 
 // 中文：声明合并：把两个子代理投影键注册进 SessionProjectionMap，

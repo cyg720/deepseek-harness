@@ -30,8 +30,7 @@ describe.skipIf(!process.env.DEEPSEEK_API_KEY)('spawn backend with-key smoke', (
     workdir = await mkdtemp(join(tmpdir(), 'dsh-subagent-spawn-e2e-'))
     /** 装载在临时工作区上的真实 Harness 上下文。 */
     ctx = await spawnHarness(workdir)
-    /** 使用真实 DeepSeek 模型创建的父代理。 */
-    const parent = ctx.agentLoop.create(SessionId('e2e-parent'), { provider: 'deepseek-official', model: 'deepseek-v4-flash' })
+    const parent = await ctx.agentLoop.create(SessionId('e2e-parent'), { provider: 'deepseek-official', model: 'deepseek-v4-flash' })
 
     parent.followup(createUserMessage({
       content: [{ type: 'text', text:
@@ -48,10 +47,7 @@ describe.skipIf(!process.env.DEEPSEEK_API_KEY)('spawn backend with-key smoke', (
 
     // The parent's log records the subagent tool/call + its result (not the
     // child's internal steps).
-    // 中文：父会话只记录子代理工具调用及结果，不包含子会话内部步骤。
-    /** 父会话事件的稳定数组副本。 */
-    const events = [...parent.session.events]
-    /** 父会话中名称为 subagent 的工具调用事件。 */
+    const events = parent.session.snapshotEvents()
     const subagentCalls = events.filter(e => e.type === 'tool/call' && e.data.name === 'subagent')
     expect(subagentCalls.length).toBeGreaterThan(0)
   }, 180_000)

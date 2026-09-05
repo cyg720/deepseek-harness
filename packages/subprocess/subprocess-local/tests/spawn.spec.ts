@@ -1,15 +1,8 @@
-/**
- * 文件职责：验证 spawn.spec.ts 覆盖的子进程管理行为与生命周期。
- * 技术维度：使用 TypeScript、Vitest、Cordis 插件、进程流、终端会话或快照规范化。
- * 产品维度：保障 Agent 的子进程管理能力稳定、可复现且可诊断。
- * 逻辑维度：准备输入和资源，执行核心流程，收集事件或输出，再处理错误与清理。
- * 关键边界：进程退出与取消可能竞态；外部输出不可信；清理必须等待子资源完全停止。
- * 新手阅读建议：先看类型和夹具，再读启动/收集主流程，最后关注平台差异、规范化和清理。
- */
-import { mkdtempSync, readFileSync, statSync, unlinkSync } from 'node:fs'
+import { spawn as nodeSpawn, spawnSync as nodeSpawnSync } from 'node:child_process'
+import { mkdtempSync, readFileSync, rmSync, statSync, unlinkSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
-import { describe, expect, it, vi } from 'vitest'
+import { afterAll, describe, expect, it, vi } from 'vitest'
 import {
   childEnv,
   killGroup,
@@ -19,6 +12,11 @@ import {
 } from '../src/spawn.ts'
 import type { SubprocessHandle, SubprocessOutputReader } from '@deepseek-ai/dsh-subprocess'
 import { MAX_TIMER_DELAY_MS } from '@deepseek-ai/dsh-timeout'
+
+vi.mock('node:child_process', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('node:child_process')>()
+  return { ...actual, spawnSync: vi.fn(actual.spawnSync) }
+})
 
 /**
  * Translate the suite's POSIX command strings into node one-liners on Windows,
@@ -94,7 +92,14 @@ vi.mock('node:fs', async (importOriginal) => {
 /** 中文说明：变量 spillDir 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
 const spillDir = mkdtempSync(join(tmpdir(), 'dsh-subprocess-spec-'))
 
-/** 中文说明：type SpecOverrides 定义本测试所需的数据或行为，用于表达子进程管理场景。 */
+/** The per-process default spill dir captured by the default-spill test. */
+let defaultSpillDir: string | undefined
+
+afterAll(() => {
+  rmSync(spillDir, { recursive: true, force: true })
+  if (defaultSpillDir !== undefined) rmSync(defaultSpillDir, { recursive: true, force: true })
+})
+
 type SpecOverrides = Partial<Parameters<typeof spawnSubprocess>[0]> & {
   stdoutMaxBytes?: number
   stderrMaxBytes?: number
@@ -735,6 +740,30 @@ describe('stdio dispositions', () => {
 })
 
 describe('windows tree semantics (injected platform)', () => {
+  it('hides the child window without changing output, exit, stdio, or tree-root options', async () => {
+    let options: Parameters<typeof nodeSpawn>[2]
+    const result = await finish(spawnSubprocess(spec('echo hello'), {
+      spillDir,
+      platform: 'win32',
+      spawn: (program, args, spawnOptions) => {
+        options = spawnOptions
+        return nodeSpawn(program, args, spawnOptions)
+      },
+    }))
+
+    expect(options!).toMatchObject({
+      windowsHide: true,
+      detached: false,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    })
+    expect(result).toMatchObject({
+      exitCode: 0,
+      signal: null,
+      stdout: { text: 'hello\n', truncated: false },
+      stderr: { text: '', truncated: false },
+    })
+  })
+
   it('host-exit termination routes through taskkill immediately', async () => {
     /** 中文说明：变量 killed 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const killed: number[] = []
@@ -903,6 +932,17 @@ describe.skipIf(process.platform === 'win32')('tree-survivor escalation (termina
 })
 
 describe('coverage seams', () => {
+  it('hides the taskkill helper window', () => {
+    const taskkill = vi.mocked(nodeSpawnSync)
+    taskkill.mockReturnValueOnce({} as never)
+    taskkillProcessTree(77)
+    expect(taskkill).toHaveBeenLastCalledWith(
+      'taskkill',
+      ['/PID', '77', '/T', '/F'],
+      { stdio: 'ignore', windowsHide: true },
+    )
+  })
+
   it('taskkillProcessTree ignores non-positive pids and contains a missing binary', () => {
     expect(() => { taskkillProcessTree(-1) }).not.toThrow()
     expect(() => { taskkillProcessTree(0) }).not.toThrow()
@@ -1260,6 +1300,7 @@ describe('environment and spill-file hardening', () => {
     ))
     /** 中文说明：变量 dir 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const dir = dirname(result.stdout.spillPath!)
+    defaultSpillDir = dir
     expect(dir).toMatch(/dsh-subprocess-/)
     /** 中文说明：变量 mode 保存本测试当前步骤所需的数据；取值由紧邻初始化或后续赋值决定。 */
     const mode = statSync(dir).mode & 0o777
