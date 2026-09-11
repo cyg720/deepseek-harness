@@ -1,0 +1,18 @@
+test_build_pair_and_manifest (__main__.BuildTests.test_build_pair_and_manifest) ... ok
+test_crlf_normalised (__main__.BuildTests.test_crlf_normalised) ... ok
+test_csp_hash_matches_runtime (__main__.BuildTests.test_csp_hash_matches_runtime) ... ok
+test_embedded_json_does_not_close_script (__main__.BuildTests.test_embedded_json_does_not_close_script) ... ok
+test_html_roundtrip (__main__.BuildTests.test_html_roundtrip) ... ok
+test_malformed_metadata_rejected (__main__.BuildTests.test_malformed_metadata_rejected) ... ok
+test_markdown_roundtrip (__main__.BuildTests.test_markdown_roundtrip) ... ok
+test_non_iso_time_rejected (__main__.BuildTests.test_non_iso_time_rejected) ... ok
+test_output_conflicts_preserve_original (__main__.BuildTests.test_output_conflicts_preserve_original) ... ok
+test_oversized_input_rejected (__main__.BuildTests.test_oversized_input_rejected) ... ok
+test_source_not_overwritten_even_with_force (__main__.BuildTests.test_source_not_overwritten_even_with_force) ... ok
+test_unknown_schema_rejected (__main__.BuildTests.test_unknown_schema_rejected) ... ok
+test_unsafe_id_rejected (__main__.BuildTests.test_unsafe_id_rejected) ... ok
+
+----------------------------------------------------------------------
+Ran 13 tests in 0.033s
+
+OK

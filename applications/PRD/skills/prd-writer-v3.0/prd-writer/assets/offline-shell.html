@@ -1,0 +1,229 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="__CSP__">
+<title>PRD · 离线工作台</title>
+<style>
+:root{color-scheme:light;--bg:#f4f6fa;--paper:#fff;--ink:#1d293e;--muted:#65738b;--line:#e1e7f0;--accent:#435bd8;--soft:#eef1ff;--nav:#15243b;--navtext:#c2cde0;--warn:#775b12;--warnbg:#fff6da;--shadow:0 5px 22px #1c335a08}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.75 system-ui,-apple-system,"Segoe UI","Microsoft YaHei","Noto Sans CJK SC",sans-serif}button,input,textarea,select{font:inherit}button{cursor:pointer}button:disabled{cursor:not-allowed;opacity:.5}a{color:var(--accent);text-underline-offset:3px}button,a,input,textarea,select{outline-offset:4px}button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-visible{outline:3px solid #758cf7}button{border:1px solid var(--line);background:var(--paper);color:var(--ink);padding:7px 12px;border-radius:8px;line-height:1.5;white-space:nowrap}button:hover{border-color:var(--accent);color:var(--accent)}button.primary{background:var(--accent);color:white;border-color:var(--accent)}button.ghost{background:transparent;border-color:transparent;color:var(--muted)}button.small{font-size:12px;padding:5px 9px}.skip{position:fixed;left:12px;top:-90px;z-index:99;background:white;padding:10px}.skip:focus{top:10px}.layout{display:grid;grid-template-columns:256px minmax(0,1fr);min-height:100vh}
+.sidebar{background:var(--nav);color:var(--navtext);position:sticky;top:0;height:100vh;padding:30px 18px 20px;display:flex;flex-direction:column;gap:20px;overflow:auto}.brand{display:flex;align-items:center;gap:11px;color:white;padding:0 10px}.brandmark{width:36px;height:36px;display:grid;place-items:center;background:#8092ff;border-radius:11px;color:#15243b;font-size:23px;font-weight:800}.brand strong{font-size:17px;letter-spacing:.4px}.brand small{display:block;font-size:11px;letter-spacing:1.6px;color:#96a9c9;line-height:1.6}.searchbox{padding:0 6px}.searchbox label{display:block;font-size:11px;color:#99abc6;margin-bottom:6px;letter-spacing:1px}.searchbox input{width:100%;background:#22334d;color:white;border:1px solid #354863;border-radius:8px;padding:10px 12px;font-size:13px}.searchbox input::placeholder{color:#99abc6}.searchcount{font-size:11px;min-height:20px;margin-top:4px;color:#99abc6}.navlabel{font-size:10px;letter-spacing:2px;color:#8398b7;margin:0 10px 5px}.toc{display:flex;flex-direction:column;gap:3px}.toc a{display:block;text-decoration:none;color:var(--navtext);font-size:12px;border-radius:7px;padding:8px 10px;line-height:1.5;border-left:2px solid transparent}.toc a:hover,.toc a.active{background:#293c59;border-left-color:#91a0ff;color:white}.sidefoot{margin-top:auto;border-top:1px solid #34425a;padding:16px 8px 0;font-size:11px;color:#91a5c3}.sidefoot strong{color:#d3dff3;display:block;font-size:12px;margin-bottom:4px}
+.workbench{min-width:0}.topbar{position:sticky;top:0;z-index:5;background:var(--paper);border-bottom:1px solid var(--line);padding:14px 28px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}.crumb{font-size:12px;color:var(--muted)}.crumb strong{color:var(--ink)}.actions{display:flex;gap:7px;align-items:center;flex-wrap:wrap}.actions button{font-size:12px}.mobilemenu{display:none}.mainwrap{max-width:1450px;margin:auto;padding:32px 36px 60px}.eyebrow{font-size:11px;letter-spacing:2px;font-weight:700;color:var(--accent);margin-bottom:8px}.hero h1{font-size:30px;line-height:1.4;margin:0 0 12px;letter-spacing:-.5px;overflow-wrap:anywhere}.metarow{display:flex;gap:9px;flex-wrap:wrap;font-size:11px;margin:10px 0 20px}.badge{border:1px solid var(--line);background:var(--paper);color:var(--muted);padding:3px 9px;border-radius:99px;overflow-wrap:anywhere;max-width:100%}.badge.blue{color:var(--accent);background:var(--soft);border-color:#d8deff}.notice{display:flex;align-items:center;justify-content:space-between;gap:12px;border:1px solid var(--line);background:var(--paper);border-radius:10px;padding:10px 14px;font-size:12px;margin-bottom:18px;color:var(--muted);flex-wrap:wrap}.notice.warn{background:var(--warnbg);border-color:#ebdea9;color:var(--warn)}.cachecontrols{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.cachecontrols label{display:flex;align-items:center;gap:5px}.viewbar{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin:24px 0 16px}.tabs{display:flex;background:#e9edf5;border-radius:9px;padding:3px;gap:3px}.tabs button{border:0;background:none;font-size:12px;padding:7px 14px;color:var(--muted)}.tabs button.active{background:var(--paper);color:var(--ink);box-shadow:0 1px 5px #182c5010}.viewtools{display:flex;gap:6px;align-items:center;font-size:11px;color:var(--muted)}.contentgrid{display:grid;grid-template-columns:minmax(0,1fr);gap:20px;align-items:start}.contentgrid.editing{grid-template-columns:minmax(280px,.92fr) minmax(0,1fr)}.sourcepanel{position:sticky;top:90px;min-width:0;background:var(--paper);border:1px solid var(--line);border-radius:12px;overflow:hidden}.sourcehead{padding:12px 14px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;gap:8px;font-size:12px}.sourcepanel textarea{width:100%;height:66vh;border:0;resize:vertical;padding:18px;background:var(--paper);color:var(--ink);font:13px/1.8 ui-monospace,"SFMono-Regular",Consolas,monospace;tab-size:2;display:block;min-height:260px}.sourcehint{font-size:11px;color:var(--muted);padding:9px 14px;border-top:1px solid var(--line)}.article{min-width:0}.section{background:var(--paper);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow);margin-bottom:18px;scroll-margin-top:100px;overflow:hidden}.sectionbar{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:18px 24px;border-bottom:1px solid var(--line);background:linear-gradient(120deg,var(--paper),var(--bg))}.sectionbar h2{font-size:17px;margin:0;font-weight:700;line-height:1.5;min-width:0;overflow-wrap:anywhere}.sectiontools{display:flex;gap:3px;flex-shrink:0}.sectionbody{padding:4px 24px 20px;overflow-wrap:anywhere}.sectionbody h1{font-size:24px}.sectionbody h2{font-size:20px}.sectionbody h3{font-size:16px;margin:22px 0 8px}.sectionbody h4,.sectionbody h5,.sectionbody h6{font-size:14px;margin:18px 0 7px}.sectionbody p{margin:12px 0}.sectionbody ul,.sectionbody ol{padding-left:24px;margin:12px 0}.sectionbody li{margin:5px 0}.sectionbody blockquote{margin:16px 0;padding:10px 15px;border-left:3px solid #8899f3;background:var(--soft);color:var(--ink);font-size:13px}.sectionbody blockquote p{margin:3px 0}.sectionbody code{font:12px/1.7 ui-monospace,"SFMono-Regular",Consolas,monospace;background:var(--bg);padding:2px 5px;border-radius:4px;word-break:break-word}.codewrap{margin:16px 0;border:1px solid var(--line);border-radius:9px;overflow:hidden}.codehead{display:flex;justify-content:space-between;align-items:center;padding:7px 12px;background:var(--bg);font-size:10px;letter-spacing:.4px;color:var(--muted)}pre{margin:0;padding:15px;overflow:auto;max-width:100%;background:var(--paper)}.sectionbody pre code{white-space:pre;padding:0;background:none;word-break:normal;line-height:1.8}.tablewrap{max-width:100%;overflow:auto;margin:14px 0;border:1px solid var(--line);border-radius:8px}table{width:100%;border-collapse:collapse;font-size:12px;line-height:1.7}th,td{padding:10px 12px;vertical-align:top;text-align:left;border-bottom:1px solid var(--line);min-width:90px;max-width:380px;overflow-wrap:anywhere}th{background:var(--bg);font-weight:600;color:var(--muted)}tbody tr:last-child td{border-bottom:0}tbody tr:hover{background:var(--bg)}hr{border:0;border-top:1px solid var(--line);margin:22px 0}.taskitem{list-style:none;margin-left:-20px!important}.taskitem label{display:flex;align-items:baseline;gap:8px}.taskitem input{accent-color:var(--accent);transform:translateY(1px)}.empty{padding:50px 20px;text-align:center;color:var(--muted);background:var(--paper);border-radius:12px;border:1px dashed var(--line)}.footer{color:var(--muted);font-size:11px;display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-top:20px}.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#1c2e48;color:white;padding:12px 20px;border-radius:10px;box-shadow:0 6px 25px #0003;z-index:50;font-size:13px;max-width:90vw;max-height:30vh;overflow:auto}dialog{border:1px solid var(--line);border-radius:15px;padding:0;background:var(--paper);color:var(--ink);width:min(850px,92vw);max-height:90vh;box-shadow:0 30px 100px #0003}dialog::backdrop{background:#0e203d88;backdrop-filter:blur(3px)}.dialoghead{padding:18px 22px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;gap:12px}.dialoghead h2{font-size:17px;margin:0}.dialogbody{padding:20px 22px;max-height:66vh;overflow:auto}.dialogbody label{font-size:12px;display:block;margin:0 0 5px;color:var(--muted)}.dialogbody input,.dialogbody select,.dialogbody textarea{width:100%;padding:10px;border:1px solid var(--line);border-radius:8px;background:var(--paper);color:var(--ink);margin-bottom:14px}.dialogbody textarea{min-height:180px;resize:vertical}.dialogbody .codearea{font:13px/1.8 ui-monospace,Consolas,monospace;height:45vh}.dialogfoot{border-top:1px solid var(--line);padding:14px 22px;display:flex;justify-content:flex-end;gap:8px}.dialoghint{font-size:12px;color:var(--muted);margin:0 0 12px}.recovery{margin-bottom:16px}.hidden,[hidden]{display:none!important}body.dark{color-scheme:dark;--bg:#111b2b;--paper:#1b293c;--ink:#e2e9f5;--muted:#a1b0c6;--line:#344358;--accent:#a7b5ff;--soft:#293756;--warn:#f2d18e;--warnbg:#3c3427;--shadow:none}body.dark button.primary{background:#586ccb;color:white}body.dark .tabs{background:#26364c}body.dark .badge.blue{border-color:#4d5f8c}
+@media(min-width:1650px){.mainwrap{padding:40px 50px 70px}}
+@media(max-width:1120px){.layout{grid-template-columns:225px minmax(0,1fr)}.mainwrap{padding:25px 24px 50px}.topbar{padding:12px 22px}.contentgrid.editing{grid-template-columns:minmax(0,1fr)}.sourcepanel{position:relative;top:0}.sourcepanel textarea{height:42vh}.hero h1{font-size:26px}}
+@media(max-width:760px){.layout{display:block}.sidebar{display:none;position:fixed;left:0;top:0;width:260px;z-index:20;height:100dvh;box-shadow:15px 0 70px #0005}.sidebar.open{display:flex}.mobilemenu{display:inline-block}.topbar{padding:10px 12px;gap:9px}.crumb{flex:1}.actions{gap:5px;width:100%}.actions button{font-size:11px;padding:6px 9px}.mainwrap{padding:22px 14px 45px}.hero h1{font-size:23px}.sectionbar{padding:14px;gap:8px}.sectionbar h2{font-size:15px}.sectionbody{padding:0 14px 14px}.sectiontools button{font-size:10px;padding:5px}.sectiontools{gap:0}.notice{padding:10px 12px}.viewbar{margin-top:16px}.viewtools{flex-wrap:wrap}.badge{font-size:10px}.section{scroll-margin-top:150px}th,td{padding:9px 10px}dialog{width:96vw}.dialogbody{padding:16px}.footer{line-height:1.8}}
+@media print{body{background:white;color:black;font-size:11pt}.layout{display:block}.sidebar,.topbar,.viewbar,.notice,.sourcepanel,.sectiontools,.toast,dialog,.skip,.codehead button,.footer button{display:none!important}.mainwrap{padding:0;max-width:none}.contentgrid,.contentgrid.editing{display:block}.section{border:0;border-radius:0;box-shadow:none;overflow:visible;break-inside:auto}.section[hidden]{display:block!important}.sectionbar{background:none;padding:12px 0 6px;border-bottom:1px solid #bbb;break-after:avoid}.sectionbody{padding:0}.tablewrap{overflow:visible;max-width:none;border:0}.hero h1{font-size:23pt}.metarow{margin-bottom:12px}table{font-size:9pt;width:100%;table-layout:fixed}th,td{min-width:0;max-width:none;padding:5px;word-break:break-word}thead{display:table-header-group}tr{break-inside:avoid}pre,.sectionbody pre code{white-space:pre-wrap;word-break:break-all}.codewrap{break-inside:avoid}a{color:black;text-decoration:none}@page{margin:16mm}}
+</style>
+</head>
+<body>
+<a class="skip" href="#article">跳到正文</a>
+<div class="layout">
+<aside class="sidebar" id="sidebar" aria-label="文档导航">
+ <div class="brand"><span class="brandmark" aria-hidden="true">P</span><div><strong>PRD 工作台</strong><small>OFFLINE · EDITABLE</small></div></div>
+ <div class="searchbox"><label for="search">全文查找</label><input id="search" type="search" placeholder="搜索需求、字段、关键词…" autocomplete="off"><div class="searchcount" id="searchcount" aria-live="polite"></div></div>
+ <div><p class="navlabel">文档目录 / CONTENTS</p><nav class="toc" id="toc" aria-label="章节目录"></nav></div>
+ <div class="sidefoot"><strong>内容留在当前设备</strong>无需联网 · 无第三方运行时<br>修改后请显式导出保存。<br>本地批注不等于正式签署。</div>
+</aside>
+<div class="workbench">
+ <header class="topbar"><button class="mobilemenu" id="menuBtn" aria-controls="sidebar" aria-expanded="false">目录</button><div class="crumb">需求文档 <span aria-hidden="true"> / </span> <strong>离线阅读与评审</strong></div><div class="actions"><button id="importBtn">导入 MD / 快照</button><button id="exportMdBtn">导出 MD</button><button id="exportHtmlBtn">导出 HTML</button><button class="primary" id="exportBundleBtn">导出双格式包</button></div></header>
+ <main class="mainwrap" id="main">
+ <div class="hero"><div class="eyebrow">ONE SOURCE · TWO FORMATS</div><h1 id="docTitle">加载文档…</h1><div class="metarow"><span class="badge blue">离线交互版</span><span class="badge" id="versionBadge"></span><span class="badge" id="revisionBadge"></span><span class="badge" id="idBadge"></span></div></div>
+ <div class="notice"><div id="saveStatus" role="status" aria-live="polite">尚未修改；本地缓存默认关闭。</div><div class="cachecontrols"><label><input id="cacheOpt" type="checkbox">启用本机草稿</label><button class="small ghost" id="clearCacheBtn">清除草稿</button></div></div>
+ <div class="notice warn recovery" id="recovery" hidden><span id="recoveryText"></span><div class="actions"><button class="small" id="restoreBtn">恢复草稿</button><button class="small ghost" id="dismissRestoreBtn">暂不恢复</button></div></div>
+ <div class="viewbar"><div class="tabs" role="group" aria-label="视图"><button class="active" id="readBtn" aria-pressed="true">阅读与评审</button><button id="editBtn" aria-pressed="false">Markdown 编辑</button></div><div class="viewtools"><span id="docStats"></span><button class="small ghost" id="reviewBtn">＋ 添加批注</button><button class="small ghost" id="themeBtn">深色</button><button class="small ghost" id="printBtn">打印</button></div></div>
+ <div class="contentgrid" id="contentgrid"><div class="sourcepanel" id="sourcepanel" hidden><div class="sourcehead"><strong>Markdown · 唯一正文</strong><button class="small ghost" id="resetBtn">恢复打开时正文</button></div><label class="hidden" for="source">完整 Markdown 正文</label><textarea id="source" spellcheck="false" aria-label="完整 Markdown 正文"></textarea><div class="sourcehint">直接修改；预览自动更新。业务批准与验收结果仍需真实证据。</div></div><article class="article" id="article" tabindex="-1" aria-label="文档正文"></article></div>
+ <footer class="footer"><span>文档编辑 ≠ 执行测试 ≠ 正式验收。多人同步与云端保存未启用。</span><button class="small ghost" id="snapshotBtn">导出工作区快照 JSON</button></footer>
+ </main>
+</div>
+</div>
+<input id="fileInput" type="file" accept=".md,.markdown,.json,text/markdown,application/json" hidden>
+<div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+<dialog id="editDialog" aria-labelledby="editDialogTitle"><div class="dialoghead"><h2 id="editDialogTitle">编辑章节</h2><button class="ghost" id="closeEditBtn" aria-label="关闭章节编辑">关闭</button></div><div class="dialogbody"><p class="dialoghint">修改写回 Markdown 正文；取消不会应用当前弹窗的改动。</p><textarea class="codearea" id="sectionSource" spellcheck="false" aria-label="章节 Markdown"></textarea></div><div class="dialogfoot"><button id="cancelEditBtn">取消</button><button class="primary" id="applyEditBtn">应用到正文</button></div></dialog>
+<dialog id="reviewDialog" aria-labelledby="reviewDialogTitle"><div class="dialoghead"><h2 id="reviewDialogTitle">添加评审批注</h2><button class="ghost" id="closeReviewBtn" aria-label="关闭批注窗口">关闭</button></div><div class="dialogbody"><p class="dialoghint">批注写入文末可读附录，随 MD 和 HTML 一起导出。填写人身份未经过验证。</p><label for="reviewTarget">关联章节</label><select id="reviewTarget"></select><label for="reviewRef">关联需求编号（可选）</label><input id="reviewRef" placeholder="例如 BR-01 / AC-01-02" maxlength="100"><label for="reviewAuthor">填写人（可选，未验证身份）</label><input id="reviewAuthor" placeholder="未署名" maxlength="80"><label for="reviewText">批注内容</label><textarea id="reviewText" placeholder="描述问题、影响或修改建议…" maxlength="10000"></textarea></div><div class="dialogfoot"><button id="cancelReviewBtn">取消</button><button class="primary" id="addReviewBtn">写入评审记录</button></div></dialog>
+<noscript>此页面的互动能力需要启用 JavaScript。请使用同包 Markdown 阅读完整正文。</noscript>
+<script id="prd-data" type="application/json">__PRD_DATA__</script>
+<script id="prd-runtime">
+'use strict';
+(() => {
+// The original, pre-rendered shell is retained. Exports replace data, never scrape rendered prose.
+const shell = document.documentElement.cloneNode(true);
+const $ = id => document.getElementById(id);
+const MAX_BYTES = 5 * 1024 * 1024;
+const PREFIX = 'prd-writer:v3:';
+const encoder = new TextEncoder();
+const clone = value => JSON.parse(JSON.stringify(value));
+const safeJSON = value => JSON.stringify(value).replace(/</g,'\\u003c').replace(/>/g,'\\u003e').replace(/&/g,'\\u0026').replace(/\u2028/g,'\\u2028').replace(/\u2029/g,'\\u2029');
+const normalise = s => s.replace(/\r\n?/g,'\n');
+function validTimestamp(value) {
+ if(typeof value!=='string')return false;
+ const m=value.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.\d{1,6})?(?:Z|[+-]\d{2}:\d{2})$/);
+ if(!m||!Number.isFinite(Date.parse(value)))return false;
+ const [year,month,day,hour,minute,second]=m.slice(1).map(Number);
+ const leap=year%4===0&&(year%100!==0||year%400===0);
+ const days=[31,leap?29:28,31,30,31,30,31,31,30,31,30,31];
+ return year>=1&&month>=1&&month<=12&&day>=1&&day<=days[month-1]&&hour<24&&minute<60&&second<60;
+}
+function validate(raw) {
+ if (!raw || Array.isArray(raw) || typeof raw !== 'object') throw Error('工作区必须是 JSON 对象。');
+ if (raw.schemaVersion !== 1) throw Error('不支持的 schemaVersion；需要版本 1。');
+ if (typeof raw.docId !== 'string' || !/^[a-zA-Z0-9._:-]{1,100}$/.test(raw.docId)) throw Error('文档 ID 不合法。');
+ if (typeof raw.version !== 'string' || raw.version.length > 80) throw Error('文档版本不合法。');
+ if (!Number.isSafeInteger(raw.revision) || raw.revision < 0) throw Error('修订号不合法。');
+ if (!validTimestamp(raw.updatedAt)) throw Error('更新时间不合法。');
+ if (typeof raw.markdown !== 'string' || encoder.encode(raw.markdown).length > MAX_BYTES) throw Error('正文缺失或超过 5 MiB。');
+ return {schemaVersion:1,docId:raw.docId,version:raw.version,revision:raw.revision,updatedAt:raw.updatedAt,markdown:normalise(raw.markdown)};
+}
+let state;
+try { state = validate(JSON.parse($('prd-data').textContent)); }
+catch (error) { $('docTitle').textContent = '文档数据无法加载'; $('saveStatus').textContent = error.message; return; }
+let baseline = clone(state), sections = [], timer, toastTimer, editTarget = null, editBase = '', cacheEnabled = false, cacheMessage = '', cacheCandidate = null, lastSeenCache = null, lastExport = -1;
+const titleOf = s => (s.markdown.match(/^#\s+(.+)$/m) || [null,'未命名 PRD'])[1].trim();
+const dirty = () => state.markdown !== baseline.markdown;
+const cacheKey = () => PREFIX + baseline.docId + ':' + baseline.revision;
+function notify(message) { $('toast').textContent = message; $('toast').hidden = false; clearTimeout(toastTimer); toastTimer = setTimeout(() => {$('toast').hidden = true;},5000); }
+function node(tag, text, className) { const e = document.createElement(tag); if(text !== undefined)e.textContent=text; if(className)e.className=className; return e; }
+function hash(s) {let h=2166136261;for(let i=0;i<s.length;i++){h^=s.charCodeAt(i);h=Math.imul(h,16777619);}return (h>>>0).toString(36);}
+function safeLink(href) { return !/[\u0000-\u0020\u007f]/.test(href) && /^(https?:\/\/|mailto:|#)/i.test(href); }
+function inline(parent, text, depth=0) {
+ if(depth>4){parent.append(document.createTextNode(text));return;}
+ const pattern=/(`+)([^`\n]+?)\1|\*\*([^*\n]+)\*\*|__([^_\n]+)__|!\[([^\]\n]*)\]\(([^)\n]*)\)|\[([^\]\n]+)\]\(([^)\n]*)\)|\*([^*\n]+)\*/g;
+ let last=0,m;
+ while((m=pattern.exec(text))!==null){
+  parent.append(document.createTextNode(text.slice(last,m.index)));
+  if(m[1]) parent.append(node('code',m[2]));
+  else if(m[3]||m[4]){const b=node('strong');inline(b,m[3]||m[4],depth+1);parent.append(b);}
+  else if(m[5]!==undefined)parent.append(node('span','[图片：'+(m[5]||'未命名')+'；离线版不自动加载]'));
+  else if(m[7]!==undefined){if(safeLink(m[8])){const a=node('a');a.setAttribute('href',m[8]);inline(a,m[7],depth+1);if(!m[8].startsWith('#')){a.target='_blank';a.rel='noopener noreferrer';a.dataset.external='true';}parent.append(a);}else parent.append(document.createTextNode(m[7]+' [已禁用不安全链接]'));}
+  else {const em=node('em');inline(em,m[9],depth+1);parent.append(em);}
+  last=pattern.lastIndex;
+ }
+ parent.append(document.createTextNode(text.slice(last).replace(/\\([|*`_])/g,'$1')));
+}
+function splitCells(line){
+ let s=line.trim();if(s.startsWith('|'))s=s.slice(1);if(s.endsWith('|')&&!s.endsWith('\\|'))s=s.slice(0,-1);
+ const cells=[];let cur='',escaped=false,code=false;
+ for(const c of s){if(escaped){cur+=c==='|'?'|':'\\'+c;escaped=false;continue;}if(c==='\\'){escaped=true;continue;}if(c==='`')code=!code;if(c==='|'&&!code){cells.push(cur.trim());cur='';}else cur+=c;}
+ if(escaped)cur+='\\';cells.push(cur.trim());return cells;
+}
+function isRule(line){return /^\s*([-*_])(?:\s*\1){2,}\s*$/.test(line);}
+function isTableRule(line){const c=splitCells(line);return c.length>0&&c.every(x=>/^:?-{3,}:?$/.test(x));}
+function fenceStart(line){return line.match(/^ {0,3}(`{3,}|~{3,})(.*)$/);}
+function closes(line,open){const t=line.trim();return t.length>=open.length&&[...t].every(c=>c===open[0]);}
+function getSections(markdown){
+ const lines=markdown.split('\n'), starts=[];let open=null;
+ for(let i=0;i<lines.length;i++){if(open){if(closes(lines[i],open))open=null;continue;}const f=fenceStart(lines[i]);if(f){open=f[1];continue;}const m=lines[i].match(/^##\s+(.+?)\s*$/);if(m)starts.push({start:i,title:m[1]});}
+ if(!starts.length||starts[0].start>0)starts.unshift({start:0,title:'文档说明'});
+ const seen={};return starts.map((s,i)=>{const n=(seen[s.title]||0)+1;seen[s.title]=n;return {...s,end:i+1<starts.length?starts[i+1].start:lines.length,id:'sec-'+hash(s.title)+'-'+n,text:lines.slice(s.start,i+1<starts.length?starts[i+1].start:lines.length).join('\n')};});
+}
+function renderMarkdown(text,offset){
+ const lines=text.split('\n'), frag=document.createDocumentFragment();let i=0;
+ while(i<lines.length){
+  const line=lines[i];if(!line.trim()){i++;continue;}
+  const f=fenceStart(line);
+  if(f){const start=i+1; i++;while(i<lines.length&&!closes(lines[i],f[1]))i++;const code=lines.slice(start,i).join('\n');if(i<lines.length)i++;
+   const wrap=node('div',undefined,'codewrap'),head=node('div',undefined,'codehead');const lang=f[2].trim();head.append(node('span',lang==='mermaid'?'Mermaid 源码 · 此轻量版未启用图形渲染':(lang||'TEXT')));const copy=node('button','复制','small ghost');copy.dataset.copy='true';copy.addEventListener('click',()=>copyText(code));head.append(copy);const pre=node('pre');pre.append(node('code',code));wrap.append(head,pre);frag.append(wrap);continue;
+  }
+  const heading=line.match(/^(#{1,6})\s+(.+)$/);
+  if(heading){const h=node('h'+heading[1].length);inline(h,heading[2]);frag.append(h);i++;continue;}
+  if(isRule(line)){frag.append(node('hr'));i++;continue;}
+  if(line.includes('|')&&i+1<lines.length&&isTableRule(lines[i+1])){
+   const wrap=node('div',undefined,'tablewrap');wrap.tabIndex=0;wrap.setAttribute('role','region');wrap.setAttribute('aria-label','可横向滚动的数据表');const table=node('table'),thead=node('thead'),tr=node('tr');const headers=splitCells(line);headers.forEach(cell=>{const th=node('th');th.scope='col';inline(th,cell);tr.append(th);});thead.append(tr);table.append(thead);i+=2;const tbody=node('tbody');
+   while(i<lines.length&&lines[i].trim()&&lines[i].includes('|')){const row=node('tr'),cells=splitCells(lines[i]);for(let c=0;c<Math.max(headers.length,cells.length);c++){const td=node('td');inline(td,cells[c]||'');row.append(td);}tbody.append(row);i++;}table.append(tbody);wrap.append(table);frag.append(wrap);continue;
+  }
+  if(/^\s*>/.test(line)){const quote=node('blockquote');while(i<lines.length&&/^\s*>/.test(lines[i])){const p=node('p');inline(p,lines[i].replace(/^\s*>\s?/,''));quote.append(p);i++;}frag.append(quote);continue;}
+  const li=line.match(/^(\s*)([-*+]|\d+\.)\s+(.+)$/);
+  if(li){const ordered=/\d/.test(li[2]);const list=node(ordered?'ol':'ul');if(ordered)list.start=parseInt(li[2],10);while(i<lines.length){const item=lines[i].match(/^(\s*)([-*+]|\d+\.)\s+(.+)$/);if(!item||/\d/.test(item[2])!==ordered)break;const e=node('li');if(item[1].length)e.style.marginLeft=(Math.min(item[1].length,12)*6)+'px';const task=item[3].match(/^\[([ xX])\]\s*(.*)$/);if(task){e.className='taskitem';const label=node('label'),input=node('input');input.type='checkbox';input.checked=task[1].toLowerCase()==='x';input.dataset.taskLine=String(offset+i);input.setAttribute('aria-label',task[2]);const span=node('span');inline(span,task[2]);label.append(input,span);e.append(label);}else inline(e,item[3]);list.append(e);i++;}frag.append(list);continue;}
+  const para=[line];i++;
+  while(i<lines.length&&lines[i].trim()&&!fenceStart(lines[i])&&!/^#{1,6}\s/.test(lines[i])&&!/^\s*>/.test(lines[i])&&!/^\s*([-*+]|\d+\.)\s+/.test(lines[i])&&!isRule(lines[i])&&!(lines[i].includes('|')&&i+1<lines.length&&isTableRule(lines[i+1]))){para.push(lines[i]);i++;}
+  const p=node('p');inline(p,para.join('\n'));frag.append(p);
+ }
+ return frag;
+}
+function render(){
+ sections=getSections(state.markdown);$('docTitle').textContent=titleOf(state);document.title=titleOf(state)+' · PRD 离线工作台';
+ $('versionBadge').textContent='版本 '+state.version;$('revisionBadge').textContent='编辑修订 r'+state.revision;$('idBadge').textContent=state.docId;
+ const article=$('article'),toc=$('toc');article.replaceChildren();toc.replaceChildren();
+ for(const sec of sections){
+  const section=node('section',undefined,'section');section.id=sec.id;const bar=node('div',undefined,'sectionbar');bar.append(node('h2',sec.title));const tools=node('div',undefined,'sectiontools');const edit=node('button','编辑本节','small ghost');edit.dataset.edit=sec.id;edit.setAttribute('aria-label','编辑章节：'+sec.title);const comment=node('button','批注','small ghost');comment.dataset.review=sec.id;comment.setAttribute('aria-label','批注章节：'+sec.title);tools.append(edit,comment);bar.append(tools);const body=node('div',undefined,'sectionbody');
+  const arr=sec.text.split('\n');let offset=sec.start;if(/^##\s/.test(arr[0])){arr.shift();offset++;}else if(/^#\s/.test(arr[0])){arr.shift();offset++;}
+  body.append(renderMarkdown(arr.join('\n'),offset));section.append(bar,body);article.append(section);const a=node('a',sec.title);a.href='#'+sec.id;a.dataset.toc=sec.id;toc.append(a);
+ }
+ const tasks=(state.markdown.match(/^\s*[-*+]\s+\[[ xX]\]/gm)||[]).length;
+ $('docStats').textContent=sections.length+' 个章节 · '+tasks+' 个文档勾选项';filterSearch();updateStatus();
+}
+function filterSearch(){const q=$('search').value.trim().toLowerCase();let n=0;for(const sec of sections){const hit=!q||sec.text.toLowerCase().includes(q);$(sec.id).hidden=!hit;if(hit)n++;}const old=$('noResults');if(old)old.remove();if(!n){const e=node('div','没有匹配内容。清空搜索后可查看全部章节。','empty');e.id='noResults';$('article').append(e);}$('searchcount').textContent=q?'匹配 '+n+' / '+sections.length+' 个章节':'支持正文、字段与代码查找';}
+function updateStatus(){const editText=dirty()?'有本次修改 · r'+state.revision:'正文与打开时一致';const cacheText=cacheEnabled?'已启用本机草稿':'本机缓存关闭';$('saveStatus').textContent=editText+'；'+(cacheMessage||cacheText)+'。'+(lastExport===state.revision?'已发起本修订导出，请确认浏览器下载完成。':'修改后请导出文件。');}
+function commit(next,{fromEditor=false}={}){
+ if(encoder.encode(next).length>MAX_BYTES){notify('内容超过 5 MiB，未应用。');if(fromEditor)$('source').value=state.markdown;return false;}
+ next=normalise(next);if(next===state.markdown)return true;
+ if(state.revision>=Number.MAX_SAFE_INTEGER){notify('编辑修订号已达上限，请创建新的文档工作区。');if(fromEditor)$('source').value=state.markdown;return false;}state.markdown=next;state.revision++;state.updatedAt=new Date().toISOString();lastExport=-1;if(!fromEditor)$('source').value=state.markdown;
+ if(cacheEnabled)saveCache();render();return true;
+}
+function flushSource(){clearTimeout(timer);if(!$('sourcepanel').hidden&&$('source').value!==state.markdown)commit($('source').value,{fromEditor:true});}
+function setView(edit){flushSource();$('sourcepanel').hidden=!edit;$('contentgrid').classList.toggle('editing',edit);$('readBtn').classList.toggle('active',!edit);$('editBtn').classList.toggle('active',edit);$('readBtn').setAttribute('aria-pressed',String(!edit));$('editBtn').setAttribute('aria-pressed',String(edit));$('source').value=state.markdown;}
+function openEdit(id){flushSource();const sec=sections.find(s=>s.id===id);if(!sec)return;editTarget=sec;editBase=state.markdown;$('editDialogTitle').textContent='编辑：'+sec.title;$('sectionSource').value=sec.text;$('editDialog').showModal();$('sectionSource').focus();}
+function openReview(id){flushSource();$('reviewTarget').replaceChildren();sections.filter(s=>s.title!=='文档评审记录').forEach(s=>{const o=node('option',s.title);o.value=s.id;$('reviewTarget').append(o);});if(id&&sections.some(s=>s.id===id))$('reviewTarget').value=id;$('reviewDialog').showModal();$('reviewText').focus();}
+function parseMD(text){
+ text=normalise(text.replace(/^\uFEFF/,''));let meta={schemaVersion:1,docId:'prd-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,7),version:'draft',revision:0,updatedAt:new Date().toISOString()};
+ if(text.startsWith('<!-- prd-workspace:')){const end=text.indexOf(' -->\n');if(end<0||end>10000)throw Error('工作区元信息注释不完整。');meta=JSON.parse(text.slice('<!-- prd-workspace:'.length,end));text=text.slice(end+5);}
+ return validate({...meta,markdown:text});
+}
+function encodeMD(snapshot){const {markdown,...meta}=snapshot;return '<!-- prd-workspace:'+safeJSON(meta)+' -->\n'+markdown;}
+function encodeHTML(snapshot){const copy=shell.cloneNode(true);copy.querySelector('#prd-data').textContent=safeJSON(snapshot);copy.querySelector('title').textContent=titleOf(snapshot)+' · PRD 离线工作台';return '<!doctype html>\n'+copy.outerHTML;}
+function fileStem(snapshot){return snapshot.docId.replace(/[^a-zA-Z0-9._-]/g,'-')+'-r'+snapshot.revision;}
+function download(name,content,type){const blob=content instanceof Blob?content:new Blob([content],{type});const url=URL.createObjectURL(blob);const a=node('a');a.href=url;a.download=name;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),30000);}
+function prepare(){flushSource();return validate(clone(state));}
+function exported(snapshot,label){lastExport=snapshot.revision;updateStatus();notify('已发起'+label+'导出（r'+snapshot.revision+'）。请确认浏览器已完成下载。');}
+function crc32(bytes){let crc=0xffffffff;for(const b of bytes){crc^=b;for(let k=0;k<8;k++)crc=(crc>>>1)^((crc&1)?0xedb88320:0);}return (crc^0xffffffff)>>>0;}
+function zipStore(entries){
+ const chunks=[],central=[];let offset=0,centralSize=0;const now=new Date(),dosTime=(now.getHours()<<11)|(now.getMinutes()<<5)|(now.getSeconds()>>1),dosDate=((Math.max(1980,now.getFullYear())-1980)<<9)|((now.getMonth()+1)<<5)|now.getDate();
+ for(const entry of entries){const name=encoder.encode(entry.name),data=encoder.encode(entry.text),crc=crc32(data);const local=new Uint8Array(30+name.length),v=new DataView(local.buffer);v.setUint32(0,0x04034b50,true);v.setUint16(4,20,true);v.setUint16(6,0x800,true);v.setUint16(10,dosTime,true);v.setUint16(12,dosDate,true);v.setUint32(14,crc,true);v.setUint32(18,data.length,true);v.setUint32(22,data.length,true);v.setUint16(26,name.length,true);local.set(name,30);chunks.push(local,data);
+ const cent=new Uint8Array(46+name.length),c=new DataView(cent.buffer);c.setUint32(0,0x02014b50,true);c.setUint16(4,20,true);c.setUint16(6,20,true);c.setUint16(8,0x800,true);c.setUint16(12,dosTime,true);c.setUint16(14,dosDate,true);c.setUint32(16,crc,true);c.setUint32(20,data.length,true);c.setUint32(24,data.length,true);c.setUint16(28,name.length,true);c.setUint32(42,offset,true);cent.set(name,46);central.push(cent);centralSize+=cent.length;offset+=local.length+data.length;}
+ const end=new Uint8Array(22),e=new DataView(end.buffer);e.setUint32(0,0x06054b50,true);e.setUint16(8,entries.length,true);e.setUint16(10,entries.length,true);e.setUint32(12,centralSize,true);e.setUint32(16,offset,true);return new Blob([...chunks,...central,end],{type:'application/zip'});
+}
+function inspectCache(){
+ cacheCandidate=null;$('recovery').hidden=true;cacheMessage='';
+ try{lastSeenCache=localStorage.getItem(cacheKey());if(!lastSeenCache)return;const record=JSON.parse(lastSeenCache);if(record.baseMarkdown!==baseline.markdown||record.baseDocId!==baseline.docId||record.baseRevision!==baseline.revision){cacheMessage='已有草稿与当前文件基线不一致，不会自动覆盖';return;}const candidate=validate(record.state);if(candidate.docId!==baseline.docId)throw Error('草稿文档 ID 不匹配');if(candidate.markdown!==baseline.markdown){cacheCandidate=candidate;$('recoveryText').textContent='检测到同一基线的本机草稿 r'+candidate.revision+'（'+candidate.updatedAt+'）。是否恢复？';$('recovery').hidden=false;}}
+ catch(error){cacheMessage='本机缓存不可用或不可解析；请使用导出保存';lastSeenCache=null;}
+}
+function saveCache(){
+ try{const current=localStorage.getItem(cacheKey());if(current!==lastSeenCache){cacheEnabled=false;$('cacheOpt').checked=false;cacheMessage='另一页面更新了草稿，已暂停缓存；请导出当前版本';updateStatus();return;}const record=JSON.stringify({baseDocId:baseline.docId,baseRevision:baseline.revision,baseMarkdown:baseline.markdown,state});localStorage.setItem(cacheKey(),record);lastSeenCache=record;cacheMessage='草稿已写入本机缓存（不等于文件保存）';}
+ catch(error){cacheEnabled=false;$('cacheOpt').checked=false;cacheMessage='缓存写入失败，仍可导出文件';notify(cacheMessage);}
+}
+async function copyText(text){try{if(!navigator.clipboard||!window.isSecureContext)throw Error('unavailable');await navigator.clipboard.writeText(text);notify('已复制代码。');}catch(error){const ta=node('textarea');ta.value=text;ta.style.position='fixed';ta.style.left='-10000px';document.body.append(ta);ta.select();let ok=false;try{ok=document.execCommand('copy');}catch(e){}ta.remove();notify(ok?'已复制代码。':'浏览器限制了复制。请在代码区选中内容后手动复制。');}}
+$('readBtn').addEventListener('click',()=>setView(false));$('editBtn').addEventListener('click',()=>setView(true));
+$('source').value=state.markdown;$('source').addEventListener('input',()=>{clearTimeout(timer);timer=setTimeout(()=>commit($('source').value,{fromEditor:true}),250);});
+$('search').addEventListener('input',filterSearch);
+$('article').addEventListener('click',event=>{const b=event.target.closest('button');if(b?.dataset.edit)openEdit(b.dataset.edit);if(b?.dataset.review)openReview(b.dataset.review);const link=event.target.closest('a[data-external]');if(link&&!confirm('即将打开外部网页；这是主动访问，不属于离线功能。继续？'))event.preventDefault();});
+$('article').addEventListener('change',event=>{const target=event.target;if(!target.matches('input[data-task-line]'))return;const index=Number(target.dataset.taskLine),lines=state.markdown.split('\n');if(lines[index]!==undefined){lines[index]=lines[index].replace(/^(\s*[-*+]\s+)\[[ xX]\]/,'$1['+(target.checked?'x':' ')+']');commit(lines.join('\n'));notify('文档勾选已更新；这不代表测试执行或业务验收通过。');const replacement=$('article').querySelector('input[data-task-line="'+index+'"]');replacement?.focus();}});
+$('toc').addEventListener('click',event=>{const a=event.target.closest('a');if(!a)return;event.preventDefault();const id=a.dataset.toc;$('search').value='';filterSearch();$(id)?.scrollIntoView({behavior:'smooth',block:'start'});document.querySelectorAll('#toc a').forEach(e=>e.classList.toggle('active',e===a));$('sidebar').classList.remove('open');$('menuBtn').setAttribute('aria-expanded','false');});
+$('applyEditBtn').addEventListener('click',()=>{if(state.markdown!==editBase){notify('正文已变化，请关闭并重新打开该章节以避免覆盖。');return;}const lines=state.markdown.split('\n');lines.splice(editTarget.start,editTarget.end-editTarget.start,...normalise($('sectionSource').value).split('\n'));if(!commit(lines.join('\n')))return;$('editDialog').close();notify('本节修改已写回 Markdown；请导出保存。');});
+$('editDialog').addEventListener('close',()=>{const button=document.querySelector('button[data-edit="'+(editTarget?.id||'')+'"]');(button||$('article')).focus();});
+$('reviewDialog').addEventListener('close',()=>$('reviewBtn').focus());
+['closeEditBtn','cancelEditBtn'].forEach(id=>$(id).addEventListener('click',()=>$('editDialog').close()));
+$('reviewBtn').addEventListener('click',()=>openReview());['closeReviewBtn','cancelReviewBtn'].forEach(id=>$(id).addEventListener('click',()=>$('reviewDialog').close()));
+$('addReviewBtn').addEventListener('click',()=>{const text=$('reviewText').value.trim();if(!text){$('reviewText').focus();notify('请填写批注内容。');return;}const target=sections.find(s=>s.id===$('reviewTarget').value);const plain=s=>s.replace(/[\r\n]/g,' ').trim();const author=plain($('reviewAuthor').value)||'未署名',ref=plain($('reviewRef').value)||'未指定';const reviewId='RV-'+Date.now().toString(36).toUpperCase();let md=state.markdown;if(!sections.some(s=>s.title==='文档评审记录'))md+='\n\n## 文档评审记录\n\n以下为本地填写的评审意见，不是可信签署或业务验收证据。\n';
+ md+='\n### '+reviewId+'\n\n'+'> 目标章节：'+(target?.title||'文档整体')+'\n> 关联编号：'+ref+'\n> 填写人（未验证）：'+author+'\n> 记录时间：'+new Date().toISOString()+'\n\n'+text.split('\n').map(l=>'> '+l).join('\n')+'\n\n- [ ] '+reviewId+' 已处理（仅评审事项，不代表业务验收）\n';if(!commit(md))return;$('reviewText').value='';$('reviewRef').value='';$('reviewDialog').close();notify('批注已写入文档末尾，随双格式文件一起导出。');});
+$('exportMdBtn').addEventListener('click',()=>{const s=prepare();download(fileStem(s)+'.prd.md',encodeMD(s),'text/markdown;charset=utf-8');exported(s,' Markdown');});
+$('exportHtmlBtn').addEventListener('click',()=>{const s=prepare();download(fileStem(s)+'.prd.html',encodeHTML(s),'text/html;charset=utf-8');exported(s,' HTML');});
+$('exportBundleBtn').addEventListener('click',()=>{const s=prepare(),stem=fileStem(s);download(stem+'.zip',zipStore([{name:stem+'.prd.md',text:encodeMD(s)},{name:stem+'.prd.html',text:encodeHTML(s)}]));exported(s,'双格式 ZIP');});
+$('snapshotBtn').addEventListener('click',()=>{const s=prepare();download(fileStem(s)+'.workspace.json',JSON.stringify(s,null,2),'application/json;charset=utf-8');exported(s,' JSON 快照');});
+$('importBtn').addEventListener('click',()=>$('fileInput').click());
+$('fileInput').addEventListener('change',async()=>{const file=$('fileInput').files[0];if(!file)return;try{if(file.size>MAX_BYTES+10000)throw Error('导入文件超过大小限制。');if(!/\.(md|markdown|json)$/i.test(file.name))throw Error('仅支持 Markdown 或本工作区 JSON；不会执行导入 HTML。');const text=await file.text(),next=/\.json$/i.test(file.name)?validate(JSON.parse(text)):parseMD(text);flushSource();if(!confirm('导入会替换当前工作区'+(dirty()?'；当前存在修改，请先确认已导出':'')+'。继续？'))return;state=next;baseline=clone(next);lastExport=-1;cacheEnabled=false;$('cacheOpt').checked=false;$('source').value=state.markdown;$('search').value='';inspectCache();render();notify('文件已导入；内容未上传。');}catch(error){notify('未导入：'+error.message+' 当前内容保持不变。');}finally{$('fileInput').value='';}});
+$('cacheOpt').addEventListener('change',()=>{flushSource();if(!$('cacheOpt').checked){cacheEnabled=false;cacheMessage='缓存已暂停；已有草稿仍在，需主动清除';updateStatus();return;}if(!confirm('草稿将以明文保存在当前浏览器。共享设备或敏感内容不建议开启；这不代替导出文件。继续？')){$('cacheOpt').checked=false;return;}try{const current=localStorage.getItem(cacheKey());if(current&&(!cacheCandidate||cacheCandidate.markdown!==state.markdown)){if(!confirm('本机已有该基线草稿。确认用当前内容替换？')){$('cacheOpt').checked=false;return;}}lastSeenCache=current;cacheEnabled=true;saveCache();}catch(error){cacheMessage='本机缓存不可用，请导出文件';cacheEnabled=false;$('cacheOpt').checked=false;}updateStatus();});
+$('clearCacheBtn').addEventListener('click',()=>{if(!confirm('仅清除当前文档与基线修订对应的本机草稿；不删除文件，也不清除其他站点数据。继续？'))return;try{localStorage.removeItem(cacheKey());lastSeenCache=null;cacheEnabled=false;cacheCandidate=null;$('cacheOpt').checked=false;$('recovery').hidden=true;cacheMessage='当前文档草稿已清除';}catch(error){cacheMessage='无法访问本机缓存；当前正文未受影响';}updateStatus();});
+$('restoreBtn').addEventListener('click',()=>{if(!cacheCandidate)return;if(dirty()&&!confirm('恢复草稿会替换本次正文修改。请先导出需要保留的版本。继续？'))return;state=clone(cacheCandidate);$('source').value=state.markdown;$('recovery').hidden=true;cacheEnabled=true;$('cacheOpt').checked=true;cacheMessage='已恢复本机草稿，请导出保存';render();});
+$('dismissRestoreBtn').addEventListener('click',()=>{$('recovery').hidden=true;});
+window.addEventListener('storage',event=>{if(event.key===cacheKey()&&event.newValue!==lastSeenCache){cacheEnabled=false;$('cacheOpt').checked=false;cacheMessage='检测到另一页面改动草稿，已暂停缓存；请导出并人工比较';updateStatus();}});
+$('resetBtn').addEventListener('click',()=>{if(confirm('将正文恢复为本次打开/导入时的内容，当前未导出的修改会被替换。继续？'))commit(baseline.markdown);});
+$('themeBtn').addEventListener('click',()=>{const dark=document.body.classList.toggle('dark');$('themeBtn').textContent=dark?'浅色':'深色';});
+$('printBtn').addEventListener('click',()=>{flushSource();window.print();});
+$('menuBtn').addEventListener('click',()=>{const open=$('sidebar').classList.toggle('open');$('menuBtn').setAttribute('aria-expanded',String(open));});
+document.addEventListener('keydown',event=>{if((event.ctrlKey||event.metaKey)&&event.key.toLowerCase()==='s'){event.preventDefault();if($('editDialog').open||$('reviewDialog').open){notify('请先应用或取消弹窗中的修改，再导出文件。');return;}$('exportBundleBtn').click();}if(event.key==='Escape'){$('sidebar').classList.remove('open');$('menuBtn').setAttribute('aria-expanded','false');}});
+window.addEventListener('beforeunload',event=>{flushSource();if(dirty()&&lastExport!==state.revision){event.preventDefault();event.returnValue='';}});
+inspectCache();render();
+})();
+</script>
+</body>
+</html>

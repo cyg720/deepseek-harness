@@ -1,0 +1,127 @@
+{
+  "startedAt": "2026-09-08T02:41:46.420396+00:00",
+  "mode": "content",
+  "cases": [
+    {
+      "name": "离线内容渲染：14 个章节、表格、代码",
+      "status": "通过",
+      "details": ""
+    },
+    {
+      "name": "全文搜索与清空恢复",
+      "status": "通过",
+      "details": ""
+    },
+    {
+      "name": "章节编辑回写唯一正文",
+      "status": "通过",
+      "details": ""
+    },
+    {
+      "name": "Esc 取消章节编辑且不污染正文",
+      "status": "通过",
+      "details": ""
+    },
+    {
+      "name": "完整源码编辑与实时预览",
+      "status": "通过",
+      "details": ""
+    },
+    {
+      "name": "任务勾选写回 MD，不冒充验收",
+      "status": "通过",
+      "details": ""
+    },
+    {
+      "name": "章节批注入正文并安全显示",
+      "status": "通过",
+      "details": ""
+    },
+    {
+      "name": "MD 实际下载与逐字往返一致",
+      "status": "通过",
+      "details": ""
+    },
+    {
+      "name": "HTML 实际下载、重新渲染与编辑保留",
+      "status": "通过",
+      "details": "content 模式重新注入导出字节，不代表 file:// 打开测试。"
+    },
+    {
+      "name": "双格式 ZIP 可解压、CRC 正确、同一快照",
+      "status": "通过",
+      "details": ""
+    },
+    {
+      "name": "Ctrl+S 导出双格式包",
+      "status": "通过",
+      "details": ""
+    },
+    {
+      "name": "导出 MD 再导入，不丢失批注和正文",
+      "status": "通过",
+      "details": ""
+    },
+    {
+      "name": "非法快照导入保留原文",
+      "status": "通过",
+      "details": ""
+    },
+    {
+      "name": "取消导入不覆盖当前内容",
+      "status": "通过",
+      "details": ""
+    },
+    {
+      "name": "自然缓存不可用时仍可编辑与导出",
+      "status": "通过",
+      "details": "about:blank 的自然 SecurityError；未模拟失败。"
+    },
+    {
+      "name": "草稿恢复与跨标签冲突保护（存储模拟）",
+      "status": "通过",
+      "details": "使用标记的 Map 存储桩及合成 storage 事件，不声称真实 file:// 持久化验证。"
+    },
+    {
+      "name": "恶意 HTML、数据结束标签、脚本链接与追踪图片",
+      "status": "通过",
+      "details": ""
+    },
+    {
+      "name": "390px 移动布局无页面横向溢出、目录开关",
+      "status": "通过",
+      "details": ""
+    },
+    {
+      "name": "打印样式隐藏控件并恢复全文",
+      "status": "通过",
+      "details": "仅浏览器 print 媒体样式，不是实际打印机/PDF 验收。"
+    },
+    {
+      "name": "无隐式网络请求",
+      "status": "通过",
+      "details": ""
+    },
+    {
+      "name": "无未处理脚本或控制台错误",
+      "status": "通过",
+      "details": ""
+    }
+  ],
+  "limitations": [
+    "content 模式不覆盖 file:// 启动；file 模式只对原始演示页进行本地导航，导出 HTML 的重载采用内容注入。",
+    "仅上述 Chromium 版本与指定视口；未测试 Safari、Firefox、真实移动设备、系统下载策略或辅助阅读器。",
+    "缓存成功/恢复及跨标签竞争使用明确标注的存储桩；真实 file:// 缓存持久化未验证。",
+    "未测试 up-sl-back 业务程序、数据库、性能或真实业务验收；未测试所有可能的 Markdown 语法。"
+  ],
+  "browser": "Chromium 144.0.7559.96",
+  "implicitNetworkRequests": [],
+  "pageErrors": [],
+  "consoleErrors": [],
+  "finishedAt": "2026-09-08T02:41:51.719110+00:00",
+  "summary": {
+    "通过": 21,
+    "失败": 0,
+    "阻断": 0
+  }
+}

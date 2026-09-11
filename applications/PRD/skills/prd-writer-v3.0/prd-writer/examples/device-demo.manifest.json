@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "docId": "up-sl-back.device-demo",
+  "version": "0.1.0-demo",
+  "revision": 0,
+  "generatedAt": "2026-09-08T02:41:45.124971+00:00",
+  "validation": "已校验生成文件的模型一致性；未执行浏览器、业务代码或业务验收",
+  "files": {
+    "device-demo.prd.md": {
+      "bytes": 10103,
+      "sha256": "0d55a3a92ff57fce4eba87fd13d9e457c0481f3604ffbc02f5b1e8686dcee291"
+    },
+    "device-demo.prd.html": {
+      "bytes": 55639,
+      "sha256": "2bf530202f145f414a2fbcda0cff8c2633055cc8ba45368e7852bf278c2f7b05"
+    }
+  }
+}

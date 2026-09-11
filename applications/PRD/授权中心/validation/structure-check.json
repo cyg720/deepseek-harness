@@ -1,0 +1,429 @@
+{
+  "checkedAt": "2026-09-11T06:50:50.597988+00:00",
+  "checks": [
+    {
+      "name": "原始 PRD/DDL 文件 SHA256 未变",
+      "status": "通过",
+      "detail": {
+        "DDL.md": "63ced17ffedc46d17acb94af1ae7894502020afa5714c2661afef886e94f4e71",
+        "PRD.md": "0afb16acf876bfdc70c9eb5927fd037ff336b007dac6b6249a122ac74e5438b3"
+      }
+    },
+    {
+      "name": "BR 编号完整且定义唯一",
+      "status": "通过",
+      "detail": 30
+    },
+    {
+      "name": "BR 引用均存在",
+      "status": "通过",
+      "detail": []
+    },
+    {
+      "name": "AC 编号完整且定义唯一",
+      "status": "通过",
+      "detail": 30
+    },
+    {
+      "name": "AC 引用均存在",
+      "status": "通过",
+      "detail": []
+    },
+    {
+      "name": "TC 编号完整且定义唯一",
+      "status": "通过",
+      "detail": 30
+    },
+    {
+      "name": "TC 引用均存在",
+      "status": "通过",
+      "detail": []
+    },
+    {
+      "name": "API 编号完整且定义唯一",
+      "status": "通过",
+      "detail": 17
+    },
+    {
+      "name": "API 引用均存在",
+      "status": "通过",
+      "detail": []
+    },
+    {
+      "name": "Q 编号完整且定义唯一",
+      "status": "通过",
+      "detail": 16
+    },
+    {
+      "name": "Q 引用均存在",
+      "status": "通过",
+      "detail": []
+    },
+    {
+      "name": "DB 编号完整且定义唯一",
+      "status": "通过",
+      "detail": 18
+    },
+    {
+      "name": "DB 引用均存在",
+      "status": "通过",
+      "detail": []
+    },
+    {
+      "name": "14 项原文功能均有用户故事",
+      "status": "通过",
+      "detail": null
+    },
+    {
+      "name": "十二章齐全",
+      "status": "通过",
+      "detail": null
+    },
+    {
+      "name": "JSON 示例均可解析",
+      "status": "通过",
+      "detail": null
+    },
+    {
+      "name": "代码围栏配对",
+      "status": "通过",
+      "detail": null
+    },
+    {
+      "name": "表格列数一致",
+      "status": "通过",
+      "detail": {
+        "4": 13
+      }
+    },
+    {
+      "name": "表格列数一致",
+      "status": "通过",
+      "detail": {
+        "5": 7
+      }
+    },
+    {
+      "name": "表格列数一致",
+      "status": "通过",
+      "detail": {
+        "7": 3
+      }
+    },
+    {
+      "name": "表格列数一致",
+      "status": "通过",
+      "detail": {
+        "5": 9
+      }
+    },
+    {
+      "name": "表格列数一致",
+      "status": "通过",
+      "detail": {
+        "7": 16
+      }
+    },
+    {
+      "name": "表格列数一致",
+      "status": "通过",
+      "detail": {
+        "6": 6
+      }
+    },
+    {
+      "name": "表格列数一致",
+      "status": "通过",
+      "detail": {
+        "5": 16
+      }
+    },
+    {
+      "name": "表格列数一致",
+      "status": "通过",
+      "detail": {
+        "6": 9
+      }
+    },
+    {
+      "name": "表格列数一致",
+      "status": "通过",
+      "detail": {
+        "8": 9
+      }
+    },
+    {
+      "name": "表格列数一致",
+      "status": "通过",
+      "detail": {
+        "5": 32
+      }
+    },
+    {
+      "name": "表格列数一致",
+      "status": "通过",
+      "detail": {
+        "7": 12
+      }
+    },
+    {
+      "name": "表格列数一致",
+      "status": "通过",
+      "detail": {
+        "8": 32
+      }
+    },
+    {
+      "name": "表格列数一致",
+      "status": "通过",
+      "detail": {
+        "12": 7
+      }
+    },
+    {
+      "name": "表格列数一致",
+      "status": "通过",
+      "detail": {
+        "12": 19
+      }
+    },
+    {
+      "name": "表格列数一致",
+      "status": "通过",
+      "detail": {
+        "12": 15
+      }
+    },
+    {
+      "name": "表格列数一致",
+      "status": "通过",
+      "detail": {
+        "12": 19
+      }
+    },
+    {
+      "name": "表格列数一致",
+      "status": "通过",
+      "detail": {
+        "5": 12
+      }
+    },
+    {
+      "name": "表格列数一致",
+      "status": "通过",
+      "detail": {
+        "7": 20
+      }
+    },
+    {
+      "name": "表格列数一致",
+      "status": "通过",
+      "detail": {
+        "6": 8
+      }
+    },
+    {
+      "name": "表格列数一致",
+      "status": "通过",
+      "detail": {
+        "5": 12
+      }
+    },
+    {
+      "name": "表格列数一致",
+      "status": "通过",
+      "detail": {
+        "8": 11
+      }
+    },
+    {
+      "name": "表格列数一致",
+      "status": "通过",
+      "detail": {
+        "8": 7
+      }
+    },
+    {
+      "name": "表格列数一致",
+      "status": "通过",
+      "detail": {
+        "5": 13
+      }
+    },
+    {
+      "name": "表格列数一致",
+      "status": "通过",
+      "detail": {
+        "8": 5
+      }
+    },
+    {
+      "name": "表格列数一致",
+      "status": "通过",
+      "detail": {
+        "7": 8
+      }
+    },
+    {
+      "name": "表格列数一致",
+      "status": "通过",
+      "detail": {
+        "7": 7
+      }
+    },
+    {
+      "name": "表格列数一致",
+      "status": "通过",
+      "detail": {
+        "7": 9
+      }
+    },
+    {
+      "name": "表格列数一致",
+      "status": "通过",
+      "detail": {
+        "7": 7
+      }
+    },
+    {
+      "name": "表格列数一致",
+      "status": "通过",
+      "detail": {
+        "6": 13
+      }
+    },
+    {
+      "name": "表格列数一致",
+      "status": "通过",
+      "detail": {
+        "6": 10
+      }
+    },
+    {
+      "name": "表格列数一致",
+      "status": "通过",
+      "detail": {
+        "7": 32
+      }
+    },
+    {
+      "name": "表格列数一致",
+      "status": "通过",
+      "detail": {
+        "5": 6
+      }
+    },
+    {
+      "name": "表格列数一致",
+      "status": "通过",
+      "detail": {
+        "6": 8
+      }
+    },
+    {
+      "name": "表格列数一致",
+      "status": "通过",
+      "detail": {
+        "5": 9
+      }
+    },
+    {
+      "name": "表格列数一致",
+      "status": "通过",
+      "detail": {
+        "8": 18
+      }
+    },
+    {
+      "name": "表格列数一致",
+      "status": "通过",
+      "detail": {
+        "5": 6
+      }
+    },
+    {
+      "name": "正文 UTF-8/LF/末尾单一换行",
+      "status": "通过",
+      "detail": null
+    },
+    {
+      "name": "无尾随空白",
+      "status": "通过",
+      "detail": null
+    },
+    {
+      "name": "本地资料链接存在",
+      "status": "通过",
+      "detail": "PRD.md"
+    },
+    {
+      "name": "本地资料链接存在",
+      "status": "通过",
+      "detail": "DDL.md"
+    },
+    {
+      "name": "本地资料链接存在",
+      "status": "通过",
+      "detail": "../skills/prd-writer-v3.0/prd-writer/SKILL.md"
+    },
+    {
+      "name": "14 张 DDL 主表在需求中覆盖",
+      "status": "通过",
+      "detail": [
+        "account",
+        "organization",
+        "user_group",
+        "user_group_account",
+        "token",
+        "sys_param",
+        "sys_dict",
+        "operation",
+        "permission_group",
+        "permission_group_account",
+        "permission_group_org",
+        "app_authorization",
+        "delegation",
+        "audit_log"
+      ]
+    },
+    {
+      "name": "DB-01 缺逗号证据为 10 处",
+      "status": "通过",
+      "detail": 10
+    },
+    {
+      "name": "DB-02 重复索引证据",
+      "status": "通过",
+      "detail": null
+    },
+    {
+      "name": "MD/HTML 同一完整快照",
+      "status": "通过",
+      "detail": null
+    },
+    {
+      "name": "HTML 无剩余模板占位符",
+      "status": "通过",
+      "detail": null
+    },
+    {
+      "name": "HTML 禁止联网依赖",
+      "status": "通过",
+      "detail": null
+    }
+  ],
+  "summary": {
+    "passed": 64,
+    "failed": 0
+  },
+  "sourceHashes": {
+    "DDL.md": "63ced17ffedc46d17acb94af1ae7894502020afa5714c2661afef886e94f4e71",
+    "PRD.md": "0afb16acf876bfdc70c9eb5927fd037ff336b007dac6b6249a122ac74e5438b3"
+  },
+  "bodyCharacters": 51235,
+  "bodyBytes": 104112,
+  "limitations": [
+    "静态检查不证明业务语义正确或数据库可执行。",
+    "业务批准及业务测试均未执行。"
+  ]
+}

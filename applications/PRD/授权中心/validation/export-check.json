@@ -1,0 +1,31 @@
+{
+  "status": "通过",
+  "checks": [
+    {
+      "file": "roundtrip.zip",
+      "status": "通过",
+      "revision": 4,
+      "checks": [
+        "ZIP CRC",
+        "two files",
+        "same revision and complete Markdown",
+        "same browser snapshot"
+      ]
+    },
+    {
+      "file": "keyboard.zip",
+      "status": "通过",
+      "revision": 4,
+      "checks": [
+        "ZIP CRC",
+        "two files",
+        "same revision and complete Markdown",
+        "same browser snapshot"
+      ]
+    }
+  ],
+  "originalFilesUnchanged": true,
+  "deliveryHashesUnchangedByBrowser": true,
+  "syntheticEditsOnlyInValidationCopies": true,
+  "limitations": "ZIP 往返属于文档工具测试，不是业务验收。"
+}

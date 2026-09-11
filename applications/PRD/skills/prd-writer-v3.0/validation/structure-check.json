@@ -1,0 +1,23 @@
+{
+  "checkedAt": "2026-09-08T02:42:56.895511+00:00",
+  "skillName": "prd-writer",
+  "skillVersion": "3.0.0",
+  "mainLines": 291,
+  "yaml": "通过",
+  "references": "全部存在",
+  "evaluationCaseIds": {
+    "count": 24,
+    "unique": true
+  },
+  "javascriptSyntax": "node --check 通过",
+  "pythonSyntax": "py_compile 通过",
+  "nativeFileOpen": {
+    "status": "未完成：环境策略阻断",
+    "observedError": "Page.goto: net::ERR_BLOCKED_BY_ADMINISTRATOR at file:///mnt/data/prd-writer-v3/prd-writer/examples/device-demo.prd.html"
+  },
+  "nativeLocalHTTP": {
+    "status": "未完成：环境策略阻断",
+    "observedError": "net::ERR_BLOCKED_BY_ADMINISTRATOR"
+  },
+  "skillSHA256": "f274ea22b369f0dbbe8c4b1640a508714cc96b9c1c8d573a993763ae521d238b"
+}

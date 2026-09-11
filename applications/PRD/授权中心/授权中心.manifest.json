@@ -1,0 +1,22 @@
+{
+  "docId": "safety-platform.authorization-center",
+  "version": "0.1.0",
+  "revision": 0,
+  "generatedAt": "2026-09-11T06:50:50.596474+00:00",
+  "sources": {
+    "DDL.md": "63ced17ffedc46d17acb94af1ae7894502020afa5714c2661afef886e94f4e71",
+    "PRD.md": "0afb16acf876bfdc70c9eb5927fd037ff336b007dac6b6249a122ac74e5438b3"
+  },
+  "renderer": "D:\\code\\CYG\\Github\\deepseek-harness\\applications\\PRD\\skills\\prd-writer-v3.0\\prd-writer\\scripts\\render_prd.py",
+  "files": {
+    "授权中心.prd.md": {
+      "bytes": 104272,
+      "sha256": "a4bfbddf8f7e69b81060256dff66aa889edeb42ce8bc09af167f3db7ae93bcf2"
+    },
+    "授权中心.prd.html": {
+      "bytes": 150397,
+      "sha256": "f711403c2760043d2f3afddad68b2c2fa3625df670e5533dd533c11d8643c194"
+    }
+  },
+  "validation": "双格式同快照及静态检查；业务实现和验收未执行；浏览器结果见 validation/browser-report.json"
+}

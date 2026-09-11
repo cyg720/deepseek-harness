@@ -1,0 +1,158 @@
+{
+  "startedAt": "2026-09-08T06:28:15.805Z",
+  "mode": "file",
+  "cases": [
+    {
+      "name": "原生 file:// 离线启动及完整正文",
+      "status": "通过",
+      "detail": ""
+    },
+    {
+      "name": "未编辑 MD 导出逐字一致",
+      "status": "通过",
+      "detail": ""
+    },
+    {
+      "name": "全文搜索、空结果与清空恢复",
+      "status": "通过",
+      "detail": ""
+    },
+    {
+      "name": "目录跳转恢复全文",
+      "status": "通过",
+      "detail": ""
+    },
+    {
+      "name": "章节编辑保留中文、表格、JSON/SQL 围栏和特殊符号",
+      "status": "通过",
+      "detail": ""
+    },
+    {
+      "name": "Esc 取消章节编辑并恢复焦点",
+      "status": "通过",
+      "detail": ""
+    },
+    {
+      "name": "全文编辑即时预览",
+      "status": "通过",
+      "detail": ""
+    },
+    {
+      "name": "任务勾选写回 Markdown 并说明非验收",
+      "status": "通过",
+      "detail": ""
+    },
+    {
+      "name": "批注写入正文且填写人未验证",
+      "status": "通过",
+      "detail": ""
+    },
+    {
+      "name": "编辑后 MD 实际下载与当前正文一致",
+      "status": "通过",
+      "detail": ""
+    },
+    {
+      "name": "导出 HTML 原生 file:// 重开、正文批注和编辑保留",
+      "status": "通过",
+      "detail": ""
+    },
+    {
+      "name": "双格式 ZIP 实际下载",
+      "status": "通过",
+      "detail": "ZIP CRC 和两文件快照一致性由 verify_exports.py 独立验证。"
+    },
+    {
+      "name": "Ctrl+S 发起双格式导出",
+      "status": "通过",
+      "detail": ""
+    },
+    {
+      "name": "导入已导出 MD 保留当前正文和批注",
+      "status": "通过",
+      "detail": ""
+    },
+    {
+      "name": "合法 JSON 快照导入",
+      "status": "通过",
+      "detail": ""
+    },
+    {
+      "name": "取消覆盖不丢失正文",
+      "status": "通过",
+      "detail": ""
+    },
+    {
+      "name": "非法和超限输入拒绝且保留正文",
+      "status": "通过",
+      "detail": ""
+    },
+    {
+      "name": "脚本/事件/脚本链接/外部图片均不执行或加载",
+      "status": "通过",
+      "detail": ""
+    },
+    {
+      "name": "缓存不可用时提示且可导出（显式故障注入）",
+      "status": "通过",
+      "detail": ""
+    },
+    {
+      "name": "真实 file:// 本机草稿写入与重开恢复（隔离浏览器）",
+      "status": "通过",
+      "detail": "使用隔离 Playwright 浏览器上下文的真实 localStorage，不使用用户浏览器配置。"
+    },
+    {
+      "name": "缓存基线不一致不覆盖正文（合成不一致记录）",
+      "status": "通过",
+      "detail": ""
+    },
+    {
+      "name": "真实双标签缓存竞争暂停覆盖并可导出",
+      "status": "通过",
+      "detail": "两页打开同一 file:// 路径，使用真实 storage 事件；不宣称多人协作或其他浏览器一致。"
+    },
+    {
+      "name": "恶意版本元信息导出后本地重开不执行",
+      "status": "通过",
+      "detail": ""
+    },
+    {
+      "name": "390px 窄屏无横向页面溢出、目录与 Esc",
+      "status": "通过",
+      "detail": ""
+    },
+    {
+      "name": "打印样式隐藏控件、恢复全文",
+      "status": "通过",
+      "detail": "验证打印 CSS，未交付 PDF 或测试实际打印机。"
+    },
+    {
+      "name": "无隐式网络请求",
+      "status": "通过",
+      "detail": ""
+    },
+    {
+      "name": "无未处理脚本或控制台错误",
+      "status": "通过",
+      "detail": ""
+    }
+  ],
+  "browser": "Chromium 149.0.7827.55",
+  "platform": "win32",
+  "finishedAt": "2026-09-08T06:28:26.818Z",
+  "summary": {
+    "passed": 27,
+    "failed": 0
+  },
+  "implicitNetworkRequests": [],
+  "pageErrors": [],
+  "consoleErrors": [],
+  "limitations": [
+    "只覆盖报告所列 Chromium 和桌面/390px 模拟视口；未验证其他浏览器、真实手机和辅助阅读器。",
+    "真实 file:// 缓存写入/重开恢复/双标签竞争只在隔离上下文内验证；未验证浏览器退出后持久性、系统配额或企业策略。缓存不可用和基线不一致分别使用显式故障注入和合成记录。",
+    "模板禁用 Markdown 相对文件链接；原资料请在文件夹中打开。",
+    "测试修改/批注只在隔离页面和 validation 导出副本；正式交付文档保持原始待决策正文。",
+    "未执行授权中心业务、数据库、性能、正式业务评审或验收。"
+  ]
+}
