@@ -1,0 +1,74 @@
+{
+  "docId": "safety-platform.authorization-center",
+  "version": "0.3.1",
+  "revision": 6,
+  "generatedAt": "2026-09-12T06:21:53.098Z",
+  "sources": {
+    "PRD.md": "0afb16acf876bfdc70c9eb5927fd037ff336b007dac6b6249a122ac74e5438b3",
+    "DDL.md": "63ced17ffedc46d17acb94af1ae7894502020afa5714c2661afef886e94f4e71"
+  },
+  "baseline": "history\\v0.3.0-before-operation-app-code",
+  "skill": "skills\\prd-writer-v3.1\\prd-writer",
+  "skillSha256": "0f6fe381d18b78d2a10328c63ee0c869b0b3e1cac768b6f4b28a4b229ddce3b5",
+  "testGroups": 30,
+  "testCases": 141,
+  "acceptancePoints": 30,
+  "datasets": 10,
+  "files": {
+    "授权中心.prd.md": {
+      "bytes": 515830,
+      "sha256": "1e3eb47a4e0f109cb7dfad588ca635d80c0fc6243c39f984bc9b6efba7ca09e5"
+    },
+    "授权中心.prd.html": {
+      "bytes": 4140234,
+      "sha256": "fff06ee3ae159350c3d9d814901356d2f06e2ed3d5403cfca9358605ac9d2c1a"
+    },
+    "授权中心.schema.sql": {
+      "bytes": 35655,
+      "sha256": "a944ea5ca3c1348aa784271d3d713d8eb13c0f7af9a6dbb2fb5e16a5c1fc327d"
+    },
+    "测试数据/生成测试数据.py": {
+      "bytes": 12260,
+      "sha256": "4d4defae0f5bffd99a9baffbcc9220aebe1ee470b08b62ff38bd968476c7f634"
+    },
+    "测试数据/baseline/authorization-fixtures.json": {
+      "bytes": 22949,
+      "sha256": "5f7b2c9a25b6b3dd86cb064038f0a53fde2901d2656dc69047f907e90dd0f153"
+    }
+  },
+  "validation": "同快照构建；具体静态/浏览器验证见交付验证报告；业务测试和验收未执行",
+  "skillVersion": "3.1.1",
+  "tables": 14,
+  "partitions": 1,
+  "indexes": 27,
+  "columnComments": 159,
+  "decisionItems": 23,
+  "requirementsReview": {
+    "date": "2026-09-12",
+    "newDecisions": [
+      "Q-17",
+      "Q-18",
+      "Q-19",
+      "Q-20",
+      "Q-21",
+      "Q-22",
+      "Q-23"
+    ],
+    "clarifiedDecisions": [
+      "Q-01",
+      "Q-04",
+      "Q-05",
+      "Q-06",
+      "Q-07",
+      "Q-08",
+      "Q-16"
+    ],
+    "report": "validation/requirements-review/review-check.json",
+    "businessExecution": "未执行；仅需求资料评审与文档一致性检查"
+  },
+  "wordingReview": {
+    "revision": 6,
+    "scope": "第十二章23项主问题及7项补充的问题、证据与建议两列",
+    "report": "validation/requirements-review/wording-check.json"
+  }
+}

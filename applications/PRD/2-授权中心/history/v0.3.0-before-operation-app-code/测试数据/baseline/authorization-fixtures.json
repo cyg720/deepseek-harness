@@ -1,0 +1,708 @@
+{
+  "meta": {
+    "synthetic": true,
+    "seed": 20260912,
+    "namespace": "auth-prd",
+    "referenceTime": "2026-09-12T00:30:00Z",
+    "resourceCount": 4,
+    "credentialsUsable": false,
+    "scope": "表字段样例，不是可直接装载的种子；认证/时区/主键映射需批准适配"
+  },
+  "TD-01": {
+    "tables": {
+      "account": [
+        {
+          "id": 101,
+          "uuid": "b7edcb00-cf5f-5171-b77c-b72a9f750e9f",
+          "username": "auth-prd-admin",
+          "password": "SYNTHETIC-NOT-A-LOGIN-HASH",
+          "phone": null,
+          "email": null,
+          "account_type": "person",
+          "status": "normal",
+          "ip_whitelist": [],
+          "created_at": "2026-09-12T00:00:00Z",
+          "updated_at": "2026-09-12T00:00:00Z"
+        },
+        {
+          "id": 102,
+          "uuid": "f6216828-f3bf-5438-8406-64c865cd3653",
+          "username": "auth-prd-member",
+          "password": "SYNTHETIC-NOT-A-LOGIN-HASH",
+          "phone": null,
+          "email": null,
+          "account_type": "person",
+          "status": "normal",
+          "ip_whitelist": [],
+          "created_at": "2026-09-12T00:00:00Z",
+          "updated_at": "2026-09-12T00:00:00Z"
+        },
+        {
+          "id": 103,
+          "uuid": "ed420424-04cd-5497-be8f-aa22279d2026",
+          "username": "auth-prd-delegate",
+          "password": "SYNTHETIC-NOT-A-LOGIN-HASH",
+          "phone": null,
+          "email": null,
+          "account_type": "person",
+          "status": "normal",
+          "ip_whitelist": [],
+          "created_at": "2026-09-12T00:00:00Z",
+          "updated_at": "2026-09-12T00:00:00Z"
+        },
+        {
+          "id": 104,
+          "uuid": "8bcb8ed7-7273-5764-b4cd-3849615c35eb",
+          "username": "auth-prd-service",
+          "password": "SYNTHETIC-NOT-A-LOGIN-HASH",
+          "phone": null,
+          "email": null,
+          "account_type": "service",
+          "status": "normal",
+          "ip_whitelist": [
+            "192.0.2.10/32"
+          ],
+          "created_at": "2026-09-12T00:00:00Z",
+          "updated_at": "2026-09-12T00:00:00Z"
+        }
+      ],
+      "organization": [
+        {
+          "id": 10,
+          "parent_id": 0,
+          "org_path": "/10",
+          "org_name": "测试单位A",
+          "org_type": "company",
+          "created_at": "2026-09-12T00:00:00Z",
+          "updated_at": "2026-09-12T00:00:00Z"
+        },
+        {
+          "id": 11,
+          "parent_id": 10,
+          "org_path": "/10/11",
+          "org_name": "同名部门",
+          "org_type": "department",
+          "created_at": "2026-09-12T00:00:00Z",
+          "updated_at": "2026-09-12T00:00:00Z"
+        },
+        {
+          "id": 12,
+          "parent_id": 11,
+          "org_path": "/10/11/12",
+          "org_name": "测试班组",
+          "org_type": "team",
+          "created_at": "2026-09-12T00:00:00Z",
+          "updated_at": "2026-09-12T00:00:00Z"
+        },
+        {
+          "id": 20,
+          "parent_id": 0,
+          "org_path": "/20",
+          "org_name": "测试单位B",
+          "org_type": "company",
+          "created_at": "2026-09-12T00:00:00Z",
+          "updated_at": "2026-09-12T00:00:00Z"
+        },
+        {
+          "id": 21,
+          "parent_id": 20,
+          "org_path": "/20/21",
+          "org_name": "同名部门",
+          "org_type": "department",
+          "created_at": "2026-09-12T00:00:00Z",
+          "updated_at": "2026-09-12T00:00:00Z"
+        }
+      ],
+      "user_group": [
+        {
+          "id": 301,
+          "group_code": "auth-prd-cross",
+          "group_name": "跨部门测试组",
+          "created_at": "2026-09-12T00:00:00Z",
+          "updated_at": "2026-09-12T00:00:00Z"
+        }
+      ],
+      "user_group_account": [
+        {
+          "id": 311,
+          "user_group_id": 301,
+          "account_id": 102,
+          "created_at": "2026-09-12T00:00:00Z"
+        },
+        {
+          "id": 312,
+          "user_group_id": 301,
+          "account_id": 103,
+          "created_at": "2026-09-12T00:00:00Z"
+        }
+      ],
+      "token": [
+        {
+          "id": 701,
+          "token": "fixture-auth-prd-token-701",
+          "account_id": 102,
+          "token_type": "Master-Token",
+          "refresh_type": "access_token",
+          "scene_id": null,
+          "expires_at": "2026-09-12T01:00:00Z",
+          "revoked": false,
+          "created_at": "2026-09-12T00:00:00Z",
+          "updated_at": "2026-09-12T00:00:00Z"
+        },
+        {
+          "id": 702,
+          "token": "fixture-auth-prd-token-702",
+          "account_id": 102,
+          "token_type": "Master-Token",
+          "refresh_type": "refresh_token",
+          "scene_id": null,
+          "expires_at": "2026-09-12T01:00:00Z",
+          "revoked": false,
+          "created_at": "2026-09-12T00:00:00Z",
+          "updated_at": "2026-09-12T00:00:00Z"
+        },
+        {
+          "id": 703,
+          "token": "fixture-auth-prd-token-703",
+          "account_id": 102,
+          "token_type": "Scene-Token",
+          "refresh_type": "access_token",
+          "scene_id": "scene-a",
+          "expires_at": "2026-09-12T01:00:00Z",
+          "revoked": false,
+          "created_at": "2026-09-12T00:00:00Z",
+          "updated_at": "2026-09-12T00:00:00Z"
+        },
+        {
+          "id": 704,
+          "token": "fixture-auth-prd-token-704",
+          "account_id": 102,
+          "token_type": "Master-Token",
+          "refresh_type": "access_token",
+          "scene_id": null,
+          "expires_at": "2026-09-12T01:00:00Z",
+          "revoked": true,
+          "created_at": "2026-09-12T00:00:00Z",
+          "updated_at": "2026-09-12T00:00:00Z"
+        }
+      ],
+      "sys_param": [
+        {
+          "id": 801,
+          "param_code": "auth-prd-param",
+          "param_value": "demo",
+          "created_at": "2026-09-12T00:00:00Z",
+          "updated_at": "2026-09-12T00:00:00Z"
+        }
+      ],
+      "sys_dict": [
+        {
+          "id": 901,
+          "dict_code": "auth-prd-dict",
+          "dict_items": [
+            "启用",
+            "禁用"
+          ],
+          "created_at": "2026-09-12T00:00:00Z",
+          "updated_at": "2026-09-12T00:00:00Z"
+        }
+      ],
+      "operation": [
+        {
+          "id": 201,
+          "operation_code": "DeviceController.list",
+          "operation_name": "设备列表",
+          "resource_type": "device",
+          "created_at": "2026-09-12T00:00:00Z",
+          "updated_at": "2026-09-12T00:00:00Z"
+        },
+        {
+          "id": 202,
+          "operation_code": "DeviceController.control",
+          "operation_name": "设备控制",
+          "resource_type": "device",
+          "created_at": "2026-09-12T00:00:00Z",
+          "updated_at": "2026-09-12T00:00:00Z"
+        },
+        {
+          "id": 203,
+          "operation_code": "DeviceController.detail",
+          "operation_name": "设备详情",
+          "resource_type": "device",
+          "created_at": "2026-09-12T00:00:00Z",
+          "updated_at": "2026-09-12T00:00:00Z"
+        },
+        {
+          "id": 204,
+          "operation_code": "AccountController.list",
+          "operation_name": "账号列表",
+          "resource_type": "account",
+          "created_at": "2026-09-12T00:00:00Z",
+          "updated_at": "2026-09-12T00:00:00Z"
+        }
+      ],
+      "permission_group": [
+        {
+          "id": 401,
+          "name": "测试静态权限",
+          "operation_ids": [
+            201,
+            202,
+            203,
+            204
+          ],
+          "created_at": "2026-09-12T00:00:00Z",
+          "updated_at": "2026-09-12T00:00:00Z"
+        },
+        {
+          "id": 402,
+          "name": "测试空权限",
+          "operation_ids": [],
+          "created_at": "2026-09-12T00:00:00Z",
+          "updated_at": "2026-09-12T00:00:00Z"
+        },
+        {
+          "id": 403,
+          "name": "测试委托权限",
+          "operation_ids": [
+            202
+          ],
+          "created_at": "2026-09-12T00:00:00Z",
+          "updated_at": "2026-09-12T00:00:00Z"
+        }
+      ],
+      "permission_group_account": [
+        {
+          "id": 411,
+          "permission_group_id": 401,
+          "account_id": 101,
+          "created_at": "2026-09-12T00:00:00Z"
+        }
+      ],
+      "permission_group_org": [
+        {
+          "id": 421,
+          "permission_group_id": 401,
+          "org_id": 11,
+          "created_at": "2026-09-12T00:00:00Z"
+        }
+      ],
+      "app_authorization": [
+        {
+          "id": 501,
+          "app_code": "auth-prd-app-a",
+          "permission_group_id": 401,
+          "app_key": "fixture-auth-prd-app-a",
+          "app_secret": "SYNTHETIC-NOT-A-SECRET",
+          "data_scope_type": "SELF",
+          "specified_org_ids": [],
+          "status": "active",
+          "created_at": "2026-09-12T00:00:00Z",
+          "updated_at": "2026-09-12T00:00:00Z"
+        },
+        {
+          "id": 502,
+          "app_code": "auth-prd-app-b",
+          "permission_group_id": 403,
+          "app_key": "fixture-auth-prd-app-b",
+          "app_secret": "SYNTHETIC-NOT-A-SECRET",
+          "data_scope_type": "DEPT",
+          "specified_org_ids": [],
+          "status": "active",
+          "created_at": "2026-09-12T00:00:00Z",
+          "updated_at": "2026-09-12T00:00:00Z"
+        },
+        {
+          "id": 503,
+          "app_code": "auth-prd-frozen",
+          "permission_group_id": 401,
+          "app_key": "fixture-auth-prd-frozen",
+          "app_secret": "SYNTHETIC-NOT-A-SECRET",
+          "data_scope_type": "SELF",
+          "specified_org_ids": [],
+          "status": "frozen",
+          "created_at": "2026-09-12T00:00:00Z",
+          "updated_at": "2026-09-12T00:00:00Z"
+        },
+        {
+          "id": 504,
+          "app_code": "auth-prd-specified",
+          "permission_group_id": 401,
+          "app_key": "fixture-auth-prd-specified",
+          "app_secret": "SYNTHETIC-NOT-A-SECRET",
+          "data_scope_type": "SPECIFIED",
+          "specified_org_ids": [
+            21
+          ],
+          "status": "active",
+          "created_at": "2026-09-12T00:00:00Z",
+          "updated_at": "2026-09-12T00:00:00Z"
+        }
+      ],
+      "delegation": [
+        {
+          "id": 601,
+          "grantor_id": 101,
+          "grantee_id": 103,
+          "permission_group_id": 403,
+          "resource_type": "device",
+          "resource_ids": [
+            "dev-001"
+          ],
+          "valid_from": "2026-09-12T00:00:00Z",
+          "valid_until": "2026-09-12T01:00:00Z",
+          "status": "active",
+          "reason": "合成测试",
+          "created_at": "2026-09-12T00:00:00Z",
+          "updated_at": "2026-09-12T00:00:00Z"
+        }
+      ],
+      "audit_log": [
+        {
+          "id": 1001,
+          "trace_id": "94589723-46f9-55e2-aa73-7cfe25e21bc2",
+          "account_id": 103,
+          "app_code": "auth-prd-app-a",
+          "operation_code": "DeviceController.control",
+          "resource_id": "dev-001",
+          "resource_type": "device",
+          "result": "denied",
+          "log_level": "warn",
+          "reason": "合成拒绝事件",
+          "created_at": "2026-09-12T00:00:00Z"
+        }
+      ]
+    }
+  },
+  "TD-02": {
+    "memberships": [
+      {
+        "accountId": 102,
+        "orgId": 11
+      },
+      {
+        "accountId": 103,
+        "orgId": 21
+      }
+    ],
+    "roles": {
+      "administrator": 101,
+      "staticUser": 102,
+      "delegatedUser": 103,
+      "service": 104
+    },
+    "delegationApp": {
+      "601": 501
+    },
+    "tokenContexts": {
+      "701": "session-a",
+      "702": "session-a",
+      "703": "session-a/scene-a",
+      "704": "session-b"
+    },
+    "notice": "测试上下文，不是原 DDL 的表/列；组织归属、会话及委托应用绑定待 Q-02/Q-06/Q-07"
+  },
+  "TD-03": {
+    "resources": [
+      {
+        "id": "dev-001",
+        "creator_id": 102,
+        "dept_id": 11
+      },
+      {
+        "id": "dev-002",
+        "creator_id": 103,
+        "dept_id": 11
+      },
+      {
+        "id": "dev-003",
+        "creator_id": 103,
+        "dept_id": 12
+      },
+      {
+        "id": "dev-004",
+        "creator_id": 103,
+        "dept_id": 21
+      }
+    ],
+    "notice": "业务资源模拟，不是授权中心新增业务表"
+  },
+  "TD-04": {
+    "appInvalid": "fixture-unknown",
+    "appFrozenId": 503,
+    "allowedIp": "192.0.2.10",
+    "deniedIp": "198.51.100.10",
+    "untrustedForwardedIp": "192.0.2.10",
+    "passwordAttempt": "SYNTHETIC-DO-NOT-LOGIN",
+    "credentialRef": "fixture:service-104",
+    "certificateRef": "fixture:certificate-104",
+    "wrongScene": "scene-b"
+  },
+  "TD-05": {
+    "username64": "uuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuu",
+    "username65": "uuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuu",
+    "name128": "名名名名名名名名名名名名名名名名名名名名名名名名名名名名名名名名名名名名名名名名名名名名名名名名名名名名名名名名名名名名名名名名名名名名名名名名名名名名名名名名名名名名名名名名名名名名名名名名名名名名名名名名名名名名名名名名名名名名名名名名名名名名名名名名",
+    "name129": "名名名名名名名名名名名名名名名名名名名名名名名名名名名名名名名名名名名名名名名名名名名名名名名名名名名名名名名名名名名名名名名名名名名名名名名名名名名名名名名名名名名名名名名名名名名名名名名名名名名名名名名名名名名名名名名名名名名名名名名名名名名名名名名名名",
+    "text512": "文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文",
+    "text513": "文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文文",
+    "missing": {},
+    "null": {
+      "remark": null
+    },
+    "empty": {
+      "remark": ""
+    },
+    "emptyArray": [],
+    "wrongObject": {},
+    "unknownId": 999999,
+    "largeId": "9007199254740993",
+    "invalidSort": "id;DROP TABLE account",
+    "readonly": {
+      "createdBy": "103",
+      "uuid": "00000000-0000-0000-0000-000000000000"
+    },
+    "unknownOperation": [
+      999999
+    ],
+    "unknownScope": "ALL",
+    "htmlText": "<img src=\"https://invalid.example/pixel\" onerror=\"alert(1)\">"
+  },
+  "TD-06": {
+    "validFrom": "2026-09-12T00:00:00Z",
+    "validUntil": "2026-09-12T01:00:00Z",
+    "beforeFrom": "2026-09-11T23:59:59.999Z",
+    "atFrom": "2026-09-12T00:00:00Z",
+    "atUntil": "2026-09-12T01:00:00Z",
+    "afterUntil": "2026-09-12T01:00:00.001Z",
+    "sameInstantOffset": "2026-09-12T08:30:00+08:00",
+    "pendingExpired": {
+      "status": "pending",
+      "now": "2026-09-12T01:00:00.001Z"
+    }
+  },
+  "TD-07": {
+    "readVersion": 7,
+    "requestA": {
+      "version": 7,
+      "operationIds": [
+        201
+      ]
+    },
+    "requestB": {
+      "version": 7,
+      "operationIds": [
+        202
+      ]
+    },
+    "idempotencyKey": "auth-prd-apply-001",
+    "uniqueAccountPair": {
+      "permissionGroupId": 403,
+      "accountId": 103
+    },
+    "uniqueOrgPair": {
+      "permissionGroupId": 403,
+      "orgId": 21
+    },
+    "notice": "版本/幂等键为方案测试元数据；DDL 未定义这些字段"
+  },
+  "TD-08": {
+    "account": [
+      {
+        "current": "[*]",
+        "event": "创建账号",
+        "next": "normal"
+      },
+      {
+        "current": "normal",
+        "event": "冻结账号",
+        "next": "frozen"
+      },
+      {
+        "current": "frozen",
+        "event": "解冻账号",
+        "next": "normal"
+      }
+    ],
+    "app": [
+      {
+        "current": "[*]",
+        "event": "注册应用",
+        "next": "active"
+      },
+      {
+        "current": "active",
+        "event": "冻结应用",
+        "next": "frozen"
+      },
+      {
+        "current": "frozen",
+        "event": "解冻应用",
+        "next": "active"
+      }
+    ],
+    "token": [
+      {
+        "current": "[*]",
+        "event": "签发成功",
+        "next": "valid"
+      },
+      {
+        "current": "valid",
+        "event": "刷新轮换成功",
+        "next": "consumed"
+      },
+      {
+        "current": "valid",
+        "event": "到达过期阈值",
+        "next": "expired"
+      },
+      {
+        "current": "valid",
+        "event": "退出或注销或冻结关联处理",
+        "next": "revoked"
+      },
+      {
+        "current": "consumed",
+        "event": "重放已消费令牌",
+        "next": "consumed"
+      },
+      {
+        "current": "expired",
+        "event": "重复注销或刷新过期令牌",
+        "next": "expired"
+      },
+      {
+        "current": "revoked",
+        "event": "重复注销或刷新撤销令牌",
+        "next": "revoked"
+      }
+    ],
+    "delegation": [
+      {
+        "current": "[*]",
+        "event": "提交申请",
+        "next": "pending"
+      },
+      {
+        "current": "pending",
+        "event": "批准申请",
+        "next": "active"
+      },
+      {
+        "current": "pending",
+        "event": "拒绝申请",
+        "next": "rejected"
+      },
+      {
+        "current": "active",
+        "event": "撤销委托",
+        "next": "revoked"
+      },
+      {
+        "current": "active",
+        "event": "超过有效结束时间",
+        "next": "expired"
+      },
+      {
+        "current": "pending",
+        "event": "过期申请尝试批准",
+        "next": "pending"
+      },
+      {
+        "current": "expired",
+        "event": "重试或重放终态申请",
+        "next": "expired"
+      },
+      {
+        "current": "revoked",
+        "event": "重试或重放终态申请",
+        "next": "revoked"
+      },
+      {
+        "current": "rejected",
+        "event": "重试或重放终态申请",
+        "next": "rejected"
+      }
+    ],
+    "archive": [
+      {
+        "current": "[*]",
+        "event": "创建归档任务",
+        "next": "queued"
+      },
+      {
+        "current": "queued",
+        "event": "启动归档",
+        "next": "processing"
+      },
+      {
+        "current": "processing",
+        "event": "复制与完整性校验通过",
+        "next": "verified"
+      },
+      {
+        "current": "processing",
+        "event": "复制或校验失败",
+        "next": "failed"
+      },
+      {
+        "current": "verified",
+        "event": "确认可恢复并完成策略处理",
+        "next": "completed"
+      },
+      {
+        "current": "verified",
+        "event": "完成确认失败",
+        "next": "failed"
+      },
+      {
+        "current": "failed",
+        "event": "核对进度后重试",
+        "next": "processing"
+      }
+    ]
+  },
+  "TD-09": {
+    "faults": [
+      "permission-source-timeout",
+      "cache-unavailable",
+      "audit-write-failure",
+      "archive-copy-failure",
+      "archive-checksum-mismatch",
+      "archive-finalize-failure"
+    ],
+    "archiveBatch": "auth-prd-archive-001",
+    "auditTrace": "94589723-46f9-55e2-aa73-7cfe25e21bc2",
+    "sensitiveMarkers": [
+      "SYNTHETIC-NOT-A-SECRET",
+      "SYNTHETIC-NOT-A-LOGIN-HASH",
+      "fixture-auth-prd-token-701"
+    ]
+  },
+  "TD-10": {
+    "baselineResourceCount": 4,
+    "distribution": {
+      "creators": [
+        102,
+        103
+      ],
+      "departments": [
+        11,
+        12,
+        21
+      ]
+    },
+    "migrationInput": "DDL.md：保留原始错误，实际修订版/旧库快照另行批准",
+    "ddlFaults": [
+      "created_by 后 10 处缺逗号",
+      "idx_token_account_id 重名",
+      "分区主键不含 created_at"
+    ],
+    "performanceApproval": null,
+    "concurrency": null,
+    "p95TargetMs": null,
+    "rto": null,
+    "rpo": null,
+    "notice": "未批准 Q-13/Q-16；夹具数量不证明性能或迁移已通过"
+  }
+}

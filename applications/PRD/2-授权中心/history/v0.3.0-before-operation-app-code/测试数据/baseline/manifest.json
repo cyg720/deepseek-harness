@@ -1,0 +1,11 @@
+{
+  "schemaVersion": 1,
+  "seed": 20260912,
+  "namespace": "auth-prd",
+  "datasets": 10,
+  "referenceTime": "2026-09-12T00:30:00Z",
+  "resourceCount": 4,
+  "file": "authorization-fixtures.json",
+  "sha256": "e4539baff9c67ef94e6b779f29cdeb39a7cb673c62a1448e207acbce745f2248",
+  "businessExecution": "未装载数据库；未调用接口；未执行业务验收"
+}

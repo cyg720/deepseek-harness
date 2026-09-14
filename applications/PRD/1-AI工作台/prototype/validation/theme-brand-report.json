@@ -1,0 +1,44 @@
+{
+  "status": "passed",
+  "checkedAt": "2026-09-14T03:45:30.883Z",
+  "checks": [
+    {
+      "selector": ".session-row",
+      "hover": {
+        "background": "rgb(53, 75, 50)",
+        "color": "rgb(224, 232, 215)"
+      },
+      "contrast": 7.5745835374574
+    },
+    {
+      "selector": ".tool-link",
+      "hover": {
+        "background": "rgb(53, 75, 50)",
+        "color": "rgb(224, 232, 215)"
+      },
+      "contrast": 7.5745835374574
+    },
+    {
+      "selector": ".recent-app",
+      "hover": {
+        "background": "rgb(53, 75, 50)",
+        "color": "rgb(224, 232, 215)"
+      },
+      "contrast": 7.5745835374574
+    },
+    {
+      "selector": ".new-chat",
+      "hover": {
+        "background": "rgb(53, 75, 50)",
+        "color": "rgb(224, 232, 215)"
+      },
+      "contrast": 7.5745835374574
+    }
+  ],
+  "selectedHover": true,
+  "keyboardFocus": true,
+  "lightHoverUnchanged": true,
+  "storedSessionsPreserved": true,
+  "brand": "奇术 / QISHU",
+  "errors": []
+}

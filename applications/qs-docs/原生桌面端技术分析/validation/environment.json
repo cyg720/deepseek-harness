@@ -1,0 +1,32 @@
+{
+  "checkedAt": "2026-09-13T10:51:46.8388026+08:00",
+  "repository": "D:\\code\\CYG\\Github\\deepseek-harness",
+  "operatingSystem": "Microsoft Windows 10.0.26200",
+  "processArchitecture": "X64",
+  "tools": {
+    "node": "v24.18.0",
+    "npm": "11.16.0",
+    "pnpm": "11.7.0",
+    "git": "git version 2.55.0.windows.2",
+    "python": "Python 3.11.15"
+  },
+  "toolCommands": {
+    "node": "node",
+    "npm": "npm.cmd",
+    "pnpm": "pnpm",
+    "git": "git",
+    "python": "python"
+  },
+  "files": {
+    "pnpm-lock.yaml": true,
+    "node_modules": true,
+    "apps/desktop/lib/main.js": true,
+    "apps/desktop/lib/preload.cjs": true,
+    "apps/desktop/lib/preload-app.cjs": true,
+    "apps/desktop-host/lib/index.js": true,
+    "apps/web/dist/index.html": true
+  },
+  "visualCppInstallation": null,
+  "electronBinaryPresent": false,
+  "orphanedSharedLinks": []
+}

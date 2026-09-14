@@ -1,0 +1,10 @@
+{
+  "schemaVersion": 1,
+  "namespace": "prd-demo",
+  "seed": 20260912,
+  "file": "device-fixtures.json",
+  "sha256": "d8948265ab0b26180dfc83093171452af678ef8d35668a76eafdc5c59c8a0426",
+  "datasetCount": 5,
+  "baselineRecords": 3,
+  "validation": "合成数据清单；不代表已装载或业务测试通过"
+}

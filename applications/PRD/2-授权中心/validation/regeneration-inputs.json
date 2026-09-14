@@ -1,0 +1,13 @@
+{
+  "readAt": "2026-09-12T02:45:20.071643+00:00",
+  "files": {
+    "applications\\PRD\\授权中心\\PRD.md": "0afb16acf876bfdc70c9eb5927fd037ff336b007dac6b6249a122ac74e5438b3",
+    "applications\\PRD\\授权中心\\DDL.md": "63ced17ffedc46d17acb94af1ae7894502020afa5714c2661afef886e94f4e71",
+    "applications\\PRD\\skills\\prd-writer-v3.0\\prd-writer\\SKILL.md": "b6d66a11de5a5f954d95d6dc37453009a38c899c1dccd999020ccc1586b9cb14",
+    "applications\\PRD\\skills\\prd-writer-v3.0\\prd-writer\\assets\\prd-template.md": "6b824080ae5eeca4b91c46daed2dd7422caf987634243b6ea994952a762eff88",
+    "applications\\PRD\\skills\\prd-writer-v3.0\\prd-writer\\assets\\offline-shell.html": "13eea25ae80760af79c337b47a9fa7e834ee7808458fb9f8cc88ccf81f870284",
+    "applications\\PRD\\skills\\prd-writer-v3.0\\prd-writer\\scripts\\render_prd.py": "0effcff8f9d8414927a200a56c36608a0d3af858e0bb59500056f8162a9a1b7b",
+    "applications\\PRD\\skills\\prd-writer-v3.0\\prd-writer\\references\\project-profile.md": "b9edbf308738cf5a4dc30523cc60262ac92584f07d480cbcfc51410a397cec8b"
+  },
+  "backup": "applications\\PRD\\授权中心\\history\\授权中心-0.1.0-重新生成前.zip"
+}

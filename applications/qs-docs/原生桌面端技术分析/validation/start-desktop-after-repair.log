@@ -1,0 +1,12 @@
+$ pnpm --filter @deepseek-ai/dsh-desktop run start
+native/system/packages/darwin-arm64      | [WARN] Unsupported platform: wanted: {"cpu":["arm64"],"os":["darwin"],"libc":["any"]} (current: {"os":"win32","cpu":"x64","libc":"unknown"})
+native/system/packages/darwin-x64        | [WARN] Unsupported platform: wanted: {"cpu":["x64"],"os":["darwin"],"libc":["any"]} (current: {"os":"win32","cpu":"x64","libc":"unknown"})
+native/system/packages/linux-arm64       | [WARN] Unsupported platform: wanted: {"cpu":["arm64"],"os":["linux"],"libc":["any"]} (current: {"os":"win32","cpu":"x64","libc":"unknown"})
+native/system/packages/linux-x64         | [WARN] Unsupported platform: wanted: {"cpu":["x64"],"os":["linux"],"libc":["any"]} (current: {"os":"win32","cpu":"x64","libc":"unknown"})
+$ tsx scripts/dev.ts --skip-build
+Downloading Electron binary...
+Electron failed to install correctly. Please delete `node_modules/electron` and run "npx install-electron --no" manually.
+D:\code\CYG\Github\deepseek-harness\apps\desktop:
+[ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL] @deepseek-ai/dsh-desktop@0.1.5-rc.2 start: `tsx scripts/dev.ts --skip-build`
+Exit status 1
+[ELIFECYCLE] Command failed with exit code 1.

@@ -1,0 +1,678 @@
+[
+  {
+    "path": "D:\\code\\CYG\\Github\\deepseek-harness\\apps\\desktop\\electron-builder.config.mjs",
+    "sha256": "a69963036f4764d2a056608c7a1d9c2fd3e2dd9794b656d396b9ee4966a97bd1",
+    "matches": [
+      {
+        "line": 11,
+        "keywords": [
+          "createWindow"
+        ]
+      },
+      {
+        "line": 43,
+        "keywords": [
+          "createWindow"
+        ]
+      }
+    ]
+  },
+  {
+    "path": "D:\\code\\CYG\\Github\\deepseek-harness\\apps\\desktop\\package.json",
+    "sha256": "953adae971023d591fd8f5aaf72db38e706c80d0dc1bd7bdb2959897e6a467a6",
+    "matches": [
+      {
+        "line": 15,
+        "keywords": [
+          "prepare:dsh"
+        ]
+      }
+    ]
+  },
+  {
+    "path": "D:\\code\\CYG\\Github\\deepseek-harness\\apps\\desktop\\README.zh.md",
+    "sha256": "cf41a382f1813a80403ec6613a6b588b244f5183e0985ce0af84169d750019e2",
+    "matches": [
+      {
+        "line": 66,
+        "keywords": [
+          "DSH_DESKTOP_APP_ID"
+        ]
+      },
+      {
+        "line": 69,
+        "keywords": [
+          "DSH_DESKTOP_APP_ID"
+        ]
+      },
+      {
+        "line": 99,
+        "keywords": [
+          "prepare:dsh"
+        ]
+      },
+      {
+        "line": 109,
+        "keywords": [
+          "DOWNLOAD_TEST_ORIGIN"
+        ]
+      },
+      {
+        "line": 115,
+        "keywords": [
+          "DOWNLOAD_TEST_ORIGIN"
+        ]
+      },
+      {
+        "line": 121,
+        "keywords": [
+          "DOWNLOAD_TEST_ORIGIN"
+        ]
+      },
+      {
+        "line": 146,
+        "keywords": [
+          "DSH_DESKTOP_APP_ID"
+        ]
+      },
+      {
+        "line": 183,
+        "keywords": [
+          "prepare:dsh"
+        ]
+      }
+    ]
+  },
+  {
+    "path": "D:\\code\\CYG\\Github\\deepseek-harness\\apps\\desktop\\scripts\\desktop-auto-update-environment.mjs",
+    "sha256": "88795d74c7800568d4c5bf5e471d349028a4ceace72a0baa772800cd8b2dfdf0",
+    "matches": [
+      {
+        "line": 10,
+        "keywords": [
+          "DOWNLOAD_TEST_ORIGIN"
+        ]
+      },
+      {
+        "line": 11,
+        "keywords": [
+          "fixedOrigin"
+        ]
+      },
+      {
+        "line": 18,
+        "keywords": [
+          "fixedOrigin"
+        ]
+      },
+      {
+        "line": 136,
+        "keywords": [
+          "fixedOrigin"
+        ]
+      }
+    ]
+  },
+  {
+    "path": "D:\\code\\CYG\\Github\\deepseek-harness\\apps\\desktop\\scripts\\dev.ts",
+    "sha256": "809489f422d44cd3dea295eaf33db250050ee5eb2dc8ba51c2fc39d44ed551c6",
+    "matches": [
+      {
+        "line": 8,
+        "keywords": [
+          "DESKTOP_HOST_PROTOCOL_VERSION"
+        ]
+      },
+      {
+        "line": 100,
+        "keywords": [
+          "DESKTOP_HOST_PROTOCOL_VERSION"
+        ]
+      }
+    ]
+  },
+  {
+    "path": "D:\\code\\CYG\\Github\\deepseek-harness\\apps\\desktop\\scripts\\development-project.ts",
+    "sha256": "3cc00a3ae9d5ca8136b4999fb129484b8b43a1421af8f02e98f0ea273909f4dc",
+    "matches": []
+  },
+  {
+    "path": "D:\\code\\CYG\\Github\\deepseek-harness\\apps\\desktop\\scripts\\package-macos.ts",
+    "sha256": "bc68d9f426a7894885ae25a2559b0d8968dd914c04863a84a6b8ba5af123ddb8",
+    "matches": []
+  },
+  {
+    "path": "D:\\code\\CYG\\Github\\deepseek-harness\\apps\\desktop\\scripts\\package-target.ts",
+    "sha256": "5a4d70bb6b1c83c29da1e465865c457a9dc98d1b8527a28f05f444c4f87e33d4",
+    "matches": [
+      {
+        "line": 290,
+        "keywords": [
+          "build:official"
+        ]
+      },
+      {
+        "line": 312,
+        "keywords": [
+          "prepare:dsh"
+        ]
+      }
+    ]
+  },
+  {
+    "path": "D:\\code\\CYG\\Github\\deepseek-harness\\apps\\desktop\\scripts\\prepare-dsh.ts",
+    "sha256": "fc63a297b59b686116d884f275db664076c0a875a68922db67925f6c2341864b",
+    "matches": [
+      {
+        "line": 8,
+        "keywords": [
+          "DESKTOP_HOST_PROTOCOL_VERSION"
+        ]
+      },
+      {
+        "line": 57,
+        "keywords": [
+          "DESKTOP_HOST_PROTOCOL_VERSION"
+        ]
+      }
+    ]
+  },
+  {
+    "path": "D:\\code\\CYG\\Github\\deepseek-harness\\apps\\desktop\\scripts\\prepare-runtime.ts",
+    "sha256": "ef153c754b630772023b0745d0b04c97f12b995d1654bedd76eb9c890f530fb3",
+    "matches": [
+      {
+        "line": 14,
+        "keywords": [
+          "NODE_VERSION"
+        ]
+      },
+      {
+        "line": 41,
+        "keywords": [
+          "NODE_VERSION"
+        ]
+      },
+      {
+        "line": 43,
+        "keywords": [
+          "NODE_VERSION"
+        ]
+      },
+      {
+        "line": 45,
+        "keywords": [
+          "NODE_VERSION"
+        ]
+      },
+      {
+        "line": 73,
+        "keywords": [
+          "NODE_VERSION"
+        ]
+      },
+      {
+        "line": 76,
+        "keywords": [
+          "NODE_VERSION"
+        ]
+      },
+      {
+        "line": 102,
+        "keywords": [
+          "NODE_VERSION"
+        ]
+      }
+    ]
+  },
+  {
+    "path": "D:\\code\\CYG\\Github\\deepseek-harness\\apps\\desktop\\scripts\\runtime-file-policy.ts",
+    "sha256": "1fbfa0742c61720b002d397404b2b8bd9c3de047c37caf154b6efd2e031a995f",
+    "matches": []
+  },
+  {
+    "path": "D:\\code\\CYG\\Github\\deepseek-harness\\apps\\desktop\\scripts\\windows-sign.mjs",
+    "sha256": "035fdef185d0bfe995adcbfacd0ace936cc0d823d2d5bb288943731fc19ba93b",
+    "matches": [
+      {
+        "line": 142,
+        "keywords": [
+          "createWindow"
+        ]
+      }
+    ]
+  },
+  {
+    "path": "D:\\code\\CYG\\Github\\deepseek-harness\\apps\\desktop\\src\\backend-controller.ts",
+    "sha256": "a102b7253ff2b785d67051e0a59e16c712cf83b8c00be5722930da6407d96bf0",
+    "matches": []
+  },
+  {
+    "path": "D:\\code\\CYG\\Github\\deepseek-harness\\apps\\desktop\\src\\host-process.ts",
+    "sha256": "724f9a0db679ab3964d7d6bacc55caf0d84a4ffb0077eb5835642575b8df3ad5",
+    "matches": [
+      {
+        "line": 8,
+        "keywords": [
+          "DESKTOP_HOST_PROTOCOL_VERSION"
+        ]
+      },
+      {
+        "line": 9,
+        "keywords": [
+          "DESKTOP_PIPE_CHUNK_BYTES"
+        ]
+      },
+      {
+        "line": 37,
+        "keywords": [
+          "DESKTOP_HOST_PROTOCOL_VERSION"
+        ]
+      },
+      {
+        "line": 64,
+        "keywords": [
+          "DESKTOP_HOST_PROTOCOL_VERSION"
+        ]
+      },
+      {
+        "line": 251,
+        "keywords": [
+          "DESKTOP_PIPE_CHUNK_BYTES"
+        ]
+      },
+      {
+        "line": 255,
+        "keywords": [
+          "DESKTOP_PIPE_CHUNK_BYTES"
+        ]
+      }
+    ]
+  },
+  {
+    "path": "D:\\code\\CYG\\Github\\deepseek-harness\\apps\\desktop\\src\\host-protocol.ts",
+    "sha256": "ef608222e30a4976d3d93e9f0e7fcc004161b346fa8b0cd005a370dc44824065",
+    "matches": [
+      {
+        "line": 4,
+        "keywords": [
+          "DESKTOP_HOST_PROTOCOL_VERSION"
+        ]
+      },
+      {
+        "line": 16,
+        "keywords": [
+          "DESKTOP_PIPE_CHUNK_BYTES"
+        ]
+      },
+      {
+        "line": 50,
+        "keywords": [
+          "DESKTOP_HOST_PROTOCOL_VERSION"
+        ]
+      },
+      {
+        "line": 94,
+        "keywords": [
+          "DESKTOP_PIPE_CHUNK_BYTES"
+        ]
+      },
+      {
+        "line": 162,
+        "keywords": [
+          "DESKTOP_PIPE_CHUNK_BYTES"
+        ]
+      }
+    ]
+  },
+  {
+    "path": "D:\\code\\CYG\\Github\\deepseek-harness\\apps\\desktop\\src\\main.ts",
+    "sha256": "804e192c3d7d06ef4dd904ceac902011f59e42a8bb7515ebb565ef57e34f25ee",
+    "matches": [
+      {
+        "line": 90,
+        "keywords": [
+          "createWindow"
+        ]
+      },
+      {
+        "line": 99,
+        "keywords": [
+          "nodeIntegration"
+        ]
+      },
+      {
+        "line": 100,
+        "keywords": [
+          "contextIsolation"
+        ]
+      },
+      {
+        "line": 283,
+        "keywords": [
+          "protocol.handle"
+        ]
+      },
+      {
+        "line": 429,
+        "keywords": [
+          "createWindow"
+        ]
+      },
+      {
+        "line": 453,
+        "keywords": [
+          "createWindow"
+        ]
+      },
+      {
+        "line": 515,
+        "keywords": [
+          "createWindow"
+        ]
+      }
+    ]
+  },
+  {
+    "path": "D:\\code\\CYG\\Github\\deepseek-harness\\apps\\desktop\\src\\paths.ts",
+    "sha256": "817506a51c9c46c217768e3d06c3f33a44346250437a02813e7e8418c7b54a9e",
+    "matches": []
+  },
+  {
+    "path": "D:\\code\\CYG\\Github\\deepseek-harness\\apps\\desktop\\src\\preload-app.ts",
+    "sha256": "e029a5460b329846a51d740529f747942a5c909f699265aedc672b93189a9b93",
+    "matches": []
+  },
+  {
+    "path": "D:\\code\\CYG\\Github\\deepseek-harness\\apps\\desktop\\src\\preload.ts",
+    "sha256": "b5e90bcd1a0af670e03c71b3b3cd0d09389cd32d254a1535a2d215ba839b2af6",
+    "matches": []
+  },
+  {
+    "path": "D:\\code\\CYG\\Github\\deepseek-harness\\apps\\desktop\\src\\profile-packages.ts",
+    "sha256": "b52fc201a8e6eb6aa8d7d186810392c5e30c048dacd12c3722dfc405cab754c9",
+    "matches": []
+  },
+  {
+    "path": "D:\\code\\CYG\\Github\\deepseek-harness\\apps\\desktop\\src\\project-manager.ts",
+    "sha256": "ba5da1f39879460879bc210c3d6d40bc4c591973e872a6d3857e1276a393ca46",
+    "matches": [
+      {
+        "line": 81,
+        "keywords": [
+          "DESKTOP_PROFILE_BUNDLES"
+        ]
+      },
+      {
+        "line": 86,
+        "keywords": [
+          "DESKTOP_REGISTRY"
+        ]
+      },
+      {
+        "line": 169,
+        "keywords": [
+          "DESKTOP_PROFILE_BUNDLES"
+        ]
+      },
+      {
+        "line": 172,
+        "keywords": [
+          "DESKTOP_PROFILE_BUNDLES"
+        ]
+      },
+      {
+        "line": 192,
+        "keywords": [
+          "DESKTOP_PROFILE_BUNDLES"
+        ]
+      },
+      {
+        "line": 335,
+        "keywords": [
+          "DESKTOP_PROFILE_BUNDLES"
+        ]
+      },
+      {
+        "line": 447,
+        "keywords": [
+          "DESKTOP_REGISTRY"
+        ]
+      },
+      {
+        "line": 458,
+        "keywords": [
+          "DESKTOP_REGISTRY"
+        ]
+      },
+      {
+        "line": 572,
+        "keywords": [
+          "DESKTOP_PROFILE_BUNDLES"
+        ]
+      },
+      {
+        "line": 597,
+        "keywords": [
+          "DESKTOP_PROFILE_BUNDLES"
+        ]
+      },
+      {
+        "line": 608,
+        "keywords": [
+          "DESKTOP_PROFILE_BUNDLES"
+        ]
+      }
+    ]
+  },
+  {
+    "path": "D:\\code\\CYG\\Github\\deepseek-harness\\apps\\desktop\\src\\runtime-tree.ts",
+    "sha256": "03db695634899c421086f39aacfa2ef9a26412d97f81f71e9679e06dd6b81601",
+    "matches": []
+  },
+  {
+    "path": "D:\\code\\CYG\\Github\\deepseek-harness\\apps\\desktop\\src\\update-coordinator.ts",
+    "sha256": "a8acaa00a5c1780a57419ff5db38f46bcc62a7cacdd32655944c4f0fc3acfb0e",
+    "matches": []
+  },
+  {
+    "path": "D:\\code\\CYG\\Github\\deepseek-harness\\apps\\desktop\\tests\\fixtures\\runtime-payload-smoke.mjs",
+    "sha256": "750985366088a5586e4fe8253c3bc0cd7c42761252c38d814f6aac5cd07c17dc",
+    "matches": [
+      {
+        "line": 68,
+        "keywords": [
+          "checkFsExt"
+        ]
+      },
+      {
+        "line": 124,
+        "keywords": [
+          "checkFsExt"
+        ]
+      }
+    ]
+  },
+  {
+    "path": "D:\\code\\CYG\\Github\\deepseek-harness\\apps\\desktop-host\\config\\desktop.cordis.patch.yml",
+    "sha256": "28b57c998d65fa7f028a2db097e0f19ac79c8f5525ccfa7cc6ad8b886442f852",
+    "matches": []
+  },
+  {
+    "path": "D:\\code\\CYG\\Github\\deepseek-harness\\apps\\desktop-host\\package.json",
+    "sha256": "af242e7e539f0850e8e254b39dbbbfbbce331cfe09a8bcf155508f4a1607eeee",
+    "matches": []
+  },
+  {
+    "path": "D:\\code\\CYG\\Github\\deepseek-harness\\apps\\desktop-host\\src\\index.ts",
+    "sha256": "b7edc44005b9ade743c33d57ea02bff27fe5beeaebace58f537192604679f9a1",
+    "matches": [
+      {
+        "line": 29,
+        "keywords": [
+          "DESKTOP_HOST_PROTOCOL_VERSION"
+        ]
+      },
+      {
+        "line": 30,
+        "keywords": [
+          "DESKTOP_PIPE_CHUNK_BYTES"
+        ]
+      },
+      {
+        "line": 41,
+        "keywords": [
+          "DESKTOP_HOST_PROTOCOL_VERSION"
+        ]
+      },
+      {
+        "line": 61,
+        "keywords": [
+          "DESKTOP_HOST_PROTOCOL_VERSION"
+        ]
+      },
+      {
+        "line": 279,
+        "keywords": [
+          "runDesktopHost"
+        ]
+      },
+      {
+        "line": 355,
+        "keywords": [
+          "DESKTOP_PIPE_CHUNK_BYTES"
+        ]
+      },
+      {
+        "line": 358,
+        "keywords": [
+          "DESKTOP_PIPE_CHUNK_BYTES"
+        ]
+      },
+      {
+        "line": 410,
+        "keywords": [
+          "runDesktopHost"
+        ]
+      },
+      {
+        "line": 413,
+        "keywords": [
+          "DESKTOP_HOST_PROTOCOL_VERSION"
+        ]
+      }
+    ]
+  },
+  {
+    "path": "D:\\code\\CYG\\Github\\deepseek-harness\\apps\\desktop-host\\src\\wire.ts",
+    "sha256": "887589acaa7df830fd559e2b9abbc69b667ccfb68df2670731db83a59b33a4df",
+    "matches": [
+      {
+        "line": 4,
+        "keywords": [
+          "DESKTOP_HOST_PROTOCOL_VERSION"
+        ]
+      },
+      {
+        "line": 13,
+        "keywords": [
+          "DESKTOP_PIPE_CHUNK_BYTES"
+        ]
+      },
+      {
+        "line": 65,
+        "keywords": [
+          "DESKTOP_PIPE_CHUNK_BYTES"
+        ]
+      },
+      {
+        "line": 140,
+        "keywords": [
+          "DESKTOP_PIPE_CHUNK_BYTES"
+        ]
+      }
+    ]
+  },
+  {
+    "path": "D:\\code\\CYG\\Github\\deepseek-harness\\docs\\architecture.md",
+    "sha256": "5bccea88701324e87ddec0aaa1d09925e574dd6d9be4567d60bcdad2c65f018e",
+    "matches": []
+  },
+  {
+    "path": "D:\\code\\CYG\\Github\\deepseek-harness\\package.json",
+    "sha256": "766b5a990aca5d203457c11937f543256725d4a11487a85df5976c2e55a8e967",
+    "matches": [
+      {
+        "line": 22,
+        "keywords": [
+          "build:official"
+        ]
+      }
+    ]
+  },
+  {
+    "path": "D:\\code\\CYG\\Github\\deepseek-harness\\packages\\boot\\app-boot\\src\\index.ts",
+    "sha256": "5f4779b84959013b23d78047be708048d89513f865dc52cb5f94b14fe3ecbb31",
+    "matches": []
+  },
+  {
+    "path": "D:\\code\\CYG\\Github\\deepseek-harness\\packages\\client\\ui-brand-official\\package.json",
+    "sha256": "27733dfa42bab2d54caa421f0fca0c801620ebc66ef99ae37f94e83a6f9c5910",
+    "matches": []
+  },
+  {
+    "path": "D:\\code\\CYG\\Github\\deepseek-harness\\packages\\client\\ui-brand-official\\src\\client\\index.ts",
+    "sha256": "f2ce2c73c300bdf4012a16495be04a8c92aed37610c4ce2409c81949f7230dfe",
+    "matches": []
+  },
+  {
+    "path": "D:\\code\\CYG\\Github\\deepseek-harness\\packages\\host\\directory-picker-native\\src\\index.ts",
+    "sha256": "fe6bd944a3c303b127286410bcfe252cc1137296fe7a7ce47d22c0deb6feab63",
+    "matches": []
+  },
+  {
+    "path": "D:\\code\\CYG\\Github\\deepseek-harness\\packages\\session\\session-persistence-jsonl\\package.json",
+    "sha256": "76c91737d04c3226f16b40837b8aceb8558009fc59fc30da92b261b47b7e2191",
+    "matches": []
+  },
+  {
+    "path": "D:\\code\\CYG\\Github\\deepseek-harness\\packages\\session\\session-persistence-jsonl\\src\\lease.ts",
+    "sha256": "377f24b1446382d703d5f1346f44e15a25368a0e7967e5bd41db700a919d7ad8",
+    "matches": []
+  },
+  {
+    "path": "D:\\code\\CYG\\Github\\deepseek-harness\\packages\\util\\home-paths\\src\\index.ts",
+    "sha256": "446ccca60e74e0af73bcb2a6b5c16cd6e708396a7d94508a626d4a9d9d8df841",
+    "matches": []
+  },
+  {
+    "path": "D:\\code\\CYG\\Github\\deepseek-harness\\scripts\\client-build-environment.ts",
+    "sha256": "52ff160d5ed8a2e1786290511df9aa6f2730cf3a4772452d97ea1fab85775353",
+    "matches": [
+      {
+        "line": 22,
+        "keywords": [
+          "DSH_CLIENT_TITLE"
+        ]
+      }
+    ]
+  },
+  {
+    "path": "D:\\code\\CYG\\Github\\deepseek-harness\\scripts\\release\\families.ts",
+    "sha256": "61a35e547bf129f3ea0f049df3af93f3fc8163ed5f2b0598774a719bd341c8e8",
+    "matches": [
+      {
+        "line": 116,
+        "keywords": [
+          "verifyBuildArtifacts"
+        ]
+      },
+      {
+        "line": 333,
+        "keywords": [
+          "verifyBuildArtifacts"
+        ]
+      }
+    ]
+  }
+]

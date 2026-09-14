@@ -1,0 +1,270 @@
+{
+  "meta": {
+    "synthetic": true,
+    "credentialsUsable": false,
+    "version": "0.4.2",
+    "seed": 20260912,
+    "namespace": "auth-v040",
+    "referenceTime": "2026-09-12T10:00:00+08:00"
+  },
+  "TD-01": {
+    "accounts": [
+      {
+        "id": 101,
+        "username": "auth-v040-admin",
+        "status": "normal",
+        "mustChangePassword": false,
+        "isSuperAdmin": true
+      },
+      {
+        "id": 102,
+        "username": "auth-v040-member",
+        "status": "normal",
+        "mustChangePassword": false
+      },
+      {
+        "id": 103,
+        "username": "auth-v040-new",
+        "status": "normal",
+        "mustChangePassword": true
+      }
+    ],
+    "organizations": [
+      {
+        "id": 10,
+        "parentId": 0
+      },
+      {
+        "id": 11,
+        "parentId": 10
+      },
+      {
+        "id": 12,
+        "parentId": 11
+      },
+      {
+        "id": 21,
+        "parentId": 10
+      }
+    ],
+    "memberships": [
+      {
+        "accountId": 102,
+        "orgId": 11
+      },
+      {
+        "accountId": 102,
+        "orgId": 21
+      }
+    ],
+    "userGroup": {
+      "id": 301,
+      "members": [
+        102,
+        103
+      ]
+    },
+    "operations": [
+      {
+        "id": 201,
+        "appCode": "app-a",
+        "operationCode": "app-a.DeviceController.list"
+      },
+      {
+        "id": 202,
+        "appCode": "app-a",
+        "operationCode": "app-a.DeviceController.control"
+      },
+      {
+        "id": 203,
+        "appCode": "app-b",
+        "operationCode": "app-b.DeviceController.list"
+      }
+    ],
+    "permissionGroups": [
+      {
+        "id": 401,
+        "operationIds": [
+          201
+        ]
+      },
+      {
+        "id": 402,
+        "operationIds": []
+      },
+      {
+        "id": 403,
+        "operationIds": [
+          202
+        ]
+      },
+      {
+        "id": 404,
+        "operationIds": [
+          203
+        ]
+      }
+    ],
+    "accountGroups": [
+      {
+        "accountId": 102,
+        "groupId": 403
+      }
+    ],
+    "organizationGroups": [
+      {
+        "orgId": 11,
+        "groupId": 401
+      },
+      {
+        "orgId": 12,
+        "groupId": 404
+      }
+    ],
+    "apps": [
+      {
+        "appCode": "app-a",
+        "visibilityGroupIds": [
+          401,
+          402
+        ],
+        "status": "active"
+      },
+      {
+        "appCode": "app-b",
+        "visibilityGroupIds": [
+          404
+        ],
+        "status": "active"
+      }
+    ]
+  },
+  "TD-02": {
+    "roles": {
+      "administrator": 101,
+      "member": 102,
+      "firstLogin": 103
+    },
+    "notice": "这些是接口测试上下文，不是数据库种子；管理动作的授权集合需Q-01确认后配置。"
+  },
+  "TD-03": {
+    "businessOwnedResources": [
+      {
+        "id": "dev-001",
+        "owner": 102
+      },
+      {
+        "id": "dev-002",
+        "owner": 103
+      }
+    ],
+    "notice": "仅业务应用行权限对照；授权中心不生成过滤条件。"
+  },
+  "TD-04": {
+    "validAppKey": "SYNTHETIC-APP-A-KEY",
+    "unknownAppKey": "SYNTHETIC-UNKNOWN",
+    "allowedIp": "192.0.2.10",
+    "deniedIp": "198.51.100.10",
+    "serviceCredentialRef": "fixture:service",
+    "notice": "AppKey占位值不可用，真实测试由隔离环境签发；不保存完整token。"
+  },
+  "TD-05": {
+    "missing": {},
+    "null": {
+      "paramValue": null
+    },
+    "empty": {
+      "paramValue": ""
+    },
+    "spaces": {
+      "paramValue": "   "
+    },
+    "text": {
+      "paramValue": "中文配置"
+    },
+    "number": {
+      "paramValue": "42"
+    },
+    "largeId": "9007199254740993",
+    "passwordShort": "Ab1!xyz",
+    "passwordValid": "Ab1!xyza",
+    "passwordNoDigit": "Abcd!xyz",
+    "passwordNoLetter": "1234!567",
+    "passwordNoSpecial": "Abcd1234",
+    "sqlInput": "x'; DROP TABLE example; --",
+    "unknownGroupId": 999999,
+    "oldOperationCode": "DeviceController.list",
+    "foreignOperationCode": "app-b.DeviceController.list",
+    "readonly": {
+      "createdBy": 103
+    },
+    "username64": "uuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuu",
+    "username65": "uuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuu"
+  },
+  "TD-06": {
+    "issuedAt": "2026-09-12T10:00:00+08:00",
+    "expiresAt": "2026-10-12T10:00:00+08:00",
+    "beforeExpiry": "2026-10-12T09:59:59+08:00",
+    "atExpiry": "2026-10-12T10:00:00+08:00",
+    "afterExpiry": "2026-10-12T10:00:01+08:00",
+    "sameInstantUTC": "2026-09-12T02:00:00Z",
+    "retentionReference": "2026-12-12T10:00:00+08:00",
+    "retentionCutoff": "2026-09-13T10:00:00+08:00",
+    "renewAt15Days": "2026-09-27T10:00:00+08:00",
+    "renewBelow15Days": "2026-09-27T10:00:01+08:00",
+    "renewedExpiresAt": "2026-10-27T10:00:01+08:00"
+  },
+  "TD-07": {
+    "readVersion": 7,
+    "firstEdit": {
+      "version": 7,
+      "description": "甲修改"
+    },
+    "secondEdit": {
+      "version": 7,
+      "description": "乙修改"
+    },
+    "duplicateAssociation": {
+      "accountId": 102,
+      "orgId": 11
+    },
+    "idempotencyKey": "auth-v040-register-a"
+  },
+  "TD-08": {
+    "phone": {
+      "sessionId": "00000000-0000-0000-0000-000000000001",
+      "tokenDigest": "9f7fe481c74eeffcd1f9779e043a617f19268eb5a1da8589e62b1bafb7aa84ec",
+      "revoked": false
+    },
+    "computer": {
+      "sessionId": "00000000-0000-0000-0000-000000000002",
+      "tokenDigest": "d1220f44c6b0e54b9211fe9e1bf84cecdeee51c34a9d9fa01ecaca470bf6a6a9",
+      "revoked": false
+    },
+    "rotatedPhone": {
+      "sessionId": "00000000-0000-0000-0000-000000000001",
+      "tokenDigest": "f75a7df95ce0d2cd73a138a29a88da2f042e6d5546576bfd42bffeb1b6845ad2",
+      "revoked": false
+    },
+    "notice": "摘要样例仅用于字段测试，不代表批准了SHA-256算法或可签发凭证。"
+  },
+  "TD-09": {
+    "faults": [
+      "authorization-unavailable",
+      "audit-write-failed",
+      "registration-partial-failure",
+      "cleanup-failed"
+    ],
+    "unknownActor": {
+      "accountId": null,
+      "appCode": null,
+      "result": "denied"
+    }
+  },
+  "TD-10": {
+    "users": null,
+    "concurrency": null,
+    "latencyTarget": null,
+    "notice": "本期不设容量性能验收，不用样例数量代表生产规模。"
+  }
+}

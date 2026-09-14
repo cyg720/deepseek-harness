@@ -1,0 +1,7 @@
+test-results/
+**/__pycache__/
+**/*.pyc
+prd-writer/examples/*.prd.md
+prd-writer/examples/*.prd.html
+prd-writer/examples/*.manifest.json
+prd-writer/examples/test-data/

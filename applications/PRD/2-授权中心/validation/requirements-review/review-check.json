@@ -1,0 +1,61 @@
+{
+  "reviewedAt": "2026-09-12T05:58:26.423Z",
+  "version": "0.3.1",
+  "revision": 5,
+  "passed": 25,
+  "checks": [
+    "原有 MD/HTML 快照一致",
+    "正文修改仅限第十二章待决策事项",
+    "原16项问题逐字保留",
+    "23个决策主编号连续且唯一",
+    "主表六列齐全",
+    "所有主问题保留待决策状态",
+    "7项原问题补充且不重复编号定义",
+    "US新增引用均存在于原文",
+    "BR新增引用均存在于原文",
+    "AC新增引用均存在于原文",
+    "API新增引用均存在于原文",
+    "DB新增引用均存在于原文",
+    "TC新增引用均存在于原文",
+    "TD新增引用均存在于原文",
+    "相对来源可读取 ../总体架构.md",
+    "相对来源可读取 ../应用中心/DDL.md",
+    "相对来源可读取 ../总体架构.md",
+    "相对来源可读取 ../总体架构.md",
+    "新 MD/HTML 完整同快照",
+    "业务版本不变，仅增加编辑修订号",
+    "原始 PRD 和 DDL 哈希保持不变",
+    "SQL和测试数据等交付文件保持不变",
+    "更新后所有交付哈希一致",
+    "HTML运行代码、样式及Mermaid资源与评审前一致",
+    "三个本轮文件相对评审前快照无新增空白错误；Git仅提示CRLF归一化"
+  ],
+  "changedScope": "第十二章；业务规则、SQL、141条用例和10组数据未改",
+  "newDecisionCount": 7,
+  "clarifiedDecisionCount": 7,
+  "totalDecisionCount": 23,
+  "businessExecution": "未执行；没有产品批准或业务验收结论",
+  "browserExecution": "本轮未执行浏览器交互，校验HTML内嵌快照与Markdown一致",
+  "reviewedFiles": {
+    "PRD.md": "0afb16acf876bfdc70c9eb5927fd037ff336b007dac6b6249a122ac74e5438b3",
+    "DDL.md": "63ced17ffedc46d17acb94af1ae7894502020afa5714c2661afef886e94f4e71",
+    "授权中心.prd.md": "687f5bd0d86c0bf6178dd86d1743e6a45c2f82fff393282eb747b367a4bf6b4c",
+    "授权中心.schema.sql": "a944ea5ca3c1348aa784271d3d713d8eb13c0f7af9a6dbb2fb5e16a5c1fc327d",
+    "测试数据/baseline/authorization-fixtures.json": "5f7b2c9a25b6b3dd86cb064038f0a53fde2901d2656dc69047f907e90dd0f153",
+    "../总体架构.md": "0eef8736b8d0d3e13037a2d52d5222bdd134a63b932eb09210f59d7030d15834",
+    "../应用中心/DDL.md": "e07b87e52007f71cd701ca8f3425c01fef5989fa35ba9d608af7a942fb3c58e2"
+  },
+  "workspaceDiffCheck": "相对HEAD检查发现HTML内嵌资源的既有行尾空白；与评审前快照逐行相同，本轮未改动这些资源。",
+  "repositoryDocsCheck": {
+    "command": "pnpm run test:docs",
+    "exitCode": 1,
+    "passed": 15,
+    "failed": 1,
+    "failedGate": "markdown links",
+    "reason": "既有Agent Note中8处链接指向已删除的applications/PRD/skills/prd-writer-v3.0文件；本次未修改这些文件。",
+    "affectedNotes": [
+      ".agents/notes/implemented/bug-fix/2026-09-12-prd-offline-diagrams-and-test-evidence.md",
+      ".agents/notes/implemented/bug-fix/2026-09-12-prd-offline-diagrams-and-test-evidence.zh.md"
+    ]
+  }
+}

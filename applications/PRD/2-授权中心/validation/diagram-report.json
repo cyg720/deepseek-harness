@@ -1,0 +1,56 @@
+{
+  "checkedAt": "2026-09-12T02:53:35.149Z",
+  "mermaidVersion": "11.16.0",
+  "sourceSha256": "bb2c5e8f370ef73d2044bd82d275032505fed284a3bcca77afe2674b8ad94931",
+  "cases": [
+    {
+      "title": "一图统揽",
+      "type": "flowchart-v2",
+      "status": "通过",
+      "sourceSha256": "120b866cbc4dc8735c381ceb81fb886d913d055d72f2466c56510c9154a1df88"
+    },
+    {
+      "title": "账号状态",
+      "type": "stateDiagram",
+      "status": "通过",
+      "sourceSha256": "5c560dc89cd2219fdd6f96b63388bfa89cb8442496c5132c17e4048c3d25e115"
+    },
+    {
+      "title": "应用状态",
+      "type": "stateDiagram",
+      "status": "通过",
+      "sourceSha256": "8258908305c7f85ac3b4230af466d0b74b1987b974f4bb5d57f96e3c89b7298e"
+    },
+    {
+      "title": "令牌生命周期（建议）",
+      "type": "stateDiagram",
+      "status": "通过",
+      "sourceSha256": "ec3faee1860c5c1d30271537c5b607ef46711eaf2b59fac98ce70a5aebe163d5"
+    },
+    {
+      "title": "委托生命周期（待决策）",
+      "type": "stateDiagram",
+      "status": "通过",
+      "sourceSha256": "2b067c3af189491b5f36f926a634d2ab49f29262ae7e0cdaf844cf297f495664"
+    },
+    {
+      "title": "归档任务生命周期（建议）",
+      "type": "stateDiagram",
+      "status": "通过",
+      "sourceSha256": "05022c1dbe351c79974ad2f98d0016d2728fd2c5d8daafc79ebd8e5826676ae9"
+    }
+  ],
+  "browser": "149.0.7827.55",
+  "invalidSyntaxRejected": true,
+  "implicitNetworkRequests": [],
+  "galleryLocalOpen": "通过",
+  "galleryNarrowViewport": "通过",
+  "summary": {
+    "parsedAndRendered": 6,
+    "failed": 0
+  },
+  "limitations": [
+    "SVG 图册为静态快照，不随离线编辑工作台自动更新。",
+    "生成解析和渲染验证不等于业务状态正确性或业务测试。"
+  ]
+}

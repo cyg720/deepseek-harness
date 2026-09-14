@@ -1,0 +1,63 @@
+$ tsx scripts/run-gates.ts doc-quick
+run-gates: doc-quick running 16 gate(s) with 4 worker(s) from 20 available CPU(s), doc-quick cap 4.
+run-gates: start markdown links
+run-gates: start type equivalence
+run-gates: start translation pairing
+run-gates: start markdown wrap
+run-gates: PASS type equivalence (14.41s)
+run-gates: start public repository links
+run-gates: PASS markdown wrap (14.78s)
+run-gates: start doc refs
+run-gates: PASS doc refs (4.71s)
+run-gates: start package README Summaries
+
+== FAILED markdown links (19.60s) ==
+command: pnpm run verify-md-links
+outcome: exit 1
+[ELIFECYCLE] Command failed with exit code 1.
+$ tsx scripts/verify-md-links.ts
+verify-md-links: broken relative cross-links found:
+  .agents\notes\implemented\bug-fix\2026-09-12-prd-offline-diagrams-and-test-evidence.md:13  ../../../../applications/PRD/skills/prd-writer-v3.0/prd-writer/SKILL.md  (target does not exist)
+  .agents\notes\implemented\bug-fix\2026-09-12-prd-offline-diagrams-and-test-evidence.md:15  ../../../../applications/PRD/skills/prd-writer-v3.0/prd-writer/scripts/render_prd.py  (target does not exist)
+  .agents\notes\implemented\bug-fix\2026-09-12-prd-offline-diagrams-and-test-evidence.md:23  ../../../../applications/PRD/skills/prd-writer-v3.0/prd-writer/scripts/test_runtime.py  (target does not exist)
+  .agents\notes\implemented\bug-fix\2026-09-12-prd-offline-diagrams-and-test-evidence.md:23  ../../../../applications/PRD/skills/prd-writer-v3.0/prd-writer/scripts/test_test_data.py  (target does not exist)
+  .agents\notes\implemented\bug-fix\2026-09-12-prd-offline-diagrams-and-test-evidence.zh.md:13  ../../../../applications/PRD/skills/prd-writer-v3.0/prd-writer/SKILL.md  (target does not exist)
+  .agents\notes\implemented\bug-fix\2026-09-12-prd-offline-diagrams-and-test-evidence.zh.md:15  ../../../../applications/PRD/skills/prd-writer-v3.0/prd-writer/scripts/render_prd.py  (target does not exist)
+  .agents\notes\implemented\bug-fix\2026-09-12-prd-offline-diagrams-and-test-evidence.zh.md:23  ../../../../applications/PRD/skills/prd-writer-v3.0/prd-writer/scripts/test_runtime.py  (target does not exist)
+  .agents\notes\implemented\bug-fix\2026-09-12-prd-offline-diagrams-and-test-evidence.zh.md:23  ../../../../applications/PRD/skills/prd-writer-v3.0/prd-writer/scripts/test_test_data.py  (target does not exist)
+run-gates: start package README model experience
+run-gates: PASS package README Summaries (0.61s)
+run-gates: start agent note classification
+run-gates: PASS agent note classification (0.70s)
+run-gates: start agent note format
+run-gates: PASS agent note format (0.72s)
+run-gates: start archived agent notes
+run-gates: PASS archived agent notes (1.08s)
+run-gates: start skill invocation metadata
+run-gates: PASS skill invocation metadata (0.62s)
+run-gates: start translation prompt
+run-gates: PASS package README model experience (4.12s)
+run-gates: start doc budgets
+run-gates: PASS translation prompt (0.58s)
+run-gates: start documentation standard tests
+run-gates: PASS doc budgets (0.56s)
+run-gates: start package README limitations
+[ELIFECYCLE] Command failed with exit code 1.
+
+== FAILED translation pairing (25.37s) ==
+command: pnpm run verify-translation-pairing
+outcome: exit 1
+$ tsx scripts/verify-translation-pairing.ts
+verify-translation-pairing: bilingual pairing rules violated (see docs/i18n/README.md):
+  applications/PRD/2-授权中心/README.md: in-scope documentation must merge bilingual (docs/i18n/README.md); add the counterpart and record the pair
+run-gates: PASS documentation standard tests (1.71s)
+run-gates: PASS public repository links (13.51s)
+run-gates: PASS package README limitations (3.92s)
+
+run-gates: 14 passed, 2 failed, 0 skipped in 28.20s.
+run-gates: unsuccessful gates:
+  - FAILED markdown links (19.60s, exit 1)
+    pnpm run verify-md-links
+  - FAILED translation pairing (25.37s, exit 1)
+    pnpm run verify-translation-pairing
+[ELIFECYCLE] Command failed with exit code 1.

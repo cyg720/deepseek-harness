@@ -1,0 +1,67 @@
+{
+  "docId": "safety-platform.authorization-center",
+  "version": "0.4.0",
+  "revision": 7,
+  "generatedAt": "2026-09-12T08:12:48.200Z",
+  "sources": {
+    "PRD.md": "0afb16acf876bfdc70c9eb5927fd037ff336b007dac6b6249a122ac74e5438b3",
+    "DDL.md": "63ced17ffedc46d17acb94af1ae7894502020afa5714c2661afef886e94f4e71"
+  },
+  "feedbackSource": {
+    "path": "history/v0.3.1-user-feedback/授权中心.prd.md",
+    "sha256": "5cfe036dbea9f01a96d3abc136ddc7e7fbf651da66840741b403505e99935224",
+    "feedbackRows": 30
+  },
+  "baseline": "history/v0.3.1-user-feedback",
+  "skill": "../skills/prd-writer-v3.1/prd-writer",
+  "skillVersion": "3.1.1",
+  "tables": 14,
+  "partitions": 1,
+  "indexes": 14,
+  "columnComments": 168,
+  "testGroups": 7,
+  "testCases": 76,
+  "acceptancePoints": 30,
+  "retiredAcceptancePoints": 7,
+  "datasets": 10,
+  "decisionItems": 23,
+  "validation": "118项文档/SQL静态与合成数据检查、7项浏览器检查；业务和数据库执行未验证",
+  "files": {
+    "授权中心.prd.md": {
+      "bytes": 201952,
+      "sha256": "0ab51d76dafb7ba5b7b3d9c0d9d07d713c55f21af64096092950d9c4e015f5f3"
+    },
+    "授权中心.prd.html": {
+      "bytes": 3824684,
+      "sha256": "504fd2f0f2a26acbbace0cf0f841386a8dd77d9d585942073e23718ced9b0501"
+    },
+    "授权中心.schema.sql": {
+      "bytes": 33425,
+      "sha256": "885febdc32c552a4e17b5473f07282fd704578ad7966e8762adf276e42ed0490"
+    },
+    "测试数据/生成测试数据.py": {
+      "bytes": 4731,
+      "sha256": "1f5a04d7540c47a10dd649ee415ff730939755bdf8841f1c1daa0f91e58de6c7"
+    },
+    "测试数据/v0.4.0/authorization-fixtures.json": {
+      "bytes": 5637,
+      "sha256": "592016ec24f50e9724feb0d233bcad8f85dea40057f03b9bd180456e4b254675"
+    },
+    "测试数据/v0.4.0/manifest.json": {
+      "bytes": 162,
+      "sha256": "7a5681cc1655c4dddb41fbd4c2847670d08ad49dfb24f2defd79ebdf1b5bc7ef"
+    },
+    "测试数据/baseline/authorization-fixtures.json": {
+      "bytes": 5637,
+      "sha256": "592016ec24f50e9724feb0d233bcad8f85dea40057f03b9bd180456e4b254675"
+    },
+    "测试数据/baseline/manifest.json": {
+      "bytes": 162,
+      "sha256": "7a5681cc1655c4dddb41fbd4c2847670d08ad49dfb24f2defd79ebdf1b5bc7ef"
+    },
+    "交付验证报告.md": {
+      "bytes": 3133,
+      "sha256": "6f429a6a1457f024747af228e505ff2682a0c17210df80470a223d1d131f732e"
+    }
+  }
+}

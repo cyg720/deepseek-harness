@@ -1,0 +1,19 @@
+{
+  "revision": 6,
+  "version": "0.3.1",
+  "updatedAt": "2026-09-12T06:21:53.098Z",
+  "mainRows": 23,
+  "supplementRows": 7,
+  "checks": [
+    "只修改第十二章两张表的问题、证据与建议两列",
+    "原问题编号、决策角色、阻断范围、状态和验收列保持不变",
+    "第十二章以外的正文逐字不变",
+    "Markdown和HTML内嵌快照一致",
+    "HTML运行代码、样式及Mermaid资源保持不变",
+    "原始PRD、DDL及其他交付文件哈希不变",
+    "交付文件清单哈希与新文件一致",
+    "本轮MD、HTML及清单相对修改前快照无新增空白错误"
+  ],
+  "businessExecution": "文字调整，未执行或批准业务规则",
+  "backup": "C:\\Users\\18010\\AppData\\Local\\Temp\\auth-plain-language-f10m_rdx"
+}

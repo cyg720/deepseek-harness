@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "docId": "demo.device",
+  "version": "0.2.0-demo",
+  "revision": 0,
+  "generatedAt": "2026-09-12T03:57:06.275565+00:00",
+  "validation": "已校验生成文件的模型一致性；未执行浏览器、业务代码或业务验收",
+  "files": {
+    "device-demo.prd.md": {
+      "bytes": 60571,
+      "sha256": "24d532ee552ee1c6e7be75c64a9d3b241e94fec72ee5abc18b03642ba877a0c7"
+    },
+    "device-demo.prd.html": {
+      "bytes": 3681058,
+      "sha256": "06d8a2bb218740b649b28d36d868e5caf47f3e6b28fcdd71be437ecae3356fb7"
+    }
+  }
+}

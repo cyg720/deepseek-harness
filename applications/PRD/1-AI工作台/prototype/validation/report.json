@@ -1,0 +1,29 @@
+{
+  "status": "passed",
+  "checkedAt": "2026-09-13T02:35:27.278Z",
+  "viewport": [
+    1440,
+    960
+  ],
+  "checks": [
+    "Login required/invalid credentials, password visibility, help, demo identity and password-free persistence",
+    "Both panels, overview mode, workspace switching and isolated new workspace",
+    "Session rename/pin/export, composer/model/thinking/attachment/voice, reply/stop/retry/copy/feedback/evidence/download",
+    "Result-to-todo creation, todo complete/edit/cancel/delete, calendar navigation/date/event CRUD",
+    "Project naming/detail, workspace upload/text preview/download/reference/delete",
+    "All six capability catalogs, search/no-match, details, use in chat, plugin toggle and terminal configuration/disconnect",
+    "Theme/compact/input preferences, keyboard shortcut, refresh persistence, automatic login and logout",
+    "390px mobile login, home, navigation overlays, modal form and conversation",
+    "Direct file opening without a server",
+    "No uncaught browser errors"
+  ],
+  "errors": [],
+  "screenshots": [
+    "login-desktop.png",
+    "home-desktop.png",
+    "chat-desktop.png",
+    "home-dark.png",
+    "login-mobile.png",
+    "home-mobile.png"
+  ]
+}

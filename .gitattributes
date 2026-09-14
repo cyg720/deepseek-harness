@@ -11,3 +11,38 @@
 # Pairing records are generated from the three confirmed owner-blob pairs.
 # The worktree-local installer registers the fail-closed driver command.
 *.i18n.yaml merge=dsh-translation-pairing
+
+# Preserve embedded-script CSP hashes and original validation log bytes.
+"applications/PRD/2-授权中心/history/v0.3.0-before-operation-app-code/授权中心.prd.html" whitespace=-blank-at-eol,-blank-at-eof
+"applications/PRD/2-授权中心/history/v0.3.1-user-feedback/授权中心.prd.html" whitespace=-blank-at-eol,-blank-at-eof
+"applications/PRD/2-授权中心/history/v0.4.0-user-feedback/授权中心.prd.html" whitespace=-blank-at-eol,-blank-at-eof
+"applications/PRD/2-授权中心/history/v0.4.1-before-development-decisions/授权中心.prd.html" whitespace=-blank-at-eol,-blank-at-eof
+"applications/PRD/2-授权中心/validation/v0.3.1/roundtrip.html" whitespace=-blank-at-eol,-blank-at-eof
+"applications/PRD/2-授权中心/validation/v0.4.0/roundtrip.html" whitespace=-blank-at-eol,-blank-at-eof
+"applications/PRD/2-授权中心/validation/v0.4.1/roundtrip.html" whitespace=-blank-at-eol,-blank-at-eof
+"applications/PRD/2-授权中心/validation/v0.4.2/roundtrip.html" whitespace=-blank-at-eol,-blank-at-eof
+"applications/PRD/2-授权中心/validation/v3.1.1/diagram-edited.prd.html" whitespace=-blank-at-eol,-blank-at-eof
+"applications/PRD/2-授权中心/validation/v3.1.1/metadata-security.html" whitespace=-blank-at-eol,-blank-at-eof
+"applications/PRD/2-授权中心/validation/v3.1.1/roundtrip.prd.html" whitespace=-blank-at-eol,-blank-at-eof
+"applications/PRD/2-授权中心/validation/v3.1/diagram-edited.prd.html" whitespace=-blank-at-eol,-blank-at-eof
+"applications/PRD/2-授权中心/validation/v3.1/metadata-security.html" whitespace=-blank-at-eol,-blank-at-eof
+"applications/PRD/2-授权中心/validation/v3.1/roundtrip.prd.html" whitespace=-blank-at-eol,-blank-at-eof
+"applications/PRD/2-授权中心/授权中心.prd.html" whitespace=-blank-at-eol,-blank-at-eof
+"applications/PRD/skills/prd-writer-v3.1-cleanup-archive/prd-writer/examples/device-demo.prd.html" whitespace=-blank-at-eol,-blank-at-eof
+"applications/PRD/skills/prd-writer-v3.1-cleanup-archive/validation/attack-roundtrip.html" whitespace=-blank-at-eol,-blank-at-eof
+"applications/PRD/skills/prd-writer-v3.1-cleanup-archive/validation/content/attack-roundtrip.html" whitespace=-blank-at-eol,-blank-at-eof
+"applications/PRD/skills/prd-writer-v3.1-cleanup-archive/validation/content/diagram-edited.html" whitespace=-blank-at-eol,-blank-at-eof
+"applications/PRD/skills/prd-writer-v3.1-cleanup-archive/validation/content/roundtrip.prd.html" whitespace=-blank-at-eol,-blank-at-eof
+"applications/PRD/skills/prd-writer-v3.1-cleanup-archive/validation/diagram-edited.html" whitespace=-blank-at-eol,-blank-at-eof
+"applications/PRD/skills/prd-writer-v3.1-cleanup-archive/validation/roundtrip.prd.html" whitespace=-blank-at-eol,-blank-at-eof
+"applications/PRD/skills/prd-writer-v3.1-cleanup-archive/validation/v3.1.1/runtime/attack-roundtrip.html" whitespace=-blank-at-eol,-blank-at-eof
+"applications/PRD/skills/prd-writer-v3.1-cleanup-archive/validation/v3.1.1/runtime/diagram-edited.html" whitespace=-blank-at-eol,-blank-at-eof
+"applications/PRD/skills/prd-writer-v3.1-cleanup-archive/validation/v3.1.1/runtime/roundtrip.prd.html" whitespace=-blank-at-eol,-blank-at-eof
+"applications/PRD/skills/prd-writer-v3.1-cleanup-archive/validation/v3.1.1/toc-ddl-demo.prd.html" whitespace=-blank-at-eol,-blank-at-eof
+"applications/PRD/skills/prd-writer-v3.1-cleanup-archive/validation/v3.1.1/toc-roundtrip.html" whitespace=-blank-at-eol,-blank-at-eof
+"applications/qs-docs/原生桌面端技术分析/validation/desktop-tests.log" whitespace=-blank-at-eol,-blank-at-eof
+"applications/qs-docs/原生桌面端技术分析/validation/dev-desktop.log" whitespace=-blank-at-eol,-blank-at-eof
+"applications/qs-docs/原生桌面端技术分析/validation/install.log" whitespace=-blank-at-eol,-blank-at-eof
+"applications/qs-docs/原生桌面端技术分析/validation/lint.log" whitespace=-blank-at-eol,-blank-at-eof
+"applications/qs-docs/原生桌面端技术分析/validation/macos-signature-recheck.log" whitespace=-blank-at-eol,-blank-at-eof
+"applications/qs-docs/原生桌面端技术分析/validation/package-windows-unsigned.log" whitespace=-blank-at-eol,-blank-at-eof

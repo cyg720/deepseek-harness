@@ -1,0 +1,96 @@
+{
+  "docId": "safety-platform.authorization-center",
+  "version": "0.4.1",
+  "revision": 8,
+  "generatedAt": "2026-09-12T09:07:56.895Z",
+  "sources": {
+    "PRD.md": "0afb16acf876bfdc70c9eb5927fd037ff336b007dac6b6249a122ac74e5438b3",
+    "DDL.md": "63ced17ffedc46d17acb94af1ae7894502020afa5714c2661afef886e94f4e71"
+  },
+  "feedbackSource": {
+    "path": "history/v0.4.0-user-feedback/授权中心.prd.md",
+    "sha256": "dbb786953ff131f6cca97323e179e9d9d428379c4c4b283af6f87fb95544c022",
+    "feedbackRows": 13
+  },
+  "baseline": "history/v0.4.0-user-feedback",
+  "skill": "../skills/prd-writer-v3.1/prd-writer",
+  "skillVersion": "3.1.1",
+  "tables": 14,
+  "partitions": 1,
+  "indexes": 15,
+  "columnComments": 169,
+  "testGroups": 8,
+  "testCases": 81,
+  "acceptancePoints": 32,
+  "retiredAcceptancePoints": 8,
+  "datasets": 10,
+  "decisionItems": 23,
+  "validation": "128项文档/SQL静态与合成数据检查、7项浏览器检查；业务和数据库执行未验证",
+  "files": {
+    "授权中心.prd.md": {
+      "bytes": 239485,
+      "sha256": "3db3cadb695e560c285c0c753487d4c99306c09afa1bda1236941f77006bacbb"
+    },
+    "授权中心.prd.html": {
+      "bytes": 3862593,
+      "sha256": "219df195678d6c5757e9ef446b5c30b18a3aa19ed41e22a01dfcbcc8f9a7844a"
+    },
+    "授权中心.schema.sql": {
+      "bytes": 34685,
+      "sha256": "261b9d9f7f0c0471eebd3cf029131d521f84021e582fdad6526158de02df09be"
+    },
+    "测试数据/生成测试数据.py": {
+      "bytes": 5055,
+      "sha256": "6e050e3decb32ce9b25bb1795a9c41c5c50157a13b70c0970cdea02bf0e304d4"
+    },
+    "测试数据/v0.4.1/authorization-fixtures.json": {
+      "bytes": 5967,
+      "sha256": "72fe522ac6d0d1687e549d7d630a211cd4865ef60427f543477ca953484f16b3"
+    },
+    "测试数据/v0.4.1/manifest.json": {
+      "bytes": 162,
+      "sha256": "f972916bd76a29bfd44510c8fc2c550e9d7e7d0605cf95c657b39609347f83e2"
+    },
+    "测试数据/baseline/authorization-fixtures.json": {
+      "bytes": 5967,
+      "sha256": "72fe522ac6d0d1687e549d7d630a211cd4865ef60427f543477ca953484f16b3"
+    },
+    "测试数据/baseline/manifest.json": {
+      "bytes": 162,
+      "sha256": "f972916bd76a29bfd44510c8fc2c550e9d7e7d0605cf95c657b39609347f83e2"
+    },
+    "交付验证报告.md": {
+      "bytes": 3412,
+      "sha256": "97c9b6270944aa14803ef3b61d1150bd5951738a9a3b0248df13bfe4827657ec"
+    },
+    "validation/v0.4.1/check_delivery.py": {
+      "bytes": 9846,
+      "sha256": "b69018cd49f3ac5af13344162c9bd988798aae59d20d158947f638abc6a3744b"
+    },
+    "validation/v0.4.1/check_browser.cjs": {
+      "bytes": 3611,
+      "sha256": "7838c29d78607a26cdc4fc25039eec02a564542a9b21397481ede2d905eea29c"
+    },
+    "validation/v0.4.1/delivery-check.json": {
+      "bytes": 5948,
+      "sha256": "081218320ece565fb89c2fc5f308fc9116a7888dfaf7deba77e2a2956aae1968"
+    },
+    "validation/v0.4.1/browser-report.json": {
+      "bytes": 432,
+      "sha256": "b1ecb0c1b56b91ae6c332642a5299a1ae63f6f21ecab8415c62f5ab018911aa4"
+    },
+    "validation/v0.4.1/revision-metadata.json": {
+      "bytes": 2073,
+      "sha256": "4f02101f874fd092ba24719dcb893a2a389b766001e7199116c42496e29ec0f3"
+    },
+    "validation/v0.4.1/test-cases.json": {
+      "bytes": 48695,
+      "sha256": "71cc4c0666b4f8b1eceeda05e9d611e3e52a55b2ab303b90caebe77790a58c13"
+    }
+  },
+  "previousFeedbackSource": {
+    "path": "history/v0.3.1-user-feedback/授权中心.prd.md",
+    "sha256": "5cfe036dbea9f01a96d3abc136ddc7e7fbf651da66840741b403505e99935224",
+    "feedbackRows": 30
+  }
+}

@@ -1,0 +1,2 @@
+# Preserve pinned third-party JavaScript literal whitespace.
+prd-writer/assets/mermaid/mermaid-11.16.0.min.js -whitespace

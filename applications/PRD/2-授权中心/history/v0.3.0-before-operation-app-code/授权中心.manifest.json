@@ -1,0 +1,37 @@
+{
+  "docId": "safety-platform.authorization-center",
+  "version": "0.3.0",
+  "revision": 3,
+  "generatedAt": "2026-09-12T05:11:54.582Z",
+  "sources": {
+    "PRD.md": "0afb16acf876bfdc70c9eb5927fd037ff336b007dac6b6249a122ac74e5438b3",
+    "DDL.md": "63ced17ffedc46d17acb94af1ae7894502020afa5714c2661afef886e94f4e71"
+  },
+  "baseline": "history\\v0.2.0-before-ddl-v3.1.1",
+  "skill": "skills\\prd-writer-v3.1\\prd-writer",
+  "skillSha256": "0f6fe381d18b78d2a10328c63ee0c869b0b3e1cac768b6f4b28a4b229ddce3b5",
+  "testGroups": 30,
+  "testCases": 141,
+  "acceptancePoints": 30,
+  "datasets": 10,
+  "files": {
+    "授权中心.prd.md": {
+      "bytes": 384196,
+      "sha256": "2a42d3f7d3547d30d28e5a8563f838fcac371980f457ffd118afbf902f24b1e3"
+    },
+    "授权中心.prd.html": {
+      "bytes": 4007956,
+      "sha256": "c58e2a2e1ac9b840f092819828ce4d6c7d39c83431b887998cfd05a3c4814dd6"
+    },
+    "授权中心.schema.sql": {
+      "bytes": 34959,
+      "sha256": "fbb17bf76851f452ea4e1af29b4e79ebd7a3d46830ae34551aa4c561916bce07"
+    }
+  },
+  "validation": "同快照构建；具体静态/浏览器验证见交付验证报告；业务测试和验收未执行",
+  "skillVersion": "3.1.1",
+  "tables": 14,
+  "partitions": 1,
+  "indexes": 26,
+  "columnComments": 158
+}

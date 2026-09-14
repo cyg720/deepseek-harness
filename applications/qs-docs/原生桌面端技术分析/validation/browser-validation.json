@@ -1,0 +1,19 @@
+{
+  "pageErrors": [],
+  "networkRequests": [],
+  "views": [
+    {
+      "width": 1440,
+      "scrollWidth": 1440,
+      "bodyWidth": 1440
+    },
+    {
+      "width": 390,
+      "scrollWidth": 390,
+      "bodyWidth": 390
+    }
+  ],
+  "links": 205,
+  "chapters": 7,
+  "passed": true
+}
