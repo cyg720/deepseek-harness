@@ -1,0 +1,361 @@
+{
+  "metadata": {
+    "seed": 3101,
+    "time": "2026-09-14 10:00:00",
+    "namespace": "prd_app_",
+    "synthetic": true
+  },
+  "TD-01": {
+    "actors": [
+      {
+        "id": "101",
+        "role": "owner",
+        "teamIds": [
+          "201"
+        ]
+      },
+      {
+        "id": "102",
+        "role": "reviewer",
+        "teamIds": [
+          "201"
+        ]
+      },
+      {
+        "id": "103",
+        "role": "viewer",
+        "teamIds": [
+          "201"
+        ]
+      },
+      {
+        "id": "104",
+        "role": "outsider",
+        "teamIds": [
+          "202"
+        ]
+      },
+      {
+        "id": "105",
+        "role": "operator",
+        "teamIds": [
+          "201"
+        ]
+      },
+      {
+        "id": "106",
+        "role": "service",
+        "teamIds": []
+      }
+    ],
+    "applications": [
+      {
+        "id": "1001",
+        "app_code": "prd_app_draft",
+        "app_name": "合成应用1",
+        "logo": null,
+        "cover": null,
+        "scope": "team",
+        "owner_id": "101",
+        "team_id": "201",
+        "status": "draft",
+        "release_version": "1.0.0",
+        "version": "7",
+        "description": "仅供需求验证",
+        "dependencies": [
+          {
+            "kind": "plugin",
+            "code": "prd_plugin",
+            "version": "2.0.0"
+          }
+        ],
+        "authorization_id": null,
+        "app_key": null,
+        "credential_ref": null,
+        "desired_auth_status": "offline",
+        "observed_auth_status": null,
+        "observed_auth_version": null,
+        "created_at": "2026-09-14 10:00:00",
+        "updated_at": "2026-09-14 10:00:00",
+        "created_by": "101",
+        "updated_by": "101"
+      },
+      {
+        "id": "1002",
+        "app_code": "prd_app_pending",
+        "app_name": "合成应用2",
+        "logo": null,
+        "cover": null,
+        "scope": "team",
+        "owner_id": "101",
+        "team_id": "201",
+        "status": "pending",
+        "release_version": "1.0.0",
+        "version": "7",
+        "description": "仅供需求验证",
+        "dependencies": [
+          {
+            "kind": "plugin",
+            "code": "prd_plugin",
+            "version": "2.0.0"
+          }
+        ],
+        "authorization_id": null,
+        "app_key": null,
+        "credential_ref": null,
+        "desired_auth_status": "offline",
+        "observed_auth_status": null,
+        "observed_auth_version": null,
+        "created_at": "2026-09-14 10:00:00",
+        "updated_at": "2026-09-14 10:00:00",
+        "created_by": "101",
+        "updated_by": "101"
+      },
+      {
+        "id": "1003",
+        "app_code": "prd_app_published",
+        "app_name": "合成应用3",
+        "logo": null,
+        "cover": null,
+        "scope": "team",
+        "owner_id": "101",
+        "team_id": "201",
+        "status": "published",
+        "release_version": "1.0.0",
+        "version": "7",
+        "description": "仅供需求验证",
+        "dependencies": [
+          {
+            "kind": "plugin",
+            "code": "prd_plugin",
+            "version": "2.0.0"
+          }
+        ],
+        "authorization_id": "2003",
+        "app_key": null,
+        "credential_ref": null,
+        "desired_auth_status": "active",
+        "observed_auth_status": "active",
+        "observed_auth_version": "3",
+        "created_at": "2026-09-14 10:00:00",
+        "updated_at": "2026-09-14 10:00:00",
+        "created_by": "101",
+        "updated_by": "101"
+      },
+      {
+        "id": "1004",
+        "app_code": "prd_app_frozen",
+        "app_name": "合成应用4",
+        "logo": null,
+        "cover": null,
+        "scope": "team",
+        "owner_id": "101",
+        "team_id": "201",
+        "status": "frozen",
+        "release_version": "1.0.0",
+        "version": "7",
+        "description": "仅供需求验证",
+        "dependencies": [
+          {
+            "kind": "plugin",
+            "code": "prd_plugin",
+            "version": "2.0.0"
+          }
+        ],
+        "authorization_id": "2004",
+        "app_key": null,
+        "credential_ref": null,
+        "desired_auth_status": "frozen",
+        "observed_auth_status": "frozen",
+        "observed_auth_version": "3",
+        "created_at": "2026-09-14 10:00:00",
+        "updated_at": "2026-09-14 10:00:00",
+        "created_by": "101",
+        "updated_by": "101"
+      },
+      {
+        "id": "1005",
+        "app_code": "prd_app_offline",
+        "app_name": "合成应用5",
+        "logo": null,
+        "cover": null,
+        "scope": "team",
+        "owner_id": "101",
+        "team_id": "201",
+        "status": "offline",
+        "release_version": "1.0.0",
+        "version": "7",
+        "description": "仅供需求验证",
+        "dependencies": [
+          {
+            "kind": "plugin",
+            "code": "prd_plugin",
+            "version": "2.0.0"
+          }
+        ],
+        "authorization_id": "2005",
+        "app_key": null,
+        "credential_ref": null,
+        "desired_auth_status": "offline",
+        "observed_auth_status": "offline",
+        "observed_auth_version": "3",
+        "created_at": "2026-09-14 10:00:00",
+        "updated_at": "2026-09-14 10:00:00",
+        "created_by": "101",
+        "updated_by": "101"
+      }
+    ]
+  },
+  "TD-02": {
+    "requests": [
+      {
+        "name": "name_null",
+        "patch": {
+          "version": "7",
+          "appName": null
+        },
+        "code": 40001
+      },
+      {
+        "name": "name_blank",
+        "patch": {
+          "version": "7",
+          "appName": "   "
+        },
+        "code": 40001
+      },
+      {
+        "name": "name_long",
+        "patch": {
+          "version": "7",
+          "appName": "中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中"
+        },
+        "code": 40001
+      },
+      {
+        "name": "dependencies_null",
+        "patch": {
+          "version": "7",
+          "dependencies": null
+        },
+        "code": 40001
+      },
+      {
+        "name": "dependencies_object",
+        "patch": {
+          "version": "7",
+          "dependencies": {}
+        },
+        "code": 40001
+      },
+      {
+        "name": "readonly",
+        "patch": {
+          "version": "7",
+          "appSecret": "synthetic-not-a-secret"
+        },
+        "code": 40001
+      },
+      {
+        "name": "stale_version",
+        "patch": {
+          "version": "6",
+          "appName": "过期修改"
+        },
+        "code": 40901
+      },
+      {
+        "name": "no_change",
+        "patch": {
+          "version": "7"
+        },
+        "code": 40001
+      }
+    ],
+    "validName128": "中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中",
+    "bigId": "9007199254740993"
+  },
+  "TD-03": {
+    "dependencyStates": [
+      "available",
+      "missing",
+      "disabled",
+      "version_mismatch",
+      "timeout"
+    ],
+    "syncFaults": [
+      "before_send",
+      "response_lost",
+      "version_conflict",
+      "worker_restart",
+      "old_active_after_freeze"
+    ]
+  },
+  "TD-04": {
+    "page": {
+      "page": 1,
+      "pageSize": 20
+    },
+    "pageSizeInvalid": [
+      0,
+      101
+    ],
+    "references": [
+      "review",
+      "authorization",
+      "sync_job"
+    ],
+    "legalTransitions": [
+      [
+        "draft",
+        "submit",
+        "pending"
+      ],
+      [
+        "pending",
+        "withdraw",
+        "draft"
+      ],
+      [
+        "pending",
+        "reject",
+        "draft"
+      ],
+      [
+        "pending",
+        "approve",
+        "published"
+      ],
+      [
+        "published",
+        "freeze",
+        "frozen"
+      ],
+      [
+        "frozen",
+        "enable",
+        "published"
+      ],
+      [
+        "published",
+        "offline",
+        "offline"
+      ],
+      [
+        "frozen",
+        "offline",
+        "offline"
+      ],
+      [
+        "offline",
+        "enable",
+        "published"
+      ],
+      [
+        "offline",
+        "revise",
+        "draft"
+      ]
+    ]
+  }
+}

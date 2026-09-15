@@ -1,0 +1,74 @@
+{
+  "status": "passed",
+  "sizes": [
+    {
+      "width": 320,
+      "height": 640,
+      "status": "passed"
+    },
+    {
+      "width": 360,
+      "height": 740,
+      "status": "passed"
+    },
+    {
+      "width": 390,
+      "height": 844,
+      "status": "passed"
+    },
+    {
+      "width": 700,
+      "height": 700,
+      "status": "passed"
+    },
+    {
+      "width": 768,
+      "height": 1024,
+      "status": "passed"
+    },
+    {
+      "width": 960,
+      "height": 640,
+      "status": "passed"
+    },
+    {
+      "width": 1024,
+      "height": 768,
+      "status": "passed"
+    },
+    {
+      "width": 1440,
+      "height": 900,
+      "status": "passed"
+    },
+    {
+      "width": 1920,
+      "height": 1080,
+      "status": "passed"
+    },
+    {
+      "width": 844,
+      "height": 390,
+      "status": "passed"
+    },
+    {
+      "width": 568,
+      "height": 320,
+      "status": "passed"
+    },
+    {
+      "width": 390,
+      "height": 300,
+      "status": "passed"
+    }
+  ],
+  "liveResize": {
+    "draft": true,
+    "attachments": true,
+    "inputNodePreserved": true,
+    "modalPreserved": true,
+    "desktopPanelsRestored": true,
+    "tabletBackdropEscape": true
+  },
+  "errors": []
+}

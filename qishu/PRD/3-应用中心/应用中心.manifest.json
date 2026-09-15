@@ -1,0 +1,52 @@
+{
+  "docId": "application.center",
+  "version": "0.1.0",
+  "status": "待决策",
+  "files": [
+    {
+      "path": "应用中心.prd.md",
+      "bytes": 161395,
+      "sha256": "16f7f25f6b4a028659059f2297c3c63a47f651eac7ee2fd0b9afda594a1f282b"
+    },
+    {
+      "path": "应用中心.prd.html",
+      "bytes": 3783368,
+      "sha256": "b49f60e124edbb5dcfeb4c07876a32e3d637439e91f073f01224713b288c78de"
+    },
+    {
+      "path": "应用中心.schema.sql",
+      "bytes": 12639,
+      "sha256": "e922351cff354a78a1a5ed0e0ed40d5f0bd029aa945f815af1f45c798ed24209"
+    },
+    {
+      "path": "交付验证报告.md",
+      "bytes": 5314,
+      "sha256": "4e2512011ad3fd0b928aacf19fb7b5024bc1ad68de7b8312a2a0ce9669cb54f0"
+    },
+    {
+      "path": "测试数据/生成测试数据.py",
+      "bytes": 4938,
+      "sha256": "9a13a5537ae46e15985e29f78665495b1b9529c00c4a7ffbff73b82545ccf1b6"
+    },
+    {
+      "path": "测试数据/v0.1.0/application-fixtures.json",
+      "bytes": 8647,
+      "sha256": "f9d7a9fcc05e3b28e6a551455cd9f4073f37c28c9610db5b3bfdf70d7f48a11c"
+    },
+    {
+      "path": "validation/静态验证.json",
+      "bytes": 5376,
+      "sha256": "7e6127634f959f2e71dde944d900105106c9e95d57b943397243b5629c5d59c9"
+    },
+    {
+      "path": "validation/浏览器验证.json",
+      "bytes": 2010,
+      "sha256": "8e1f43decc2df4c54015aa26a66bc52d3701f576f41ed1c2a41d3447e15fe3c4"
+    },
+    {
+      "path": "validation/ZIP验证.json",
+      "bytes": 337,
+      "sha256": "86d96ee4ba67a550278796f063c1208d3b1b00460115eec4ecb838da1a9f7010"
+    }
+  ]
+}

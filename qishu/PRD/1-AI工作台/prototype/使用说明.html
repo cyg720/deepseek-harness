@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>奇术原型 · 使用说明</title><style>body{font:15px/1.9 system-ui,'Microsoft YaHei',sans-serif;color:#304633;background:#f7f9f3;max-width:880px;margin:55px auto;padding:0 24px}h1,h2{font-weight:550}h2{font-size:20px;margin-top:35px}a{color:#466d37}code{background:#e9efdf;padding:3px 7px;border-radius:5px}table{width:100%;border-collapse:collapse;background:white}td,th{text-align:left;padding:12px 15px;border-bottom:1px solid #dfe7d7;font-size:13px}.note{padding:18px 22px;background:#eaf1df;border-radius:10px}li{margin:7px 0}</style></head><body>
+<h1>奇术 · AI 工作台交互原型</h1><p>依据同目录上一级的 <a href="../PRD.md">PRD</a> 设计，范围为登录页和主页。产品名称为“奇术”，视觉风格用于本次原型设计。</p>
+<p class="note"><a href="index.html">打开原型 →</a><br>演示用户名 <code>admin</code>，密码 <code>Demo@2026</code>。登录页可点击“填入演示账号”。</p>
+<h2>打开方式</h2><p>直接打开 <code>index.html</code> 即可体验。推荐在本目录执行 <code>node serve.cjs</code>，浏览器访问 <a href="http://127.0.0.1:4173">http://127.0.0.1:4173</a>。静态服务器无外部依赖，按 Ctrl+C 停止。</p>
+<h2>交互范围</h2><table><thead><tr><th>区域</th><th>可体验的交互</th></tr></thead><tbody>
+<tr><td>登录</td><td>用户名和密码校验、显示密码、自动登录、演示账号填入、找回密码说明、退出登录。</td></tr>
+<tr><td>全局导航</td><td>左右栏收起与展开、对话／概览工作台切换、工作区切换和新建、个人账号、主题和输入偏好设置。</td></tr>
+<tr><td>会话</td><td>新建、选择、置顶、取消置顶、重命名、删除确认、导出；Ctrl+K 新建。</td></tr>
+<tr><td>对话输入</td><td>输入并发送、示例任务、附件选择与移除、拖拽文件、模型选择、深度思考开关、示例语音转写、停止生成。</td></tr>
+<tr><td>对话结果</td><td>模拟回复、证据详情、复核待办草稿、导出摘要、复制、重新生成、赞同。</td></tr>
+<tr><td>能力入口</td><td>最近应用、数字智能体、插件中心、RAG 知识库、Skill 中心、应用中心、移动终端；搜索、详情、带入对话或模拟配置。</td></tr>
+<tr><td>工作区</td><td>当前项目命名与详情、会话入口、添加文件、文本类文件预览、下载、引用到对话、删除确认。</td></tr>
+<tr><td>待办</td><td>新增、编辑、日期设置、完成／撤销完成、删除确认、未完成数量联动。</td></tr>
+<tr><td>日程</td><td>月份切换、日期选择、事件标记、新增、修改、删除确认。</td></tr>
+</tbody></table>
+<h2>演示数据与保存</h2><ul>
+<li>业务数据的示例日期固定为 2026-09-13；日历可浏览其他月份。工作区之间隔离会话、资料、待办和日程。</li>
+<li>localStorage 的 <code>yuvi-prototype-v1</code> 保存交互数据和偏好。自动登录只保存演示身份，不保存密码；未勾选时登录身份只放在 sessionStorage。</li>
+<li>附件大小限制为 20 MB，不上传文件。工作区保存文件元信息；当前页面内可预览 TXT、CSV、MD、JSON、LOG。刷新后不保留用户文件正文。</li>
+<li>清除浏览器的此站点数据即可恢复初始样例。使用 file 地址与 localhost 地址时，浏览器存储互相独立。</li>
+</ul>
+<h2>自适应布局</h2><p>支持手机、平板、桌面及横屏窄高窗口。窗口跨越 700 px 和 960 px 断点时自动调整侧栏，返回桌面时恢复该布局的开关状态；缩放不会重建对话输入框或弹窗。手机端左右栏互斥，平板右栏使用遮罩浮层，可点击遮罩或按 Esc 收起。输入区随可用视口高度适配，长内容在各自区域内滚动。</p><h2>原型的实际限制</h2><p>没有真实认证、后端 API、模型推理、通知调度、设备操作或外部服务连接。模型选择与深度思考只改变演示交互；语音输入使用可点击的示例转写，不访问麦克风。当前项目是工作区内的单个展示项目，新建按钮更新项目名称，不创建独立的项目数据容器。</p>
+<h2>代码与验收</h2><p><code>index.html</code> 为入口，<code>styles.css</code> 为样式，<code>app.js</code> 为本地状态与交互，<code>factory.svg</code> 为登录页动态插图，<code>serve.cjs</code> 为静态服务器。<code>preview/</code> 保留实测截图，<code>validation/</code> 保留浏览器验证脚本与结果。</p>
+<p>验证脚本使用 Playwright；可用环境变量 <code>PLAYWRIGHT_MODULE</code> 指定模块目录、<code>BROWSER_PATH</code> 指定浏览器可执行文件、<code>PROTOTYPE_URL</code> 指定已启动的原型地址，然后运行 <code>node validation/verify.cjs</code>。脚本在隔离浏览器中检查关键流程，不修改用户浏览器数据。</p>
+</body></html>

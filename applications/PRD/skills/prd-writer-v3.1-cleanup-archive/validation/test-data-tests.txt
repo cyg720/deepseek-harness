@@ -1,9 +1,0 @@
-test_acceptance_cases_and_data_references_are_complete (__main__.TestDataTests.test_acceptance_cases_and_data_references_are_complete) ... ok
-test_changed_parameters_require_isolation_and_invalid_namespace_is_rejected (__main__.TestDataTests.test_changed_parameters_require_isolation_and_invalid_namespace_is_rejected) ... ok
-test_document_embeds_complete_executable_recipe (__main__.TestDataTests.test_document_embeds_complete_executable_recipe) ... ok
-test_reproducible_recipe_and_constraint_categories (__main__.TestDataTests.test_reproducible_recipe_and_constraint_categories) ... ok
-
-----------------------------------------------------------------------
-Ran 4 tests in 0.814s
-
-OK

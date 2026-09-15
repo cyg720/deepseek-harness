@@ -35,6 +35,8 @@ python/**/__pycache__/
 python/**/.pytest_cache/
 packages/**/__pycache__/
 applications/**/__pycache__/
+qishu/**/__pycache__/
+**/*.pyc
 apps/web/dist/
 .artifacts/
 .dsh-build/
