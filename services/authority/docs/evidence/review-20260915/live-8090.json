@@ -1,0 +1,110 @@
+[
+  {
+    "method": "GET",
+    "path": "/v3/api-docs",
+    "status": 200,
+    "contentType": "application/json",
+    "cacheControl": null,
+    "bytes": 48547,
+    "paths": 39,
+    "operations": 73
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/auth/accounts",
+    "status": 401,
+    "contentType": "application/json",
+    "cacheControl": null,
+    "bytes": 118,
+    "response": {
+      "code": 40104,
+      "message": "应用接入凭据缺失或无效",
+      "data": {
+        "traceId": "5740ba8f-c4a2-4855-b29e-9b32d9d7837c"
+      }
+    }
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/auth/users/me",
+    "status": 401,
+    "contentType": "application/json",
+    "cacheControl": null,
+    "bytes": 118,
+    "response": {
+      "code": 40104,
+      "message": "应用接入凭据缺失或无效",
+      "data": {
+        "traceId": "30358be3-eeea-4567-985f-c27e4c00f965"
+      }
+    }
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/auth/sessions/login",
+    "status": 401,
+    "contentType": "application/json",
+    "cacheControl": null,
+    "bytes": 118,
+    "response": {
+      "code": 40104,
+      "message": "应用接入凭据缺失或无效",
+      "data": {
+        "traceId": "c2bb63b9-16ee-4072-a1f8-b9840b4e3c50"
+      }
+    }
+  },
+  {
+    "method": "GET",
+    "path": "/actuator/env",
+    "status": 404,
+    "contentType": "application/json",
+    "cacheControl": null,
+    "bytes": 100,
+    "response": {
+      "code": 40401,
+      "message": "目标不存在",
+      "data": {
+        "traceId": "13a496a0-3e60-4c6f-9a51-ba2356240a6c"
+      }
+    }
+  },
+  {
+    "method": "GET",
+    "path": "/actuator/health",
+    "status": 404,
+    "contentType": "application/json",
+    "cacheControl": null,
+    "bytes": 100,
+    "response": {
+      "code": 40401,
+      "message": "目标不存在",
+      "data": {
+        "traceId": "7d9a8c17-1c6a-4eaa-b3a9-8e6dd2f4178d"
+      }
+    }
+  },
+  {
+    "method": "GET",
+    "path": "/doc.html",
+    "status": 200,
+    "contentType": "text/html",
+    "cacheControl": null,
+    "bytes": 1903
+  },
+  {
+    "method": "GET",
+    "path": "/not-a-review-route",
+    "status": 404,
+    "contentType": "application/json",
+    "cacheControl": null,
+    "bytes": 100,
+    "response": {
+      "code": 40401,
+      "message": "目标不存在",
+      "data": {
+        "traceId": "c242479a-3d26-4422-a925-5ff29b389530"
+      }
+    }
+  }
+]

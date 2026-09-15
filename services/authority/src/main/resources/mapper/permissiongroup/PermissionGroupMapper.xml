@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.qs.authority.modules.permissiongroup.PermissionGroupMapper">
+
+  <sql id="columns">
+    id, name, description, operation_ids::text AS operation_ids, created_at, updated_at,
+    created_by, updated_by, version
+  </sql>
+
+  <select id="findById" resultType="com.qs.authority.modules.permissiongroup.PermissionGroup">
+    SELECT <include refid="columns"/> FROM qs__auth__permission_group WHERE id = #{id}
+  </select>
+
+  <select id="list" resultType="com.qs.authority.modules.permissiongroup.PermissionGroup">
+    SELECT <include refid="columns"/> FROM qs__auth__permission_group
+    <where>
+      <if test="name != null">name = #{name}</if>
+    </where>
+    ORDER BY ${orderBy}
+    LIMIT #{limit} OFFSET #{offset}
+  </select>
+
+  <select id="count" resultType="long">
+    SELECT count(*) FROM qs__auth__permission_group
+    <where>
+      <if test="name != null">name = #{name}</if>
+    </where>
+  </select>
+
+  <select id="listByIds" resultType="com.qs.authority.modules.permissiongroup.PermissionGroup">
+    SELECT <include refid="columns"/> FROM qs__auth__permission_group
+    WHERE id IN
+    <foreach collection="ids" item="item" open="(" separator="," close=")">#{item}</foreach>
+    ORDER BY id
+  </select>
+
+  <insert id="insert" useGeneratedKeys="true" keyProperty="id">
+    INSERT INTO qs__auth__permission_group (name, description, operation_ids, created_by, updated_by)
+    VALUES (#{name}, #{description,jdbcType=VARCHAR}, CAST(#{operationIds,jdbcType=VARCHAR} AS jsonb),
+            #{createdBy,jdbcType=BIGINT}, #{updatedBy,jdbcType=BIGINT})
+  </insert>
+
+  <update id="update">
+    UPDATE qs__auth__permission_group
+    <set>
+      <if test="name != null and name.present">name = #{name.value,jdbcType=VARCHAR},</if>
+      <if test="description != null and description.present">
+        description = #{description.value,jdbcType=VARCHAR},
+      </if>
+      <if test="operationIds != null and operationIds.present">
+        operation_ids = CAST(#{operationIds.value,jdbcType=VARCHAR} AS jsonb),
+      </if>
+      updated_by = #{updatedBy,jdbcType=BIGINT},
+    </set>
+    WHERE id = #{id} AND version = #{version}
+  </update>
+
+  <delete id="delete">
+    DELETE FROM qs__auth__permission_group WHERE id = #{id} AND version = #{version}
+  </delete>
+
+  <select id="listObtainedGroupIds" resultType="long">
+    SELECT permission_group_id FROM qs__auth__permission_group_account WHERE account_id = #{accountId}
+    UNION
+    SELECT pgorg.permission_group_id
+    FROM qs__auth__permission_group_org pgorg
+    JOIN qs__auth__account_organization ao ON ao.org_id = pgorg.org_id
+    WHERE ao.account_id = #{accountId}
+  </select>
+
+  <select id="listOperationIds" resultType="long">
+    SELECT DISTINCT (element)::bigint
+    FROM qs__auth__permission_group g,
+         LATERAL jsonb_array_elements_text(g.operation_ids) AS element
+    WHERE g.id IN
+    <foreach collection="groupIds" item="item" open="(" separator="," close=")">#{item}</foreach>
+    ORDER BY 1
+  </select>
+
+  <select id="countReferences" resultType="long">
+    SELECT (SELECT count(*) FROM qs__auth__app_permission_group WHERE permission_group_id = #{id})
+         + (SELECT count(*) FROM qs__auth__permission_group_account WHERE permission_group_id = #{id})
+         + (SELECT count(*) FROM qs__auth__permission_group_org WHERE permission_group_id = #{id})
+  </select>
+
+  <select id="countAppReferences" resultType="long">
+    SELECT count(*) FROM qs__auth__app_permission_group WHERE permission_group_id = #{id}
+  </select>
+
+  <select id="countAccountReferences" resultType="long">
+    SELECT count(*) FROM qs__auth__permission_group_account WHERE permission_group_id = #{id}
+  </select>
+
+  <select id="countOrganizationReferences" resultType="long">
+    SELECT count(*) FROM qs__auth__permission_group_org WHERE permission_group_id = #{id}
+  </select>
+</mapper>

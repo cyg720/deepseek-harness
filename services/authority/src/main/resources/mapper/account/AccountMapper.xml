@@ -1,0 +1,134 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.qs.authority.modules.account.AccountMapper">
+
+  <sql id="columns">
+    id, uuid::text AS uuid, username, password, phone, email, logo, remark, account_type, status,
+    ip_whitelist::text AS ip_whitelist, last_login_at, created_at, updated_at, created_by, updated_by,
+    version, must_change_password, is_super_admin
+  </sql>
+
+  <select id="findById" resultType="com.qs.authority.modules.account.Account">
+    SELECT <include refid="columns"/> FROM qs__auth__account WHERE id = #{id}
+  </select>
+
+  <select id="findByUsername" resultType="com.qs.authority.modules.account.Account">
+    SELECT <include refid="columns"/> FROM qs__auth__account WHERE username = #{username}
+  </select>
+
+  <select id="findByUsernameForUpdate" resultType="com.qs.authority.modules.account.Account">
+    SELECT <include refid="columns"/> FROM qs__auth__account WHERE username = #{username} FOR UPDATE
+  </select>
+
+  <select id="findSuperAdmin" resultType="com.qs.authority.modules.account.Account">
+    SELECT <include refid="columns"/> FROM qs__auth__account WHERE is_super_admin
+  </select>
+
+  <select id="countSuperAdmins" resultType="long">
+    SELECT count(*) FROM qs__auth__account WHERE is_super_admin
+  </select>
+
+  <select id="countByUsername" resultType="long">
+    SELECT count(*) FROM qs__auth__account
+    WHERE username = #{username}
+    <if test="excludeId != null">AND id &lt;&gt; #{excludeId}</if>
+  </select>
+
+  <select id="countByPhone" resultType="long">
+    SELECT count(*) FROM qs__auth__account
+    WHERE phone = #{phone}
+    <if test="excludeId != null">AND id &lt;&gt; #{excludeId}</if>
+  </select>
+
+  <select id="countByEmail" resultType="long">
+    SELECT count(*) FROM qs__auth__account
+    WHERE email = #{email}
+    <if test="excludeId != null">AND id &lt;&gt; #{excludeId}</if>
+  </select>
+
+  <select id="list" resultType="com.qs.authority.modules.account.Account">
+    SELECT <include refid="columns"/> FROM qs__auth__account
+    <where>
+      <if test="username != null">username = #{username}</if>
+      <if test="status != null">AND status = #{status}</if>
+      <if test="accountType != null">AND account_type = #{accountType}</if>
+    </where>
+    ORDER BY ${orderBy}
+    LIMIT #{limit} OFFSET #{offset}
+  </select>
+
+  <select id="count" resultType="long">
+    SELECT count(*) FROM qs__auth__account
+    <where>
+      <if test="username != null">username = #{username}</if>
+      <if test="status != null">AND status = #{status}</if>
+      <if test="accountType != null">AND account_type = #{accountType}</if>
+    </where>
+  </select>
+
+  <insert id="insert" useGeneratedKeys="true" keyProperty="id">
+    INSERT INTO qs__auth__account
+      (username, password, phone, email, logo, remark, account_type, status, ip_whitelist,
+       must_change_password, is_super_admin, created_by, updated_by)
+    VALUES
+      (#{username}, #{password,jdbcType=VARCHAR}, #{phone,jdbcType=VARCHAR}, #{email,jdbcType=VARCHAR},
+       #{logo,jdbcType=VARCHAR}, #{remark,jdbcType=VARCHAR}, #{accountType}, #{status},
+       CAST(#{ipWhitelist,jdbcType=VARCHAR} AS jsonb), #{mustChangePassword,jdbcType=BOOLEAN},
+       #{isSuperAdmin,jdbcType=BOOLEAN}, #{createdBy,jdbcType=BIGINT}, #{updatedBy,jdbcType=BIGINT})
+  </insert>
+
+  <update id="update">
+    UPDATE qs__auth__account
+    <set>
+      <if test="username != null and username.present">username = #{username.value,jdbcType=VARCHAR},</if>
+      <if test="password != null and password.present">password = #{password.value,jdbcType=VARCHAR},</if>
+      <if test="phone != null and phone.present">phone = #{phone.value,jdbcType=VARCHAR},</if>
+      <if test="email != null and email.present">email = #{email.value,jdbcType=VARCHAR},</if>
+      <if test="logo != null and logo.present">logo = #{logo.value,jdbcType=VARCHAR},</if>
+      <if test="remark != null and remark.present">remark = #{remark.value,jdbcType=VARCHAR},</if>
+      <if test="ipWhitelist != null and ipWhitelist.present">
+        ip_whitelist = CAST(#{ipWhitelist.value,jdbcType=VARCHAR} AS jsonb),
+      </if>
+      <if test="status != null and status.present">status = #{status.value,jdbcType=VARCHAR},</if>
+      <if test="mustChangePassword != null and mustChangePassword.present">
+        must_change_password = #{mustChangePassword.value,jdbcType=BOOLEAN},
+      </if>
+      <if test="lastLoginAt != null and lastLoginAt.present">
+        last_login_at = #{lastLoginAt.value,jdbcType=TIMESTAMP},
+      </if>
+      updated_by = #{updatedBy,jdbcType=BIGINT},
+    </set>
+    WHERE id = #{id} AND version = #{version}
+  </update>
+
+  <delete id="delete">
+    DELETE FROM qs__auth__account WHERE id = #{id} AND version = #{version}
+  </delete>
+
+  <update id="touchLastLogin">
+    UPDATE qs__auth__account SET last_login_at = #{at,jdbcType=TIMESTAMP} WHERE id = #{id}
+  </update>
+
+  <select id="countReferences" resultType="long">
+    SELECT (SELECT count(*) FROM qs__auth__account_organization WHERE account_id = #{id})
+         + (SELECT count(*) FROM qs__auth__user_group_account WHERE account_id = #{id})
+         + (SELECT count(*) FROM qs__auth__permission_group_account WHERE account_id = #{id})
+         + (SELECT count(*) FROM qs__auth__token WHERE account_id = #{id})
+  </select>
+
+  <select id="countOrganizationLinks" resultType="long">
+    SELECT count(*) FROM qs__auth__account_organization WHERE account_id = #{id}
+  </select>
+
+  <select id="countUserGroupLinks" resultType="long">
+    SELECT count(*) FROM qs__auth__user_group_account WHERE account_id = #{id}
+  </select>
+
+  <select id="countPermissionGroupLinks" resultType="long">
+    SELECT count(*) FROM qs__auth__permission_group_account WHERE account_id = #{id}
+  </select>
+
+  <select id="countTokens" resultType="long">
+    SELECT count(*) FROM qs__auth__token WHERE account_id = #{id}
+  </select>
+</mapper>

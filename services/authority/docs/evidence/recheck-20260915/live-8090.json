@@ -1,0 +1,10 @@
+[
+  {
+    "path": "/v3/api-docs",
+    "status": 200
+  },
+  {
+    "path": "/api/v1/auth/accounts",
+    "status": 401
+  }
+]

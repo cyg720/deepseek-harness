@@ -1,0 +1,178 @@
+[INFO] Scanning for projects...
+[INFO]
+[INFO] ----------------------< com.qs:authority-center >-----------------------
+[INFO] Building authority-center 0.1.0
+[INFO]   from pom.xml
+[INFO] --------------------------------[ jar ]---------------------------------
+[INFO]
+[INFO] --- resources:3.5.0:resources (default-resources) @ authority-center ---
+[INFO] Copying 1 resource from src\main\resources to target\classes
+[INFO] Copying 15 resources from src\main\resources to target\classes
+[INFO]
+[INFO] --- compiler:3.15.0:compile (default-compile) @ authority-center ---
+[INFO] Nothing to compile - all classes are up to date.
+[INFO]
+[INFO] --- resources:3.5.0:testResources (default-testResources) @ authority-center ---
+[INFO] Copying 1 resource from src\test\resources to target\test-classes
+[INFO]
+[INFO] --- compiler:3.15.0:testCompile (default-testCompile) @ authority-center ---
+[INFO] Recompiling the module because of changed source code.
+[INFO] Compiling 13 source files with javac [debug parameters release 21] to target\test-classes
+[INFO] ��������·���з�����һ�����������������������
+  ��ע������δ�����а�� javac ���ܻ������ע������
+  �������ٰ�����ָ����һ���������� (-processor)��
+  ��ָ��������·�� (--processor-path, --processor-module-path)��
+  ����ʽ��������ע���� (-proc:only, -proc:full)��
+  ��ʹ�� -Xlint:-options ���ش���Ϣ��
+  ��ʹ�� -proc:none ������ע������
+[INFO]
+[INFO] --- surefire:3.5.6:test (default-test) @ authority-center ---
+[INFO] Using auto detected provider org.apache.maven.surefire.junitplatform.JUnitPlatformProvider
+[INFO]
+[INFO] -------------------------------------------------------
+[INFO]  T E S T S
+[INFO] -------------------------------------------------------
+[INFO] Running com.qs.authority.review.ReviewFindingsIT
+16:35:39.761 [main] INFO org.springframework.test.context.support.AnnotationConfigContextLoaderUtils -- Could not detect default configuration classes for test class [com.qs.authority.review.ReviewFindingsIT]: ReviewFindingsIT does not declare any static, non-private, non-final, nested classes annotated with @Configuration.
+16:35:39.825 [main] INFO org.springframework.boot.test.context.SpringBootTestContextBootstrapper -- Found @SpringBootConfiguration com.qs.authority.AuthorityApplication for test class com.qs.authority.review.ReviewFindingsIT
+16:35:39.872 [main] INFO org.springframework.test.context.support.AnnotationConfigContextLoaderUtils -- Could not detect default configuration classes for test class [com.qs.authority.review.ReviewFindingsIT]: ReviewFindingsIT does not declare any static, non-private, non-final, nested classes annotated with @Configuration.
+16:35:39.872 [main] INFO org.springframework.test.context.support.AnnotationConfigContextLoaderUtils -- Could not detect default configuration classes for test class [com.qs.authority.support.AbstractAuthorityTest]: AbstractAuthorityTest does not declare any static, non-private, non-final, nested classes annotated with @Configuration.
+16:35:39.873 [main] INFO org.springframework.boot.test.context.SpringBootTestContextBootstrapper -- Found @SpringBootConfiguration com.qs.authority.AuthorityApplication for test class com.qs.authority.review.ReviewFindingsIT
+
+  .   ____          _            __ _ _
+ /\\ / ___'_ __ _ _(_)_ __  __ _ \ \ \ \
+( ( )\___ | '_ | '_| | '_ \/ _` | \ \ \ \
+ \\/  ___)| |_)| | | | | || (_| |  ) ) ) )
+  '  |____| .__|_| |_|_| |_\__, | / / / /
+ =========|_|==============|___/=/_/_/_/
+
+ :: Spring Boot ::                (v4.1.1)
+
+2026-09-15 16:35:40.295 INFO  [] c.qs.authority.support.TestDatabase - �ѽ������Կ� qs_auth_review_probes_20260915
+2026-09-15 16:35:40.322 INFO  [] c.q.a.review.ReviewFindingsIT - Starting ReviewFindingsIT using Java 21.0.11 with PID 37792 (started by 18010 in D:\code\CYG\Github\deepseek-harness\services\authority)
+2026-09-15 16:35:40.323 INFO  [] c.q.a.review.ReviewFindingsIT - The following 1 profile is active: "test"
+2026-09-15 16:35:42.864 INFO  [] c.q.a.review.ReviewFindingsIT - Started ReviewFindingsIT in 2.962 seconds (process running for 5.109)
+2026-09-15 16:35:42.893 INFO  [] c.q.a.bootstrap.BootstrapInitializer - �ѽ�����Ȩ��������Ӧ����Ȩ��¼ appCode=auth-center
+2026-09-15 16:35:42.949 INFO  [] c.q.a.bootstrap.BootstrapInitializer - �ѵǼ���Ȩ���������������� 64 ��
+2026-09-15 16:35:42.951 INFO  [] c.q.a.bootstrap.BootstrapInitializer - �ѽ���Ӧ�������ܿ�������Ȩ��¼ appCode=app-center
+2026-09-15 16:35:43.006 INFO  [] c.q.a.bootstrap.BootstrapInitializer - �ѽ������ó�������Ա username=admin���״ε�¼�����޸ĳ�ʼ����
+2026-09-15 16:35:43.009 WARN  [] o.s.c.events.SpringDocAppInitializer - SpringDoc /v3/api-docs endpoint is enabled by default. To disable it in production, set the property 'springdoc.api-docs.enabled=false'
+2026-09-15 16:35:43.009 WARN  [] o.s.c.events.SpringDocAppInitializer - SpringDoc /swagger-ui.html endpoint is enabled by default. To disable it in production, set the property 'springdoc.swagger-ui.enabled=false'
+Mockito is currently self-attaching to enable the inline-mock-maker. This will no longer work in future releases of the JDK. Please add Mockito as an agent to your build as described in Mockito's documentation: https://javadoc.io/doc/org.mockito/mockito-core/latest/org.mockito/org/mockito/Mockito.html#0.3
+Java HotSpot(TM) 64-Bit Server VM warning: Sharing is only supported for boot loader classes because bootstrap classpath has been appended
+WARNING: A Java agent has been loaded dynamically (C:\Users\18010\.m2\repository\net\bytebuddy\byte-buddy-agent\1.18.11\byte-buddy-agent-1.18.11.jar)
+WARNING: If a serviceability tool is in use, please run with -XX:+EnableDynamicAgentLoading to hide this warning
+WARNING: If a serviceability tool is not in use, please run with -Djdk.instrument.traceUsage for more information
+WARNING: Dynamic loading of agents will be disallowed by default in a future release
+REVIEW R04: unchanged PATCH=200 and version increments
+REVIEW R06 observation: scene token accepted by ordinary account management API
+2026-09-15 16:35:47.013 ERROR [0afd9c58-3274-468f-b8f5-c36d7e1799fa] c.q.a.c.error.GlobalExceptionHandler - �ڲ�����ʧ�� traceId=0afd9c58-3274-468f-b8f5-c36d7e1799fa
+java.lang.IllegalArgumentException: password cannot be more than 72 bytes
+	at org.springframework.security.crypto.bcrypt.BCrypt.hashpw(BCrypt.java:616)
+	at org.springframework.security.crypto.bcrypt.BCrypt.hashpw(BCrypt.java:603)
+	at org.springframework.security.crypto.bcrypt.BCrypt.hashpw(BCrypt.java:593)
+	at org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder.encodeNonNullPassword(BCryptPasswordEncoder.java:109)
+	at org.springframework.security.crypto.password.AbstractValidatingPasswordEncoder.encode(AbstractValidatingPasswordEncoder.java:42)
+	at com.qs.authority.security.PasswordService.encode(PasswordService.java:45)
+	at com.qs.authority.modules.account.AccountService.create(AccountService.java:127)
+	at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+	at org.springframework.aop.support.AopUtils.invokeJoinpointUsingReflection(AopUtils.java:359)
+	at org.springframework.aop.framework.ReflectiveMethodInvocation.invokeJoinpoint(ReflectiveMethodInvocation.java:190)
+	at org.springframework.aop.framework.ReflectiveMethodInvocation.proceed(ReflectiveMethodInvocation.java:158)
+	at org.springframework.transaction.interceptor.TransactionInterceptor$1.proceedWithInvocation(TransactionInterceptor.java:133)
+	at org.springframework.transaction.interceptor.TransactionAspectSupport.invokeWithinTransaction(TransactionAspectSupport.java:371)
+	at org.springframework.transaction.interceptor.TransactionInterceptor.invoke(TransactionInterceptor.java:130)
+	at org.springframework.aop.framework.ReflectiveMethodInvocation.proceed(ReflectiveMethodInvocation.java:179)
+	at org.springframework.aop.framework.CglibAopProxy$DynamicAdvisedInterceptor.intercept(CglibAopProxy.java:719)
+	at com.qs.authority.modules.account.AccountService$$SpringCGLIB$$0.create(<generated>)
+	at com.qs.authority.modules.account.AccountController.create(AccountController.java:67)
+	at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+	at org.springframework.web.method.support.InvocableHandlerMethod.doInvoke(InvocableHandlerMethod.java:252)
+	at org.springframework.web.method.support.InvocableHandlerMethod.invokeForRequest(InvocableHandlerMethod.java:184)
+	at org.springframework.web.servlet.mvc.method.annotation.ServletInvocableHandlerMethod.invokeAndHandle(ServletInvocableHandlerMethod.java:117)
+	at org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerAdapter.invokeHandlerMethod(RequestMappingHandlerAdapter.java:934)
+	at org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerAdapter.handleInternal(RequestMappingHandlerAdapter.java:853)
+	at org.springframework.web.servlet.mvc.method.AbstractHandlerMethodAdapter.handle(AbstractHandlerMethodAdapter.java:86)
+	at org.springframework.web.servlet.DispatcherServlet.doDispatch(DispatcherServlet.java:963)
+	at org.springframework.web.servlet.DispatcherServlet.doService(DispatcherServlet.java:866)
+	at org.springframework.web.servlet.FrameworkServlet.processRequest(FrameworkServlet.java:1000)
+	at org.springframework.web.servlet.FrameworkServlet.doPost(FrameworkServlet.java:903)
+	at jakarta.servlet.http.HttpServlet.service(HttpServlet.java:649)
+	at org.springframework.web.servlet.FrameworkServlet.service(FrameworkServlet.java:874)
+	at jakarta.servlet.http.HttpServlet.service(HttpServlet.java:710)
+	at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:132)
+	at org.apache.tomcat.websocket.server.WsFilter.doFilter(WsFilter.java:59)
+	at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:111)
+	at org.springframework.web.filter.RequestContextFilter.doFilterInternal(RequestContextFilter.java:100)
+	at org.springframework.web.filter.OncePerRequestFilter.doFilter(OncePerRequestFilter.java:116)
+	at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:111)
+	at org.springframework.web.filter.FormContentFilter.doFilterInternal(FormContentFilter.java:93)
+	at org.springframework.web.filter.OncePerRequestFilter.doFilter(OncePerRequestFilter.java:116)
+	at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:111)
+	at com.qs.authority.common.web.AuditBodyCachingFilter.doFilterInternal(AuditBodyCachingFilter.java:38)
+	at org.springframework.web.filter.OncePerRequestFilter.doFilter(OncePerRequestFilter.java:116)
+	at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:111)
+	at org.springframework.web.filter.CharacterEncodingFilter.doFilterInternal(CharacterEncodingFilter.java:199)
+	at org.springframework.web.filter.OncePerRequestFilter.doFilter(OncePerRequestFilter.java:116)
+	at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:111)
+	at com.qs.authority.common.trace.TraceIdFilter.doFilterInternal(TraceIdFilter.java:28)
+	at org.springframework.web.filter.OncePerRequestFilter.doFilter(OncePerRequestFilter.java:116)
+	at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:111)
+	at org.apache.catalina.core.StandardWrapperValve.invoke(StandardWrapperValve.java:165)
+	at org.apache.catalina.core.StandardContextValve.invoke(StandardContextValve.java:77)
+	at org.apache.catalina.authenticator.AuthenticatorBase.invoke(AuthenticatorBase.java:535)
+	at org.apache.catalina.core.StandardHostValve.invoke(StandardHostValve.java:115)
+	at org.apache.catalina.valves.ErrorReportValve.invoke(ErrorReportValve.java:86)
+	at org.apache.catalina.core.StandardEngineValve.invoke(StandardEngineValve.java:71)
+	at org.apache.catalina.connector.CoyoteAdapter.service(CoyoteAdapter.java:347)
+	at org.apache.coyote.http11.Http11Processor.service(Http11Processor.java:406)
+	at org.apache.coyote.AbstractProcessorLight.process(AbstractProcessorLight.java:71)
+	at org.apache.coyote.AbstractProtocol$ConnectionHandler.process(AbstractProtocol.java:1307)
+	at org.apache.tomcat.util.net.NioEndpoint$SocketProcessor.doRun(NioEndpoint.java:2036)
+	at org.apache.tomcat.util.net.SocketProcessorBase.run(SocketProcessorBase.java:74)
+	at org.apache.tomcat.util.threads.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:949)
+	at org.apache.tomcat.util.threads.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:483)
+	at org.apache.tomcat.util.threads.TaskThread$WrappingRunnable.run(TaskThread.java:74)
+	at java.base/java.lang.Thread.run(Thread.java:1583)
+REVIEW R05: 28-character/78-byte complex password rejected as HTTP 500
+REVIEW R01: invisible member: authorization-check=40301, account list=200
+2026-09-15 16:35:47.522 WARN  [0804ff48-19f8-497a-912d-92c9f3d89510] c.q.a.c.error.GlobalExceptionHandler - ���������ʧ�� traceId=0804ff48-19f8-497a-912d-92c9f3d89510 cause=Unexpected end-of-input within/between Object entries
+ at [Source: REDACTED (`StreamReadFeature.INCLUDE_SOURCE_IN_LOCATION` disabled); byte offset: #65]
+REVIEW R02: rejected malformed JSON persisted synthetic password plaintext in audit
+[ERROR] Tests run: 6, Failures: 1, Errors: 0, Skipped: 0, Time elapsed: 7.865 s <<< FAILURE! -- in com.qs.authority.review.ReviewFindingsIT
+[ERROR] com.qs.authority.review.ReviewFindingsIT.longUserAgentReturnsFailureAfterCommit -- Time elapsed: 0.089 s <<< FAILURE!
+org.opentest4j.AssertionFailedError:
+
+expected: 500
+ but was: 200
+	at com.qs.authority.review.ReviewFindingsIT.longUserAgentReturnsFailureAfterCommit(ReviewFindingsIT.java:49)
+
+[INFO]
+[INFO] Results:
+[INFO]
+[ERROR] Failures:
+[ERROR]   ReviewFindingsIT.longUserAgentReturnsFailureAfterCommit:49
+expected: 500
+ but was: 200
+[INFO]
+[ERROR] Tests run: 6, Failures: 1, Errors: 0, Skipped: 0
+[INFO]
+[INFO] ------------------------------------------------------------------------
+[INFO] BUILD FAILURE
+[INFO] ------------------------------------------------------------------------
+[INFO] Total time:  13.873 s
+[INFO] Finished at: 2026-09-15T16:35:48+08:00
+[INFO] ------------------------------------------------------------------------
+[ERROR] Failed to execute goal org.apache.maven.plugins:maven-surefire-plugin:3.5.6:test (default-test) on project authority-center: There are test failures.
+[ERROR]
+[ERROR] See D:\code\CYG\Github\deepseek-harness\services\authority\target\surefire-reports for the individual test results.
+[ERROR] See dump files (if any exist) [date].dump, [date]-jvmRun[N].dump and [date].dumpstream.
+[ERROR] -> [Help 1]
+[ERROR]
+[ERROR] To see the full stack trace of the errors, re-run Maven with the -e switch.
+[ERROR] Re-run Maven using the -X switch to enable full debug logging.
+[ERROR]
+[ERROR] For more information about the errors and possible solutions, please read the following articles:
+[ERROR] [Help 1] http://cwiki.apache.org/confluence/display/MAVEN/MojoFailureException

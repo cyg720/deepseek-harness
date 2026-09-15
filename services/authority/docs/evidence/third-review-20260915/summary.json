@@ -1,0 +1,34 @@
+[
+  {
+    "name": "com.qs.authority.review.ReviewFixesIT",
+    "tests": "10",
+    "failures": "0",
+    "errors": "0",
+    "skipped": "0",
+    "time": "7.91",
+    "cases": [
+      "unchangedPatchIsRejected",
+      "malformedBodyIsNotStored",
+      "ipWhitelistIsValidated",
+      "overlongHeadersDoNotBreakAudit",
+      "staleVersionPrecedesUnchangedBody",
+      "multibytePasswordIsRejected",
+      "allowedCheckAuditCarriesRequestContext",
+      "managementInterfaceHonoursVisibility",
+      "detailDoesNotLeakAppCenterCredential",
+      "auditFailureDoesNotFabricateBusinessFailure"
+    ]
+  },
+  {
+    "name": "com.qs.authority.review.TwoFindingsRecheckIT",
+    "tests": "2",
+    "failures": "0",
+    "errors": "0",
+    "skipped": "0",
+    "time": "0.174",
+    "cases": [
+      "staleAndCurrentVersionsHaveDistinctErrors",
+      "authorizationAuditRetainsFieldsWithoutCredentials"
+    ]
+  }
+]

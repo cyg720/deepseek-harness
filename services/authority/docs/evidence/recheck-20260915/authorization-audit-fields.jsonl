@@ -1,0 +1,2 @@
+{"result" : "success", "requestIp" : "127.0.0.1", "userAgent" : "Java-http-client/21.0.11", "requestBodyPresent" : false, "responseBodyPresent" : true, "costMs" : 8}
+{"result" : "success", "requestIp" : null, "userAgent" : null, "requestBodyPresent" : false, "responseBodyPresent" : false, "costMs" : null}

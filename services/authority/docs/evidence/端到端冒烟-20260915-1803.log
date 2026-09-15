@@ -1,0 +1,68 @@
+
+=== 管理员登录 ===
+{"code":200,"message":"成功","data":{"token":"qs_8lBTo4wATcJg_d5iuKVuo57xHxUdG7mI9U51EqDQQ98","expiresAt":"2026-10-15 18:04:00","sessionId":"f664fd9f-a5d5-46dd-a219-7dcd155e441f","accountId":"1","username":"admin","mustChangePassword":true,"isSuperAdmin":true}}
+
+=== 改密前的普通业务调用（期望 40303） ===
+{"code":40303,"message":"请先修改初始密码","data":{"traceId":"d0f891e0-9bc3-4ee3-90f9-324890278de5"}}
+=== 首次强制改密 ===
+{"code":200,"message":"成功","data":null}
+=== 改密后旧令牌应失效（期望 40103） ===
+{"code":40103,"message":"当前登录凭据已失效，请重新登录","data":{"traceId":"544cdcf2-a864-4699-a72c-dbfcf6664289"}}
+=== 用新密码重新登录 ===
+{"code":200,"message":"成功","data":{"token":"qs_tphPQkK5ZWJPllGBCw1FWntV88hbyV2Fp7yJCUH_0DI","expiresAt":"2026-10-15 18:04:00","sessionId":"cd1ba3fc-0ace-443c-a3e5-a41637526438","accountId":"1","username":"admin","mustChangePassword":false,"isSuperAdmin":true}}
+
+=== 新建组织（根 + 子） ===
+{"code":200,"message":"成功","data":{"id":"1","parentId":"0","orgPath":"/1","orgName":"总部-1789466640","orgType":"company","leader":null,"sortOrder":0,"remark":null,"createdAt":"2026-09-15 18:04:01","updatedAt":"2026-09-15 18:04:01","createdBy":"1","updatedBy":"1","version":"1"}}
+{"code":200,"message":"成功","data":{"id":"2","parentId":"1","orgPath":"/1/2","orgName":"研发部-1789466640","orgType":"department","leader":null,"sortOrder":0,"remark":null,"createdAt":"2026-09-15 18:04:01","updatedAt":"2026-09-15 18:04:01","createdBy":"1","updatedBy":"1","version":"1"}}
+
+=== 组织防环（把根移到自己的子节点下） ===
+{"code":40001,"message":"请检查输入内容","data":{"traceId":"1973e98b-76b2-4ae3-a989-5d123da709da","fieldErrors":[{"field":"parentId","message":"不能把组织移动到自己的下级"}]}}
+=== 新建账号 ===
+{"code":200,"message":"成功","data":{"id":"2","uuid":"cc3fb449-52b7-4a08-9fac-bf62b8db9672","username":"smoke-1789466640","phone":"13900006640","email":null,"logo":null,"remark":null,"accountType":"person","status":"normal","ipWhitelist":[],"lastLoginAt":null,"createdAt":"2026-09-15 18:04:01","updatedAt":"2026-09-15 18:04:01","createdBy":"1","updatedBy":"1","version":"1","mustChangePassword":true,"isSuperAdmin":false}}
+
+=== 账号列表（分页与筛选） ===
+{"code":200,"message":"成功","data":{"items":[{"id":"2","uuid":"cc3fb449-52b7-4a08-9fac-bf62b8db9672","username":"smoke-1789466640","phone":"13900006640","email":null,"logo":null,"remark":null,"accountType":"person","status":"normal","ipWhitelist":[],"lastLoginAt":null,"createdAt":"2026-09-15 18:04:01","updatedAt":"2026-09-15 18:04:01","createdBy":"1","updatedBy":"1","version":"1","mustChangePassword":true,"isSuperAdmin":false},{"id":"1","uuid":"eb2c41fb-c4d0-4370-8f68-ed07ce7a6cc4","username":"admin","phone":null,"email":null,"logo":null,"remark":null,"accountType":"person","status":"normal","ipWhitelist":[],"lastLoginAt":"2026-09-15 18:04:00","createdAt":"2026-09-15 18:03:09","updatedAt":"2026-09-15 18:04:00","createdBy":null,"updatedBy":"1","version":"2","mustChangePassword":false,"isSuperAdmin":true}],"page":1,"pageSize":5,"total":2}}
+=== 未知查询参数应 40001 ===
+{"code":40001,"message":"请检查输入内容","data":{"traceId":"e5c44a87-e061-46d2-81dd-e0f502089182","fieldErrors":[{"field":"unknownField","message":"不支持的查询参数"}]}}
+=== 应用中心登记应用 ===
+{"code":200,"message":"成功","data":{"id":"3","appCode":"app-a-1789466640","appKey":"ak_EhQRemsbIymBAFkLQGwXq6pYIIBUYtGk","appSecret":"sk_EoLC7bFQ583dVIclywXuTasTM1jcIgKKBFENNhkssPa3UGfl","status":"active","version":"1"}}
+
+=== 上报操作 ===
+{"code":200,"message":"成功","data":{"id":"65","appCode":"app-a-1789466640","operationCode":"app-a-1789466640.DeviceController.list","operationName":"list","operationDesc":null,"resourceType":null,"createdAt":"2026-09-15 18:04:02","updatedAt":"2026-09-15 18:04:02","createdBy":null,"updatedBy":null,"version":"1"}}
+
+=== 前缀错误应 40001 ===
+{"code":40001,"message":"请检查输入内容","data":{"traceId":"6276d36a-9bfe-42cf-b47f-b3479e917bc9","fieldErrors":[{"field":"operationCode","message":"操作码必须以所属应用编码加英文句点开头"}]}}
+=== 新建权限组并绑定操作 ===
+{"code":200,"message":"成功","data":{"id":"1","name":"组-1789466640","description":null,"operationIds":["65"],"createdAt":"2026-09-15 18:04:02","updatedAt":"2026-09-15 18:04:02","createdBy":"1","updatedBy":"1","version":"1"}}
+
+=== 配置应用可见权限组 ===
+{"code":200,"message":"成功","data":{"id":"3","appCode":"app-a-1789466640","status":"active","secretExpireAt":null,"permissionGroupIds":["1"],"createdAt":"2026-09-15 18:04:01","updatedAt":"2026-09-15 18:04:02","createdBy":null,"updatedBy":"1","version":"2"}}
+=== 用户关联权限组 / 组织关联权限组 ===
+{"code":200,"message":"成功","data":{"id":"1","permissionGroupId":"1","accountId":"2","createdAt":"2026-09-15 18:04:02","updatedAt":"2026-09-15 18:04:02","createdBy":"1","version":"1"}}{"code":200,"message":"成功","data":{"id":"1","permissionGroupId":"1","orgId":"1","createdAt":"2026-09-15 18:04:02","updatedAt":"2026-09-15 18:04:02","createdBy":"1","version":"1"}}
+=== 账号关联组织 / 用户组成员 ===
+{"code":200,"message":"成功","data":{"id":"1","accountId":"2","orgId":"1","createdAt":"2026-09-15 18:04:02","updatedAt":"2026-09-15 18:04:02","createdBy":"1","updatedBy":"1","version":"1"}}{"code":200,"message":"成功","data":{"id":"1","groupCode":"ug-1789466640","groupName":"跨部门组-1789466640","description":null,"createdAt":"2026-09-15 18:04:02","updatedAt":"2026-09-15 18:04:02","createdBy":"1","updatedBy":"1","version":"1"}}
+{"code":200,"message":"成功","data":{"id":"1","userGroupId":"1","accountId":"2","createdAt":"2026-09-15 18:04:02","updatedAt":"2026-09-15 18:04:02","createdBy":"1","updatedBy":"1","version":"1"}}
+=== 参数与字典 ===
+{"code":200,"message":"成功","data":{"id":"1","paramCode":"p-1789466640","paramValue":"42","description":null,"createdAt":"2026-09-15 18:04:02","updatedAt":"2026-09-15 18:04:02","createdBy":"1","updatedBy":"1","version":"1"}}{"code":200,"message":"成功","data":{"id":"1","dictCode":"d-1789466640","dictItems":["启用","禁用"],"description":null,"createdAt":"2026-09-15 18:04:02","updatedAt":"2026-09-15 18:04:02","createdBy":"1","updatedBy":"1","version":"1"}}
+=== 成员登录并改初始密码 ===
+{"code":200,"message":"成功","data":{"token":"qs_oaxdpMr3RiWBuqfgMp-_FUZcOhTBjPcCHevSo4BmK8g","expiresAt":"2026-10-15 18:04:03","sessionId":"f35ee1be-2b8a-4db1-9f0d-7e540aba978a","accountId":"2","username":"smoke-1789466640","mustChangePassword":true,"isSuperAdmin":false}}
+{"code":200,"message":"成功","data":null}
+=== 鉴权：允许 ===
+{"code":200,"message":"成功","data":{"allowed":true,"operationCode":"app-a-1789466640.DeviceController.list","appCode":"app-a-1789466640","accountId":"2"}}
+=== 鉴权：未登记操作应 40301 ===
+{"code":40301,"message":"操作未登记","data":{"traceId":"0d25ad19-a99e-44f0-b941-4c78a2225dc7"}}
+=== 开放能力：当前用户详情与权限 ===
+{"code":200,"message":"成功","data":{"id":"2","uuid":"cc3fb449-52b7-4a08-9fac-bf62b8db9672","username":"smoke-1789466640","phone":"13900006640","email":null,"logo":null,"remark":null,"accountType":"person","status":"normal","ipWhitelist":[],"lastLoginAt":"2026-09-15 18:04:03","createdAt":"2026-09-15 18:04:01","updatedAt":"2026-09-15 18:04:03","createdBy":"1","updatedBy":"2","version":"2","mustChangePassword":false,"isSuperAdmin":false}}{"code":200,"message":"成功","data":{"appCode":"app-a-1789466640","appVisible":true,"operations":[{"id":"65","operationCode":"app-a-1789466640.DeviceController.list","operationName":"list"}]}}
+=== 换发窗口外应 40904 ===
+{"code":40904,"message":"尚未进入换发窗口，无需换发","data":{"traceId":"b81dcb3a-1aa3-45a6-8e3a-701f6ed16af7"}}
+=== 冻结账号后鉴权应 40302 ===
+{"code":200,"message":"成功","data":{"id":"2","uuid":"cc3fb449-52b7-4a08-9fac-bf62b8db9672","username":"smoke-1789466640","phone":"13900006640","email":null,"logo":null,"remark":null,"accountType":"person","status":"frozen","ipWhitelist":[],"lastLoginAt":"2026-09-15 18:04:03","createdAt":"2026-09-15 18:04:01","updatedAt":"2026-09-15 18:04:03","createdBy":"1","updatedBy":"1","version":"3","mustChangePassword":false,"isSuperAdmin":false}}{"code":40302,"message":"账号已冻结","data":{"traceId":"1708668a-39bc-47a7-9d05-862d545d34e6"}}{"code":200,"message":"成功","data":{"id":"2","uuid":"cc3fb449-52b7-4a08-9fac-bf62b8db9672","username":"smoke-1789466640","phone":"13900006640","email":null,"logo":null,"remark":null,"accountType":"person","status":"normal","ipWhitelist":[],"lastLoginAt":"2026-09-15 18:04:03","createdAt":"2026-09-15 18:04:01","updatedAt":"2026-09-15 18:04:04","createdBy":"1","updatedBy":"1","version":"4","mustChangePassword":false,"isSuperAdmin":false}}
+=== 应用冻结后鉴权应 40302 ===
+{"code":200,"message":"成功","data":{"id":"3","appCode":"app-a-1789466640","status":"frozen","secretExpireAt":null,"permissionGroupIds":["1"],"createdAt":"2026-09-15 18:04:01","updatedAt":"2026-09-15 18:04:04","createdBy":null,"updatedBy":null,"version":"3"}}{"code":40302,"message":"应用已冻结","data":{"traceId":"4fd9ad5c-d971-429c-863b-c7acdceb7e04"}}{"code":200,"message":"成功","data":{"id":"3","appCode":"app-a-1789466640","status":"active","secretExpireAt":null,"permissionGroupIds":["1"],"createdAt":"2026-09-15 18:04:01","updatedAt":"2026-09-15 18:04:04","createdBy":null,"updatedBy":null,"version":"4"}}
+=== 有引用的权限组删除应 40903 ===
+{"code":40903,"message":"仍有引用，不能删除","data":{"traceId":"d2790b38-eef5-4bca-9e6e-7e3d47f8e31e","references":[{"type":"appPermissionGroup","description":"存在 1 条应用可见范围关联"},{"type":"permissionGroupAccount","description":"存在 1 条用户权限组关联"},{"type":"permissionGroupOrg","description":"存在 1 条组织权限组关联"}]}}
+=== 审计日志列表 ===
+{"code":200,"message":"成功","data":{"items":[{"id":"41","createdAt":"2026-09-15 18:04:04","traceId":"d2790b38-eef5-4bca-9e6e-7e3d47f8e31e","accountId":"1","appCode":"auth-center","operationCode":"auth-center.PermissionGroupController.delete","resourceId":"1","resourceType":null,"requestIp":"127.0.0.1","userAgent":"curl/8.21.0","result":"failure","reason":"仍有引用，不能删除","logLevel":"warn","requestBody":null,"responseBody":"{\"code\":40903,\"message\":\"仍有引用，不能删除\",\"data\":{\"traceId\":\"d2790b38-eef5-4bca-9e6e-7e3d47f8e31e\",\"references\":[{\"type\":\"appPermissionGroup\",\"description\":\"存在 1 条应用可见范围关联\"},{\"type\":\"permissionGroupAccount\",\"description\":\"存在 1 条用户权限组关联\"},{\"type\":\"permissionGroupOrg\",\"description\":\"存在 1 条组织权限组关联\"}]}}","costMs":8},{"id":"40","createdAt":"2026-09-15 18:04:04","traceId":"e725b4ef-e942-4a31-bb3f-04abff866df9","accountId":"1","appCode":"auth-center","operationCode":"auth-center.PermissionGroupController.detail","resourceId":"1","resourceType":null,"requestIp":"127.0.0.1","userAgent":"curl/8.21.0","result":"success","reason":"成功","logLevel":"info","requestBody":null,"responseBody":"{\"code\":200,\"message\":\"成功\",\"data\":{\"id\":\"1\",\"name\":\"组-1789466640\",\"description\":null,\"operationIds\":[\"65\"],\"createdAt\":\"2026-09-15 18:04:02\",\"updatedAt\":\"2026-09-15 18:04:02\",\"createdBy\":\"1\",\"updatedBy\":\"1\",\"version\":\"1\"}}","costMs":3},{"id":"39","createdAt":"2026-09-15 18:04:04","traceId":"9973f3a4-7904-4d54-879b-2b71470c4f8b","accountId":null,"appCode":"app-center","operationCode":null,"resourceId":"3","resourceType":null,"requestIp":"127.0.0.1","userAgent":"curl/8.21.0","result":"success","reason":"成功","logLevel":"info","requestBody":"{\"status\":\"active\",\"version\":\"3\"}","responseBody":"{\"code\":200,\"message\":\"成功\",\"data\":{\"id\":\"3\",\"appCode\":\"app-a-1789466640\",\"status\":\"active\",\"secretExpireAt\":null,\"permissionGroupIds\":[\"1\"],\"createdAt\":\"2026-09-15 18:04:01\",\"updatedAt\":\"2026-09-15 18:04:04\",\"createdBy\":null,\"updatedBy\":null,\"version\":\"4\"}}","costMs":6}],"page":1,"pageSize":3,"total":41}}
+=== 退出当前设备 ===
+{"code":200,"message":"成功","data":null}{"code":40103,"message":"当前登录凭据已失效，请重新登录","data":{"traceId":"b9b9b0cb-189c-4e36-b695-aa3b2ce7503b"}}
+=== 冒烟结束 ===

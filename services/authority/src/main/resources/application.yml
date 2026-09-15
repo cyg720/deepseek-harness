@@ -1,0 +1,77 @@
+server:
+  port: ${AUTH_SERVER_PORT:8090}
+  servlet:
+    encoding:
+      charset: UTF-8
+      force: true
+
+spring:
+  application:
+    name: authority-center
+  datasource:
+    url: ${AUTH_DB_URL:jdbc:postgresql://127.0.0.1:5432/qs}
+    username: ${AUTH_DB_USER:qs}
+    password: ${AUTH_DB_PASSWORD:}
+    hikari:
+      maximum-pool-size: ${AUTH_DB_POOL_SIZE:10}
+      pool-name: authority-center-pool
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: false
+  jackson:
+    deserialization:
+      # Reject unknown and read-only fields instead of silently ignoring them (平台公约 PATCH/新增规则).
+      fail-on-unknown-properties: true
+    default-property-inclusion: always
+    time-zone: Asia/Shanghai
+  threads:
+    virtual:
+      enabled: false
+
+mybatis:
+  mapper-locations: classpath*:mapper/**/*.xml
+  type-aliases-package: com.qs.authority.modules
+  configuration:
+    map-underscore-to-camel-case: true
+    default-statement-timeout: 30
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    disable-swagger-default-url: true
+
+authority:
+  # 授权中心自身在授权模型中的身份：管理接口按该应用的已登记操作鉴权。
+  self-app-code: ${AUTH_SELF_APP_CODE:auth-center}
+  # 授权中心自身应用的 AppKey（控制台调用管理接口时提交）；首次初始化必填。
+  self-app-key: ${AUTH_SELF_APP_KEY:}
+  # 应用中心在本中心的受控身份：建立授权记录、上报操作、同步状态只接受该 AppKey。
+  app-center-app-code: ${AUTH_APP_CENTER_CODE:app-center}
+  app-center-app-key: ${AUTH_APP_CENTER_KEY:}
+  token:
+    # Master-Token 有效期为签发后 30 天，剩余不足 15 天允许换发（BR-15/BR-16）。
+    ttl-days: ${AUTH_TOKEN_TTL_DAYS:30}
+    renew-threshold-days: ${AUTH_TOKEN_RENEW_THRESHOLD_DAYS:15}
+  password:
+    min-length: 8
+  bootstrap:
+    enabled: ${AUTH_BOOTSTRAP_ENABLED:true}
+    super-username: ${AUTH_SUPER_USERNAME:admin}
+    super-password: ${AUTH_SUPER_PASSWORD:}
+    super-phone: ${AUTH_SUPER_PHONE:}
+  audit:
+    retention-days: ${AUTH_AUDIT_RETENTION_DAYS:90}
+    cleanup-cron: ${AUTH_AUDIT_CLEANUP_CRON:0 30 3 * * *}
+    # 审计写失败的语义固定在代码中：授权判定在同一事务内写审计，失败即不返回许可；
+    # 其余请求业务已提交，只记录错误日志并保留真实响应。
+
+logging:
+  level:
+    root: INFO
+    # 需要排查 SQL 时用 AUTH_LOG_LEVEL=DEBUG 启动，Mapper 命名空间下的语句会打印绑定参数。
+    com.qs.authority: ${AUTH_LOG_LEVEL:INFO}
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} %-5level [%X{traceId}] %logger{36} - %msg%n"

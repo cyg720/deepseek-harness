@@ -1,0 +1,90 @@
+[
+  {
+    "name": "com.qs.authority.account.AccountLifecycleIT",
+    "tests": "11",
+    "failures": "0",
+    "errors": "0",
+    "skipped": "0",
+    "time": "8.109"
+  },
+  {
+    "name": "com.qs.authority.appauthorization.ApplicationAuthorizationIT",
+    "tests": "7",
+    "failures": "0",
+    "errors": "0",
+    "skipped": "0",
+    "time": "1.669"
+  },
+  {
+    "name": "com.qs.authority.audit.AuditLogIT",
+    "tests": "8",
+    "failures": "0",
+    "errors": "0",
+    "skipped": "0",
+    "time": "2.55"
+  },
+  {
+    "name": "com.qs.authority.convention.PlatformConventionIT",
+    "tests": "9",
+    "failures": "0",
+    "errors": "0",
+    "skipped": "0",
+    "time": "0.94"
+  },
+  {
+    "name": "com.qs.authority.crud.CrudModulesIT",
+    "tests": "23",
+    "failures": "0",
+    "errors": "0",
+    "skipped": "0",
+    "time": "3.483"
+  },
+  {
+    "name": "com.qs.authority.docs.OpenApiDocsIT",
+    "tests": "2",
+    "failures": "0",
+    "errors": "0",
+    "skipped": "0",
+    "time": "0.503"
+  },
+  {
+    "name": "com.qs.authority.organization.OrganizationTreeIT",
+    "tests": "10",
+    "failures": "0",
+    "errors": "0",
+    "skipped": "0",
+    "time": "1.908"
+  },
+  {
+    "name": "com.qs.authority.permission.PermissionModelIT",
+    "tests": "9",
+    "failures": "0",
+    "errors": "0",
+    "skipped": "0",
+    "time": "3.457"
+  },
+  {
+    "name": "com.qs.authority.review.PasswordRaceIT",
+    "tests": "2",
+    "failures": "0",
+    "errors": "0",
+    "skipped": "0",
+    "time": "2.91"
+  },
+  {
+    "name": "com.qs.authority.review.ReviewFixesIT",
+    "tests": "8",
+    "failures": "0",
+    "errors": "0",
+    "skipped": "0",
+    "time": "1.935"
+  },
+  {
+    "name": "com.qs.authority.session.TokenLifecycleIT",
+    "tests": "11",
+    "failures": "0",
+    "errors": "0",
+    "skipped": "0",
+    "time": "6.24"
+  }
+]

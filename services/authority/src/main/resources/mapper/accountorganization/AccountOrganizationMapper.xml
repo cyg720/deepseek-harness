@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.qs.authority.modules.accountorganization.AccountOrganizationMapper">
+
+  <sql id="columns">
+    id, account_id, org_id, created_at, updated_at, created_by, updated_by, version
+  </sql>
+
+  <select id="findById" resultType="com.qs.authority.modules.accountorganization.AccountOrganization">
+    SELECT <include refid="columns"/> FROM qs__auth__account_organization WHERE id = #{id}
+  </select>
+
+  <select id="countByPair" resultType="long">
+    SELECT count(*) FROM qs__auth__account_organization
+    WHERE account_id = #{accountId} AND org_id = #{orgId}
+    <if test="excludeId != null">AND id &lt;&gt; #{excludeId}</if>
+  </select>
+
+  <select id="list" resultType="com.qs.authority.modules.accountorganization.AccountOrganization">
+    SELECT <include refid="columns"/> FROM qs__auth__account_organization
+    <where>
+      <if test="accountId != null">account_id = #{accountId}</if>
+      <if test="orgId != null">AND org_id = #{orgId}</if>
+    </where>
+    ORDER BY ${orderBy}
+    LIMIT #{limit} OFFSET #{offset}
+  </select>
+
+  <select id="count" resultType="long">
+    SELECT count(*) FROM qs__auth__account_organization
+    <where>
+      <if test="accountId != null">account_id = #{accountId}</if>
+      <if test="orgId != null">AND org_id = #{orgId}</if>
+    </where>
+  </select>
+
+  <insert id="insert" useGeneratedKeys="true" keyProperty="id">
+    INSERT INTO qs__auth__account_organization (account_id, org_id, created_by, updated_by)
+    VALUES (#{accountId}, #{orgId}, #{createdBy,jdbcType=BIGINT}, #{updatedBy,jdbcType=BIGINT})
+  </insert>
+
+  <update id="update">
+    UPDATE qs__auth__account_organization
+    SET account_id = #{accountId}, org_id = #{orgId}, updated_by = #{updatedBy,jdbcType=BIGINT}
+    WHERE id = #{id} AND version = #{version}
+  </update>
+
+  <delete id="delete">
+    DELETE FROM qs__auth__account_organization WHERE id = #{id} AND version = #{version}
+  </delete>
+</mapper>

@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.qs.authority.modules.organizationpermissiongroup.OrganizationPermissionGroupMapper">
+
+  <sql id="columns">
+    id, permission_group_id, org_id, created_at, updated_at, created_by, version
+  </sql>
+
+  <select id="findById" resultType="com.qs.authority.modules.organizationpermissiongroup.OrganizationPermissionGroup">
+    SELECT <include refid="columns"/> FROM qs__auth__permission_group_org WHERE id = #{id}
+  </select>
+
+  <select id="list" resultType="com.qs.authority.modules.organizationpermissiongroup.OrganizationPermissionGroup">
+    SELECT <include refid="columns"/> FROM qs__auth__permission_group_org
+    <where>
+      <if test="permissionGroupId != null">permission_group_id = #{permissionGroupId}</if>
+      <if test="orgId != null">AND org_id = #{orgId}</if>
+    </where>
+    ORDER BY ${orderBy}
+    LIMIT #{limit} OFFSET #{offset}
+  </select>
+
+  <select id="count" resultType="long">
+    SELECT count(*) FROM qs__auth__permission_group_org
+    <where>
+      <if test="permissionGroupId != null">permission_group_id = #{permissionGroupId}</if>
+      <if test="orgId != null">AND org_id = #{orgId}</if>
+    </where>
+  </select>
+
+  <select id="countByPair" resultType="long">
+    SELECT count(*) FROM qs__auth__permission_group_org
+    WHERE permission_group_id = #{permissionGroupId} AND org_id = #{orgId}
+    <if test="excludeId != null">AND id &lt;&gt; #{excludeId}</if>
+  </select>
+
+  <select id="countOrganization" resultType="long">
+    SELECT count(*) FROM qs__auth__organization WHERE id = #{id}
+  </select>
+
+  <insert id="insert" useGeneratedKeys="true" keyProperty="id">
+    INSERT INTO qs__auth__permission_group_org (permission_group_id, org_id, created_by)
+    VALUES (#{permissionGroupId}, #{orgId}, #{createdBy,jdbcType=BIGINT})
+  </insert>
+
+  <update id="update">
+    UPDATE qs__auth__permission_group_org
+    <set>
+      <if test="permissionGroupId != null and permissionGroupId.present">
+        permission_group_id = #{permissionGroupId.value,jdbcType=BIGINT},
+      </if>
+      <if test="orgId != null and orgId.present">
+        org_id = #{orgId.value,jdbcType=BIGINT},
+      </if>
+    </set>
+    WHERE id = #{id} AND version = #{version}
+  </update>
+
+  <delete id="delete">
+    DELETE FROM qs__auth__permission_group_org WHERE id = #{id} AND version = #{version}
+  </delete>
+</mapper>

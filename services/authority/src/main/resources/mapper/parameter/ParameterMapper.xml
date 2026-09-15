@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.qs.authority.modules.parameter.ParameterMapper">
+
+  <sql id="columns">
+    id, param_code, param_value, description, created_at, updated_at, created_by, updated_by, version
+  </sql>
+
+  <select id="findById" resultType="com.qs.authority.modules.parameter.SysParameter">
+    SELECT <include refid="columns"/> FROM qs__auth__sys_param WHERE id = #{id}
+  </select>
+
+  <select id="findByCode" resultType="com.qs.authority.modules.parameter.SysParameter">
+    SELECT <include refid="columns"/> FROM qs__auth__sys_param WHERE param_code = #{paramCode}
+  </select>
+
+  <select id="countByCode" resultType="long">
+    SELECT count(*) FROM qs__auth__sys_param
+    WHERE param_code = #{paramCode}
+    <if test="excludeId != null">AND id &lt;&gt; #{excludeId}</if>
+  </select>
+
+  <select id="list" resultType="com.qs.authority.modules.parameter.SysParameter">
+    SELECT <include refid="columns"/> FROM qs__auth__sys_param
+    <where>
+      <if test="paramCode != null">param_code = #{paramCode}</if>
+    </where>
+    ORDER BY ${orderBy}
+    LIMIT #{limit} OFFSET #{offset}
+  </select>
+
+  <select id="count" resultType="long">
+    SELECT count(*) FROM qs__auth__sys_param
+    <where>
+      <if test="paramCode != null">param_code = #{paramCode}</if>
+    </where>
+  </select>
+
+  <insert id="insert" useGeneratedKeys="true" keyProperty="id">
+    INSERT INTO qs__auth__sys_param (param_code, param_value, description, created_by, updated_by)
+    VALUES (#{paramCode}, #{paramValue}, #{description,jdbcType=VARCHAR},
+            #{createdBy,jdbcType=BIGINT}, #{updatedBy,jdbcType=BIGINT})
+  </insert>
+
+  <update id="update">
+    UPDATE qs__auth__sys_param
+    <set>
+      <if test="paramCode != null and paramCode.present">param_code = #{paramCode.value,jdbcType=VARCHAR},</if>
+      <if test="paramValue != null and paramValue.present">
+        param_value = #{paramValue.value,jdbcType=VARCHAR},
+      </if>
+      <if test="description != null and description.present">
+        description = #{description.value,jdbcType=VARCHAR},
+      </if>
+      updated_by = #{updatedBy,jdbcType=BIGINT},
+    </set>
+    WHERE id = #{id} AND version = #{version}
+  </update>
+
+  <delete id="delete">
+    DELETE FROM qs__auth__sys_param WHERE id = #{id} AND version = #{version}
+  </delete>
+</mapper>

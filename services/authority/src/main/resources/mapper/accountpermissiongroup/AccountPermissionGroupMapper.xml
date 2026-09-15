@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.qs.authority.modules.accountpermissiongroup.AccountPermissionGroupMapper">
+
+  <sql id="columns">
+    id, permission_group_id, account_id, created_at, updated_at, created_by, version
+  </sql>
+
+  <select id="findById" resultType="com.qs.authority.modules.accountpermissiongroup.AccountPermissionGroup">
+    SELECT <include refid="columns"/> FROM qs__auth__permission_group_account WHERE id = #{id}
+  </select>
+
+  <select id="list" resultType="com.qs.authority.modules.accountpermissiongroup.AccountPermissionGroup">
+    SELECT <include refid="columns"/> FROM qs__auth__permission_group_account
+    <where>
+      <if test="permissionGroupId != null">permission_group_id = #{permissionGroupId}</if>
+      <if test="accountId != null">AND account_id = #{accountId}</if>
+    </where>
+    ORDER BY ${orderBy}
+    LIMIT #{limit} OFFSET #{offset}
+  </select>
+
+  <select id="count" resultType="long">
+    SELECT count(*) FROM qs__auth__permission_group_account
+    <where>
+      <if test="permissionGroupId != null">permission_group_id = #{permissionGroupId}</if>
+      <if test="accountId != null">AND account_id = #{accountId}</if>
+    </where>
+  </select>
+
+  <select id="countByPair" resultType="long">
+    SELECT count(*) FROM qs__auth__permission_group_account
+    WHERE permission_group_id = #{permissionGroupId} AND account_id = #{accountId}
+    <if test="excludeId != null">AND id &lt;&gt; #{excludeId}</if>
+  </select>
+
+  <insert id="insert" useGeneratedKeys="true" keyProperty="id">
+    INSERT INTO qs__auth__permission_group_account (permission_group_id, account_id, created_by)
+    VALUES (#{permissionGroupId}, #{accountId}, #{createdBy,jdbcType=BIGINT})
+  </insert>
+
+  <update id="update">
+    UPDATE qs__auth__permission_group_account
+    <set>
+      <if test="permissionGroupId != null and permissionGroupId.present">
+        permission_group_id = #{permissionGroupId.value,jdbcType=BIGINT},
+      </if>
+      <if test="accountId != null and accountId.present">
+        account_id = #{accountId.value,jdbcType=BIGINT},
+      </if>
+    </set>
+    WHERE id = #{id} AND version = #{version}
+  </update>
+
+  <delete id="delete">
+    DELETE FROM qs__auth__permission_group_account WHERE id = #{id} AND version = #{version}
+  </delete>
+</mapper>

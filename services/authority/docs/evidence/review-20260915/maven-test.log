@@ -1,0 +1,94 @@
+[INFO] Scanning for projects...
+[INFO]
+[INFO] ----------------------< com.qs:authority-center >-----------------------
+[INFO] Building authority-center 0.1.0
+[INFO]   from pom.xml
+[INFO] --------------------------------[ jar ]---------------------------------
+[INFO]
+[INFO] --- resources:3.5.0:resources (default-resources) @ authority-center ---
+[INFO] Copying 1 resource from src\main\resources to target\classes
+[INFO] Copying 15 resources from src\main\resources to target\classes
+[INFO]
+[INFO] --- compiler:3.15.0:compile (default-compile) @ authority-center ---
+[INFO] Nothing to compile - all classes are up to date.
+[INFO]
+[INFO] --- resources:3.5.0:testResources (default-testResources) @ authority-center ---
+[INFO] Copying 1 resource from src\test\resources to target\test-classes
+[INFO]
+[INFO] --- compiler:3.15.0:testCompile (default-testCompile) @ authority-center ---
+[INFO] Nothing to compile - all classes are up to date.
+[INFO]
+[INFO] --- surefire:3.5.6:test (default-test) @ authority-center ---
+[INFO] Using auto detected provider org.apache.maven.surefire.junitplatform.JUnitPlatformProvider
+[INFO]
+[INFO] -------------------------------------------------------
+[INFO]  T E S T S
+[INFO] -------------------------------------------------------
+[INFO] Running �˺ţ��������ڡ�������ɾ������
+16:32:46.465 [main] INFO org.springframework.test.context.support.AnnotationConfigContextLoaderUtils -- Could not detect default configuration classes for test class [com.qs.authority.account.AccountLifecycleIT]: AccountLifecycleIT does not declare any static, non-private, non-final, nested classes annotated with @Configuration.
+16:32:46.530 [main] INFO org.springframework.boot.test.context.SpringBootTestContextBootstrapper -- Found @SpringBootConfiguration com.qs.authority.AuthorityApplication for test class com.qs.authority.account.AccountLifecycleIT
+16:32:46.580 [main] INFO org.springframework.test.context.support.AnnotationConfigContextLoaderUtils -- Could not detect default configuration classes for test class [com.qs.authority.account.AccountLifecycleIT]: AccountLifecycleIT does not declare any static, non-private, non-final, nested classes annotated with @Configuration.
+16:32:46.580 [main] INFO org.springframework.test.context.support.AnnotationConfigContextLoaderUtils -- Could not detect default configuration classes for test class [com.qs.authority.support.AbstractAuthorityTest]: AbstractAuthorityTest does not declare any static, non-private, non-final, nested classes annotated with @Configuration.
+16:32:46.581 [main] INFO org.springframework.boot.test.context.SpringBootTestContextBootstrapper -- Found @SpringBootConfiguration com.qs.authority.AuthorityApplication for test class com.qs.authority.account.AccountLifecycleIT
+
+  .   ____          _            __ _ _
+ /\\ / ___'_ __ _ _(_)_ __  __ _ \ \ \ \
+( ( )\___ | '_ | '_| | '_ \/ _` | \ \ \ \
+ \\/  ___)| |_)| | | | | || (_| |  ) ) ) )
+  '  |____| .__|_| |_|_| |_\__, | / / / /
+ =========|_|==============|___/=/_/_/_/
+
+ :: Spring Boot ::                (v4.1.1)
+
+2026-09-15 16:32:46.997 INFO  [] c.qs.authority.support.TestDatabase - �ѽ������Կ� qs_auth_review_20260915
+2026-09-15 16:32:47.026 INFO  [] c.q.a.account.AccountLifecycleIT - Starting AccountLifecycleIT using Java 21.0.11 with PID 41188 (started by 18010 in D:\code\CYG\Github\deepseek-harness\services\authority)
+2026-09-15 16:32:47.027 INFO  [] c.q.a.account.AccountLifecycleIT - The following 1 profile is active: "test"
+2026-09-15 16:32:49.559 INFO  [] c.q.a.account.AccountLifecycleIT - Started AccountLifecycleIT in 2.947 seconds (process running for 5.303)
+2026-09-15 16:32:49.589 INFO  [] c.q.a.bootstrap.BootstrapInitializer - �ѽ�����Ȩ��������Ӧ����Ȩ��¼ appCode=auth-center
+2026-09-15 16:32:49.648 INFO  [] c.q.a.bootstrap.BootstrapInitializer - �ѵǼ���Ȩ���������������� 64 ��
+2026-09-15 16:32:49.650 INFO  [] c.q.a.bootstrap.BootstrapInitializer - �ѽ���Ӧ�������ܿ�������Ȩ��¼ appCode=app-center
+2026-09-15 16:32:49.704 INFO  [] c.q.a.bootstrap.BootstrapInitializer - �ѽ������ó�������Ա username=admin���״ε�¼�����޸ĳ�ʼ����
+2026-09-15 16:32:49.709 WARN  [] o.s.c.events.SpringDocAppInitializer - SpringDoc /v3/api-docs endpoint is enabled by default. To disable it in production, set the property 'springdoc.api-docs.enabled=false'
+2026-09-15 16:32:49.709 WARN  [] o.s.c.events.SpringDocAppInitializer - SpringDoc /swagger-ui.html endpoint is enabled by default. To disable it in production, set the property 'springdoc.swagger-ui.enabled=false'
+Mockito is currently self-attaching to enable the inline-mock-maker. This will no longer work in future releases of the JDK. Please add Mockito as an agent to your build as described in Mockito's documentation: https://javadoc.io/doc/org.mockito/mockito-core/latest/org.mockito/org/mockito/Mockito.html#0.3
+Java HotSpot(TM) 64-Bit Server VM warning: Sharing is only supported for boot loader classes because bootstrap classpath has been appended
+WARNING: A Java agent has been loaded dynamically (C:\Users\18010\.m2\repository\net\bytebuddy\byte-buddy-agent\1.18.11\byte-buddy-agent-1.18.11.jar)
+WARNING: If a serviceability tool is in use, please run with -XX:+EnableDynamicAgentLoading to hide this warning
+WARNING: If a serviceability tool is not in use, please run with -Djdk.instrument.traceUsage for more information
+WARNING: Dynamic loading of agents will be disallowed by default in a future release
+[INFO] Tests run: 11, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 8.646 s -- in �˺ţ��������ڡ�������ɾ������
+[INFO] Running Ӧ����Ȩ��AppKey���Ǽǡ������ϱ���״̬ͬ��
+[INFO] Tests run: 7, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 1.830 s -- in Ӧ����Ȩ��AppKey���Ǽǡ������ϱ���״̬ͬ��
+[INFO] Running �����־���Զ�׷�ӡ�������ֻ����ɸѡ���򡢸��϶�λ�뱣��������
+2026-09-15 16:32:57.012 INFO  [] c.q.a.modules.audit.AuditService - �����־������� cutoff=2026-06-17T16:32:57 deleted=1
+[INFO] Tests run: 8, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 1.981 s -- in �����־���Զ�׷�ӡ�������ֻ����ɸѡ���򡢸��϶�λ�뱣��������
+[INFO] Running ƽ̨��Լ��·������ҳ����������༭����
+[INFO] Tests run: 9, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 1.022 s -- in ƽ̨��Լ��·������ҳ����������༭����
+[INFO] Running ��������Ȩ��Դ������ɾ�顢�ֶ�У�顢���Ψһ�����ñ���
+2026-09-15 16:33:00.257 WARN  [8fa4ddab-2055-4bd3-95b4-c0915e98ca55] c.q.a.c.error.GlobalExceptionHandler - ���������ʧ�� traceId=8fa4ddab-2055-4bd3-95b4-c0915e98ca55 cause=Cannot deserialize value of type `java.util.ArrayList<java.lang.String>` from Object value (token `JsonToken.START_OBJECT`)
+ at [Source: REDACTED (`StreamReadFeature.INCLUDE_SOURCE_IN_LOCATION` disabled); byte offset: #47] (through reference chain: com.qs.authority.modules.dictionary.DictionaryDtos$CreateRequest["dictItems"])
+2026-09-15 16:33:00.456 WARN  [b36a5eee-0dd2-4c88-bea5-8d18ab251bf4] c.q.a.c.error.GlobalExceptionHandler - ���������ʧ�� traceId=b36a5eee-0dd2-4c88-bea5-8d18ab251bf4 cause=Cannot deserialize value of type `java.util.ArrayList<java.lang.String>` from Object value (token `JsonToken.START_OBJECT`)
+ at [Source: REDACTED (`StreamReadFeature.INCLUDE_SOURCE_IN_LOCATION` disabled); byte offset: #45] (through reference chain: com.qs.authority.modules.permissiongroup.PermissionGroupDtos$CreateRequest["operationIds"])
+[INFO] Tests run: 15, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 2.538 s -- in ��������Ȩ��Դ������ɾ�顢�ֶ�У�顢���Ψһ�����ñ���
+[INFO] Running �ӿ��ĵ���OpenAPI��Swagger UI �� Knife4j
+[INFO] Tests run: 2, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.562 s -- in �ӿ��ĵ���OpenAPI��Swagger UI �� Knife4j
+[INFO] Running ��֯��������֯���ﻯ·���������ƶ�����������ɾ��
+[INFO] Tests run: 9, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 1.872 s -- in ��֯��������֯���ﻯ·���������ƶ�����������ɾ��
+[INFO] Running Ȩ��ģ�ͣ��ɼ��顢���ܲ�������������Ա��Ƿ�����
+[INFO] Tests run: 9, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 3.487 s -- in Ȩ��ģ�ͣ��ɼ��顢���ܲ�������������Ա��Ƿ�����
+[INFO] Running �����������ڣ�ǩ�������ڡ��������˳��붳��
+2026-09-15 16:33:09.171 INFO  [e5f8ed4c-2df0-41c7-9c09-2324ad050bda] c.q.a.modules.session.SessionService - �˳���ǰ�豸 sessionId=0e125237-7057-424c-9fe2-5be093dac29b ����������=1
+2026-09-15 16:33:09.607 INFO  [fc5f53a7-dc6e-49d9-9cf6-2fbf23c71dd6] c.q.a.modules.session.SessionService - �˳���ǰ�豸 sessionId=aa8bd021-1d08-4161-8b75-a9ca90a9073b ����������=1
+2026-09-15 16:33:13.784 INFO  [c1c8081e-915c-45ca-9fdc-5a32e2a78225] c.q.a.modules.session.SessionService - �˳���ǰ�豸 sessionId=2559c6d9-38de-4250-93d4-98673def6dc6 ����������=2
+[INFO] Tests run: 11, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 6.726 s -- in �����������ڣ�ǩ�������ڡ��������˳��붳��
+[INFO]
+[INFO] Results:
+[INFO]
+[INFO] Tests run: 81, Failures: 0, Errors: 0, Skipped: 0
+[INFO]
+[INFO] ------------------------------------------------------------------------
+[INFO] BUILD SUCCESS
+[INFO] ------------------------------------------------------------------------
+[INFO] Total time:  32.703 s
+[INFO] Finished at: 2026-09-15T16:33:15+08:00
+[INFO] ------------------------------------------------------------------------

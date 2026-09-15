@@ -1,0 +1,65 @@
+{
+  "name": "com.qs.authority.review.IndependentRecheckIT",
+  "tests": "11",
+  "failures": "2",
+  "errors": "0",
+  "skipped": "0",
+  "time": "6.641",
+  "cases": [
+    {
+      "name": "detailReaderObtainsApplicationCenterCredential",
+      "passed": true,
+      "failure": null
+    },
+    {
+      "name": "unchangedPatchIncrementsVersion",
+      "passed": true,
+      "failure": null
+    },
+    {
+      "name": "sceneTokenCanUseOrdinaryManagementApi",
+      "passed": true,
+      "failure": null
+    },
+    {
+      "name": "unicodePasswordWithinDtoLimitReturns500",
+      "passed": true,
+      "failure": null
+    },
+    {
+      "name": "successfulAuthorizationRetainsRequestAuditFields",
+      "passed": false,
+      "failure": "[Successful authorization must retain request IP] \nExpecting not blank but was: null"
+    },
+    {
+      "name": "longUserAgentReturnsFailureAfterCommit",
+      "passed": true,
+      "failure": null
+    },
+    {
+      "name": "managementOperationIgnoresApplicationVisibility",
+      "passed": true,
+      "failure": null
+    },
+    {
+      "name": "truncatedBodyDoesNotStorePassword",
+      "passed": true,
+      "failure": null
+    },
+    {
+      "name": "staleVersionWithSameValueReportsConflict",
+      "passed": false,
+      "failure": "[响应体: {\"code\":40001,\"message\":\"请检查输入内容\",\"data\":{\"traceId\":\"b3d70db3-47a2-44aa-95b5-29e5f3cab8d9\",\"fieldErrors\":[{\"field\":\"body\",\"message\":\"提交内容与当前值相同，没有可保存的变更\"}]}}] \nexpected: 40901\n but was: 40001"
+    },
+    {
+      "name": "invalidIpNetworkAcceptedForServiceAccount",
+      "passed": true,
+      "failure": null
+    },
+    {
+      "name": "malformedJsonPasswordPersistsInAudit",
+      "passed": true,
+      "failure": null
+    }
+  ]
+}

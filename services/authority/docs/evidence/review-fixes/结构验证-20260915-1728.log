@@ -1,0 +1,86 @@
+== 1. 业务表数量（期望 15）与日志分区（期望 1）==
+ business_tables
+-----------------
+              15
+
+ audit_partitions
+------------------
+                1
+
+== 2. 显式索引（期望 14 个 CREATE INDEX + 1 个超级管理员部分唯一索引）==
+ explicit_indexes
+------------------
+               15
+
+== 3. 触发器（期望 16 行：13 张业务表更新时间触发器 + 账号业务列触发器 + 账号保护触发器两事件）==
+ triggers
+----------
+       16
+
+== 4. 北京时间秒精度：写入行的默认时间与数据库当前北京时间在同一秒 ==
+BEGIN
+INSERT 0 1
+ beijing_second_precision
+--------------------------
+ t
+
+ROLLBACK
+== 5. 列注释数量（字段说明随 SQL 交付）==
+ column_comments
+-----------------
+             160
+
+== 6. 约束行为（事务内验证后回滚）==
+BEGIN
+-- 6.1 非法外键（不存在的应用编码）应被拒绝
+SAVEPOINT
+psql:<stdin>:43: ERROR:  insert or update on table "qs__auth__operation" violates foreign key constraint "qs__auth__operation_app_code_fkey"
+DETAIL:  Key (app_code)=(no-such-app) is not present in table "qs__auth__app_authorization".
+ROLLBACK
+-- 6.2 操作码缺少应用前缀应被拒绝
+SAVEPOINT
+psql:<stdin>:48: ERROR:  new row for relation "qs__auth__operation" violates check constraint "qs__auth__operation_check"
+DETAIL:  Failing row contains (auth-center, 67, without-prefix, y, null, null, 2026-09-15 17:28:38, 2026-09-15 17:28:38, null, null, 1).
+ROLLBACK
+-- 6.3 空参数值应被拒绝
+SAVEPOINT
+psql:<stdin>:52: ERROR:  new row for relation "qs__auth__sys_param" violates check constraint "qs__auth__sys_param_param_value_check"
+DETAIL:  Failing row contains (3, blank-check,    , null, 2026-09-15 17:28:38, 2026-09-15 17:28:38, null, null, 1).
+ROLLBACK
+-- 6.4 重复关联组合应被拒绝
+SAVEPOINT
+psql:<stdin>:57: ERROR:  duplicate key value violates unique constraint "qs__auth__account_organization_account_id_org_id_key"
+DETAIL:  Key (account_id, org_id)=(2, 1) already exists.
+ROLLBACK
+-- 6.5 服务账号缺少 IP 白名单应被拒绝
+SAVEPOINT
+psql:<stdin>:61: ERROR:  new row for relation "qs__auth__account" violates check constraint "qs__auth__account_check1"
+DETAIL:  Failing row contains (3, b82cbfc6-b9d2-4b02-828a-f0384afc227a, svc-check, null, null, null, null, null, service, normal, [], null, 2026-09-15 17:28:38, 2026-09-15 17:28:38, null, null, 1, t, f).
+ROLLBACK
+-- 6.6 第二名单个内置超级管理员应被拒绝
+SAVEPOINT
+ROLLBACK
+-- 6.7 删除内置超级管理员应被拒绝
+psql:<stdin>:65: ERROR:  duplicate key value violates unique constraint "qs__auth__account_super_admin_idx"
+DETAIL:  Key (is_super_admin)=(t) already exists.
+SAVEPOINT
+psql:<stdin>:69: ERROR:  内置超级管理员不可删除
+CONTEXT:  PL/pgSQL function qs__auth__protect_super_admin() line 5 at RAISE
+ROLLBACK
+-- 6.8 版本触发器：业务列更新后 version 自增且更新时间由数据库维护
+SAVEPOINT
+ version_before |   updated_before
+----------------+---------------------
+              1 | 2026-09-15 17:28:36
+
+UPDATE 1
+ version_after |    updated_after
+---------------+---------------------
+             2 | 2026-09-15 17:28:38
+
+ROLLBACK
+ROLLBACK
+== 7. 每个业务表均有主键与列注释 ==
+ tables_without_pk
+-------------------
+                 0

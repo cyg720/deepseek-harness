@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.qs.authority.modules.token.TokenMapper">
+
+  <insert id="insert" useGeneratedKeys="true" keyProperty="id">
+    INSERT INTO qs__auth__token
+      (token_digest, account_id, token_type, refresh_type, expires_at, scene_id, client_ip, user_agent,
+       revoked, created_by, updated_by, session_id)
+    VALUES
+      (#{tokenDigest}, #{accountId}, #{tokenType}, #{refreshType}, #{expiresAt,jdbcType=TIMESTAMP},
+       #{sceneId,jdbcType=VARCHAR}, #{clientIp,jdbcType=VARCHAR}, #{userAgent,jdbcType=VARCHAR},
+       #{revoked,jdbcType=BOOLEAN}, #{createdBy,jdbcType=BIGINT}, #{updatedBy,jdbcType=BIGINT},
+       CAST(#{sessionId,jdbcType=VARCHAR} AS uuid))
+  </insert>
+
+  <select id="findByDigest" resultType="com.qs.authority.modules.token.TokenRecord">
+    SELECT id, token_digest, account_id, token_type, refresh_type, expires_at, scene_id, client_ip, user_agent,
+           revoked, created_at, updated_at, created_by, updated_by, version, session_id::text AS session_id
+    FROM qs__auth__token
+    WHERE token_digest = #{digest}
+  </select>
+
+  <update id="revokeById">
+    UPDATE qs__auth__token SET revoked = TRUE WHERE id = #{id} AND revoked = FALSE
+  </update>
+
+  <update id="revokeBySession">
+    UPDATE qs__auth__token SET revoked = TRUE WHERE session_id = CAST(#{sessionId,jdbcType=VARCHAR} AS uuid) AND revoked = FALSE
+  </update>
+
+  <update id="revokeByAccount">
+    UPDATE qs__auth__token SET revoked = TRUE WHERE account_id = #{accountId} AND revoked = FALSE
+  </update>
+
+  <select id="countActive" resultType="long">
+    SELECT count(*) FROM qs__auth__token
+    WHERE account_id = #{accountId} AND revoked = FALSE AND expires_at &gt; #{now}
+  </select>
+</mapper>

@@ -1,0 +1,102 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.qs.authority.modules.appauthorization.AppAuthorizationMapper">
+
+  <sql id="columns">
+    id, app_code, app_key, app_secret, status, secret_expire_at, created_at, updated_at,
+    created_by, updated_by, version
+  </sql>
+
+  <select id="findById" resultType="com.qs.authority.modules.appauthorization.AppAuthorization">
+    SELECT <include refid="columns"/> FROM qs__auth__app_authorization WHERE id = #{id}
+  </select>
+
+  <select id="findByAppCode" resultType="com.qs.authority.modules.appauthorization.AppAuthorization">
+    SELECT <include refid="columns"/> FROM qs__auth__app_authorization WHERE app_code = #{appCode}
+  </select>
+
+  <select id="findByAppKey" resultType="com.qs.authority.modules.appauthorization.AppAuthorization">
+    SELECT <include refid="columns"/> FROM qs__auth__app_authorization WHERE app_key = #{appKey}
+  </select>
+
+  <select id="findStatusByAppCode" resultType="com.qs.authority.modules.appauthorization.AppAuthorization">
+    SELECT <include refid="columns"/> FROM qs__auth__app_authorization WHERE app_code = #{appCode}
+  </select>
+
+  <select id="list" resultType="com.qs.authority.modules.appauthorization.AppAuthorization">
+    SELECT <include refid="columns"/> FROM qs__auth__app_authorization
+    <where>
+      <if test="appCode != null">app_code = #{appCode}</if>
+      <if test="status != null">AND status = #{status}</if>
+    </where>
+    ORDER BY ${orderBy}
+    LIMIT #{limit} OFFSET #{offset}
+  </select>
+
+  <select id="count" resultType="long">
+    SELECT count(*) FROM qs__auth__app_authorization
+    <where>
+      <if test="appCode != null">app_code = #{appCode}</if>
+      <if test="status != null">AND status = #{status}</if>
+    </where>
+  </select>
+
+  <insert id="insert" useGeneratedKeys="true" keyProperty="id">
+    INSERT INTO qs__auth__app_authorization
+      (app_code, app_key, app_secret, status, secret_expire_at, created_by, updated_by)
+    VALUES
+      (#{appCode}, #{appKey}, #{appSecret}, #{status}, #{secretExpireAt,jdbcType=TIMESTAMP},
+       #{createdBy,jdbcType=BIGINT}, #{updatedBy,jdbcType=BIGINT})
+  </insert>
+
+  <update id="updateStatus">
+    UPDATE qs__auth__app_authorization
+    SET status = #{status}, updated_by = #{updatedBy,jdbcType=BIGINT}
+    WHERE id = #{id} AND version = #{version}
+  </update>
+
+  <update id="touch">
+    UPDATE qs__auth__app_authorization
+    SET updated_by = #{updatedBy,jdbcType=BIGINT}
+    WHERE id = #{id} AND version = #{version}
+  </update>
+
+  <update id="updateCredentials">
+    UPDATE qs__auth__app_authorization
+    SET app_key = #{appKey}, app_secret = #{appSecret}
+    WHERE id = #{id}
+  </update>
+
+  <select id="listPermissionGroupIds" resultType="long">
+    SELECT permission_group_id FROM qs__auth__app_permission_group
+    WHERE app_authorization_id = #{appAuthorizationId}
+    ORDER BY permission_group_id
+  </select>
+
+  <delete id="deletePermissionGroups">
+    DELETE FROM qs__auth__app_permission_group WHERE app_authorization_id = #{appAuthorizationId}
+  </delete>
+
+  <insert id="replacePermissionGroups">
+    INSERT INTO qs__auth__app_permission_group (app_authorization_id, permission_group_id, created_by, updated_by)
+    VALUES
+    <foreach collection="groupIds" item="groupId" separator=",">
+      (#{appAuthorizationId}, #{groupId}, #{operatorId,jdbcType=BIGINT}, #{operatorId,jdbcType=BIGINT})
+    </foreach>
+  </insert>
+
+  <select id="countByPermissionGroupId" resultType="long">
+    SELECT count(*) FROM qs__auth__app_permission_group WHERE permission_group_id = #{permissionGroupId}
+  </select>
+
+  <select id="countVisibility" resultType="long">
+    SELECT count(*) FROM qs__auth__app_permission_group
+    WHERE app_authorization_id = #{appAuthorizationId}
+      AND permission_group_id IN
+      <foreach collection="groupIds" item="groupId" open="(" separator="," close=")">#{groupId}</foreach>
+  </select>
+
+  <select id="countOperations" resultType="long">
+    SELECT count(*) FROM qs__auth__operation WHERE app_code = #{appCode}
+  </select>
+</mapper>

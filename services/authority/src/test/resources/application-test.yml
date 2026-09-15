@@ -1,0 +1,23 @@
+authority:
+  self-app-code: auth-center
+  self-app-key: test-self-app-key
+  app-center-app-code: app-center
+  app-center-app-key: test-app-center-key
+  password:
+    min-length: 8
+  token:
+    ttl-days: 30
+    renew-threshold-days: 15
+  bootstrap:
+    enabled: true
+    super-username: admin
+    super-password: TestAdmin@123
+  audit:
+    retention-days: 90
+    # 测试中不按 cron 自动清理，清理用例直接调用服务方法。
+    cleanup-cron: "0 0 0 1 1 *"
+
+logging:
+  level:
+    root: WARN
+    com.qs.authority: INFO

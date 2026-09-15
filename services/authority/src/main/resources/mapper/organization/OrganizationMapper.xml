@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.qs.authority.modules.organization.OrganizationMapper">
+
+  <sql id="columns">
+    id, parent_id, org_path, org_name, org_type, leader, sort_order, remark,
+    created_at, updated_at, created_by, updated_by, version
+  </sql>
+
+  <select id="findById" resultType="com.qs.authority.modules.organization.Organization">
+    SELECT <include refid="columns"/> FROM qs__auth__organization WHERE id = #{id}
+  </select>
+
+  <select id="nextId" resultType="long">
+    SELECT nextval(pg_get_serial_sequence('qs__auth__organization', 'id'))
+  </select>
+
+  <select id="list" resultType="com.qs.authority.modules.organization.Organization">
+    SELECT <include refid="columns"/> FROM qs__auth__organization
+    <where>
+      <if test="parentId != null">parent_id = #{parentId}</if>
+      <if test="orgType != null">AND org_type = #{orgType}</if>
+    </where>
+    ORDER BY ${orderBy}
+    LIMIT #{limit} OFFSET #{offset}
+  </select>
+
+  <select id="count" resultType="long">
+    SELECT count(*) FROM qs__auth__organization
+    <where>
+      <if test="parentId != null">parent_id = #{parentId}</if>
+      <if test="orgType != null">AND org_type = #{orgType}</if>
+    </where>
+  </select>
+
+  <insert id="insert">
+    INSERT INTO qs__auth__organization
+      (id, parent_id, org_path, org_name, org_type, leader, sort_order, remark, created_by, updated_by)
+    VALUES
+      (#{id}, #{parentId}, #{orgPath}, #{orgName}, #{orgType}, #{leader,jdbcType=VARCHAR},
+       #{sortOrder,jdbcType=INTEGER}, #{remark,jdbcType=VARCHAR},
+       #{createdBy,jdbcType=BIGINT}, #{updatedBy,jdbcType=BIGINT})
+  </insert>
+
+  <update id="update">
+    UPDATE qs__auth__organization
+    <set>
+      <if test="parentId != null and parentId.present">parent_id = #{parentId.value,jdbcType=BIGINT},</if>
+      <if test="orgPath != null and orgPath.present">org_path = #{orgPath.value,jdbcType=VARCHAR},</if>
+      <if test="orgName != null and orgName.present">org_name = #{orgName.value,jdbcType=VARCHAR},</if>
+      <if test="orgType != null and orgType.present">org_type = #{orgType.value,jdbcType=VARCHAR},</if>
+      <if test="leader != null and leader.present">leader = #{leader.value,jdbcType=VARCHAR},</if>
+      <if test="sortOrder != null and sortOrder.present">sort_order = #{sortOrder.value,jdbcType=INTEGER},</if>
+      <if test="remark != null and remark.present">remark = #{remark.value,jdbcType=VARCHAR},</if>
+      updated_by = #{updatedBy,jdbcType=BIGINT},
+    </set>
+    WHERE id = #{id} AND version = #{version}
+  </update>
+
+  <select id="maxDescendantPathLength" resultType="int">
+    SELECT coalesce(max(length(org_path)), 0)
+    FROM qs__auth__organization
+    WHERE org_path LIKE #{prefix} || '/%'
+  </select>
+
+  <update id="moveSubtree">
+    UPDATE qs__auth__organization
+    SET org_path = #{newPrefix} || substring(org_path from length(#{oldPrefix}) + 1)
+    WHERE org_path LIKE #{oldPrefix} || '/%'
+  </update>
+
+  <delete id="delete">
+    DELETE FROM qs__auth__organization WHERE id = #{id} AND version = #{version}
+  </delete>
+
+  <select id="countChildren" resultType="long">
+    SELECT count(*) FROM qs__auth__organization WHERE parent_id = #{id}
+  </select>
+
+  <select id="countAccountLinks" resultType="long">
+    SELECT count(*) FROM qs__auth__account_organization WHERE org_id = #{orgId}
+  </select>
+
+  <select id="countPermissionGroupLinks" resultType="long">
+    SELECT count(*) FROM qs__auth__permission_group_org WHERE org_id = #{orgId}
+  </select>
+</mapper>

@@ -1,0 +1,74 @@
+[
+  {
+    "name": "com.qs.authority.account.AccountLifecycleIT",
+    "tests": "11",
+    "failures": "0",
+    "errors": "0",
+    "skipped": "0",
+    "time": "8.646"
+  },
+  {
+    "name": "com.qs.authority.appauthorization.ApplicationAuthorizationIT",
+    "tests": "7",
+    "failures": "0",
+    "errors": "0",
+    "skipped": "0",
+    "time": "1.83"
+  },
+  {
+    "name": "com.qs.authority.audit.AuditLogIT",
+    "tests": "8",
+    "failures": "0",
+    "errors": "0",
+    "skipped": "0",
+    "time": "1.981"
+  },
+  {
+    "name": "com.qs.authority.convention.PlatformConventionIT",
+    "tests": "9",
+    "failures": "0",
+    "errors": "0",
+    "skipped": "0",
+    "time": "1.022"
+  },
+  {
+    "name": "com.qs.authority.crud.CrudModulesIT",
+    "tests": "15",
+    "failures": "0",
+    "errors": "0",
+    "skipped": "0",
+    "time": "2.538"
+  },
+  {
+    "name": "com.qs.authority.docs.OpenApiDocsIT",
+    "tests": "2",
+    "failures": "0",
+    "errors": "0",
+    "skipped": "0",
+    "time": "0.562"
+  },
+  {
+    "name": "com.qs.authority.organization.OrganizationTreeIT",
+    "tests": "9",
+    "failures": "0",
+    "errors": "0",
+    "skipped": "0",
+    "time": "1.872"
+  },
+  {
+    "name": "com.qs.authority.permission.PermissionModelIT",
+    "tests": "9",
+    "failures": "0",
+    "errors": "0",
+    "skipped": "0",
+    "time": "3.487"
+  },
+  {
+    "name": "com.qs.authority.session.TokenLifecycleIT",
+    "tests": "11",
+    "failures": "0",
+    "errors": "0",
+    "skipped": "0",
+    "time": "6.726"
+  }
+]

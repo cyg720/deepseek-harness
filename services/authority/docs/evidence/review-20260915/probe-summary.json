@@ -1,0 +1,17 @@
+{
+  "meaning": "Assertions deliberately confirm current defects/observations; passing is not product acceptance",
+  "tests": "8",
+  "failures": "0",
+  "errors": "0",
+  "skipped": "0",
+  "cases": [
+    "detailReaderObtainsApplicationCenterCredential",
+    "unchangedPatchIncrementsVersion",
+    "sceneTokenCanUseOrdinaryManagementApi",
+    "unicodePasswordWithinDtoLimitReturns500",
+    "longUserAgentReturnsFailureAfterCommit",
+    "managementOperationIgnoresApplicationVisibility",
+    "invalidIpNetworkAcceptedForServiceAccount",
+    "malformedJsonPasswordPersistsInAudit"
+  ]
+}
