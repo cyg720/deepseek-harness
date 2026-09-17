@@ -116,6 +116,13 @@
     { "path": "./packages/api/workspace-files/tsconfig.client.json" },
     { "path": "./packages/client/web" },
     { "path": "./packages/context/file-reference" },
-    { "path": "./apps/web" }
+    { "path": "./apps/web" },
+    { "path": "./packages/qs/qs-shell" },
+    { "path": "./packages/qs/qs-login" },
+    { "path": "./packages/qs/qs-sessions" },
+    { "path": "./packages/qs/qs-composer" },
+    { "path": "./packages/qs/qs-transcript" },
+    { "path": "./packages/qs/qs-approval" },
+    { "path": "./packages/qs/qs-questions" }
   ]
 }

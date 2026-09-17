@@ -7553,6 +7553,48 @@ importers:
         specifier: workspace:^
         version: link:../../core/system-prompt
 
+  packages/qs/qs-approval:
+    devDependencies:
+      '@deepseek-ai/cordis':
+        specifier: workspace:^
+        version: link:../../../vendor/cordis
+
+  packages/qs/qs-composer:
+    devDependencies:
+      '@deepseek-ai/cordis':
+        specifier: workspace:^
+        version: link:../../../vendor/cordis
+
+  packages/qs/qs-login:
+    devDependencies:
+      '@deepseek-ai/cordis':
+        specifier: workspace:^
+        version: link:../../../vendor/cordis
+
+  packages/qs/qs-questions:
+    devDependencies:
+      '@deepseek-ai/cordis':
+        specifier: workspace:^
+        version: link:../../../vendor/cordis
+
+  packages/qs/qs-sessions:
+    devDependencies:
+      '@deepseek-ai/cordis':
+        specifier: workspace:^
+        version: link:../../../vendor/cordis
+
+  packages/qs/qs-shell:
+    devDependencies:
+      '@deepseek-ai/cordis':
+        specifier: workspace:^
+        version: link:../../../vendor/cordis
+
+  packages/qs/qs-transcript:
+    devDependencies:
+      '@deepseek-ai/cordis':
+        specifier: workspace:^
+        version: link:../../../vendor/cordis
+
   packages/runtime-diagnostics/invariants:
     dependencies:
       '@deepseek-ai/schemastery':
