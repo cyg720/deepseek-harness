@@ -1,4 +1,9 @@
-/** Browser entry for the Qishu session navigation scaffold. */
+/**
+ * 会话导航组件的浏览器入口（预留职责：会话导航）。
+ *
+ * 角色定位：会话列表、创建、切换、改名、归档与本地置顶。
+ * 当前状态：骨架阶段不注册视图、服务或订阅；会话导航尚未实现；列表与当前选择取官方会话与工作区服务，不另建会话数据库。
+ */
 
-/** Registers no views, services, or subscriptions. */
+/** 注册本包的浏览器侧行为；骨架阶段为空实现。 */
 export function apply(): void {}

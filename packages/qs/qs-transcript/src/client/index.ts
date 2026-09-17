@@ -1,4 +1,9 @@
-/** Browser entry for the Qishu conversation transcript scaffold. */
+/**
+ * 会话转写组件的浏览器入口（预留职责：会话转写）。
+ *
+ * 角色定位：转写节点显示、分页、滚动与交互卡宿主。
+ * 当前状态：骨架阶段不注册视图、服务或订阅；转写注册尚未实现；节点数据取官方会话投影，不自行维护第二份权威。
+ */
 
-/** Registers no views, services, or subscriptions. */
+/** 注册本包的浏览器侧行为；骨架阶段为空实现。 */
 export function apply(): void {}

@@ -1,4 +1,9 @@
-/** Host entry for the Qishu session navigation scaffold. */
+/**
+ * 会话导航组件的 Host 入口（预留职责：会话导航）。
+ *
+ * 角色定位：会话列表、创建、切换、改名、归档与本地置顶。
+ * 当前状态：骨架阶段不注册服务、不声明槽、不读写会话状态；本包没有预留宿主侧行为。
+ */
 
-/** Provides no host-side behavior. */
+/** 注册本包的宿主侧行为；骨架阶段为空实现。 */
 export function apply(): void {}

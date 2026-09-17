@@ -1,4 +1,9 @@
-/** Browser entry for the Qishu approval presentation scaffold. */
+/**
+ * 审批展示组件的浏览器入口（预留职责：审批展示）。
+ *
+ * 角色定位：审批请求卡片与回答。
+ * 当前状态：骨架阶段不注册视图、服务或订阅；审批卡注册尚未实现；回答只用 allowed-once 与 rejected，不代答、不另注册请求所有者。
+ */
 
-/** Registers no views, services, or subscriptions. */
+/** 注册本包的浏览器侧行为；骨架阶段为空实现。 */
 export function apply(): void {}

@@ -1,4 +1,9 @@
-/** Host entry for the Qishu application shell and developer UI switch scaffold. */
+/**
+ * 应用外壳组件的 Host 入口（预留职责：应用外壳与开发者界面切换）。
+ *
+ * 角色定位：root 与布局、子槽声明、界面切换控制器。
+ * 当前状态：骨架阶段不注册服务、不声明槽、不读写会话状态；界面切换配置（defaultUi 与 showOfficialUiEntry）的传递留待 M0 接线时验证。
+ */
 
-/** Provides no host-side behavior. */
+/** 注册本包的宿主侧行为；骨架阶段为空实现。 */
 export function apply(): void {}

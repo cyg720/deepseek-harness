@@ -1,4 +1,9 @@
-/** Browser entry for the Qishu user question presentation scaffold. */
+/**
+ * 用户提问组件的浏览器入口（预留职责：用户提问展示）。
+ *
+ * 角色定位：批量问题、自由文本与计划评审的呈现与回答。
+ * 当前状态：骨架阶段不注册视图、服务或订阅；提问卡注册尚未实现；按 selected 与 custom 提交答案，批准项按意图标签匹配，不按界面文案猜协议。
+ */
 
-/** Registers no views, services, or subscriptions. */
+/** 注册本包的浏览器侧行为；骨架阶段为空实现。 */
 export function apply(): void {}

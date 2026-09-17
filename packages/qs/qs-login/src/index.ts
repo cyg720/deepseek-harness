@@ -1,4 +1,9 @@
-/** Host entry for the Qishu static login presentation scaffold. */
+/**
+ * 静态登录组件的 Host 入口（预留职责：静态登录展示）。
+ *
+ * 角色定位：登录页与本地展示状态。
+ * 当前状态：骨架阶段不注册服务、不声明槽、不读写会话状态；本包没有预留宿主侧行为。
+ */
 
-/** Provides no host-side behavior. */
+/** 注册本包的宿主侧行为；骨架阶段为空实现。 */
 export function apply(): void {}

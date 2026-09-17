@@ -1,4 +1,9 @@
-/** Browser entry for the Qishu static login presentation scaffold. */
+/**
+ * 静态登录组件的浏览器入口（预留职责：静态登录展示）。
+ *
+ * 角色定位：登录页与本地展示状态。
+ * 当前状态：骨架阶段不注册视图、服务或订阅；登录页注册尚未实现；登录只做本机展示，不接真实认证，密码不持久化。
+ */
 
-/** Registers no views, services, or subscriptions. */
+/** 注册本包的浏览器侧行为；骨架阶段为空实现。 */
 export function apply(): void {}

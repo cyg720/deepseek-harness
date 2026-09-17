@@ -1,4 +1,9 @@
-/** Browser entry for the Qishu application shell and developer UI switch scaffold. */
+/**
+ * 应用外壳组件的浏览器入口（预留职责：应用外壳与开发者界面切换）。
+ *
+ * 角色定位：root 与布局、子槽声明、界面切换控制器。
+ * 当前状态：骨架阶段不注册视图、服务或订阅；槽注册与外壳渲染尚未实现；正式开发时按 ui-layout 的写法贡献 root 并在同次调用声明 children。
+ */
 
-/** Registers no views, services, or subscriptions. */
+/** 注册本包的浏览器侧行为；骨架阶段为空实现。 */
 export function apply(): void {}

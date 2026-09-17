@@ -1,4 +1,9 @@
-/** Host entry for the Qishu user question presentation scaffold. */
+/**
+ * 用户提问组件的 Host 入口（预留职责：用户提问展示）。
+ *
+ * 角色定位：批量问题、自由文本与计划评审的呈现与回答。
+ * 当前状态：骨架阶段不注册服务、不声明槽、不读写会话状态；本包没有预留宿主侧行为。
+ */
 
-/** Provides no host-side behavior. */
+/** 注册本包的宿主侧行为；骨架阶段为空实现。 */
 export function apply(): void {}

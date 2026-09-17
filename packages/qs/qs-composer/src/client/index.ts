@@ -1,4 +1,9 @@
-/** Browser entry for the Qishu message composition scaffold. */
+/**
+ * 消息输入组件的浏览器入口（预留职责：消息输入）。
+ *
+ * 角色定位：未归属草稿的交接与官方输入动作的呈现。
+ * 当前状态：骨架阶段不注册视图、服务或订阅；输入区注册尚未实现；提交走官方输入动作，不自建传输、不另建队列。
+ */
 
-/** Registers no views, services, or subscriptions. */
+/** 注册本包的浏览器侧行为；骨架阶段为空实现。 */
 export function apply(): void {}
