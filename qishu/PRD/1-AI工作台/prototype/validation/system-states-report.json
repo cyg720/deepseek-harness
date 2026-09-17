@@ -1,0 +1,11 @@
+{
+  "browser": "153.0.4234.32",
+  "checks": [
+    "disconnection blocks send, preserves editable draft, retry failure and recovery",
+    "root fault focus, retry preserves draft, diagnostics and real page reload",
+    "empty session, inspector and tool directory without deleting real demo data",
+    "skeleton, history loading/failure/retry, existing records preserved",
+    "16 scenario/viewport/theme combinations without page overflow"
+  ],
+  "errors": []
+}

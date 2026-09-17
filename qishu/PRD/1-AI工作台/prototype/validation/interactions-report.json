@@ -1,0 +1,224 @@
+{
+  "browser": "153.0.4234.32",
+  "checks": [
+    "approval details, submitting lock, failure and retry",
+    "rejection, detail fallback, revocation without rejection",
+    "batch validation, single/custom exclusion, multi/custom combination, session and reload preservation",
+    "free text, named approval in second position, approve-only plan",
+    "async completion does not write into a different session",
+    "42 theme/viewport/scenario combinations without horizontal overflow"
+  ],
+  "samples": [
+    {
+      "theme": "light",
+      "width": 320,
+      "scenario": "approval"
+    },
+    {
+      "theme": "light",
+      "width": 320,
+      "scenario": "questions"
+    },
+    {
+      "theme": "light",
+      "width": 320,
+      "scenario": "plan"
+    },
+    {
+      "theme": "light",
+      "width": 390,
+      "scenario": "approval"
+    },
+    {
+      "theme": "light",
+      "width": 390,
+      "scenario": "questions"
+    },
+    {
+      "theme": "light",
+      "width": 390,
+      "scenario": "plan"
+    },
+    {
+      "theme": "light",
+      "width": 699,
+      "scenario": "approval"
+    },
+    {
+      "theme": "light",
+      "width": 699,
+      "scenario": "questions"
+    },
+    {
+      "theme": "light",
+      "width": 699,
+      "scenario": "plan"
+    },
+    {
+      "theme": "light",
+      "width": 701,
+      "scenario": "approval"
+    },
+    {
+      "theme": "light",
+      "width": 701,
+      "scenario": "questions"
+    },
+    {
+      "theme": "light",
+      "width": 701,
+      "scenario": "plan"
+    },
+    {
+      "theme": "light",
+      "width": 959,
+      "scenario": "approval"
+    },
+    {
+      "theme": "light",
+      "width": 959,
+      "scenario": "questions"
+    },
+    {
+      "theme": "light",
+      "width": 959,
+      "scenario": "plan"
+    },
+    {
+      "theme": "light",
+      "width": 961,
+      "scenario": "approval"
+    },
+    {
+      "theme": "light",
+      "width": 961,
+      "scenario": "questions"
+    },
+    {
+      "theme": "light",
+      "width": 961,
+      "scenario": "plan"
+    },
+    {
+      "theme": "light",
+      "width": 1440,
+      "scenario": "approval"
+    },
+    {
+      "theme": "light",
+      "width": 1440,
+      "scenario": "questions"
+    },
+    {
+      "theme": "light",
+      "width": 1440,
+      "scenario": "plan"
+    },
+    {
+      "theme": "dark",
+      "width": 320,
+      "scenario": "approval"
+    },
+    {
+      "theme": "dark",
+      "width": 320,
+      "scenario": "questions"
+    },
+    {
+      "theme": "dark",
+      "width": 320,
+      "scenario": "plan"
+    },
+    {
+      "theme": "dark",
+      "width": 390,
+      "scenario": "approval"
+    },
+    {
+      "theme": "dark",
+      "width": 390,
+      "scenario": "questions"
+    },
+    {
+      "theme": "dark",
+      "width": 390,
+      "scenario": "plan"
+    },
+    {
+      "theme": "dark",
+      "width": 699,
+      "scenario": "approval"
+    },
+    {
+      "theme": "dark",
+      "width": 699,
+      "scenario": "questions"
+    },
+    {
+      "theme": "dark",
+      "width": 699,
+      "scenario": "plan"
+    },
+    {
+      "theme": "dark",
+      "width": 701,
+      "scenario": "approval"
+    },
+    {
+      "theme": "dark",
+      "width": 701,
+      "scenario": "questions"
+    },
+    {
+      "theme": "dark",
+      "width": 701,
+      "scenario": "plan"
+    },
+    {
+      "theme": "dark",
+      "width": 959,
+      "scenario": "approval"
+    },
+    {
+      "theme": "dark",
+      "width": 959,
+      "scenario": "questions"
+    },
+    {
+      "theme": "dark",
+      "width": 959,
+      "scenario": "plan"
+    },
+    {
+      "theme": "dark",
+      "width": 961,
+      "scenario": "approval"
+    },
+    {
+      "theme": "dark",
+      "width": 961,
+      "scenario": "questions"
+    },
+    {
+      "theme": "dark",
+      "width": 961,
+      "scenario": "plan"
+    },
+    {
+      "theme": "dark",
+      "width": 1440,
+      "scenario": "approval"
+    },
+    {
+      "theme": "dark",
+      "width": 1440,
+      "scenario": "questions"
+    },
+    {
+      "theme": "dark",
+      "width": 1440,
+      "scenario": "plan"
+    }
+  ],
+  "errors": []
+}

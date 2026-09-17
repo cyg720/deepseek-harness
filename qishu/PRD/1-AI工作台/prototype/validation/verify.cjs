@@ -18,7 +18,7 @@ const out=path.resolve(__dirname,'..');
  const ok=label=>{checks.push(label);console.log('PASS '+label);};
  const stored=()=>page.evaluate(()=>JSON.parse(localStorage.getItem('yuvi-prototype-v1')));
  const noOverflow=async p=>assert.equal(await p.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
- const ready=()=>page.waitForFunction(()=>!document.querySelector('.pending'));
+ const ready=()=>page.waitForFunction(()=>!document.querySelector('.pending')&&!document.querySelector('#prompt')?.readOnly);
  await fs.mkdir(path.join(out,'preview'),{recursive:true});
  try{
  await page.goto(base);await page.waitForLoadState('networkidle');
@@ -127,7 +127,7 @@ const out=path.resolve(__dirname,'..');
  await mp.locator('#toast').evaluate(e=>e.classList.remove('visible'));await mp.screenshot({path:path.join(out,'preview/home-mobile.png'),fullPage:true});
  await act('toggle-left',mp);assert.equal(await mp.locator('.sidebar').getAttribute('inert'),null);await mp.locator('[data-action="dismiss-panels"]').click({position:{x:375,y:100}});
  await act('toggle-right',mp);await mp.locator('[data-tab="todos"]').click();await act('todo-new',mp);await mp.locator('#todo-title').fill('手机待办');await mp.locator('#modal button[type="submit"]').click();assert.match(await mp.locator('.todo-item').first().innerText(),/手机待办/);
- await mp.locator('[data-action="dismiss-panels"]').click({position:{x:10,y:100}});await mp.locator('#prompt').fill('检查设备');await act('send',mp);await mp.waitForFunction(()=>!document.querySelector('.pending'));await noOverflow(mp);
+ await mp.locator('[data-action="dismiss-panels"]').click({position:{x:10,y:100}});await mp.locator('#prompt').fill('检查设备');await act('send',mp);await mp.waitForFunction(()=>!document.querySelector('.pending')&&!document.querySelector('#prompt')?.readOnly);await noOverflow(mp);
  await mobile.close();ok('390px mobile login, home, navigation overlays, modal form and conversation');
 
  const offline=await browser.newContext({viewport:{width:1280,height:800}});const fp=await offline.newPage();fp.on('pageerror',e=>errors.push(e.message));await fp.goto(pathToFileURL(path.join(out,'index.html')).href);

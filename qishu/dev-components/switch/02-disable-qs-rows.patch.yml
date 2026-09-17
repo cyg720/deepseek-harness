@@ -1,0 +1,28 @@
+# 彻底停用自建界面（卸载 7 行，完全不加载我们的插件代码）
+#
+# 用法（任选其一）：
+#   1) 临时：pnpm dsh web --patch ./qishu/dev-components/switch/02-disable-qs-rows.patch.yml
+#   2) 常驻：把下面的行并入 $DSH_HOME/cordis.patch.yml（对所有 profile 生效）
+#
+# 为什么必须 7 行一起停：
+#   槽声明随声明者消失。qs-shell 是 `qs.*` 槽的唯一声明者，若只停它而其余包仍加载，
+#   那些包注册未声明槽会在加载时抛错（ui-slots/src/index.ts:828-830）。
+#
+# 适用场景：排查"问题是否由我们的插件引起"；日常切换建议用 01-switch-to-official.patch.yml。
+# 行 id 以 M0 落地时的实际 id 为准（建议与包目录同名：qs-shell、qs-login、…、qs-questions）。
+# 验证：pnpm dsh web --dump-config；首屏出现官方 sidebar / 设置 / 会话即切换成功。
+
+- id: qs-shell
+  disabled: true
+- id: qs-login
+  disabled: true
+- id: qs-sessions
+  disabled: true
+- id: qs-composer
+  disabled: true
+- id: qs-transcript
+  disabled: true
+- id: qs-approval
+  disabled: true
+- id: qs-questions
+  disabled: true

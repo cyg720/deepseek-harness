@@ -41,12 +41,13 @@ kind: "package-reference"
 
 | 来源 | 用途 |
 | --- | --- |
-| [styles.css](../../../applications/PRD/1-AI工作台/prototype/styles.css) | 颜色、尺寸、组件状态、断点与动效。 |
-| [app.js](../../../applications/PRD/1-AI工作台/prototype/app.js) | 页面组成、主题挂载、面板默认状态与交互语义。 |
-| [factory.svg](../../../applications/PRD/1-AI工作台/prototype/factory.svg) | 登录插图及其独立动画规则。 |
-| [原型入口](../../../applications/PRD/1-AI工作台/prototype/index.html) / [使用说明](../../../applications/PRD/1-AI工作台/prototype/使用说明.html) | 可交互的视觉参照与模拟范围。 |
+| [styles.css](../PRD/1-AI工作台/prototype/styles.css) | 颜色、尺寸、组件状态、断点与动效。 |
+| [app.js](../PRD/1-AI工作台/prototype/app.js) | 页面组成、主题挂载、面板默认状态与交互语义。 |
+| [factory.svg](../PRD/1-AI工作台/prototype/factory.svg) | 登录插图及其独立动画规则。 |
+| [interactions.js](../PRD/1-AI工作台/prototype/interactions.js) | 审批、提问与方案确认卡片的组成、状态与答复语义。 |
+| [原型入口](../PRD/1-AI工作台/prototype/index.html) / [使用说明](../PRD/1-AI工作台/prototype/使用说明.html) | 可交互的视觉参照与模拟范围。 |
 
-范围包括登录页、对话工作台、侧栏入口、辅助面板及其弹窗。演示账号、模型名称、业务样例数据和模拟连接不构成正式接口要求。
+范围包括登录页、对话工作台、侧栏入口、辅助面板及其弹窗，以及审批、提问与方案确认卡片。演示账号、模型名称、业务样例数据、模拟连接以及原型专属的模拟控件不构成正式接口要求。
 
 <a id="identity"></a>
 
@@ -161,7 +162,7 @@ kind: "package-reference"
 | 禁用／加载 | 禁用按钮透明度 .4，光标 not-allowed；生成中提供停止。 | 使用真实禁用语义，并显示明确的加载文字；不能只靠颜色表示状态。 |
 | 空白／错误 | 空面板说明缺少的内容；登录错误使用 alert 区域。 | 提供下一步操作或修正方式，操作失败时保留已输入内容。 |
 
-深色导航参照背景为 `#354b32`，文字为 `#e0e8d7`；[悬浮验证记录](../../../applications/PRD/1-AI工作台/prototype/validation/theme-brand-report.json)中这组控件的文字对比度约为 7.57:1。该证据仅适用于已测控件，不代表整站无障碍审计通过。
+深色导航参照背景为 `#354b32`，文字为 `#e0e8d7`；[悬浮验证记录](../PRD/1-AI工作台/prototype/validation/theme-brand-report.json)中这组控件的文字对比度约为 7.57:1。该证据仅适用于已测控件，不代表整站无障碍审计通过。
 
 <a id="responsive"></a>
 
@@ -216,7 +217,7 @@ kind: "package-reference"
 
 ## 验收清单
 
-按下列清单验收实现。[原型浏览器记录](../../../applications/PRD/1-AI工作台/prototype/validation/report.json)记录已有交互检查，不代表新增应用代码已经通过。
+按下列清单验收实现。[原型浏览器记录](../PRD/1-AI工作台/prototype/validation/report.json)记录已有交互检查，不代表新增应用代码已经通过。
 
 - 检查登录、新会话、已有会话、应用目录、弹窗、文件、待办和日程；支持切换主题的界面两种主题均需检查。
 - 实际操作悬浮、选中后悬浮、键盘焦点、禁用、加载、空白与错误状态。深色会话和应用入口悬浮时不能变成浅色背景。
