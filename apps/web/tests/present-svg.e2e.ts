@@ -117,7 +117,9 @@ describe('web e2e: requested SVG is explicitly delivered', () => {
     await assertFinalWorkspaceSnapshot(DIR, cwd)
     await expect.poll(() => page.getByRole('button', { name: `${FILE} 的更多文件操作`, exact: true }).isDisabled()).toBe(true)
     // Delivery owns the transcript; navigation and composer chrome have separate scenarios.
-    const aria = await captureExpandedTurnProcessAria(page, '[data-chat-flow]', scaffold.workspaceCwd)
+    // QS 二开：该场景的工具 JSON 会转义 Windows 反斜杠；仅替换真实工作目录，保持其他快照内容受校验。
+    const aria = (await captureExpandedTurnProcessAria(page, '[data-chat-flow]', scaffold.workspaceCwd))
+      .split(JSON.stringify(cwd).slice(1, -1)).join('{{cwd}}/workspace')
     await compareOrRefreshGolden(join(DIR, 'ui.expected.md'), aria, MODE)
   })
 })

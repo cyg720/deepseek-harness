@@ -14,6 +14,9 @@
   - **`rejected/`**：提案经过讨论后被否决。仅当其决策依据仍能避免一种诱人且影响重大的错误时保留；否则删除完整的英文、中文和伴随记录三文件组。
 - **类别**（嵌套文件夹）是决策的*种类*——见下方[分类](#classification)。
 
+<!-- QS 二开说明：明确二开笔记统一存入 notes/qs/{生命周期}/{分类}，保留冻结归档规则；同步中文说明；此处同步官方维护入口的约定，避免实现与文档描述不一致。 -->
+- 奇术二开笔记统一放在 `qs/{lifecycle}/{class}/yyyy-mm-dd-topic-title.md`，与上游的生命周期目录分开。两棵目录树采用相同的封闭活动生命周期及分类集合、笔记格式和双语配对检查。既有冻结归档仍位于 `archived/`；`qs/archived/` 不是归档目标。
+
 文件名中的日期是该主题**首次提出**的时间（以 git 历史为准）。Agent Note 之间的交叉引用使用相对 Markdown 链接（`[topic](../../implemented/architecture/2026-…-….md)`），从不使用纯文字或编号，这样既可机械检查，也能在文件夹间移动时保持有效。
 
 活跃生命周期目录树就是工作清单：浏览其生命周期/类别文件夹，或搜索仓库即可。请勿添加集中式 `INDEX.md`；设计理由见[不设索引的 Agent Note](implemented/process/2026-07-19-remove-generated-agent-note-index.zh.md)。未来指导价值较低的已实施记录会移至下文所述、单独冻结的 [`archived/`](archived/AGENTS.md) 目录树。

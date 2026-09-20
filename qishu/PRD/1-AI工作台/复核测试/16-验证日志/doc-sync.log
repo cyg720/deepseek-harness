@@ -1,0 +1,142 @@
+$ tsx scripts/run-gates.ts doc-sync
+run-gates: doc-sync running 34 gate(s) with 4 worker(s) from 20 available CPU(s), doc-sync cap 4.
+run-gates: start doc-typecheck
+run-gates: start documentation build
+run-gates: start doc graphs
+run-gates: start markdown links
+run-gates: PASS doc graphs (26.72s)
+run-gates: start type equivalence
+run-gates: PASS markdown links (44.75s)
+run-gates: start cordis catalog
+run-gates: PASS doc-typecheck (45.72s)
+run-gates: start Cordis inspect catalog
+run-gates: PASS type equivalence (18.98s)
+run-gates: start verify-mermaid
+run-gates: PASS Cordis inspect catalog (10.53s)
+run-gates: start scoped events
+run-gates: PASS verify-mermaid (10.87s)
+run-gates: start translation pairing
+run-gates: PASS cordis catalog (20.86s)
+run-gates: start markdown wrap
+run-gates: PASS scoped events (13.14s)
+run-gates: start client catalog
+run-gates: PASS documentation build (70.56s)
+run-gates: start export jsdoc
+run-gates: PASS client catalog (2.58s)
+run-gates: start tool catalog
+run-gates: PASS markdown wrap (7.31s)
+run-gates: start config catalog
+run-gates: PASS tool catalog (1.98s)
+run-gates: start persistence catalog
+
+== FAILED config catalog (1.99s) ==
+[ELIFECYCLE] Command failed with exit code 1.
+command: pnpm run verify-config-catalog
+outcome: exit 1
+$ tsx scripts/gen-config-catalog.ts --check
+gen-config-catalog: docs/config-catalog.md is stale. Run `pnpm run gen-config-catalog` and commit docs/config-catalog.md.
+run-gates: start Session format catalog
+run-gates: PASS Session format catalog (0.57s)
+run-gates: start public repository links
+run-gates: PASS persistence catalog (1.69s)
+run-gates: start doc refs
+run-gates: PASS export jsdoc (5.19s)
+run-gates: start subsystem pages
+run-gates: PASS subsystem pages (0.83s)
+run-gates: start package paths
+run-gates: PASS translation pairing (20.17s)
+run-gates: start tsconfig paths
+run-gates: PASS tsconfig paths (0.62s)
+run-gates: start config source ownership
+run-gates: PASS config source ownership (0.59s)
+run-gates: start package README Summaries
+run-gates: PASS doc refs (2.63s)
+run-gates: start package README model experience
+run-gates: PASS package paths (1.68s)
+run-gates: start agent note classification
+run-gates: PASS package README Summaries (0.57s)
+run-gates: start agent note format
+run-gates: PASS agent note classification (0.65s)
+run-gates: start archived agent notes
+
+== FAILED agent note format (1.18s) ==
+[ELIFECYCLE] Command failed with exit code 1.
+command: pnpm run verify-agent-note-format
+outcome: exit 1
+$ tsx scripts/verify-agent-note-format.ts
+verify-agent-note-format: violations found:
+  format: qs/implemented/architecture/2026-09-17-qishu-workbench-client-plugins.md — line 2 must be blank
+  format: qs/implemented/architecture/2026-09-17-qishu-workbench-client-plugins.md — line 3 must match the implemented status grammar (/^Status: implemented$/)
+  format: qs/implemented/architecture/2026-09-17-qishu-workbench-client-plugins.md — line 4 must be blank
+run-gates: start skill invocation metadata
+run-gates: PASS skill invocation metadata (0.83s)
+run-gates: start translation prompt
+run-gates: PASS translation prompt (0.62s)
+run-gates: start doc budgets
+run-gates: PASS doc budgets (0.54s)
+run-gates: start documentation standard tests
+run-gates: PASS archived agent notes (3.45s)
+run-gates: start documentation site checks
+
+== FAILED package README model experience (4.49s) ==
+command: pnpm run verify-package-readme-model-experience
+outcome: exit 1
+$ tsx scripts/verify-package-readme-model-experience.ts
+verify-package-readme-model-experience failed:
+  packages\qs\qs-composer\README.md: line 39: non-canonical Model Experience heading "## Model Experience\r"; use exactly "## Model Experience"
+  packages\qs\qs-login\README.md: line 39: non-canonical Model Experience heading "## Model Experience\r"; use exactly "## Model Experience"
+  packages\qs\qs-questions\README.md: line 43: non-canonical Model Experience heading "## Model Experience\r"; use exactly "## Model Experience"
+  packages\qs\qs-sessions\README.md: line 41: non-canonical Model Experience heading "## Model Experience\r"; use exactly "## Model Experience"
+  packages\qs\qs-shell\README.md: line 65: non-canonical Model Experience heading "## Model Experience\r"; use exactly "## Model Experience"
+  packages\qs\qs-transcript\README.md: line 45: non-canonical Model Experience heading "## Model Experience\r"; use exactly "## Model Experience"
+[ELIFECYCLE] Command failed with exit code 1.
+run-gates: start package README limitations
+
+== FAILED documentation standard tests (1.63s) ==
+command: pnpm exec vitest run scripts/doc-standard.spec.ts
+outcome: exit 1
+The plugin "vite-tsconfig-paths" is detected. Vite now supports tsconfig paths resolution natively via the resolve.tsconfigPaths option. You can remove the plugin and set resolve.tsconfigPaths: true in your Vite config instead.
+The plugin "vite-tsconfig-paths" is detected. Vite now supports tsconfig paths resolution natively via the resolve.tsconfigPaths option. You can remove the plugin and set resolve.tsconfigPaths: true in your Vite config instead.
+The plugin "vite-tsconfig-paths" is detected. Vite now supports tsconfig paths resolution natively via the resolve.tsconfigPaths option. You can remove the plugin and set resolve.tsconfigPaths: true in your Vite config instead.
+
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ RUN  v4.1.8 D:/code/CYG/Github/deepseek-harness
+
+ ❯ |thread-safe| scripts/doc-standard.spec.ts (19 tests | 1 failed) 206ms
+     × maps package README kinds to their documentation standards 115ms
+ FAIL  |thread-safe| scripts/doc-standard.spec.ts > dsh-doc skill consolidation > maps package README kinds to their documentation standards
+AssertionError: packages/qs/qs-composer/README.md: YAML frontmatter: expected null not to be null
+ ❯ readFrontmatter scripts/doc-standard.spec.ts:103:50
+    101|   const source = readFileSync(resolve(root, file), 'utf8')
+    102|   const match = /^---\n([\s\S]*?)\n---\n/u.exec(source)
+    103|   expect(match, `${file}: YAML frontmatter`).not.toBeNull()
+       |                                                  ^
+    104|   const metadata = load(match?.[1] ?? '')
+    105|   expect(metadata, `${file}: frontmatter object`).toBeTypeOf('object')
+ ❯ scripts/doc-standard.spec.ts:348:24
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 18 passed (19)
+   Start at  17:36:06
+   Duration  559ms (transform 168ms, setup 181ms, import 24ms, tests 206ms, environment 0ms)
+
+run-gates: PASS package README limitations (3.92s)
+run-gates: PASS documentation site checks (5.63s)
+run-gates: PASS public repository links (25.82s)
+
+run-gates: 30 passed, 4 failed, 0 skipped in 101.39s.
+run-gates: unsuccessful gates:
+  - FAILED config catalog (1.99s, exit 1)
+    pnpm run verify-config-catalog
+  - FAILED package README model experience (4.49s, exit 1)
+    pnpm run verify-package-readme-model-experience
+  - FAILED agent note format (1.18s, exit 1)
+    pnpm run verify-agent-note-format
+  - FAILED documentation standard tests (1.63s, exit 1)
+    pnpm exec vitest run scripts/doc-standard.spec.ts
+[ELIFECYCLE] Command failed with exit code 1.

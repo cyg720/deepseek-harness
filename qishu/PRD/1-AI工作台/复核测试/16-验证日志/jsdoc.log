@@ -1,0 +1,1 @@
+verify-export-jsdoc: every exported name in each package API is documented.

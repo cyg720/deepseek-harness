@@ -18,6 +18,10 @@ const AGENT_NOTE_LIFECYCLES = ['proposed', 'implemented', 'rejected'] as const
  */
 export const AGENT_NOTE_CLASSES = ['feature', 'bug-fix', 'simplification', 'architecture', 'process', 'testing'] as const
 
+/** Qishu notes have their own lifecycle/class tree directly below notes/qs. */
+// QS 二开：二开笔记放在 notes/qs，仍复用官方生命周期及分类校验，目录隔离不能绕过检查。
+const QS_ISOLATION = 'qs'
+
 /** Historical implemented notes live outside the active lifecycle tree. */
 const AGENT_NOTE_ARCHIVE = 'archived'
 
@@ -41,42 +45,42 @@ export interface AgentNote {
 export function walkAgentNoteTree(): { notes: AgentNote[]; errors: string[] } {
   const notes: AgentNote[] = []
   const errors: string[] = []
-  // The lifecycle set is closed too: any directory under .agents/notes/ that is not
-  // a known lifecycle would otherwise hold Agent Notes invisible to the walk below.
-  for (const entry of readdirSync(agentNoteRoot, { withFileTypes: true })) {
-    if (entry.name === 'INDEX.md') {
-      errors.push('structure: INDEX.md — centralized Agent Note indexes are forbidden; browse the lifecycle/class tree or search the repository')
-      continue
+  // QS 二开：同时遍历官方及 QS 笔记并保留相对路径，旧式嵌套目录和未知分类仍报错。
+  for (const prefix of ['', QS_ISOLATION + '/']) {
+    const root = resolve(agentNoteRoot, prefix)
+    for (const entry of readdirSync(root, { withFileTypes: true })) {
+      if (entry.name === 'INDEX.md') {
+        errors.push('structure: ' + prefix + 'INDEX.md — centralized Agent Note indexes are forbidden')
+        continue
+      }
+      const sharedRoot = prefix === '' && (entry.name === AGENT_NOTE_ARCHIVE || entry.name === QS_ISOLATION)
+      if (entry.isDirectory() && !sharedRoot
+        && !(AGENT_NOTE_LIFECYCLES as readonly string[]).includes(entry.name)) {
+        errors.push('structure: ' + prefix + entry.name + '/ — unknown lifecycle folder')
+      }
     }
-    if (entry.isDirectory()
-      && entry.name !== AGENT_NOTE_ARCHIVE
-      && !(AGENT_NOTE_LIFECYCLES as readonly string[]).includes(entry.name)) {
-      errors.push(`structure: ${entry.name}/ — unknown lifecycle folder (allowed: ${AGENT_NOTE_LIFECYCLES.join(', ')}, plus ${AGENT_NOTE_ARCHIVE}/)`)
-    }
-  }
-  for (const lifecycle of AGENT_NOTE_LIFECYCLES) {
-    for (const match of globSync(`${lifecycle}/**/*.md`, { cwd: agentNoteRoot }).map(path => path.split(sep).join('/')).sort()) {
-      const segs = match.split('/')
-      // Allowlisted file directly at the lifecycle root (e.g. implemented/AGENTS.md).
-      if (segs.length === 2 && ROOT_ALLOWLIST.has(segs[1] ?? '')) continue
-      // A Chinese counterpart (foo.zh.md, docs/i18n/README.md) is the SAME Agent Note,
-      // indexed via its English filename; the pairing gate owns its consistency.
-      if (match.endsWith('.zh.md')) continue
-      const cls = segs[1]
-      const base = segs[2]
-      if (segs.length !== 3 || cls === undefined || base === undefined) {
-        errors.push(`structure: ${match} — expected {lifecycle}/{class}/file.md (got depth ${segs.length})`)
-        continue
+    for (const lifecycle of AGENT_NOTE_LIFECYCLES) {
+      for (const match of globSync(lifecycle + '/**/*.md', { cwd: root }).map(path => path.split(sep).join('/')).sort()) {
+        const segs = match.split('/')
+        if (segs.length === 2 && ROOT_ALLOWLIST.has(segs[1] ?? '')) continue
+        if (match.endsWith('.zh.md')) continue
+        const cls = segs[1]
+        const base = segs[2]
+        const rel = prefix + match
+        if (segs.length !== 3 || cls === undefined || base === undefined) {
+          errors.push('structure: ' + rel + ' — expected ' + prefix + '{lifecycle}/{class}/file.md')
+          continue
+        }
+        if (!(AGENT_NOTE_CLASSES as readonly string[]).includes(cls)) {
+          errors.push('structure: ' + rel + ' — unknown class folder "' + cls + '"')
+          continue
+        }
+        if (!/^\d{4}-\d{2}-\d{2}-.+\.md$/.test(base)) {
+          errors.push('structure: ' + rel + ' — filename must be yyyy-mm-dd-topic.md')
+          continue
+        }
+        notes.push({ lifecycle, rel, date: base.slice(0, 10) })
       }
-      if (!(AGENT_NOTE_CLASSES as readonly string[]).includes(cls)) {
-        errors.push(`structure: ${match} — unknown class folder "${cls}" (allowed: ${AGENT_NOTE_CLASSES.join(', ')})`)
-        continue
-      }
-      if (!/^\d{4}-\d{2}-\d{2}-.+\.md$/.test(base)) {
-        errors.push(`structure: ${match} — filename must be yyyy-mm-dd-topic.md`)
-        continue
-      }
-      notes.push({ lifecycle, rel: match, date: base.slice(0, 10) })
     }
   }
   return { notes, errors }

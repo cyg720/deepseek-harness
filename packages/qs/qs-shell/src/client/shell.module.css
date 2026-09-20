@@ -1,0 +1,137 @@
+/* 工作台外框：应用根、顶栏、三栏骨架、移动遮罩。尺寸逐条对齐原型 styles.css 的最终级联值。 */
+
+.root {
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--qs-bg);
+  color: var(--qs-text);
+}
+
+.app {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.topbar {
+  height: 68px;
+  flex-shrink: 0;
+  background: var(--qs-surface);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 24px;
+  border-bottom: 1px solid var(--qs-line);
+  gap: 20px;
+}
+
+.topbarLeft,
+.topbarRight {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  min-width: 0;
+}
+
+.topbar .brand strong {
+  font-size: 18px;
+}
+
+.topbar .brand small {
+  font-size: 9px;
+  letter-spacing: 2px;
+}
+
+.topbar .logoMark {
+  width: 32px;
+  height: 32px;
+  border-radius: 9px;
+}
+
+.topbarDivider {
+  height: 21px;
+  width: 1px;
+  background: var(--qs-line);
+}
+
+.platformLabel {
+  font-size: 12px;
+  color: var(--qs-muted);
+  letter-spacing: 0.5px;
+}
+
+.topbarStatus {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 10px;
+  color: var(--qs-muted);
+  margin-right: 8px;
+}
+
+.bodyLayout {
+  min-height: 0;
+  display: flex;
+  flex: 1;
+  position: relative;
+}
+
+.mobileOverlay {
+  display: none;
+  border: 0;
+  padding: 0;
+  background: transparent;
+}
+
+.mobileOverlayActive {
+  display: block;
+  position: fixed;
+  inset: 61px 0 0;
+  background: #22342430;
+  z-index: 19;
+}
+
+@media (min-width: 1600px) {
+  .topbar {
+    height: 73px;
+  }
+}
+
+@media (max-width: 1150px) {
+  .thinkingChip,
+  .platformLabel,
+  .topbarDivider {
+    display: none;
+  }
+}
+
+@media (max-width: 700px) {
+  .topbar {
+    height: 61px;
+    padding: 0 14px;
+  }
+
+  .topbar .brand strong {
+    font-size: 16px;
+  }
+
+  .topbar .brand small {
+    font-size: 8px;
+  }
+
+  .topbarLeft,
+  .topbarRight {
+    gap: 7px;
+  }
+
+  .topbarStatus {
+    display: none;
+  }
+}
+
+.resizeHandle { width: 5px; flex: 0 0 5px; cursor: col-resize; touch-action: none; background: var(--qs-line); }
+.resizeHandle:focus-visible { outline: 2px solid var(--qs-accent); outline-offset: -2px; }
+@media (max-width: 960px) { .resizeHandle { display: none; } }

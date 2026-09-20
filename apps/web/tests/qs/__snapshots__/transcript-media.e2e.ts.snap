@@ -1,0 +1,3 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`loads a workspace image and shows unsupported attachment history without bypassing file policy > non-text history notice 1`] = `"This message contains images or other non-text content not supported by this workbench. The original session record is preserved and can be viewed in the official interface."`;

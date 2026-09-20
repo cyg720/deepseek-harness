@@ -1,0 +1,193 @@
+/* 左导航骨架：宽度、折叠、移动端覆盖层、底部工具与用户区。 */
+
+.nav {
+  width: var(--qs-left-width, 238px);
+  flex-shrink: 0;
+  background: var(--qs-sidebar);
+  border-right: 1px solid var(--qs-line);
+  padding: 21px 15px 12px;
+  display: flex;
+  flex-direction: column;
+  transition: width 0.2s, padding 0.2s;
+  overflow: hidden;
+}
+
+.navHidden {
+  width: 0;
+  padding-left: 0;
+  padding-right: 0;
+  border: 0;
+}
+
+.workspacePicker {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 10px;
+  border: 1px solid var(--qs-line);
+  border-radius: 9px;
+  background: color-mix(in srgb, var(--qs-surface) 38%, transparent);
+  width: 100%;
+  font-size: 12px;
+  text-align: left;
+  color: var(--qs-text);
+}
+
+.workspaceAvatar {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border: 1px solid var(--qs-line);
+  border-radius: 7px;
+  background: var(--qs-surface);
+  color: var(--qs-accent);
+  font-size: 13px;
+  flex-shrink: 0;
+}
+
+.workspaceName {
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.newChat {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  width: 100%;
+  margin-top: 15px;
+  background: var(--qs-accent-soft);
+  border: 1px solid var(--qs-line);
+  padding: 11px 12px;
+  border-radius: 8px;
+  color: var(--qs-accent);
+  font-size: 12px;
+}
+
+.newChat:hover {
+  filter: brightness(0.97);
+}
+
+.newChatLabel {
+  flex: 1;
+  text-align: left;
+}
+
+.shortcut {
+  font-size: 10px;
+  color: var(--qs-muted);
+}
+
+.navBody {
+  flex: 1;
+  overflow: auto;
+  min-height: 65px;
+  padding-top: 23px;
+}
+
+.navTools {
+  border-top: 1px solid var(--qs-line);
+  padding-top: 14px;
+  margin-top: 10px;
+}
+
+.navBottom {
+  display: flex;
+  align-items: center;
+  border-top: 1px solid var(--qs-line);
+  padding: 15px 2px 2px;
+  margin-top: 14px;
+  gap: 8px;
+}
+
+.profileTrigger {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  background: none;
+  border: 0;
+  flex: 1;
+  min-width: 0;
+  text-align: left;
+  padding: 0;
+  color: var(--qs-text);
+}
+
+.profileText {
+  min-width: 0;
+}
+
+.profileTrigger strong {
+  font-size: 11px;
+  font-weight: 550;
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.profileTrigger small {
+  font-size: 9px;
+  color: var(--qs-muted);
+  display: block;
+  margin-top: 3px;
+}
+
+.avatar {
+  display: inline-grid;
+  place-items: center;
+  width: 31px;
+  height: 31px;
+  border-radius: 50%;
+  corner-shape: round;
+  background: var(--qs-accent-soft);
+  color: var(--qs-accent);
+  font-size: 12px;
+  flex-shrink: 0;
+}
+
+@media (min-width: 1600px) {
+  .nav {
+    width: 257px;
+  }
+}
+
+@media (max-width: 1150px) {
+  .nav {
+    width: 213px;
+    padding-left: 11px;
+    padding-right: 11px;
+  }
+}
+
+@media (max-width: 960px) {
+  .nav {
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    z-index: 25;
+    box-shadow: 15px 0 35px #20322015;
+  }
+}
+
+@media (max-width: 700px) {
+  .nav {
+    top: 0;
+    width: var(--qs-left-width, 238px);
+  }
+
+  .navHidden {
+    box-shadow: none;
+  }
+}
+
+.nav.navHidden { width: 0; padding-left: 0; padding-right: 0; border: 0; box-shadow: none; }
+
+.navTools { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 4px; }
+.navTools button { display: flex; align-items: center; gap: 6px; font-size: 11px; }
+
+@media (min-width: 961px) { .nav { max-width: calc((100vw - 320px) / 2); } }

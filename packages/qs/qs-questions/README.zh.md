@@ -1,5 +1,5 @@
 ---
-description: "奇术用户提问展示的构建框架。"
+description: "奇术工作台提问卡：提问表单、方案确认与答案协议。"
 kind: "package-reference"
 ---
 
@@ -9,7 +9,7 @@ kind: "package-reference"
 
 ## 概述
 
-开发者可以编译和打包空的用户提问展示插件。该包没有用户可见行为，也未挂载到默认 Web 组合。
+回答单选、多选和自由文本问题，或阅读只读 Markdown 方案。未完成的批次定位到第一个未回答的问题；提交失败保留答案。
 
 ## 目录
 
@@ -21,7 +21,11 @@ kind: "package-reference"
 <a id="use-this-package"></a>
 ## 使用本包
 
-这是开发框架，不是可安装的应用。包位置与范围见[框架说明](../FRAMEWORK.md)。
+在 [Web 组合](../../bundle/web-app/cordis.patch.yml) 中与其他奇术插件行一起挂载 `@deepseek-ai/dsh-qs-questions`。本包没有部署配置字段。
+
+单选的选项与自由文本互斥，最后一次选择替换先前答案。多选允许选中项与自由文本同时提交。
+
+请求待处理时，草稿在界面切换后保留。官方请求完成或撤回时仅清除该请求的草稿，包括在工作台之外提交的回答。
 
 <a id="understand-the-implementation"></a>
 ## 理解实现
@@ -29,14 +33,24 @@ kind: "package-reference"
 <details>
 <summary>实现细节</summary>
 
-[Host](src/index.ts) 与 [Client](src/client/index.ts) 均导出空的具名 apply 函数。TypeScript 工程复用客户端配置，打包使用官方 clientBundle 预设。两个入口均不持有状态或可独立观察的关系，因此不发布运行时 invariant 伴随入口。
+官方提问域持有待处理请求和答复编码。草稿按会话、请求和问题存于插件内存。本包没有需要运行时 invariant 伴随入口检查的独立持久化权威状态。
 
 </details>
+
+官方服务持有会话权威数据，本包仅呈现这些数据，因此不发布运行时 invariant 伴随入口。
 
 <a id="model-experience"></a>
 ## 模型体验
 
-无，因为两个框架入口均不注册模型可见内容。
+### 浏览器呈现
+
+#### 模型可见内容
+
+`@deepseek-ai/dsh-qs-questions`：无；浏览器视图将用户动作委托给官方服务，不构造模型请求。
+
+#### Token 影响
+
+本包不添加自有提示词或工具 schema；用户提交内容由官方服务处理。
 
 #### KV 缓存影响
 
@@ -46,8 +60,7 @@ kind: "package-reference"
 
 <a id="known-limitations-and-deferred-work"></a>
 
-- 尚未实现视图、配置、服务、本地化字典和行为测试。
-- 默认 Web 挂载及其依赖接线留待运行逻辑实现时完成。
+- 问题草稿仅在已加载插件内跨会话切换保留；刷新页面或替换插件会清空草稿。
 
 <a id="dev-note"></a>
 ### 开发备注
@@ -55,6 +68,6 @@ kind: "package-reference"
 <details>
 <summary>维护者工作上下文</summary>
 
-[第一优先计划](../../../qishu/dev-components/第一优先开发计划评审/00-评审总纲.md) 定义后续功能；这些占位入口不代表相应里程碑已经完成。
+验证状态见[复核修复记录](../../../qishu/PRD/1-AI工作台/复核测试/02-复核修复与全量验证.md)。
 
 </details>

@@ -11,7 +11,8 @@ import type { Fiber } from '@deepseek-ai/cordis'
 import LocalSubprocessRuntime from '@deepseek-ai/dsh-subprocess-local'
 import type { SubprocessHandle, SubprocessSpawnSpec } from '@deepseek-ai/dsh-subprocess'
 import { readClientBuildRecord } from '../../../scripts/client-build-environment.ts'
-import { REPO_ROOT } from './support.ts'
+import { pnpmInvocation } from '../../../scripts/pnpm-invocation.ts'
+import { REPO_ROOT, newEnglishPage } from './support.ts'
 
 const CLIENT_ARTIFACT_PATTERNS = [
   'apps/web/dist/**/*',
@@ -106,14 +107,18 @@ it('hot-reloads a real client-plugin source edit without refreshing the page', a
   const failures: unknown[] = []
   try {
     subprocessFiber = await subprocessCtx.plugin(LocalSubprocessRuntime)
+    // QS 二开：复用仓库的跨平台 pnpm 启动器，使 Windows 的命令入口也能启动真实 HMR。
+    const pnpm = pnpmInvocation(['run', 'dev:web'])
     watcher = subprocessCtx.subprocess.spawn(spawnSpec(
-      ['pnpm', 'run', 'dev:web'],
+      [pnpm.command, ...pnpm.args],
       REPO_ROOT,
       { ...clientBuildEnvironment },
     ))
     await waitForOutput(watcher, /dev-web: watching/, 'pnpm run dev:web')
     host = subprocessCtx.subprocess.spawn(spawnSpec(
-      [process.execPath, binPath, 'web', '--no-open', '--port', '0'],
+      // QS 二开：该回归验证官方界面热更新，启动时用公开 overlay 固定官方界面。
+      [process.execPath, binPath, 'web', '--patch', join(REPO_ROOT, 'apps/web/tests/qs/official-ui.overlay.yml'),
+        '--no-open', '--port', '0'],
       world,
       {
         DEEPSEEK_API_KEY: 'keyless-hmr-no-call',
@@ -122,7 +127,8 @@ it('hot-reloads a real client-plugin source edit without refreshing the page', a
     ))
     const baseUrl = await waitForOutput(host, /dsh web: (http:\/\/[^\s]+)/, 'built dsh web')
     browser = await chromium.launch()
-    const page = await browser.newPage()
+    // QS 二开：固定英文浏览器环境，使文本定位不受开发机语言和时区影响。
+    const page = await newEnglishPage(browser)
     const pageErrors: string[] = []
     page.on('pageerror', error => pageErrors.push(String(error)))
     await page.goto(baseUrl, { waitUntil: 'load' })

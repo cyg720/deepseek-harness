@@ -21,9 +21,10 @@ import { readFile } from 'node:fs/promises'
 import { createServer } from 'node:http'
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import { tmpdir } from 'node:os'
-import { dirname, extname, join, normalize } from 'node:path'
+import { dirname, extname, join, posix } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { chromium } from 'playwright'
+import { renderConfigDump } from '@deepseek-ai/dsh-app-boot'
 import type { Browser } from 'playwright'
 import { expect, it } from 'vitest'
 import {
@@ -42,9 +43,6 @@ import { captureStableAria, compareOrRefreshGolden, webSnapshotMode } from './sc
 import { newEnglishPage, REPO_ROOT, saveFailureShot } from './support.ts'
 
 const DIST_ROOT = fileURLToPath(new URL('../dist', import.meta.url))
-
-/** Where the client looks for the image: the runtime's own name, beside the page. */
-const IMAGE_FILE = join(DIST_ROOT, 'preview', IMAGE_FILE_NAME)
 
 /** Keyless browser golden for the pre-Worker source chooser. */
 const SOURCE_CHOOSER_EXPECTED = fileURLToPath(new URL('./snapshots/preview-boot/source-chooser.expected.md', import.meta.url))
@@ -116,8 +114,8 @@ function requirePreviewPages(): void {
 
 /**
  * The base image, fixture manifest, and overlays to serve. `pnpm run build`
- * emits the pages but only `build:preview` packs the image, so this lane packs
- * a missing image rather than skipping the deployment it accepts. The example
+ * emits the pages; this lane packs its own image with the official UI selected
+ * in the Host composition that supplies the browser index configuration. The example
  * overlay pairs its committed Session generations with the generator-owned
  * current projection cache. The worker therefore exercises historical reads
  * without relying on a stale cache schema. Generated files land in a temp
@@ -138,9 +136,13 @@ function requireVfsAssets(): PreviewAssets {
     writeFileSync(path, bytes)
     overrides.set(relativePath, path)
   }
-  if (!existsSync(IMAGE_FILE)) {
+  {
+    // QS 二开：为 Preview 单独装配官方界面镜像，避免复用带工作台配置的旧镜像导致场景验证错界面。
+    const baseConfig = join(directory, 'base-profile.yml')
+    writeFileSync(baseConfig, composeProfile(REPO_ROOT, PROFILE))
+    const config = renderConfigDump('preview-test', baseConfig, [{ label: 'official UI', patches: [{ id: 'qs-shell', config: { defaultUi: 'official', showOfficialUiEntry: false } }] }])
     const packed = packVfsImage({
-      config: composeProfile(REPO_ROOT, PROFILE),
+      config,
       profile: PROFILE,
       workspaces: indexWorkspacePackages(REPO_ROOT),
       resolveFrom: REPO_ROOT,
@@ -190,7 +192,8 @@ async function respond(
   overrides: ReadonlyMap<string, string>,
 ): Promise<void> {
   const path = new URL(request.url ?? '/', 'http://127.0.0.1').pathname
-  const relative = normalize(decodeURIComponent(path)).replace(/^\/+/, '')
+  // QS 二开：这里处理的是 URL 路径而非本机文件路径，必须保留正斜杠才能命中镜像覆盖表。
+  const relative = posix.normalize(decodeURIComponent(path)).replace(/^\/+/, '')
   try {
     const body = await readFile(overrides.get(relative) ?? join(DIST_ROOT, relative))
     response.writeHead(200, { 'content-type': MIME[extname(relative)] ?? 'application/octet-stream' })

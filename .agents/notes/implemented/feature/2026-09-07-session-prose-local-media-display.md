@@ -14,7 +14,8 @@ Local media paths in Session prose render through a same-origin file route. This
 
 `ui-primitives` owns the `MarkdownPathImages` vocabulary on `MarkdownText`. Like `fileMentions`, it applies only after a message settles so frozen streaming blocks cannot cache a vocabulary handler. The settled pass rewrites image destinations outside the remote-URL allowlist and emits only absolute `http(s)`, `blob`, or `data` results. Without a vocabulary, local destinations retain inert alt text. Failed loads replace the image with authored alt text, or its original destination when alt is empty; a different source can load again.
 
-`ui-chat` supplies a page-stable `localPathMediaUrl` vocabulary through `AssistantMarkdown`. It maps absolute POSIX paths to `/api/file?path=…` on the page's origin. Relative and protocol-relative paths, Windows-style paths, and non-HTTP page transports such as Electron `file://` remain inert.
+<!-- QS 二开说明：同步 Windows 盘符本地图片支持及拒绝的路径范围；此处同步官方维护入口的约定，避免实现与文档描述不一致。 -->
+`ui-chat` supplies a page-stable `localPathMediaUrl` vocabulary through `AssistantMarkdown`. It maps absolute POSIX paths and Windows drive paths to `/api/file?path=…` on the page's origin. Relative, protocol-relative and UNC paths, and non-HTTP page transports such as Electron `file://` remain inert.
 
 `session-controller` owns the `SessionMediaReferences` contribution beside `SessionFileReferences`. It registers through `connection.fetch`, which applies the same browser authentication and trust checks as `/api` RPC. The fixed same-origin endpoint gives the synchronous renderer a stable URL without an asynchronous capability negotiation.
 
@@ -34,7 +35,8 @@ Local media paths in Session prose render through a same-origin file route. This
 
 The Client vocabulary cannot bypass Host authentication or the filesystem provider. The original restricted route distinguished an existing outside-workspace path from an absent path, exposing existence even while refusing its bytes; the successor policy instead permits ordinary provider-readable files.
 
-Windows-style authored paths remain unsupported by the Client vocabulary. Trajectory and tool-card Markdown consumers do not supply this vocabulary, and audio/video Markdown nodes do not render players. These are renderer limitations, independent of the file route's readable MIME types.
+<!-- QS 二开说明：同步 Windows 盘符本地图片支持及拒绝的路径范围；此处同步官方维护入口的约定，避免实现与文档描述不一致。 -->
+Windows drive paths retain their authored separators and pass through the same Host file checks as POSIX paths. Trajectory and tool-card Markdown consumers do not supply this vocabulary, and audio/video Markdown nodes do not render players. These are renderer limitations, independent of the file route's readable MIME types.
 
 The archived [model-readable image paths](../../archived/feature/2026-08-21-model-readable-image-paths.md) note owns the model-facing behavior; this note owns user-facing display and does not supersede it.
 

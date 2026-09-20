@@ -1,0 +1,3 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`returns to the latest message after sending from a scrolled historical session > submitted turn footer 1`] = `"Generation complete"`;

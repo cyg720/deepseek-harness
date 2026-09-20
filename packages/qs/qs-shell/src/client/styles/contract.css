@@ -1,0 +1,486 @@
+/*
+ * 奇术工作台全局类名契约。
+ *
+ * 这是七个插件包唯一的共享视觉通道：bundle 纯净度门禁不允许 `@deepseek-ai/dsh-qs-*`
+ * 之间做运行值导入，因此其它包只按类名使用这里的规则，不 import 任何东西。
+ *
+ * 共享的只有外观。以下行为不能靠类名复用，各包必须自己实现：
+ * 弹窗焦点约束与关闭后焦点恢复、键盘交互、错误边界与空态文案、表单校验与可访问名。
+ *
+ * 类名统一加 `qs-` 前缀，避免与官方 `--dsw-*`/官方类名及原型裸名冲突。
+ * 所有规则作用域限定在 `.qs-root` 内，不污染官方界面。
+ */
+
+.qs-root *,
+.qs-root *::before,
+.qs-root *::after {
+  box-sizing: border-box;
+}
+
+.qs-root :where(button, input, textarea, select) {
+  font: inherit;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.qs-root :where(button) {
+  cursor: pointer;
+  color: inherit;
+}
+
+.qs-root :where(button:disabled) {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.qs-root :where(button:focus-visible, a:focus-visible, [tabindex]:focus-visible) {
+  outline: 3px solid var(--qs-focus-ring);
+  outline-offset: 3px;
+}
+
+.qs-root :where(input:focus, textarea:focus, select:focus) {
+  outline: 2px solid var(--qs-field-focus-ring);
+  outline-offset: 1px;
+}
+
+.qs-root :where(button) svg {
+  pointer-events: none;
+}
+
+.qs-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.qs-muted {
+  color: var(--qs-muted);
+}
+
+.qs-eyebrow {
+  text-transform: uppercase;
+  font-size: 10px;
+  letter-spacing: 2px;
+  font-weight: 600;
+}
+
+/* 图标：24 viewBox、无填充、1.7 描边、圆角端点、跟随 currentColor */
+.qs-icon {
+  width: 19px;
+  height: 19px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  flex-shrink: 0;
+}
+
+.qs-icon-xs {
+  width: 13px;
+  height: 13px;
+}
+
+.qs-icon-sm {
+  width: 16px;
+  height: 16px;
+}
+
+.qs-logo-mark {
+  display: inline-grid;
+  place-items: center;
+  width: 35px;
+  height: 35px;
+  border-radius: 11px;
+  background: var(--qs-accent);
+  color: var(--qs-lime);
+  flex-shrink: 0;
+}
+
+.qs-logo-mark .qs-icon {
+  width: 24px;
+  height: 24px;
+}
+
+.qs-brand {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+}
+
+.qs-brand strong {
+  font-size: 19px;
+  letter-spacing: 2px;
+  font-weight: 650;
+}
+
+.qs-brand small {
+  font-size: 11px;
+  letter-spacing: 1.7px;
+  color: var(--qs-muted);
+  display: block;
+  margin-top: 3px;
+}
+
+/* 控件：按钮、图标按钮、文本按钮、标签 */
+.qs-btn {
+  border: 1px solid var(--qs-line);
+  background: var(--qs-surface);
+  color: var(--qs-text);
+  padding: 10px 16px;
+  border-radius: 9px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-size: 13px;
+}
+
+.qs-btn:hover {
+  background: var(--qs-subtle);
+}
+
+.qs-btn-primary {
+  background: var(--qs-accent);
+  color: #ffffff;
+  border-color: var(--qs-accent);
+}
+
+.qs-btn-primary:hover {
+  filter: brightness(1.1);
+}
+
+.qs-btn-danger {
+  color: var(--qs-danger);
+  border-color: var(--qs-error-bg);
+}
+
+.qs-btn-danger:hover {
+  background: var(--qs-error-bg);
+}
+
+.qs-btn-block {
+  width: 100%;
+}
+
+.qs-icon-button {
+  border: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--qs-muted);
+  flex-shrink: 0;
+}
+
+.qs-icon-button:hover {
+  background: var(--qs-accent-soft);
+  color: var(--qs-accent);
+}
+
+.qs-text-button {
+  border: 0;
+  background: none;
+  color: var(--qs-muted);
+  padding: 5px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+}
+
+.qs-text-button:hover {
+  color: var(--qs-accent);
+}
+
+.qs-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: var(--qs-accent-soft);
+  color: var(--qs-accent);
+  padding: 4px 8px;
+  border-radius: 5px;
+  font-size: 10px;
+  white-space: nowrap;
+}
+
+/* 表单 */
+.qs-field {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  font-size: 12px;
+  margin-bottom: 21px;
+}
+
+.qs-field > label {
+  font-weight: 550;
+  color: var(--qs-text);
+}
+
+.qs-field :where(input, textarea, select) {
+  width: 100%;
+  border: 1px solid var(--qs-line);
+  background: var(--qs-surface);
+  border-radius: 9px;
+  color: var(--qs-text);
+  padding: 12px 14px;
+  min-height: 44px;
+}
+
+.qs-field textarea {
+  min-height: 85px;
+  resize: vertical;
+}
+
+.qs-field :where(input, textarea)::placeholder {
+  color: var(--qs-muted);
+}
+
+.qs-check-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+}
+
+.qs-check-label input {
+  accent-color: var(--qs-accent);
+  width: 15px;
+  height: 15px;
+  margin: 0;
+}
+
+.qs-switch {
+  accent-color: var(--qs-accent);
+  width: 18px;
+  height: 18px;
+}
+
+.qs-search-input {
+  width: 100%;
+  border: 1px solid var(--qs-line);
+  border-radius: 8px;
+  padding: 11px 13px;
+  background: var(--qs-subtle);
+  color: var(--qs-text);
+  font-size: 12px;
+  margin-bottom: 16px;
+}
+
+/* 表面与容器 */
+.qs-card {
+  border: 1px solid var(--qs-line);
+  border-radius: 11px;
+  background: var(--qs-surface);
+  padding: 18px;
+  color: var(--qs-text);
+}
+
+.qs-empty {
+  padding: 30px 10px;
+  text-align: center;
+  color: var(--qs-muted);
+  font-size: 12px;
+  line-height: 1.8;
+}
+
+.qs-drop-area {
+  border: 1px dashed var(--qs-line);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  width: 100%;
+  padding: 14px 9px;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--qs-muted);
+  font-size: 11px;
+  margin-top: 11px;
+}
+
+.qs-drop-area:hover,
+.qs-drop-area[data-dragging="true"] {
+  background: var(--qs-accent-soft);
+}
+
+.qs-choice-row {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  border: 1px solid var(--qs-line);
+  background: var(--qs-surface);
+  padding: 14px;
+  border-radius: 10px;
+  width: 100%;
+  text-align: left;
+  color: var(--qs-text);
+}
+
+.qs-choice-row:hover {
+  background: var(--qs-subtle);
+}
+
+.qs-choice-row[aria-checked="true"],
+.qs-choice-row.qs-selected {
+  border-color: var(--qs-accent);
+  background: var(--qs-accent-soft);
+}
+
+.qs-choice-row > span {
+  flex: 1;
+}
+
+.qs-detail-banner {
+  border: 1px solid var(--qs-line);
+  border-radius: 12px;
+  background: var(--qs-accent-soft);
+  padding: 23px;
+  color: var(--qs-text);
+  margin: 16px 0;
+}
+
+.qs-detail-banner h3 {
+  margin: 0 0 10px;
+  font-size: 19px;
+  font-weight: 500;
+}
+
+.qs-detail-banner p {
+  margin: 0;
+  line-height: 1.9;
+  font-size: 12px;
+}
+
+.qs-detail-info {
+  display: grid;
+  grid-template-columns: 100px minmax(0, 1fr);
+  font-size: 12px;
+  gap: 16px;
+  line-height: 1.8;
+}
+
+.qs-detail-info dt {
+  color: var(--qs-muted);
+}
+
+.qs-detail-info dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+/* 分区标题：左导航与右栏共用 */
+.qs-section-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 10px;
+  color: var(--qs-muted);
+  letter-spacing: 0.5px;
+  padding: 0 9px;
+  margin: 0 0 10px;
+}
+
+/* 弹窗与 toast：portal 到应用根内的 overlay 容器，保证深色覆盖 */
+.qs-dialog {
+  border: 1px solid var(--qs-line);
+  border-radius: 17px;
+  width: min(590px, calc(100vw - 30px));
+  max-height: 88dvh;
+  padding: 0;
+  background: var(--qs-surface);
+  color: var(--qs-text);
+  box-shadow: var(--qs-dialog-shadow);
+  margin: auto;
+}
+
+.qs-dialog-wide {
+  width: min(830px, calc(100vw - 30px));
+}
+
+.qs-dialog::backdrop {
+  background: var(--qs-overlay-scrim);
+  backdrop-filter: blur(4px);
+}
+
+.qs-modal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 21px 25px 16px;
+  border-bottom: 1px solid var(--qs-line);
+}
+
+.qs-modal-head h2 {
+  font-size: 17px;
+  font-weight: 550;
+  margin: 0;
+}
+
+.qs-modal-body {
+  padding: 23px 25px;
+}
+
+.qs-modal-intro {
+  font-size: 12px;
+  color: var(--qs-muted);
+  line-height: 1.9;
+  margin: 0 0 21px;
+}
+
+.qs-modal-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+  margin-top: 23px;
+}
+
+.qs-modal-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.qs-toast {
+  position: fixed;
+  bottom: 26px;
+  left: 50%;
+  transform: translate(-50%, 16px);
+  background: var(--qs-toast-bg);
+  color: var(--qs-toast-fg);
+  padding: 13px 21px;
+  border-radius: 10px;
+  font-size: 12px;
+  box-shadow: 0 8px 35px #21342222;
+  z-index: 100;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s, transform 0.2s;
+  max-width: calc(100vw - 30px);
+  line-height: 1.65;
+}
+
+.qs-toast[data-visible="true"] {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .qs-root *,
+  .qs-root *::before,
+  .qs-root *::after {
+    animation: none !important;
+    transition: none !important;
+    scroll-behavior: auto !important;
+  }
+}

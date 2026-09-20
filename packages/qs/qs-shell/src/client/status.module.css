@@ -1,0 +1,53 @@
+/* 底部状态条：连接态与手动重连。绝对定位于主区底部，不参与三栏布局。 */
+
+.bar {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 18px;
+  font-size: 10px;
+  color: var(--qs-muted);
+  background: var(--qs-surface);
+  border-top: 1px solid var(--qs-line);
+  z-index: 5;
+}
+
+.state {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  corner-shape: round;
+  background: var(--qs-muted);
+  flex-shrink: 0;
+}
+
+.state[data-connected='true'] .dot {
+  background: var(--qs-success-text);
+}
+
+.bar[data-qs-status='disconnected'] .dot {
+  background: var(--qs-error-text);
+}
+
+.meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+@media (max-width: 700px) {
+  .bar {
+    padding: 6px 12px;
+  }
+}

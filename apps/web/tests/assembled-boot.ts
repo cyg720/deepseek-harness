@@ -25,6 +25,18 @@ interface AssembledPlugin extends WebBootEntry {
 interface AssembledBootOptions {
   /** Package ids omitted from this mounted composition. */
   readonly exclude?: readonly string[]
+  /**
+   * Which UI these scenarios boot. Every scenario in this lane verifies the
+   * **official** Web product, so the default pins the official frame; the
+   * Qishu workbench ships as the deployment default and would otherwise
+   * shadow it through the root slot election. A workbench scenario passes
+   * 'workbench' explicitly, and the caller's choice always wins over the
+   * default (the inject happens once, at mount, from this option).
+   */
+  // QS 二开：装配测试须显式选择被测界面，防止 root 槽位选举把官方场景切换到工作台。
+  readonly defaultUi?: 'official' | 'workbench'
+  /** Enable developer-only navigation between the two interfaces. */
+  readonly showOfficialUiEntry?: boolean
 }
 
 interface ClientPackageManifest {
@@ -233,6 +245,8 @@ export function installAssembledBootEnv(): void {
     cleanup()
     delete win.__DSH_BOOT__
     delete win.__ModuleLoader__
+    // QS 二开：清理注入的界面配置，避免上一用例的开发者入口设置污染下一次装配。
+    Reflect.deleteProperty(win, '__QS_UI_CONFIG__')
     document.body.innerHTML = ''
     document.head.querySelectorAll('style[data-plugin]').forEach((style) => { style.remove() })
     document.title = ''
@@ -255,6 +269,15 @@ export function installAssembledBootEnv(): void {
 export function mountAssembledApp(search = '?fixture', options: AssembledBootOptions = {}): void {
   const excluded = new Set(options.exclude)
   const plugins = PLUGINS.filter(plugin => !excluded.has(plugin.id))
+  // The Qishu shell reads its startup config from this Host-injected global and
+  // defaults to the workbench when it is absent. `dsh web` injects it from the
+  // bundle row config; this lane has no webserver, so it injects the same global
+  // itself and pins the interface this lane verifies.
+  // QS 二开：此夹具没有 WebServer，必须在此补上生产 Host 注入的配置；场景参数仍可选择工作台。
+  Reflect.set(win, '__QS_UI_CONFIG__', {
+    defaultUi: options.defaultUi ?? 'official',
+    showOfficialUiEntry: options.showOfficialUiEntry ?? false,
+  })
   history.replaceState(null, '', `/${search}`)
   const root = document.createElement('div')
   root.id = 'root'

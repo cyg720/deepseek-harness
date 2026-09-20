@@ -1,0 +1,15 @@
+The plugin "vite-tsconfig-paths" is detected. Vite now supports tsconfig paths resolution natively via the resolve.tsconfigPaths option. You can remove the plugin and set resolve.tsconfigPaths: true in your Vite config instead.
+
+ RUN  v4.1.8 D:/code/CYG/Github/deepseek-harness
+
+
+  Snapshots  4 written
+             2 removed
+             ↳ apps/web/tests/qs/interaction-roundtrip.e2e.ts
+               · continues the recorded approval-composer turn after a QS answer > approval-composer pending QS card 1
+               · continues the recorded question-composer turn after a QS answer > question-composer pending QS card 1
+
+ Test Files  1 passed (1)
+      Tests  4 passed (4)
+   Start at  17:26:16
+   Duration  24.65s (transform 728ms, setup 0ms, import 1.15s, tests 23.37s, environment 0ms)

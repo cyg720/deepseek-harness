@@ -21,6 +21,10 @@ linkWorkspacePackages: true
 overrides:
   '@deepseek-ai/cosmokit': 'link:vendor/cosmokit'
   '@deepseek-ai/schemastery': 'link:vendor/schemastery'
+  # Runtime YAML parsing and attachment decoding security fixes (QS review).
+  # QS 二开：定向修复工作台复核涉及的 YAML 解析和附件解码依赖，不扩大到无关版本。
+  'js-yaml@>=4.0.0 <4.3.2': '4.3.2'
+  'sharp@0.35.3': '0.35.4'
 
 peerDependencyRules:
   allowedVersions:

@@ -1,0 +1,6 @@
+# Bilingual-pair consistency record (docs/i18n/README.md): the git blob hash of each
+# side as of the last confirmed-consistent state. Both languages carry equal authority;
+# after editing either side, bring the other along and re-record with:
+#   pnpm run verify-translation-pairing --write .agents/notes/qs/implemented/architecture/2026-09-17-qishu-workbench-client-plugins.md
+2026-09-17-qishu-workbench-client-plugins.md: fe5536947faac02a5ae91e8822d9a2dec4e8c0eb
+2026-09-17-qishu-workbench-client-plugins.zh.md: b2ee5e51930f2af6e1fde00f3d94fad4b10b1c58

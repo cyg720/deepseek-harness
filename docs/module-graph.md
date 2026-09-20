@@ -277,6 +277,15 @@ flowchart TD
     pkg_agent_presets["agent-presets"]
     pkg_persona["persona"]
   end
+  subgraph group_qs["packages/qs"]
+    pkg_qs_approval["qs-approval"]
+    pkg_qs_composer["qs-composer"]
+    pkg_qs_login["qs-login"]
+    pkg_qs_questions["qs-questions"]
+    pkg_qs_sessions["qs-sessions"]
+    pkg_qs_shell["qs-shell"]
+    pkg_qs_transcript["qs-transcript"]
+  end
   subgraph group_runtime_diagnostics["packages/runtime-diagnostics"]
     pkg_invariants["invariants"]
   end
@@ -1271,6 +1280,13 @@ flowchart TD
 | [`host-directory-picker-native`](../packages/host/directory-picker-native) | `host` | — |
 | [`host-open-in-app`](../packages/host/open-in-app) | `host` | — |
 | [`host-webserver`](../packages/host/webserver) | `host` | — |
+| [`qs-approval`](../packages/qs/qs-approval) | `qs` | — |
+| [`qs-composer`](../packages/qs/qs-composer) | `qs` | — |
+| [`qs-login`](../packages/qs/qs-login) | `qs` | — |
+| [`qs-questions`](../packages/qs/qs-questions) | `qs` | — |
+| [`qs-sessions`](../packages/qs/qs-sessions) | `qs` | — |
+| [`qs-shell`](../packages/qs/qs-shell) | `qs` | — |
+| [`qs-transcript`](../packages/qs/qs-transcript) | `qs` | — |
 | [`invariants`](../packages/runtime-diagnostics/invariants) | `runtime-diagnostics` | — |
 | [`sandbox-windows-acl`](../packages/sandbox/sandbox-windows-acl) | `sandbox` | — |
 | [`session-format`](../packages/session/session-format) | `session` | — |

@@ -106,6 +106,9 @@ try {
 
 The selector must be a pure function of the owner currency. Its non-null return is delivered to the component as `matched`; `PropsRuntime<'conversation.composer'>` supplies the standard Session and global props. Chain order remains ascending `priority`, then registration order, and the first non-null selector wins. The shell keeps the default composer mounted beneath a takeover. Request state, listeners, response encoding, and any request-specific child slots belong to the business package; they are not carried by `SessionSnapshot` or declared by this core package.
 
+<!-- QS 二开说明：说明 SessionInput 的 notices 订阅接口；此处同步官方维护入口的约定，避免实现与文档描述不一致。 -->
+Custom composers read the session-addressed `SessionInput.notices` observable for submission and command errors. The input facade owns this source; switching sessions does not move a notice to another session.
+
 <a id="model-experience"></a>
 ## Model Experience
 

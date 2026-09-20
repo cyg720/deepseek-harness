@@ -199,7 +199,8 @@ describe('client build environment', () => {
     expect(repositoryGitDirty(fixtureRoot)).toBe(false)
     write(join(fixtureRoot, 'submodule/tracked.txt'), 'modified submodule\n')
     expect(repositoryGitDirty(fixtureRoot)).toBe(true)
-  })
+  // QS 二开：仅提高真实 Git/submodule 用例耗时预算以适应 Windows 和并发负载，保留全部脏状态断言。
+  }, 30_000) // Two repositories and a submodule require real Git processes under CI contention.
 
   it('omits dirty metadata when repository metadata is unavailable', () => {
     const fixtureRoot = mkdtempSync(join(tmpdir(), 'dsh-client-build-no-git-'))

@@ -565,7 +565,7 @@ function resolveFromRequest(pattern: string, corpus: string): string {
 }
 
 /** Replace every `{{fromRequest:<pattern>}}` occurrence in one scripted string. */
-function substituteString(text: string, corpus: string): string {
+function substituteString(text: string, corpus: string, jsonString = false): string {
   let result = ''
   let cursor = 0
   while (true) {
@@ -579,7 +579,9 @@ function substituteString(text: string, corpus: string): string {
     // so a pattern may end with a brace quantifier like `[0-9a-f]{4}`.
     while (text[close + FROM_REQUEST_CLOSE.length] === '}') close += 1
     const pattern = text.slice(open + FROM_REQUEST_OPEN.length, close)
-    result += text.slice(cursor, open) + resolveFromRequest(pattern, corpus)
+    // QS 二开：请求提取值嵌入工具参数 JSON 时必须转义路径反斜杠和引号；普通模型文本仍保留原文。
+    const replacement = resolveFromRequest(pattern, corpus)
+    result += text.slice(cursor, open) + (jsonString ? JSON.stringify(replacement).slice(1, -1) : replacement)
     cursor = close + FROM_REQUEST_CLOSE.length
   }
 }
@@ -591,7 +593,15 @@ function substituteValue(value: unknown, corpus: string): unknown {
   }
   if (Array.isArray(value)) return value.map(item => substituteValue(item, corpus))
   if (value !== null && typeof value === 'object') {
-    return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, substituteValue(item, corpus)]))
+    const record = value as Record<string, unknown>
+    return Object.fromEntries(Object.entries(record).map(([key, item]) => {
+      // QS 二开：完整工具调用和流式参数片段均承载 JSON 字符串，需同时处理，避免流式回放仍产生无效参数。
+      const jsonString = (record.type === 'tool-call' && key === 'arguments')
+        || (record.type === 'tool-call-delta' && key === 'argumentsDelta')
+      return [key, jsonString && typeof item === 'string'
+        ? substituteString(item, corpus, true)
+        : substituteValue(item, corpus)]
+    }))
   }
   return value
 }
@@ -608,6 +618,8 @@ function substituteValue(value: unknown, corpus: string): unknown {
  * placeholder, so a pattern may end with a brace quantifier but cannot
  * contain `}}` followed by further pattern content. Derived entries pass
  * through the same resolution as sidecar entries.
+ * Placeholders in tool argument JSON occupy string values; their replacements
+ * are JSON-escaped in both deltas and completed tool blocks.
  * @param entry - the scripted entry about to replay.
  * @param messages - the live request messages searched by the placeholders.
  * @returns the entry itself when no placeholder appears, else a resolved deep copy.

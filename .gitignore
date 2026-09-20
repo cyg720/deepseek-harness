@@ -47,3 +47,5 @@ worktrees/
 .agents/worktrees/
 .typert-*/
 native/system/test/bin/
+# QS 二开：复核运行日志属于本机产物，忽略此目录可避免提交噪声及环境信息。
+/qishu/PRD/1-AI工作台/复核测试/logs

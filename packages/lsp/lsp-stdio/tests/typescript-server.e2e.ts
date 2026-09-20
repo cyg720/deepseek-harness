@@ -9,19 +9,16 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { mkdtemp, mkdir, rm, writeFile, realpath } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { Context } from '@deepseek-ai/cordis'
 import LocalSubprocessRuntime from '@deepseek-ai/dsh-subprocess-local'
 import LocalFileSystem from '@deepseek-ai/dsh-fs-local'
 import Lsp, { type LspQueryRequest, type LspQueryResult } from '@deepseek-ai/dsh-lsp'
 import * as LspLocal from '@deepseek-ai/dsh-lsp-stdio'
 
-// The server binary is a dev dependency of this package; resolve its pnpm-hoisted .bin path.
-const serverBin = join(
-  new URL('..', import.meta.url).pathname,
-  'node_modules',
-  '.bin',
-  'typescript-language-server',
-)
+// Run the package's declared Node entry without a platform-specific .bin shim.
+// QS 二开：URL 转为本机路径后通过 Node 执行声明入口，避开 Windows 的 .bin shim 和盘符 URL 问题。
+const serverEntry = fileURLToPath(import.meta.resolve('typescript-language-server/lib/cli.mjs'))
 
 let root: string
 let ws: string
@@ -59,8 +56,8 @@ beforeAll(async () => {
   await ctx.plugin(LspLocal, {
     servers: {
       typescript: {
-        command: serverBin,
-        args: ['--stdio'],
+        command: process.execPath,
+        args: [serverEntry, '--stdio'],
         extensionToLanguage: { '.ts': 'typescript', '.tsx': 'typescriptreact' },
       },
     },

@@ -14,7 +14,8 @@ Session 正文中的本地媒体路径通过同源文件路由渲染。本记录
 
 `ui-primitives` 拥有 `MarkdownText` 上的 `MarkdownPathImages` 词表。与 `fileMentions` 一样，它只在消息稳定后生效，使冻结的流式块无法缓存词表处理函数。稳定渲染过程重写远程 URL 白名单之外的图片目标，并只输出绝对 `http(s)`、`blob` 或 `data` 结果。没有词表时，本地目标保留静态 alt 文本。加载失败会把图片替换为作者提供的 alt 文本；alt 为空时显示原始目标路径；不同来源仍可重新加载。
 
-`ui-chat` 通过 `AssistantMarkdown` 提供页面稳定的 `localPathMediaUrl` 词表。它把绝对 POSIX 路径映射到页面同源的 `/api/file?path=…`。相对路径、协议相对路径、Windows 风格路径，以及 Electron `file://` 等非 HTTP 页面传输保持静态回退。
+<!-- QS 二开说明：同步 Windows 盘符本地图片支持及拒绝的路径范围；同步中文说明；此处同步官方维护入口的约定，避免实现与文档描述不一致。 -->
+`ui-chat` 通过 `AssistantMarkdown` 提供页面稳定的 `localPathMediaUrl` 词表。它把 POSIX 绝对路径和 Windows 盘符绝对路径映射到页面同源的 `/api/file?path=…`。相对路径、协议相对路径、UNC 路径，以及 Electron `file://` 等非 HTTP 页面传输保持静态回退。
 
 `session-controller` 在 `SessionFileReferences` 旁拥有 `SessionMediaReferences` 贡献。它通过 `connection.fetch` 注册；该通道执行与 `/api` RPC 相同的浏览器鉴权和信任检查。固定同源端点让同步渲染器获得稳定 URL，无需异步能力协商。
 
@@ -34,7 +35,8 @@ Session 正文中的本地媒体路径通过同源文件路由渲染。本记录
 
 客户端词表无法绕过 Host 鉴权或文件系统提供方。原受限路由区分了工作区外已存在路径与缺失路径，即使拒绝其字节仍暴露存在性；后续策略则允许提供方可读的普通文件。
 
-客户端词表仍不支持作者提供的 Windows 风格路径。轨迹与工具卡片 Markdown 消费方不提供此词表，音视频 Markdown 节点也不渲染播放器。这些属于渲染器限制，与文件路由可读的 MIME 类型无关。
+<!-- QS 二开说明：同步 Windows 盘符本地图片支持及拒绝的路径范围；同步中文说明；此处同步官方维护入口的约定，避免实现与文档描述不一致。 -->
+Windows 盘符路径保留作者提供的分隔符，并与 POSIX 路径经过同一 Host 文件检查。轨迹与工具卡片 Markdown 消费方不提供此词表，音视频 Markdown 节点也不渲染播放器。这些属于渲染器限制，与文件路由可读的 MIME 类型无关。
 
 已归档的[模型可读图片路径](../../archived/feature/2026-08-21-model-readable-image-paths.md)记录拥有模型侧行为；本记录拥有用户侧展示，不取代它。
 

@@ -33,7 +33,9 @@ describe('localPathMediaUrl', () => {
     expect(localPathMediaUrl('http:', ORIGIN, '')).toBeUndefined()
     expect(localPathMediaUrl('http:', ORIGIN, '//cdn.example.com/x.png')).toBeUndefined()
     expect(localPathMediaUrl('http:', ORIGIN, 'relative.png')).toBeUndefined()
-    expect(localPathMediaUrl('http:', ORIGIN, 'C:\\tmp\\x.png')).toBeUndefined()
+    // QS 二开：支持盘符绝对路径不等于接受盘符相对路径或 UNC；拒绝断言约束共用渲染入口的支持范围。
+    expect(localPathMediaUrl('http:', ORIGIN, 'C:relative.png')).toBeUndefined()
+    expect(localPathMediaUrl('http:', ORIGIN, '\\\\server\\share\\x.png')).toBeUndefined()
   })
 
   it('encodes the full path including spaces', () => {

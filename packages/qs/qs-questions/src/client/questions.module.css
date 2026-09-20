@@ -1,0 +1,161 @@
+/* 提问与方案确认卡片：沿用审批卡表面，附加选项与方案正文排版。 */
+
+.card {
+  background: var(--qs-surface);
+  border: 1px solid var(--qs-line);
+  border-radius: 11px;
+  padding: 24px;
+  margin: 8px 0 24px;
+  color: var(--qs-text);
+  font-size: 13px;
+  line-height: 1.7;
+  overflow-wrap: anywhere;
+}
+
+.eyebrow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  margin-bottom: 18px;
+}
+
+.card h3 {
+  font-size: 20px;
+  line-height: 1.5;
+  font-weight: 550;
+  margin: 0 0 8px;
+}
+
+.detail {
+  padding: 16px;
+  background: var(--qs-subtle);
+  border: 1px solid var(--qs-line);
+  border-radius: 9px;
+  max-height: 300px;
+  overflow: auto;
+}
+
+.plan {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  margin: 0;
+  font: 12px/1.9 inherit;
+}
+
+.question {
+  border: 0;
+  padding: 0;
+  margin: 0 0 20px;
+  min-width: 0;
+}
+
+.question legend {
+  padding: 0;
+  font-weight: 550;
+  font-size: 13px;
+  margin-bottom: 8px;
+}
+
+.question[data-invalid="true"] {
+  border-left: 2px solid var(--qs-error-text);
+  padding-left: 12px;
+}
+
+.questionDetail {
+  color: var(--qs-muted);
+  font-size: 12px;
+  margin: 0 0 12px;
+  white-space: pre-wrap;
+}
+
+.option {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 11px 12px;
+  border: 1px solid var(--qs-line);
+  border-radius: 9px;
+  margin-bottom: 8px;
+  cursor: pointer;
+}
+
+.option:hover {
+  background: var(--qs-subtle);
+}
+
+.option input {
+  accent-color: var(--qs-accent);
+  margin: 3px 0 0;
+  flex-shrink: 0;
+}
+
+.option strong {
+  font-weight: 500;
+  font-size: 13px;
+  display: block;
+}
+
+.option small {
+  display: block;
+  color: var(--qs-muted);
+  font-size: 11px;
+  margin-top: 4px;
+}
+
+.other {
+  margin: 12px 0 0;
+}
+
+.error {
+  margin: 12px 0 0;
+  color: var(--qs-error-text);
+  background: var(--qs-error-bg);
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: 12px;
+}
+
+.note {
+  margin: 16px 0 0;
+  color: var(--qs-muted);
+  font-size: 12px;
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 22px;
+  padding-top: 18px;
+  border-top: 1px solid var(--qs-line);
+}
+
+.reject {
+  color: var(--qs-error-text);
+}
+
+.card .actions > * {
+  min-height: 42px;
+}
+
+@media (max-width: 700px) {
+  .card {
+    padding: 18px 16px;
+  }
+
+  .card h3 {
+    font-size: 18px;
+  }
+
+  .option textarea,
+  .other textarea {
+    font-size: 16px;
+  }
+
+  .actions > * {
+    flex: 1;
+  }
+}

@@ -1,0 +1,30 @@
+/* overlay 宿主：固定定位的 toast 栈，位于应用根内以便继承 .qs-root 的令牌。 */
+
+.host {
+  position: fixed;
+  inset: auto 0 26px 0;
+  display: flex;
+  justify-content: center;
+  pointer-events: none;
+  z-index: 100;
+}
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: center;
+  max-width: calc(100vw - 30px);
+}
+
+.toast {
+  background: var(--qs-toast-bg);
+  color: var(--qs-toast-fg);
+  padding: 13px 21px;
+  border-radius: 10px;
+  font-size: 12px;
+  line-height: 1.65;
+  box-shadow: 0 8px 35px #21342222;
+  overflow-wrap: anywhere;
+  pointer-events: auto;
+}

@@ -1,0 +1,111 @@
+/*
+ * 奇术工作台设计令牌（唯一来源：qishu/styles/README.md 与原型 styles.css 的最终级联值）。
+ *
+ * 令牌挂在应用根（`.qs-root`）而不是 body：官方 ui-theme 会写入 body 属性，
+ * 两者互不干扰；根元素上同时声明 color-scheme，使表单控件与滚动条跟随主题。
+ *
+ * 不使用官方 `--dsw-*` 命名空间，也不映射它：奇术工作台有自己的视觉语言，
+ * 映射会让官方主题改动意外改变工作台外观。
+ */
+
+.qs-root {
+  font-family: Inter, "Microsoft YaHei", "PingFang SC", sans-serif;
+  font-synthesis: none;
+  color-scheme: light;
+  color: var(--qs-text);
+  background: var(--qs-bg);
+
+  /* 语义色板：浅色档 */
+  --qs-bg: #f9faf8;
+  --qs-surface: #ffffff;
+  --qs-subtle: #f3f5f1;
+  --qs-sidebar: #f0f3ed;
+  --qs-text: #263931;
+  --qs-muted: #839086;
+  --qs-line: #e5eae1;
+  --qs-accent: #355c47;
+  --qs-accent-soft: #e8eee3;
+  --qs-lime: #d8f38b;
+  --qs-danger: #b44838;
+  --qs-shadow: 0 12px 40px #233b2410;
+
+  /*
+   * 状态色：原型没有完整语义色板（深色错误色是继承值）。按 qishu/styles/README.md
+   * 的授权补齐明暗成对，全部满足 ≥4.5:1 正文对比度。
+   */
+  --qs-error-text: #a33225;
+  --qs-error-bg: #fbeceb;
+  --qs-warning-text: #8a5a12;
+  --qs-warning-bg: #fdf3e2;
+  --qs-success-text: #3d6b3a;
+  --qs-success-bg: #eaf3e6;
+  --qs-disabled-text: #6f776f;
+  --qs-disabled-bg: #f0f2ee;
+
+  /* 原型中散落的局部值，收敛为令牌以便跨包统一使用 */
+  --qs-hover-session: #e4eadf;
+  --qs-hover-tool: #e2e9db;
+  --qs-hover-app: #e0eacb;
+  --qs-selected-session: #e0e9d7;
+  --qs-selected-tab-line: #66844c;
+  --qs-focus-ring: #80a65c;
+  --qs-field-focus-ring: #8ead80;
+  --qs-composer-border: #dce4d6;
+  --qs-composer-shadow: 0 8px 24px #41502d05;
+  --qs-composer-focus-shadow: 0 6px 24px #496b2610;
+  --qs-user-bubble: #e9efdf;
+  --qs-send-bg: #d6e8b1;
+  --qs-send-fg: #48642e;
+  --qs-send-hover: #c4dc99;
+  --qs-stop-bg: #f3ddce;
+  --qs-stop-fg: #9d5538;
+  --qs-pending-dot: #96ad7f;
+  --qs-toast-bg: #2d4938;
+  --qs-toast-fg: #f3f8ef;
+  --qs-overlay-scrim: #1a2b224d;
+  --qs-dialog-shadow: 0 25px 120px #23342433;
+}
+
+.qs-root.qs-dark {
+  color-scheme: dark;
+  color: var(--qs-text);
+  background: var(--qs-bg);
+
+  --qs-bg: #1e2923;
+  --qs-surface: #26322a;
+  --qs-subtle: #2c3a2f;
+  --qs-sidebar: #233026;
+  --qs-text: #e0e8d7;
+  --qs-muted: #a0ad93;
+  --qs-line: #3b4838;
+  --qs-accent: #617f4b;
+  --qs-accent-soft: #354b32;
+  --qs-lime: #d8f38b;
+
+  --qs-error-text: #ffb4a6;
+  --qs-error-bg: #4a2620;
+  --qs-warning-text: #f0c579;
+  --qs-warning-bg: #46341a;
+  --qs-success-text: #a8cf9a;
+  --qs-success-bg: #2b3a26;
+  --qs-disabled-text: #8a968b;
+  --qs-disabled-bg: #2a342d;
+
+  /* 深色辅助文本（原型观察值，不成对进入状态色板） */
+  --qs-hover-session: #354b32;
+  --qs-hover-tool: #354b32;
+  --qs-hover-app: #354b32;
+  --qs-selected-session: #2c3a2f;
+  --qs-selected-tab-line: #769065;
+  --qs-user-bubble: #3c5134;
+  --qs-send-bg: #4d6b39;
+  --qs-send-fg: #e6f2d5;
+  --qs-send-hover: #5b7d44;
+  --qs-stop-bg: #5a3a2c;
+  --qs-stop-fg: #f6d9c7;
+  --qs-pending-dot: #96ad7f;
+  --qs-composer-border: #3b4838;
+  --qs-deep-muted: #abbc99;
+  --qs-deep-suggestion: #b0c299;
+  --qs-deep-upload-border: #536648;
+}

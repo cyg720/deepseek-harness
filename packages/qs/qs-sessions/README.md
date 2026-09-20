@@ -1,5 +1,5 @@
 ---
-description: "Build-only scaffold for Qishu session navigation."
+description: "Qishu workbench session navigation: list, switch, create, rename, archive, and local pinning."
 kind: "package-reference"
 ---
 
@@ -9,7 +9,7 @@ English | [中文](README.zh.md)
 
 ## Summary
 
-Developers can compile and bundle the empty session navigation plugin. It has no user-visible behavior and is not mounted in the default Web composition.
+Browse, pin, switch, rename, and archive sessions from the workbench. Creation deduplicates concurrent clicks and does not replace a selection made while the request was pending.
 
 ## Table of Contents
 
@@ -21,7 +21,11 @@ Developers can compile and bundle the empty session navigation plugin. It has no
 <a id="use-this-package"></a>
 ## Use this package
 
-This is a development scaffold, not an installable application. See the [framework map](../FRAMEWORK.md) for package locations and scope.
+Mount `@deepseek-ai/dsh-qs-sessions` with the other Qishu plugin rows in the [Web bundle](../../bundle/web-app/cordis.patch.yml). The package has no deployment configuration fields.
+
+Closing a management dialog stops its pending result from affecting a later dialog. A rename or archive already accepted by the server still completes and updates the official session snapshot.
+
+Ctrl+K or Command+K opens a new conversation while the workbench session list is mounted. Key repeats, input composition, and an open modal dialog suppress this shortcut.
 
 <a id="understand-the-implementation"></a>
 ## Understand the implementation
@@ -29,14 +33,22 @@ This is a development scaffold, not an installable application. See the [framewo
 <details>
 <summary>Implementation internals</summary>
 
-Both [Host](src/index.ts) and [Client](src/client/index.ts) export an empty named apply function. The TypeScript project uses the shared client configuration; the bundle uses the official clientBundle preset. No runtime invariant companion is published because neither entry owns state or independently observable relationships.
+Session and workspace services own the list and archive operations; this package only owns local pins and navigation presentation. Creation is coalesced while pending; unmount cancels local navigation, and failures remain visible and retryable. Registry contributions dispose with the plugin. No runtime invariant companion is published because authoritative session membership is owned by the official services.
 
 </details>
 
 <a id="model-experience"></a>
 ## Model Experience
 
-None, as both scaffold entries register nothing model-facing.
+### Browser presentation
+
+#### What the model sees
+
+`@deepseek-ai/dsh-qs-sessions`: this browser presentation delegates user actions to official services without constructing model requests.
+
+#### Token effect
+
+This package adds no prompt or tool-schema tokens of its own; official services handle user-submitted content.
 
 #### KV Cache effect
 
@@ -46,8 +58,7 @@ None; neither entry assembles or sends provider requests.
 
 <a id="known-limitations-and-deferred-work"></a>
 
-- Views, configuration, services, locale dictionaries, and behavior tests are not implemented.
-- Default Web mounting and its dependency edge are deferred until runtime implementation.
+- Archive recovery is not exposed here. Pins are browser-local; shared multi-user ordering is not provided.
 
 <a id="dev-note"></a>
 ### Dev Note
@@ -55,6 +66,6 @@ None; neither entry assembles or sends provider requests.
 <details>
 <summary>Working context for maintainers</summary>
 
-The [first-priority plan](../../../qishu/dev-components/第一优先开发计划评审/00-评审总纲.md) defines future functionality; its milestones are not completed by these placeholders.
+Validation status is recorded in the [review repair log](../../../qishu/PRD/1-AI工作台/复核测试/02-复核修复与全量验证.md).
 
 </details>

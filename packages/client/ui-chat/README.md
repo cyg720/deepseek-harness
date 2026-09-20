@@ -31,6 +31,9 @@ File-mention providers receive the viewed Session ID with the closing-turn owner
 
 Sent file references and skills confirmed by the message’s logged invocation open in the right Sidebar. File paths use the viewed Session; skill names resolve through its current input-trigger source. Both use the prose file-link dotted underline on hover or focus. Sessions, directories, and command labels remain non-navigating references.
 
+<!-- QS 二开说明：记录本地图片的 Windows 盘符路径支持范围；此处同步官方维护入口的约定，避免实现与文档描述不一致。 -->
+Settled Markdown images with absolute POSIX or Windows drive paths load through the same-origin file API and its existing access checks. Relative and network paths remain inert.
+
 <a id="system-prompt-row"></a>
 ## System prompt row
 

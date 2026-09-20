@@ -515,12 +515,21 @@ export async function launchWebScaffold(options: LaunchOptions = {}): Promise<We
   const patches: PatchOptions[] = [
     ...basePatches,
     ...surfacePatches,
+    // This lane verifies the OFFICIAL Web product: the shipped surface also mounts the
+    // Qishu workbench rows, and that shell defaults to the workbench and shadows
+    // AppFrame through the root slot election. Pin the official interface BEFORE any
+    // scenario overlay, so a scenario that means to test the workbench can override it
+    // (a pin placed after the overlays would silently defeat that opt-in). Gated on the
+    // row actually existing, so removing the rows cannot leave a dangling patch id.
+    // QS 二开：官方回归先固定 official，再允许场景 overlay 覆盖；仅在 QS 插件存在时追加，避免悬空配置。
+    ...(composedRows.some(row => row.id === 'qs-shell')
+      ? [{ id: 'qs-shell', config: { defaultUi: 'official', showOfficialUiEntry: false } }]
+      : []),
     // Keyless scenarios retain the recorded default; explicit scenario overlays win.
     ...mode === 'record' || options.deepSeekMissingCredential === true
       ? []
       : [{ id: 'agent-default-model', config: { provider: 'deepseek-official', model: 'deepseek-v4-flash' } }],
     ...extraOverlayPatches,
-    // The roster's shipped presets are the plugin's own, bundled inside
     // `dsh-agent-presets` and prepended by it. Pin only the machine-local
     // root away: a developer's own `~/.dsh/.agent-presets` must not be able
     // to change a golden.

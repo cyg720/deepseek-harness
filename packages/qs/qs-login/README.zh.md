@@ -1,5 +1,5 @@
 ---
-description: "奇术静态登录展示的构建框架。"
+description: "奇术工作台登录视图：静态登录状态、qsAuth 服务与 qs.gate 贡献。"
 kind: "package-reference"
 ---
 
@@ -9,7 +9,7 @@ kind: "package-reference"
 
 ## 概述
 
-开发者可以编译和打包空的静态登录展示插件。该包没有用户可见行为，也未挂载到默认 Web 组合。
+用户可通过静态登录表单进入本地演示工作台。该表单不保护 API 访问，也未接入后端登录接口。
 
 ## 目录
 
@@ -21,7 +21,9 @@ kind: "package-reference"
 <a id="use-this-package"></a>
 ## 使用本包
 
-这是开发框架，不是可安装的应用。包位置与范围见[框架说明](../FRAMEWORK.md)。
+在 Web 组合中与其他奇术插件一起挂载。本地演示使用 `admin` 和 `Demo@2026`，它们不是真实认证凭据。
+
+勾选保持登录后，刷新会恢复静态演示会话。仅保存演示用户名和选择标记，不保存密码；退出登录清除两者。此功能只控制界面展示，不授予 Host 身份或权限。
 
 <a id="understand-the-implementation"></a>
 ## 理解实现
@@ -29,14 +31,22 @@ kind: "package-reference"
 <details>
 <summary>实现细节</summary>
 
-[Host](src/index.ts) 与 [Client](src/client/index.ts) 均导出空的具名 apply 函数。TypeScript 工程复用客户端配置，打包使用官方 clientBundle 预设。两个入口均不持有状态或可独立观察的关系，因此不发布运行时 invariant 伴随入口。
+登录表单与根视图共享插件持有的认证状态。静态网关校验演示凭据，不保存密码。登录门仅有一个状态源，因此不发布运行时 invariant 伴随入口。
 
 </details>
 
 <a id="model-experience"></a>
 ## 模型体验
 
-无，因为两个框架入口均不注册模型可见内容。
+### 浏览器呈现
+
+#### 模型可见内容
+
+`@deepseek-ai/dsh-qs-login`：无；静态登录门不贡献模型可见输入。
+
+#### Token 影响
+
+本包不添加自有提示词或工具 schema；用户提交内容由官方服务处理。
 
 #### KV 缓存影响
 
@@ -46,8 +56,7 @@ kind: "package-reference"
 
 <a id="known-limitations-and-deferred-work"></a>
 
-- 尚未实现视图、配置、服务、本地化字典和行为测试。
-- 默认 Web 挂载及其依赖接线留待运行逻辑实现时完成。
+- 尚未接入真实认证、授权或账号恢复。
 
 <a id="dev-note"></a>
 ### 开发备注

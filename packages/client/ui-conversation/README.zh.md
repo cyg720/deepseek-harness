@@ -106,6 +106,9 @@ try {
 
 selector 必须是 owner currency 的纯函数。非 null 返回值作为 `matched` 传给组件；`PropsRuntime<'conversation.composer'>` 提供标准 Session 与 global props。Chain 顺序仍按 `priority` 升序，再按注册顺序；首个返回非 null 的 selector 获选。Shell 会在 takeover 下保持默认 composer 挂载。Request 状态、listener、response encoding 和任何 request-specific child slot 都属于业务 package，不进入 `SessionSnapshot`，也不由 core 包声明。
 
+<!-- QS 二开说明：说明 SessionInput 的 notices 订阅接口；同步中文说明；此处同步官方维护入口的约定，避免实现与文档描述不一致。 -->
+自定义输入区通过按会话归属的 `SessionInput.notices` 订阅源读取提交和命令错误。该源由输入门面持有；切换会话不会把错误转移到另一会话。
+
 <a id="model-experience"></a>
 ## 模型体验
 

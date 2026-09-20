@@ -22,6 +22,10 @@
   // this client-registered project must not also hold them (one program
   // cannot see both sides of the cordis Context merges).
   "exclude": [
+    "tests/qs/interaction-roundtrip.e2e.ts",
+    "tests/qs/transcript-disclosures.e2e.ts",
+    "tests/qs/transcript-follow.e2e.ts",
+    "tests/qs/transcript-media.e2e.ts",
     "tests/scaffold.ts",
     "tests/scaffold-generation.spec.ts",
     "tests/scaffold-hermetic.e2e.ts",

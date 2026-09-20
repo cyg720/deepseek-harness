@@ -1,4 +1,5 @@
+# Qishu project requirements
 
+English | [中文](README.zh.md)
 
-
-# 存放项目需求的目录
+This directory contains Qishu requirements, prototypes, implementation plans, and source-change records.

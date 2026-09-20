@@ -1,5 +1,5 @@
 ---
-description: "Build-only scaffold for Qishu user question presentation."
+description: "Qishu workbench question card: question forms, plan review, and the answer protocol."
 kind: "package-reference"
 ---
 
@@ -9,7 +9,7 @@ English | [中文](README.zh.md)
 
 ## Summary
 
-Developers can compile and bundle the empty user question presentation plugin. It has no user-visible behavior and is not mounted in the default Web composition.
+Answer single-choice, multiple-choice, and free-text questions, or review a read-only Markdown plan. Incomplete batches focus the first unanswered question; failed submissions preserve answers.
 
 ## Table of Contents
 
@@ -21,7 +21,11 @@ Developers can compile and bundle the empty user question presentation plugin. I
 <a id="use-this-package"></a>
 ## Use this package
 
-This is a development scaffold, not an installable application. See the [framework map](../FRAMEWORK.md) for package locations and scope.
+Mount `@deepseek-ai/dsh-qs-questions` with the other Qishu plugin rows in the [Web bundle](../../bundle/web-app/cordis.patch.yml). The package has no deployment configuration fields.
+
+Single-choice options and custom text are mutually exclusive: the latest choice replaces the previous answer. Multiple-choice answers retain both selected options and custom text.
+
+Drafts survive interface switches while the request remains pending. Settlement or withdrawal through the official request clears only that request’s drafts, including answers made outside the workbench.
 
 <a id="understand-the-implementation"></a>
 ## Understand the implementation
@@ -29,14 +33,24 @@ This is a development scaffold, not an installable application. See the [framewo
 <details>
 <summary>Implementation internals</summary>
 
-Both [Host](src/index.ts) and [Client](src/client/index.ts) export an empty named apply function. The TypeScript project uses the shared client configuration; the bundle uses the official clientBundle preset. No runtime invariant companion is published because neither entry owns state or independently observable relationships.
+The official question domain owns pending requests and response encoding. Drafts are keyed by session, request, and question in plugin memory. This package has no independent durable authority requiring a runtime invariant companion.
 
 </details>
+
+No runtime invariant companion is published because the official services own the authoritative session data and this package only presents it.
 
 <a id="model-experience"></a>
 ## Model Experience
 
-None, as both scaffold entries register nothing model-facing.
+### Browser presentation
+
+#### What the model sees
+
+`@deepseek-ai/dsh-qs-questions`: this browser presentation delegates user actions to official services without constructing model requests.
+
+#### Token effect
+
+This package adds no prompt or tool-schema tokens of its own; official services handle user-submitted content.
 
 #### KV Cache effect
 
@@ -46,8 +60,7 @@ None; neither entry assembles or sends provider requests.
 
 <a id="known-limitations-and-deferred-work"></a>
 
-- Views, configuration, services, locale dictionaries, and behavior tests are not implemented.
-- Default Web mounting and its dependency edge are deferred until runtime implementation.
+- Question drafts survive session navigation only within the loaded plugin; page reload or plugin replacement clears them.
 
 <a id="dev-note"></a>
 ### Dev Note
@@ -55,6 +68,6 @@ None; neither entry assembles or sends provider requests.
 <details>
 <summary>Working context for maintainers</summary>
 
-The [first-priority plan](../../../qishu/dev-components/第一优先开发计划评审/00-评审总纲.md) defines future functionality; its milestones are not completed by these placeholders.
+Validation status is recorded in the [review repair log](../../../qishu/PRD/1-AI工作台/复核测试/02-复核修复与全量验证.md).
 
 </details>

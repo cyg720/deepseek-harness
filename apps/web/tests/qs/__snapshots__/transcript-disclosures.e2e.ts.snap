@@ -1,0 +1,3 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`contains recorded metadata in disclosures at desktop and narrow widths > closed turn footer 1`] = `"Generation complete"`;

@@ -1,0 +1,225 @@
+/* 输入区：卡片、工具条、建议 chips。尺寸对齐原型 .composer / .suggestions。 */
+
+.shell {
+  max-width: 690px;
+  width: 100%;
+  margin: 0 auto;
+}
+
+.queue {
+  border: 1px solid var(--qs-line);
+  border-radius: 11px;
+  background: var(--qs-subtle);
+  padding: 10px 12px;
+  margin-bottom: 10px;
+}
+
+.queueTitle {
+  font-size: 10px;
+  color: var(--qs-muted);
+  margin-bottom: 6px;
+}
+
+.queueRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  padding: 5px 0;
+}
+
+.queueText {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--qs-text);
+}
+
+.error {
+  margin: 10px 0 0;
+  color: var(--qs-error-text);
+  background: var(--qs-error-bg);
+  border-radius: 8px;
+  padding: 9px 12px;
+  font-size: 12px;
+}
+
+.card {
+  background: var(--qs-surface);
+  border: 1px solid var(--qs-composer-border);
+  border-radius: 15px;
+  box-shadow: var(--qs-composer-shadow);
+  padding: 17px 16px 12px;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.card:focus-within {
+  border-color: var(--qs-accent);
+  box-shadow: var(--qs-composer-focus-shadow);
+}
+
+.input {
+  width: 100%;
+  min-height: 69px;
+  max-height: 150px;
+  resize: vertical;
+  border: 0;
+  outline: 0;
+  padding: 2px 2px 12px;
+  background: none;
+  color: var(--qs-text);
+  font-size: 13px;
+  line-height: 1.8;
+}
+
+.input::placeholder {
+  color: var(--qs-muted);
+}
+
+.bottom {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.left,
+.right {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.model {
+  font-size: 10px;
+  color: var(--qs-muted);
+  padding: 8px 7px;
+}
+
+.hint {
+  font-size: 10px;
+  color: var(--qs-muted);
+}
+
+.action {
+  border: 0;
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 9px;
+  background: var(--qs-send-bg);
+  color: var(--qs-send-fg);
+}
+
+.action:hover {
+  background: var(--qs-send-hover);
+}
+
+.action:disabled {
+  opacity: 0.4;
+}
+
+.stop {
+  background: var(--qs-stop-bg);
+  color: var(--qs-stop-fg);
+}
+
+.suggestions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 9px;
+  margin: 18px 0 0;
+}
+
+.suggestion {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  border: 1px solid var(--qs-line);
+  background: transparent;
+  border-radius: 7px;
+  padding: 9px 11px;
+  font-size: 10px;
+  color: var(--qs-muted);
+}
+
+.suggestion:hover {
+  background: var(--qs-accent-soft);
+  border-color: var(--qs-accent);
+  color: var(--qs-accent);
+}
+
+@media (min-width: 1600px) {
+  .shell {
+    max-width: 750px;
+  }
+}
+
+@media (max-width: 1150px) {
+  .hint {
+    display: none;
+  }
+}
+
+@media (max-width: 700px) {
+  .queue {
+  border: 1px solid var(--qs-line);
+  border-radius: 11px;
+  background: var(--qs-subtle);
+  padding: 10px 12px;
+  margin-bottom: 10px;
+}
+
+.queueTitle {
+  font-size: 10px;
+  color: var(--qs-muted);
+  margin-bottom: 6px;
+}
+
+.queueRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  padding: 5px 0;
+}
+
+.queueText {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--qs-text);
+}
+
+.error {
+  margin: 10px 0 0;
+  color: var(--qs-error-text);
+  background: var(--qs-error-bg);
+  border-radius: 8px;
+  padding: 9px 12px;
+  font-size: 12px;
+}
+
+.card {
+    padding: 14px 12px 11px;
+  }
+
+  .input {
+    font-size: 16px;
+    min-height: 88px;
+  }
+
+  .suggestions {
+    gap: 7px;
+  }
+
+  .suggestion {
+    font-size: 10px;
+    padding: 9px;
+  }
+}

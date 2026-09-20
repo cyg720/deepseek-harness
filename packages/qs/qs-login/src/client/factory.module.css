@@ -1,0 +1,47 @@
+/* 工厂插画的动画参数与原型一致（脉冲/虚线 3s、浮动 6s/5px），但由 CSS Module 驱动，
+   因为内联 SVG 的 <style> 选择器会泄漏到文档级。 */
+
+.visual {
+  display: block;
+  width: 100%;
+  height: 100%;
+  min-height: 390px;
+  pointer-events: none;
+}
+
+.pulse {
+  animation: pulse 3s ease-in-out infinite;
+}
+
+.float {
+  animation: float 6s ease-in-out infinite;
+}
+
+.dash {
+  stroke-dasharray: 5 9;
+  animation: flow 3s linear infinite;
+}
+
+@keyframes pulse {
+  50% {
+    opacity: 0.3;
+  }
+}
+
+@keyframes float {
+  50% {
+    transform: translateY(-5px);
+  }
+}
+
+@keyframes flow {
+  to {
+    stroke-dashoffset: -56;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .visual * {
+    animation: none !important;
+  }
+}

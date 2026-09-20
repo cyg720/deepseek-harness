@@ -348,6 +348,45 @@
     - id: ui-trajectory
       name: '@deepseek-ai/dsh-client-ui-trajectory'
 
+    # ── 奇术工作台 (Qishu workbench) ────────────────────────────────────────
+    #
+    # The workbench is one root occupant: qs-shell registers into `root` at a
+    # negative priority, which shadows the official AppFrame. It also declares
+    # every top-level `qs.*` slot, and the other six rows contribute into those
+    # slots through `ctx.slots.inject`, so their position in this list carries
+    # no ordering requirement.
+    #
+    # `defaultUi: official` keeps all seven rows loaded but registers no
+    # workbench root, so the official AppFrame wins without a restart. Disabling
+    # all seven rows is the separate teardown path that releases every workbench
+    # registration. See qishu/官方源码改动记录清单.
+
+    # QS 二开：官方 Web bundle 是插件装配入口；在此挂载七包才能让 Host 解析并分发客户端插件。
+    # defaultUi 选择启动界面；showOfficialUiEntry 控制开发者切换入口，保留官方插件以体验其完整功能。
+    - id: qs-shell
+      name: '@deepseek-ai/dsh-qs-shell'
+      config:
+        defaultUi: official
+        showOfficialUiEntry: true
+
+    - id: qs-login
+      name: '@deepseek-ai/dsh-qs-login'
+
+    - id: qs-sessions
+      name: '@deepseek-ai/dsh-qs-sessions'
+
+    - id: qs-composer
+      name: '@deepseek-ai/dsh-qs-composer'
+
+    - id: qs-transcript
+      name: '@deepseek-ai/dsh-qs-transcript'
+
+    - id: qs-approval
+      name: '@deepseek-ai/dsh-qs-approval'
+
+    - id: qs-questions
+      name: '@deepseek-ai/dsh-qs-questions'
+
 # ── the agent plane moves behind agent presets ─────────────────────────────
 #
 # Every row below composes what ONE agent contributes to the host registries:

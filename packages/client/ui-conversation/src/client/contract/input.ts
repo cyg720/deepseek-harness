@@ -196,6 +196,9 @@ export interface InputTarget {
 
 /** Per-session input facade owned by the conversation wiring layer. */
 export interface SessionInput extends InputTarget {
+  /** Latest session-addressed submission or command notice; null after clearing. */
+  // QS 二开：公开官方输入实现已有的会话级通知只读源，供工作台显示发送及命令错误，避免复制错误状态或跨会话串用。
+  readonly notices: ObservableSnapshot<InputNotice | null>
   /** Replace the whole draft (persisted-draft seed and programmatic writes). */
   setDraft(text: string): void
   /** Append ordered browser-owned attachment ids; busy admission phases refuse. */

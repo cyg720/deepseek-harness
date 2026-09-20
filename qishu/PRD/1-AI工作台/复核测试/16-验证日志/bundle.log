@@ -1,0 +1,136 @@
+native/system/packages/darwin-arm64      | [WARN] Unsupported platform: wanted: {"cpu":["arm64"],"os":["darwin"],"libc":["any"]} (current: {"os":"win32","cpu":"x64","libc":"unknown"})
+native/system/packages/darwin-x64        | [WARN] Unsupported platform: wanted: {"cpu":["x64"],"os":["darwin"],"libc":["any"]} (current: {"os":"win32","cpu":"x64","libc":"unknown"})
+native/system/packages/linux-arm64       | [WARN] Unsupported platform: wanted: {"cpu":["arm64"],"os":["linux"],"libc":["any"]} (current: {"os":"win32","cpu":"x64","libc":"unknown"})
+native/system/packages/linux-x64         | [WARN] Unsupported platform: wanted: {"cpu":["x64"],"os":["linux"],"libc":["any"]} (current: {"os":"win32","cpu":"x64","libc":"unknown"})
+Scope: 7 of 298 workspace projects
+packages/qs/qs-approval bundle$ tsdown
+packages/qs/qs-shell bundle$ tsdown
+packages/qs/qs-shell bundle: ℹ tsdown v0.22.2 powered by rolldown v1.1.1
+packages/qs/qs-approval bundle: ℹ tsdown v0.22.2 powered by rolldown v1.1.1
+packages/qs/qs-shell bundle: ℹ config file: D:\code\CYG\Github\deepseek-harness\packages\qs\qs-shell\tsdown.config.ts
+packages/qs/qs-shell bundle: ℹ [@deepseek-ai/dsh-qs-shell] entry: lib/types/index.js
+packages/qs/qs-approval bundle: ℹ config file: D:\code\CYG\Github\deepseek-harness\packages\qs\qs-approval\tsdown.config.ts
+packages/qs/qs-shell bundle: ℹ [@deepseek-ai/dsh-qs-shell] target: es2024
+packages/qs/qs-shell bundle: ℹ [@deepseek-ai/dsh-qs-shell] tsconfig: tsconfig.json
+packages/qs/qs-shell bundle: ℹ [@deepseek-ai/dsh-qs-shell/client] entry: src/client/index.ts
+packages/qs/qs-shell bundle: ℹ [@deepseek-ai/dsh-qs-shell/client] tsconfig: tsconfig.json
+packages/qs/qs-shell bundle: ℹ Build start
+packages/qs/qs-approval bundle: ℹ [@deepseek-ai/dsh-qs-approval/client] entry: src/client/index.ts
+packages/qs/qs-approval bundle: ℹ [@deepseek-ai/dsh-qs-approval/client] tsconfig: tsconfig.json
+packages/qs/qs-approval bundle: ℹ [@deepseek-ai/dsh-qs-approval] entry: lib/types/index.js
+packages/qs/qs-approval bundle: ℹ [@deepseek-ai/dsh-qs-approval] target: es2024
+packages/qs/qs-approval bundle: ℹ [@deepseek-ai/dsh-qs-approval] tsconfig: tsconfig.json
+packages/qs/qs-approval bundle: ℹ Build start
+packages/qs/qs-approval bundle: ℹ [@deepseek-ai/dsh-qs-approval] [ESM] lib\index.js  0.40 kB │ gzip: 0.34 kB
+packages/qs/qs-shell bundle: ℹ [@deepseek-ai/dsh-qs-shell] [ESM] lib\index.js  2.18 kB │ gzip: 1.15 kB
+packages/qs/qs-shell bundle: ℹ [@deepseek-ai/dsh-qs-shell] [ESM] 1 files, total: 2.18 kB
+packages/qs/qs-approval bundle: ℹ [@deepseek-ai/dsh-qs-approval] [ESM] 1 files, total: 0.40 kB
+packages/qs/qs-approval bundle: ✔ [@deepseek-ai/dsh-qs-approval] Build complete in 41ms
+packages/qs/qs-shell bundle: ✔ [@deepseek-ai/dsh-qs-shell] Build complete in 44ms
+packages/qs/qs-approval bundle: ℹ [@deepseek-ai/dsh-qs-approval/client] [CJS] lib\client.js      14.15 kB │ gzip: 5.25 kB
+packages/qs/qs-approval bundle: ℹ [@deepseek-ai/dsh-qs-approval/client] [CJS] lib\client.js.map  19.18 kB │ gzip: 7.09 kB
+packages/qs/qs-approval bundle: ℹ [@deepseek-ai/dsh-qs-approval/client] [CJS] 2 files, total: 33.33 kB
+packages/qs/qs-approval bundle: ✔ [@deepseek-ai/dsh-qs-approval/client] Build complete in 50ms
+packages/qs/qs-shell bundle: ℹ [@deepseek-ai/dsh-qs-shell/client] Hint: consider adding deps.onlyBundle option to avoid unintended bundling of dependencies, or set deps.onlyBundle: false to disable this hint.
+packages/qs/qs-shell bundle: See more at https://tsdown.dev/options/dependencies#deps-onlybundle
+packages/qs/qs-shell bundle: Detected dependencies in bundle:
+packages/qs/qs-shell bundle: - clsx
+packages/qs/qs-shell bundle: ℹ [@deepseek-ai/dsh-qs-shell/client] [CJS] lib\client.js      77.64 kB │ gzip: 21.13 kB
+packages/qs/qs-shell bundle: ℹ [@deepseek-ai/dsh-qs-shell/client] [CJS] lib\client.js.map  86.14 kB │ gzip: 26.43 kB
+packages/qs/qs-shell bundle: ℹ [@deepseek-ai/dsh-qs-shell/client] [CJS] 2 files, total: 163.78 kB
+packages/qs/qs-shell bundle: ✔ [@deepseek-ai/dsh-qs-shell/client] Build complete in 65ms
+packages/qs/qs-approval bundle: Done
+packages/qs/qs-shell bundle: Done
+packages/qs/qs-composer bundle$ tsdown
+packages/qs/qs-sessions bundle$ tsdown
+packages/qs/qs-transcript bundle$ tsdown
+packages/qs/qs-login bundle$ tsdown
+packages/qs/qs-sessions bundle: ℹ tsdown v0.22.2 powered by rolldown v1.1.1
+packages/qs/qs-sessions bundle: ℹ config file: D:\code\CYG\Github\deepseek-harness\packages\qs\qs-sessions\tsdown.config.ts
+packages/qs/qs-sessions bundle: ℹ [@deepseek-ai/dsh-qs-sessions] entry: lib/types/index.js
+packages/qs/qs-sessions bundle: ℹ [@deepseek-ai/dsh-qs-sessions] target: es2024
+packages/qs/qs-sessions bundle: ℹ [@deepseek-ai/dsh-qs-sessions] tsconfig: tsconfig.json
+packages/qs/qs-sessions bundle: ℹ [@deepseek-ai/dsh-qs-sessions/client] entry: src/client/index.ts
+packages/qs/qs-sessions bundle: ℹ [@deepseek-ai/dsh-qs-sessions/client] tsconfig: tsconfig.json
+packages/qs/qs-sessions bundle: ℹ Build start
+packages/qs/qs-sessions bundle: ℹ [@deepseek-ai/dsh-qs-sessions] [ESM] lib\index.js  0.44 kB │ gzip: 0.36 kB
+packages/qs/qs-sessions bundle: ℹ [@deepseek-ai/dsh-qs-sessions] [ESM] 1 files, total: 0.44 kB
+packages/qs/qs-sessions bundle: ✔ [@deepseek-ai/dsh-qs-sessions] Build complete in 44ms
+packages/qs/qs-sessions bundle: ℹ [@deepseek-ai/dsh-qs-sessions/client] [CJS] lib\client.js      23.62 kB │ gzip:  6.92 kB
+packages/qs/qs-sessions bundle: ℹ [@deepseek-ai/dsh-qs-sessions/client] [CJS] lib\client.js.map  37.29 kB │ gzip: 11.38 kB
+packages/qs/qs-sessions bundle: ℹ [@deepseek-ai/dsh-qs-sessions/client] [CJS] 2 files, total: 60.91 kB
+packages/qs/qs-sessions bundle: ✔ [@deepseek-ai/dsh-qs-sessions/client] Build complete in 54ms
+packages/qs/qs-sessions bundle: Done
+packages/qs/qs-composer bundle: ℹ tsdown v0.22.2 powered by rolldown v1.1.1
+packages/qs/qs-transcript bundle: ℹ tsdown v0.22.2 powered by rolldown v1.1.1
+packages/qs/qs-transcript bundle: ℹ config file: D:\code\CYG\Github\deepseek-harness\packages\qs\qs-transcript\tsdown.config.ts
+packages/qs/qs-composer bundle: ℹ config file: D:\code\CYG\Github\deepseek-harness\packages\qs\qs-composer\tsdown.config.ts
+packages/qs/qs-composer bundle: ℹ [@deepseek-ai/dsh-qs-composer] entry: lib/types/index.js
+packages/qs/qs-transcript bundle: ℹ [@deepseek-ai/dsh-qs-transcript] entry: lib/types/index.js
+packages/qs/qs-composer bundle: ℹ [@deepseek-ai/dsh-qs-composer] target: es2024
+packages/qs/qs-transcript bundle: ℹ [@deepseek-ai/dsh-qs-transcript] target: es2024
+packages/qs/qs-composer bundle: ℹ [@deepseek-ai/dsh-qs-composer] tsconfig: tsconfig.json
+packages/qs/qs-transcript bundle: ℹ [@deepseek-ai/dsh-qs-transcript] tsconfig: tsconfig.json
+packages/qs/qs-transcript bundle: ℹ [@deepseek-ai/dsh-qs-transcript/client] entry: src/client/index.ts
+packages/qs/qs-transcript bundle: ℹ [@deepseek-ai/dsh-qs-transcript/client] tsconfig: tsconfig.json
+packages/qs/qs-composer bundle: ℹ [@deepseek-ai/dsh-qs-composer/client] entry: src/client/index.ts
+packages/qs/qs-composer bundle: ℹ [@deepseek-ai/dsh-qs-composer/client] tsconfig: tsconfig.json
+packages/qs/qs-transcript bundle: ℹ Build start
+packages/qs/qs-composer bundle: ℹ Build start
+packages/qs/qs-login bundle: ℹ tsdown v0.22.2 powered by rolldown v1.1.1
+packages/qs/qs-composer bundle: ℹ [@deepseek-ai/dsh-qs-composer] [ESM] lib\index.js  0.43 kB │ gzip: 0.35 kB
+packages/qs/qs-transcript bundle: ℹ [@deepseek-ai/dsh-qs-transcript] [ESM] lib\index.js  0.43 kB │ gzip: 0.35 kB
+packages/qs/qs-transcript bundle: ℹ [@deepseek-ai/dsh-qs-transcript] [ESM] 1 files, total: 0.43 kB
+packages/qs/qs-composer bundle: ℹ [@deepseek-ai/dsh-qs-composer] [ESM] 1 files, total: 0.43 kB
+packages/qs/qs-composer bundle: ✔ [@deepseek-ai/dsh-qs-composer] Build complete in 49ms
+packages/qs/qs-transcript bundle: ✔ [@deepseek-ai/dsh-qs-transcript] Build complete in 51ms
+packages/qs/qs-transcript bundle: ℹ [@deepseek-ai/dsh-qs-transcript/client] Hint: consider adding deps.onlyBundle option to avoid unintended bundling of dependencies, or set deps.onlyBundle: false to disable this hint.
+packages/qs/qs-transcript bundle: See more at https://tsdown.dev/options/dependencies#deps-onlybundle
+packages/qs/qs-transcript bundle: Detected dependencies in bundle:
+packages/qs/qs-transcript bundle: - clsx
+packages/qs/qs-composer bundle: ℹ [@deepseek-ai/dsh-qs-composer/client] [CJS] lib\client.js      29.17 kB │ gzip:  8.91 kB
+packages/qs/qs-composer bundle: ℹ [@deepseek-ai/dsh-qs-composer/client] [CJS] lib\client.js.map  44.06 kB │ gzip: 14.35 kB
+packages/qs/qs-composer bundle: ℹ [@deepseek-ai/dsh-qs-composer/client] [CJS] 2 files, total: 73.23 kB
+packages/qs/qs-composer bundle: ✔ [@deepseek-ai/dsh-qs-composer/client] Build complete in 62ms
+packages/qs/qs-transcript bundle: ℹ [@deepseek-ai/dsh-qs-transcript/client] [CJS] lib\client.js      37.98 kB │ gzip: 11.51 kB
+packages/qs/qs-transcript bundle: ℹ [@deepseek-ai/dsh-qs-transcript/client] [CJS] lib\client.js.map  54.14 kB │ gzip: 16.86 kB
+packages/qs/qs-transcript bundle: ℹ [@deepseek-ai/dsh-qs-transcript/client] [CJS] 2 files, total: 92.12 kB
+packages/qs/qs-transcript bundle: ✔ [@deepseek-ai/dsh-qs-transcript/client] Build complete in 65ms
+packages/qs/qs-composer bundle: Done
+packages/qs/qs-transcript bundle: Done
+packages/qs/qs-login bundle: ℹ config file: D:\code\CYG\Github\deepseek-harness\packages\qs\qs-login\tsdown.config.ts
+packages/qs/qs-login bundle: ℹ [@deepseek-ai/dsh-qs-login/client] entry: src/client/index.ts
+packages/qs/qs-login bundle: ℹ [@deepseek-ai/dsh-qs-login/client] tsconfig: tsconfig.json
+packages/qs/qs-login bundle: ℹ [@deepseek-ai/dsh-qs-login] entry: lib/types/index.js
+packages/qs/qs-login bundle: ℹ [@deepseek-ai/dsh-qs-login] target: es2024
+packages/qs/qs-login bundle: ℹ [@deepseek-ai/dsh-qs-login] tsconfig: tsconfig.json
+packages/qs/qs-login bundle: ℹ Build start
+packages/qs/qs-login bundle: ℹ [@deepseek-ai/dsh-qs-login] [ESM] lib\index.js  0.41 kB │ gzip: 0.34 kB
+packages/qs/qs-login bundle: ℹ [@deepseek-ai/dsh-qs-login] [ESM] 1 files, total: 0.41 kB
+packages/qs/qs-login bundle: ✔ [@deepseek-ai/dsh-qs-login] Build complete in 40ms
+packages/qs/qs-login bundle: ℹ [@deepseek-ai/dsh-qs-login/client] Hint: consider adding deps.onlyBundle option to avoid unintended bundling of dependencies, or set deps.onlyBundle: false to disable this hint.
+packages/qs/qs-login bundle: See more at https://tsdown.dev/options/dependencies#deps-onlybundle
+packages/qs/qs-login bundle: Detected dependencies in bundle:
+packages/qs/qs-login bundle: - clsx
+packages/qs/qs-login bundle: ℹ [@deepseek-ai/dsh-qs-login/client] [CJS] lib\client.js      45.73 kB │ gzip: 11.58 kB
+packages/qs/qs-login bundle: ℹ [@deepseek-ai/dsh-qs-login/client] [CJS] lib\client.js.map  53.26 kB │ gzip: 15.94 kB
+packages/qs/qs-login bundle: ℹ [@deepseek-ai/dsh-qs-login/client] [CJS] 2 files, total: 98.99 kB
+packages/qs/qs-login bundle: ✔ [@deepseek-ai/dsh-qs-login/client] Build complete in 52ms
+packages/qs/qs-login bundle: Done
+packages/qs/qs-questions bundle$ tsdown
+packages/qs/qs-questions bundle: ℹ tsdown v0.22.2 powered by rolldown v1.1.1
+packages/qs/qs-questions bundle: ℹ config file: D:\code\CYG\Github\deepseek-harness\packages\qs\qs-questions\tsdown.config.ts
+packages/qs/qs-questions bundle: ℹ [@deepseek-ai/dsh-qs-questions] entry: lib/types/index.js
+packages/qs/qs-questions bundle: ℹ [@deepseek-ai/dsh-qs-questions] target: es2024
+packages/qs/qs-questions bundle: ℹ [@deepseek-ai/dsh-qs-questions] tsconfig: tsconfig.json
+packages/qs/qs-questions bundle: ℹ [@deepseek-ai/dsh-qs-questions/client] entry: src/client/index.ts
+packages/qs/qs-questions bundle: ℹ [@deepseek-ai/dsh-qs-questions/client] tsconfig: tsconfig.json
+packages/qs/qs-questions bundle: ℹ Build start
+packages/qs/qs-questions bundle: ℹ [@deepseek-ai/dsh-qs-questions] [ESM] lib\index.js  0.44 kB │ gzip: 0.37 kB
+packages/qs/qs-questions bundle: ℹ [@deepseek-ai/dsh-qs-questions] [ESM] 1 files, total: 0.44 kB
+packages/qs/qs-questions bundle: ✔ [@deepseek-ai/dsh-qs-questions] Build complete in 41ms
+packages/qs/qs-questions bundle: ℹ [@deepseek-ai/dsh-qs-questions/client] [CJS] lib\client.js      20.66 kB │ gzip:  6.47 kB
+packages/qs/qs-questions bundle: ℹ [@deepseek-ai/dsh-qs-questions/client] [CJS] lib\client.js.map  33.28 kB │ gzip: 10.78 kB
+packages/qs/qs-questions bundle: ℹ [@deepseek-ai/dsh-qs-questions/client] [CJS] 2 files, total: 53.94 kB
+packages/qs/qs-questions bundle: ✔ [@deepseek-ai/dsh-qs-questions/client] Build complete in 50ms
+packages/qs/qs-questions bundle: Done

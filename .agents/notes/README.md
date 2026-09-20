@@ -14,6 +14,9 @@ Every Agent Note has two axes, both encoded in its **path** — `{lifecycle}/{cl
   - **`rejected/`** — the proposal was considered and declined. Keep it only while its rationale prevents a tempting, meaningful mistake; otherwise delete the complete triplet.
 - **Class** (the nested folder) is the *kind* of decision — see [Classification](#classification) below.
 
+<!-- QS 二开说明：明确二开笔记统一存入 notes/qs/{生命周期}/{分类}，保留冻结归档规则；此处同步官方维护入口的约定，避免实现与文档描述不一致。 -->
+- Qishu second-development notes live in `qs/{lifecycle}/{class}/yyyy-mm-dd-topic-title.md`, separate from the upstream lifecycle folders. Both trees use the same closed active lifecycle and class sets, note format, and bilingual pairing checks. Existing frozen archives remain at `archived/`; `qs/archived/` is not an archive destination.
+
 The date in the filename is when the topic was **first proposed** (per git history). Cross-references between Agent Notes use relative markdown links (`[topic](../../implemented/architecture/2026-…-….md)`) — never bare prose or numbers — so they are mechanically checkable and survive moves between folders.
 
 The active lifecycle tree is the working inventory: browse its lifecycle/class folders or search the repository. Do not add a centralized `INDEX.md`; the [no-index Agent Note](implemented/process/2026-07-19-remove-generated-agent-note-index.md) owns the rationale. Low-future-value implemented records move to the separate frozen [`archived/`](archived/AGENTS.md) tree described below.

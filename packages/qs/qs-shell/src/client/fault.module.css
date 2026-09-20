@@ -1,0 +1,93 @@
+/* 根故障页：原型 system-fault 的结构，焦点落在标题上以便读屏播报。 */
+
+.page {
+  height: 100dvh;
+  display: grid;
+  place-items: center;
+  background: var(--qs-bg);
+  color: var(--qs-text);
+  padding: 22px;
+}
+
+.card {
+  max-width: 640px;
+  width: 100%;
+  border: 1px solid var(--qs-line);
+  border-radius: 17px;
+  background: var(--qs-surface);
+  padding: 34px 32px;
+  box-shadow: var(--qs-shadow);
+}
+
+.symbol {
+  display: inline-grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 11px;
+  background: var(--qs-error-bg);
+  color: var(--qs-error-text);
+  margin-bottom: 18px;
+}
+
+.title {
+  font-size: 27px;
+  font-weight: 500;
+  margin: 0 0 12px;
+  line-height: 1.4;
+}
+
+.title:focus-visible {
+  outline: 2px solid var(--qs-field-focus-ring);
+  outline-offset: 3px;
+}
+
+.lead {
+  font-size: 13px;
+  line-height: 1.9;
+  color: var(--qs-muted);
+  margin: 0 0 24px;
+}
+
+.actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.detail {
+  margin-top: 24px;
+  border-top: 1px solid var(--qs-line);
+  padding-top: 16px;
+  font-size: 12px;
+  color: var(--qs-muted);
+}
+
+.detail pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  background: var(--qs-subtle);
+  border: 1px solid var(--qs-line);
+  border-radius: 9px;
+  padding: 14px;
+  font: 12px/1.9 inherit;
+  margin: 12px 0 0;
+}
+
+@media (max-width: 700px) {
+  .page {
+    padding: 22px;
+  }
+
+  .card {
+    padding: 22px;
+  }
+
+  .title {
+    font-size: 25px;
+  }
+
+  .actions > * {
+    flex: 1;
+  }
+}

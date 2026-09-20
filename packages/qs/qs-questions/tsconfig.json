@@ -10,6 +10,39 @@
   "references": [
     {
       "path": "../../../vendor/cordis"
+    },
+    {
+      "path": "../../api/session-controller/tsconfig.client.json"
+    },
+    {
+      "path": "../../client/locale"
+    },
+    {
+      "path": "../../client/store"
+    },
+    {
+      "path": "../../client/ui-renderer"
+    },
+    {
+      "path": "../../client/ui-session"
+    },
+    {
+      "path": "../../client/ui-slots"
+    },
+    {
+      "path": "../../client/ui-user-questions"
+    },
+    {
+      "path": "../../interaction/user-questions"
+    },
+    {
+      "path": "../qs-shell"
+    },
+    {
+      "path": "../qs-transcript"
+    },
+    {
+      "path": "../../client/ui-primitives"
     }
   ]
 }

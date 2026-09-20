@@ -1,0 +1,5 @@
+# Official-interface browser tests select their root through the public profile patch.
+- id: qs-shell
+  config:
+    defaultUi: official
+    showOfficialUiEntry: false

@@ -1,0 +1,140 @@
+/* 审批与提问卡片共用原型 .interaction-card 的表面与排版。 */
+
+.card {
+  background: var(--qs-surface);
+  border: 1px solid var(--qs-line);
+  border-radius: 11px;
+  padding: 24px;
+  margin: 8px 0 24px;
+  color: var(--qs-text);
+  font-size: 13px;
+  line-height: 1.7;
+  overflow-wrap: anywhere;
+}
+
+.eyebrow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--qs-text);
+  font-size: 12px;
+  margin-bottom: 18px;
+}
+
+.dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  corner-shape: round;
+  background: var(--qs-warning-text);
+  flex-shrink: 0;
+}
+
+.card h3 {
+  font-size: 20px;
+  line-height: 1.5;
+  font-weight: 550;
+  margin: 0 0 8px;
+  letter-spacing: 0.2px;
+}
+
+.description {
+  margin: 0 0 20px;
+  color: var(--qs-muted);
+}
+
+.detail {
+  padding: 16px;
+  background: var(--qs-subtle);
+  border: 1px solid var(--qs-line);
+  border-radius: 9px;
+  max-height: 300px;
+  overflow: auto;
+}
+
+.detail dl {
+  display: grid;
+  grid-template-columns: 72px minmax(0, 1fr);
+  gap: 10px;
+  margin: 0;
+}
+
+.detail dt {
+  color: var(--qs-muted);
+}
+
+.detail dd {
+  margin: 0;
+}
+
+.argsLabel {
+  margin: 12px 0 6px;
+  color: var(--qs-muted);
+}
+
+.args {
+  background: var(--qs-bg);
+  color: var(--qs-text);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  border: 1px solid var(--qs-line);
+  border-radius: 7px;
+  padding: 12px;
+  font-size: 12px;
+  margin: 0;
+  max-height: 220px;
+  overflow: auto;
+}
+
+.fallback {
+  margin: 12px 0 0;
+  color: var(--qs-muted);
+}
+
+.note {
+  margin: 16px 0 0;
+  color: var(--qs-muted);
+  font-size: 12px;
+}
+
+.error {
+  margin: 16px 0 0;
+  color: var(--qs-error-text);
+  background: var(--qs-error-bg);
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: 12px;
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 22px;
+  padding-top: 18px;
+  border-top: 1px solid var(--qs-line);
+}
+
+.reject {
+  color: var(--qs-error-text);
+}
+
+.card .actions > * {
+  min-height: 42px;
+}
+
+@media (max-width: 700px) {
+  .card {
+    padding: 18px 16px;
+  }
+
+  .card h3 {
+    font-size: 18px;
+  }
+
+  .actions > * {
+    flex: 1;
+  }
+}

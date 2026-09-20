@@ -1,6 +1,6 @@
 {
   "name": "@deepseek-ai/dsh-qs-composer",
-  "description": "Scaffold for Qishu message composition",
+  "description": "Qishu workbench message composer: draft, send, stop, queue rows, and the no-session creation hand-off",
   "version": "0.1.5-rc.2",
   "repository": {
     "type": "git",
@@ -24,6 +24,15 @@
   },
   "dsh": {
     "client": {
+      "inject": [
+        "@deepseek-ai/dsh-api-session-controller",
+        "@deepseek-ai/dsh-client-connection",
+        "@deepseek-ai/dsh-client-locale",
+        "@deepseek-ai/dsh-client-ui-conversation",
+        "@deepseek-ai/dsh-client-ui-renderer",
+        "@deepseek-ai/dsh-client-ui-session",
+        "@deepseek-ai/dsh-client-ui-model-selection"
+      ],
       "platform": "web"
     }
   },
@@ -36,7 +45,23 @@
     "@deepseek-ai/cordis": "workspace:^"
   },
   "devDependencies": {
-    "@deepseek-ai/cordis": "workspace:^"
+    "@deepseek-ai/cordis": "workspace:^",
+    "@deepseek-ai/dsh-api-session-controller": "workspace:^",
+    "@deepseek-ai/dsh-client-connection": "workspace:^",
+    "@deepseek-ai/dsh-client-locale": "workspace:^",
+    "@deepseek-ai/dsh-client-store": "workspace:^",
+    "@deepseek-ai/dsh-client-test-runtime": "workspace:^",
+    "@deepseek-ai/dsh-client-ui-conversation": "workspace:^",
+    "@deepseek-ai/dsh-client-ui-renderer": "workspace:^",
+    "@deepseek-ai/dsh-client-ui-session": "workspace:^",
+    "@deepseek-ai/dsh-client-ui-slots": "workspace:^",
+    "@deepseek-ai/dsh-qs-shell": "workspace:^",
+    "@deepseek-ai/dsh-session": "workspace:^",
+    "@deepseek-ai/dsh-util-crypto": "workspace:^",
+    "@types/react": "~18.3.1",
+    "clsx": "^2.0.0",
+    "react": "^18.2.0",
+    "@deepseek-ai/dsh-client-ui-model-selection": "workspace:^"
   },
   "files": [
     "lib/index.js",

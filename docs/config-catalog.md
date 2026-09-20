@@ -1448,7 +1448,7 @@ export interface ReplayModelConfig {
 
 Depends on: [`ModelModality`](../packages/llm/llm/src/index.ts) · [`RetryPolicyConfig`](../packages/llm/llm/src/index.ts) · [`SystemPromptUpdate`](../packages/llm/llm/src/index.ts)
 
-Source: [`packages/test-support/llm-replay/src/index.ts:1123`](../packages/test-support/llm-replay/src/index.ts)
+Source: [`packages/test-support/llm-replay/src/index.ts:1135`](../packages/test-support/llm-replay/src/index.ts)
 
 <a id="deepseek-aidsh-llm-retry"></a>
 
@@ -1748,6 +1748,25 @@ export type Config = LocalConfig
 Depends on: [`LocalConfig`](#deepseek-aidsh-pwsh-local)
 
 Source: [`packages/shell/pwsh-sandbox/src/index.ts:40`](../packages/shell/pwsh-sandbox/src/index.ts)
+
+<a id="deepseek-aidsh-qs-shell"></a>
+
+## `@deepseek-ai/dsh-qs-shell`
+
+```ts config-catalog
+/** qs-shell 的部署级配置（宿主侧解析后经 index-inject 传给浏览器）。 */
+export interface QsShellConfig {
+  /** 本次启动的初始界面；默认 `workbench`。 */
+  defaultUi: QsUiId
+  /** 是否启用开发者双向切换入口与动作；默认 false。 */
+  showOfficialUiEntry: boolean
+}
+
+/** 启动界面选择：奇术工作台或官方界面。 */
+export type QsUiId = 'workbench' | 'official'
+```
+
+Source: [`packages/qs/qs-shell/src/client/contract.ts:178`](../packages/qs/qs-shell/src/client/contract.ts)
 
 <a id="deepseek-aidsh-repeat-tool-reminder"></a>
 
@@ -3507,6 +3526,12 @@ These load from a `cordis.yml` entry with no `config:` block; they declare no co
 - `@deepseek-ai/dsh-host-plugin-inventory` — requires `loader` ([`packages/host/plugin-inventory/src/index.ts`](../packages/host/plugin-inventory/src/index.ts))
 - `@deepseek-ai/dsh-llm` ([`packages/llm/llm/src/index.ts`](../packages/llm/llm/src/index.ts))
 - `@deepseek-ai/dsh-lsp` ([`packages/lsp/lsp/src/index.ts`](../packages/lsp/lsp/src/index.ts))
+- `@deepseek-ai/dsh-qs-approval` ([`packages/qs/qs-approval/src/index.ts`](../packages/qs/qs-approval/src/index.ts))
+- `@deepseek-ai/dsh-qs-composer` ([`packages/qs/qs-composer/src/index.ts`](../packages/qs/qs-composer/src/index.ts))
+- `@deepseek-ai/dsh-qs-login` ([`packages/qs/qs-login/src/index.ts`](../packages/qs/qs-login/src/index.ts))
+- `@deepseek-ai/dsh-qs-questions` ([`packages/qs/qs-questions/src/index.ts`](../packages/qs/qs-questions/src/index.ts))
+- `@deepseek-ai/dsh-qs-sessions` ([`packages/qs/qs-sessions/src/index.ts`](../packages/qs/qs-sessions/src/index.ts))
+- `@deepseek-ai/dsh-qs-transcript` ([`packages/qs/qs-transcript/src/index.ts`](../packages/qs/qs-transcript/src/index.ts))
 - `@deepseek-ai/dsh-schedule` — requires `agents` · `sessions` · `tools` · `sessionPersistence` ([`packages/schedule/schedule/src/index.ts`](../packages/schedule/schedule/src/index.ts))
 - `@deepseek-ai/dsh-session` ([`packages/core/session/src/index.ts`](../packages/core/session/src/index.ts))
 - `@deepseek-ai/dsh-session-checkpoint-policy` — requires `llm` · `sessionPersistence` · `sessions` · `tools` ([`packages/session/session-checkpoint-policy/src/index.ts`](../packages/session/session-checkpoint-policy/src/index.ts))

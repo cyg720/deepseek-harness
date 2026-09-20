@@ -16,6 +16,7 @@ import { Context } from '@deepseek-ai/cordis'
 import type { SandboxExecutionPolicy } from '@deepseek-ai/dsh-sandbox'
 import { resolvePwshPath } from '@deepseek-ai/dsh-pwsh-local'
 import { LocalSandboxProvider } from '@deepseek-ai/dsh-sandbox-local'
+import SessionProjectionRegistry from '@deepseek-ai/dsh-session-projection'
 import { SandboxPolicyService } from '@deepseek-ai/dsh-sandbox-policy'
 import LocalSubprocessRuntime from '@deepseek-ai/dsh-subprocess-local'
 import { SandboxPwshExecutor } from '../src/index.ts'
@@ -32,6 +33,7 @@ describe.skipIf(!isWin32 || !pwshAvailable())('pwsh-sandbox real ACL confinement
   let outsideTempDir!: string
   let secretFile!: string
   let escapeFile!: string
+  let ctx: Context | undefined
   let executor!: SandboxPwshExecutor
 
   beforeAll(async () => {
@@ -46,7 +48,9 @@ describe.skipIf(!isWin32 || !pwshAvailable())('pwsh-sandbox real ACL confinement
     writeFileSync(secretFile, 'top secret - must stay readable to prove the read boundary')
     escapeFile = join(scratchRoot, 'escaped.txt')
 
-    const ctx = new Context()
+    ctx = new Context()
+    // QS 二开：测试装配补齐正式沙箱依赖的会话投影，避免在 ACL 断言前因缺少服务失败。
+    await ctx.plugin(SessionProjectionRegistry)
     await ctx.plugin(LocalSandboxProvider, {})
     await ctx.plugin(SandboxPolicyService, { mode: 'workspace-write', workspaceRoot: writableDir })
     await ctx.plugin(LocalSubprocessRuntime)
@@ -54,7 +58,9 @@ describe.skipIf(!isWin32 || !pwshAvailable())('pwsh-sandbox real ACL confinement
     executor = ctx.shell as SandboxPwshExecutor
   })
 
-  afterAll(() => {
+  afterAll(async () => {
+    // QS 二开：先等待插件及子进程资源释放再清理目录，避免 Windows 句柄占用和异步清理竞态。
+    await ctx?.fiber.dispose()
     rmSync(scratchRoot, { recursive: true, force: true })
     rmSync(outsideTempDir, { recursive: true, force: true })
   })

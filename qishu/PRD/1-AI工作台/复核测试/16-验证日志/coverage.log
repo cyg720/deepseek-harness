@@ -1,0 +1,235 @@
+The plugin "vite-tsconfig-paths" is detected. Vite now supports tsconfig paths resolution natively via the resolve.tsconfigPaths option. You can remove the plugin and set resolve.tsconfigPaths: true in your Vite config instead.
+The plugin "vite-tsconfig-paths" is detected. Vite now supports tsconfig paths resolution natively via the resolve.tsconfigPaths option. You can remove the plugin and set resolve.tsconfigPaths: true in your Vite config instead.
+The plugin "vite-tsconfig-paths" is detected. Vite now supports tsconfig paths resolution natively via the resolve.tsconfigPaths option. You can remove the plugin and set resolve.tsconfigPaths: true in your Vite config instead.
+
+ RUN  v4.1.8 D:/code/CYG/Github/deepseek-harness
+      Coverage enabled with v8
+
+
+ Test Files  24 passed (24)
+      Tests  137 passed (137)
+   Start at  17:35:25
+   Duration  6.11s (transform 18.97s, setup 3.95s, import 32.31s, tests 2.58s, environment 13.50s)
+
+ % Coverage report from v8
+-------------------|---------|----------|---------|---------|-------------------
+File               | % Stmts | % Branch | % Funcs | % Lines | Uncovered Line #s
+-------------------|---------|----------|---------|---------|-------------------
+All files          |   65.27 |    60.36 |   51.26 |   68.72 |
+ qs-approval/src   |       0 |        0 |       0 |       0 |
+  index.ts         |       0 |        0 |       0 |       0 |
+ ...val/src/client |   67.69 |    67.21 |   66.66 |   69.64 |
+  ApprovalCard.tsx |   89.47 |       65 |   85.71 |     100 | 37-64,68,89
+  ...val-detail.ts |     100 |    96.55 |     100 |     100 | 57
+  index.ts         |   32.14 |        0 |    37.5 |   29.16 | 43-62,69-73
+ qs-composer/src   |       0 |        0 |       0 |       0 |
+  index.ts         |       0 |        0 |       0 |       0 |
+ ...ser/src/client |   54.68 |    55.19 |   32.95 |      58 |
+  Composer.tsx     |   62.99 |    66.27 |   39.39 |   71.42 | ...55,165-184,253
+  Icon.tsx         |     100 |       80 |     100 |     100 | 32
+  handoff.ts       |     100 |    93.33 |     100 |     100 | 133
+  index.ts         |   24.17 |        0 |     9.3 |   23.28 | ...2-86,91,97-156
+ qs-login/src      |       0 |        0 |       0 |       0 |
+  index.ts         |       0 |        0 |       0 |       0 |
+ ...gin/src/client |   51.85 |    43.54 |   42.22 |   50.86 |
+  ...oryVisual.tsx |       0 |      100 |       0 |       0 | 31
+  Icon.tsx         |   33.33 |        0 |       0 |   33.33 | 32-33
+  LoginPage.tsx    |       0 |        0 |       0 |       0 | 28-200
+  auth-store.ts    |   82.92 |       80 |      90 |   88.57 | 39,53,102,111
+  index.ts         |   53.57 |        0 |   35.71 |   45.83 | 47-52,56-63,75-82
+ qs-questions/src  |       0 |        0 |       0 |       0 |
+  index.ts         |       0 |        0 |       0 |       0 |
+ ...ons/src/client |   91.15 |    77.35 |   89.36 |   96.61 |
+  QuestionCard.tsx |   98.14 |    82.69 |     100 |     100 | ...,82-93,157-170
+  contract.ts      |     100 |       50 |     100 |     100 | 43
+  index.ts         |   77.77 |    31.57 |   70.58 |      90 | 47,91-96
+  plan-review.ts   |     100 |    93.75 |     100 |     100 | 45
+ qs-sessions/src   |       0 |        0 |       0 |       0 |
+  index.ts         |       0 |        0 |       0 |       0 |
+ ...ons/src/client |   76.44 |    76.14 |   65.71 |   79.14 |
+  Icon.tsx         |     100 |       60 |     100 |     100 | 31-34
+  SessionList.tsx  |   81.33 |     73.8 |   71.42 |    87.5 | 40,93,140-149
+  SessionMenu.tsx  |   96.29 |       95 |     100 |     100 | 67-69
+  index.ts         |      55 |      100 |      25 |      50 | 45-46,52,59-65
+  pins-store.ts    |   68.75 |       50 |   54.54 |      75 | 32-39
+  ...on-actions.ts |      50 |       50 |      60 |      50 | 58,81-102
+ qs-shell/src      |   73.91 |    81.25 |   33.33 |      75 |
+  config.ts        |     100 |    92.85 |     100 |     100 | 30
+  index.ts         |       0 |        0 |       0 |       0 | 17-31
+ ...ell/src/client |   48.43 |    38.09 |    29.2 |   54.18 |
+  AppShell.tsx     |    3.03 |        0 |       0 |    3.84 | 49-157
+  FaultPage.tsx    |       0 |        0 |   14.28 |       0 | 18-109
+  Icon.tsx         |   33.33 |        0 |       0 |   33.33 | 53-54
+  ...ialReturn.tsx |       0 |        0 |       0 |       0 | 30
+  OverlayHost.tsx  |       0 |      100 |       0 |       0 | 22-27
+  PanelResize.tsx  |   36.36 |    36.36 |    37.5 |   44.44 | 23-37
+  RightPanel.tsx   |   86.66 |       75 |   83.33 |   91.66 | 41
+  SideNav.tsx      |       0 |        0 |       0 |       0 | 29-49
+  Stage.tsx        |       0 |        0 |       0 |       0 | 35-38
+  StatusBar.tsx    |       0 |        0 |       0 |       0 | 21-34
+  TopBar.tsx       |       0 |        0 |       0 |       0 | 31-81
+  WelcomePane.tsx  |       0 |        0 |       0 |       0 | 16-17
+  index.ts         |   53.84 |    23.07 |      25 |   61.97 | ...88,194-199,214
+  layout-store.ts  |   86.88 |    91.89 |   83.33 |   87.75 | 115-116,121-124
+  ui-mode.ts       |   82.35 |       90 |   71.42 |   92.85 | 43-44
+ qs-transcript/src |       0 |        0 |       0 |       0 |
+  index.ts         |       0 |        0 |       0 |       0 |
+ ...ipt/src/client |   78.32 |    69.89 |   73.49 |   81.73 |
+  Icon.tsx         |     100 |       60 |     100 |     100 | 28-31
+  Transcript.tsx   |   83.48 |    69.69 |   78.57 |   87.35 | ...67-171,177-180
+  adapter.ts       |     100 |    96.55 |     100 |     100 | 115
+  index.ts         |   34.78 |     7.14 |      20 |    32.5 | ...,93-99,110-125
+  rows.tsx         |   87.32 |    65.51 |     100 |     100 | ...10,122,141-166
+-------------------|---------|----------|---------|---------|-------------------
+
+=============================== Coverage summary ===============================
+Statements   : 65.27% ( 925/1417 )
+Branches     : 60.36% ( 533/883 )
+Functions    : 51.26% ( 244/476 )
+Lines        : 68.72% ( 778/1132 )
+================================================================================
+ERROR: Coverage for branches (93.75%) does not meet global threshold (100%) for packages/qs/qs-questions/src/client/plan-review.ts
+ERROR: Coverage for branches (92.85%) does not meet global threshold (100%) for packages/qs/qs-shell/src/config.ts
+ERROR: Coverage for branches (96.55%) does not meet global threshold (100%) for packages/qs/qs-transcript/src/client/adapter.ts
+ERROR: Coverage for branches (93.33%) does not meet global threshold (100%) for packages/qs/qs-composer/src/client/handoff.ts
+ERROR: Coverage for branches (96.55%) does not meet global threshold (100%) for packages/qs/qs-approval/src/client/approval-detail.ts
+ERROR: Coverage for lines (75%) does not meet global threshold (100%) for packages/qs/qs-sessions/src/client/pins-store.ts
+ERROR: Coverage for functions (54.54%) does not meet global threshold (100%) for packages/qs/qs-sessions/src/client/pins-store.ts
+ERROR: Coverage for statements (68.75%) does not meet global threshold (100%) for packages/qs/qs-sessions/src/client/pins-store.ts
+ERROR: Coverage for branches (50%) does not meet global threshold (100%) for packages/qs/qs-sessions/src/client/pins-store.ts
+ERROR: Coverage for lines (87.75%) does not meet global threshold (100%) for packages/qs/qs-shell/src/client/layout-store.ts
+ERROR: Coverage for functions (83.33%) does not meet global threshold (100%) for packages/qs/qs-shell/src/client/layout-store.ts
+ERROR: Coverage for statements (86.88%) does not meet global threshold (100%) for packages/qs/qs-shell/src/client/layout-store.ts
+ERROR: Coverage for branches (91.89%) does not meet global threshold (100%) for packages/qs/qs-shell/src/client/layout-store.ts
+ERROR: Coverage for lines (92.85%) does not meet global threshold (100%) for packages/qs/qs-shell/src/client/ui-mode.ts
+ERROR: Coverage for functions (71.42%) does not meet global threshold (100%) for packages/qs/qs-shell/src/client/ui-mode.ts
+ERROR: Coverage for statements (82.35%) does not meet global threshold (100%) for packages/qs/qs-shell/src/client/ui-mode.ts
+ERROR: Coverage for branches (90%) does not meet global threshold (100%) for packages/qs/qs-shell/src/client/ui-mode.ts
+ERROR: Coverage for lines (50%) does not meet global threshold (100%) for packages/qs/qs-sessions/src/client/use-session-actions.ts
+ERROR: Coverage for functions (60%) does not meet global threshold (100%) for packages/qs/qs-sessions/src/client/use-session-actions.ts
+ERROR: Coverage for statements (50%) does not meet global threshold (100%) for packages/qs/qs-sessions/src/client/use-session-actions.ts
+ERROR: Coverage for branches (50%) does not meet global threshold (100%) for packages/qs/qs-sessions/src/client/use-session-actions.ts
+ERROR: Coverage for lines (29.16%) does not meet global threshold (100%) for packages/qs/qs-approval/src/client/index.ts
+ERROR: Coverage for functions (37.5%) does not meet global threshold (100%) for packages/qs/qs-approval/src/client/index.ts
+ERROR: Coverage for statements (32.14%) does not meet global threshold (100%) for packages/qs/qs-approval/src/client/index.ts
+ERROR: Coverage for branches (0%) does not meet global threshold (100%) for packages/qs/qs-approval/src/client/index.ts
+ERROR: Coverage for lines (45.83%) does not meet global threshold (100%) for packages/qs/qs-login/src/client/index.ts
+ERROR: Coverage for functions (35.71%) does not meet global threshold (100%) for packages/qs/qs-login/src/client/index.ts
+ERROR: Coverage for statements (53.57%) does not meet global threshold (100%) for packages/qs/qs-login/src/client/index.ts
+ERROR: Coverage for branches (0%) does not meet global threshold (100%) for packages/qs/qs-login/src/client/index.ts
+ERROR: Coverage for lines (33.33%) does not meet global threshold (100%) for packages/qs/qs-login/src/client/Icon.tsx
+ERROR: Coverage for functions (0%) does not meet global threshold (100%) for packages/qs/qs-login/src/client/Icon.tsx
+ERROR: Coverage for statements (33.33%) does not meet global threshold (100%) for packages/qs/qs-login/src/client/Icon.tsx
+ERROR: Coverage for branches (0%) does not meet global threshold (100%) for packages/qs/qs-login/src/client/Icon.tsx
+ERROR: Coverage for branches (50%) does not meet global threshold (100%) for packages/qs/qs-questions/src/client/contract.ts
+ERROR: Coverage for branches (80%) does not meet global threshold (100%) for packages/qs/qs-composer/src/client/Icon.tsx
+ERROR: Coverage for functions (85.71%) does not meet global threshold (100%) for packages/qs/qs-approval/src/client/ApprovalCard.tsx
+ERROR: Coverage for statements (89.47%) does not meet global threshold (100%) for packages/qs/qs-approval/src/client/ApprovalCard.tsx
+ERROR: Coverage for branches (65%) does not meet global threshold (100%) for packages/qs/qs-approval/src/client/ApprovalCard.tsx
+ERROR: Coverage for lines (0%) does not meet global threshold (100%) for packages/qs/qs-login/src/client/LoginPage.tsx
+ERROR: Coverage for functions (0%) does not meet global threshold (100%) for packages/qs/qs-login/src/client/LoginPage.tsx
+ERROR: Coverage for statements (0%) does not meet global threshold (100%) for packages/qs/qs-login/src/client/LoginPage.tsx
+ERROR: Coverage for branches (0%) does not meet global threshold (100%) for packages/qs/qs-login/src/client/LoginPage.tsx
+ERROR: Coverage for lines (88.57%) does not meet global threshold (100%) for packages/qs/qs-login/src/client/auth-store.ts
+ERROR: Coverage for functions (90%) does not meet global threshold (100%) for packages/qs/qs-login/src/client/auth-store.ts
+ERROR: Coverage for statements (82.92%) does not meet global threshold (100%) for packages/qs/qs-login/src/client/auth-store.ts
+ERROR: Coverage for branches (80%) does not meet global threshold (100%) for packages/qs/qs-login/src/client/auth-store.ts
+ERROR: Coverage for lines (71.42%) does not meet global threshold (100%) for packages/qs/qs-composer/src/client/Composer.tsx
+ERROR: Coverage for functions (39.39%) does not meet global threshold (100%) for packages/qs/qs-composer/src/client/Composer.tsx
+ERROR: Coverage for statements (62.99%) does not meet global threshold (100%) for packages/qs/qs-composer/src/client/Composer.tsx
+ERROR: Coverage for branches (66.27%) does not meet global threshold (100%) for packages/qs/qs-composer/src/client/Composer.tsx
+ERROR: Coverage for lines (23.28%) does not meet global threshold (100%) for packages/qs/qs-composer/src/client/index.ts
+ERROR: Coverage for functions (9.3%) does not meet global threshold (100%) for packages/qs/qs-composer/src/client/index.ts
+ERROR: Coverage for statements (24.17%) does not meet global threshold (100%) for packages/qs/qs-composer/src/client/index.ts
+ERROR: Coverage for branches (0%) does not meet global threshold (100%) for packages/qs/qs-composer/src/client/index.ts
+ERROR: Coverage for statements (98.14%) does not meet global threshold (100%) for packages/qs/qs-questions/src/client/QuestionCard.tsx
+ERROR: Coverage for branches (82.69%) does not meet global threshold (100%) for packages/qs/qs-questions/src/client/QuestionCard.tsx
+ERROR: Coverage for lines (0%) does not meet global threshold (100%) for packages/qs/qs-login/src/client/FactoryVisual.tsx
+ERROR: Coverage for functions (0%) does not meet global threshold (100%) for packages/qs/qs-login/src/client/FactoryVisual.tsx
+ERROR: Coverage for statements (0%) does not meet global threshold (100%) for packages/qs/qs-login/src/client/FactoryVisual.tsx
+ERROR: Coverage for statements (96.29%) does not meet global threshold (100%) for packages/qs/qs-sessions/src/client/SessionMenu.tsx
+ERROR: Coverage for branches (95%) does not meet global threshold (100%) for packages/qs/qs-sessions/src/client/SessionMenu.tsx
+ERROR: Coverage for lines (50%) does not meet global threshold (100%) for packages/qs/qs-sessions/src/client/index.ts
+ERROR: Coverage for functions (25%) does not meet global threshold (100%) for packages/qs/qs-sessions/src/client/index.ts
+ERROR: Coverage for statements (55%) does not meet global threshold (100%) for packages/qs/qs-sessions/src/client/index.ts
+ERROR: Coverage for lines (33.33%) does not meet global threshold (100%) for packages/qs/qs-shell/src/client/Icon.tsx
+ERROR: Coverage for functions (0%) does not meet global threshold (100%) for packages/qs/qs-shell/src/client/Icon.tsx
+ERROR: Coverage for statements (33.33%) does not meet global threshold (100%) for packages/qs/qs-shell/src/client/Icon.tsx
+ERROR: Coverage for branches (0%) does not meet global threshold (100%) for packages/qs/qs-shell/src/client/Icon.tsx
+ERROR: Coverage for lines (44.44%) does not meet global threshold (100%) for packages/qs/qs-shell/src/client/PanelResize.tsx
+ERROR: Coverage for functions (37.5%) does not meet global threshold (100%) for packages/qs/qs-shell/src/client/PanelResize.tsx
+ERROR: Coverage for statements (36.36%) does not meet global threshold (100%) for packages/qs/qs-shell/src/client/PanelResize.tsx
+ERROR: Coverage for branches (36.36%) does not meet global threshold (100%) for packages/qs/qs-shell/src/client/PanelResize.tsx
+ERROR: Coverage for lines (3.84%) does not meet global threshold (100%) for packages/qs/qs-shell/src/client/AppShell.tsx
+ERROR: Coverage for functions (0%) does not meet global threshold (100%) for packages/qs/qs-shell/src/client/AppShell.tsx
+ERROR: Coverage for statements (3.03%) does not meet global threshold (100%) for packages/qs/qs-shell/src/client/AppShell.tsx
+ERROR: Coverage for branches (0%) does not meet global threshold (100%) for packages/qs/qs-shell/src/client/AppShell.tsx
+ERROR: Coverage for branches (60%) does not meet global threshold (100%) for packages/qs/qs-sessions/src/client/Icon.tsx
+ERROR: Coverage for lines (0%) does not meet global threshold (100%) for packages/qs/qs-shell/src/client/SideNav.tsx
+ERROR: Coverage for functions (0%) does not meet global threshold (100%) for packages/qs/qs-shell/src/client/SideNav.tsx
+ERROR: Coverage for statements (0%) does not meet global threshold (100%) for packages/qs/qs-shell/src/client/SideNav.tsx
+ERROR: Coverage for branches (0%) does not meet global threshold (100%) for packages/qs/qs-shell/src/client/SideNav.tsx
+ERROR: Coverage for lines (90%) does not meet global threshold (100%) for packages/qs/qs-questions/src/client/index.ts
+ERROR: Coverage for functions (70.58%) does not meet global threshold (100%) for packages/qs/qs-questions/src/client/index.ts
+ERROR: Coverage for statements (77.77%) does not meet global threshold (100%) for packages/qs/qs-questions/src/client/index.ts
+ERROR: Coverage for branches (31.57%) does not meet global threshold (100%) for packages/qs/qs-questions/src/client/index.ts
+ERROR: Coverage for lines (0%) does not meet global threshold (100%) for packages/qs/qs-shell/src/client/OfficialReturn.tsx
+ERROR: Coverage for functions (0%) does not meet global threshold (100%) for packages/qs/qs-shell/src/client/OfficialReturn.tsx
+ERROR: Coverage for statements (0%) does not meet global threshold (100%) for packages/qs/qs-shell/src/client/OfficialReturn.tsx
+ERROR: Coverage for branches (0%) does not meet global threshold (100%) for packages/qs/qs-shell/src/client/OfficialReturn.tsx
+ERROR: Coverage for lines (0%) does not meet global threshold (100%) for packages/qs/qs-shell/src/client/StatusBar.tsx
+ERROR: Coverage for functions (0%) does not meet global threshold (100%) for packages/qs/qs-shell/src/client/StatusBar.tsx
+ERROR: Coverage for statements (0%) does not meet global threshold (100%) for packages/qs/qs-shell/src/client/StatusBar.tsx
+ERROR: Coverage for branches (0%) does not meet global threshold (100%) for packages/qs/qs-shell/src/client/StatusBar.tsx
+ERROR: Coverage for lines (87.5%) does not meet global threshold (100%) for packages/qs/qs-sessions/src/client/SessionList.tsx
+ERROR: Coverage for functions (71.42%) does not meet global threshold (100%) for packages/qs/qs-sessions/src/client/SessionList.tsx
+ERROR: Coverage for statements (81.33%) does not meet global threshold (100%) for packages/qs/qs-sessions/src/client/SessionList.tsx
+ERROR: Coverage for branches (73.8%) does not meet global threshold (100%) for packages/qs/qs-sessions/src/client/SessionList.tsx
+ERROR: Coverage for lines (0%) does not meet global threshold (100%) for packages/qs/qs-shell/src/client/OverlayHost.tsx
+ERROR: Coverage for functions (0%) does not meet global threshold (100%) for packages/qs/qs-shell/src/client/OverlayHost.tsx
+ERROR: Coverage for statements (0%) does not meet global threshold (100%) for packages/qs/qs-shell/src/client/OverlayHost.tsx
+ERROR: Coverage for lines (0%) does not meet global threshold (100%) for packages/qs/qs-shell/src/client/FaultPage.tsx
+ERROR: Coverage for functions (14.28%) does not meet global threshold (100%) for packages/qs/qs-shell/src/client/FaultPage.tsx
+ERROR: Coverage for statements (0%) does not meet global threshold (100%) for packages/qs/qs-shell/src/client/FaultPage.tsx
+ERROR: Coverage for branches (0%) does not meet global threshold (100%) for packages/qs/qs-shell/src/client/FaultPage.tsx
+ERROR: Coverage for lines (91.66%) does not meet global threshold (100%) for packages/qs/qs-shell/src/client/RightPanel.tsx
+ERROR: Coverage for functions (83.33%) does not meet global threshold (100%) for packages/qs/qs-shell/src/client/RightPanel.tsx
+ERROR: Coverage for statements (86.66%) does not meet global threshold (100%) for packages/qs/qs-shell/src/client/RightPanel.tsx
+ERROR: Coverage for branches (75%) does not meet global threshold (100%) for packages/qs/qs-shell/src/client/RightPanel.tsx
+ERROR: Coverage for lines (0%) does not meet global threshold (100%) for packages/qs/qs-shell/src/client/Stage.tsx
+ERROR: Coverage for functions (0%) does not meet global threshold (100%) for packages/qs/qs-shell/src/client/Stage.tsx
+ERROR: Coverage for statements (0%) does not meet global threshold (100%) for packages/qs/qs-shell/src/client/Stage.tsx
+ERROR: Coverage for branches (0%) does not meet global threshold (100%) for packages/qs/qs-shell/src/client/Stage.tsx
+ERROR: Coverage for lines (0%) does not meet global threshold (100%) for packages/qs/qs-shell/src/client/TopBar.tsx
+ERROR: Coverage for functions (0%) does not meet global threshold (100%) for packages/qs/qs-shell/src/client/TopBar.tsx
+ERROR: Coverage for statements (0%) does not meet global threshold (100%) for packages/qs/qs-shell/src/client/TopBar.tsx
+ERROR: Coverage for branches (0%) does not meet global threshold (100%) for packages/qs/qs-shell/src/client/TopBar.tsx
+ERROR: Coverage for lines (32.5%) does not meet global threshold (100%) for packages/qs/qs-transcript/src/client/index.ts
+ERROR: Coverage for functions (20%) does not meet global threshold (100%) for packages/qs/qs-transcript/src/client/index.ts
+ERROR: Coverage for statements (34.78%) does not meet global threshold (100%) for packages/qs/qs-transcript/src/client/index.ts
+ERROR: Coverage for branches (7.14%) does not meet global threshold (100%) for packages/qs/qs-transcript/src/client/index.ts
+ERROR: Coverage for statements (87.32%) does not meet global threshold (100%) for packages/qs/qs-transcript/src/client/rows.tsx
+ERROR: Coverage for branches (65.51%) does not meet global threshold (100%) for packages/qs/qs-transcript/src/client/rows.tsx
+ERROR: Coverage for branches (60%) does not meet global threshold (100%) for packages/qs/qs-transcript/src/client/Icon.tsx
+ERROR: Coverage for lines (87.35%) does not meet global threshold (100%) for packages/qs/qs-transcript/src/client/Transcript.tsx
+ERROR: Coverage for functions (78.57%) does not meet global threshold (100%) for packages/qs/qs-transcript/src/client/Transcript.tsx
+ERROR: Coverage for statements (83.48%) does not meet global threshold (100%) for packages/qs/qs-transcript/src/client/Transcript.tsx
+ERROR: Coverage for branches (69.69%) does not meet global threshold (100%) for packages/qs/qs-transcript/src/client/Transcript.tsx
+ERROR: Coverage for lines (0%) does not meet global threshold (100%) for packages/qs/qs-shell/src/client/WelcomePane.tsx
+ERROR: Coverage for functions (0%) does not meet global threshold (100%) for packages/qs/qs-shell/src/client/WelcomePane.tsx
+ERROR: Coverage for statements (0%) does not meet global threshold (100%) for packages/qs/qs-shell/src/client/WelcomePane.tsx
+ERROR: Coverage for branches (0%) does not meet global threshold (100%) for packages/qs/qs-shell/src/client/WelcomePane.tsx
+ERROR: Coverage for lines (61.97%) does not meet global threshold (100%) for packages/qs/qs-shell/src/client/index.ts
+ERROR: Coverage for functions (25%) does not meet global threshold (100%) for packages/qs/qs-shell/src/client/index.ts
+ERROR: Coverage for statements (53.84%) does not meet global threshold (100%) for packages/qs/qs-shell/src/client/index.ts
+ERROR: Coverage for branches (23.07%) does not meet global threshold (100%) for packages/qs/qs-shell/src/client/index.ts
+ERROR: Coverage for functions (0%) does not meet global threshold (100%) for packages/qs/qs-approval/src/index.ts
+ERROR: Coverage for functions (0%) does not meet global threshold (100%) for packages/qs/qs-login/src/index.ts
+ERROR: Coverage for functions (0%) does not meet global threshold (100%) for packages/qs/qs-questions/src/index.ts
+ERROR: Coverage for functions (0%) does not meet global threshold (100%) for packages/qs/qs-sessions/src/index.ts
+ERROR: Coverage for functions (0%) does not meet global threshold (100%) for packages/qs/qs-composer/src/index.ts
+ERROR: Coverage for functions (0%) does not meet global threshold (100%) for packages/qs/qs-transcript/src/index.ts
+ERROR: Coverage for lines (0%) does not meet global threshold (100%) for packages/qs/qs-shell/src/index.ts
+ERROR: Coverage for functions (0%) does not meet global threshold (100%) for packages/qs/qs-shell/src/index.ts
+ERROR: Coverage for statements (0%) does not meet global threshold (100%) for packages/qs/qs-shell/src/index.ts
+ERROR: Coverage for branches (0%) does not meet global threshold (100%) for packages/qs/qs-shell/src/index.ts

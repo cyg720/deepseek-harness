@@ -1,6 +1,8 @@
 # AGENTS.md
 
-DeepSeek Harness is an all-plugin Cordis agent harness. Read [docs/architecture.md](docs/architecture.md) before changing `packages/`; follow [docs/AGENTS.md](docs/AGENTS.md) for documentation.
+DeepSeek Harness is an all-plugin Cordis agent harness. Read [docs/architecture.md](docs/architecture.md) before changing `packages/`; documentation follows [docs/AGENTS.md](docs/AGENTS.md).
+
+奇术二开新增文件进入官方目录时必须放在对应的`qs/`子目录，已有`packages/qs/`及`qishu/`不重复嵌套。每次改动官方原文件（含配置、脚本、生成文件、测试、文档及本规则），必须同批更新[官方源码改动记录清单](qishu/官方源码改动记录清单/00-登记规则与索引.md)，记录路径、原因、状态、验证及上游影响；回退也须登记，不得将计划标为已实现。该目录只登记官方原文件改动，二开自有文件无论存放何处均不登记。
 
 ## Pre-stable APIs and released Session data
 

@@ -1,0 +1,301 @@
+/* 登录页：固定色（规范明确登录页不随主题切换），两栏 + 三档断点。 */
+
+.login {
+  min-height: 100dvh;
+  display: grid;
+  grid-template-columns: minmax(520px, 1.4fr) minmax(430px, 1fr);
+  background: #fcfdf9;
+  color: #263931;
+  --qs-accent: #355a41;
+  --qs-line: #e5eae1;
+  --qs-surface: #ffffff;
+  --qs-muted: #839086;
+}
+
+.story {
+  background: #152d25;
+  min-height: 760px;
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  padding: 43px 52px;
+  color: #eef4e9;
+}
+
+.story::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse at 55% 55%, #396a4040, transparent 65%);
+  pointer-events: none;
+}
+
+.storyBrand {
+  position: relative;
+  z-index: 1;
+}
+
+.storyBrand strong {
+  font-size: 21px;
+}
+
+.storyLogo {
+  background: #d8f38b;
+  color: #1f3b2b;
+}
+
+.storyCopy {
+  position: relative;
+  margin-top: 66px;
+  z-index: 1;
+}
+
+.storyEyebrow {
+  color: #b0cd8d;
+  letter-spacing: 3px;
+  font-size: 11px;
+}
+
+.storyTitle {
+  font-size: clamp(35px, 3.3vw, 52px);
+  line-height: 1.38;
+  letter-spacing: 1px;
+  margin: 21px 0 18px;
+  font-weight: 500;
+}
+
+.storyTitleAccent {
+  color: #d8f38b;
+}
+
+.storyLead {
+  color: #a4b9ac;
+  line-height: 1.9;
+  font-size: 14px;
+  max-width: 490px;
+  margin: 0;
+}
+
+.storyVisual {
+  width: calc(100% + 80px);
+  margin: -17px -40px -24px;
+  flex: 1;
+  min-height: 350px;
+  position: relative;
+}
+
+.storyFooter {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  position: relative;
+  font-size: 11px;
+  color: #8ba696;
+  letter-spacing: 0.4px;
+  border-top: 1px solid #91af9625;
+  padding-top: 22px;
+}
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  padding: 35px 54px;
+  position: relative;
+}
+
+.panelTop {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  color: #8a938a;
+  font-size: 11px;
+}
+
+.formWrap {
+  width: 100%;
+  max-width: 370px;
+  margin: auto;
+}
+
+.kicker {
+  font-size: 11px;
+  letter-spacing: 2px;
+  color: #9ba18c;
+  margin-bottom: 18px;
+}
+
+.formTitle {
+  font-size: 31px;
+  font-weight: 550;
+  letter-spacing: 0.4px;
+  margin: 0 0 12px;
+  color: #263b2e;
+}
+
+.formLead {
+  font-size: 13px;
+  color: #909a8f;
+  margin: 0 0 40px;
+}
+
+.inputWrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.inputWrap > svg {
+  position: absolute;
+  left: 14px;
+  color: #a1ad9b;
+  pointer-events: none;
+}
+
+.inputWrap input {
+  padding: 14px 44px;
+}
+
+.inputToggle {
+  position: absolute;
+  right: 5px;
+}
+
+.options {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin: -2px 0 28px;
+  font-size: 12px;
+  color: #83907e;
+}
+
+.submit {
+  height: 48px;
+  justify-content: space-between;
+  padding: 0 19px;
+  letter-spacing: 1px;
+  box-shadow: 0 4px 12px #23422714;
+}
+
+.error {
+  color: #b44838;
+  font-size: 12px;
+  min-height: 18px;
+  margin: 10px 0;
+}
+
+.demo {
+  border: 1px dashed #d5dfcb;
+  background: #f4f7ef;
+  border-radius: 9px;
+  padding: 14px 16px;
+  margin-top: 18px;
+  font-size: 11px;
+  color: #8b9683;
+  line-height: 1.8;
+}
+
+.demo p {
+  margin: 0;
+}
+
+.degraded {
+  font-size: 11px;
+  color: #8a5a12;
+  margin: 10px 0 0;
+}
+
+.panelBottom {
+  font-size: 10px;
+  color: #a2aa9b;
+  line-height: 1.9;
+  text-align: center;
+  padding-top: 25px;
+  margin: 0;
+}
+
+@media (max-width: 1150px) {
+  .story {
+    padding: 36px;
+  }
+
+  .panel {
+    padding: 35px;
+  }
+
+  .storyTitle {
+    font-size: 38px;
+  }
+
+  .storyCopy {
+    margin-top: 56px;
+  }
+}
+
+@media (max-width: 960px) {
+  .login {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .story {
+    min-height: 700px;
+    padding: 30px;
+  }
+
+  .panel {
+    padding: 28px;
+  }
+
+  .storyCopy {
+    margin-top: 70px;
+  }
+
+  .storyTitle {
+    font-size: 31px;
+  }
+
+  .storyVisual {
+    min-height: 280px;
+  }
+
+  .storyFooter span:last-child {
+    display: none;
+  }
+
+  .formTitle {
+    font-size: 27px;
+  }
+}
+
+@media (max-width: 700px) {
+  .login {
+    display: block;
+    min-height: 100dvh;
+  }
+
+  .story {
+    display: none;
+  }
+
+  .panel {
+    min-height: 100dvh;
+    padding: 24px;
+  }
+
+  .formWrap {
+    max-width: 380px;
+  }
+
+  .formLead {
+    margin-bottom: 30px;
+  }
+
+  .panelBottom {
+    margin-top: auto;
+  }
+
+  .inputWrap input {
+    font-size: 16px;
+  }
+}
