@@ -96,6 +96,12 @@
     # an overlay to pin the interaction.
     - id: directory-picker
       name: '@deepseek-ai/dsh-host-directory-picker-auto'
+      # 原生分支追加独立 QS 呈现，保留唯一官方 OS 目录服务。
+      config:
+        additionalClientSurfaces:
+          native: ['@deepseek-ai/dsh-qs-ui-directory-picker-native']
+          # 奇术远端目录界面沿用同一浏览式 Host 能力。
+          browse: ['@deepseek-ai/dsh-qs-ui-directory-picker-browse']
 
     # Read-only projection of current Loader entries for trusted client RPCs.
     - id: plugin-inventory
@@ -372,6 +378,14 @@
     - id: qs-login
       name: '@deepseek-ai/dsh-qs-login'
 
+    # 奇术：左右栏独立插件，对应官方 sidebar 插件，避免布局包直接实现侧栏。
+    # 奇术：品牌对应官方独立插件，布局只声明品牌槽。
+    - id: qs-ui-brand
+      name: '@deepseek-ai/dsh-qs-ui-brand'
+    - id: qs-ui-sidebar
+      name: '@deepseek-ai/dsh-qs-ui-sidebar'
+    - id: qs-ui-sidebar-right
+      name: '@deepseek-ai/dsh-qs-ui-sidebar-right'
     - id: qs-sessions
       name: '@deepseek-ai/dsh-qs-sessions'
 
@@ -380,6 +394,91 @@
 
     - id: qs-transcript
       name: '@deepseek-ai/dsh-qs-transcript'
+
+    # 奇术：工具呈现，对应官方 ui-tool（工具树与八类工具子视图）。
+    - id: qs-ui-tool
+      name: '@deepseek-ai/dsh-qs-ui-tool'
+    # 奇术命令候选独立呈现，复用官方 inputTriggers 服务。
+    - id: qs-ui-input-trigger
+      name: '@deepseek-ai/dsh-qs-ui-input-trigger'
+
+    # 奇术命令选项与风险确认，复用官方 commandUi 唯一服务。
+    - id: qs-ui-commands
+      name: '@deepseek-ai/dsh-qs-ui-commands'
+
+    # 奇术消息反馈复用官方唯一执行器，独立注册按钮与表单。
+    - id: qs-ui-message-feedback
+      name: '@deepseek-ai/dsh-qs-ui-message-feedback'
+
+    # 奇术文件树共用官方目录状态与读取权限，独立注册呈现。
+    - id: qs-ui-sidebar-files
+      name: '@deepseek-ai/dsh-qs-ui-sidebar-files'
+
+    # 奇术日程与官方保持显式启用；只替换呈现，不重复调度服务。
+    - id: qs-ui-schedule
+      name: '@deepseek-ai/dsh-qs-ui-schedule'
+      disabled: true
+
+    # 奇术插件设置父区和只读清单分别装配，配置与 Host 清单服务保持唯一。
+    - id: qs-ui-settings-plugins
+      name: '@deepseek-ai/dsh-qs-ui-settings-plugins'
+    - id: qs-ui-settings-plugin-inventory
+      name: '@deepseek-ai/dsh-qs-ui-settings-plugin-inventory'
+
+    # 奇术外观与字号仅替换呈现，保留官方主题服务及持久化所有权。
+    - id: qs-ui-theme
+      name: '@deepseek-ai/dsh-qs-ui-theme'
+
+    # 权限呈现独立对应官方插件，装饰器随各自根界面子槽装卸，Host 权限服务仍唯一。
+    - id: qs-ui-permission-presets
+      name: '@deepseek-ai/dsh-qs-ui-permission-presets'
+
+    # 奇术模型双入口复用官方 modelDirectories，不重复创建解析器。
+    - id: qs-ui-model-selection
+      name: '@deepseek-ai/dsh-qs-ui-model-selection'
+
+    # 奇术预设设置独立装配，目录和策略写入继续使用唯一官方 Host 服务。
+    - id: qs-ui-agent-preset
+      name: '@deepseek-ai/dsh-qs-ui-agent-preset'
+
+    # 奇术语言行只重写呈现，不重复创建官方 locale 服务。
+    - id: qs-locale
+      name: '@deepseek-ai/dsh-qs-locale'
+
+    # 奇术设置壳独立装配，继续复用官方 settingsScope。
+    - id: qs-ui-settings-general
+      name: '@deepseek-ai/dsh-qs-ui-settings-general'
+
+    # 奇术模型设置和两个首次使用步骤独立呈现，复用官方唯一目录与欢迎确认控制器。
+    - id: qs-ui-settings-models
+      name: '@deepseek-ai/dsh-qs-ui-settings-models'
+
+    # 奇术请求轨迹独立呈现，数据复用官方 trajectory target。
+    - id: qs-ui-trajectory
+      name: '@deepseek-ai/dsh-qs-ui-trajectory'
+
+    # 奇术子代理独立呈现，复用官方目录、导航及只读权限状态。
+    - id: qs-ui-subagent
+      name: '@deepseek-ai/dsh-qs-ui-subagent'
+
+    # 奇术目标独立呈现，复用官方目标投影、激活订阅及版本校验动作。
+    - id: qs-ui-goal
+      name: '@deepseek-ai/dsh-qs-ui-goal'
+
+    # 奇术作业只读呈现，复用共享控制状态和失败恢复。
+    - id: qs-ui-jobs
+      name: '@deepseek-ai/dsh-qs-ui-jobs'
+
+    # 已有附件查看独立呈现，新增上传不在本期范围。
+    - id: qs-ui-attachment
+      name: '@deepseek-ai/dsh-qs-ui-attachment'
+
+    # 奇术交付呈现复用官方数据和原生打开能力。
+    - id: qs-ui-deliverables
+      name: '@deepseek-ai/dsh-qs-ui-deliverables'
+    # 奇术文档宿主与正文使用官方预览读取和标签资源生命周期。
+    - id: qs-ui-sidebar-documentpreview
+      name: '@deepseek-ai/dsh-qs-ui-sidebar-documentpreview'
 
     - id: qs-approval
       name: '@deepseek-ai/dsh-qs-approval'

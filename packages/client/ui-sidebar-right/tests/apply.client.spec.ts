@@ -109,6 +109,9 @@ describe('ui-sidebar-right apply', () => {
     ])
     expect(seat('sidebar.right.pane.tab').children).toMatchObject({ 'sidebar.right.tab.guide': { kind: 'chain', scope: 'session' } })
     // Both seats read one store: the button only needs to know whether the panel is expanded.
+    // 共享呈现服务必须交付官方座位的同一 StoreDecl，不能复制存储。
+    expect(ctx.sidebarRightPresentation.store).toBe(seat('rightbar.session').store)
+    expect(ctx.sidebarRightPresentation.seat(SESSION).hooks.tabTypes.getSnapshot()).toBe(ctx.sidebarRightTabs.entries())
     expect(seat('rightbar.session').store).toBeDefined()
     expect(seat('conversation.session.header.corner').store).toBe(seat('rightbar.session').store)
   })

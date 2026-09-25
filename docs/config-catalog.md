@@ -891,6 +891,27 @@ export interface Config {
 
 Source: [`packages/hooks/hooks-codex/src/index.ts:43`](../packages/hooks/hooks-codex/src/index.ts)
 
+<a id="deepseek-aidsh-host-directory-picker-auto"></a>
+
+## `@deepseek-ai/dsh-host-directory-picker-auto`
+
+Requires: `webServer` · `loader`
+
+```ts config-catalog
+/** 按官方一次平台判定追加二开呈现，不重复加载 Host。 */
+export interface Config {
+  /** 每个分支附加的 Client 插件，默认不追加。 */
+  additionalClientSurfaces?: {
+    /** 本机原生选择器分支附加的 Client 插件包名。 */
+    native?: string[]
+    /** 浏览式选择器分支附加的 Client 插件包名。 */
+    browse?: string[]
+  }
+}
+```
+
+Source: [`packages/host/directory-picker-auto/src/index.ts:34`](../packages/host/directory-picker-auto/src/index.ts)
+
 <a id="deepseek-aidsh-host-directory-picker-browse"></a>
 
 ## `@deepseek-ai/dsh-host-directory-picker-browse`
@@ -1756,6 +1777,8 @@ Source: [`packages/shell/pwsh-sandbox/src/index.ts:40`](../packages/shell/pwsh-s
 ```ts config-catalog
 /** qs-shell 的部署级配置（宿主侧解析后经 index-inject 传给浏览器）。 */
 export interface QsShellConfig {
+  /** 单浏览器任务通知最多保留的作业身份及已访问会话数。 */
+  notificationCapacity: number
   /** 本次启动的初始界面；默认 `workbench`。 */
   defaultUi: QsUiId
   /** 是否启用开发者双向切换入口与动作；默认 false。 */
@@ -1766,7 +1789,7 @@ export interface QsShellConfig {
 export type QsUiId = 'workbench' | 'official'
 ```
 
-Source: [`packages/qs/qs-shell/src/client/contract.ts:178`](../packages/qs/qs-shell/src/client/contract.ts)
+Source: [`packages/qs/qs-shell/src/client/contract.ts:172`](../packages/qs/qs-shell/src/client/contract.ts)
 
 <a id="deepseek-aidsh-repeat-tool-reminder"></a>
 
@@ -3521,17 +3544,43 @@ These load from a `cordis.yml` entry with no `config:` block; they declare no co
 - `@deepseek-ai/dsh-fs-e2b` — requires `e2b` ([`packages/e2b/fs-e2b/src/index.ts`](../packages/e2b/fs-e2b/src/index.ts))
 - `@deepseek-ai/dsh-fs-observation-policy` ([`packages/fs/fs-observation-policy/src/index.ts`](../packages/fs/fs-observation-policy/src/index.ts))
 - `@deepseek-ai/dsh-goal-round-driver` — requires `agents` · `goals` · `sessions` ([`packages/goal/goal-round-driver/src/index.ts`](../packages/goal/goal-round-driver/src/index.ts))
-- `@deepseek-ai/dsh-host-directory-picker-auto` — requires `webServer` · `loader` ([`packages/host/directory-picker-auto/src/index.ts`](../packages/host/directory-picker-auto/src/index.ts))
 - `@deepseek-ai/dsh-host-directory-picker-native` ([`packages/host/directory-picker-native/src/index.ts`](../packages/host/directory-picker-native/src/index.ts))
 - `@deepseek-ai/dsh-host-plugin-inventory` — requires `loader` ([`packages/host/plugin-inventory/src/index.ts`](../packages/host/plugin-inventory/src/index.ts))
 - `@deepseek-ai/dsh-llm` ([`packages/llm/llm/src/index.ts`](../packages/llm/llm/src/index.ts))
 - `@deepseek-ai/dsh-lsp` ([`packages/lsp/lsp/src/index.ts`](../packages/lsp/lsp/src/index.ts))
 - `@deepseek-ai/dsh-qs-approval` ([`packages/qs/qs-approval/src/index.ts`](../packages/qs/qs-approval/src/index.ts))
 - `@deepseek-ai/dsh-qs-composer` ([`packages/qs/qs-composer/src/index.ts`](../packages/qs/qs-composer/src/index.ts))
+- `@deepseek-ai/dsh-qs-locale` ([`packages/qs/qs-locale/src/index.ts`](../packages/qs/qs-locale/src/index.ts))
 - `@deepseek-ai/dsh-qs-login` ([`packages/qs/qs-login/src/index.ts`](../packages/qs/qs-login/src/index.ts))
 - `@deepseek-ai/dsh-qs-questions` ([`packages/qs/qs-questions/src/index.ts`](../packages/qs/qs-questions/src/index.ts))
 - `@deepseek-ai/dsh-qs-sessions` ([`packages/qs/qs-sessions/src/index.ts`](../packages/qs/qs-sessions/src/index.ts))
 - `@deepseek-ai/dsh-qs-transcript` ([`packages/qs/qs-transcript/src/index.ts`](../packages/qs/qs-transcript/src/index.ts))
+- `@deepseek-ai/dsh-qs-ui-agent-preset` ([`packages/qs/qs-ui-agent-preset/src/index.ts`](../packages/qs/qs-ui-agent-preset/src/index.ts))
+- `@deepseek-ai/dsh-qs-ui-attachment` ([`packages/qs/qs-ui-attachment/src/index.ts`](../packages/qs/qs-ui-attachment/src/index.ts))
+- `@deepseek-ai/dsh-qs-ui-brand` ([`packages/qs/qs-ui-brand/src/index.ts`](../packages/qs/qs-ui-brand/src/index.ts))
+- `@deepseek-ai/dsh-qs-ui-commands` ([`packages/qs/qs-ui-commands/src/index.ts`](../packages/qs/qs-ui-commands/src/index.ts))
+- `@deepseek-ai/dsh-qs-ui-deliverables` ([`packages/qs/qs-ui-deliverables/src/index.ts`](../packages/qs/qs-ui-deliverables/src/index.ts))
+- `@deepseek-ai/dsh-qs-ui-directory-picker-browse` ([`packages/qs/qs-ui-directory-picker-browse/src/index.ts`](../packages/qs/qs-ui-directory-picker-browse/src/index.ts))
+- `@deepseek-ai/dsh-qs-ui-directory-picker-native` ([`packages/qs/qs-ui-directory-picker-native/src/index.ts`](../packages/qs/qs-ui-directory-picker-native/src/index.ts))
+- `@deepseek-ai/dsh-qs-ui-goal` ([`packages/qs/qs-ui-goal/src/index.ts`](../packages/qs/qs-ui-goal/src/index.ts))
+- `@deepseek-ai/dsh-qs-ui-input-trigger` ([`packages/qs/qs-ui-input-trigger/src/index.ts`](../packages/qs/qs-ui-input-trigger/src/index.ts))
+- `@deepseek-ai/dsh-qs-ui-jobs` ([`packages/qs/qs-ui-jobs/src/index.ts`](../packages/qs/qs-ui-jobs/src/index.ts))
+- `@deepseek-ai/dsh-qs-ui-message-feedback` ([`packages/qs/qs-ui-message-feedback/src/index.ts`](../packages/qs/qs-ui-message-feedback/src/index.ts))
+- `@deepseek-ai/dsh-qs-ui-model-selection` ([`packages/qs/qs-ui-model-selection/src/index.ts`](../packages/qs/qs-ui-model-selection/src/index.ts))
+- `@deepseek-ai/dsh-qs-ui-permission-presets` ([`packages/qs/qs-ui-permission-presets/src/index.ts`](../packages/qs/qs-ui-permission-presets/src/index.ts))
+- `@deepseek-ai/dsh-qs-ui-schedule` ([`packages/qs/qs-ui-schedule/src/index.ts`](../packages/qs/qs-ui-schedule/src/index.ts))
+- `@deepseek-ai/dsh-qs-ui-settings-general` ([`packages/qs/qs-ui-settings-general/src/index.ts`](../packages/qs/qs-ui-settings-general/src/index.ts))
+- `@deepseek-ai/dsh-qs-ui-settings-models` ([`packages/qs/qs-ui-settings-models/src/index.ts`](../packages/qs/qs-ui-settings-models/src/index.ts))
+- `@deepseek-ai/dsh-qs-ui-settings-plugin-inventory` ([`packages/qs/qs-ui-settings-plugin-inventory/src/index.ts`](../packages/qs/qs-ui-settings-plugin-inventory/src/index.ts))
+- `@deepseek-ai/dsh-qs-ui-settings-plugins` ([`packages/qs/qs-ui-settings-plugins/src/index.ts`](../packages/qs/qs-ui-settings-plugins/src/index.ts))
+- `@deepseek-ai/dsh-qs-ui-sidebar` ([`packages/qs/qs-ui-sidebar/src/index.ts`](../packages/qs/qs-ui-sidebar/src/index.ts))
+- `@deepseek-ai/dsh-qs-ui-sidebar-documentpreview` ([`packages/qs/qs-ui-sidebar-documentpreview/src/index.ts`](../packages/qs/qs-ui-sidebar-documentpreview/src/index.ts))
+- `@deepseek-ai/dsh-qs-ui-sidebar-files` ([`packages/qs/qs-ui-sidebar-files/src/index.ts`](../packages/qs/qs-ui-sidebar-files/src/index.ts))
+- `@deepseek-ai/dsh-qs-ui-sidebar-right` ([`packages/qs/qs-ui-sidebar-right/src/index.ts`](../packages/qs/qs-ui-sidebar-right/src/index.ts))
+- `@deepseek-ai/dsh-qs-ui-subagent` ([`packages/qs/qs-ui-subagent/src/index.ts`](../packages/qs/qs-ui-subagent/src/index.ts))
+- `@deepseek-ai/dsh-qs-ui-theme` ([`packages/qs/qs-ui-theme/src/index.ts`](../packages/qs/qs-ui-theme/src/index.ts))
+- `@deepseek-ai/dsh-qs-ui-tool` ([`packages/qs/qs-ui-tool/src/index.ts`](../packages/qs/qs-ui-tool/src/index.ts))
+- `@deepseek-ai/dsh-qs-ui-trajectory` ([`packages/qs/qs-ui-trajectory/src/index.ts`](../packages/qs/qs-ui-trajectory/src/index.ts))
 - `@deepseek-ai/dsh-schedule` — requires `agents` · `sessions` · `tools` · `sessionPersistence` ([`packages/schedule/schedule/src/index.ts`](../packages/schedule/schedule/src/index.ts))
 - `@deepseek-ai/dsh-session` ([`packages/core/session/src/index.ts`](../packages/core/session/src/index.ts))
 - `@deepseek-ai/dsh-session-checkpoint-policy` — requires `llm` · `sessionPersistence` · `sessions` · `tools` ([`packages/session/session-checkpoint-policy/src/index.ts`](../packages/session/session-checkpoint-policy/src/index.ts))

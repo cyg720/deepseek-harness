@@ -1,0 +1,3 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`browses, creates and adopts Host directories through both QS entry points > QS Host directory read error 1`] = `"Unable to read this directory. Check the path and access permissions, then retry."`;

@@ -1,5 +1,7 @@
 /** Browser Conversation assemble core, React adapter, shell, and input plugin. */
 export { apply, Config, inject } from './apply.ts'
+// 二开呈现使用公开类型共享官方状态，避免导入私有实现。
+export type { ConversationPresentation } from './qs/presentation.ts'
 export type { Config as ConversationConfig } from './apply.ts'
 export { UiConversation } from './conversation/assembly.ts'
 export type { ConversationBinding } from './conversation/assembly.ts'

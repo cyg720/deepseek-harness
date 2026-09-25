@@ -35,6 +35,8 @@ Drafts survive interface switches while the request remains pending. Settlement 
 
 The official question domain owns pending requests and response encoding. Drafts are keyed by session, request, and question in plugin memory. This package has no independent durable authority requiring a runtime invariant companion.
 
+Each request holds a synchronous submission lock; failed answers release it for retry. Plan buttons submit their original option labels, including empty labels displayed through localized fallback text.
+
 </details>
 
 No runtime invariant companion is published because the official services own the authoritative session data and this package only presents it.

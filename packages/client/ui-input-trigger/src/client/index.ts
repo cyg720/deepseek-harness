@@ -85,3 +85,6 @@ export function apply(ctx: ClientContext): void {
     }, MenuView))
   })
 }
+
+// 二开输入复用同一控制器，通过租约限制来源而不删除全局注册。
+export type { InputTriggerConsumerPolicy } from './qs/consumer.ts'

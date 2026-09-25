@@ -17,6 +17,7 @@ import type { QsShellConfig } from './client/contract.ts'
 export const Config: Schema<QsShellConfig> = Schema.object({
   defaultUi: Schema.union(['workbench', 'official'] as const).default('workbench'),
   showOfficialUiEntry: Schema.boolean().default(false),
+  notificationCapacity: Schema.number().step(1).min(1).max(Number.MAX_SAFE_INTEGER).default(256),
 })
 
 /**

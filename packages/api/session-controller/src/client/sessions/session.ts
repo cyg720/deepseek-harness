@@ -2,6 +2,8 @@
 
 import type { Context } from '@deepseek-ai/cordis'
 import { randomUUID } from '@deepseek-ai/dsh-util-crypto'
+// 二开分页状态在唯一 Session 执行器中维护，防止旧请求覆盖重连后的新操作。
+import type { HistoryLoadRequest, HistoryLoadState } from '../qs/history-state.ts'
 import type { AttachmentIdType, FileAttachmentRef, ImageAttachmentRef } from '@deepseek-ai/dsh-attachment'
 import type { SubagentAddress } from '@deepseek-ai/dsh-subagent/client'
 import type { MessageId } from '@deepseek-ai/dsh-llm/brand'
@@ -95,6 +97,10 @@ export class Session implements SessionFace {
    *  passes drop all writes once the generation moves on. */
   private openGeneration = 0
   private loadingOlder = false
+  private historyLoad: HistoryLoadState = { phase: 'idle' }
+  private historyRequest = 0
+  // QS 修复：物理重连会替换窗口而不重新创建 Session，分页身份单独跟随窗口代次。
+  private historyEpoch = 0
   /** Shared low-water target of the running jump loop; null when no jump is paging. */
   private jumpTargetSeq: SessionSeq | null = null
   /** The running jump loop's completion, shared by retargeting callers. */
@@ -392,17 +398,23 @@ export class Session implements SessionFace {
     if (this.openState !== 'open' || !this.hasMore || this.loadingOlder) return
     const events = this.events
     if (events === undefined) return
+    const request = this.beginHistoryLoad('older')
+    const before = this.baseSeq
     this.loadingOlder = true
     this.notifier.markDirty()
     try {
       await events.prepend({ beforeSeq: this.baseSeq, maxMessages: PAGE_MESSAGES })
+      if (this.isCurrentHistory(request)) this.historyLoad = { ...request, phase: 'succeeded', progressed: this.baseSeq < before, hasMore: this.hasMore }
     } catch (error) {
+      if (this.isCurrentHistory(request)) this.historyLoad = { ...request, phase: 'failed' }
       if (!isRemoteFailure(error)) {
         console.error('[session-controller] loadOlder failed:', error)
       }
     } finally {
-      this.loadingOlder = false
-      this.notifier.markDirty()
+      if (this.isCurrentHistory(request)) {
+        this.loadingOlder = false
+        this.notifier.markDirty()
+      }
     }
   }
 
@@ -412,6 +424,9 @@ export class Session implements SessionFace {
     if (this.jumpPromise !== null) {
       // Retarget the running loop to the lowest requested seq.
       this.jumpTargetSeq = SessionSeq(Math.min(this.jumpTargetSeq ?? seq, seq))
+      // 合并跳转后公开实际最低目标，避免 UI 仍显示首次请求目标。
+      if (this.historyLoad.phase === 'loading') this.historyLoad = { ...this.historyLoad, targetSeq: this.jumpTargetSeq }
+      this.notifier.markDirty()
       return this.jumpPromise
     }
     // A plain single-page pull owns the busy flag; the jump does not queue
@@ -420,36 +435,66 @@ export class Session implements SessionFace {
     // loop starts here.
     if (this.loadingOlder) return Promise.resolve()
     this.jumpTargetSeq = seq
+    const request = this.beginHistoryLoad('through', seq)
+    const initialBase = this.baseSeq
     this.loadingOlder = true
     this.notifier.markDirty()
     // Stale-pass guard (the doOpen pattern): a resync mid-loop replaces the
     // stream generation; this pass then stops instead of paging the new
     // generation toward its old target.
-    const generation = this.openGeneration
+    const generation = this.historyEpoch
     this.jumpPromise = (async () => {
       try {
         while (this.hasMore && this.jumpTargetSeq !== null && this.baseSeq > this.jumpTargetSeq) {
-          if (generation !== this.openGeneration) return
+          if (generation !== this.historyEpoch) return
           const events = this.events
           if (events === undefined) return
           const before = this.baseSeq
           await events.prepend({ beforeSeq: this.baseSeq, maxMessages: JUMP_PAGE_MESSAGES })
           // No-progress guard: an empty or dropped page that still claims more
           // history must end the loop, not spin it.
-          if (this.baseSeq >= before) return
+          if (this.baseSeq >= before) break
         }
+        if (this.isCurrentHistory(request)) this.historyLoad = { ...request, targetSeq: this.jumpTargetSeq ?? seq, phase: 'succeeded', progressed: this.baseSeq < initialBase, hasMore: this.hasMore }
       } catch (error) {
+        if (this.isCurrentHistory(request)) this.historyLoad = { ...request, targetSeq: this.jumpTargetSeq ?? seq, phase: 'failed' }
         if (!isRemoteFailure(error)) {
           console.error('[session-controller] loadThrough failed:', error)
         }
       } finally {
-        this.jumpTargetSeq = null
-        this.jumpPromise = null
-        this.loadingOlder = false
-        this.notifier.markDirty()
+        if (this.isCurrentHistory(request)) {
+          this.jumpTargetSeq = null
+          this.jumpPromise = null
+          this.loadingOlder = false
+          this.notifier.markDirty()
+        }
       }
     })()
     return this.jumpPromise
+  }
+
+  /** 本地分页序号与连接代次共同约束迟到回包。 */
+  private beginHistoryLoad(kind: HistoryLoadRequest['kind'], targetSeq?: SessionSeq): HistoryLoadRequest {
+    const request: HistoryLoadRequest = {
+      requestId: ++this.historyRequest, connectionEpoch: this.historyEpoch, kind,
+      ...(targetSeq === undefined ? {} : { targetSeq }),
+    }
+    this.historyLoad = { ...request, phase: 'loading' }
+    return request
+  }
+
+  /** 旧请求不能清除新请求的 busy 标志或错误。 */
+  private isCurrentHistory(request: HistoryLoadRequest): boolean {
+    return request.connectionEpoch === this.historyEpoch && request.requestId === this.historyRequest
+  }
+
+  /** 断开当前历史读取时立即释放分页占用，最终回包由代次检查丢弃。 */
+  private cancelHistoryLoad(): void {
+    this.historyEpoch++
+    if (this.historyLoad.phase !== 'idle') this.historyLoad = { ...this.historyLoad, phase: 'cancelled' }
+    this.loadingOlder = false
+    this.jumpTargetSeq = null
+    this.jumpPromise = null
   }
 
   /** Rebuild an opened history source after address replacement.
@@ -458,6 +503,7 @@ export class Session implements SessionFace {
   async resync(): Promise<void> {
     if (this.openState === 'cold') return // never opened: no window to rebuild (doOpen flips to 'loading' synchronously, so cold implies no in-flight open)
     this.openGeneration++
+    this.cancelHistoryLoad()
     const events = this.events
     this.events = undefined
     await events?.dispose()
@@ -595,6 +641,7 @@ export class Session implements SessionFace {
       this.retireFailedSubmission(requestId)
     }
     this.openGeneration++
+    this.cancelHistoryLoad()
     const events = this.events
     this.events = undefined
     await events?.dispose()
@@ -636,6 +683,8 @@ export class Session implements SessionFace {
   private acceptEventChange(change: SessionJournalChange): void {
     switch (change.type) {
       case 'replace':
+        // QS 修复：新窗口立即释放旧分页；迟到回包不能清除随后发起的分页状态。
+        this.cancelHistoryLoad()
         this.installWindow(
           change.entries,
           change.hasMore,
@@ -784,6 +833,7 @@ export class Session implements SessionFace {
     if (generation !== this.openGeneration || this.events !== events) return
     if (!isRemoteFailure(error)) throw error
     this.openGeneration++
+    this.cancelHistoryLoad()
     this.events = undefined
     this.openPromise = null
     this.openState = 'error'
@@ -809,6 +859,7 @@ export class Session implements SessionFace {
       openError: this.openError,
       hasMore: this.hasMore,
       loadingOlder: this.loadingOlder,
+      historyLoad: this.historyLoad,
       promptError: this.promptError,
       blank: this.blankBit,
       lastAgentError: this.lastAgentError,

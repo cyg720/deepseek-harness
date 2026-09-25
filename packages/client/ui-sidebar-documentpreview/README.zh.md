@@ -32,6 +32,12 @@ kind: "package-reference"
 
 文档实现在 `ctx.documentPreviews.register({ id, extensions, priority, title, loading, wrap? })` 注册元数据，并以相同 `id` 向 keyed、Session 作用域的子 slot `sidebar.right.tab.document` 注册正文。两处注册都由 effect 持有，通过 `ctx.slots.inject` 等待子 slot。正文接收 `resourceAddress`、准备好的 `content`、`wrap`、`scrollportRef` 和标准 `useTabInfo`/`useResource` 钩子，不接收自定义资源加载器。拥有内部滚动元素的渲染器把 `scrollportRef` 挂到该元素上；该元素卸载后，owner 恢复使用共享正文。元数据声明 `loading: 'text-pages'` 或 `'bytes-complete'`。注册表保留所有匹配备选：`extension`（默认）优先于 `builtin`，随后按更长的后缀、再按注册顺序排列。所选实现仍可用时，下拉选择保持不变；移除后选择下一个候选。内置正文也使用相同注册方式。
 
+`documentPreviewPresentation` 服务向替代呈现提供官方 store 句柄和注入工厂。工厂按绑定后的 store actions 缓存结果，两种界面共享读取代次、渲染类型订阅和阅读偏好。界面切换不会另建文件读取器；标签 abort 仍负责清理内容。
+
+共享呈现还提供 `prepareHtml`，组合既有的有限 HTML 打包器、Host 相对读取和不透明 frame 引导。结果仅包含文档文本，不包含 Host 回调；消费视图负责 Blob 创建和释放。
+
+`documentPdfPresentation` 服务向替代正文公开 PDF 页码状态、标签保留、worker 打开及受限画布绘制。挂载的正文拥有文档和绘制取消责任；插件卸载清理保留的页码偏好。
+
 <a id="addresses"></a>
 ## 地址
 
@@ -78,6 +84,8 @@ PNG、JPEG、GIF、WebP、BMP、ICO 和 SVG 通过 Blob URL 在 `<img>` 静态�
 - **本地 HTML 依赖集合有限。** 只打包直接引用的经典 `.js` 脚本和 `.css` 样式表。浏览器解析的资源仍受浏览器源与网络规则限制；iframe 不获得运行时文件读取桥接。
 - **换行图标为包内自绘。** `IconWrapFill16` 与 `IconNowrapFill16` 住在 `src/client/icons.tsx`，直到共享图标集提供为止；它们的 props 已与共享图标契约一致。
 - **滚动写入未节流。** 每次滚动事件都把偏移记进 store；行块已 memo 化，于是由此引发的重渲染交还给 React 的是同一批元素。
+
+公开只读表 `documentPreviewIds` 提供六种内置正文身份。其他正文槽复用这些身份及现有元数据注册表；导出身份不代表已注册二开渲染器。
 
 <a id="dev-note"></a>
 ### 开发备注

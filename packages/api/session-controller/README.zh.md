@@ -75,6 +75,10 @@ Session 对象还承载本地提交回显：`session.beginSubmission` 在调用�
 - 文件引用补全使用共享 Agent lookup，因此可能恢复冷 Session；`skills/list` 目录是不激活 Agent 的 skill 元数据读取路径。
 
 
+`SessionSnapshot.historyLoad` 提供闲置、加载中、成功、失败和取消五种分页状态，并携带请求及连接身份。成功报告进展和剩余历史；失败保留窗口，不暴露原始服务端错误。重连后旧请求不能更新结算或忙碌状态。
+
+`ISessions.control.state` 独立于会话目录报告加载中、就绪、重连中、失败或已处置；每次接收控制基线后递增 baseline 计数；发布就绪状态前同步投影 jobsBySession。`control.retry()` 合并终止失败后的并发请求，等待旧消费者停止后启动唯一替代实例，不等待新基线到达。载体失败仍使用既有自动重连。恢复期间保留已发布的领域快照；该状态不等于已实现任务完成通知。TestSessions 初始为加载中，未提供行为的控制流重试会拒绝。
+
 <a id="dev-note"></a>
 ### 开发备注
 
@@ -86,3 +90,5 @@ Session 对象还承载本地提交回显：`session.beginSubmission` 在调用�
 </details>
 
 **运行时不变式：** 不发布伴生入口。每个分页与帧都会对照其指向的持久 Session 校验。
+
+历史窗口替换会使在途分页身份失效并释放 loadingOlder，包括未调用 Session.resync 的载体自动重连。本地 connectionEpoch 在连续性修复时也递增；迟到结算不能关闭新分页请求或继续旧 loadThrough 目标。

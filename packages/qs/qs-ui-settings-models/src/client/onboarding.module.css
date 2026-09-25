@@ -1,0 +1,9 @@
+/* 奇术引导沿用设置原型的圆角、主题色与窄屏内部滚动。 */
+.dialog { width: min(640px, calc(100vw - 32px)); max-height: calc(100dvh - 40px); box-sizing: border-box; border: 1px solid var(--qs-line); border-radius: 16px; padding: 24px; color: var(--qs-text); background: var(--qs-surface); overflow: auto; }
+.dialog::backdrop { background: rgb(0 0 0 / 35%); }
+.dialog p { line-height: 1.7; overflow-wrap: anywhere; }
+.actions { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 12px; }
+
+.dialog form { display: grid; gap: 16px; margin-block: 20px; }
+.dialog label { display: grid; gap: 8px; }
+.dialog input { box-sizing: border-box; width: 100%; min-width: 0; border: 1px solid var(--qs-line); border-radius: 8px; padding: 10px 12px; color: var(--qs-text); background: var(--qs-surface); font: inherit; }

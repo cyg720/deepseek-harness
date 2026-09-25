@@ -45,6 +45,8 @@ A level cut by the endpoint's entry cap ends with a marker; an empty level says 
 
 State lives in the type's own store, bucketed by tab id: `root`, `levels` (loading / ready / failed per absolute path), and `expanded`. The owner's `signal` ends a bucket: on abort the tab is forgotten and a listing that settles afterwards writes nothing.
 
+The sidebarFilesPresentation service exposes the same store handle and injected file operations used by the official body. Alternate presentations register that handle at session scope and use its inject factory; consumers of the same store instance share request generations, so late responses cannot overwrite a newer refresh after a view switch.
+
 <a id="model-experience"></a>
 ## Model Experience
 

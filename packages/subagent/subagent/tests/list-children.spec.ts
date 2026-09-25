@@ -929,7 +929,7 @@ describe('SubagentRuntime.listChildren', () => {
     expect(inspect).not.toHaveBeenCalled()
   })
 
-  it('falls back to inspection when the cache serves no identity for the child', async () => {
+  it.each([false, true])('falls back to inspection when the cache serves no identity for the child (empty row: %s)', async (emptyRow) => {
     const { ctx, parent } = await setup([], { projectionCache: true })
     const foreign = await authorChild(ctx, '00000000-0000-4000-8000-00000000ac01', {
       parentSession: parent.id,
@@ -939,15 +939,16 @@ describe('SubagentRuntime.listChildren', () => {
       kind: 'child', id: foreign, label: 'uncached child', mode: 'continuable',
       activity: 'inactive', hasChildren: false,
     }]
-    // No stored row at all for a foreign child this process never ran.
+    // 两种缺失状态各用独立冷会话，避免首轮准备缓存掩盖空投影行的回退路径。
+    if (emptyRow) {
+      ctx.sessionProjectionCache.cachedSnapshot = () => ({ asOfSeq: SessionSeq(0), values: {} })
+    }
     const inspect = vi.spyOn(ctx.sessionPersistence, 'open')
     await expect(ctx.subagents.listChildren(parent.id)).resolves.toEqual(expected)
     expect(inspect).toHaveBeenCalledTimes(1)
-    // A stored row whose cut predates the descriptor: the subagent key is
-    // absent from the served values, and preparation still rules.
-    ctx.sessionProjectionCache.cachedSnapshot = () => ({ asOfSeq: SessionSeq(0), values: {} })
+    // 同版本再次列举应复用准备结果，同时仍返回完整的子会话身份。
     await expect(ctx.subagents.listChildren(parent.id)).resolves.toEqual(expected)
-    expect(inspect).toHaveBeenCalledTimes(2)
+    expect(inspect).toHaveBeenCalledTimes(1)
   })
 
   it('takes the preparation rung directly when no projection cache is mounted', async () => {

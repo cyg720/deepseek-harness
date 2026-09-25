@@ -1,18 +1,8 @@
-# 一键切回官方界面（配置开关）
-#
-# 用法（任选其一）：
-#   1) 临时：pnpm dsh web --patch ./qishu/dev-components/switch/01-switch-to-official.patch.yml
-#   2) 常驻：把下面的行并入 $DSH_HOME/cordis.patch.yml（对所有 profile 生效）
-#   3) 环境变量：若组合行写成 `config: { mode: !!js process.env.DSH_QS_UI }`，
-#      则启动时 DSH_QS_UI=official pnpm dsh web 即可（不设即默认 workbench）
-#
-# 前提：M0 已给 qs-shell 声明 Config { mode: 'workbench' | 'official' }。
-# 行为：mode: official 时 qs-shell 不注册 root；其余 6 个包因 slots.inject('qs.*')
-#       等不到声明而自动静默（不报错、不渲染），官方 AppFrame 成为唯一 occupant。
-#
-# 注意：patch 会**整值替换**该行的 config（不深合并）；本行只有一个键，保持完整即可。
-# 验证：pnpm dsh web --dump-config 会打印每行由哪个层提供、被哪些 overlay 改过。
-
+# 官方界面启动配置；仅用于包含 qs-shell 的 Web profile。
+# 临时使用：pnpm dsh --profile web --patch ./qishu/dev-components/switch/01-switch-to-official.patch.yml
+# QS 插件仍加载，共用官方业务服务；默认关闭开发者往返入口。
+# patch 整值替换 config，必须使用当前的完整界面选择字段。
 - id: qs-shell
   config:
-    mode: official
+    defaultUi: official
+    showOfficialUiEntry: false

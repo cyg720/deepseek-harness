@@ -2,5 +2,5 @@
 # side as of the last confirmed-consistent state. Both languages carry equal authority;
 # after editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write qishu/styles/README.md
-README.md: 8eb7a753c9c9425e85d389d5e84911a9e249e2e4
-README.zh.md: e96202f6600ddd8f8cf731222d87d1290dd906c2
+README.md: da6b3e77b095cf545dde5b7f483593af94864755
+README.zh.md: b206b15f4e8d2679410ee3fea709899f0c0c739f

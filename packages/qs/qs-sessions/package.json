@@ -57,7 +57,9 @@
     "clsx": "^2.0.0",
     "react": "^18.2.0",
     "@deepseek-ai/dsh-session": "workspace:^",
-    "@deepseek-ai/dsh-api-workspace-controller": "workspace:^"
+    "@deepseek-ai/dsh-api-workspace-controller": "workspace:^",
+    "@deepseek-ai/dsh-qs-ui-sidebar": "workspace:^",
+    "@deepseek-ai/dsh-qs-composer": "workspace:^"
   },
   "files": [
     "lib/index.js",

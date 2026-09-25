@@ -1,6 +1,7 @@
 /** 会话动作适配：创建期间合并重复请求，导航变化后不接管当前选择。 */
 import type { ISessions, SessionFace } from '@deepseek-ai/dsh-api-session-controller/client'
 import type { IWorkspaces } from '@deepseek-ai/dsh-api-workspace-controller/client'
+import type { UiWorkspace } from '@deepseek-ai/dsh-client-ui-workspace/client'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 
 /** 会话动作面。 */
@@ -11,7 +12,7 @@ export interface SessionActions {
    */
   open(id: SessionId): void
   /**
-   * 新建会话并切过去（`create` 不改变当前会话，必须紧随 `open`）。
+   * 新建会话并切过去，继承点击时当前会话的已登记工作区；无匹配时使用 Host 默认目录。
    * @param signal - 取消本地导航；不撤销 Host 创建。
    * @returns 新会话 id，或 undefined（失败已由调用方提示）。
    */
@@ -42,6 +43,8 @@ export interface SessionActions {
 export interface SessionActionDeps {
   readonly sessions: ISessions
   readonly workspaces: IWorkspaces
+  /** 共享导航会撤销尚未完成的工作区导航，防止迟到结果抢回选择。 */
+  readonly navigation: Pick<UiWorkspace, 'openSession'>
   /** 读取会话快照；会话不在作用域时返回 undefined。 */
   readonly faceOf: (id: SessionId) => SessionFace | undefined
 }
@@ -55,7 +58,7 @@ export function createSessionActions(deps: SessionActionDeps): SessionActions {
   let creation: Promise<SessionId | undefined> | undefined
   return {
     open(id: SessionId): void {
-      deps.sessions.open(id)
+      deps.navigation.openSession(id)
     },
 
     create(signal: AbortSignal): Promise<SessionId | undefined> {
@@ -66,9 +69,12 @@ export function createSessionActions(deps: SessionActionDeps): SessionActions {
       const detach = deps.sessions.list.subscribe(() => {
         if (deps.sessions.list.getSnapshot().current !== initial) navigated = true
       })
-      creation = deps.sessions.create({}).then((id) => {
+      // 与官方工作区导航一致，按成员关系继承点击时的工作区，不能落回 Host 默认目录。
+      const workspaceId = initial === undefined ? undefined : deps.workspaces.list.getSnapshot().items
+        .find(workspace => workspace.sessionIds.includes(initial))?.workspaceId
+      creation = deps.sessions.create(workspaceId === undefined ? {} : { workspaceId }).then((id) => {
         detach()
-        if (!navigated && !signal.aborted) deps.sessions.open(id)
+        if (!navigated && !signal.aborted) deps.navigation.openSession(id)
         return id
       }).catch((error: unknown) => {
         console.error('qs-sessions: create failed', error)

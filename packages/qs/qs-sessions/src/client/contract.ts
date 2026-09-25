@@ -1,3 +1,5 @@
+import type {} from '@deepseek-ai/dsh-qs-composer/client'
+import type {} from '@deepseek-ai/dsh-qs-ui-sidebar/client'
 /** qs-sessions 的契约：会话导航的共享类型与本地化键。 */
 import type { InjectFace, PropsLocale, PropsRuntime, PropsStore } from '@deepseek-ai/dsh-client-ui-slots'
 import type { HostObservable } from '@deepseek-ai/dsh-client-ui-slots'
@@ -7,6 +9,12 @@ import type {} from '@deepseek-ai/dsh-qs-shell/client'
 import type { createQsPinsStore } from './pins-store.ts'
 
 declare module '@deepseek-ai/dsh-client-ui-slots' {
+  interface SlotMap {
+    /** 欢迎区目录选择子槽，与侧栏共用请求身份控制。 */
+    'qs.workspace.hero.directoryFlow': { kind: 'single'; scope: 'root'; owner: import('./DirectoryEntry.tsx').QsDirectoryFlowOwner }
+    /** 侧栏目录选择子槽，随导航呈现释放。 */
+    'qs.workspace.sidebar.directoryFlow': { kind: 'single'; scope: 'root'; owner: import('./DirectoryEntry.tsx').QsDirectoryFlowOwner }
+  }
   interface LocaleNamespaceMap {
     'qs-sessions': QsSessionsLocaleKey
   }
@@ -55,6 +63,8 @@ export type QsSessionListProps =
 
 /** qs-sessions 的本地化键。 */
 export type QsSessionsLocaleKey =
+  | 'directory.add' | 'directory.cancel' | 'directory.failed' | 'directory.adopting'
+  | 'workspace.title' | 'workspace.choose' | 'workspace.failed' | 'workspace.listFailed' | 'workspace.loading' | 'workspace.empty' | 'workspace.opening'
   | 'group.pinned'
   | 'group.recent'
   | 'list.empty'

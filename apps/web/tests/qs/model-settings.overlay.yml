@@ -1,0 +1,5 @@
+# 仅验收配置开启开发者切换入口，生产默认仍由正式配置决定。
+- id: qs-shell
+  config:
+    defaultUi: workbench
+    showOfficialUiEntry: true

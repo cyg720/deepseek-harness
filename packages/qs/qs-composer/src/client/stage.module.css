@@ -1,0 +1,210 @@
+/* 主区：外框、面包屑、滚动区、欢迎区、输入区槽位与页脚。 */
+
+.stage {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  background: var(--qs-bg);
+  overflow: hidden;
+}
+
+.stageTop {
+  height: 57px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 29px;
+  flex-shrink: 0;
+  font-size: 11px;
+  color: var(--qs-muted);
+}
+
+.breadcrumb {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  min-width: 0;
+}
+
+.breadcrumbLabel {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  scroll-behavior: auto;
+  padding: 0 30px;
+}
+
+.composerZone {
+  /* 展开的估算或长队列不能挤掉转写视口；输入区超出主区一半时自行滚动。 */
+  max-height: 50%;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 15px 29px 0;
+  flex-shrink: 0;
+}
+
+.footer {
+  flex-shrink: 0;
+  text-align: center;
+  padding: 13px 8px;
+  font-size: 9px;
+  color: var(--qs-muted);
+  letter-spacing: 0.3px;
+}
+
+.welcome {
+  max-width: 690px;
+  width: 100%;
+  margin: clamp(50px, 11vh, 135px) auto 20px;
+}
+
+.welcomeSymbol {
+  color: var(--qs-accent);
+  width: 49px;
+  height: 49px;
+  margin-bottom: 24px;
+  display: flex;
+  align-items: center;
+}
+
+.welcomeSymbol > svg {
+  width: 48px;
+  height: 48px;
+  stroke-width: 1.1;
+}
+
+.welcomeEyebrow {
+  color: var(--qs-muted);
+  margin-bottom: 14px;
+  font-size: 10px;
+  letter-spacing: 2.3px;
+}
+
+.welcomeTitle {
+  font-size: clamp(26px, 2.6vw, 37px);
+  font-weight: 450;
+  line-height: 1.45;
+  letter-spacing: 1px;
+  margin: 0 0 13px;
+  white-space: pre-line;
+}
+
+.welcomeTitle em {
+  font-style: normal;
+  color: var(--qs-muted);
+}
+
+.welcomeLead {
+  color: var(--qs-muted);
+  font-size: 12px;
+  line-height: 1.9;
+  margin: 0 0 30px;
+}
+
+.welcomeTip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--qs-muted);
+  font-size: 10px;
+  margin: 30px 0 0;
+  line-height: 1.8;
+}
+
+@media (min-width: 1600px) {
+  .welcome {
+    max-width: 750px;
+    margin-top: 15vh;
+  }
+}
+
+@media (max-width: 1150px) {
+  .scroll {
+    padding: 0 22px;
+  }
+
+  .welcome {
+    margin-top: 9vh;
+  }
+
+  .welcomeTitle {
+    font-size: 29px;
+  }
+}
+
+@media (max-width: 960px) {
+  .welcome {
+    margin-top: 8vh;
+  }
+}
+
+@media (max-width: 700px) {
+  .stageTop {
+    padding: 0 19px;
+    height: 52px;
+  }
+
+  .scroll {
+    padding: 0 21px;
+  }
+
+  .composerZone {
+    padding: 10px 16px 0;
+  }
+
+  .welcome {
+    margin-top: 45px;
+  }
+
+  .welcomeSymbol {
+    margin-bottom: 21px;
+  }
+
+  .welcomeTitle {
+    font-size: 28px;
+    letter-spacing: 0;
+  }
+
+  .welcomeLead {
+    font-size: 12px;
+  }
+
+  .welcomeEyebrow {
+    font-size: 9px;
+  }
+
+  .welcomeTip {
+    line-height: 1.8;
+    margin-top: 25px;
+  }
+
+  .footer {
+    font-size: 9px;
+    padding: 10px 5px;
+  }
+}
+
+/* 标题动作与面包屑共享有限宽度，插件弹层自行约束视口。 */
+.headerActions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+
+/* 原型的阅读标签使用奇术令牌，切换不改变固定输入区。 */
+.viewTabs { position: sticky; top: 0; z-index: 2; background: var(--qs-surface); display: flex; gap: 6px; flex-wrap: wrap; border-bottom: 1px solid var(--qs-line); padding-bottom: 12px; margin: 18px 0; }
+.viewTabs button { border: 1px solid var(--qs-line); border-radius: 7px; padding: 8px 12px; font: inherit; background: var(--qs-surface); color: var(--qs-muted); cursor: pointer; }
+.viewTabs button[aria-selected="true"] { color: var(--qs-text); background: var(--qs-accent-soft); border-color: var(--qs-accent); }
+.viewTabs button:focus-visible { outline: 2px solid var(--qs-accent); outline-offset: 2px; }
+
+/* 原型待回答区独立滚动；长审批正文不能压没阅读标签或输入操作。 */
+.pendingZone { min-height: 0; max-height: 35%; overflow-y: auto; flex-shrink: 1; }
+.stage:has([data-qs-approval-card], [data-qs-question-card]) .scroll { min-height: 96px; }
+.stage:has([data-qs-approval-card], [data-qs-question-card]) .composerZone { max-height: 30%; flex-shrink: 1; }
+
+/* 状态更新提示沿用原型待回答区域的字号与间距，不再保留旧表单操作。 */
+.pendingNotice { margin: 0; padding: 10px 30px; color: var(--qs-muted); font-size: 12px; overflow-wrap: anywhere; }

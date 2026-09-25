@@ -11,6 +11,7 @@
  * @module @deepseek-ai/dsh-host-directory-picker-auto
  */
 
+import z from '@deepseek-ai/schemastery'
 import type { Context } from '@deepseek-ai/cordis'
 // Empty type imports carry the `loader` and `webServer` Context merges for the reads below.
 import type {} from '@deepseek-ai/cordis-plugin-loader'
@@ -28,6 +29,25 @@ export { resolveDirectoryPickerBackend } from './resolve.ts'
 export const name = 'directory-picker-auto'
 /** Required services: the effective bind host (`webServer`) and the entry tree the backend mounts into (`loader`). */
 export const inject = ['webServer', 'loader']
+
+/** 按官方一次平台判定追加二开呈现，不重复加载 Host。 */
+export interface Config {
+  /** 每个分支附加的 Client 插件，默认不追加。 */
+  additionalClientSurfaces?: {
+    /** 本机原生选择器分支附加的 Client 插件包名。 */
+    native?: string[]
+    /** 浏览式选择器分支附加的 Client 插件包名。 */
+    browse?: string[]
+  }
+}
+
+/** 部署可选项在 Loader 入口校验，不在运行时猜测类型。 */
+export const Config: z<Config> = z.object({
+  additionalClientSurfaces: z.object({
+    native: z.array(z.string()).default([]),
+    browse: z.array(z.string()).default([]),
+  }).default({ native: [], browse: [] }),
+})
 
 /**
  * Host backend package per resolved kind — fixed composition vocabulary, not a
@@ -58,8 +78,18 @@ export const SURFACE_PACKAGES: Record<DirectoryPickerBackendKind, string> = {
  * joins their fibers' teardown, so unloading this plugin returns only after
  * both faces of the mounted interaction (and their dependents) quiesced.
  * @param ctx - cordis context carrying the injected `webServer` and `loader`.
+ * @param config - 分支附加呈现；重复或空名称在加载前拒绝。
  */
-export async function apply(ctx: Context): Promise<void> {
+export async function apply(ctx: Context, config: Config = {}): Promise<void> {
+  // 两个分支均先检查，避免配置错误只在换平台后暴露。
+  for (const kind of ['native', 'browse'] as const) {
+    const names = config.additionalClientSurfaces?.[kind] ?? []
+    const seen = new Set(Object.values(SURFACE_PACKAGES).concat(Object.values(BACKEND_PACKAGES)))
+    for (const name of names) {
+      if (name.trim() !== name || name.length === 0 || seen.has(name)) throw new Error(`directory-picker-auto: invalid or duplicate additional surface "${name}"`)
+      seen.add(name)
+    }
+  }
   const backend = resolveDirectoryPickerBackend({
     bindHost: ctx.webServer.host,
     platform: process.platform,
@@ -84,7 +114,7 @@ export async function apply(ctx: Context): Promise<void> {
       }
     }
     try {
-      for (const name of [BACKEND_PACKAGES[backend], SURFACE_PACKAGES[backend]]) {
+      for (const name of [BACKEND_PACKAGES[backend], SURFACE_PACKAGES[backend], ...config.additionalClientSurfaces?.[backend] ?? []]) {
         ids.push(await ctx.loader.create({ name }))
       }
     } catch (cause) {

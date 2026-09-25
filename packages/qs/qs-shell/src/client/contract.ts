@@ -1,36 +1,21 @@
-/**
- * 奇术工作台的槽位契约与跨包共享类型。
- *
- * 这是七个 qs-* 包之间唯一的类型通道：其它包通过
- * `import type {} from '@deepseek-ai/dsh-qs-shell/client'` 引入这里的 SlotMap 增补，
- * 再按槽名贡献或读取。运行时值一律不跨界（bundle 纯净度门禁不放行）。
- *
- * 声明权归属（见 06-槽位与状态设计 第二节）：`qs.*` 顶层槽全部由 qs-shell 声明，
- * 其中 `qs.stage.body` / `qs.stage.transcript` / `qs.composer` 声明在 qs-shell 自己的
- * `qs.stage` 条目下，因此渲染宿主是 Stage 组件本身而不是 root。
- * `qs.stage.transcript.row`（keyed）与 `qs.stage.interaction`（chain）由 qs-transcript
- * 声明并登记在它自己的契约文件里——框架里 inject face 归声明方所有，所以这两个槽的
- * inject 面只能由真正拥有它们的包提供。
- */
+/** Layout-owned top-level seats and shared service types. Child plugins declare their own nested seats. */
 import type { HostObservable, SnapshotSelectorHook } from '@deepseek-ai/dsh-client-ui-slots'
 
 declare module '@deepseek-ai/dsh-client-ui-slots' {
   interface SlotMap {
+    /** Independently contributed workbench brand symbol. */
+    'qs.brand.mark': { kind: 'single'; scope: 'root'; owner: { children?: never } }
+    /** Independently contributed workbench brand name. */
+    'qs.brand.name': { kind: 'single'; scope: 'root'; owner: { children?: never } }
     /** 登录视图挂载点；由 qs-login 贡献，未登录时渲染。 */
     'qs.gate': { kind: 'single'; scope: 'root'; owner: QsGateOwnerProps }
     /** 顶栏：品牌、面板开关、状态入口；由 qs-shell 贡献。 */
     'qs.chrome': { kind: 'single'; scope: 'root'; owner: QsChromeOwnerProps }
-    /** 左导航：会话列表容器；由 qs-sessions 贡献。 */
-    'qs.nav': { kind: 'single'; scope: 'root'; owner: QsNavOwnerProps }
-    /** 主区外框；由 qs-shell 贡献并声明其下的欢迎区、转写与输入区。 */
+    /** Sidebar shell with its own workspace child slot. */
+    'qs.sidebar': { kind: 'single'; scope: 'root'; owner: { hidden: boolean; user: string | undefined } }
+    /** 会话视图挂载点；由 qs-composer 贡献并声明其子槽。 */
     'qs.stage': { kind: 'single'; scope: 'root'; owner: QsStageOwnerProps }
-    /** 欢迎区与骨架；无会话时也渲染（session-maybe）。 */
-    'qs.stage.body': { kind: 'single'; scope: 'session-maybe'; owner: QsStageBodyOwnerProps }
-    /** 转写行；严格会话作用域，无绑定不得渲染。由 qs-transcript 贡献。 */
-    'qs.stage.transcript': { kind: 'single'; scope: 'session'; owner: QsTranscriptOwnerProps }
-    /** 输入区；无会话时也渲染，此时 inputActions 为 undefined。由 qs-composer 贡献。 */
-    'qs.composer': { kind: 'single'; scope: 'session-maybe'; owner: QsComposerOwnerProps }
-    /** 右栏：工作区辅助面板骨架与空态；由 qs-shell 贡献。 */
+    /** 右栏挂载点；布局传入几何状态，qs-ui-sidebar-right 贡献内容。 */
     'qs.inspector': { kind: 'single'; scope: 'root'; owner: QsInspectorOwnerProps }
     /** 底部状态条；连接态与同步态，按 id 并列。 */
     'qs.status': { kind: 'list'; scope: 'root'; owner: QsStatusOwnerProps }
@@ -73,7 +58,13 @@ export interface QsTranscriptOwnerProps { children?: never }
 /** 输入区业主输入。 */
 export interface QsComposerOwnerProps { children?: never }
 /** 右栏业主输入。 */
-export interface QsInspectorOwnerProps { children?: never }
+export interface QsInspectorOwnerProps {
+  readonly hidden: boolean
+  /** 外壳主动操作的递增序号；面板回报不增加序号。 */
+  readonly requestId: number
+  /** 回报官方会话面板的实际展开状态。 */
+  readonly reportOpen: (open: boolean) => void
+}
 /** 底部状态条业主输入。 */
 export interface QsStatusOwnerProps { children?: never }
 /** overlay 宿主业主输入。 */
@@ -170,12 +161,17 @@ export type QsShellLocaleKey =
   | 'status.loopback'
   | 'status.reconnect'
   | 'overlay.region'
+  | 'layout.recovered'
+  | 'layout.memory'
+  | 'layout.reset'
 
 /** 启动界面选择：奇术工作台或官方界面。 */
 export type QsUiId = 'workbench' | 'official'
 
 /** qs-shell 的部署级配置（宿主侧解析后经 index-inject 传给浏览器）。 */
 export interface QsShellConfig {
+  /** 单浏览器任务通知最多保留的作业身份及已访问会话数。 */
+  notificationCapacity: number
   /** 本次启动的初始界面；默认 `workbench`。 */
   defaultUi: QsUiId
   /** 是否启用开发者双向切换入口与动作；默认 false。 */
@@ -227,6 +223,19 @@ export interface QsToast {
   readonly id: number
   /** 已本地化的正文。 */
   readonly message: string
+}
+
+/** 通知展示与容量配置；不提供任务状态或系统推送能力。 */
+export interface IQsToast {
+  readonly notificationCapacity: number
+  /**
+   * 展示本地化的纯文本通知。
+   * @param message - 展示正文。
+   * @param ttlMs - 可选展示时长。
+   */
+  show(message: string, ttlMs?: number): void
+  /** 清空可见通知及其定时器，供退出或所有者卸载使用。 */
+  clear(): void
 }
 
 /** 工作台主题快照：只取令牌需要的明暗档。 */

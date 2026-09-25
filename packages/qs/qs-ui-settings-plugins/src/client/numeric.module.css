@@ -1,0 +1,15 @@
+/* 奇术原型配置卡使用统一色彩与表单间距，错误和操作保留在卡内。 */
+.card { min-width: 0; border: 1px solid var(--qs-line); border-radius: 12px; padding: 16px; margin: 12px 0; background: var(--qs-surface); overflow-wrap: anywhere; }
+.field { display: grid; grid-template-columns: minmax(0, 1fr) minmax(100px, 180px); gap: 8px 16px; margin: 16px 0; align-items: center; }
+.field small { color: var(--qs-muted); }
+.card input, .card button { font: inherit; color: var(--qs-text); border: 1px solid var(--qs-line); border-radius: 8px; padding: 8px 10px; background: var(--qs-surface); min-width: 0; }
+.card :focus-visible { outline: 2px solid var(--qs-accent); outline-offset: 2px; }
+.card button { cursor: pointer; }
+.card button:disabled { opacity: .5; cursor: default; }
+.card [role=alert] { color: var(--qs-error-text); }
+.actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.choice { display: flex; align-items: flex-start; gap: 10px; margin: 12px 0; }
+.choice input { flex-shrink: 0; }
+.choice small { display: block; color: var(--qs-muted); }
+.routes { min-width: 0; border: 1px solid var(--qs-line); border-radius: 8px; margin: 12px 0; }
+@media(max-width:700px) { .field { grid-template-columns: minmax(0, 1fr); } .card input { font-size: 16px; } }

@@ -14,6 +14,7 @@ export const QS_UI_CONFIG_GLOBAL = '__QS_UI_CONFIG__'
 export const DEFAULT_QS_SHELL_CONFIG: QsShellConfig = Object.freeze({
   defaultUi: 'workbench',
   showOfficialUiEntry: false,
+  notificationCapacity: 256,
 })
 
 /** 可选的界面枚举行。 */
@@ -28,7 +29,7 @@ const UI_IDS: readonly QsUiId[] = ['workbench', 'official']
 export function resolveQsShellConfig(value: unknown): QsShellConfig {
   if (value === undefined || value === null) return { ...DEFAULT_QS_SHELL_CONFIG }
   if (typeof value !== 'object') throw new Error('qs-shell: config must be an object')
-  const raw = value as { defaultUi?: unknown; showOfficialUiEntry?: unknown }
+  const raw = value as { defaultUi?: unknown; showOfficialUiEntry?: unknown; notificationCapacity?: unknown }
   const defaultUi = raw.defaultUi ?? DEFAULT_QS_SHELL_CONFIG.defaultUi
   if (!UI_IDS.includes(defaultUi as QsUiId)) {
     throw new Error(`qs-shell: config.defaultUi must be one of ${UI_IDS.join(' | ')}`)
@@ -37,7 +38,11 @@ export function resolveQsShellConfig(value: unknown): QsShellConfig {
   if (typeof showOfficialUiEntry !== 'boolean') {
     throw new Error('qs-shell: config.showOfficialUiEntry must be a boolean')
   }
-  return { defaultUi: defaultUi as QsUiId, showOfficialUiEntry }
+  const notificationCapacity = raw.notificationCapacity ?? DEFAULT_QS_SHELL_CONFIG.notificationCapacity
+  if (typeof notificationCapacity !== 'number' || !Number.isSafeInteger(notificationCapacity) || notificationCapacity < 1) {
+    throw new Error('qs-shell: config.notificationCapacity must be a positive safe integer')
+  }
+  return { defaultUi: defaultUi as QsUiId, showOfficialUiEntry, notificationCapacity }
 }
 
 /**

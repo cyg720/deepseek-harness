@@ -57,7 +57,7 @@ kind: "package-reference"
 <details>
 <summary>实现细节——点击展开</summary>
 
-页面只持有脱敏后的描述符，从不持有完整设置分区：因此每次编辑都以 `settings.mutate` 路径操作落到已存分区上——每个改动字段一次 set、每个清除字段一次 unset、删除提供方行则一次 unset。
+页面只持有脱敏后的描述符，从不持有完整设置分区：因此每次编辑都以 `settings.mutate` 路径操作落到已存分区上——每个改动字段一次 set、每个清除字段一次 unset、删除提供方行则一次 unset。 `ctx.modelsSettings.face` 向独立装配的呈现公开同一控制器、schema 回调、写入操作和欢迎状态。访问服务不创建额外目录或设置镜像，随本插件释放；插件恢复后，依赖它的呈现重新绑定新实例。
 
 ### 校验
 

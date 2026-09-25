@@ -21,12 +21,12 @@ import type {} from '@deepseek-ai/dsh-api-gateway/client'
 import type {} from '@deepseek-ai/dsh-api-workspace-files/remote'
 import type { WorkspaceFileParams } from '@deepseek-ai/dsh-api-workspace-files/client'
 import { TextPreview } from './TextPreview.tsx'
-import type { TextPreviewInjected } from './TextPreview.tsx'
 import { TextTitle } from './TextTitle.tsx'
 import { TEXTPREVIEW_ID, textDefinition } from './definition.ts'
-import { textFace } from './face.ts'
-import { createReadPage } from './rpc.ts'
-import { createTextStore } from './store.ts'
+import { createDocumentPresentation } from './qs/presentation.ts'
+import type { DocumentPreviewPresentation } from './qs/presentation.ts'
+import type { PdfPresentation } from './qs/pdf-presentation.ts'
+import { hostFileOf } from './rpc.ts'
 import { en, zh } from './locales.ts'
 import { DocumentPreviewRegistry } from './document/registry.ts'
 import { documentTabInfoFactory } from './document/contract.ts'
@@ -42,6 +42,11 @@ import { apply as registerCode } from './code/index.ts'
 // share, plus the types a consumer of the seat or the store names.
 export type { SidebarDocumentPreviewKey } from './locales.ts'
 export type { TextPreviewProps } from './TextPreview.tsx'
+export type { TextPreviewInjected } from './TextPreview.tsx'
+export type { DocumentPreviewPresentation } from './qs/presentation.ts'
+export type { PdfPresentation } from './qs/pdf-presentation.ts'
+export type { PdfBodyInjected } from './pdf/PdfBody.tsx'
+export type { PdfDocument, PdfSession } from './pdf/document.ts'
 export type { TextInjected } from './face.ts'
 export type { ReadWorkspaceFilePage, SessionFile, WorkspaceFilesReadRemote } from './rpc.ts'
 export type { TextPage, TextState, TextStore, TextTabState } from './store.ts'
@@ -52,6 +57,10 @@ declare module '@deepseek-ai/cordis' {
   interface Context {
     /** File-extension renderer registrations, independent from their keyed document bodies. */
     documentPreviews: DocumentPreviewRegistry
+    /** 官方与 QS 共享文件内容和请求代次；正文卸载不销毁仍存活的标签状态。 */
+    documentPreviewPresentation: DocumentPreviewPresentation
+    /** 双界面共用 PDF 页码状态和 worker/画布操作；挂载正文拥有运行时实例。 */
+    documentPdfPresentation: PdfPresentation
   }
 }
 
@@ -89,19 +98,27 @@ export function apply(ctx: ClientContext): void {
   ctx.effect(() => ctx.sidebarRightTabs.register(textDefinition()), 'ui-sidebar-documentpreview: text type')
   ctx.effect(() => ctx.locale.register(NS, { zh, en }), 'ui-sidebar-documentpreview: dictionaries')
 
-  const store = createTextStore()
-  const face = textFace(
-    createReadPage(ctx.remote),
+  // 同一标签跨界面刷新时必须共享请求代次，防止旧读取覆盖新内容。
+  const presentation = createDocumentPresentation(
+    ctx.remote,
     (file, signal) => ctx.remote.workspaceFiles.readAll(file.sessionId, file.path, signal),
+    previews,
+    // HTML 静态依赖沿用源文档会话及 Host 路径权限，不暴露任意文件桥接给 iframe。
+    (address, relativePath, signal) => {
+      const file = hostFileOf(address)
+      return ctx.remote.workspaceFiles.readRelated(file.sessionId, file.path, relativePath, signal)
+    },
   )
-  const source = { getSnapshot: previews.getSnapshot, subscribe: previews.subscribe }
+  const disposePresentation = ctx.reflect.provide('documentPreviewPresentation', presentation)
+  ctx.effect(() => disposePresentation)
+  const { store, inject: bindPreview } = presentation
   ctx.effect(() => ctx.slots.inject('sidebar.right.pane.tab', () => ctx.slots.register(
     {
       name: 'sidebar.right.pane.tab', key: TEXTPREVIEW_ID, locale: NS, store,
       children: {
         'sidebar.right.tab.document': { kind: 'keyed', scope: 'session', inject: { hooks: { tabInfo: documentTabInfoFactory } } },
       },
-      inject: (sessionId, actions): TextPreviewInjected => ({ ...face(sessionId, actions), hooks: { documentPreviews: source } }),
+      inject: bindPreview,
     },
     TextPreview,
   )), 'ui-sidebar-documentpreview: text body')
@@ -116,3 +133,6 @@ export function apply(ctx: ClientContext): void {
   registerPdf(ctx)
   registerCode(ctx)
 }
+
+// 二开仅复用身份；定义注册与读取策略仍由本插件负责。
+export { documentPreviewIds } from './qs/ids.ts'

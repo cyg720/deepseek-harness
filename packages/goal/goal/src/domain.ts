@@ -89,17 +89,8 @@ export interface GoalChanged {
   readonly goal?: GoalView
 }
 
-/** Stable error codes for rejected goal reads and mutations. */
-export type GoalErrorCode =
-  | 'GOAL_AGENT_NOT_LIVE'
-  | 'GOAL_NOT_FOUND'
-  | 'GOAL_ALREADY_EXISTS'
-  | 'GOAL_STALE_REVISION'
-  | 'GOAL_INVALID_OBJECTIVE'
-  | 'GOAL_INVALID_MAX_ROUNDS'
-  | 'GOAL_INVALID_BLOCK_REASON'
-  | 'GOAL_INVALID_EDIT'
-  | 'GOAL_INVALID_TRANSITION'
+// 保留 Host 原导出路径，客户端与 Host 共享同一份错误分类。
+export type { GoalErrorCode } from './qs/error-codes.ts'
 
 declare module '@deepseek-ai/cordis' {
   interface Events {

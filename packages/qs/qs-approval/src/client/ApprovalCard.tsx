@@ -14,7 +14,7 @@
  * 请求 B 时本组件不会卸载。内部状态放在以 `matched.key` 为 key 的内层组件上，
  * 换请求即重置——否则 B 会继承 A 的"提交中/失败"状态。
  */
-import { useState, type ReactNode } from 'react'
+import { useRef, useState, type ReactNode } from 'react'
 import { deriveApprovalDetail } from './approval-detail.ts'
 import type { QsApprovalCardProps } from './contract.ts'
 import styles from './approval.module.css'
@@ -31,6 +31,8 @@ export function ApprovalCard(props: QsApprovalCardProps): ReactNode {
 
 /** 单条请求的卡片主体；其状态生命周期与 `matched.key` 一致。 */
 function ApprovalCardBody({ matched, useApprovalDetail, t }: QsApprovalCardProps): ReactNode {
+  // 同步锁先于 React 提交状态生效，阻止同批事件重复答复。
+  const submittingRef = useRef(false)
   const [submitting, setSubmitting] = useState(false)
   const [failed, setFailed] = useState<'allowed-once' | 'rejected' | undefined>(undefined)
   // 只读自己那个 callId：索引按会话整体发布，卡片按 id 取用。
@@ -39,13 +41,15 @@ function ApprovalCardBody({ matched, useApprovalDetail, t }: QsApprovalCardProps
   const detail = deriveApprovalDetail(matched, call)
 
   const answer = (outcome: 'allowed-once' | 'rejected'): void => {
-    if (submitting) return
+    if (submittingRef.current) return
+    submittingRef.current = true
     setSubmitting(true)
     setFailed(undefined)
     matched.answer(outcome).catch((error: unknown) => {
       // 答复失败时请求仍然 pending，恢复可点击并提示，让用户可以重试。
       console.error('qs-approval: answer failed', error)
       setFailed(outcome)
+      submittingRef.current = false
       setSubmitting(false)
     })
   }

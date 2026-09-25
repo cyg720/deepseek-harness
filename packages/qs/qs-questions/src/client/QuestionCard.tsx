@@ -42,6 +42,8 @@ function QuestionCardBody({ matched, sessionId, useQuestionDraft, writeDraft, cl
     }
     return scoped
   }, [allDrafts, sessionId, matched])
+  // 同步锁按请求实例持有，避免状态提交前重复发送答案。
+  const submittingRef = useRef(false)
   const [submitting, setSubmitting] = useState(false)
   const [failed, setFailed] = useState(false)
   const card = useRef<HTMLElement>(null)
@@ -51,13 +53,15 @@ function QuestionCardBody({ matched, sessionId, useQuestionDraft, writeDraft, cl
   const review = planReviewOf(matched.questions)
 
   const submit = (answer: Parameters<typeof matched.answer>[0]): void => {
-    if (submitting) return
+    if (submittingRef.current) return
+    submittingRef.current = true
     setSubmitting(true)
     setFailed(false)
     matched.answer(answer).then(() => { clearDrafts(sessionId, matched.key) }).catch((error: unknown) => {
       // 请求仍然 pending：恢复可点击并提示，让用户重试（chain 不退位）。
       console.error('qs-questions: answer failed', error)
       setFailed(true)
+      submittingRef.current = false
       setSubmitting(false)
     })
   }
@@ -65,6 +69,8 @@ function QuestionCardBody({ matched, sessionId, useQuestionDraft, writeDraft, cl
   const setDraft = (id: string, next: QuestionDraft): void => { writeDraft(sessionId, matched.key, id, next) }
 
   if (review !== undefined) {
+    // 捕获已校验的选项，点击时使用与按钮一致的原始标签。
+    const decline = review.decline
     return (
       <section className={styles.card} data-qs-plan-card aria-labelledby="qs-plan-title">
         <div className={styles.eyebrow}>{t('plan.eyebrow')}</div>
@@ -74,14 +80,14 @@ function QuestionCardBody({ matched, sessionId, useQuestionDraft, writeDraft, cl
         </div>
         {failed ? <p className={styles.error} role="alert">{t('card.error')}</p> : null}
         <div className={styles.actions}>
-          {review.decline === undefined ? null : (
+          {decline === undefined ? null : (
             <button
               type="button"
               className={`qs-btn ${styles.reject}`}
               disabled={submitting}
-              onClick={() => { submit({ answers: [{ id: review.id, selected: [review.decline?.label ?? ''] }] }) }}
+              onClick={() => { submit({ answers: [{ id: review.id, selected: [decline.label] }] }) }}
             >
-              {review.decline.label || t('plan.decline')}
+              {decline.label || t('plan.decline')}
             </button>
           )}
           <button

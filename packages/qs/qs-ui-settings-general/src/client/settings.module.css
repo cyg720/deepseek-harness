@@ -1,0 +1,11 @@
+/* 原型设置使用奇术令牌、横向分区和表单留白，窄屏保持内部滚动。 */
+.dialog { width: min(920px, calc(100vw - 32px)); max-height: calc(100dvh - 40px); box-sizing: border-box; border: 1px solid var(--qs-line); border-radius: 16px; padding: 24px; color: var(--qs-text); background: var(--qs-surface); overflow: auto; }
+.dialog::backdrop { background: rgb(0 0 0 / 35%); }
+.dialog header { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; }
+.dialog h2 { margin: 0 auto 12px 0; font-size: 22px; }
+.dialog p { color: var(--qs-muted); line-height: 1.7; }
+.tabs { display: flex; gap: 8px; overflow-x: auto; border-bottom: 1px solid var(--qs-line); padding: 12px 0; }
+.tabs button { font: inherit; white-space: nowrap; border: 0; border-radius: 8px; padding: 8px 14px; background: var(--qs-subtle); color: var(--qs-text); cursor: pointer; }
+.tabs button[aria-current] { background: var(--qs-accent-soft); color: var(--qs-accent); }
+.content { padding: 16px 0; min-width: 0; overflow-wrap: anywhere; }
+@media(max-width: 700px) { .dialog { padding: 16px; } }

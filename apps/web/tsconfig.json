@@ -23,9 +23,17 @@
   // cannot see both sides of the cordis Context merges).
   "exclude": [
     "tests/qs/interaction-roundtrip.e2e.ts",
+    // 模型设置端到端用例启动真实 Host，由根 Host 程序检查，避免混合两侧 Context。
+    "tests/qs/model-settings.e2e.ts",
+    // Host 能力测试由根 Host 程序负责，避免混入 Client 服务合并。
+    "tests/qs/browse-picker.e2e.ts",
+    "tests/qs/native-picker.e2e.ts",
     "tests/qs/transcript-disclosures.e2e.ts",
     "tests/qs/transcript-follow.e2e.ts",
     "tests/qs/transcript-media.e2e.ts",
+    "tests/qs/preset-lifecycle.e2e.ts",
+    // 奇术启动/回退验收依赖 Host Loader，由 Host 编译面负责。
+    "tests/qs/ui-config.e2e.ts",
     "tests/scaffold.ts",
     "tests/scaffold-generation.spec.ts",
     "tests/scaffold-hermetic.e2e.ts",

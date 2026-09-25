@@ -16,11 +16,18 @@ import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
 import type {} from '@deepseek-ai/dsh-client-ui-session/client'
 import type {} from '@deepseek-ai/dsh-client-ui-sidebar-right/client'
 import { FILES_ID, filesDefinition } from './definition.tsx'
-import { createList, filesFace } from './face.ts'
+import { createFilesPresentation } from './qs/presentation.ts'
+import type { SidebarFilesPresentation } from './qs/presentation.ts'
+export type { SidebarFilesPresentation } from './qs/presentation.ts'
 import { FilesBody } from './FilesBody.tsx'
 import { FilesTitle } from './FilesTitle.tsx'
 import { en, zh } from './locales.ts'
-import { createFilesStore } from './store.ts'
+declare module '@deepseek-ai/cordis' {
+  interface Context {
+    /** 官方与 QS 共用目录状态及刷新代次，不重复创建文件树读取器。 */
+    sidebarFilesPresentation: SidebarFilesPresentation
+  }
+}
 
 export type { SidebarFilesKey } from './locales.ts'
 export type { DirLevel, FilesState, FilesTabState, LevelState } from './store.ts'
@@ -45,8 +52,11 @@ export function apply(ctx: ClientContext): void {
   ctx.effect(() => ctx.sidebarRightTabs.register(filesDefinition(t)), 'ui-sidebar-files: files type')
   ctx.effect(() => ctx.locale.register(NS, { zh, en }), 'ui-sidebar-files: dictionaries')
 
-  const store = createFilesStore()
-  const inject = filesFace(createList(ctx.remote))
+  // 共享整个注入工厂，确保切换呈现后的迟到目录响应不能覆盖新刷新。
+  const presentation = createFilesPresentation(ctx.remote)
+  const { store, inject } = presentation
+  const disposePresentation = ctx.reflect.provide('sidebarFilesPresentation', presentation)
+  ctx.effect(() => disposePresentation, 'ui-sidebar-files: presentation')
   ctx.effect(() => ctx.slots.inject('sidebar.right.pane.tab', () => ctx.slots.register(
     { name: 'sidebar.right.pane.tab', key: FILES_ID, locale: NS, store, inject },
     FilesBody,

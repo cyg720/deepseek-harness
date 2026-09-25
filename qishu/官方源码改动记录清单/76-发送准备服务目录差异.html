@@ -1,0 +1,31 @@
+<!doctype html><html lang="zh"><meta charset="utf-8"><title>发送准备服务目录差异</title><style>body{font-family:system-ui;margin:2rem}pre{white-space:pre-wrap;overflow-wrap:anywhere}.add{color:#167138}.del{color:#b52828}</style><h1 id="p0">scripts/gen-cordis-catalog.ts</h1><p>2026-09-23，累计比较 HEAD 与当前工作区；不代表全部功能验收。</p><pre><span class="">diff --git a/scripts/gen-cordis-catalog.ts b/scripts/gen-cordis-catalog.ts</span>
+<span class="">index ed81fccc1f..df0ec14967 100644</span>
+<span class="del">--- a/scripts/gen-cordis-catalog.ts</span>
+<span class="add">+++ b/scripts/gen-cordis-catalog.ts</span>
+<span class="">@@ -147,6 +147,8 @@ export const SERVICE_PAGE: Record&lt;string, string&gt; = {</span>
+<span class="">  * to a model as `cordis_runtime_inspect what:&quot;client&quot;`).</span>
+<span class="">  */</span>
+<span class=""> export const SERVICE_WALK_EXEMPTIONS: Record&lt;string, string&gt; = {</span>
+<span class="add">+  // 奇术发送准备注册表仅存在于 Client 面，接口由所属输入插件说明，不能混入 Host 服务目录。</span>
+<span class="add">+  qsSendPreparation: &#x27;client-side send preparation registry — packages/qs/qs-composer/README.md owns the API&#x27;,</span>
+<span class="">   appReady: &#x27;not a service: launcher-provided successful-startup signal — packages/boot/cmdline/README.md owns the launcher contract&#x27;,</span>
+<span class="">   appExit: &#x27;not a service: launcher-provided bounded process-exit callback — packages/boot/cmdline/README.md owns the launcher contract&#x27;,</span>
+<span class="">   cmdlineArgs: &#x27;not a service: launcher-provided immutable app argument accessor — packages/boot/cmdline/README.md owns the launcher contract&#x27;,</span>
+<span class="">@@ -178,6 +180,17 @@ export const SERVICE_WALK_EXEMPTIONS: Record&lt;string, string&gt; = {</span>
+<span class="">   workspaces: &#x27;client-side interface-typed browser service — packages/api/workspace-controller/README.md owns the API&#x27;,</span>
+<span class="">   resources: &#x27;client-side resource model (protocol providers, pins, live sources) — packages/client/resources/README.md owns the API&#x27;,</span>
+<span class="">   sidebarRight: &#x27;client-side right-Sidebar navigation face — packages/client/ui-sidebar-right/README.md owns the API&#x27;,</span>
+<span class="add">+  // 二开共享呈现属于 Client 面，由各原包 README 说明，不能漏过服务清单检查。</span>
+<span class="add">+  sidebarRightPresentation: &#x27;client-side shared presentation — packages/client/ui-sidebar-right/README.md owns the API&#x27;,</span>
+<span class="add">+  // 二开复用的会话呈现接口仅存在 Client 分面，API 归属原会话包 README。</span>
+<span class="add">+  conversationPresentation: &#x27;client-side shared presentation — packages/client/ui-conversation/README.md owns the API&#x27;,</span>
+<span class="add">+  // 目标呈现是 Client 专用接口，正式说明归原插件，Host 目录不生成它。</span>
+<span class="add">+  goalPresentation: &#x27;client-side shared presentation — packages/client/ui-goal/README.md owns the API&#x27;,</span>
+<span class="add">+  messageFeedbackPresentation: &#x27;client-side shared presentation — packages/client/ui-message-feedback/README.md owns the API&#x27;,</span>
+<span class="add">+  deliverablesPresentation: &#x27;client-side shared presentation — packages/client/ui-deliverables/README.md owns the API&#x27;,</span>
+<span class="add">+  documentPreviewPresentation: &#x27;client-side shared presentation — packages/client/ui-sidebar-documentpreview/README.md owns the API&#x27;,</span>
+<span class="add">+  documentPdfPresentation: &#x27;client-side shared presentation — packages/client/ui-sidebar-documentpreview/README.md owns the API&#x27;,</span>
+<span class="add">+  sidebarFilesPresentation: &#x27;client-side shared presentation — packages/client/ui-sidebar-files/README.md owns the API&#x27;,</span>
+<span class="">   sidebarRightTabs: &#x27;client-side right-Sidebar tab-type registry — packages/client/ui-sidebar-right/README.md owns the API&#x27;,</span>
+<span class="">   documentPreviews: &#x27;client-side document renderer registry — docs/subsystems/sidebar-right.md owns the API&#x27;,</span>
+<span class=""> }</span></pre></html>

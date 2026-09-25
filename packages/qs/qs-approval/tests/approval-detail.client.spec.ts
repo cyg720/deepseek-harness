@@ -83,3 +83,9 @@ describe('callId 索引', () => {
     expect(index.get('c')?.name).toBe('first')
   })
 })
+
+/** 增量调用尚无参数字符串时，索引保留身份并使用空参数。 */
+it('未完成调用缺少参数时仍可按身份查询', () => {
+  expect(collectToolCalls([toolNode({ callId: 'partial', name: 'pwsh' })]).get('partial'))
+    .toEqual({ callId: 'partial', name: 'pwsh', argsRaw: '' })
+})

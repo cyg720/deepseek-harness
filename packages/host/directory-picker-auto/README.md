@@ -109,6 +109,8 @@ These limits define when the boot-time sample can misjudge the host. They are cu
 - **The Linux chooser probe reads `PATH` only** — a zenity/kdialog reachable some other way (shell alias, non-PATH install) still resolves `browse`; installing either binary on `PATH` restores `native` eligibility at the next boot.
 - **Boot-time only** — one resolution serves every client of the boot; per-connection adaptivity (native for a local browser, browse for a remote one, same server) would need a per-client capability and the wire advertisement the seam does not carry, and waits for a deployment that serves both at once.
 
+Optional `additionalClientSurfaces.native` and `.browse` lists append presentation plugins after the selected Host and official Client entries. Both default to empty. Empty, whitespace-padded or duplicate names and built-in backend/surface names are rejected before loading. Additional entry failure rolls back the whole selected composition; resolver manifests must declare both branches.
+
 <a id="dev-note"></a>
 ### Dev Note
 

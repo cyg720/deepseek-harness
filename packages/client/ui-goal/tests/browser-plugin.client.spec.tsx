@@ -328,3 +328,45 @@ describe('ui-goal node half', () => {
     expect(() => { nodeApply() }).not.toThrow()
   })
 })
+
+// 公开呈现能力与官方 dock 共用动作实现，挂载依赖释放时服务随之撤销。
+it('shares CAS actions through the public presentation and removes the service on disposal', async () => {
+  const options = { projection: makeProjection(7) }
+  const b = await bench(options)
+  try {
+    await b.fiber.await()
+    const presentation = b.ctx.goalPresentation
+    const bind = vi.spyOn(presentation, 'bind')
+    const official = b.entry()!.inject!(sid('s1'))
+    expect(bind).toHaveBeenCalledExactlyOnceWith(sid('s1'))
+    const alternate = presentation.bind(sid('s1'))
+    expect(b.definitions().map(definition => definition.kind)).toEqual(['goal-command-input'])
+    expect(b.calls).toEqual([])
+    options.projection = makeProjection(8)
+    await alternate.onEdit('Shared objective')
+    await official.onPause()
+    expect(b.calls).toEqual([
+      { method: 'goals/edit', args: ['s1', { id: GOAL_ID, revision: 8 }, { objective: 'Shared objective' }] },
+      { method: 'goals/pause', args: ['s1', { id: GOAL_ID, revision: 8 }] },
+    ])
+    expect(() => presentation.bind(sid('missing'))).toThrow(/unavailable/)
+    await b.fiber.dispose()
+    expect(b.ctx.get('goalPresentation')).toBeUndefined()
+  } finally { await b.ctx.fiber.dispose(); vi.restoreAllMocks() }
+})
+
+// 显式携带用户看到的旧 ref，不能自动升级为当前版本后覆盖他人修改。
+it('forwards an explicitly observed revision to Host CAS for every mutation', async () => {
+  const b = await bench({ projection: makeProjection(9) })
+  try {
+    await b.fiber.await()
+    const face = b.ctx.goalPresentation.bind(sid('s1'))
+    const observed = { id: GOAL_ID, revision: 8 }
+    await face.onEdit('Observed draft', observed)
+    await face.onPause(observed)
+    await face.onResume(observed)
+    await face.onClear(observed)
+    expect(b.calls.map(call => call.args[1])).toEqual([observed, observed, observed, observed])
+    expect(b.calls[0]!.args[2]).toEqual({ objective: 'Observed draft' })
+  } finally { await b.ctx.fiber.dispose() }
+})

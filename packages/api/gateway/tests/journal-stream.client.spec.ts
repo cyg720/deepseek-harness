@@ -313,6 +313,27 @@ describe('RemoteJournalStream', () => {
     await fixture.journal.dispose()
   })
 
+  // 旧 HTTP 分页不能改写重连后的窗口，即使请求使用的整体生命周期尚未销毁。
+  it('discards a delayed prepend after a replacement window arrives', async () => {
+    const held = Promise.withResolvers<Page>()
+    const fixture = journalFixture([
+      { frames: [opened(5, page('initial', [4, 5], true))], hold: true },
+      { frames: [opened(5, page('replacement', [4, 5], true))], hold: true },
+    ], [held.promise, page('current', [2, 3], true)])
+    try {
+      await fixture.journal.open({ limit: 2 })
+      const old = fixture.journal.prepend({ before: 4 })
+      fixture.journal.restart()
+      await vi.waitFor(() => { expect(fixture.changes).toHaveLength(2) })
+      held.resolve(page('stale', [2, 3], false))
+      await old
+      expect(fixture.changes).toHaveLength(2)
+      await fixture.journal.prepend({ before: 4 })
+      expect(fixture.changes.at(-1)).toMatchObject({ type: 'prepend', page: { marker: 'current' }, hasMore: true })
+      expect(fixture.failed).not.toHaveBeenCalled()
+    } finally { held.resolve(page('stale', [2, 3])); await fixture.journal.dispose() }
+  })
+
   it('exposes its shared cancellation signal', async () => {
     const fixture = journalFixture(
       [{ frames: [opened(-1, page('empty', []))], hold: true }],

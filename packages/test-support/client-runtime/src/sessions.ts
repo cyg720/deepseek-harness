@@ -7,7 +7,7 @@ import {
 import type {
   AgentContext, ISessions, ProjectionsFace, SessionBinding, SessionFace, SessionListState,
   SessionEventLikeEntry, SessionLiveEventEntry, SessionSearchResultItem,
-  SessionSnapshot, SessionSummary, SubmissionHandle,
+  SessionSnapshot, SessionSummary, SubmissionHandle, SessionControlSnapshot,
 } from '@deepseek-ai/dsh-api-session-controller/client'
 import type { SessionRequestId } from '@deepseek-ai/dsh-api-session-controller/types'
 import type { SubagentAddress } from '@deepseek-ai/dsh-subagent/client'
@@ -191,6 +191,11 @@ interface SessionRecord {
  * behavior/calls/stubs) are bench-only surface.
  */
 export class TestSessions implements ISessions {
+  /** QS 公共读面同步；测试未接控制流时不能伪造就绪或重试成功。 */
+  readonly control = {
+    state: createSnapshotStore<SessionControlSnapshot>({ phase: 'loading', baseline: 0 }),
+    retry: (): Promise<void> => Promise.reject(new Error('TestSessions.control.retry requires a real control-stream test')),
+  }
   /** The useSessions standard feed (list rows + current selection). */
   readonly list: SnapshotStore<SessionListState>
   private readonly records = new Map<SessionId, SessionRecord>()

@@ -1,0 +1,5 @@
+/* 模型入口沿用原型输入区的紧凑下拉布局与奇术主题变量。 */
+.model { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; min-width: 0; }
+.model label { display: flex; align-items: center; gap: 6px; color: var(--qs-muted); font-size: 12px; }
+.model select { max-width: min(260px, 55vw); border: 0; border-radius: 6px; padding: 4px; color: var(--qs-text); background: var(--qs-surface); font: inherit; }
+.model span[role] { flex-basis: 100%; font-size: 12px; overflow-wrap: anywhere; }

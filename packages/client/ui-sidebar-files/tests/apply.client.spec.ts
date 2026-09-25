@@ -55,7 +55,7 @@ async function boot() {
   ctx.provide('remote.workspaceFiles', workspaceFiles as never)
   const fiber = ctx.plugin({ inject: [...inject], apply })
   await fiber.await()
-  return { tabs, registered, dictionaries, fiber }
+  return { ctx, tabs, registered, dictionaries, fiber }
 }
 
 describe('ui-sidebar-files apply', () => {
@@ -64,7 +64,7 @@ describe('ui-sidebar-files apply', () => {
   })
 
   it('registers the type, its dictionaries, and the body and title seats under the type\'s id', async () => {
-    const { tabs, registered, dictionaries } = await boot()
+    const { ctx, tabs, registered, dictionaries } = await boot()
     const definition = tabs.get(FILES_KIND)
     expect(definition?.id).toBe(FILES_ID)
     expect(definition?.priority).toBe('builtin')
@@ -78,15 +78,18 @@ describe('ui-sidebar-files apply', () => {
       ['sidebar.right.pane.tab', FILES_ID, 'sidebarFiles', FilesBody],
       ['sidebar.right.pane.tab.title', FILES_ID, undefined, FilesTitle],
     ])
-    expect(registered[0]?.store).toBeDefined()
+    // 二开必须获得官方正在使用的句柄，不能另建同结构状态。
+    expect(registered[0]?.store).toBe(ctx.sidebarFilesPresentation.store)
+    expect(registered[0]?.inject).toBe(ctx.sidebarFilesPresentation.inject)
     expect(typeof registered[0]?.inject).toBe('function')
   })
 
   it('takes every registration back when the plugin is disposed', async () => {
-    const { tabs, registered, dictionaries, fiber } = await boot()
+    const { ctx, tabs, registered, dictionaries, fiber } = await boot()
     await fiber.dispose()
     expect(tabs.get(FILES_KIND)).toBeUndefined()
     expect(registered).toEqual([])
     expect(dictionaries.size).toBe(0)
+    expect(ctx.get('sidebarFilesPresentation')).toBeUndefined()
   })
 })

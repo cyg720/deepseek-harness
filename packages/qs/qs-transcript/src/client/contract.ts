@@ -1,11 +1,12 @@
-/**
- * qs-transcript 的槽位契约。
- *
- * 本包是 `qs.stage.transcript.row`（keyed）与 `qs.stage.interaction`（chain）的声明方：
- * 框架里 inject face 归声明方所有，所以这两个槽连同它们的 inject 面都登记在这里，
- * 由 qs-transcript 自己声明并渲染（见 06-槽位与状态设计 第二节的声明权规则）。
- */
+import type {} from '@deepseek-ai/dsh-qs-composer/client'
+/** 转写拥有行槽与分页订阅；交互槽归 qs-composer 固定会话座位。 */
 import type { HostObservable, SnapshotSelectorHook } from '@deepseek-ai/dsh-client-ui-slots'
+import type { SlotHookFactory } from '@deepseek-ai/dsh-client-ui-slots'
+import type { ConversationLocationDataStore, ConversationTurnDataMap } from '@deepseek-ai/dsh-client-ui-conversation/client'
+import type { MarkdownFileMentions } from '@deepseek-ai/dsh-client-ui-primitives'
+import type { TurnTailOwnerProps, UseChatNodeTurnData } from '@deepseek-ai/dsh-client-ui-chat/client'
+import type { MessageImageLoader } from '@deepseek-ai/dsh-client-ui-conversation/client'
+import type { QsProcessFold } from './process-fold.ts'
 import type {
   ChatNodeProcessSource, ChatNodeSource, ChatTurnProcessPresentation,
 } from '@deepseek-ai/dsh-client-ui-chat/client'
@@ -15,6 +16,20 @@ import type {} from '@deepseek-ai/dsh-qs-shell/client'
 
 declare module '@deepseek-ai/dsh-client-ui-slots' {
   interface SlotMap {
+    /** 已有附件由独立呈现插件消费，读取权限来自会话加载器。 */
+    'qs.conversation.message.images': { kind: 'single'; scope: 'session'; owner: import('@deepseek-ai/dsh-client-ui-conversation/client').MessageImagesOwnerProps }
+    /** 轮次附加呈现消费官方轮次投影，文件动作由对应插件注入。 */
+    'qs.chat.turn-tail': {
+      kind: 'chain'
+      scope: 'session'
+      owner: Pick<import('@deepseek-ai/dsh-client-ui-chat/client').TurnTailOwnerProps, 'turn' | 'seq'>
+    }
+    /** 持久助手消息的扩展动作；运行中及无 messageId 的残片不提供此入口。 */
+    'qs.chat.assistant-actions': {
+      kind: 'list'
+      scope: 'session'
+      owner: { readonly messageId: import('@deepseek-ai/dsh-api-remotes/client').MessageId }
+    }
     /**
      * 转写行分派：按 Chat 节点 kind 取行组件。
      *
@@ -25,20 +40,11 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
       kind: 'keyed'
       scope: 'session'
       owner: QsTranscriptRowOwnerProps
+      hookContext: ConversationLocationDataStore<ConversationTurnDataMap> | undefined
+      inject: { hooks: { turnData: SlotHookFactory<'qs.stage.transcript.row', UseChatNodeTurnData> } }
     }
 
-    /**
-     * 交互卡片位：审批与提问共用，位于消息流末尾（原型位置）。
-     *
-     * `select` 按当前会话的 pending 类型选举：qs-approval priority 1、
-     * qs-questions priority 2，升序第一个非 null 当选。**chain 条目崩溃不退位**，
-     * 因此卡片必须自带错误提示与重试。
-     */
-    'qs.stage.interaction': {
-      kind: 'chain'
-      scope: 'session'
-      owner: QsInteractionOwnerProps
-    }
+
   }
 
   interface LocaleNamespaceMap {
@@ -46,14 +52,33 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
   }
 }
 
-/** 转写行业主输入：行键与父 entry 绑定的订阅座席。 */
+/** 转写行业主输入：行键、父 entry 绑定的订阅座席与会话能力。 */
 export interface QsTranscriptRowOwnerProps {
+  /** 最终答案的内联推理由已完成轮过程控制，正文始终保留。 */
+  readonly reasoningHidden: boolean
+  /** 官方共享查找 Hook，由转写宿主传递，行不跨插件导入运行时代码。 */
+  readonly useSearchableHidden: import('@deepseek-ai/dsh-client-ui-chat/client').ChatPresentation['useSearchableHidden']
+  /** 浏览器查找命中隐藏过程时展开该轮，保留其正文与焦点。 */
+  readonly revealProcess: () => void
+  /** 图片槽由转写宿主唯一声明，行通过宿主委托渲染。 */
+  readonly renderMessageImages: import('@deepseek-ai/dsh-client-ui-conversation/client').RenderMessageImages
+  /** 文件识别沿用官方交付词表；未装配提供者时保持普通文本。 */
+  readonly fileMentions: (owner: Pick<TurnTailOwnerProps, 'turn' | 'seq'>) => MarkdownFileMentions | undefined
   /** 稳定的 Conversation Context 键（避开 React 保留的 key 属性名）。 */
   readonly nodeKey: string
   /** 父 entry 的 keyedHooks 绑出的单行订阅座席。 */
   readonly useNode: UseQsChatNode
   /** 同一行的 Turn-process 呈现订阅座席。 */
   readonly useProcess: UseQsChatNodeProcess
+  /**
+   * 按会话授权的图片装载（官方 uiConversation 的地址签发）。
+   *
+   * 行组件不持有 ctx，也不得自行拼装资源地址：需要渲染持久图片引用的行（如工具视图的
+   * read_image）只能通过这里取得装载器。
+   */
+  readonly loadImage: MessageImageLoader
+  /** 已完成轮的过程折叠状态（按会话创建，行只读写自己的折叠键）。 */
+  readonly fold: QsProcessFold
 }
 
 /** 单行节点选择器座席。 */
@@ -76,6 +101,8 @@ export interface QsHistorySnapshot {
   readonly hasMore: boolean
   /** 是否正在加载更早的一页。 */
   readonly loadingOlder: boolean
+  /** 官方执行器发布分页结算，失败不丢弃现有记录。 */
+  readonly historyLoad: import('@deepseek-ai/dsh-api-session-controller/client').HistoryLoadState
 }
 
 /** Reading intent retained while a Session binding exists. */
@@ -91,6 +118,10 @@ export interface QsScrollPosition {
  * 历史耗尽时变化，注入时的值会一直停在首次读数上。
  */
 export interface QsTranscriptInjected {
+  /** 官方共享 Hook，保留隐藏内容的查找揭示与焦点保护。 */
+  readonly useSearchableHidden: import('@deepseek-ai/dsh-client-ui-chat/client').ChatPresentation['useSearchableHidden']
+  /** 当前会话下的交付引用解析，打开仍走官方资源路由。 */
+  readonly fileMentions: QsTranscriptRowOwnerProps['fileMentions']
   readonly keyedHooks: {
     /** 稳定身份的单行节点源。 */
     readonly node: (key: string) => ChatNodeSource
@@ -98,11 +129,21 @@ export interface QsTranscriptInjected {
     readonly process: (key: string) => ChatNodeProcessSource
   }
   readonly hooks: {
+    /** 官方共享偏好决定已完成轮的过程是否紧凑呈现。 */
+    readonly qsCompactTranscript: HostObservable<boolean>
     /** 历史分页源，框架绑成 `useQsHistory`。 */
     readonly qsHistory: HostObservable<QsHistorySnapshot>
+    /** 官方连接状态，断线或重连过程中暂停自动及手动分页。 */
+    readonly qsHistoryConnected: HostObservable<boolean>
+    /** 有效行键包括后装扩展，卸载后立即回到 unknown。 */
+    readonly qsRowKeys: HostObservable<readonly string[]>
   }
   /** 历史分页：向上加载更早的一页。 */
   readonly loadOlder: () => void
+  /** 按会话授权的图片装载，随行 owner 输入一起下发给行组件。 */
+  readonly loadImage: MessageImageLoader
+  /** 本会话的过程折叠状态，随行 owner 输入一起下发给行组件。 */
+  readonly fold: QsProcessFold
   /** Reconnect the official transport to reopen a failed history stream. */
   readonly retryHistory: () => void
   /** Read this Session's last reading intent. */
@@ -111,13 +152,8 @@ export interface QsTranscriptInjected {
   readonly saveScroll: (position: QsScrollPosition) => void
 }
 
-/** 交互卡片位的选举输入：宿主显式传入选择器需要的每个字段。 */
-export interface QsInteractionOwnerProps {
-  /** 当前会话身份；无绑定时为 undefined。 */
-  readonly sessionId: string | undefined
-  /** 当前会话待答复的交互；无则为 undefined。 */
-  readonly pendingInteraction: SessionPendingInteraction | undefined
-}
+/** 固定待回答区归 Conversation 所有，保留类型导出兼容贡献者。 */
+export type { QsInteractionOwnerProps } from '@deepseek-ai/dsh-qs-composer/client'
 
 /** 宿主读到当前 pending 的座席类型（来自 root 标准座席）。 */
 export type UseQsPendingInteraction = SnapshotSelectorHook<
@@ -129,6 +165,10 @@ export type QsHostObservable<T> = HostObservable<T>
 
 /** qs-transcript 的本地化键。 */
 export type QsTranscriptLocaleKey =
+  | 'settings.transcript.title'
+  | 'settings.transcript.description'
+  | 'settings.transcript.normal'
+  | 'settings.transcript.compact'
   | 'markdown.copy'
   | 'markdown.copied'
   | 'markdown.footnotes'
@@ -151,12 +191,54 @@ export type QsTranscriptLocaleKey =
   | 'row.tokens'
   | 'row.context'
   | 'row.steering'
+  | 'row.turn'
+  | 'row.step'
+  | 'row.noActivity'
+  | 'row.processDetailHint'
+  | 'row.turnFailed'
+  | 'row.turnTruncated'
+  | 'row.turnNoAnswer'
+  | 'row.noMetrics'
+  | 'command.title'
+  | 'command.running'
+  | 'command.failed'
+  | 'command.done'
+  | 'command.expand'
+  | 'compact.landed'
+  | 'compact.counts'
+  | 'compact.noCounts'
+  | 'compact.historyRetained'
+  | 'compact.unavailable'
+  | 'compact.expand'
+  | 'compact.running'
+  | 'compact.failed'
+  | 'compact.noCheckpoint'
+  | 'row.milliseconds'
+  | 'row.ttft'
+  | 'row.tps'
+  | 'row.branchUnavailable'
+  | 'diag.retryTitle'
+  | 'diag.retryBudget'
+  | 'diag.retryUnbounded'
+  | 'diag.retryScheduled'
+  | 'diag.retryStarted'
+  | 'diag.retryCancelled'
+  | 'diag.provider'
+  | 'diag.delay'
+  | 'diag.retryChain'
+  | 'diag.reason'
+  | 'diag.noReason'
+  | 'diag.errorTitle'
+  | 'diag.errorHint'
+  | 'diag.maxTokensTitle'
+  | 'diag.maxTokensHint'
   | 'pending.label'
   | 'error.title'
   | 'error.retry'
   | 'history.loading'
   | 'history.loadMore'
   | 'history.failed'
+  | 'history.noProgress'
   | 'history.opening'
   | 'history.retry'
   | 'empty.title'

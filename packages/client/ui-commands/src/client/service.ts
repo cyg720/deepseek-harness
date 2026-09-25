@@ -58,7 +58,7 @@ function submittedCommandName(line: string): string {
 /** Live mutable state in one holder (service methods run behind the caller-ctx tracker). */
 interface LiveState {
   readonly contributions: Map<string, CommandContribution>
-  readonly decorations: Map<string, CommandDecoration>
+  readonly decorations: Map<string, Map<number, CommandDecoration>>
   readonly popups: Map<SessionId, PopupSelectController<ClientSessionContext>>
 }
 
@@ -125,20 +125,34 @@ export class CommandUiRuntime extends Service implements CommandUiContract {
 
   /**
    * Hang a bare-invocation decoration on one host command; effect disposer
-   * (rides the caller's fiber). Duplicate names throw.
+   * (rides the caller's fiber). Duplicate names at the same priority throw.
    * @param decoration - host command name + availability + popup spec.
    * @returns the disposer removing the registration.
    */
   decorate(decoration: CommandDecoration): () => void {
     const dispose = this.ctx.effect(() => {
       const { decorations } = this.live
-      if (decorations.has(decoration.name)) {
+      const priority = decoration.priority ?? 0
+      const entries = decorations.get(decoration.name) ?? new Map<number, CommandDecoration>()
+      if (entries.has(priority)) {
         throw new Error(`ui-commands: duplicate decoration for /${decoration.name}`)
       }
-      decorations.set(decoration.name, decoration)
-      return () => { decorations.delete(decoration.name) }
+      // 奇术可独立覆盖呈现；保留官方条目，卸载后恢复，加载先后不影响选择。
+      entries.set(priority, decoration)
+      decorations.set(decoration.name, entries)
+      return () => {
+        entries.delete(priority)
+        if (entries.size === 0) decorations.delete(decoration.name)
+      }
     }, 'command.decorate()')
     return () => { void dispose() }
+  }
+
+  /** 同名呈现按显式优先级选择，当前会话不可用的贡献不遮蔽官方实现。 */
+  private decorationFor(name: string, session: ClientSessionContext): CommandDecoration | undefined {
+    const entries = this.live.decorations.get(name)
+    if (entries === undefined) return undefined
+    return [...entries].sort(([left], [right]) => right - left).find(([, entry]) => entry.available(session))?.[1]
   }
 
   /**
@@ -227,7 +241,9 @@ export class CommandUiRuntime extends Service implements CommandUiContract {
     const name = pick.candidate.name
     const contribution = this.live.contributions.get(name)
     if (contribution !== undefined && contribution.available(pick.session)) {
-      this.invoke(name, contribution.ui, pick.session, { via: 'menu', span: pick.span })
+      // 奇术替换客户端自有命令的呈现时仍需原贡献授权，卸载装饰后恢复原 UI。
+      const ui = this.decorationFor(name, pick.session)?.ui ?? contribution.ui
+      this.invoke(name, ui, pick.session, { via: 'menu', span: pick.span })
       return 'handled'
     }
     const desc = this.directory.resolve(pick.session.sessionId, name)
@@ -235,8 +251,8 @@ export class CommandUiRuntime extends Service implements CommandUiContract {
     // A decoration replaces the HOST row's bare invocation with its popup or
     // action; it decorates only a resolvable host command (checked above),
     // never manufactures one, and never touches the argument claim below.
-    const decoration = this.live.decorations.get(name)
-    if (decoration !== undefined && decoration.available(pick.session)) {
+    const decoration = this.decorationFor(name, pick.session)
+    if (decoration !== undefined) {
       this.invoke(name, decoration.ui, pick.session, { via: 'menu', span: pick.span })
       return 'handled'
     }
@@ -292,8 +308,10 @@ export class CommandUiRuntime extends Service implements CommandUiContract {
     const contribution = this.live.contributions.get(typedName)
     if (contribution !== undefined && contribution.available(session)) {
       if (!bare) return undefined
-      if (envelope.attachments > 0 && contribution.ui.kind !== 'action') refuseAttachments()
-      this.invoke(typedName, contribution.ui, session, { via: 'enter', token })
+      // 与菜单选择使用同一有效呈现，附件规则按真正执行的 UI 判定。
+      const ui = this.decorationFor(typedName, session)?.ui ?? contribution.ui
+      if (envelope.attachments > 0 && ui.kind !== 'action') refuseAttachments()
+      this.invoke(typedName, ui, session, { via: 'enter', token })
       return 'handled'
     }
     await this.directory.ensureReady(session.sessionId, signal)
@@ -304,8 +322,8 @@ export class CommandUiRuntime extends Service implements CommandUiContract {
     // Bare enter on a decorated host command opens its popup; an argued line
     // never consults the decoration (the claim/detached paths below own it).
     if (bare) {
-      const decoration = this.live.decorations.get(name)
-      if (decoration !== undefined && decoration.available(session)) {
+      const decoration = this.decorationFor(name, session)
+      if (decoration !== undefined) {
         if (envelope.attachments > 0 && decoration.ui.kind !== 'action') refuseAttachments()
         this.invoke(name, decoration.ui, session, { via: 'enter', token })
         return 'handled'

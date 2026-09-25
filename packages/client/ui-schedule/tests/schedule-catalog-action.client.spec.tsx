@@ -60,6 +60,8 @@ function sessionSnapshot(openState: SessionSnapshot['openState']): SessionSnapsh
     openError: null,
     hasMore: false,
     loadingOlder: false,
+    // QS：完整会话样本包含权威分页状态。
+    historyLoad: { phase: 'idle' },
     promptError: null,
     blank: false,
     lastAgentError: null,

@@ -13,6 +13,7 @@ import type {} from '@deepseek-ai/dsh-client-ui-session/client'
 import type {} from '@deepseek-ai/dsh-client-ui-settings/client'
 import { UiConversation } from './conversation/assembly.ts'
 import type { ViewTab } from './contract/views.ts'
+import type { ConversationPresentation } from './qs/presentation.ts'
 import type {
   ComposerBarInjected, ConversationInjected, ConversationSessionHeaderInjected,
   ConversationSessionInjected, DraftFileUploads,
@@ -24,7 +25,7 @@ import type { IConversation } from './service.ts'
 import { ComposerBlockRegistry } from './input/blocks.ts'
 import type { ComposerBlock } from './contract/composer-blocks.ts'
 import { InputHub } from './input/hub.ts'
-import { ComposerSubmissionPolicy } from './input/submission-policy.ts'
+import { ComposerSubmissionPolicy, resolveSubmitMode } from './input/submission-policy.ts'
 import { queueDockEntry } from './queue/QueueDock.tsx'
 import { EnterBehaviorRow } from './settings/EnterBehaviorRow.tsx'
 import type { EnterBehaviorRowInjected } from './settings/EnterBehaviorRow.tsx'
@@ -206,6 +207,22 @@ export function apply(ctx: Context, config: Config = Config({})): void {
     }
   }, 'ui-conversation: View selection')
 
+  // QS 与官方座位复用句柄和 target 激活，不另存草稿、选择或定位请求。
+  // 二开设置与输入共享官方发送策略，避免设置已保存但另一界面仍固定排队。
+  const presentation: ConversationPresentation = {
+    store: conversationStore, views: conversationViews, activate: activateView,
+    submission: {
+      // 二开仅调用官方整队操作，不复制逐项更新、顺序和失败处理。
+      steerQueue: (sessionId) => { inputHub.keyboard(sessionId).steerQueue() },
+      busyEnter: submissionPolicy.busyEnter,
+      setBusyEnter: (behavior) => { submissionPolicy.setBusyEnter(behavior) },
+      resolve: (running, gesture, steeringAvailable) => resolveSubmitMode(
+        submissionPolicy.busyEnter.getSnapshot(), running, gesture, steeringAvailable,
+      ),
+    },
+  }
+  ctx.effect(() => ctx.reflect.provide('conversationPresentation', presentation), 'ui-conversation: shared presentation')
+
   const inputHub = new InputHub(ctx, t)
   const composerBlocks = new ComposerBlockRegistry()
 
@@ -285,12 +302,12 @@ export function apply(ctx: Context, config: Config = Config({})): void {
     children: {
       'conversation.view': { kind: 'list', scope: 'session' },
     },
-    store: conversationStore,
+    store: presentation.store,
     inject: (sessionId: SessionId, actions: BoundActions<typeof conversationStore>): ConversationSessionInjected => ({
       hooks: { conversationViews },
       bindDraftMirror: write => inputHub.shell(sessionId).bindMirror(write),
       openView: (view, focus) => {
-        activateView(sessionId, view)
+        presentation.activate(sessionId, view)
         actions.openView(view, focus)
       },
     }),
@@ -305,12 +322,12 @@ export function apply(ctx: Context, config: Config = Config({})): void {
       'conversation.session.header.utilities': { kind: 'list', scope: 'session' },
       'conversation.session.header.corner': { kind: 'single', scope: 'session' },
     },
-    store: conversationStore,
+    store: presentation.store,
     inject: (sessionId: SessionId, actions: BoundActions<typeof conversationStore>): ConversationSessionHeaderInjected => ({
       hooks: { conversationViews },
       open: (id) => { workspaceNavigation.openSession(id) },
       selectView: (view) => {
-        activateView(sessionId, view)
+        presentation.activate(sessionId, view)
         actions.setView(view)
       },
     }),
@@ -352,6 +369,8 @@ export function apply(ctx: Context, config: Config = Config({})): void {
       const shell = inputHub.shell(sessionId)
       const inputTriggers = inputHub.inputTriggers(sessionId)
       return {
+        // 官方输入允许全部来源；接口不在 inject 执行时取得租约，避免隐藏座位占用。
+        acquireTriggerConsumer: () => inputTriggers?.acquireConsumer?.({ triggers: ['/', '@'] }),
         keyboard: shell,
         addFiles: (files) => {
           if (sessions.binding(sessionId) === undefined) return t('file.sessionUnavailable')

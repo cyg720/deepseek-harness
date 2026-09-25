@@ -1,0 +1,15 @@
+# 奇术与官方日程入口共同启用，只有一套官方调度执行服务。
+- insert:
+    - id: time-context
+      name: '@deepseek-ai/dsh-time-context'
+    - id: schedule
+      name: '@deepseek-ai/dsh-schedule'
+- id: ui-schedule
+  disabled: false
+- id: qs-ui-schedule
+  disabled: false
+# 此补丁用于奇术工作台；官方界面入口仍保留供开发者对照。
+- id: qs-shell
+  config:
+    defaultUi: workbench
+    showOfficialUiEntry: true

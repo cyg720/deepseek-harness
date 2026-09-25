@@ -1,0 +1,116 @@
+/* 工具行与工具视图的本地样式；沿用工作台既有令牌与 780px 阅读宽度约束。 */
+
+.row {
+  min-width: 0;
+}
+
+.nested {
+  margin-left: 12px;
+  border-left: 1px solid var(--line);
+  padding-left: 8px;
+}
+
+.state {
+  color: var(--muted);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.summary {
+  margin-left: 8px;
+  color: var(--text);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+.meta {
+  margin-left: 8px;
+  color: var(--muted);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.body {
+  min-width: 0;
+  margin-top: 8px;
+}
+
+.subCalls {
+  min-width: 0;
+  margin-top: 8px;
+}
+
+.card {
+  min-width: 0;
+}
+
+.notice {
+  margin: 4px 0;
+  color: var(--muted);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+.error {
+  margin: 4px 0;
+  color: var(--danger);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+.pre {
+  margin: 6px 0;
+  padding: 12px;
+  max-height: 230px;
+  overflow: auto;
+  background: var(--subtle);
+  border-radius: 6px;
+  font-size: 12px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* JSON 长字符串按字符断行，减少超长字段布局开销；原始文字与复制内容保持完整。 */
+.argumentsPre {
+  overflow-wrap: normal;
+  word-break: break-all;
+}
+
+.disclosure {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 8px 12px;
+  margin: 8px 0;
+}
+
+.label {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.image {
+  display: block;
+  width: 100%;
+  max-height: 250px;
+  object-fit: contain;
+}
+
+.todoList,
+.askList {
+  margin: 4px 0;
+  padding-left: 18px;
+  font-size: 13px;
+}
+
+.todoStatus {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.askQuestion {
+  font-weight: 500;
+}
+
+.askAnswer {
+  color: var(--muted);
+}

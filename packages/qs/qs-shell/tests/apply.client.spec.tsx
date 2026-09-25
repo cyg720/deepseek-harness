@@ -46,15 +46,12 @@ describe('qs-shell 槽接线', () => {
     const expected: readonly (readonly [keyof SlotMap, string, string])[] = [
       ['qs.gate', 'single', 'root'],
       ['qs.chrome', 'single', 'root'],
-      ['qs.nav', 'single', 'root'],
+      ['qs.sidebar', 'single', 'root'],
       ['qs.stage', 'single', 'root'],
       ['qs.inspector', 'single', 'root'],
       ['qs.status', 'list', 'root'],
       ['qs.overlay', 'list', 'root'],
       // 严格 session 与 session-maybe 各一处，这是座位分层的关键
-      ['qs.stage.transcript', 'single', 'session'],
-      ['qs.stage.body', 'single', 'session-maybe'],
-      ['qs.composer', 'single', 'session-maybe'],
     ]
     for (const [key, kind, scope] of expected) {
       const spec = runtime.slots.spec(key)
@@ -64,10 +61,10 @@ describe('qs-shell 槽接线', () => {
     }
   })
 
-  it('qs.stage 由 shell 自己贡献，且转写/输入区留给其它包等待', async () => {
+  it('layout declares seats but does not implement conversation or sidebars', async () => {
     runtime = await bench()
-    expect(runtime.slots.entries('qs.stage')).toHaveLength(1)
-    expect(runtime.slots.entries('qs.stage.body')).toHaveLength(1)
+    expect(runtime.slots.entries('qs.stage')).toHaveLength(0)
+    expect(runtime.slots.spec('qs.stage.body')).toBeUndefined()
     // 尚未加载 qs-transcript / qs-composer：贡献等待，不是错误
     expect(runtime.slots.entries('qs.stage.transcript')).toHaveLength(0)
     expect(runtime.slots.entries('qs.composer')).toHaveLength(0)

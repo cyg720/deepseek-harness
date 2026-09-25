@@ -43,7 +43,9 @@ function row(id: string, text: string | null, preview = text ?? '[image]'): Queu
 function snapshotWith(queue: QueuedMessage[]): SessionSnapshot {
   return {
     sessionId: SID, queue, running: true, removed: false, openState: 'open', openError: null,
-    hasMore: false, loadingOlder: false, promptError: null, blank: false, subagent: null,
+    hasMore: false, loadingOlder: false,
+    // QS：完整会话样本包含权威分页状态。
+    historyLoad: { phase: 'idle' }, promptError: null, blank: false, subagent: null,
     pendingSubmissions: [],
     lastAgentError: null, promptAttempted: true, awaitingFirstTurn: false,
   }

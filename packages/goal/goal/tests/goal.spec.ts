@@ -13,6 +13,7 @@ import GoalService, {
 } from '@deepseek-ai/dsh-goal'
 import type { GoalChangeMeta, GoalRef, GoalSnapshotChangeMeta } from '@deepseek-ai/dsh-goal'
 import { createInboxStub } from '@deepseek-ai/dsh-agent-loop-testkit'
+import { remoteErrorOf } from '@deepseek-ai/dsh-typert-protocol'
 
 interface StubAgent {
   agent: Agent
@@ -103,6 +104,15 @@ function appendRound(session: Session, ref: GoalRef, round: number): void {
 }
 
 describe('GoalService creation and replay', () => {
+  // 两类消费者必须识别同一错误；只修 RPC 不能丢掉模型工具的结构化元数据。
+  it('retains Harness error identity while exposing the Goal Remote failure code', () => {
+    const error = new GoalError('stale reference', 'GOAL_STALE_REVISION')
+    expect(error).toBeInstanceOf(HarnessError)
+    expect(error.name).toBe('GoalError')
+    expect(remoteErrorOf(error)).toBe(error)
+    expect(remoteErrorOf(error)).toMatchObject({ code: 'GOAL_STALE_REVISION', details: {} })
+  })
+
   it('does not activate without the required projection registry', async () => {
     const ctx = new Context()
     await ctx.plugin(AgentRegistry)

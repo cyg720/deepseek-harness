@@ -1,0 +1,1839 @@
+<!doctype html><html lang="zh-CN"><meta charset="utf-8"><title>M0 官方原文件差异</title><style>body{font:14px system-ui;max-width:1400px;margin:30px auto;padding:20px}pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#f6f8fa;padding:16px}a{color:#0969da}</style><h1>M0 官方原文件差异</h1><p>HEAD 906b6de1e2 至当前工作区。仅官方原文件；不代表完整 M0 验收。</p>
+<section id="m0-001"><h2>docs/config-catalog.i18n.yaml</h2><p>同步目录 auto 新增分支配置的生成目录及中文配对</p><pre>diff --git a/docs/config-catalog.i18n.yaml b/docs/config-catalog.i18n.yaml
+index f5252d3aa6..7cb2837c4a 100644
+--- a/docs/config-catalog.i18n.yaml
++++ b/docs/config-catalog.i18n.yaml
+@@ -2,5 +2,5 @@
+ # side as of the last confirmed-consistent state. Both languages carry equal authority;
+ # after editing either side, bring the other along and re-record with:
+ #   pnpm run verify-translation-pairing --write docs/config-catalog.md
+-config-catalog.md: 5aed87e46173cc8366876d990173f8d358e70802
+-config-catalog.zh.md: f49e54237efba097c1bfb31e257f3025f200dc9d
++config-catalog.md: 05519c244915185526793ba5accc927662d19bd0
++config-catalog.zh.md: dda2a659d25544d472c0b5157d14f6ac5581d39b
+</pre></section>
+<section id="m0-002"><h2>docs/config-catalog.md</h2><p>同步目录 auto 新增分支配置的生成目录及中文配对</p><pre>diff --git a/docs/config-catalog.md b/docs/config-catalog.md
+index 5aed87e461..05519c2449 100644
+--- a/docs/config-catalog.md
++++ b/docs/config-catalog.md
+@@ -891,6 +891,27 @@ export interface Config {
+&#32;
+ Source: [`packages/hooks/hooks-codex/src/index.ts:43`](../packages/hooks/hooks-codex/src/index.ts)
+&#32;
++&lt;a id=&quot;deepseek-aidsh-host-directory-picker-auto&quot;&gt;&lt;/a&gt;
++
++## `@deepseek-ai/dsh-host-directory-picker-auto`
++
++Requires: `webServer` · `loader`
++
++```ts config-catalog
++/** 按官方一次平台判定追加二开呈现，不重复加载 Host。 */
++export interface Config {
++  /** 每个分支附加的 Client 插件，默认不追加。 */
++  additionalClientSurfaces?: {
++    /** 本机原生选择器分支附加的 Client 插件包名。 */
++    native?: string[]
++    /** 浏览式选择器分支附加的 Client 插件包名。 */
++    browse?: string[]
++  }
++}
++```
++
++Source: [`packages/host/directory-picker-auto/src/index.ts:34`](../packages/host/directory-picker-auto/src/index.ts)
++
+ &lt;a id=&quot;deepseek-aidsh-host-directory-picker-browse&quot;&gt;&lt;/a&gt;
+&#32;
+ ## `@deepseek-ai/dsh-host-directory-picker-browse`
+@@ -3521,7 +3542,6 @@ These load from a `cordis.yml` entry with no `config:` block; they declare no co
+ - `@deepseek-ai/dsh-fs-e2b` — requires `e2b` ([`packages/e2b/fs-e2b/src/index.ts`](../packages/e2b/fs-e2b/src/index.ts))
+ - `@deepseek-ai/dsh-fs-observation-policy` ([`packages/fs/fs-observation-policy/src/index.ts`](../packages/fs/fs-observation-policy/src/index.ts))
+ - `@deepseek-ai/dsh-goal-round-driver` — requires `agents` · `goals` · `sessions` ([`packages/goal/goal-round-driver/src/index.ts`](../packages/goal/goal-round-driver/src/index.ts))
+-- `@deepseek-ai/dsh-host-directory-picker-auto` — requires `webServer` · `loader` ([`packages/host/directory-picker-auto/src/index.ts`](../packages/host/directory-picker-auto/src/index.ts))
+ - `@deepseek-ai/dsh-host-directory-picker-native` ([`packages/host/directory-picker-native/src/index.ts`](../packages/host/directory-picker-native/src/index.ts))
+ - `@deepseek-ai/dsh-host-plugin-inventory` — requires `loader` ([`packages/host/plugin-inventory/src/index.ts`](../packages/host/plugin-inventory/src/index.ts))
+ - `@deepseek-ai/dsh-llm` ([`packages/llm/llm/src/index.ts`](../packages/llm/llm/src/index.ts))
+</pre></section>
+<section id="m0-003"><h2>docs/config-catalog.zh.md</h2><p>同步目录 auto 新增分支配置的生成目录及中文配对</p><pre>diff --git a/docs/config-catalog.zh.md b/docs/config-catalog.zh.md
+index f49e54237e..dda2a659d2 100644
+--- a/docs/config-catalog.zh.md
++++ b/docs/config-catalog.zh.md
+@@ -893,6 +893,27 @@ export interface Config {
+&#32;
+ 来源：[`packages/hooks/hooks-codex/src/index.ts:43`](../packages/hooks/hooks-codex/src/index.ts)
+&#32;
++&lt;a id=&quot;deepseek-aidsh-host-directory-picker-auto&quot;&gt;&lt;/a&gt;
++
++## `@deepseek-ai/dsh-host-directory-picker-auto`
++
++需要：`webServer` · `loader`
++
++```ts config-catalog
++/** 按官方一次平台判定追加二开呈现，不重复加载 Host。 */
++export interface Config {
++  /** 每个分支附加的 Client 插件，默认不追加。 */
++  additionalClientSurfaces?: {
++    /** 本机原生选择器分支附加的 Client 插件包名。 */
++    native?: string[]
++    /** 浏览式选择器分支附加的 Client 插件包名。 */
++    browse?: string[]
++  }
++}
++```
++
++源码：[`packages/host/directory-picker-auto/src/index.ts:34`](../packages/host/directory-picker-auto/src/index.ts)
++
+ &lt;a id=&quot;deepseek-aidsh-host-directory-picker-browse&quot;&gt;&lt;/a&gt;
+&#32;
+ ## `@deepseek-ai/dsh-host-directory-picker-browse`
+@@ -3523,7 +3544,6 @@ export interface Config {
+ - `@deepseek-ai/dsh-fs-e2b` — 需要 `e2b`（[`packages/e2b/fs-e2b/src/index.ts`](../packages/e2b/fs-e2b/src/index.ts)）
+ - `@deepseek-ai/dsh-fs-observation-policy`（[`packages/fs/fs-observation-policy/src/index.ts`](../packages/fs/fs-observation-policy/src/index.ts)）
+ - `@deepseek-ai/dsh-goal-round-driver` — 需要 `agents` · `goals` · `sessions`（[`packages/goal/goal-round-driver/src/index.ts`](../packages/goal/goal-round-driver/src/index.ts)）
+-- `@deepseek-ai/dsh-host-directory-picker-auto` — 需要 `webServer` · `loader`（[`packages/host/directory-picker-auto/src/index.ts`](../packages/host/directory-picker-auto/src/index.ts)）
+ - `@deepseek-ai/dsh-host-directory-picker-native`（[`packages/host/directory-picker-native/src/index.ts`](../packages/host/directory-picker-native/src/index.ts)）
+ - `@deepseek-ai/dsh-host-plugin-inventory` — 需要 `loader`（[`packages/host/plugin-inventory/src/index.ts`](../packages/host/plugin-inventory/src/index.ts)）
+ - `@deepseek-ai/dsh-llm`（[`packages/llm/llm/src/index.ts`](../packages/llm/llm/src/index.ts)）
+</pre></section>
+<section id="m0-004"><h2>packages/api/session-controller/README.i18n.yaml</h2><p>同步本包 M0 公共接口、兼容范围与中英配对记录</p><pre>diff --git a/packages/api/session-controller/README.i18n.yaml b/packages/api/session-controller/README.i18n.yaml
+index 3620f28368..cf44a82b4d 100644
+--- a/packages/api/session-controller/README.i18n.yaml
++++ b/packages/api/session-controller/README.i18n.yaml
+@@ -2,5 +2,5 @@
+ # side as of the last confirmed-consistent state. Both languages carry equal authority;
+ # after editing either side, bring the other along and re-record with:
+ #   pnpm run verify-translation-pairing --write packages/api/session-controller/README.md
+-README.md: 768c8704775d422c9c48d7d40a58d589f715b718
+-README.zh.md: 3c1de73d13678b15af233196894b51fffa952f67
++README.md: a6dc6daeddb5cfe32eebb21c6e60d1a5caaa4536
++README.zh.md: 8d01843bf4e78a7a5bde192c8e426bf6d5837c6f
+</pre></section>
+<section id="m0-005"><h2>packages/api/session-controller/README.md</h2><p>同步本包 M0 公共接口、兼容范围与中英配对记录</p><pre>diff --git a/packages/api/session-controller/README.md b/packages/api/session-controller/README.md
+index 768c870477..a6dc6daedd 100644
+--- a/packages/api/session-controller/README.md
++++ b/packages/api/session-controller/README.md
+@@ -75,6 +75,8 @@ No direct effect; model requests remain owned by the Agent and LLM packages.
+ - File-reference completion uses the shared Agent lookup and can resume a cold Session; the `skills/list` catalog is the non-activating alternative for skill metadata.
+&#32;
+&#32;
++`SessionSnapshot.historyLoad` reports idle, loading, succeeded, failed or cancelled paging, with request and connection identities. Success reports progress and remaining history; failures retain the window and expose no raw server error. Reconnection invalidates old settlement and busy-state updates.
++
+ &lt;a id=&quot;dev-note&quot;&gt;&lt;/a&gt;
+ ### Dev Note
+&#32;
+</pre></section>
+<section id="m0-006"><h2>packages/api/session-controller/README.zh.md</h2><p>同步本包 M0 公共接口、兼容范围与中英配对记录</p><pre>diff --git a/packages/api/session-controller/README.zh.md b/packages/api/session-controller/README.zh.md
+index 3c1de73d13..8d01843bf4 100644
+--- a/packages/api/session-controller/README.zh.md
++++ b/packages/api/session-controller/README.zh.md
+@@ -75,6 +75,8 @@ Session 对象还承载本地提交回显：`session.beginSubmission` 在调用
+ - 文件引用补全使用共享 Agent lookup，因此可能恢复冷 Session；`skills/list` 目录是不激活 Agent 的 skill 元数据读取路径。
+&#32;
+&#32;
++`SessionSnapshot.historyLoad` 提供闲置、加载中、成功、失败和取消五种分页状态，并携带请求及连接身份。成功报告进展和剩余历史；失败保留窗口，不暴露原始服务端错误。重连后旧请求不能更新结算或忙碌状态。
++
+ &lt;a id=&quot;dev-note&quot;&gt;&lt;/a&gt;
+ ### 开发备注
+&#32;
+</pre></section>
+<section id="m0-007"><h2>packages/api/session-controller/src/client/contract/snapshot.ts</h2><p>公开分页请求状态，保护重连代次和在途请求收尾</p><pre>diff --git a/packages/api/session-controller/src/client/contract/snapshot.ts b/packages/api/session-controller/src/client/contract/snapshot.ts
+index aba257f893..85ffbcea01 100644
+--- a/packages/api/session-controller/src/client/contract/snapshot.ts
++++ b/packages/api/session-controller/src/client/contract/snapshot.ts
+@@ -6,6 +6,8 @@ import type { SessionId } from &#x27;@deepseek-ai/dsh-session/types&#x27;
+ import type { SubagentAddress } from &#x27;@deepseek-ai/dsh-subagent/client&#x27;
+ import type { RemoteFailure } from &#x27;@deepseek-ai/dsh-typert-protocol&#x27;
+ import type { SessionRequestId } from &#x27;../../types.ts&#x27;
++// QS 分页错误必须由执行器发布，不能由视图超时猜测。
++import type { HistoryLoadState } from &#x27;../qs/history-state.ts&#x27;
+&#32;
+ /** One transient inbox occurrence from the authoritative queue snapshot. */
+ export interface QueuedMessage {
+@@ -96,6 +98,8 @@ export interface SessionSnapshot {
+   readonly openError: RemoteFailure | null
+   readonly hasMore: boolean
+   readonly loadingOlder: boolean
++  /** 最近一次分页操作的可观察状态；不包含原始错误或敏感响应。 */
++  readonly historyLoad: HistoryLoadState
+   readonly promptError: PromptError | null
+   readonly blank: boolean
+   readonly lastAgentError: string | null
+</pre></section>
+<section id="m0-008"><h2>packages/api/session-controller/src/client/index.ts</h2><p>公开分页请求状态，保护重连代次和在途请求收尾</p><pre>diff --git a/packages/api/session-controller/src/client/index.ts b/packages/api/session-controller/src/client/index.ts
+index af5cdbb3e1..3469948c2d 100644
+--- a/packages/api/session-controller/src/client/index.ts
++++ b/packages/api/session-controller/src/client/index.ts
+@@ -34,6 +34,8 @@ export type {
+   SubagentCatalogSnapshot,
+ } from &#x27;./sessions/manager.ts&#x27;
+ export type { Session } from &#x27;./sessions/session.ts&#x27;
++// QS 与官方消费者共用同一分页状态类型。
++export type { HistoryLoadState, HistoryLoadRequest } from &#x27;./qs/history-state.ts&#x27;
+ export type {
+   ProjectionsBaseline,
+   ProjectionValueStore,
+</pre></section>
+<section id="m0-009"><h2>packages/api/session-controller/src/client/sessions/session.ts</h2><p>公开分页请求状态，保护重连代次和在途请求收尾</p><pre>diff --git a/packages/api/session-controller/src/client/sessions/session.ts b/packages/api/session-controller/src/client/sessions/session.ts
+index 2945f0b5c4..e366eb14f5 100644
+--- a/packages/api/session-controller/src/client/sessions/session.ts
++++ b/packages/api/session-controller/src/client/sessions/session.ts
+@@ -2,6 +2,8 @@
+&#32;
+ import type { Context } from &#x27;@deepseek-ai/cordis&#x27;
+ import { randomUUID } from &#x27;@deepseek-ai/dsh-util-crypto&#x27;
++// 二开分页状态在唯一 Session 执行器中维护，防止旧请求覆盖重连后的新操作。
++import type { HistoryLoadRequest, HistoryLoadState } from &#x27;../qs/history-state.ts&#x27;
+ import type { AttachmentIdType, FileAttachmentRef, ImageAttachmentRef } from &#x27;@deepseek-ai/dsh-attachment&#x27;
+ import type { SubagentAddress } from &#x27;@deepseek-ai/dsh-subagent/client&#x27;
+ import type { MessageId } from &#x27;@deepseek-ai/dsh-llm/brand&#x27;
+@@ -95,6 +97,8 @@ export class Session implements SessionFace {
+    *  passes drop all writes once the generation moves on. */
+   private openGeneration = 0
+   private loadingOlder = false
++  private historyLoad: HistoryLoadState = { phase: &#x27;idle&#x27; }
++  private historyRequest = 0
+   /** Shared low-water target of the running jump loop; null when no jump is paging. */
+   private jumpTargetSeq: SessionSeq | null = null
+   /** The running jump loop&#x27;s completion, shared by retargeting callers. */
+@@ -392,17 +396,23 @@ export class Session implements SessionFace {
+     if (this.openState !== &#x27;open&#x27; || !this.hasMore || this.loadingOlder) return
+     const events = this.events
+     if (events === undefined) return
++    const request = this.beginHistoryLoad(&#x27;older&#x27;)
++    const before = this.baseSeq
+     this.loadingOlder = true
+     this.notifier.markDirty()
+     try {
+       await events.prepend({ beforeSeq: this.baseSeq, maxMessages: PAGE_MESSAGES })
++      if (this.isCurrentHistory(request)) this.historyLoad = { ...request, phase: &#x27;succeeded&#x27;, progressed: this.baseSeq &lt; before, hasMore: this.hasMore }
+     } catch (error) {
++      if (this.isCurrentHistory(request)) this.historyLoad = { ...request, phase: &#x27;failed&#x27; }
+       if (!isRemoteFailure(error)) {
+         console.error(&#x27;[session-controller] loadOlder failed:&#x27;, error)
+       }
+     } finally {
+-      this.loadingOlder = false
+-      this.notifier.markDirty()
++      if (this.isCurrentHistory(request)) {
++        this.loadingOlder = false
++        this.notifier.markDirty()
++      }
+     }
+   }
+&#32;
+@@ -412,6 +422,9 @@ export class Session implements SessionFace {
+     if (this.jumpPromise !== null) {
+       // Retarget the running loop to the lowest requested seq.
+       this.jumpTargetSeq = SessionSeq(Math.min(this.jumpTargetSeq ?? seq, seq))
++      // 合并跳转后公开实际最低目标，避免 UI 仍显示首次请求目标。
++      if (this.historyLoad.phase === &#x27;loading&#x27;) this.historyLoad = { ...this.historyLoad, targetSeq: this.jumpTargetSeq }
++      this.notifier.markDirty()
+       return this.jumpPromise
+     }
+     // A plain single-page pull owns the busy flag; the jump does not queue
+@@ -420,6 +433,8 @@ export class Session implements SessionFace {
+     // loop starts here.
+     if (this.loadingOlder) return Promise.resolve()
+     this.jumpTargetSeq = seq
++    const request = this.beginHistoryLoad(&#x27;through&#x27;, seq)
++    const initialBase = this.baseSeq
+     this.loadingOlder = true
+     this.notifier.markDirty()
+     // Stale-pass guard (the doOpen pattern): a resync mid-loop replaces the
+@@ -436,28 +451,56 @@ export class Session implements SessionFace {
+           await events.prepend({ beforeSeq: this.baseSeq, maxMessages: JUMP_PAGE_MESSAGES })
+           // No-progress guard: an empty or dropped page that still claims more
+           // history must end the loop, not spin it.
+-          if (this.baseSeq &gt;= before) return
++          if (this.baseSeq &gt;= before) break
+         }
++        if (this.isCurrentHistory(request)) this.historyLoad = { ...request, targetSeq: this.jumpTargetSeq ?? seq, phase: &#x27;succeeded&#x27;, progressed: this.baseSeq &lt; initialBase, hasMore: this.hasMore }
+       } catch (error) {
++        if (this.isCurrentHistory(request)) this.historyLoad = { ...request, targetSeq: this.jumpTargetSeq ?? seq, phase: &#x27;failed&#x27; }
+         if (!isRemoteFailure(error)) {
+           console.error(&#x27;[session-controller] loadThrough failed:&#x27;, error)
+         }
+       } finally {
+-        this.jumpTargetSeq = null
+-        this.jumpPromise = null
+-        this.loadingOlder = false
+-        this.notifier.markDirty()
++        if (this.isCurrentHistory(request)) {
++          this.jumpTargetSeq = null
++          this.jumpPromise = null
++          this.loadingOlder = false
++          this.notifier.markDirty()
++        }
+       }
+     })()
+     return this.jumpPromise
+   }
+&#32;
++  /** 本地分页序号与连接代次共同约束迟到回包。 */
++  private beginHistoryLoad(kind: HistoryLoadRequest[&#x27;kind&#x27;], targetSeq?: SessionSeq): HistoryLoadRequest {
++    const request: HistoryLoadRequest = {
++      requestId: ++this.historyRequest, connectionEpoch: this.openGeneration, kind,
++      ...(targetSeq === undefined ? {} : { targetSeq }),
++    }
++    this.historyLoad = { ...request, phase: &#x27;loading&#x27; }
++    return request
++  }
++
++  /** 旧请求不能清除新请求的 busy 标志或错误。 */
++  private isCurrentHistory(request: HistoryLoadRequest): boolean {
++    return request.connectionEpoch === this.openGeneration &amp;&amp; request.requestId === this.historyRequest
++  }
++
++  /** 断开当前历史读取时立即释放分页占用，最终回包由代次检查丢弃。 */
++  private cancelHistoryLoad(): void {
++    if (this.historyLoad.phase !== &#x27;idle&#x27;) this.historyLoad = { ...this.historyLoad, phase: &#x27;cancelled&#x27; }
++    this.loadingOlder = false
++    this.jumpTargetSeq = null
++    this.jumpPromise = null
++  }
++
+   /** Rebuild an opened history source after address replacement.
+    *  Invalidates any in-flight open first; queue state belongs to the independently
+    *  reconnecting control stream and remains untouched. */
+   async resync(): Promise&lt;void&gt; {
+     if (this.openState === &#x27;cold&#x27;) return // never opened: no window to rebuild (doOpen flips to &#x27;loading&#x27; synchronously, so cold implies no in-flight open)
+     this.openGeneration++
++    this.cancelHistoryLoad()
+     const events = this.events
+     this.events = undefined
+     await events?.dispose()
+@@ -595,6 +638,7 @@ export class Session implements SessionFace {
+       this.retireFailedSubmission(requestId)
+     }
+     this.openGeneration++
++    this.cancelHistoryLoad()
+     const events = this.events
+     this.events = undefined
+     await events?.dispose()
+@@ -784,6 +828,7 @@ export class Session implements SessionFace {
+     if (generation !== this.openGeneration || this.events !== events) return
+     if (!isRemoteFailure(error)) throw error
+     this.openGeneration++
++    this.cancelHistoryLoad()
+     this.events = undefined
+     this.openPromise = null
+     this.openState = &#x27;error&#x27;
+@@ -809,6 +854,7 @@ export class Session implements SessionFace {
+       openError: this.openError,
+       hasMore: this.hasMore,
+       loadingOlder: this.loadingOlder,
++      historyLoad: this.historyLoad,
+       promptError: this.promptError,
+       blank: this.blankBit,
+       lastAgentError: this.lastAgentError,
+</pre></section>
+<section id="m0-010"><h2>packages/client/ui-chat/tests/chat-view.client.spec.tsx</h2><p>同步必填 SessionSnapshot.historyLoad 字段或验证共享服务</p><pre>diff --git a/packages/client/ui-chat/tests/chat-view.client.spec.tsx b/packages/client/ui-chat/tests/chat-view.client.spec.tsx
+index c724bf7ba6..a2775ad858 100644
+--- a/packages/client/ui-chat/tests/chat-view.client.spec.tsx
++++ b/packages/client/ui-chat/tests/chat-view.client.spec.tsx
+@@ -72,6 +72,8 @@ function sessionSnapshot(overrides: Partial&lt;SessionSnapshot&gt; = {}): SessionSnaps
+     openError: null,
+     hasMore: false,
+     loadingOlder: false,
++    // QS：完整会话样本包含权威分页状态。
++    historyLoad: { phase: &#x27;idle&#x27; },
+     promptError: null,
+     blank: false,
+     subagent: null,
+</pre></section>
+<section id="m0-011"><h2>packages/client/ui-conversation/README.i18n.yaml</h2><p>说明可见输入租约与其他呈现保留结构化草稿的义务</p><pre>diff --git a/packages/client/ui-conversation/README.i18n.yaml b/packages/client/ui-conversation/README.i18n.yaml
+index 1d4a2f080c..7cc564faf4 100644
+--- a/packages/client/ui-conversation/README.i18n.yaml
++++ b/packages/client/ui-conversation/README.i18n.yaml
+@@ -2,5 +2,5 @@
+ # side as of the last confirmed-consistent state. Both languages carry equal authority;
+ # after editing either side, bring the other along and re-record with:
+ #   pnpm run verify-translation-pairing --write packages/client/ui-conversation/README.md
+-README.md: 45854724db183d73a29aac6b30c796f8ae42e3dc
+-README.zh.md: 06ac1b094873cfd44ed4da1992b3a93b83b5e55d
++README.md: c6587bb6d86a87b3f15e486ee35f6dc4b8c22faa
++README.zh.md: 4e476549b8b13dbfa2232e55058625f521fd5a06
+</pre></section>
+<section id="m0-012"><h2>packages/client/ui-conversation/README.md</h2><p>说明可见输入租约与其他呈现保留结构化草稿的义务</p><pre>diff --git a/packages/client/ui-conversation/README.md b/packages/client/ui-conversation/README.md
+index 45854724db..c6587bb6d8 100644
+--- a/packages/client/ui-conversation/README.md
++++ b/packages/client/ui-conversation/README.md
+@@ -36,6 +36,8 @@ Target packages declaration-merge their snapshot and Location data maps, then re
+ &lt;a id=&quot;shell-and-standard-props&quot;&gt;&lt;/a&gt;
+ ## Shell and standard props
+&#32;
++The visible input acquires the existing trigger controller with both slash and reference triggers enabled and releases its exclusive lease on unmount. Resolving a controller alone does not enable sources. Alternative input presentations must acquire their own policy and preserve structured drafts when their editor cannot represent them.
++
+ The composer registers the File command action and owns its label, availability, and native file-dialog callback. Menu availability and invocation both consult the mounted composer&#x27;s current attachment-intake policy. Unmounting or locking the composer disables that action; disposing the plugin removes its registration. The callback binding stays inside the input module.
+&#32;
+ Claimed commands retain their identity and highlight when only their arguments and trailing separator are deleted; editing the command name releases the claim. The same rules apply to every command and locale, including `/goal`, `/目标`, `/plan`, and `/计划`. Command hints and ordinary placeholders remain hidden throughout IME composition and reappear only after the editor commits the final text and the corresponding input is empty.
+</pre></section>
+<section id="m0-013"><h2>packages/client/ui-conversation/README.zh.md</h2><p>说明可见输入租约与其他呈现保留结构化草稿的义务</p><pre>diff --git a/packages/client/ui-conversation/README.zh.md b/packages/client/ui-conversation/README.zh.md
+index 06ac1b0948..4e476549b8 100644
+--- a/packages/client/ui-conversation/README.zh.md
++++ b/packages/client/ui-conversation/README.zh.md
+@@ -36,6 +36,8 @@ target package 通过 declaration merge 扩展 snapshot 与 Location data map，
+ &lt;a id=&quot;shell-and-standard-props&quot;&gt;&lt;/a&gt;
+ ## Shell 与标准 props
+&#32;
++可见输入取得现有触发器控制器的独占租约，启用斜杠及引用两类触发符，并在卸载时释放。仅解析控制器不会启用来源。其他输入呈现必须取得各自策略；编辑器不能表示结构化草稿时，应保留原草稿。
++
+ 输入框注册「文件」命令动作，负责其标题、可用性和原生文件选择器回调。菜单可用性与实际调用都读取已挂载输入框当前的附件接收策略。输入框卸载或锁定后该动作不可用，插件 dispose（资源释放）时移除注册。回调绑定留在输入模块内部。
+&#32;
+ 已认领的命令在仅删除参数和末尾分隔空格时保留身份与高亮，改动命令名才会释放认领。所有命令和语言使用相同规则，包括 `/goal`、`/目标`、`/plan` 和 `/计划`。输入法组合输入期间，命令提示和普通占位文字持续隐藏，直到编辑器提交最终文字且对应输入为空时才重新显示。
+</pre></section>
+<section id="m0-014"><h2>packages/client/ui-conversation/src/client/apply.ts</h2><p>官方输入挂载取得完整来源租约并在卸载释放；非触发器适配器保留可选协议</p><pre>diff --git a/packages/client/ui-conversation/src/client/apply.ts b/packages/client/ui-conversation/src/client/apply.ts
+index 95e6c5f3bc..2435449784 100644
+--- a/packages/client/ui-conversation/src/client/apply.ts
++++ b/packages/client/ui-conversation/src/client/apply.ts
+@@ -352,6 +352,8 @@ export function apply(ctx: Context, config: Config = Config({})): void {
+       const shell = inputHub.shell(sessionId)
+       const inputTriggers = inputHub.inputTriggers(sessionId)
+       return {
++        // 官方输入允许全部来源；接口不在 inject 执行时取得租约，避免隐藏座位占用。
++        acquireTriggerConsumer: () =&gt; inputTriggers?.acquireConsumer?.({ triggers: [&#x27;/&#x27;, &#x27;@&#x27;] }),
+         keyboard: shell,
+         addFiles: (files) =&gt; {
+           if (sessions.binding(sessionId) === undefined) return t(&#x27;file.sessionUnavailable&#x27;)
+</pre></section>
+<section id="m0-015"><h2>packages/client/ui-conversation/src/client/contract/input.ts</h2><p>官方输入挂载取得完整来源租约并在卸载释放；非触发器适配器保留可选协议</p><pre>diff --git a/packages/client/ui-conversation/src/client/contract/input.ts b/packages/client/ui-conversation/src/client/contract/input.ts
+index f225a74922..6b9862cd49 100644
+--- a/packages/client/ui-conversation/src/client/contract/input.ts
++++ b/packages/client/ui-conversation/src/client/contract/input.ts
+@@ -119,6 +119,12 @@ export interface InputTriggerHit {
+&#32;
+ /** Structural per-Session trigger provider consumed by the input shell. */
+ export interface InputTriggerController {
++  /**
++   * 可选能力用于兼容第三方触发器；官方实现提供独占呈现租约。
++   * @param policy - 可见输入允许的触发符与来源。
++   * @returns 释放动作。
++   */
++  acquireConsumer?(policy: { readonly triggers: readonly (&#x27;/&#x27; | &#x27;@&#x27;)[]; readonly sources?: readonly string[] }): () =&gt; void
+   readonly launcher: ObservableSnapshot&lt;string | null&gt;
+   readonly lexicon: ObservableSnapshot&lt;ReadonlyMap&lt;&#x27;/&#x27; | &#x27;@&#x27;, readonly string[]&gt;&gt;
+   /** @param draft - current draft. @param caret - caret offset. @param guard - availability tier. @param draftRev - input revision. */
+</pre></section>
+<section id="m0-016"><h2>packages/client/ui-conversation/src/client/contract/slots.ts</h2><p>官方输入挂载取得完整来源租约并在卸载释放；非触发器适配器保留可选协议</p><pre>diff --git a/packages/client/ui-conversation/src/client/contract/slots.ts b/packages/client/ui-conversation/src/client/contract/slots.ts
+index 795090f465..4e7712a2ec 100644
+--- a/packages/client/ui-conversation/src/client/contract/slots.ts
++++ b/packages/client/ui-conversation/src/client/contract/slots.ts
+@@ -304,6 +304,8 @@ export interface ComposerBarOwnerProps {
+&#32;
+ /** Package-private operations injected into the resident composer bar. */
+ export interface ComposerBarInjected {
++  /** 可见输入挂载时持有租约，卸载时释放；无触发器提供者时为空。 */
++  acquireTriggerConsumer?: () =&gt; (() =&gt; void) | undefined
+   keyboard: ComposerKeyboard | undefined
+   addFiles: ((files: readonly File[]) =&gt; string | null) | undefined
+   removeAttachment: ((id: DraftAttachmentId) =&gt; void) | undefined
+</pre></section>
+<section id="m0-017"><h2>packages/client/ui-conversation/src/client/skeleton/InputBar.tsx</h2><p>官方输入挂载取得完整来源租约并在卸载释放；非触发器适配器保留可选协议</p><pre>diff --git a/packages/client/ui-conversation/src/client/skeleton/InputBar.tsx b/packages/client/ui-conversation/src/client/skeleton/InputBar.tsx
+index 6b7d83f3f6..54181fd5a9 100644
+--- a/packages/client/ui-conversation/src/client/skeleton/InputBar.tsx
++++ b/packages/client/ui-conversation/src/client/skeleton/InputBar.tsx
+@@ -13,7 +13,7 @@
+  * trigger instead of a parallel tree.
+  */
+&#32;
+-import { memo, useCallback, useEffect, useMemo, useRef, useState } from &#x27;react&#x27;
++import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from &#x27;react&#x27;
+ import type { ChangeEvent, CSSProperties, KeyboardEvent, MouseEvent, ReactNode } from &#x27;react&#x27;
+ import clsx from &#x27;clsx&#x27;
+ import {
+@@ -41,7 +41,7 @@ import css from &#x27;./InputBar.module.css&#x27;
+ export type InputBarProps = ComposerBarProps
+&#32;
+ export const InputBar = memo(function InputBar({
+-  useSession, useInput, inputActions, keyboard, addFiles, removeAttachment, resolveDraftAttachments,
++  acquireTriggerConsumer, useSession, useInput, inputActions, keyboard, addFiles, removeAttachment, resolveDraftAttachments,
+   retryFileUpload,
+   toggleCommandMenu, stop, command, t,
+   renderSlot, useBusyEnter, useFileUploads, useNotices, useLexicon, useMenuLauncher,
+@@ -49,6 +49,8 @@ export const InputBar = memo(function InputBar({
+   workspacePickerOpen = false, onRequestWorkspace,
+   placeholder, accessory,
+ }: InputBarProps) {
++  // 布局阶段先释放旧座位，保证两套界面切换时没有双租约。
++  useLayoutEffect(() =&gt; acquireTriggerConsumer?.(), [acquireTriggerConsumer])
+   const input = useInput(s =&gt; s)
+   const notice = useNotices(s =&gt; s)
+   const busyEnter = useBusyEnter(s =&gt; s)
+</pre></section>
+<section id="m0-018"><h2>packages/client/ui-conversation/tests/conversation-registry.client.spec.ts</h2><p>同步必填 SessionSnapshot.historyLoad 字段或验证共享服务</p><pre>diff --git a/packages/client/ui-conversation/tests/conversation-registry.client.spec.ts b/packages/client/ui-conversation/tests/conversation-registry.client.spec.ts
+index 2d3a003756..9dabcd149d 100644
+--- a/packages/client/ui-conversation/tests/conversation-registry.client.spec.ts
++++ b/packages/client/ui-conversation/tests/conversation-registry.client.spec.ts
+@@ -33,6 +33,8 @@ function sessionSnapshot(): SessionSnapshot {
+     openError: null,
+     hasMore: false,
+     loadingOlder: false,
++    // QS：完整会话样本包含权威分页状态。
++    historyLoad: { phase: &#x27;idle&#x27; },
+     promptError: null,
+     blank: true,
+     lastAgentError: null,
+</pre></section>
+<section id="m0-019"><h2>packages/client/ui-conversation/tests/input-scenarios.client.spec.tsx</h2><p>官方输入场景使用组件挂载租约，验证严格策略下命令及引用行为</p><pre>diff --git a/packages/client/ui-conversation/tests/input-scenarios.client.spec.tsx b/packages/client/ui-conversation/tests/input-scenarios.client.spec.tsx
+index 42bf54913c..b2c6d1b2d9 100644
+--- a/packages/client/ui-conversation/tests/input-scenarios.client.spec.tsx
++++ b/packages/client/ui-conversation/tests/input-scenarios.client.spec.tsx
+@@ -139,6 +139,8 @@ async function scopedBench(register?: (inputTriggers: InputTriggerService) =&gt; vo
+   const wiring = shell
+   const sessionStore = createSnapshotStore&lt;SessionSnapshot&gt;(sessionSnapshot(sessionId))
+   const barProps: InputBarProps = {
++    // 通过真实组件挂载取得租约，卸载后禁止继续驱动来源。
++    acquireTriggerConsumer: () =&gt; controller.acquireConsumer({ triggers: [&#x27;/&#x27;, &#x27;@&#x27;] }),
+     usePanelInfo: selector =&gt; selector({ activePanelId: null }),
+     sessionId,
+     SessionProvider: ({ children }) =&gt; children,
+</pre></section>
+<section id="m0-020"><h2>packages/client/ui-conversation/tests/queue-dock.client.spec.tsx</h2><p>同步必填 SessionSnapshot.historyLoad 字段或验证共享服务</p><pre>diff --git a/packages/client/ui-conversation/tests/queue-dock.client.spec.tsx b/packages/client/ui-conversation/tests/queue-dock.client.spec.tsx
+index 0f5942a6bc..34e2a99fc4 100644
+--- a/packages/client/ui-conversation/tests/queue-dock.client.spec.tsx
++++ b/packages/client/ui-conversation/tests/queue-dock.client.spec.tsx
+@@ -43,7 +43,9 @@ function row(id: string, text: string | null, preview = text ?? &#x27;[image]&#x27;): Queu
+ function snapshotWith(queue: QueuedMessage[]): SessionSnapshot {
+   return {
+     sessionId: SID, queue, running: true, removed: false, openState: &#x27;open&#x27;, openError: null,
+-    hasMore: false, loadingOlder: false, promptError: null, blank: false, subagent: null,
++    hasMore: false, loadingOlder: false,
++    // QS：完整会话样本包含权威分页状态。
++    historyLoad: { phase: &#x27;idle&#x27; }, promptError: null, blank: false, subagent: null,
+     pendingSubmissions: [],
+     lastAgentError: null, promptAttempted: true, awaitingFirstTurn: false,
+   }
+</pre></section>
+<section id="m0-021"><h2>packages/client/ui-input-trigger/README.i18n.yaml</h2><p>同步本包 M0 公共接口、兼容范围与中英配对记录</p><pre>diff --git a/packages/client/ui-input-trigger/README.i18n.yaml b/packages/client/ui-input-trigger/README.i18n.yaml
+index 8050712749..2ca99d402c 100644
+--- a/packages/client/ui-input-trigger/README.i18n.yaml
++++ b/packages/client/ui-input-trigger/README.i18n.yaml
+@@ -2,5 +2,5 @@
+ # side as of the last confirmed-consistent state. Both languages carry equal authority;
+ # after editing either side, bring the other along and re-record with:
+ #   pnpm run verify-translation-pairing --write packages/client/ui-input-trigger/README.md
+-README.md: ad10001829dea48b961b922c4e90cad0ce9efa92
+-README.zh.md: d34d05410902ee6f98175339f0c881f958da621c
++README.md: 90ba138229d7bb91846ed7965a4d1d208b583194
++README.zh.md: 47470aa3ed71ad453151c095f41543302e55e9c2
+</pre></section>
+<section id="m0-022"><h2>packages/client/ui-input-trigger/README.md</h2><p>同步本包 M0 公共接口、兼容范围与中英配对记录</p><pre>diff --git a/packages/client/ui-input-trigger/README.md b/packages/client/ui-input-trigger/README.md
+index ad10001829..90ba138229 100644
+--- a/packages/client/ui-input-trigger/README.md
++++ b/packages/client/ui-input-trigger/README.md
+@@ -78,6 +78,8 @@ These limits define the current trigger pipeline. They are current package const
+ - **Global source layer only** — session-scope source registration (per-session shadowing) is designed but not enabled; the ledger tracks the trigger condition, a real per-session source need.
+ - **Overlay SlotMap merge home is split from slot ownership** — the sole `conversation.input.overlay` merge lives here, while ui-conversation owns its anchor, children declaration, and lifecycle because the dependency direction is ui-conversation → ui-input-trigger.
+&#32;
++`acquireConsumer(scope, policy)` obtains an exclusive visible-input lease on the existing controller. Policy filters trigger and source selection, lexicons and command adjudication. Release cancels candidates; late adjudication is rejected. No sources are enabled before acquisition, after release, or after controller disposal. A synchronous source callback that releases the lease cannot apply its returned edit. Official input leases both triggers and QS input leases slash only.
++
+ &lt;a id=&quot;dev-note&quot;&gt;&lt;/a&gt;
+ ### Dev Note
+&#32;
+</pre></section>
+<section id="m0-023"><h2>packages/client/ui-input-trigger/README.zh.md</h2><p>同步本包 M0 公共接口、兼容范围与中英配对记录</p><pre>diff --git a/packages/client/ui-input-trigger/README.zh.md b/packages/client/ui-input-trigger/README.zh.md
+index d34d054109..47470aa3ed 100644
+--- a/packages/client/ui-input-trigger/README.zh.md
++++ b/packages/client/ui-input-trigger/README.zh.md
+@@ -78,6 +78,8 @@ kind: &quot;package-reference&quot;
+ - **只有全局 source 层**——会话 scope 的 source 注册（逐会话遮蔽）已有设计但未启用；台账记录着触发条件，即真实的逐会话 source 需求。
+ - **overlay 的 SlotMap 合并归属与 slot 所有权分离**：唯一的 `conversation.input.overlay` 合并放在本包，而 ui-conversation 拥有其锚点、children 声明与生命周期，因为依赖方向是 ui-conversation → ui-input-trigger。
+&#32;
++`acquireConsumer(scope, policy)` 为可见输入取得已有控制器的独占租约。策略限制触发符、来源选择、词库和命令仲裁。释放会取消候选，迟到仲裁被拒绝。取得租约前、释放后及控制器卸载后均不启用来源。同步来源回调释放租约后，其返回的编辑也不能写入输入。官方输入租用两种触发符，QS 输入只租用斜杠。
++
+ &lt;a id=&quot;dev-note&quot;&gt;&lt;/a&gt;
+ ### 开发备注
+&#32;
+</pre></section>
+<section id="m0-024"><h2>packages/client/ui-input-trigger/src/client/contract.ts</h2><p>增加可见输入独占来源策略，拒绝切换后的迟到仲裁</p><pre>diff --git a/packages/client/ui-input-trigger/src/client/contract.ts b/packages/client/ui-input-trigger/src/client/contract.ts
+index 291844247a..0c147f95bd 100644
+--- a/packages/client/ui-input-trigger/src/client/contract.ts
++++ b/packages/client/ui-input-trigger/src/client/contract.ts
+@@ -1,3 +1,4 @@
++import type { InputTriggerConsumerPolicy } from &#x27;./qs/consumer.ts&#x27;
+ /**
+  * Frozen service contract of the slash pipeline. Types only. The
+  * InputTriggerService implementation publishes this face as `ctx.inputTriggers`; sources
+@@ -22,4 +23,11 @@ export interface InputTriggerServiceContract {
+    * @returns controller that dies with that scope.
+    */
+   sessionOf(actx: ClientContext): InputTriggerController
++  /**
++   * 为可见输入取得独占来源策略。
++   * @param actx - 会话作用域。
++   * @param policy - 可见输入允许的来源。
++   * @returns 共享控制器及幂等释放动作；同时存在两个租约时拒绝。
++   */
++  acquireConsumer(actx: ClientContext, policy: InputTriggerConsumerPolicy): { controller: InputTriggerController; release: () =&gt; void }
+ }
+</pre></section>
+<section id="m0-025"><h2>packages/client/ui-input-trigger/src/client/controller.ts</h2><p>增加可见输入独占来源策略，拒绝切换后的迟到仲裁</p><pre>diff --git a/packages/client/ui-input-trigger/src/client/controller.ts b/packages/client/ui-input-trigger/src/client/controller.ts
+index aadaea8440..e3650883a4 100644
+--- a/packages/client/ui-input-trigger/src/client/controller.ts
++++ b/packages/client/ui-input-trigger/src/client/controller.ts
+@@ -1,3 +1,4 @@
++import type { InputTriggerConsumerPolicy } from &#x27;./qs/consumer.ts&#x27;
+ /**
+  * InputTriggerController: the per-session half of the trigger pipeline. Owns every
+  * piece of mutable interaction state — the authoritative trigger hit (span
+@@ -78,6 +79,48 @@ export class InputTriggerController {
+   private drilled = false
+   private fetch: AbortController | null = null
+   private disposed = false
++  // 无可见输入租约时不允许来源参与候选、仲裁或引用序列化。
++  private consumerPolicy: InputTriggerConsumerPolicy = { triggers: [] }
++  private consumerToken: object | undefined
++  private consumerEpoch = 0
++
++  /**
++   * 可见呈现独占同一会话控制器；释放旧租约不能清除后续租约。
++   * @param policy - 允许的触发符与来源。
++   * @returns 释放租约的幂等动作。
++   */
++  acquireConsumer(policy: InputTriggerConsumerPolicy): () =&gt; void {
++    if (this.disposed) throw new Error(&#x27;input trigger controller disposed&#x27;)
++    if (this.consumerToken !== undefined) throw new Error(&#x27;input trigger consumer already mounted&#x27;)
++    const token = {}
++    this.consumerToken = token
++    this.setConsumerPolicy({ triggers: [...policy.triggers], ...(policy.sources === undefined ? {} : { sources: [...policy.sources] }) })
++    return () =&gt; {
++      if (this.consumerToken !== token) return
++      this.consumerToken = undefined
++      this.setConsumerPolicy({ triggers: [] })
++    }
++  }
++
++  /** 策略切换撤销所有旧候选和仲裁，不修改共享草稿。 */
++  private setConsumerPolicy(policy: InputTriggerConsumerPolicy): void {
++    this.consumerEpoch++
++    this.consumerPolicy = policy
++    this.hit = null
++    this.stopFetch()
++    this.reduce({ type: &#x27;close&#x27; })
++    this.refreshLexicon()
++  }
++
++  private allowed(source: InputTriggerSource): boolean {
++    return this.consumerPolicy.triggers.includes(source.trigger)
++      &amp;&amp; (this.consumerPolicy.sources === undefined || this.consumerPolicy.sources.includes(source.name))
++  }
++
++  private sources(trigger?: string): readonly InputTriggerSource[] {
++    const sources = trigger === undefined ? this.deps.roster.all() : this.deps.roster.sources(trigger)
++    return sources.filter(source =&gt; this.allowed(source))
++  }
+   /** Per-source lexicon unsubscribers (sources without the hook never enter). */
+   private readonly lexiconOffs = new Map&lt;InputTriggerSource, () =&gt; void&gt;()
+&#32;
+@@ -120,7 +163,7 @@ export class InputTriggerController {
+       &amp;&amp; prev.hit.span.start === hit.span.start &amp;&amp; prev.hit.span.end === hit.span.end
+     this.hit = hit
+     if (same) return
+-    const roster = this.deps.roster.sources(hit.trigger)
++    const roster = this.sources(hit.trigger)
+     if (roster.length === 0) {
+       this.stopFetch()
+       this.reduce({ type: &#x27;close&#x27; })
+@@ -148,7 +191,7 @@ export class InputTriggerController {
+       this.dismiss()
+       return
+     }
+-    const match = this.deps.roster.sources(hit.trigger).find(item =&gt; item.name === source)
++    const match = this.sources(hit.trigger).find(item =&gt; item.name === source)
+     if (match === undefined) {
+       this.dismiss()
+       return
+@@ -176,7 +219,7 @@ export class InputTriggerController {
+     const group = state.groups.find(g =&gt; g.source === source)
+     const candidate = group !== undefined &amp;&amp; group.status === &#x27;ready&#x27; ? group.items[index] : undefined
+     if (candidate === undefined) return
+-    const src = this.deps.roster.sources(hit.trigger).find(s =&gt; s.name === source)
++    const src = this.sources(hit.trigger).find(s =&gt; s.name === source)
+     if (src === undefined) return
+     this.settle(src, candidate, hit, action)
+   }
+@@ -193,7 +236,7 @@ export class InputTriggerController {
+     if (this.disposed || !this.menu.getSnapshot().open || hit === null) return
+     const crumb = this.headers.getSnapshot().get(source)?.[index]
+     if (crumb === undefined || crumb.current === true) return
+-    const src = this.deps.roster.sources(hit.trigger).find(s =&gt; s.name === source)
++    const src = this.sources(hit.trigger).find(s =&gt; s.name === source)
+     if (src === undefined) return
+     this.settle(src, { name: crumb.label, value: crumb.value }, hit, &#x27;drill&#x27;)
+   }
+@@ -276,10 +319,13 @@ export class InputTriggerController {
+     const hit = this.hit
+     if (this.disposed || hit === null || hit.position !== &#x27;leading&#x27;) return false
+     const token = hit.trigger + hit.query
++    const epoch = this.consumerEpoch
+     const projection = this.project()
+-    for (const src of this.deps.roster.sources(hit.trigger)) {
++    for (const src of this.sources(hit.trigger)) {
+       if (src.matchSpace === undefined) continue
+       const outcome = src.matchSpace(projection, token)
++      // 来源回调可能同步切换呈现或卸载自身，返回值不得写入新输入。
++      if (epoch !== this.consumerEpoch || !this.deps.roster.all().includes(src)) return false
+       if (outcome === undefined) continue
+       if (outcome === &#x27;handled&#x27;) return true
+       return this.execute(outcome, hit.span)
+@@ -298,7 +344,7 @@ export class InputTriggerController {
+    * @returns the model representation (e.g. `&lt;skill&gt;name&lt;/skill&gt;`).
+    */
+   serializeReference(source: string, ref: string, signal: AbortSignal): Promise&lt;string&gt; {
+-    const owner = this.deps.roster.all().find(s =&gt; s.name === source)
++    const owner = this.sources().find(s =&gt; s.name === source)
+     if (owner?.codec === undefined) {
+       return Promise.reject(new Error(`slash: no serializer for reference source &quot;${source}&quot;`))
+     }
+@@ -314,7 +360,7 @@ export class InputTriggerController {
+   openReference(source: string | undefined, reference: Pick&lt;ReferenceInsert, &#x27;ref&#x27; | &#x27;appearance&#x27;&gt;): boolean {
+     if (this.disposed) return false
+     const session = this.project()
+-    for (const owner of this.deps.roster.all()) {
++    for (const owner of this.sources()) {
+       const matches = source === undefined
+         ? reference.ref.startsWith(owner.trigger) &amp;&amp; owner.lexicon?.(session)?.includes(reference.ref.slice(1))
+         : owner.name === source
+@@ -338,13 +384,16 @@ export class InputTriggerController {
+    * the caller must not silently downgrade.
+    */
+   async adjudicate(line: string, signal: AbortSignal, envelope: SubmitEnvelope): Promise&lt;PickOutcome&gt; {
++    const epoch = this.consumerEpoch
+     const projection = this.project()
+-    for (const src of this.deps.roster.all()) {
++    for (const src of this.sources()) {
+       if (signal.aborted) {
+         throw signal.reason instanceof Error ? signal.reason : new Error(&#x27;slash adjudication aborted&#x27;)
+       }
+       if (src.matchEnter === undefined || !line.startsWith(src.trigger)) continue
+       const outcome = await src.matchEnter(projection, line, signal, envelope)
++      signal.throwIfAborted()
++      if (this.disposed || epoch !== this.consumerEpoch || !this.allowed(src) || !this.deps.roster.all().includes(src)) throw new Error(&#x27;input trigger consumer changed during adjudication&#x27;)
+       if (outcome !== undefined) return outcome
+     }
+     return undefined
+@@ -389,7 +438,7 @@ export class InputTriggerController {
+   refreshOpenMenu(): void {
+     if (this.disposed || !this.menu.getSnapshot().open || this.hit === null) return
+     const launched = this.launcher.getSnapshot()
+-    const roster = this.deps.roster.sources(this.hit.trigger)
++    const roster = this.sources(this.hit.trigger)
+       .filter(source =&gt; launched === null || source.name === launched)
+     if (roster.length === 0) return
+     this.fetchCandidates(this.hit, roster)
+@@ -398,6 +447,8 @@ export class InputTriggerController {
+   /** Scope teardown: close and abort (the service deletes the map entry). */
+   dispose(): void {
+     this.disposed = true
++    this.consumerToken = undefined
++    this.setConsumerPolicy({ triggers: [] })
+     this.stopFetch()
+     this.reduce({ type: &#x27;close&#x27; })
+     this.hit = null
+@@ -431,7 +482,7 @@ export class InputTriggerController {
+   private refreshLexicon(): void {
+     const projection = this.project()
+     const rolls = new Map&lt;TriggerChar, readonly string[]&gt;()
+-    for (const src of this.deps.roster.all()) {
++    for (const src of this.sources()) {
+       if (src.lexicon === undefined) continue
+       let names: readonly string[] | undefined
+       try {
+@@ -461,7 +512,7 @@ export class InputTriggerController {
+       // open menu, so one source cannot contribute its previous catalog.
+       void Promise.resolve().then(() =&gt; {
+         if (this.disposed || this.hit !== hit || !this.menu.getSnapshot().open) return
+-        this.fetchCandidates(hit, this.deps.roster.sources(hit.trigger))
++        this.fetchCandidates(hit, this.sources(hit.trigger))
+       })
+     }))
+   }
+@@ -518,6 +569,7 @@ export class InputTriggerController {
+     hit: TriggerHit,
+     action: PickAction,
+   ): void {
++    const epoch = this.consumerEpoch
+     const outcome = src.onPick({
+       candidate,
+       session: this.project(),
+@@ -526,6 +578,8 @@ export class InputTriggerController {
+       action,
+       span: hit.span,
+     })
++    // 同步来源回调也可能触发界面切换，过期动作不得写回草稿。
++    if (this.disposed || epoch !== this.consumerEpoch || !this.allowed(src)) return
+     this.stopFetch()
+     this.reduce({ type: &#x27;close&#x27; })
+     // Claimed before the edit, and after the close above so the reducer&#x27;s own
+</pre></section>
+<section id="m0-026"><h2>packages/client/ui-input-trigger/src/client/index.ts</h2><p>增加可见输入独占来源策略，拒绝切换后的迟到仲裁</p><pre>diff --git a/packages/client/ui-input-trigger/src/client/index.ts b/packages/client/ui-input-trigger/src/client/index.ts
+index 9141210c0e..3df1644254 100644
+--- a/packages/client/ui-input-trigger/src/client/index.ts
++++ b/packages/client/ui-input-trigger/src/client/index.ts
+@@ -85,3 +85,6 @@ export function apply(ctx: ClientContext): void {
+     }, MenuView))
+   })
+ }
++
++// 二开输入复用同一控制器，通过租约限制来源而不删除全局注册。
++export type { InputTriggerConsumerPolicy } from &#x27;./qs/consumer.ts&#x27;
+</pre></section>
+<section id="m0-027"><h2>packages/client/ui-input-trigger/src/client/service.ts</h2><p>增加可见输入独占来源策略，拒绝切换后的迟到仲裁</p><pre>diff --git a/packages/client/ui-input-trigger/src/client/service.ts b/packages/client/ui-input-trigger/src/client/service.ts
+index 54ccb299da..b728563809 100644
+--- a/packages/client/ui-input-trigger/src/client/service.ts
++++ b/packages/client/ui-input-trigger/src/client/service.ts
+@@ -1,3 +1,4 @@
++import type { InputTriggerConsumerPolicy } from &#x27;./qs/consumer.ts&#x27;
+ /**
+  * InputTriggerService (`ctx.inputTriggers`): the root half of the trigger pipeline — the
+  * stateless source registry plus the per-session controller map. Every piece
+@@ -105,6 +106,17 @@ export class InputTriggerService extends Service implements InputTriggerServiceC
+     return controller
+   }
+&#32;
++  /**
++   * 为实际挂载的输入呈现取得独占租约。
++   * @param actx - 会话作用域。
++   * @param policy - 来源限制。
++   * @returns 同一控制器和释放动作。
++   */
++  acquireConsumer(actx: ClientContext, policy: InputTriggerConsumerPolicy): { controller: InputTriggerController; release: () =&gt; void } {
++    const controller = this.sessionOf(actx)
++    return { controller, release: controller.acquireConsumer(policy) }
++  }
++
+   private sessions(): ISessions {
+     const sessions = this.ctx.get(&#x27;sessions&#x27;)
+     if (sessions === undefined) throw new Error(&#x27;ui-input-trigger: sessions service unavailable&#x27;)
+</pre></section>
+<section id="m0-028"><h2>packages/client/ui-input-trigger/tests/service.client.spec.ts</h2><p>已有行为用例显式取得呈现租约，验证无默认放行策略</p><pre>diff --git a/packages/client/ui-input-trigger/tests/service.client.spec.ts b/packages/client/ui-input-trigger/tests/service.client.spec.ts
+index 2616bc73b9..95c55e76d4 100644
+--- a/packages/client/ui-input-trigger/tests/service.client.spec.ts
++++ b/packages/client/ui-input-trigger/tests/service.client.spec.ts
+@@ -77,6 +77,8 @@ function controllerBench(sources: InputTriggerSource[] = [], key = &#x27;a&#x27;) {
+     all: () =&gt; sources,
+   }
+   const controller = new InputTriggerController({ actx: scope.ctx, sessionId: sid(key), roster })
++  // 行为台显式模拟一个已挂载的官方输入，不绕过租约策略。
++  controller.acquireConsumer({ triggers: [&#x27;/&#x27;, &#x27;@&#x27;] })
+   return { root, actx: scope.ctx, controller, sources }
+ }
+&#32;
+@@ -112,7 +114,9 @@ describe(&#x27;registerSource&#x27;, () =&gt; {
+     const disposeB = inputTriggers.registerSource(b.source)
+&#32;
+     const ca = inputTriggers.sessionOf(mint(&#x27;a&#x27;).actx)
++    ca.acquireConsumer({ triggers: [&#x27;/&#x27;, &#x27;@&#x27;] })
+     const cb = inputTriggers.sessionOf(mint(&#x27;b&#x27;).actx)
++    cb.acquireConsumer({ triggers: [&#x27;/&#x27;, &#x27;@&#x27;] })
+     ca.track(&#x27;/o&#x27;, 2, { tier: &#x27;plain&#x27; }, 1)
+     cb.track(&#x27;/o&#x27;, 2, { tier: &#x27;plain&#x27; }, 1)
+     await tick()
+@@ -130,7 +134,9 @@ describe(&#x27;registerSource&#x27;, () =&gt; {
+   it(&#x27;a source registered after controller birth warms in every live controller&#x27;, async () =&gt; {
+     const { inputTriggers, mint } = await serviceBench()
+     const ca = inputTriggers.sessionOf(mint(&#x27;a&#x27;).actx)
++    ca.acquireConsumer({ triggers: [&#x27;/&#x27;, &#x27;@&#x27;] })
+     const cb = inputTriggers.sessionOf(mint(&#x27;b&#x27;).actx)
++    cb.acquireConsumer({ triggers: [&#x27;/&#x27;, &#x27;@&#x27;] })
+     const late = deferredSource(&#x27;/&#x27;, &#x27;late&#x27;, { lexicon: () =&gt; [&#x27;fresh&#x27;] })
+     inputTriggers.registerSource(late.source)
+     expect(late.warm).toHaveBeenNthCalledWith(1, { sessionId: sid(&#x27;a&#x27;) })
+@@ -142,6 +148,7 @@ describe(&#x27;registerSource&#x27;, () =&gt; {
+   it(&#x27;HMR shape: dispose of the registering fiber removes the source&#x27;, async () =&gt; {
+     const { root, inputTriggers, mint } = await serviceBench()
+     const controller = inputTriggers.sessionOf(mint(&#x27;a&#x27;).actx)
++    controller.acquireConsumer({ triggers: [&#x27;/&#x27;, &#x27;@&#x27;] })
+     const fiber = root.plugin({
+       apply(pluginCtx: Context) {
+         pluginCtx.effect(
+@@ -168,6 +175,7 @@ describe(&#x27;sessionOf&#x27;, () =&gt; {
+     const { inputTriggers, mint } = await serviceBench()
+     const a = mint(&#x27;a&#x27;)
+     const first = inputTriggers.sessionOf(a.actx)
++    first.acquireConsumer({ triggers: [&#x27;/&#x27;, &#x27;@&#x27;] })
+     expect(inputTriggers.sessionOf(a.actx)).toBe(first)
+     expect(inputTriggers.sessionOf(mint(&#x27;b&#x27;).actx)).not.toBe(first)
+   })
+@@ -197,6 +205,7 @@ describe(&#x27;sessionOf&#x27;, () =&gt; {
+     inputTriggers.registerSource(readySource(&#x27;/&#x27;, &#x27;command&#x27;, [{ name: &#x27;goal&#x27; }]).source)
+     const a = mint(&#x27;a&#x27;)
+     const controller = inputTriggers.sessionOf(a.actx)
++    controller.acquireConsumer({ triggers: [&#x27;/&#x27;, &#x27;@&#x27;] })
+     controller.track(&#x27;/g&#x27;, 2, { tier: &#x27;plain&#x27; }, 1)
+     await tick()
+     expect(controller.menu.getSnapshot().open).toBe(true)
+@@ -215,7 +224,9 @@ describe(&#x27;sessionOf&#x27;, () =&gt; {
+     const src = deferredSource(&#x27;/&#x27;, &#x27;command&#x27;)
+     inputTriggers.registerSource(src.source)
+     const ca = inputTriggers.sessionOf(mint(&#x27;a&#x27;).actx)
++    ca.acquireConsumer({ triggers: [&#x27;/&#x27;, &#x27;@&#x27;] })
+     const cb = inputTriggers.sessionOf(mint(&#x27;b&#x27;).actx)
++    cb.acquireConsumer({ triggers: [&#x27;/&#x27;, &#x27;@&#x27;] })
+&#32;
+     ca.track(&#x27;/g&#x27;, 2, { tier: &#x27;plain&#x27; }, 1)
+     expect(ca.menu.getSnapshot().open).toBe(true)
+@@ -238,8 +249,11 @@ describe(&#x27;sessionOf&#x27;, () =&gt; {
+       onPick: () =&gt; undefined,
+     })
+     const first = inputTriggers.sessionOf(mint(&#x27;a&#x27;).actx)
++    first.acquireConsumer({ triggers: [&#x27;/&#x27;, &#x27;@&#x27;] })
+     const second = inputTriggers.sessionOf(mint(&#x27;b&#x27;).actx)
++    second.acquireConsumer({ triggers: [&#x27;/&#x27;, &#x27;@&#x27;] })
+     const closed = inputTriggers.sessionOf(mint(&#x27;c&#x27;).actx)
++    closed.acquireConsumer({ triggers: [&#x27;/&#x27;, &#x27;@&#x27;] })
+     first.track(&#x27;/c&#x27;, 2, { tier: &#x27;plain&#x27; }, 1)
+     second.track(&#x27;/c&#x27;, 2, { tier: &#x27;plain&#x27; }, 1)
+     await tick()
+</pre></section>
+<section id="m0-029"><h2>packages/client/ui-message-feedback/README.i18n.yaml</h2><p>同步本包 M0 公共接口、兼容范围与中英配对记录</p><pre>diff --git a/packages/client/ui-message-feedback/README.i18n.yaml b/packages/client/ui-message-feedback/README.i18n.yaml
+index bdd5f1e664..6bd580129a 100644
+--- a/packages/client/ui-message-feedback/README.i18n.yaml
++++ b/packages/client/ui-message-feedback/README.i18n.yaml
+@@ -2,5 +2,5 @@
+ # side as of the last confirmed-consistent state. Both languages carry equal authority;
+ # after editing either side, bring the other along and re-record with:
+ #   pnpm run verify-translation-pairing --write packages/client/ui-message-feedback/README.md
+-README.md: b37278e8d115a2ad61bb17ef8d884b0d888cd6a7
+-README.zh.md: cd233061640f5e52ea9ca54ffe973bff3b957197
++README.md: cb9f72476324e8eeaf67f5e3b89a9498156abd2d
++README.zh.md: b71866586991652a787e648441b349dd90750c01
+</pre></section>
+<section id="m0-030"><h2>packages/client/ui-message-feedback/README.md</h2><p>同步本包 M0 公共接口、兼容范围与中英配对记录</p><pre>diff --git a/packages/client/ui-message-feedback/README.md b/packages/client/ui-message-feedback/README.md
+index b37278e8d1..cb9f724763 100644
+--- a/packages/client/ui-message-feedback/README.md
++++ b/packages/client/ui-message-feedback/README.md
+@@ -80,6 +80,8 @@ These limits define the current feedback surface. They are current package const
+ - **No cross-tab push** — a second tab&#x27;s rating becomes visible on reconnect or on the next conflict reply, not immediately; the controller does not consume feedback log events.
+ - **Chat view only** — the trajectory and waterfall views render no feedback controls even though their assistant nodes carry the same `messageId`.
+&#32;
++`ctx.messageFeedbackPresentation.actions(sessionId)` and `.dialog(sessionId)` expose the existing per-session feedback sources and actions. Alternate views share draft and submission state; they do not install a second `/feedback` decoration.
++
+ &lt;a id=&quot;dev-note&quot;&gt;&lt;/a&gt;
+ ### Dev Note
+&#32;
+</pre></section>
+<section id="m0-031"><h2>packages/client/ui-message-feedback/README.zh.md</h2><p>同步本包 M0 公共接口、兼容范围与中英配对记录</p><pre>diff --git a/packages/client/ui-message-feedback/README.zh.md b/packages/client/ui-message-feedback/README.zh.md
+index cd23306164..b718665869 100644
+--- a/packages/client/ui-message-feedback/README.zh.md
++++ b/packages/client/ui-message-feedback/README.zh.md
+@@ -80,6 +80,8 @@ kind: &quot;package-reference&quot;
+ - **无跨标签页推送**——另一个标签页的评分要等到重连或下一次冲突响应才可见，不会立即出现；控制器不消费反馈日志事件。
+ - **仅限对话视图**——trajectory 与 waterfall 视图不渲染反馈控件，尽管它们的助手节点也带有相同的 `messageId`。
+&#32;
++`ctx.messageFeedbackPresentation.actions(sessionId)` 和 `.dialog(sessionId)` 提供已有会话反馈源与动作。其他界面共享草稿和提交状态，不重复安装 `/feedback` 装饰。
++
+ &lt;a id=&quot;dev-note&quot;&gt;&lt;/a&gt;
+ ### 开发备注
+&#32;
+</pre></section>
+<section id="m0-032"><h2>packages/client/ui-message-feedback/src/client/index.ts</h2><p>共享官方反馈动作与草稿源，验证官方与二开注入身份相同</p><pre>diff --git a/packages/client/ui-message-feedback/src/client/index.ts b/packages/client/ui-message-feedback/src/client/index.ts
+index 91e6718f62..848aa2d714 100644
+--- a/packages/client/ui-message-feedback/src/client/index.ts
++++ b/packages/client/ui-message-feedback/src/client/index.ts
+@@ -37,6 +37,29 @@ export type {
+ } from &#x27;./slots.ts&#x27;
+ export type { MessageFeedbackKey } from &#x27;./locales.ts&#x27;
+&#32;
++/** 共享反馈呈现入口；两套界面复用同一会话草稿和提交状态。 */
++export interface MessageFeedbackPresentation {
++  /**
++   * 读取共享消息反馈呈现。
++   * @param sessionId - 会话标识。
++   * @returns 消息反馈动作与订阅源。
++   */
++  actions(sessionId: SessionId): MessageFeedbackInjected
++  /**
++   * 读取共享会话反馈弹层。
++   * @param sessionId - 会话标识。
++   * @returns 会话反馈弹层动作与订阅源。
++   */
++  dialog(sessionId: SessionId): FeedbackDialogInjected
++}
++
++declare module &#x27;@deepseek-ai/cordis&#x27; {
++  interface Context {
++    /** 官方与二开呈现共享的唯一反馈执行器。 */
++    messageFeedbackPresentation: MessageFeedbackPresentation
++  }
++}
++
+ /** Dictionary namespace owned by this plugin. */
+ const NS = &#x27;feedback&#x27;
+&#32;
+@@ -73,12 +96,9 @@ export function apply(ctx: ClientContext): void {
+     }
+   })
+&#32;
+-  ctx.slots.inject(&#x27;conversation.chat.assistant-actions&#x27;, () =&gt; ctx.slots.register({
+-    name: &#x27;conversation.chat.assistant-actions&#x27;,
+-    id: &#x27;feedback&#x27;,
+-    order: 10,
+-    locale: NS,
+-    inject: (sessionId): MessageFeedbackInjected =&gt; {
++  // 二开只取得呈现动作，不复制 Surface 或重复注册 /feedback。
++  const presentation: MessageFeedbackPresentation = {
++    actions: (sessionId): MessageFeedbackInjected =&gt; {
+       const { feedback, dialog } = surfaceFor(sessionId)
+       return {
+         hooks: { feedback },
+@@ -88,14 +108,7 @@ export function apply(ctx: ClientContext): void {
+         openDialog: (messageId, rating) =&gt; { dialog.open({ kind: &#x27;message&#x27;, messageId, rating }) },
+       }
+     },
+-  }, MessageFeedbackActions))
+-
+-  ctx.slots.inject(&#x27;conversation.input.overlay&#x27;, () =&gt; ctx.slots.register({
+-    name: &#x27;conversation.input.overlay&#x27;,
+-    id: &#x27;feedback-dialog&#x27;,
+-    order: 2,
+-    locale: NS,
+-    inject: (sessionId): FeedbackDialogInjected =&gt; {
++    dialog: (sessionId): FeedbackDialogInjected =&gt; {
+       const { dialog } = surfaceFor(sessionId)
+       return {
+         hooks: { dialog: dialog.state },
+@@ -106,6 +119,23 @@ export function apply(ctx: ClientContext): void {
+         dismissToast: (seq) =&gt; { dialog.dismissToast(seq) },
+       }
+     },
++  }
++  ctx.effect(() =&gt; ctx.reflect.provide(&#x27;messageFeedbackPresentation&#x27;, presentation), &#x27;ui-message-feedback: shared presentation&#x27;)
++
++  ctx.slots.inject(&#x27;conversation.chat.assistant-actions&#x27;, () =&gt; ctx.slots.register({
++    name: &#x27;conversation.chat.assistant-actions&#x27;,
++    id: &#x27;feedback&#x27;,
++    order: 10,
++    locale: NS,
++    inject: sessionId =&gt; presentation.actions(sessionId),
++  }, MessageFeedbackActions))
++
++  ctx.slots.inject(&#x27;conversation.input.overlay&#x27;, () =&gt; ctx.slots.register({
++    name: &#x27;conversation.input.overlay&#x27;,
++    id: &#x27;feedback-dialog&#x27;,
++    order: 2,
++    locale: NS,
++    inject: sessionId =&gt; presentation.dialog(sessionId),
+   }, FeedbackDialog))
+&#32;
+   // The Host keeps `/feedback &lt;text&gt;` for a typed remark; a bare invocation
+</pre></section>
+<section id="m0-033"><h2>packages/client/ui-message-feedback/tests/browser-plugin.client.spec.tsx</h2><p>共享官方反馈动作与草稿源，验证官方与二开注入身份相同</p><pre>diff --git a/packages/client/ui-message-feedback/tests/browser-plugin.client.spec.tsx b/packages/client/ui-message-feedback/tests/browser-plugin.client.spec.tsx
+index 2bad94b036..8380c65d37 100644
+--- a/packages/client/ui-message-feedback/tests/browser-plugin.client.spec.tsx
++++ b/packages/client/ui-message-feedback/tests/browser-plugin.client.spec.tsx
+@@ -127,6 +127,9 @@ describe(&#x27;ui-message-feedback browser plugin&#x27;, () =&gt; {
+     await b.fiber.await()
+&#32;
+     const face = b.entry()!.inject!(sid(&#x27;s1&#x27;))
++    // 两套界面使用同一个源，换呈现不丢草稿或重复请求。
++    expect(b.ctx.messageFeedbackPresentation.actions(sid(&#x27;s1&#x27;)).hooks.feedback).toBe(face.hooks.feedback)
++    expect(b.ctx.messageFeedbackPresentation.dialog(sid(&#x27;s1&#x27;)).hooks.dialog).toBe(b.dialogEntry()!.inject!(sid(&#x27;s1&#x27;)).hooks.dialog)
+     expect(face.hooks.feedback.getSnapshot()).toMatchObject({ status: &#x27;cold&#x27; })
+     expect(face.ensure).toBeTypeOf(&#x27;function&#x27;)
+     expect(face.current(MSG)).toBeUndefined()
+</pre></section>
+<section id="m0-034"><h2>packages/client/ui-schedule/tests/schedule-catalog-action.client.spec.tsx</h2><p>同步必填 SessionSnapshot.historyLoad 字段或验证共享服务</p><pre>diff --git a/packages/client/ui-schedule/tests/schedule-catalog-action.client.spec.tsx b/packages/client/ui-schedule/tests/schedule-catalog-action.client.spec.tsx
+index 086d9e05b9..38acffee6a 100644
+--- a/packages/client/ui-schedule/tests/schedule-catalog-action.client.spec.tsx
++++ b/packages/client/ui-schedule/tests/schedule-catalog-action.client.spec.tsx
+@@ -60,6 +60,8 @@ function sessionSnapshot(openState: SessionSnapshot[&#x27;openState&#x27;]): SessionSnapsh
+     openError: null,
+     hasMore: false,
+     loadingOlder: false,
++    // QS：完整会话样本包含权威分页状态。
++    historyLoad: { phase: &#x27;idle&#x27; },
+     promptError: null,
+     blank: false,
+     lastAgentError: null,
+</pre></section>
+<section id="m0-035"><h2>packages/client/ui-session/tests/ui-session.client.spec.ts</h2><p>同步必填 SessionSnapshot.historyLoad 字段或验证共享服务</p><pre>diff --git a/packages/client/ui-session/tests/ui-session.client.spec.ts b/packages/client/ui-session/tests/ui-session.client.spec.ts
+index 3eca1b7a47..369b469f5a 100644
+--- a/packages/client/ui-session/tests/ui-session.client.spec.ts
++++ b/packages/client/ui-session/tests/ui-session.client.spec.ts
+@@ -82,6 +82,8 @@ function createSessionsBench(_ctx: Context): SessionsBench {
+         openError: null,
+         hasMore: false,
+         loadingOlder: false,
++        // QS：完整会话样本包含权威分页状态。
++        historyLoad: { phase: &#x27;idle&#x27; },
+         promptError: null,
+         blank: false,
+         lastAgentError: null,
+</pre></section>
+<section id="m0-036"><h2>packages/client/ui-sidebar-documentpreview/README.i18n.yaml</h2><p>同步本包 M0 公共接口、兼容范围与中英配对记录</p><pre>diff --git a/packages/client/ui-sidebar-documentpreview/README.i18n.yaml b/packages/client/ui-sidebar-documentpreview/README.i18n.yaml
+index 9eab9c47f9..8c62d1e41a 100644
+--- a/packages/client/ui-sidebar-documentpreview/README.i18n.yaml
++++ b/packages/client/ui-sidebar-documentpreview/README.i18n.yaml
+@@ -2,5 +2,5 @@
+ # side as of the last confirmed-consistent state. Both languages carry equal authority;
+ # after editing either side, bring the other along and re-record with:
+ #   pnpm run verify-translation-pairing --write packages/client/ui-sidebar-documentpreview/README.md
+-README.md: e3659ed08a7c82f7c5ef314806ea07262f421caa
+-README.zh.md: 29393ed6b8694ac8fd8f68f398c12e633e237351
++README.md: a2e76501bf03568634c8627c1c97a01f0bee0fd7
++README.zh.md: 2a95a5a62420166f7b0f68408e51a16017e4fbf5
+</pre></section>
+<section id="m0-037"><h2>packages/client/ui-sidebar-documentpreview/README.md</h2><p>同步本包 M0 公共接口、兼容范围与中英配对记录</p><pre>diff --git a/packages/client/ui-sidebar-documentpreview/README.md b/packages/client/ui-sidebar-documentpreview/README.md
+index e3659ed08a..a2e76501bf 100644
+--- a/packages/client/ui-sidebar-documentpreview/README.md
++++ b/packages/client/ui-sidebar-documentpreview/README.md
+@@ -79,6 +79,8 @@ No direct effect; what the user reads here never enters a model request.
+ - **Package-local wrap glyphs.** `IconWrapFill16` and `IconNowrapFill16` live in `src/client/icons.tsx` until the shared icon set carries them; their props already match the shared icon contract.
+ - **Scroll writes are unthrottled.** Every scroll event records its offset in the store; the line blocks are memoized so the resulting re-render hands React the same elements back.
+&#32;
++The public `documentPreviewIds` readonly map supplies the six built-in body identities. Alternate body slots reuse these identities and the existing metadata registry; exporting an identity does not register an alternate renderer.
++
+ &lt;a id=&quot;dev-note&quot;&gt;&lt;/a&gt;
+ ### Dev Note
+&#32;
+</pre></section>
+<section id="m0-038"><h2>packages/client/ui-sidebar-documentpreview/README.zh.md</h2><p>同步本包 M0 公共接口、兼容范围与中英配对记录</p><pre>diff --git a/packages/client/ui-sidebar-documentpreview/README.zh.md b/packages/client/ui-sidebar-documentpreview/README.zh.md
+index 29393ed6b8..2a95a5a624 100644
+--- a/packages/client/ui-sidebar-documentpreview/README.zh.md
++++ b/packages/client/ui-sidebar-documentpreview/README.zh.md
+@@ -79,6 +79,8 @@ PNG、JPEG、GIF、WebP、BMP、ICO 和 SVG 通过 Blob URL 在 `&lt;img&gt;` 静态
+ - **换行图标为包内自绘。** `IconWrapFill16` 与 `IconNowrapFill16` 住在 `src/client/icons.tsx`，直到共享图标集提供为止；它们的 props 已与共享图标契约一致。
+ - **滚动写入未节流。** 每次滚动事件都把偏移记进 store；行块已 memo 化，于是由此引发的重渲染交还给 React 的是同一批元素。
+&#32;
++公开只读表 `documentPreviewIds` 提供六种内置正文身份。其他正文槽复用这些身份及现有元数据注册表；导出身份不代表已注册二开渲染器。
++
+ &lt;a id=&quot;dev-note&quot;&gt;&lt;/a&gt;
+ ### 开发备注
+&#32;
+</pre></section>
+<section id="m0-039"><h2>packages/client/ui-sidebar-documentpreview/src/client/code/index.ts</h2><p>六类官方预览复用公开只读身份表，避免二开复制私有标识</p><pre>diff --git a/packages/client/ui-sidebar-documentpreview/src/client/code/index.ts b/packages/client/ui-sidebar-documentpreview/src/client/code/index.ts
+index dcbbd67ecb..1fcad48fcc 100644
+--- a/packages/client/ui-sidebar-documentpreview/src/client/code/index.ts
++++ b/packages/client/ui-sidebar-documentpreview/src/client/code/index.ts
+@@ -1,3 +1,5 @@
++// 二开正文使用同一公开身份，避免复制私有字符串。
++import { documentPreviewIds } from &#x27;../qs/ids.ts&#x27;
+ /** Code preview metadata and body registered through the public document extension points. */
+ import type { Context } from &#x27;@deepseek-ai/cordis&#x27;
+ import type {} from &#x27;../index.ts&#x27;
+@@ -5,7 +7,7 @@ import { CodeBody } from &#x27;./CodeBody.tsx&#x27;
+ import { CODE_EXTENSIONS } from &#x27;./languages.ts&#x27;
+ import { en, zh } from &#x27;./locales.ts&#x27;
+&#32;
+-const ID = &#x27;@deepseek-ai/dsh-client-ui-sidebar-documentpreview/code&#x27;
++const ID = documentPreviewIds.code
+ const NS = &#x27;sidebarCodePreview&#x27;
+&#32;
+ /** @param ctx - owning plugin context. Register localized metadata and the matching keyed document body. */
+</pre></section>
+<section id="m0-040"><h2>packages/client/ui-sidebar-documentpreview/src/client/html/index.ts</h2><p>六类官方预览复用公开只读身份表，避免二开复制私有标识</p><pre>diff --git a/packages/client/ui-sidebar-documentpreview/src/client/html/index.ts b/packages/client/ui-sidebar-documentpreview/src/client/html/index.ts
+index e6f1a201d1..3e14730a74 100644
+--- a/packages/client/ui-sidebar-documentpreview/src/client/html/index.ts
++++ b/packages/client/ui-sidebar-documentpreview/src/client/html/index.ts
+@@ -1,3 +1,5 @@
++// 二开正文使用同一公开身份，避免复制私有字符串。
++import { documentPreviewIds } from &#x27;../qs/ids.ts&#x27;
+ /** Builtin HTML metadata and keyed body registration; assembly belongs to the package entry. */
+ import type { Context } from &#x27;@deepseek-ai/cordis&#x27;
+ import type {} from &#x27;../index.ts&#x27;
+@@ -8,7 +10,7 @@ import type { HtmlBodyProps } from &#x27;./HtmlBody.tsx&#x27;
+ import { en, zh } from &#x27;./locales.ts&#x27;
+&#32;
+ /** HTML implementation identity, shared by metadata and the keyed slot. */
+-export const HTML_BODY_ID = &#x27;@deepseek-ai/dsh-client-ui-sidebar-documentpreview/html&#x27;
++export const HTML_BODY_ID = documentPreviewIds.html
+&#32;
+ /**
+  * Describe the builtin HTML renderer&#x27;s file types and loading mode.
+</pre></section>
+<section id="m0-041"><h2>packages/client/ui-sidebar-documentpreview/src/client/image/index.ts</h2><p>六类官方预览复用公开只读身份表，避免二开复制私有标识</p><pre>diff --git a/packages/client/ui-sidebar-documentpreview/src/client/image/index.ts b/packages/client/ui-sidebar-documentpreview/src/client/image/index.ts
+index 28586d1398..5e1ad254b9 100644
+--- a/packages/client/ui-sidebar-documentpreview/src/client/image/index.ts
++++ b/packages/client/ui-sidebar-documentpreview/src/client/image/index.ts
+@@ -1,3 +1,5 @@
++// 二开正文使用同一公开身份，避免复制私有字符串。
++import { documentPreviewIds } from &#x27;../qs/ids.ts&#x27;
+ /** Builtin image metadata and keyed document-body registration. */
+ import type { Context } from &#x27;@deepseek-ai/cordis&#x27;
+ import type {} from &#x27;../index.ts&#x27;
+@@ -6,7 +8,7 @@ import { ImageBody } from &#x27;./ImageBody.tsx&#x27;
+ import { en, zh } from &#x27;./locales.ts&#x27;
+&#32;
+ /** Image implementation identity, shared by metadata and the keyed slot. */
+-export const IMAGE_BODY_ID = &#x27;@deepseek-ai/dsh-client-ui-sidebar-documentpreview/image&#x27;
++export const IMAGE_BODY_ID = documentPreviewIds.image
+&#32;
+ /** File suffixes rendered by the builtin image body. */
+ export const IMAGE_EXTENSIONS = [&#x27;png&#x27;, &#x27;jpg&#x27;, &#x27;jpeg&#x27;, &#x27;gif&#x27;, &#x27;webp&#x27;, &#x27;bmp&#x27;, &#x27;ico&#x27;, &#x27;svg&#x27;] as const
+</pre></section>
+<section id="m0-042"><h2>packages/client/ui-sidebar-documentpreview/src/client/index.ts</h2><p>六类官方预览复用公开只读身份表，避免二开复制私有标识</p><pre>diff --git a/packages/client/ui-sidebar-documentpreview/src/client/index.ts b/packages/client/ui-sidebar-documentpreview/src/client/index.ts
+index ef76084e07..355f261e6f 100644
+--- a/packages/client/ui-sidebar-documentpreview/src/client/index.ts
++++ b/packages/client/ui-sidebar-documentpreview/src/client/index.ts
+@@ -116,3 +116,6 @@ export function apply(ctx: ClientContext): void {
+   registerPdf(ctx)
+   registerCode(ctx)
+ }
++
++// 二开仅复用身份；定义注册与读取策略仍由本插件负责。
++export { documentPreviewIds } from &#x27;./qs/ids.ts&#x27;
+</pre></section>
+<section id="m0-043"><h2>packages/client/ui-sidebar-documentpreview/src/client/markdown/index.ts</h2><p>六类官方预览复用公开只读身份表，避免二开复制私有标识</p><pre>diff --git a/packages/client/ui-sidebar-documentpreview/src/client/markdown/index.ts b/packages/client/ui-sidebar-documentpreview/src/client/markdown/index.ts
+index d7eeae51fd..66e9df36c7 100644
+--- a/packages/client/ui-sidebar-documentpreview/src/client/markdown/index.ts
++++ b/packages/client/ui-sidebar-documentpreview/src/client/markdown/index.ts
+@@ -1,3 +1,5 @@
++// 二开正文使用同一公开身份，避免复制私有字符串。
++import { documentPreviewIds } from &#x27;../qs/ids.ts&#x27;
+ /** Builtin Markdown metadata and keyed document-body registration. */
+ import type { Context } from &#x27;@deepseek-ai/cordis&#x27;
+ import type {} from &#x27;../index.ts&#x27;
+@@ -6,7 +8,7 @@ import { MarkdownBody } from &#x27;./MarkdownBody.tsx&#x27;
+ import { en, zh } from &#x27;./locales.ts&#x27;
+&#32;
+ /** Implementation identity shared by metadata and the document slot. */
+-export const MARKDOWN_BODY_ID = &#x27;@deepseek-ai/dsh-client-ui-sidebar-documentpreview/markdown&#x27;
++export const MARKDOWN_BODY_ID = documentPreviewIds.markdown
+&#32;
+ /**
+  * Describe the Markdown implementation without taking ownership of loading.
+</pre></section>
+<section id="m0-044"><h2>packages/client/ui-sidebar-documentpreview/src/client/pdf/index.ts</h2><p>六类官方预览复用公开只读身份表，避免二开复制私有标识</p><pre>diff --git a/packages/client/ui-sidebar-documentpreview/src/client/pdf/index.ts b/packages/client/ui-sidebar-documentpreview/src/client/pdf/index.ts
+index 525088c7f6..4df34e55b0 100644
+--- a/packages/client/ui-sidebar-documentpreview/src/client/pdf/index.ts
++++ b/packages/client/ui-sidebar-documentpreview/src/client/pdf/index.ts
+@@ -1,3 +1,5 @@
++// 二开正文使用同一公开身份，避免复制私有字符串。
++import { documentPreviewIds } from &#x27;../qs/ids.ts&#x27;
+ /** Builtin PDF registration through document metadata and the keyed body slot. */
+ import type { Context } from &#x27;@deepseek-ai/cordis&#x27;
+ import type {} from &#x27;../index.ts&#x27;
+@@ -7,7 +9,7 @@ import { createPdfStore } from &#x27;./store.ts&#x27;
+ import { en, zh } from &#x27;./locales.ts&#x27;
+&#32;
+ /** PDF metadata and keyed body share this package-local implementation identity. */
+-export const PDF_BODY_ID = &#x27;@deepseek-ai/dsh-client-ui-sidebar-documentpreview/pdf&#x27;
++export const PDF_BODY_ID = documentPreviewIds.pdf
+&#32;
+ /**
+  * Describe the builtin PDF renderer independently from its keyed body slot.
+</pre></section>
+<section id="m0-045"><h2>packages/client/ui-sidebar-documentpreview/src/client/text/index.ts</h2><p>六类官方预览复用公开只读身份表，避免二开复制私有标识</p><pre>diff --git a/packages/client/ui-sidebar-documentpreview/src/client/text/index.ts b/packages/client/ui-sidebar-documentpreview/src/client/text/index.ts
+index 6a11cebf62..8b8f20a727 100644
+--- a/packages/client/ui-sidebar-documentpreview/src/client/text/index.ts
++++ b/packages/client/ui-sidebar-documentpreview/src/client/text/index.ts
+@@ -1,3 +1,5 @@
++// 二开正文使用同一公开身份，避免复制私有字符串。
++import { documentPreviewIds } from &#x27;../qs/ids.ts&#x27;
+ /** Plain text implementation registered through the same document extension points as other viewers. */
+ import type { Context } from &#x27;@deepseek-ai/cordis&#x27;
+ import type {} from &#x27;../index.ts&#x27;
+@@ -5,7 +7,7 @@ import type { DocumentPreviewDefinition } from &#x27;../document/registry.ts&#x27;
+ import { TextBody } from &#x27;./TextBody.tsx&#x27;
+&#32;
+ /** Stable plain-text implementation identity within this package. */
+-export const PLAIN_BODY_ID = &#x27;@deepseek-ai/dsh-client-ui-sidebar-documentpreview/text&#x27;
++export const PLAIN_BODY_ID = documentPreviewIds.text
+&#32;
+ /**
+  * Describe the plain-text fallback.
+</pre></section>
+<section id="m0-046"><h2>packages/client/ui-sidebar-right/README.i18n.yaml</h2><p>同步本包 M0 公共接口、兼容范围与中英配对记录</p><pre>diff --git a/packages/client/ui-sidebar-right/README.i18n.yaml b/packages/client/ui-sidebar-right/README.i18n.yaml
+index b8e427d0f9..054d622420 100644
+--- a/packages/client/ui-sidebar-right/README.i18n.yaml
++++ b/packages/client/ui-sidebar-right/README.i18n.yaml
+@@ -2,5 +2,5 @@
+ # side as of the last confirmed-consistent state. Both languages carry equal authority;
+ # after editing either side, bring the other along and re-record with:
+ #   pnpm run verify-translation-pairing --write packages/client/ui-sidebar-right/README.md
+-README.md: c947b5411f51aff54f480949af203d192662adbf
+-README.zh.md: 641a8fab400bbfadaf9a1b4b96ab8369a8121edf
++README.md: 74ca49da1e651791bf4af12a77884a621ba941e8
++README.zh.md: 763ccc010fad8743b15080b6b891c4dc8e454371
+</pre></section>
+<section id="m0-047"><h2>packages/client/ui-sidebar-right/README.md</h2><p>同步本包 M0 公共接口、兼容范围与中英配对记录</p><pre>diff --git a/packages/client/ui-sidebar-right/README.md b/packages/client/ui-sidebar-right/README.md
+index c947b5411f..74ca49da1e 100644
+--- a/packages/client/ui-sidebar-right/README.md
++++ b/packages/client/ui-sidebar-right/README.md
+@@ -125,6 +125,8 @@ None; this package neither assembles nor sends a provider request.
+ - **Titles are fixed at open time.** A type&#x27;s `title(address)` is captured into the record; a live title comes only from the optional title seat.
+ - **No content navigation stack.** Stepping back replays layout operations; an editor-style back/forward over visited content is not built.
+&#32;
++`ctx.sidebarRightPresentation` exposes the same store handle as the official seat, `seat(sessionId)` injections and the tab hook factory. Alternate presentations must acquire bindings only while mounted and release them on unmount; they must not create another store or TabDomain.
++
+ &lt;a id=&quot;dev-note&quot;&gt;&lt;/a&gt;
+ ### Dev Note
+&#32;
+</pre></section>
+<section id="m0-048"><h2>packages/client/ui-sidebar-right/README.zh.md</h2><p>同步本包 M0 公共接口、兼容范围与中英配对记录</p><pre>diff --git a/packages/client/ui-sidebar-right/README.zh.md b/packages/client/ui-sidebar-right/README.zh.md
+index 641a8fab40..763ccc010f 100644
+--- a/packages/client/ui-sidebar-right/README.zh.md
++++ b/packages/client/ui-sidebar-right/README.zh.md
+@@ -125,6 +125,8 @@ Tab域按（Session，Tab id）保留导航、中止信号与绑定动作；私
+ - **标题在打开时固定。** 类型的 `title(address)` 被捕获进记录；会变的标题只来自可选的标题席位。
+ - **没有内容导航栈。** 后退回放的是布局操作；编辑器式的「已访问内容」前进/后退尚未构建。
+&#32;
++`ctx.sidebarRightPresentation` 提供官方座位使用的同一存储句柄、`seat(sessionId)` 注入和标签 hook 工厂。其他呈现只在挂载时绑定，卸载时释放，不得创建第二份存储或 TabDomain。
++
+ &lt;a id=&quot;dev-note&quot;&gt;&lt;/a&gt;
+ ### 开发备注
+&#32;
+</pre></section>
+<section id="m0-049"><h2>packages/client/ui-sidebar-right/src/client/index.ts</h2><p>共享官方右栏存储和标签注入，验证存储身份不被复制</p><pre>diff --git a/packages/client/ui-sidebar-right/src/client/index.ts b/packages/client/ui-sidebar-right/src/client/index.ts
+index 6e2df4fe40..43e2000a45 100644
+--- a/packages/client/ui-sidebar-right/src/client/index.ts
++++ b/packages/client/ui-sidebar-right/src/client/index.ts
+@@ -69,6 +69,20 @@ export type { PinResource, SidebarRightNavigator, TabOccurrence } from &#x27;./tab-do
+ export type { SidebarRightKey } from &#x27;./locales.ts&#x27;
+ export type { OpenContentIntent } from &#x27;./stores.ts&#x27;
+&#32;
++/** 两套界面共享同一 StoreDecl 和 TabDomain；座位负责绑定与解绑。 */
++export interface SidebarRightPresentationService {
++  /** 同一会话的两个呈现必须使用相同句柄。 */
++  readonly store: ReturnType&lt;typeof createSidebarRightStore&gt;
++  /**
++   * 为指定会话组装呈现动作，不创建第二份状态。
++   * @param sessionId - 会话标识。
++   * @returns 绑定动作与标签导航订阅。
++   */
++  seat(sessionId: SessionId): SidebarRightInjected
++  /** 正文和标题复用官方标签信息订阅。 */
++  readonly tab: { readonly hooks: { readonly tabInfo: typeof tabInfoFactory } }
++}
++
+ /** This package&#x27;s copy namespace. */
+ const NS = &#x27;sidebarRight&#x27;
+&#32;
+@@ -79,6 +93,8 @@ declare module &#x27;@deepseek-ai/cordis&#x27; {
+   interface Context {
+     /** Right-Sidebar navigation and presentation face. */
+     sidebarRight: SidebarRightController
++    /** 二开呈现复用唯一 store、adoption 和标签域。 */
++    sidebarRightPresentation: SidebarRightPresentationService
+     /** Right-Sidebar tab-type registry (stage one of a tab type&#x27;s registration). */
+     sidebarRightTabs: SidebarRightTabRegistry
+   }
+@@ -145,6 +161,17 @@ export function apply(ctx: ClientContext): void {
+       hooks: { tabTypes: { subscribe: listener =&gt; tabs.subscribe(listener), getSnapshot: () =&gt; tabs.entries() } },
+     }
+&#32;
++    // 服务不创建第二份状态，切换界面只更换实际挂载的座位。
++    const presentation: SidebarRightPresentationService = {
++      store,
++      tab: { hooks: { tabInfo: tabInfoFactory } },
++      seat: (sessionId): SidebarRightInjected =&gt; ({
++        ...injected,
++        keyedHooks: { tabNavigation: key =&gt; controller.tabDomain.occurrence(sessionId, { id: key as TabId }).navigation },
++        occurrence: tab =&gt; controller.tabDomain.occurrence(sessionId, tab),
++      }),
++    }
++    const disposePresentation = ctx.reflect.provide(&#x27;sidebarRightPresentation&#x27;, presentation)
+     const disposeTypes = [tabs.register(guideDefinition(t))]
+     const disposeSeat = ctx.slots.inject(&#x27;rightbar&#x27;, function* () {
+       yield ctx.slots.register({
+@@ -155,16 +182,12 @@ export function apply(ctx: ClientContext): void {
+         name: &#x27;rightbar.session&#x27;,
+         locale: NS,
+         children: {
+-          &#x27;sidebar.right.pane.tab&#x27;: { kind: &#x27;keyed&#x27;, scope: &#x27;session&#x27;, inject: { hooks: { tabInfo: tabInfoFactory } } },
+-          &#x27;sidebar.right.pane.tab.title&#x27;: { kind: &#x27;keyed&#x27;, scope: &#x27;session&#x27;, inject: { hooks: { tabInfo: tabInfoFactory } } },
++          &#x27;sidebar.right.pane.tab&#x27;: { kind: &#x27;keyed&#x27;, scope: &#x27;session&#x27;, inject: presentation.tab },
++          &#x27;sidebar.right.pane.tab.title&#x27;: { kind: &#x27;keyed&#x27;, scope: &#x27;session&#x27;, inject: presentation.tab },
+           &#x27;sidebar.right.tab.menu.item&#x27;: { kind: &#x27;list&#x27;, scope: &#x27;session&#x27; },
+         },
+         store,
+-        inject: (sessionId): SidebarRightInjected =&gt; ({
+-          ...injected,
+-          keyedHooks: { tabNavigation: key =&gt; controller.tabDomain.occurrence(sessionId, { id: key as TabId }).navigation },
+-          occurrence: tab =&gt; controller.tabDomain.occurrence(sessionId, tab),
+-        }),
++        inject: sessionId =&gt; presentation.seat(sessionId),
+       }, RightbarSeat)
+     })
+     // The expand button shares the panel&#x27;s store: it only needs to know whether
+@@ -196,6 +219,7 @@ export function apply(ctx: ClientContext): void {
+       GuideTitle,
+     ))
+     return () =&gt; {
++      void disposePresentation()
+       disposeGuideTitle()
+       disposeGuide()
+       disposeExpand()
+</pre></section>
+<section id="m0-050"><h2>packages/client/ui-sidebar-right/tests/apply.client.spec.ts</h2><p>共享官方右栏存储和标签注入，验证存储身份不被复制</p><pre>diff --git a/packages/client/ui-sidebar-right/tests/apply.client.spec.ts b/packages/client/ui-sidebar-right/tests/apply.client.spec.ts
+index 62617ccca3..3da3554ff2 100644
+--- a/packages/client/ui-sidebar-right/tests/apply.client.spec.ts
++++ b/packages/client/ui-sidebar-right/tests/apply.client.spec.ts
+@@ -109,6 +109,9 @@ describe(&#x27;ui-sidebar-right apply&#x27;, () =&gt; {
+     ])
+     expect(seat(&#x27;sidebar.right.pane.tab&#x27;).children).toMatchObject({ &#x27;sidebar.right.tab.guide&#x27;: { kind: &#x27;chain&#x27;, scope: &#x27;session&#x27; } })
+     // Both seats read one store: the button only needs to know whether the panel is expanded.
++    // 共享呈现服务必须交付官方座位的同一 StoreDecl，不能复制存储。
++    expect(ctx.sidebarRightPresentation.store).toBe(seat(&#x27;rightbar.session&#x27;).store)
++    expect(ctx.sidebarRightPresentation.seat(SESSION).hooks.tabTypes.getSnapshot()).toBe(ctx.sidebarRightTabs.entries())
+     expect(seat(&#x27;rightbar.session&#x27;).store).toBeDefined()
+     expect(seat(&#x27;conversation.session.header.corner&#x27;).store).toBe(seat(&#x27;rightbar.session&#x27;).store)
+   })
+</pre></section>
+<section id="m0-051"><h2>packages/client/ui-trajectory/tests/views.client.spec.tsx</h2><p>同步必填 SessionSnapshot.historyLoad 字段或验证共享服务</p><pre>diff --git a/packages/client/ui-trajectory/tests/views.client.spec.tsx b/packages/client/ui-trajectory/tests/views.client.spec.tsx
+index 79a0e14b0e..cdac4fd837 100644
+--- a/packages/client/ui-trajectory/tests/views.client.spec.tsx
++++ b/packages/client/ui-trajectory/tests/views.client.spec.tsx
+@@ -126,6 +126,8 @@ function sessionSnapshot(nodes: LegacyConversationSlice[&#x27;nodes&#x27;]): SessionSnapsh
+     openError: null,
+     hasMore: false,
+     loadingOlder: false,
++    // QS：完整会话样本包含权威分页状态。
++    historyLoad: { phase: &#x27;idle&#x27; },
+     promptError: null,
+     blank: nodes.length === 0,
+     lastAgentError: null,
+</pre></section>
+<section id="m0-052"><h2>packages/client/ui-user-questions/tests/plan-review-panel.client.spec.tsx</h2><p>同步必填 SessionSnapshot.historyLoad 字段或验证共享服务</p><pre>diff --git a/packages/client/ui-user-questions/tests/plan-review-panel.client.spec.tsx b/packages/client/ui-user-questions/tests/plan-review-panel.client.spec.tsx
+index 238cc195fd..00df5045c5 100644
+--- a/packages/client/ui-user-questions/tests/plan-review-panel.client.spec.tsx
++++ b/packages/client/ui-user-questions/tests/plan-review-panel.client.spec.tsx
+@@ -42,6 +42,8 @@ const sessionState: SessionState = {
+   openError: null,
+   hasMore: false,
+   loadingOlder: false,
++  // QS：完整会话样本包含权威分页状态。
++  historyLoad: { phase: &#x27;idle&#x27; },
+   promptError: null,
+   blank: false,
+   lastAgentError: null,
+</pre></section>
+<section id="m0-053"><h2>packages/client/ui-user-questions/tests/user-questions-composer.client.spec.tsx</h2><p>同步必填 SessionSnapshot.historyLoad 字段或验证共享服务</p><pre>diff --git a/packages/client/ui-user-questions/tests/user-questions-composer.client.spec.tsx b/packages/client/ui-user-questions/tests/user-questions-composer.client.spec.tsx
+index 90848b3e9e..a0b94ad76b 100644
+--- a/packages/client/ui-user-questions/tests/user-questions-composer.client.spec.tsx
++++ b/packages/client/ui-user-questions/tests/user-questions-composer.client.spec.tsx
+@@ -41,6 +41,8 @@ const sessionState: SessionState = {
+   openError: null,
+   hasMore: false,
+   loadingOlder: false,
++  // QS：完整会话样本包含权威分页状态。
++  historyLoad: { phase: &#x27;idle&#x27; },
+   promptError: null,
+   blank: false,
+   lastAgentError: null,
+</pre></section>
+<section id="m0-054"><h2>packages/extensions/cordis-client-runner/src/client/api-catalog.ts</h2><p>从源码重新生成公共 API 或槽位目录</p><pre>diff --git a/packages/extensions/cordis-client-runner/src/client/api-catalog.ts b/packages/extensions/cordis-client-runner/src/client/api-catalog.ts
+index dfc66c56bf..dd4a758775 100644
+--- a/packages/extensions/cordis-client-runner/src/client/api-catalog.ts
++++ b/packages/extensions/cordis-client-runner/src/client/api-catalog.ts
+@@ -570,6 +570,14 @@ export const TYPE_API: readonly TypeApiEntry[] = [
+     name: &#x27;HandleOf&#x27;,
+     declaration: &#x27;export type HandleOf&lt;H&gt; = H extends () =&gt; infer R ? R : H;&#x27;,
+   },
++  {
++    name: &#x27;HistoryLoadRequest&#x27;,
++    declaration: &#x27;export interface HistoryLoadRequest {\n    readonly requestId: number;\n    readonly connectionEpoch: number;\n    readonly kind: \&#x27;older\&#x27; | \&#x27;through\&#x27;;\n    readonly targetSeq?: SessionSeq;\n}&#x27;,
++  },
++  {
++    name: &#x27;HistoryLoadState&#x27;,
++    declaration: &#x27;export type HistoryLoadState = {\n    readonly phase: \&#x27;idle\&#x27;;\n} | (HistoryLoadRequest &amp; {\n    readonly phase: \&#x27;loading\&#x27; | \&#x27;failed\&#x27; | \&#x27;cancelled\&#x27;;\n}) | (HistoryLoadRequest &amp; {\n    readonly phase: \&#x27;succeeded\&#x27;;\n    readonly progressed: boolean;\n    readonly hasMore: boolean;\n});&#x27;,
++  },
+   {
+     name: &#x27;HooksSources&#x27;,
+     declaration: &#x27;export type HooksSources = Record&lt;string, HostObservable&lt;unknown&gt;&gt;;&#x27;,
+@@ -804,7 +812,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
+   },
+   {
+     name: &#x27;SessionSnapshot&#x27;,
+-    declaration: &#x27;export interface SessionSnapshot {\n    readonly sessionId: SessionId;\n    readonly queue: readonly QueuedMessage[];\n    readonly pendingSubmissions: readonly PendingSubmission[];\n    readonly running: boolean;\n    readonly subagent: {\n        readonly address: SubagentAddress;\n        readonly parentAvailable?: boolean;\n    } | null;\n    readonly removed: boolean;\n    readonly openState: OpenState;\n    readonly openError: RemoteFailure | null;\n    readonly hasMore: boolean;\n    readonly loadingOlder: boolean;\n    readonly promptError: PromptError | null;\n    readonly blank: boolean;\n    readonly lastAgentError: string | null;\n    readonly promptAttempted: boolean;\n    readonly awaitingFirstTurn: boolean;\n}&#x27;,
++    declaration: &#x27;export interface SessionSnapshot {\n    readonly sessionId: SessionId;\n    readonly queue: readonly QueuedMessage[];\n    readonly pendingSubmissions: readonly PendingSubmission[];\n    readonly running: boolean;\n    readonly subagent: {\n        readonly address: SubagentAddress;\n        readonly parentAvailable?: boolean;\n    } | null;\n    readonly removed: boolean;\n    readonly openState: OpenState;\n    readonly openError: RemoteFailure | null;\n    readonly hasMore: boolean;\n    readonly loadingOlder: boolean;\n    readonly historyLoad: HistoryLoadState;\n    readonly promptError: PromptError | null;\n    readonly blank: boolean;\n    readonly lastAgentError: string | null;\n    readonly promptAttempted: boolean;\n    readonly awaitingFirstTurn: boolean;\n}&#x27;,
+   },
+   {
+     name: &#x27;SessionStandardProps&#x27;,
+</pre></section>
+<section id="m0-055"><h2>packages/extensions/cordis-client-runner/src/client/slot-catalog.ts</h2><p>从源码重新生成公共 API 或槽位目录</p><pre>diff --git a/packages/extensions/cordis-client-runner/src/client/slot-catalog.ts b/packages/extensions/cordis-client-runner/src/client/slot-catalog.ts
+index 87d4d79176..0ce0a78f94 100644
+--- a/packages/extensions/cordis-client-runner/src/client/slot-catalog.ts
++++ b/packages/extensions/cordis-client-runner/src/client/slot-catalog.ts
+@@ -1577,7 +1577,7 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
+     ],
+     replaceRisk: &#x27;shadows-shipped-ui&#x27;,
+     example: &#x27;return {\n  inject: [\&#x27;slots\&#x27;],\n  apply(ctx) {\n    ctx.slots.inject(\&#x27;qs.composer\&#x27;, () =&gt; ctx.slots.register(\n      { name: \&#x27;qs.composer\&#x27; },\n      () =&gt; React.createElement(\&#x27;div\&#x27;, null, \&#x27;hello\&#x27;),\n    ))\n  },\n}&#x27;,
+-    source: &#x27;packages/qs/qs-composer/src/client/contract.ts:16&#x27;,
++    source: &#x27;packages/qs/qs-composer/src/client/contract.ts:21&#x27;,
+   },
+   {
+     key: &#x27;qs.gate&#x27;,
+@@ -1813,14 +1813,14 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
+     ],
+     replaceRisk: &#x27;shadows-shipped-ui&#x27;,
+     example: &#x27;return {\n  inject: [\&#x27;slots\&#x27;],\n  apply(ctx) {\n    ctx.slots.inject(\&#x27;qs.stage.body\&#x27;, () =&gt; ctx.slots.register(\n      { name: \&#x27;qs.stage.body\&#x27; },\n      () =&gt; React.createElement(\&#x27;div\&#x27;, null, \&#x27;hello\&#x27;),\n    ))\n  },\n}&#x27;,
+-    source: &#x27;packages/qs/qs-composer/src/client/contract.ts:12&#x27;,
++    source: &#x27;packages/qs/qs-composer/src/client/contract.ts:17&#x27;,
+   },
+   {
+     key: &#x27;qs.stage.interaction&#x27;,
+     kind: &#x27;chain&#x27;,
+     scope: &#x27;session&#x27;,
+-    summary: &#x27;交互卡片位：审批与提问共用，位于消息流末尾（原型位置）。 `select` 按当前会话的 pending 类型选举：qs-approval priority 1、 qs-questions priority 2，升序第一个非 null 当选。**chain 条目崩溃不退位**， 因此卡片必须自带错误提示与重试。&#x27;,
+-    doc: &#x27;交互卡片位：审批与提问共用，位于消息流末尾（原型位置）。\n\n`select` 按当前会话的 pending 类型选举：qs-approval priority 1、\nqs-questions priority 2，升序第一个非 null 当选。**chain 条目崩溃不退位**，\n因此卡片必须自带错误提示与重试。&#x27;,
++    summary: &#x27;审批和提问复用唯一待回答数据与协议。&#x27;,
++    doc: &#x27;审批和提问复用唯一待回答数据与协议。&#x27;,
+     registerOptions: [
+       {
+         name: &#x27;select&#x27;,
+@@ -1855,14 +1855,51 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
+     keyDomain: &#x27;&#x27;,
+     hookContext: &#x27;&#x27;,
+     slotInject: &#x27;&#x27;,
+-    declaredBy: &#x27;an entry in \&#x27;qs.stage.transcript\&#x27; (qs-transcript), so it exists while that entry is mounted&#x27;,
++    declaredBy: &#x27;an entry in \&#x27;qs.stage.pending\&#x27; (qs-composer), so it exists while that entry is mounted&#x27;,
+     occupants: [
+       &#x27;qs-approval ApprovalCard&#x27;,
+       &#x27;qs-questions QuestionCard&#x27;,
+     ],
+     replaceRisk: &#x27;none&#x27;,
+     example: &#x27;return {\n  inject: [\&#x27;slots\&#x27;],\n  apply(ctx) {\n    ctx.slots.inject(\&#x27;qs.stage.interaction\&#x27;, () =&gt; ctx.slots.register(\n      { name: \&#x27;qs.stage.interaction\&#x27;, select: owner =&gt; null },\n      () =&gt; React.createElement(\&#x27;div\&#x27;, null, \&#x27;hello\&#x27;),\n    ))\n  },\n}&#x27;,
+-    source: &#x27;packages/qs/qs-transcript/src/client/contract.ts:38&#x27;,
++    source: &#x27;packages/qs/qs-composer/src/client/contract.ts:15&#x27;,
++  },
++  {
++    key: &#x27;qs.stage.pending&#x27;,
++    kind: &#x27;single&#x27;,
++    scope: &#x27;session&#x27;,
++    summary: &#x27;固定会话交互座位，不随阅读视图卸载。&#x27;,
++    doc: &#x27;固定会话交互座位，不随阅读视图卸载。&#x27;,
++    registerOptions: [],
++    ownerProps: [],
++    ownerPropsReferences: [],
++    standardProps: [
++      &#x27;useResource: UseResource&#x27;,
++      &#x27;useWorkspaces: SnapshotSelectorHook&lt;WorkspaceSnapshot&gt;&#x27;,
++      &#x27;usePanelInfo: UsePanelInfo&#x27;,
++      &#x27;useSessions: UseSessions&#x27;,
++      &#x27;useSessionPendingInteraction: UseSessionPendingInteraction&#x27;,
++      &#x27;useWorkspaces: SnapshotSelectorHook&lt;WorkspaceSnapshot&gt;&#x27;,
++      &#x27;useQsAuth?: UseQsAuth | undefined&#x27;,
++      &#x27;useChat: UseChat&#x27;,
++      &#x27;useConversation: UseConversation&#x27;,
++      &#x27;useInput: SnapshotSelectorHook&lt;InputState&gt;&#x27;,
++      &#x27;inputActions: InputActions&#x27;,
++      &#x27;useSession: SessionSnapshotSelector&#x27;,
++      &#x27;sessionId: SessionId&#x27;,
++      &#x27;useProjection: UseProjection&#x27;,
++      &#x27;useTrajectory: UseTrajectory&#x27;,
++    ],
++    keyDomain: &#x27;&#x27;,
++    hookContext: &#x27;&#x27;,
++    slotInject: &#x27;&#x27;,
++    declaredBy: &#x27;an entry in \&#x27;qs.stage\&#x27; (qs-composer), so it exists while that entry is mounted&#x27;,
++    occupants: [
++      &#x27;qs-composer PendingSeat&#x27;,
++    ],
++    replaceRisk: &#x27;shadows-shipped-ui&#x27;,
++    example: &#x27;return {\n  inject: [\&#x27;slots\&#x27;],\n  apply(ctx) {\n    ctx.slots.inject(\&#x27;qs.stage.pending\&#x27;, () =&gt; ctx.slots.register(\n      { name: \&#x27;qs.stage.pending\&#x27; },\n      () =&gt; React.createElement(\&#x27;div\&#x27;, null, \&#x27;hello\&#x27;),\n    ))\n  },\n}&#x27;,
++    source: &#x27;packages/qs/qs-composer/src/client/contract.ts:13&#x27;,
+   },
+   {
+     key: &#x27;qs.stage.transcript&#x27;,
+@@ -1899,7 +1936,7 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
+     ],
+     replaceRisk: &#x27;shadows-shipped-ui&#x27;,
+     example: &#x27;return {\n  inject: [\&#x27;slots\&#x27;],\n  apply(ctx) {\n    ctx.slots.inject(\&#x27;qs.stage.transcript\&#x27;, () =&gt; ctx.slots.register(\n      { name: \&#x27;qs.stage.transcript\&#x27; },\n      () =&gt; React.createElement(\&#x27;div\&#x27;, null, \&#x27;hello\&#x27;),\n    ))\n  },\n}&#x27;,
+-    source: &#x27;packages/qs/qs-composer/src/client/contract.ts:14&#x27;,
++    source: &#x27;packages/qs/qs-composer/src/client/contract.ts:19&#x27;,
+   },
+   {
+     key: &#x27;qs.stage.transcript.row&#x27;,
+@@ -1948,7 +1985,7 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
+     ],
+     replaceRisk: &#x27;none&#x27;,
+     example: &#x27;return {\n  inject: [\&#x27;slots\&#x27;],\n  apply(ctx) {\n    ctx.slots.inject(\&#x27;qs.stage.transcript.row\&#x27;, () =&gt; ctx.slots.register(\n      { name: \&#x27;qs.stage.transcript.row\&#x27;, key: \&#x27;&lt;one key the owner dispatches&gt;\&#x27; },\n      () =&gt; React.createElement(\&#x27;div\&#x27;, null, \&#x27;hello\&#x27;),\n    ))\n  },\n}&#x27;,
+-    source: &#x27;packages/qs/qs-transcript/src/client/contract.ts:25&#x27;,
++    source: &#x27;packages/qs/qs-transcript/src/client/contract.ts:19&#x27;,
+   },
+   {
+     key: &#x27;qs.status&#x27;,
+</pre></section>
+<section id="m0-056"><h2>packages/host/directory-picker-auto/README.i18n.yaml</h2><p>同步本包 M0 公共接口、兼容范围与中英配对记录</p><pre>diff --git a/packages/host/directory-picker-auto/README.i18n.yaml b/packages/host/directory-picker-auto/README.i18n.yaml
+index 99c40bcd69..6ec63da7b9 100644
+--- a/packages/host/directory-picker-auto/README.i18n.yaml
++++ b/packages/host/directory-picker-auto/README.i18n.yaml
+@@ -2,5 +2,5 @@
+ # side as of the last confirmed-consistent state. Both languages carry equal authority;
+ # after editing either side, bring the other along and re-record with:
+ #   pnpm run verify-translation-pairing --write packages/host/directory-picker-auto/README.md
+-README.md: a36d7e115f78089b85c79ae8036d7199df74b821
+-README.zh.md: 283f8c5bcbfabfa4fdeafc73283ff140ac1697fe
++README.md: bcba327d33109ef4770a6a36e0f3edf04e4bd2c1
++README.zh.md: badb2a8808af30d9072814dca498b31521e9d3a4
+</pre></section>
+<section id="m0-057"><h2>packages/host/directory-picker-auto/README.md</h2><p>同步本包 M0 公共接口、兼容范围与中英配对记录</p><pre>diff --git a/packages/host/directory-picker-auto/README.md b/packages/host/directory-picker-auto/README.md
+index a36d7e115f..bcba327d33 100644
+--- a/packages/host/directory-picker-auto/README.md
++++ b/packages/host/directory-picker-auto/README.md
+@@ -109,6 +109,8 @@ These limits define when the boot-time sample can misjudge the host. They are cu
+ - **The Linux chooser probe reads `PATH` only** — a zenity/kdialog reachable some other way (shell alias, non-PATH install) still resolves `browse`; installing either binary on `PATH` restores `native` eligibility at the next boot.
+ - **Boot-time only** — one resolution serves every client of the boot; per-connection adaptivity (native for a local browser, browse for a remote one, same server) would need a per-client capability and the wire advertisement the seam does not carry, and waits for a deployment that serves both at once.
+&#32;
++Optional `additionalClientSurfaces.native` and `.browse` lists append presentation plugins after the selected Host and official Client entries. Both default to empty. Empty, whitespace-padded or duplicate names and built-in backend/surface names are rejected before loading. Additional entry failure rolls back the whole selected composition; resolver manifests must declare both branches.
++
+ &lt;a id=&quot;dev-note&quot;&gt;&lt;/a&gt;
+ ### Dev Note
+&#32;
+</pre></section>
+<section id="m0-058"><h2>packages/host/directory-picker-auto/README.zh.md</h2><p>同步本包 M0 公共接口、兼容范围与中英配对记录</p><pre>diff --git a/packages/host/directory-picker-auto/README.zh.md b/packages/host/directory-picker-auto/README.zh.md
+index 283f8c5bcb..badb2a8808 100644
+--- a/packages/host/directory-picker-auto/README.zh.md
++++ b/packages/host/directory-picker-auto/README.zh.md
+@@ -109,6 +109,8 @@ kind: &quot;package-reference&quot;
+ - **Linux 选择器探查只读 `PATH`**——以其他途径可用的 zenity／kdialog（shell 别名、未装在 PATH 上）仍判定为 `browse`；把任一二进制装到 `PATH` 上，下次启动即恢复 `native` 资格。
+ - **仅在启动时判定**——一次判定服务本次启动的所有客户端；按连接自适应（同一台服务器，本地浏览器用 native、远程浏览器用 browse）需要按客户端的能力对象以及 seam 未携带的协议通告，等到出现同时服务两种形态的部署再做。
+&#32;
++可选 `additionalClientSurfaces.native` 与 `.browse` 列表在选中的 Host 和官方 Client 条目后追加呈现插件，两组默认均为空。加载前拒绝空名称、首尾空白、重复名称以及内置后端或呈现名称。附加条目失败会回滚整个选中组合；解析器清单必须声明两个分支的依赖。
++
+ &lt;a id=&quot;dev-note&quot;&gt;&lt;/a&gt;
+ ### 开发备注
+&#32;
+</pre></section>
+<section id="m0-059"><h2>packages/host/directory-picker-auto/package.json</h2><p>按单次平台判定追加 Client 呈现，并校验配置和失败回滚</p><pre>diff --git a/packages/host/directory-picker-auto/package.json b/packages/host/directory-picker-auto/package.json
+index fc35b3d067..c6cd3152bd 100644
+--- a/packages/host/directory-picker-auto/package.json
++++ b/packages/host/directory-picker-auto/package.json
+@@ -47,6 +47,7 @@
+     &quot;@deepseek-ai/dsh-host-webserver&quot;: &quot;workspace:^&quot;
+   },
+   &quot;dependencies&quot;: {
+-    &quot;@deepseek-ai/dsh-launch-environment&quot;: &quot;workspace:^&quot;
++    &quot;@deepseek-ai/dsh-launch-environment&quot;: &quot;workspace:^&quot;,
++    &quot;@deepseek-ai/schemastery&quot;: &quot;workspace:^&quot;
+   }
+ }
+</pre></section>
+<section id="m0-060"><h2>packages/host/directory-picker-auto/src/index.ts</h2><p>按单次平台判定追加 Client 呈现，并校验配置和失败回滚</p><pre>diff --git a/packages/host/directory-picker-auto/src/index.ts b/packages/host/directory-picker-auto/src/index.ts
+index f384828125..6ead6d13b3 100644
+--- a/packages/host/directory-picker-auto/src/index.ts
++++ b/packages/host/directory-picker-auto/src/index.ts
+@@ -11,6 +11,7 @@
+  * @module @deepseek-ai/dsh-host-directory-picker-auto
+  */
+&#32;
++import z from &#x27;@deepseek-ai/schemastery&#x27;
+ import type { Context } from &#x27;@deepseek-ai/cordis&#x27;
+ // Empty type imports carry the `loader` and `webServer` Context merges for the reads below.
+ import type {} from &#x27;@deepseek-ai/cordis-plugin-loader&#x27;
+@@ -29,6 +30,25 @@ export const name = &#x27;directory-picker-auto&#x27;
+ /** Required services: the effective bind host (`webServer`) and the entry tree the backend mounts into (`loader`). */
+ export const inject = [&#x27;webServer&#x27;, &#x27;loader&#x27;]
+&#32;
++/** 按官方一次平台判定追加二开呈现，不重复加载 Host。 */
++export interface Config {
++  /** 每个分支附加的 Client 插件，默认不追加。 */
++  additionalClientSurfaces?: {
++    /** 本机原生选择器分支附加的 Client 插件包名。 */
++    native?: string[]
++    /** 浏览式选择器分支附加的 Client 插件包名。 */
++    browse?: string[]
++  }
++}
++
++/** 部署可选项在 Loader 入口校验，不在运行时猜测类型。 */
++export const Config: z&lt;Config&gt; = z.object({
++  additionalClientSurfaces: z.object({
++    native: z.array(z.string()).default([]),
++    browse: z.array(z.string()).default([]),
++  }).default({ native: [], browse: [] }),
++})
++
+ /**
+  * Host backend package per resolved kind — fixed composition vocabulary, not a
+  * tunable. Exported because the reference is a runtime string the static
+@@ -58,8 +78,18 @@ export const SURFACE_PACKAGES: Record&lt;DirectoryPickerBackendKind, string&gt; = {
+  * joins their fibers&#x27; teardown, so unloading this plugin returns only after
+  * both faces of the mounted interaction (and their dependents) quiesced.
+  * @param ctx - cordis context carrying the injected `webServer` and `loader`.
++ * @param config - 分支附加呈现；重复或空名称在加载前拒绝。
+  */
+-export async function apply(ctx: Context): Promise&lt;void&gt; {
++export async function apply(ctx: Context, config: Config = {}): Promise&lt;void&gt; {
++  // 两个分支均先检查，避免配置错误只在换平台后暴露。
++  for (const kind of [&#x27;native&#x27;, &#x27;browse&#x27;] as const) {
++    const names = config.additionalClientSurfaces?.[kind] ?? []
++    const seen = new Set(Object.values(SURFACE_PACKAGES).concat(Object.values(BACKEND_PACKAGES)))
++    for (const name of names) {
++      if (name.trim() !== name || name.length === 0 || seen.has(name)) throw new Error(`directory-picker-auto: invalid or duplicate additional surface &quot;${name}&quot;`)
++      seen.add(name)
++    }
++  }
+   const backend = resolveDirectoryPickerBackend({
+     bindHost: ctx.webServer.host,
+     platform: process.platform,
+@@ -84,7 +114,7 @@ export async function apply(ctx: Context): Promise&lt;void&gt; {
+       }
+     }
+     try {
+-      for (const name of [BACKEND_PACKAGES[backend], SURFACE_PACKAGES[backend]]) {
++      for (const name of [BACKEND_PACKAGES[backend], SURFACE_PACKAGES[backend], ...config.additionalClientSurfaces?.[backend] ?? []]) {
+         ids.push(await ctx.loader.create({ name }))
+       }
+     } catch (cause) {
+</pre></section>
+<section id="m0-061"><h2>packages/test-support/client-runtime/src/fixtures.ts</h2><p>同步必填 SessionSnapshot.historyLoad 字段或验证共享服务</p><pre>diff --git a/packages/test-support/client-runtime/src/fixtures.ts b/packages/test-support/client-runtime/src/fixtures.ts
+index 7106cc016d..b8daab793a 100644
+--- a/packages/test-support/client-runtime/src/fixtures.ts
++++ b/packages/test-support/client-runtime/src/fixtures.ts
+@@ -74,6 +74,8 @@ export function sessionSnapshot(sessionId: SessionId): SessionSnapshot {
+     openError: null,
+     hasMore: false,
+     loadingOlder: false,
++    // QS：完整会话样本包含权威分页状态。
++    historyLoad: { phase: &#x27;idle&#x27; },
+     promptError: null,
+     blank: false,
+     lastAgentError: null,
+</pre></section>
+<section id="m0-062"><h2>packages/typert/generator/README.i18n.yaml</h2><p>同步本包 M0 公共接口、兼容范围与中英配对记录</p><pre>diff --git a/packages/typert/generator/README.i18n.yaml b/packages/typert/generator/README.i18n.yaml
+index 372868ea92..737a940a3a 100644
+--- a/packages/typert/generator/README.i18n.yaml
++++ b/packages/typert/generator/README.i18n.yaml
+@@ -2,5 +2,5 @@
+ # side as of the last confirmed-consistent state. Both languages carry equal authority;
+ # after editing either side, bring the other along and re-record with:
+ #   pnpm run verify-translation-pairing --write packages/typert/generator/README.md
+-README.md: 7177e6a34520ab07645727edb15c5a726b9a2a4c
+-README.zh.md: c1add1907c7c14ee7dd440dfaceee0ece0aa036e
++README.md: 71cb45906c55e4d100551b46d0ca463f51738dd5
++README.zh.md: 0bbaba6585db930bbe9f47113c5541e1e40d9437
+</pre></section>
+<section id="m0-063"><h2>packages/typert/generator/README.md</h2><p>同步本包 M0 公共接口、兼容范围与中英配对记录</p><pre>diff --git a/packages/typert/generator/README.md b/packages/typert/generator/README.md
+index 7177e6a345..71cb45906c 100644
+--- a/packages/typert/generator/README.md
++++ b/packages/typert/generator/README.md
+@@ -128,6 +128,8 @@ These limits define what the generator cannot model or emit; they are current pa
+ - **No generated schema imports across faces** — cross-face links are represented for analysis, but no generated schema requires a runtime cross-face Zod import.
+ - **Discovery covers concrete public exports only** — declarations neither exported nor imported by the reachable graph are intentionally outside the package model.
+&#32;
++Cross-face references may resolve through a manifest-declared built declaration entry already loaded by the current TypeScript program. Export identity is still checked against the requested symbol; missing or non-exported symbols fail analysis.
++
+ &lt;a id=&quot;dev-note&quot;&gt;&lt;/a&gt;
+ ### Dev Note
+&#32;
+</pre></section>
+<section id="m0-064"><h2>packages/typert/generator/README.zh.md</h2><p>同步本包 M0 公共接口、兼容范围与中英配对记录</p><pre>diff --git a/packages/typert/generator/README.zh.md b/packages/typert/generator/README.zh.md
+index c1add1907c..0bbaba6585 100644
+--- a/packages/typert/generator/README.zh.md
++++ b/packages/typert/generator/README.zh.md
+@@ -128,6 +128,8 @@ Host 与 Client 是两个独立的 TypeScript 程序。直接项目引用确定
+ - **没有生成的 schema 跨 face 导入**——跨 face 链接会在模型中表示以供分析，但生成的 schema 均不需要跨 face 的运行时 Zod 导入。
+ - **发现范围只覆盖具体公开导出**——既未导出、也未由可达图导入的声明按设计排除在包模型之外。
+&#32;
++跨面引用可以通过当前 TypeScript 程序已加载、且由清单公开的构建声明入口解析。仍按请求符号核对导出身份；缺失或未导出的符号导致分析失败。
++
+ &lt;a id=&quot;dev-note&quot;&gt;&lt;/a&gt;
+ ### 开发备注
+&#32;
+</pre></section>
+<section id="m0-065"><h2>packages/typert/generator/src/analyzer.ts</h2><p>跨面公开导出从当前程序已加载的声明入口校验，拒绝未导出符号</p><pre>diff --git a/packages/typert/generator/src/analyzer.ts b/packages/typert/generator/src/analyzer.ts
+index f5d629a82f..68e574286d 100644
+--- a/packages/typert/generator/src/analyzer.ts
++++ b/packages/typert/generator/src/analyzer.ts
+@@ -2581,8 +2581,12 @@ class FaceAnalyzer {
+     const target = packageExportTargets(registration.manifest)
+       .find(([subpath]) =&gt; subpath === module.subpath)?.[1]
+     if (target === undefined) return undefined
+-    const sourceFile = this.sourceFiles.get(realPath(sourcePathForExport(registration.root, target))) as ts.SourceFile
+-    const moduleSymbol = this.checker.getSymbolAtLocation(sourceFile) as ts.Symbol
++    // Client 的跨面导入可指向 Host 已构建声明；只接受当前程序已加载且清单公开的入口。
++    const sourceFile = this.sourceFiles.get(realPath(sourcePathForExport(registration.root, target)))
++      ?? (registration.face === this.face ? undefined : this.sourceFiles.get(realPath(resolve(registration.root, target))))
++    if (sourceFile === undefined) return undefined
++    const moduleSymbol = this.checker.getSymbolAtLocation(sourceFile)
++    if (moduleSymbol === undefined) return undefined
+     const exported = this.checker.getExportsOfModule(moduleSymbol)
+       .find(candidate =&gt; candidate.name === requestedName &amp;&amp; this.resolveSymbol(candidate) === symbol)
+     return exported?.name
+</pre></section>
+<section id="m0-066"><h2>pnpm-lock.yaml</h2><p>记录 directory-picker-auto 的既有工作区 schema 包依赖</p><pre>diff --git a/pnpm-lock.yaml b/pnpm-lock.yaml
+index e88fc8ab7b..a120a09d66 100644
+--- a/pnpm-lock.yaml
++++ b/pnpm-lock.yaml
+@@ -6624,6 +6624,9 @@ importers:
+       &#x27;@deepseek-ai/dsh-launch-environment&#x27;:
+         specifier: workspace:^
+         version: link:../../util/launch-environment
++      &#x27;@deepseek-ai/schemastery&#x27;:
++        specifier: link:../../../vendor/schemastery
++        version: link:../../../vendor/schemastery
+     devDependencies:
+       &#x27;@deepseek-ai/cordis&#x27;:
+         specifier: workspace:^
+</pre></section>
+<section id="m0-067"><h2>scripts/gen-client-catalog.ts</h2><p>归一化 CRLF，防止生成目录产生非法字符串</p><pre>diff --git a/scripts/gen-client-catalog.ts b/scripts/gen-client-catalog.ts
+index d8980ed95b..a6e23f9c69 100644
+--- a/scripts/gen-client-catalog.ts
++++ b/scripts/gen-client-catalog.ts
+@@ -388,6 +388,8 @@ function firstSentence(doc: string): string {
+&#32;
+ /** Render one value as a single-quoted TypeScript literal. */
+ function quote(value: string): string {
++  // Windows 源文件含 CRLF；先归一化，避免裸回车破坏生成的字符串字面量。
++  value = value.replaceAll(&#x27;\r\n&#x27;, &#x27;\n&#x27;).replaceAll(&#x27;\r&#x27;, &#x27;\n&#x27;)
+   return `&#x27;${value.replaceAll(&#x27;\\&#x27;, &#x27;\\\\&#x27;).replaceAll(&quot;&#x27;&quot;, &quot;\\&#x27;&quot;).replaceAll(&#x27;\n&#x27;, &#x27;\\n&#x27;)}&#x27;`
+ }
+&#32;
+</pre></section>
+<section id="m0-068"><h2>scripts/gen-cordis-catalog.ts</h2><p>登记新 Client 服务及其文档 owner，维持完整服务扫描</p><pre>diff --git a/scripts/gen-cordis-catalog.ts b/scripts/gen-cordis-catalog.ts
+index ed81fccc1f..26c28cf166 100644
+--- a/scripts/gen-cordis-catalog.ts
++++ b/scripts/gen-cordis-catalog.ts
+@@ -178,6 +178,9 @@ export const SERVICE_WALK_EXEMPTIONS: Record&lt;string, string&gt; = {
+   workspaces: &#x27;client-side interface-typed browser service — packages/api/workspace-controller/README.md owns the API&#x27;,
+   resources: &#x27;client-side resource model (protocol providers, pins, live sources) — packages/client/resources/README.md owns the API&#x27;,
+   sidebarRight: &#x27;client-side right-Sidebar navigation face — packages/client/ui-sidebar-right/README.md owns the API&#x27;,
++  // 二开共享呈现属于 Client 面，由各原包 README 说明，不能漏过服务清单检查。
++  sidebarRightPresentation: &#x27;client-side shared presentation — packages/client/ui-sidebar-right/README.md owns the API&#x27;,
++  messageFeedbackPresentation: &#x27;client-side shared presentation — packages/client/ui-message-feedback/README.md owns the API&#x27;,
+   sidebarRightTabs: &#x27;client-side right-Sidebar tab-type registry — packages/client/ui-sidebar-right/README.md owns the API&#x27;,
+   documentPreviews: &#x27;client-side document renderer registry — docs/subsystems/sidebar-right.md owns the API&#x27;,
+ }
+</pre></section>
+<section id="m0-069"><h2>scripts/verify-cordis-config.ts</h2><p>将目录附加呈现纳入两分支依赖门禁，公开纯检测器供反例回归</p><pre>diff --git a/scripts/verify-cordis-config.ts b/scripts/verify-cordis-config.ts
+index 44200e131a..2a414628a4 100644
+--- a/scripts/verify-cordis-config.ts
++++ b/scripts/verify-cordis-config.ts
+@@ -222,6 +222,43 @@ function validateEntry(value: unknown, file: string, path: string): void {
+&#32;
+ function recordPlugin(entry: Record&lt;string, unknown&gt;, file: string): void {
+   if (typeof entry.name === &#x27;string&#x27;) pluginReferences.push({ file, name: entry.name })
++  // 二开附加呈现也是 Loader 动态依赖；两分支都检查解析器清单。
++  const additional = additionalClientSurfaceReferences(entry, file)
++  errors.push(...additional.errors)
++  pluginReferences.push(...additional.references)
++}
++
++/**
++ * 检查目录选择器附加呈现，供正式配置门禁和隔离反例共用。
++ * @param entry - 已解析的 Loader 条目。
++ * @param file - 用于诊断的配置路径。
++ * @returns 两个分支的依赖引用和配置错误。
++ */
++export function additionalClientSurfaceReferences(entry: Record&lt;string, unknown&gt;, file: string): {
++  references: PluginReference[]
++  errors: string[]
++} {
++  const references: PluginReference[] = []
++  const problems: string[] = []
++  if (entry.name !== CHOOSER_PACKAGE || !isRecord(entry.config)) return { references, errors: problems }
++  const additional = entry.config.additionalClientSurfaces
++  if (additional === undefined) return { references, errors: problems }
++  if (!isRecord(additional)) return { references, errors: [`${file}: additionalClientSurfaces must be a static native/browse map`] }
++  for (const kind of [&#x27;native&#x27;, &#x27;browse&#x27;]) {
++    const names = additional[kind]
++    if (names === undefined) continue
++    if (!isUnknownArray(names) || names.some(name =&gt; typeof name !== &#x27;string&#x27;)) {
++      problems.push(`${file}: additionalClientSurfaces.${kind} must contain static package names`)
++      continue
++    }
++    const seen = new Set(CHOOSER_BACKEND_PACKAGES)
++    for (const name of names as string[]) {
++      if (name.trim() !== name || name.length === 0 || seen.has(name)) problems.push(`${file}: duplicate or invalid additional surface ${name}`)
++      seen.add(name)
++      references.push({ file, name })
++    }
++  }
++  return { references, errors: problems }
+ }
+&#32;
+ function validateAppResolution(): string[] {
+</pre></section>
+</html>

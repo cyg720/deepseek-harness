@@ -1,0 +1,20 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`configures QS models through the shared Host and restores acknowledged onboarding after reload > QS first credential step 1`] = `
+"- dialog "Set up DeepSeek":
+  - heading "Set up DeepSeek" [level=2]
+  - paragraph: Add an API key to start a conversation, or configure it later in model settings.
+  - text: API key
+  - textbox "API key"
+  - button "Save and check" [disabled]
+  - button "Set up later"
+  - button "Reload""
+`;
+
+exports[`configures QS models through the shared Host and restores acknowledged onboarding after reload > QS versioned welcome 1`] = `
+"- dialog "Internal Testing Notice":
+  - heading "Internal Testing Notice" [level=2]
+  - paragraph: DeepSeek Harness 0.1 remains in testing for Harness developers. Many areas need further improvement, and we welcome feedback from the developer community. DeepSeek Harness's core plugins and foundational APIs will continue to evolve rapidly over the coming months.
+  - paragraph: We look forward to exploring the limits of intelligence with developers around the world, building on open-source, open, reusable, and composable infrastructure. We welcome Harness developers everywhere to join the DSH plugin ecosystem.
+  - button "Continue""
+`;

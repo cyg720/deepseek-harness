@@ -9,7 +9,7 @@
  * 因此这里隐藏按钮只是呈现层的收敛，不是权限判断。
  */
 import type { ReactNode } from 'react'
-import type { InjectFace, PropsLocale, PropsRuntime, PropsStore } from '@deepseek-ai/dsh-client-ui-slots'
+import type { InjectFace, PropsLocale, PropsRuntime, PropsStore, PropsRenderSlots } from '@deepseek-ai/dsh-client-ui-slots'
 import type { QsChromeInjected, QsShellLocaleKey } from './contract.ts'
 import { createQsLayoutStore } from './layout-store.ts'
 import { QsIcon } from './Icon.tsx'
@@ -21,6 +21,7 @@ export type QsTopBarProps =
   & PropsStore<ReturnType<typeof createQsLayoutStore>>
   & InjectFace<QsChromeInjected>
   & PropsLocale<'qs-shell'>
+  & PropsRenderSlots<'qs.brand.mark' | 'qs.brand.name'>
 
 /**
  * 渲染顶栏。
@@ -28,7 +29,7 @@ export type QsTopBarProps =
  * @returns 顶栏节点。
  */
 export function QsTopBar(props: QsTopBarProps): ReactNode {
-  const { t, useStore, actions, useQsAuth, useQsUiMode, signOut, switchToOfficial } = props
+  const { t, renderSlot, useStore, actions, useQsAuth, useQsUiMode, signOut, switchToOfficial } = props
   const leftOpen = useStore(s => s.leftOpen)
   const rightOpen = useStore(s => s.rightOpen)
   const user = useQsAuth === undefined ? undefined : useQsAuth(s => s.user)
@@ -41,11 +42,8 @@ export function QsTopBar(props: QsTopBarProps): ReactNode {
     <>
       <div className={styles.topbarLeft}>
         <div className="qs-brand">
-          <span className={`qs-logo-mark ${styles.logoMark}`}><QsIcon name="spark" /></span>
-          <div>
-            <strong>{t('brand.name')}</strong>
-            <small>{t('brand.tagline')}</small>
-          </div>
+          {renderSlot('qs.brand.mark', {})}
+          {renderSlot('qs.brand.name', {})}
         </div>
         <span className={styles.topbarDivider} />
         <span className={styles.platformLabel}>{t('platform.label')}</span>

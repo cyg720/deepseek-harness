@@ -75,6 +75,10 @@ No direct effect; model requests remain owned by the Agent and LLM packages.
 - File-reference completion uses the shared Agent lookup and can resume a cold Session; the `skills/list` catalog is the non-activating alternative for skill metadata.
 
 
+`SessionSnapshot.historyLoad` reports idle, loading, succeeded, failed or cancelled paging, with request and connection identities. Success reports progress and remaining history; failures retain the window and expose no raw server error. Reconnection invalidates old settlement and busy-state updates.
+
+`ISessions.control.state` reports loading, ready, reconnecting, failed or disposed independently of the Session directory. Its baseline counter advances after each accepted control baseline; jobsBySession is projected synchronously before readiness is published. `control.retry()` coalesces requests after terminal failure, waits for the previous consumer to stop and starts one replacement; it does not wait for that replacement baseline. Carrier failures use the existing automatic reconnection. Published domain snapshots remain available during recovery; this status does not implement task completion notifications. TestSessions starts with loading status and rejects an unstubbed control retry.
+
 <a id="dev-note"></a>
 ### Dev Note
 
@@ -86,3 +90,5 @@ None.
 </details>
 
 **Runtime invariant:** No companion is published. Every page and frame is checked against the addressed durable Session.
+
+Replacing the history window invalidates pending paging identities and releases loadingOlder, including automatic carrier reconnection without Session.resync. The local connectionEpoch also advances for continuity repairs; late completion cannot close a newer paging request or continue an older loadThrough target.

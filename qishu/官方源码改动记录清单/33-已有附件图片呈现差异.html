@@ -1,0 +1,4167 @@
+<!doctype html><html lang="zh-CN"><meta charset="utf-8"><title>已有附件图片呈现差异</title><style>pre{white-space:pre-wrap;overflow-wrap:anywhere}</style><h1>2026-09-23 累计工作区差异</h1><pre>diff --git a/docs/config-catalog.i18n.yaml b/docs/config-catalog.i18n.yaml
+index d8b6d7b3d3..090894d909 100644
+--- a/docs/config-catalog.i18n.yaml
++++ b/docs/config-catalog.i18n.yaml
+@@ -2,5 +2,5 @@
+ # side as of the last confirmed-consistent state. Both languages carry equal authority;
+ # after editing either side, bring the other along and re-record with:
+ #   pnpm run verify-translation-pairing --write docs/config-catalog.md
+-config-catalog.md: 0425ae5032a9ed05dca5d7430e539a4080b9bef8
+-config-catalog.zh.md: 9c99f070d170bc66514aad2712227942a0886d78
++config-catalog.md: 508a65ca0d5868f3a3c15372ae21de7280a0191f
++config-catalog.zh.md: 609a9334fe9a412f9d9656050055a2a5726d75c5
+diff --git a/docs/config-catalog.md b/docs/config-catalog.md
+index 0425ae5032..508a65ca0d 100644
+--- a/docs/config-catalog.md
++++ b/docs/config-catalog.md
+@@ -891,6 +891,27 @@ export interface Config {
+
+ Source: [`packages/hooks/hooks-codex/src/index.ts:43`](../packages/hooks/hooks-codex/src/index.ts)
+
++&lt;a id=&quot;deepseek-aidsh-host-directory-picker-auto&quot;&gt;&lt;/a&gt;
++
++## `@deepseek-ai/dsh-host-directory-picker-auto`
++
++Requires: `webServer` · `loader`
++
++```ts config-catalog
++/** 按官方一次平台判定追加二开呈现，不重复加载 Host。 */
++export interface Config {
++  /** 每个分支附加的 Client 插件，默认不追加。 */
++  additionalClientSurfaces?: {
++    /** 本机原生选择器分支附加的 Client 插件包名。 */
++    native?: string[]
++    /** 浏览式选择器分支附加的 Client 插件包名。 */
++    browse?: string[]
++  }
++}
++```
++
++Source: [`packages/host/directory-picker-auto/src/index.ts:34`](../packages/host/directory-picker-auto/src/index.ts)
++
+ &lt;a id=&quot;deepseek-aidsh-host-directory-picker-browse&quot;&gt;&lt;/a&gt;
+
+ ## `@deepseek-ai/dsh-host-directory-picker-browse`
+@@ -1766,7 +1787,7 @@ export interface QsShellConfig {
+ export type QsUiId = &#x27;workbench&#x27; | &#x27;official&#x27;
+ ```
+
+-Source: [`packages/qs/qs-shell/src/client/contract.ts:178`](../packages/qs/qs-shell/src/client/contract.ts)
++Source: [`packages/qs/qs-shell/src/client/contract.ts:169`](../packages/qs/qs-shell/src/client/contract.ts)
+
+ &lt;a id=&quot;deepseek-aidsh-repeat-tool-reminder&quot;&gt;&lt;/a&gt;
+
+@@ -3521,7 +3542,6 @@ These load from a `cordis.yml` entry with no `config:` block; they declare no co
+ - `@deepseek-ai/dsh-fs-e2b` — requires `e2b` ([`packages/e2b/fs-e2b/src/index.ts`](../packages/e2b/fs-e2b/src/index.ts))
+ - `@deepseek-ai/dsh-fs-observation-policy` ([`packages/fs/fs-observation-policy/src/index.ts`](../packages/fs/fs-observation-policy/src/index.ts))
+ - `@deepseek-ai/dsh-goal-round-driver` — requires `agents` · `goals` · `sessions` ([`packages/goal/goal-round-driver/src/index.ts`](../packages/goal/goal-round-driver/src/index.ts))
+-- `@deepseek-ai/dsh-host-directory-picker-auto` — requires `webServer` · `loader` ([`packages/host/directory-picker-auto/src/index.ts`](../packages/host/directory-picker-auto/src/index.ts))
+ - `@deepseek-ai/dsh-host-directory-picker-native` ([`packages/host/directory-picker-native/src/index.ts`](../packages/host/directory-picker-native/src/index.ts))
+ - `@deepseek-ai/dsh-host-plugin-inventory` — requires `loader` ([`packages/host/plugin-inventory/src/index.ts`](../packages/host/plugin-inventory/src/index.ts))
+ - `@deepseek-ai/dsh-llm` ([`packages/llm/llm/src/index.ts`](../packages/llm/llm/src/index.ts))
+@@ -3532,6 +3552,17 @@ These load from a `cordis.yml` entry with no `config:` block; they declare no co
+ - `@deepseek-ai/dsh-qs-questions` ([`packages/qs/qs-questions/src/index.ts`](../packages/qs/qs-questions/src/index.ts))
+ - `@deepseek-ai/dsh-qs-sessions` ([`packages/qs/qs-sessions/src/index.ts`](../packages/qs/qs-sessions/src/index.ts))
+ - `@deepseek-ai/dsh-qs-transcript` ([`packages/qs/qs-transcript/src/index.ts`](../packages/qs/qs-transcript/src/index.ts))
++- `@deepseek-ai/dsh-qs-ui-attachment` ([`packages/qs/qs-ui-attachment/src/index.ts`](../packages/qs/qs-ui-attachment/src/index.ts))
++- `@deepseek-ai/dsh-qs-ui-brand` ([`packages/qs/qs-ui-brand/src/index.ts`](../packages/qs/qs-ui-brand/src/index.ts))
++- `@deepseek-ai/dsh-qs-ui-commands` ([`packages/qs/qs-ui-commands/src/index.ts`](../packages/qs/qs-ui-commands/src/index.ts))
++- `@deepseek-ai/dsh-qs-ui-deliverables` ([`packages/qs/qs-ui-deliverables/src/index.ts`](../packages/qs/qs-ui-deliverables/src/index.ts))
++- `@deepseek-ai/dsh-qs-ui-input-trigger` ([`packages/qs/qs-ui-input-trigger/src/index.ts`](../packages/qs/qs-ui-input-trigger/src/index.ts))
++- `@deepseek-ai/dsh-qs-ui-message-feedback` ([`packages/qs/qs-ui-message-feedback/src/index.ts`](../packages/qs/qs-ui-message-feedback/src/index.ts))
++- `@deepseek-ai/dsh-qs-ui-sidebar` ([`packages/qs/qs-ui-sidebar/src/index.ts`](../packages/qs/qs-ui-sidebar/src/index.ts))
++- `@deepseek-ai/dsh-qs-ui-sidebar-documentpreview` ([`packages/qs/qs-ui-sidebar-documentpreview/src/index.ts`](../packages/qs/qs-ui-sidebar-documentpreview/src/index.ts))
++- `@deepseek-ai/dsh-qs-ui-sidebar-files` ([`packages/qs/qs-ui-sidebar-files/src/index.ts`](../packages/qs/qs-ui-sidebar-files/src/index.ts))
++- `@deepseek-ai/dsh-qs-ui-sidebar-right` ([`packages/qs/qs-ui-sidebar-right/src/index.ts`](../packages/qs/qs-ui-sidebar-right/src/index.ts))
++- `@deepseek-ai/dsh-qs-ui-tool` ([`packages/qs/qs-ui-tool/src/index.ts`](../packages/qs/qs-ui-tool/src/index.ts))
+ - `@deepseek-ai/dsh-schedule` — requires `agents` · `sessions` · `tools` · `sessionPersistence` ([`packages/schedule/schedule/src/index.ts`](../packages/schedule/schedule/src/index.ts))
+ - `@deepseek-ai/dsh-session` ([`packages/core/session/src/index.ts`](../packages/core/session/src/index.ts))
+ - `@deepseek-ai/dsh-session-checkpoint-policy` — requires `llm` · `sessionPersistence` · `sessions` · `tools` ([`packages/session/session-checkpoint-policy/src/index.ts`](../packages/session/session-checkpoint-policy/src/index.ts))
+diff --git a/docs/config-catalog.zh.md b/docs/config-catalog.zh.md
+index 9c99f070d1..609a9334fe 100644
+--- a/docs/config-catalog.zh.md
++++ b/docs/config-catalog.zh.md
+@@ -893,6 +893,27 @@ export interface Config {
+
+ 来源：[`packages/hooks/hooks-codex/src/index.ts:43`](../packages/hooks/hooks-codex/src/index.ts)
+
++&lt;a id=&quot;deepseek-aidsh-host-directory-picker-auto&quot;&gt;&lt;/a&gt;
++
++## `@deepseek-ai/dsh-host-directory-picker-auto`
++
++需要：`webServer` · `loader`
++
++```ts config-catalog
++/** 按官方一次平台判定追加二开呈现，不重复加载 Host。 */
++export interface Config {
++  /** 每个分支附加的 Client 插件，默认不追加。 */
++  additionalClientSurfaces?: {
++    /** 本机原生选择器分支附加的 Client 插件包名。 */
++    native?: string[]
++    /** 浏览式选择器分支附加的 Client 插件包名。 */
++    browse?: string[]
++  }
++}
++```
++
++源码：[`packages/host/directory-picker-auto/src/index.ts:34`](../packages/host/directory-picker-auto/src/index.ts)
++
+ &lt;a id=&quot;deepseek-aidsh-host-directory-picker-browse&quot;&gt;&lt;/a&gt;
+
+ ## `@deepseek-ai/dsh-host-directory-picker-browse`
+@@ -1768,7 +1789,7 @@ export interface QsShellConfig {
+ export type QsUiId = &#x27;workbench&#x27; | &#x27;official&#x27;
+ ```
+
+-Source: [`packages/qs/qs-shell/src/client/contract.ts:178`](../packages/qs/qs-shell/src/client/contract.ts)
++Source: [`packages/qs/qs-shell/src/client/contract.ts:169`](../packages/qs/qs-shell/src/client/contract.ts)
+
+ &lt;a id=&quot;deepseek-aidsh-repeat-tool-reminder&quot;&gt;&lt;/a&gt;
+
+@@ -3523,7 +3544,6 @@ export interface Config {
+ - `@deepseek-ai/dsh-fs-e2b` — 需要 `e2b`（[`packages/e2b/fs-e2b/src/index.ts`](../packages/e2b/fs-e2b/src/index.ts)）
+ - `@deepseek-ai/dsh-fs-observation-policy`（[`packages/fs/fs-observation-policy/src/index.ts`](../packages/fs/fs-observation-policy/src/index.ts)）
+ - `@deepseek-ai/dsh-goal-round-driver` — 需要 `agents` · `goals` · `sessions`（[`packages/goal/goal-round-driver/src/index.ts`](../packages/goal/goal-round-driver/src/index.ts)）
+-- `@deepseek-ai/dsh-host-directory-picker-auto` — 需要 `webServer` · `loader`（[`packages/host/directory-picker-auto/src/index.ts`](../packages/host/directory-picker-auto/src/index.ts)）
+ - `@deepseek-ai/dsh-host-directory-picker-native`（[`packages/host/directory-picker-native/src/index.ts`](../packages/host/directory-picker-native/src/index.ts)）
+ - `@deepseek-ai/dsh-host-plugin-inventory` — 需要 `loader`（[`packages/host/plugin-inventory/src/index.ts`](../packages/host/plugin-inventory/src/index.ts)）
+ - `@deepseek-ai/dsh-llm`（[`packages/llm/llm/src/index.ts`](../packages/llm/llm/src/index.ts)）
+@@ -3534,6 +3554,17 @@ export interface Config {
+ - `@deepseek-ai/dsh-qs-questions` ([`packages/qs/qs-questions/src/index.ts`](../packages/qs/qs-questions/src/index.ts))
+ - `@deepseek-ai/dsh-qs-sessions` ([`packages/qs/qs-sessions/src/index.ts`](../packages/qs/qs-sessions/src/index.ts))
+ - `@deepseek-ai/dsh-qs-transcript` ([`packages/qs/qs-transcript/src/index.ts`](../packages/qs/qs-transcript/src/index.ts))
++- `@deepseek-ai/dsh-qs-ui-attachment` ([`packages/qs/qs-ui-attachment/src/index.ts`](../packages/qs/qs-ui-attachment/src/index.ts))
++- `@deepseek-ai/dsh-qs-ui-brand` ([`packages/qs/qs-ui-brand/src/index.ts`](../packages/qs/qs-ui-brand/src/index.ts))
++- `@deepseek-ai/dsh-qs-ui-commands` ([`packages/qs/qs-ui-commands/src/index.ts`](../packages/qs/qs-ui-commands/src/index.ts))
++- `@deepseek-ai/dsh-qs-ui-deliverables` ([`packages/qs/qs-ui-deliverables/src/index.ts`](../packages/qs/qs-ui-deliverables/src/index.ts))
++- `@deepseek-ai/dsh-qs-ui-input-trigger` ([`packages/qs/qs-ui-input-trigger/src/index.ts`](../packages/qs/qs-ui-input-trigger/src/index.ts))
++- `@deepseek-ai/dsh-qs-ui-message-feedback` ([`packages/qs/qs-ui-message-feedback/src/index.ts`](../packages/qs/qs-ui-message-feedback/src/index.ts))
++- `@deepseek-ai/dsh-qs-ui-sidebar` ([`packages/qs/qs-ui-sidebar/src/index.ts`](../packages/qs/qs-ui-sidebar/src/index.ts))
++- `@deepseek-ai/dsh-qs-ui-sidebar-documentpreview` ([`packages/qs/qs-ui-sidebar-documentpreview/src/index.ts`](../packages/qs/qs-ui-sidebar-documentpreview/src/index.ts))
++- `@deepseek-ai/dsh-qs-ui-sidebar-files` ([`packages/qs/qs-ui-sidebar-files/src/index.ts`](../packages/qs/qs-ui-sidebar-files/src/index.ts))
++- `@deepseek-ai/dsh-qs-ui-sidebar-right` ([`packages/qs/qs-ui-sidebar-right/src/index.ts`](../packages/qs/qs-ui-sidebar-right/src/index.ts))
++- `@deepseek-ai/dsh-qs-ui-tool` ([`packages/qs/qs-ui-tool/src/index.ts`](../packages/qs/qs-ui-tool/src/index.ts))
+ - `@deepseek-ai/dsh-schedule` — 需要 `agents` · `sessions` · `tools` · `sessionPersistence`（[`packages/schedule/schedule/src/index.ts`](../packages/schedule/schedule/src/index.ts)）
+ - `@deepseek-ai/dsh-session`（[`packages/core/session/src/index.ts`](../packages/core/session/src/index.ts)）
+ - `@deepseek-ai/dsh-session-checkpoint-policy` — 需要 `llm` · `sessionPersistence` · `sessions` · `tools`（[`packages/session/session-checkpoint-policy/src/index.ts`](../packages/session/session-checkpoint-policy/src/index.ts)）
+diff --git a/packages/bundle/web-app/cordis.patch.yml b/packages/bundle/web-app/cordis.patch.yml
+index 2419db1026..86b9caf4a6 100644
+--- a/packages/bundle/web-app/cordis.patch.yml
++++ b/packages/bundle/web-app/cordis.patch.yml
+@@ -372,6 +372,14 @@
+     - id: qs-login
+       name: &#x27;@deepseek-ai/dsh-qs-login&#x27;
+
++    # 奇术：左右栏独立插件，对应官方 sidebar 插件，避免布局包直接实现侧栏。
++    # 奇术：品牌对应官方独立插件，布局只声明品牌槽。
++    - id: qs-ui-brand
++      name: &#x27;@deepseek-ai/dsh-qs-ui-brand&#x27;
++    - id: qs-ui-sidebar
++      name: &#x27;@deepseek-ai/dsh-qs-ui-sidebar&#x27;
++    - id: qs-ui-sidebar-right
++      name: &#x27;@deepseek-ai/dsh-qs-ui-sidebar-right&#x27;
+     - id: qs-sessions
+       name: &#x27;@deepseek-ai/dsh-qs-sessions&#x27;
+
+@@ -381,6 +389,36 @@
+     - id: qs-transcript
+       name: &#x27;@deepseek-ai/dsh-qs-transcript&#x27;
+
++    # 奇术：工具呈现，对应官方 ui-tool（工具树与八类工具子视图）。
++    - id: qs-ui-tool
++      name: &#x27;@deepseek-ai/dsh-qs-ui-tool&#x27;
++    # 奇术命令候选独立呈现，复用官方 inputTriggers 服务。
++    - id: qs-ui-input-trigger
++      name: &#x27;@deepseek-ai/dsh-qs-ui-input-trigger&#x27;
++
++    # 奇术命令选项与风险确认，复用官方 commandUi 唯一服务。
++    - id: qs-ui-commands
++      name: &#x27;@deepseek-ai/dsh-qs-ui-commands&#x27;
++
++    # 奇术消息反馈复用官方唯一执行器，独立注册按钮与表单。
++    - id: qs-ui-message-feedback
++      name: &#x27;@deepseek-ai/dsh-qs-ui-message-feedback&#x27;
++
++    # 奇术文件树共用官方目录状态与读取权限，独立注册呈现。
++    - id: qs-ui-sidebar-files
++      name: &#x27;@deepseek-ai/dsh-qs-ui-sidebar-files&#x27;
++
++    # 奇术文档宿主与正文使用官方预览读取和标签资源生命周期。
++    # 奇术交付呈现复用官方数据和原生打开能力。
++    # 已有附件查看独立呈现，新增上传不在本期范围。
++    - id: qs-ui-attachment
++      name: &#x27;@deepseek-ai/dsh-qs-ui-attachment&#x27;
++
++    - id: qs-ui-deliverables
++      name: &#x27;@deepseek-ai/dsh-qs-ui-deliverables&#x27;
++    - id: qs-ui-sidebar-documentpreview
++      name: &#x27;@deepseek-ai/dsh-qs-ui-sidebar-documentpreview&#x27;
++
+     - id: qs-approval
+       name: &#x27;@deepseek-ai/dsh-qs-approval&#x27;
+
+diff --git a/packages/bundle/web-app/package.json b/packages/bundle/web-app/package.json
+index 862826b2bd..b8aae43c27 100644
+--- a/packages/bundle/web-app/package.json
++++ b/packages/bundle/web-app/package.json
+@@ -113,6 +113,10 @@
+     &quot;@deepseek-ai/dsh-qs-login&quot;: &quot;workspace:^&quot;,
+     &quot;@deepseek-ai/dsh-qs-questions&quot;: &quot;workspace:^&quot;,
+     &quot;@deepseek-ai/dsh-qs-sessions&quot;: &quot;workspace:^&quot;,
++    &quot;@deepseek-ai/dsh-qs-ui-brand&quot;: &quot;workspace:^&quot;,
++    &quot;@deepseek-ai/dsh-qs-ui-sidebar&quot;: &quot;workspace:^&quot;,
++    &quot;@deepseek-ai/dsh-qs-ui-sidebar-right&quot;: &quot;workspace:^&quot;,
++    &quot;@deepseek-ai/dsh-qs-ui-tool&quot;: &quot;workspace:^&quot;,
+     &quot;@deepseek-ai/dsh-qs-shell&quot;: &quot;workspace:^&quot;,
+     &quot;@deepseek-ai/dsh-qs-transcript&quot;: &quot;workspace:^&quot;,
+     &quot;@deepseek-ai/dsh-session-log-export&quot;: &quot;workspace:^&quot;,
+@@ -125,7 +129,14 @@
+     &quot;@deepseek-ai/dsh-workspace&quot;: &quot;workspace:^&quot;,
+     &quot;@deepseek-ai/schemastery&quot;: &quot;workspace:^&quot;,
+     &quot;commander&quot;: &quot;^15.0.0&quot;,
+-    &quot;open&quot;: &quot;^11.0.0&quot;
++    &quot;open&quot;: &quot;^11.0.0&quot;,
++    &quot;@deepseek-ai/dsh-qs-ui-input-trigger&quot;: &quot;workspace:^&quot;,
++    &quot;@deepseek-ai/dsh-qs-ui-commands&quot;: &quot;workspace:^&quot;,
++    &quot;@deepseek-ai/dsh-qs-ui-message-feedback&quot;: &quot;workspace:^&quot;,
++    &quot;@deepseek-ai/dsh-qs-ui-sidebar-files&quot;: &quot;workspace:^&quot;,
++    &quot;@deepseek-ai/dsh-qs-ui-sidebar-documentpreview&quot;: &quot;workspace:^&quot;,
++    &quot;@deepseek-ai/dsh-qs-ui-deliverables&quot;: &quot;workspace:^&quot;,
++    &quot;@deepseek-ai/dsh-qs-ui-attachment&quot;: &quot;workspace:^&quot;
+   },
+   &quot;peerDependencies&quot;: {
+     &quot;@deepseek-ai/cordis&quot;: &quot;workspace:^&quot;,
+diff --git a/packages/extensions/cordis-client-runner/src/client/slot-catalog.ts b/packages/extensions/cordis-client-runner/src/client/slot-catalog.ts
+index 7a1b04e1eb..b386d0baea 100644
+--- a/packages/extensions/cordis-client-runner/src/client/slot-catalog.ts
++++ b/packages/extensions/cordis-client-runner/src/client/slot-catalog.ts
+@@ -1455,6 +1455,172 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
+     example: &#x27;return {\n  inject: [\&#x27;slots\&#x27;],\n  apply(ctx) {\n    ctx.slots.inject(\&#x27;main.conversation\&#x27;, () =&gt; ctx.slots.register(\n      { name: \&#x27;main.conversation\&#x27; },\n      () =&gt; React.createElement(\&#x27;div\&#x27;, null, \&#x27;hello\&#x27;),\n    ))\n  },\n}&#x27;,
+     source: &#x27;packages/client/ui-conversation/src/client/contract/slots.ts:121&#x27;,
+   },
++  {
++    key: &#x27;qs.brand.mark&#x27;,
++    kind: &#x27;single&#x27;,
++    scope: &#x27;root&#x27;,
++    summary: &#x27;Independently contributed workbench brand symbol.&#x27;,
++    doc: &#x27;Independently contributed workbench brand symbol.&#x27;,
++    registerOptions: [],
++    ownerProps: [],
++    ownerPropsReferences: [],
++    standardProps: [
++      &#x27;useResource: UseResource&#x27;,
++      &#x27;useWorkspaces: SnapshotSelectorHook&lt;WorkspaceSnapshot&gt;&#x27;,
++      &#x27;usePanelInfo: UsePanelInfo&#x27;,
++      &#x27;useSessions: UseSessions&#x27;,
++      &#x27;useSessionPendingInteraction: UseSessionPendingInteraction&#x27;,
++      &#x27;useWorkspaces: SnapshotSelectorHook&lt;WorkspaceSnapshot&gt;&#x27;,
++      &#x27;useQsAuth?: UseQsAuth | undefined&#x27;,
++    ],
++    keyDomain: &#x27;&#x27;,
++    hookContext: &#x27;&#x27;,
++    slotInject: &#x27;&#x27;,
++    declaredBy: &#x27;an entry in \&#x27;qs.chrome\&#x27; (qs-shell), so it exists while that entry is mounted&#x27;,
++    occupants: [
++      &#x27;qs-ui-brand BrandMark&#x27;,
++    ],
++    replaceRisk: &#x27;shadows-shipped-ui&#x27;,
++    example: &#x27;return {\n  inject: [\&#x27;slots\&#x27;],\n  apply(ctx) {\n    ctx.slots.inject(\&#x27;qs.brand.mark\&#x27;, () =&gt; ctx.slots.register(\n      { name: \&#x27;qs.brand.mark\&#x27; },\n      () =&gt; React.createElement(\&#x27;div\&#x27;, null, \&#x27;hello\&#x27;),\n    ))\n  },\n}&#x27;,
++    source: &#x27;packages/qs/qs-shell/src/client/contract.ts:7&#x27;,
++  },
++  {
++    key: &#x27;qs.brand.name&#x27;,
++    kind: &#x27;single&#x27;,
++    scope: &#x27;root&#x27;,
++    summary: &#x27;Independently contributed workbench brand name.&#x27;,
++    doc: &#x27;Independently contributed workbench brand name.&#x27;,
++    registerOptions: [],
++    ownerProps: [],
++    ownerPropsReferences: [],
++    standardProps: [
++      &#x27;useResource: UseResource&#x27;,
++      &#x27;useWorkspaces: SnapshotSelectorHook&lt;WorkspaceSnapshot&gt;&#x27;,
++      &#x27;usePanelInfo: UsePanelInfo&#x27;,
++      &#x27;useSessions: UseSessions&#x27;,
++      &#x27;useSessionPendingInteraction: UseSessionPendingInteraction&#x27;,
++      &#x27;useWorkspaces: SnapshotSelectorHook&lt;WorkspaceSnapshot&gt;&#x27;,
++      &#x27;useQsAuth?: UseQsAuth | undefined&#x27;,
++    ],
++    keyDomain: &#x27;&#x27;,
++    hookContext: &#x27;&#x27;,
++    slotInject: &#x27;&#x27;,
++    declaredBy: &#x27;an entry in \&#x27;qs.chrome\&#x27; (qs-shell), so it exists while that entry is mounted&#x27;,
++    occupants: [
++      &#x27;qs-ui-brand BrandName&#x27;,
++    ],
++    replaceRisk: &#x27;shadows-shipped-ui&#x27;,
++    example: &#x27;return {\n  inject: [\&#x27;slots\&#x27;],\n  apply(ctx) {\n    ctx.slots.inject(\&#x27;qs.brand.name\&#x27;, () =&gt; ctx.slots.register(\n      { name: \&#x27;qs.brand.name\&#x27; },\n      () =&gt; React.createElement(\&#x27;div\&#x27;, null, \&#x27;hello\&#x27;),\n    ))\n  },\n}&#x27;,
++    source: &#x27;packages/qs/qs-shell/src/client/contract.ts:9&#x27;,
++  },
++  {
++    key: &#x27;qs.chat.assistant-actions&#x27;,
++    kind: &#x27;list&#x27;,
++    scope: &#x27;session&#x27;,
++    summary: &#x27;持久助手消息的扩展动作；运行中及无 messageId 的残片不提供此入口。&#x27;,
++    doc: &#x27;持久助手消息的扩展动作；运行中及无 messageId 的残片不提供此入口。&#x27;,
++    registerOptions: [
++      {
++        name: &#x27;id&#x27;,
++        requirement: &#x27;required&#x27;,
++        type: &#x27;string&#x27;,
++        doc: &#x27;Your cell key. Use an id of your own: a fresh id is added beside the shipped entries, while reusing a shipped id puts you in THAT cell and replaces it. Owners that filter by id address you by it.&#x27;,
++      },
++      {
++        name: &#x27;order&#x27;,
++        requirement: &#x27;optional&#x27;,
++        type: &#x27;number&#x27;,
++        doc: &#x27;Position among the entries, ascending (default 0).&#x27;,
++      },
++      {
++        name: &#x27;label&#x27;,
++        requirement: &#x27;optional&#x27;,
++        type: &#x27;string | (() =&gt; string)&#x27;,
++        doc: &#x27;Display text where the owner projects one (nav rows, tabs). A thunk is re-read on every projection, so localized text follows the active locale without re-registering.&#x27;,
++      },
++    ],
++    ownerProps: [
++      &#x27;/** Stable identity carried by one message across inbox, log, and model-request boundaries. */\nexport type MessageId = Branded&lt;\&#x27;MessageId\&#x27;&gt;&#x27;,
++    ],
++    ownerPropsReferences: [
++      &#x27;Branded&#x27;,
++    ],
++    standardProps: [
++      &#x27;useResource: UseResource&#x27;,
++      &#x27;useWorkspaces: SnapshotSelectorHook&lt;WorkspaceSnapshot&gt;&#x27;,
++      &#x27;usePanelInfo: UsePanelInfo&#x27;,
++      &#x27;useSessions: UseSessions&#x27;,
++      &#x27;useSessionPendingInteraction: UseSessionPendingInteraction&#x27;,
++      &#x27;useWorkspaces: SnapshotSelectorHook&lt;WorkspaceSnapshot&gt;&#x27;,
++      &#x27;useQsAuth?: UseQsAuth | undefined&#x27;,
++      &#x27;useChat: UseChat&#x27;,
++      &#x27;useConversation: UseConversation&#x27;,
++      &#x27;useInput: SnapshotSelectorHook&lt;InputState&gt;&#x27;,
++      &#x27;inputActions: InputActions&#x27;,
++      &#x27;useSession: SessionSnapshotSelector&#x27;,
++      &#x27;sessionId: SessionId&#x27;,
++      &#x27;useProjection: UseProjection&#x27;,
++      &#x27;useTrajectory: UseTrajectory&#x27;,
++    ],
++    keyDomain: &#x27;&#x27;,
++    hookContext: &#x27;&#x27;,
++    slotInject: &#x27;&#x27;,
++    declaredBy: &#x27;the runtime itself (built in; always present)&#x27;,
++    occupants: [
++      &#x27;qs-ui-message-feedback Actions id \&#x27;qs-feedback\&#x27;&#x27;,
++    ],
++    replaceRisk: &#x27;none&#x27;,
++    example: &#x27;return {\n  inject: [\&#x27;slots\&#x27;],\n  apply(ctx) {\n    ctx.slots.inject(\&#x27;qs.chat.assistant-actions\&#x27;, () =&gt; ctx.slots.register(\n      { name: \&#x27;qs.chat.assistant-actions\&#x27;, id: \&#x27;my-entry\&#x27;, order: 100, label: \&#x27;My entry\&#x27; },\n      () =&gt; React.createElement(\&#x27;div\&#x27;, null, \&#x27;hello\&#x27;),\n    ))\n  },\n}&#x27;,
++    source: &#x27;packages/qs/qs-transcript/src/client/contract.ts:28&#x27;,
++  },
++  {
++    key: &#x27;qs.chat.turn-tail&#x27;,
++    kind: &#x27;chain&#x27;,
++    scope: &#x27;session&#x27;,
++    summary: &#x27;轮次附加呈现消费官方轮次投影，文件动作由对应插件注入。&#x27;,
++    doc: &#x27;轮次附加呈现消费官方轮次投影，文件动作由对应插件注入。&#x27;,
++    registerOptions: [
++      {
++        name: &#x27;select&#x27;,
++        requirement: &#x27;required&#x27;,
++        type: &#x27;(owner) =&gt; unknown | null&#x27;,
++        doc: &#x27;Pure routing selector. Entries are tried in ascending order; the first non-null result wins and arrives as the component\&#x27;s `matched` prop. All-null falls through to the owner\&#x27;s fallback.&#x27;,
++      },
++    ],
++    ownerProps: [
++      &#x27;/** Owner currency of the completed-Turn extension chain. */\nexport interface TurnTailOwnerProps {\n  turn: TurnLocation\n  seq: number\n  openFile: (path: string) =&gt; void\n}&#x27;,
++    ],
++    ownerPropsReferences: [
++      &#x27;TurnLocation&#x27;,
++    ],
++    standardProps: [
++      &#x27;useResource: UseResource&#x27;,
++      &#x27;useWorkspaces: SnapshotSelectorHook&lt;WorkspaceSnapshot&gt;&#x27;,
++      &#x27;usePanelInfo: UsePanelInfo&#x27;,
++      &#x27;useSessions: UseSessions&#x27;,
++      &#x27;useSessionPendingInteraction: UseSessionPendingInteraction&#x27;,
++      &#x27;useWorkspaces: SnapshotSelectorHook&lt;WorkspaceSnapshot&gt;&#x27;,
++      &#x27;useQsAuth?: UseQsAuth | undefined&#x27;,
++      &#x27;useChat: UseChat&#x27;,
++      &#x27;useConversation: UseConversation&#x27;,
++      &#x27;useInput: SnapshotSelectorHook&lt;InputState&gt;&#x27;,
++      &#x27;inputActions: InputActions&#x27;,
++      &#x27;useSession: SessionSnapshotSelector&#x27;,
++      &#x27;sessionId: SessionId&#x27;,
++      &#x27;useProjection: UseProjection&#x27;,
++      &#x27;useTrajectory: UseTrajectory&#x27;,
++    ],
++    keyDomain: &#x27;&#x27;,
++    hookContext: &#x27;&#x27;,
++    slotInject: &#x27;&#x27;,
++    declaredBy: &#x27;the runtime itself (built in; always present)&#x27;,
++    occupants: [
++      &#x27;qs-ui-deliverables Deliverables&#x27;,
++    ],
++    replaceRisk: &#x27;none&#x27;,
++    example: &#x27;return {\n  inject: [\&#x27;slots\&#x27;],\n  apply(ctx) {\n    ctx.slots.inject(\&#x27;qs.chat.turn-tail\&#x27;, () =&gt; ctx.slots.register(\n      { name: \&#x27;qs.chat.turn-tail\&#x27;, select: owner =&gt; null },\n      () =&gt; React.createElement(\&#x27;div\&#x27;, null, \&#x27;hello\&#x27;),\n    ))\n  },\n}&#x27;,
++    source: &#x27;packages/qs/qs-transcript/src/client/contract.ts:22&#x27;,
++  },
+   {
+     key: &#x27;qs.chrome&#x27;,
+     kind: &#x27;single&#x27;,
+@@ -1484,18 +1650,16 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
+     ],
+     replaceRisk: &#x27;shadows-shipped-ui&#x27;,
+     example: &#x27;return {\n  inject: [\&#x27;slots\&#x27;],\n  apply(ctx) {\n    ctx.slots.inject(\&#x27;qs.chrome\&#x27;, () =&gt; ctx.slots.register(\n      { name: \&#x27;qs.chrome\&#x27; },\n      () =&gt; React.createElement(\&#x27;div\&#x27;, null, \&#x27;hello\&#x27;),\n    ))\n  },\n}&#x27;,
+-    source: &#x27;packages/qs/qs-shell/src/client/contract.ts:22&#x27;,
++    source: &#x27;packages/qs/qs-shell/src/client/contract.ts:13&#x27;,
+   },
+   {
+     key: &#x27;qs.composer&#x27;,
+     kind: &#x27;single&#x27;,
+     scope: &#x27;session-maybe&#x27;,
+-    summary: &#x27;输入区；无会话时也渲染，此时 inputActions 为 undefined。由 qs-composer 贡献。&#x27;,
+-    doc: &#x27;输入区；无会话时也渲染，此时 inputActions 为 undefined。由 qs-composer 贡献。&#x27;,
++    summary: &#x27;输入视图接收会话或无会话座席；注册替换 QS 输入区，缺失时不提供输入。&#x27;,
++    doc: &#x27;输入视图接收会话或无会话座席；注册替换 QS 输入区，缺失时不提供输入。&#x27;,
+     registerOptions: [],
+-    ownerProps: [
+-      &#x27;/** 输入区业主输入。 */\nexport interface QsComposerOwnerProps { children?: never }&#x27;,
+-    ],
++    ownerProps: [],
+     ownerPropsReferences: [],
+     standardProps: [
+       &#x27;useResource: UseResource&#x27;,
+@@ -1515,25 +1679,456 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
+     keyDomain: &#x27;&#x27;,
+     hookContext: &#x27;&#x27;,
+     slotInject: &#x27;&#x27;,
+-    declaredBy: &#x27;an entry in \&#x27;qs.stage\&#x27; (qs-shell), so it exists while that entry is mounted&#x27;,
++    declaredBy: &#x27;an entry in \&#x27;qs.stage\&#x27; (qs-composer), so it exists while that entry is mounted&#x27;,
+     occupants: [
+       &#x27;qs-composer Composer&#x27;,
+     ],
+-    replaceRisk: &#x27;shadows-shipped-ui&#x27;,
+-    example: &#x27;return {\n  inject: [\&#x27;slots\&#x27;],\n  apply(ctx) {\n    ctx.slots.inject(\&#x27;qs.composer\&#x27;, () =&gt; ctx.slots.register(\n      { name: \&#x27;qs.composer\&#x27; },\n      () =&gt; React.createElement(\&#x27;div\&#x27;, null, \&#x27;hello\&#x27;),\n    ))\n  },\n}&#x27;,
+-    source: &#x27;packages/qs/qs-shell/src/client/contract.ts:32&#x27;,
+-  },
+-  {
+-    key: &#x27;qs.gate&#x27;,
+-    kind: &#x27;single&#x27;,
+-    scope: &#x27;root&#x27;,
+-    summary: &#x27;登录视图挂载点；由 qs-login 贡献，未登录时渲染。&#x27;,
+-    doc: &#x27;登录视图挂载点；由 qs-login 贡献，未登录时渲染。&#x27;,
+-    registerOptions: [],
++    replaceRisk: &#x27;shadows-shipped-ui&#x27;,
++    example: &#x27;return {\n  inject: [\&#x27;slots\&#x27;],\n  apply(ctx) {\n    ctx.slots.inject(\&#x27;qs.composer\&#x27;, () =&gt; ctx.slots.register(\n      { name: \&#x27;qs.composer\&#x27; },\n      () =&gt; React.createElement(\&#x27;div\&#x27;, null, \&#x27;hello\&#x27;),\n    ))\n  },\n}&#x27;,
++    source: &#x27;packages/qs/qs-composer/src/client/contract.ts:24&#x27;,
++  },
++  {
++    key: &#x27;qs.composer.overlay&#x27;,
++    kind: &#x27;list&#x27;,
++    scope: &#x27;session&#x27;,
++    summary: &#x27;Input view owned by this conversation plugin.&#x27;,
++    doc: &#x27;Input view owned by this conversation plugin. */\n/** 命令菜单与弹层由对应独立插件贡献。&#x27;,
++    registerOptions: [
++      {
++        name: &#x27;id&#x27;,
++        requirement: &#x27;required&#x27;,
++        type: &#x27;string&#x27;,
++        doc: &#x27;Your cell key. Use an id of your own: a fresh id is added beside the shipped entries, while reusing a shipped id puts you in THAT cell and replaces it. Owners that filter by id address you by it.&#x27;,
++      },
++      {
++        name: &#x27;order&#x27;,
++        requirement: &#x27;optional&#x27;,
++        type: &#x27;number&#x27;,
++        doc: &#x27;Position among the entries, ascending (default 0).&#x27;,
++      },
++      {
++        name: &#x27;label&#x27;,
++        requirement: &#x27;optional&#x27;,
++        type: &#x27;string | (() =&gt; string)&#x27;,
++        doc: &#x27;Display text where the owner projects one (nav rows, tabs). A thunk is re-read on every projection, so localized text follows the active locale without re-registering.&#x27;,
++      },
++    ],
++    ownerProps: [
++      &#x27;/** 菜单和弹层共享可见输入及独立冻结取得动作。 */\nexport interface QsCommandOverlayOwner {\n  readonly inputElement: { readonly current: HTMLTextAreaElement | null }\n  readonly frozen: boolean\n  readonly composing: { readonly current: boolean }\n  /** 安装当前输入的手势适配器；释放只移除同一实例。 */\n  readonly bindCommandInput: (bridge: QsCommandInputBridge) =&gt; () =&gt; void\n  readonly acquireFreeze: QsComposerInjected[\&#x27;acquireFreeze\&#x27;]\n}&#x27;,
++    ],
++    ownerPropsReferences: [
++      &#x27;QsCommandInputBridge&#x27;,
++      &#x27;QsComposerInjected&#x27;,
++    ],
++    standardProps: [
++      &#x27;useResource: UseResource&#x27;,
++      &#x27;useWorkspaces: SnapshotSelectorHook&lt;WorkspaceSnapshot&gt;&#x27;,
++      &#x27;usePanelInfo: UsePanelInfo&#x27;,
++      &#x27;useSessions: UseSessions&#x27;,
++      &#x27;useSessionPendingInteraction: UseSessionPendingInteraction&#x27;,
++      &#x27;useWorkspaces: SnapshotSelectorHook&lt;WorkspaceSnapshot&gt;&#x27;,
++      &#x27;useQsAuth?: UseQsAuth | undefined&#x27;,
++      &#x27;useChat: UseChat&#x27;,
++      &#x27;useConversation: UseConversation&#x27;,
++      &#x27;useInput: SnapshotSelectorHook&lt;InputState&gt;&#x27;,
++      &#x27;inputActions: InputActions&#x27;,
++      &#x27;useSession: SessionSnapshotSelector&#x27;,
++      &#x27;sessionId: SessionId&#x27;,
++      &#x27;useProjection: UseProjection&#x27;,
++      &#x27;useTrajectory: UseTrajectory&#x27;,
++    ],
++    keyDomain: &#x27;&#x27;,
++    hookContext: &#x27;&#x27;,
++    slotInject: &#x27;&#x27;,
++    declaredBy: &#x27;an entry in \&#x27;qs.composer\&#x27; (qs-composer), so it exists while that entry is mounted&#x27;,
++    occupants: [
++      &#x27;qs-ui-commands CommandPopup id \&#x27;qs-command-popup\&#x27;&#x27;,
++      &#x27;qs-ui-input-trigger CommandMenu id \&#x27;qs-command-menu\&#x27;&#x27;,
++      &#x27;qs-ui-message-feedback Feedback id \&#x27;qs-feedback-dialog\&#x27;&#x27;,
++    ],
++    replaceRisk: &#x27;none&#x27;,
++    example: &#x27;return {\n  inject: [\&#x27;slots\&#x27;],\n  apply(ctx) {\n    ctx.slots.inject(\&#x27;qs.composer.overlay\&#x27;, () =&gt; ctx.slots.register(\n      { name: \&#x27;qs.composer.overlay\&#x27;, id: \&#x27;my-entry\&#x27;, order: 100, label: \&#x27;My entry\&#x27; },\n      () =&gt; React.createElement(\&#x27;div\&#x27;, null, \&#x27;hello\&#x27;),\n    ))\n  },\n}&#x27;,
++    source: &#x27;packages/qs/qs-composer/src/client/contract.ts:22&#x27;,
++  },
++  {
++    key: &#x27;qs.conversation.message.images&#x27;,
++    kind: &#x27;single&#x27;,
++    scope: &#x27;session&#x27;,
++    summary: &#x27;已有附件由独立呈现插件消费，读取权限来自会话加载器。&#x27;,
++    doc: &#x27;已有附件由独立呈现插件消费，读取权限来自会话加载器。&#x27;,
++    registerOptions: [],
++    ownerProps: [
++      &#x27;/** Message image group handed to the optional attachment presentation plugin. */\nexport interface MessageImagesOwnerProps {\n  /** Durable references or submission-echo previews in source order. */\n  images: readonly MessageImageSource[]\n  /** Session-authorized image URL loader for the durable arm. */\n  loadImage: MessageImageLoader\n  /** Horizontal placement inside the owning record. */\n  align: \&#x27;start\&#x27; | \&#x27;end\&#x27;\n  /** Force every image into the compact message-attachment tile size. */\n  compact?: boolean\n}&#x27;,
++    ],
++    ownerPropsReferences: [
++      &#x27;Message&#x27;,
++      &#x27;MessageImageLoader&#x27;,
++      &#x27;MessageImageSource&#x27;,
++    ],
++    standardProps: [
++      &#x27;useResource: UseResource&#x27;,
++      &#x27;useWorkspaces: SnapshotSelectorHook&lt;WorkspaceSnapshot&gt;&#x27;,
++      &#x27;usePanelInfo: UsePanelInfo&#x27;,
++      &#x27;useSessions: UseSessions&#x27;,
++      &#x27;useSessionPendingInteraction: UseSessionPendingInteraction&#x27;,
++      &#x27;useWorkspaces: SnapshotSelectorHook&lt;WorkspaceSnapshot&gt;&#x27;,
++      &#x27;useQsAuth?: UseQsAuth | undefined&#x27;,
++      &#x27;useChat: UseChat&#x27;,
++      &#x27;useConversation: UseConversation&#x27;,
++      &#x27;useInput: SnapshotSelectorHook&lt;InputState&gt;&#x27;,
++      &#x27;inputActions: InputActions&#x27;,
++      &#x27;useSession: SessionSnapshotSelector&#x27;,
++      &#x27;sessionId: SessionId&#x27;,
++      &#x27;useProjection: UseProjection&#x27;,
++      &#x27;useTrajectory: UseTrajectory&#x27;,
++    ],
++    keyDomain: &#x27;&#x27;,
++    hookContext: &#x27;&#x27;,
++    slotInject: &#x27;&#x27;,
++    declaredBy: &#x27;an entry in \&#x27;qs.stage.transcript\&#x27; (qs-transcript), so it exists while that entry is mounted&#x27;,
++    occupants: [],
++    replaceRisk: &#x27;none&#x27;,
++    example: &#x27;return {\n  inject: [\&#x27;slots\&#x27;],\n  apply(ctx) {\n    ctx.slots.inject(\&#x27;qs.conversation.message.images\&#x27;, () =&gt; ctx.slots.register(\n      { name: \&#x27;qs.conversation.message.images\&#x27; },\n      () =&gt; React.createElement(\&#x27;div\&#x27;, null, \&#x27;hello\&#x27;),\n    ))\n  },\n}&#x27;,
++    source: &#x27;packages/qs/qs-transcript/src/client/contract.ts:20&#x27;,
++  },
++  {
++    key: &#x27;qs.conversation.trajectory.images&#x27;,
++    kind: &#x27;single&#x27;,
++    scope: &#x27;session&#x27;,
++    summary: &#x27;轨迹宿主声明后自动接线，不创建第二份轨迹数据。&#x27;,
++    doc: &#x27;轨迹宿主声明后自动接线，不创建第二份轨迹数据。&#x27;,
++    registerOptions: [],
++    ownerProps: [
++      &#x27;/** Message image group handed to the optional attachment presentation plugin. */\nexport interface MessageImagesOwnerProps {\n  /** Durable references or submission-echo previews in source order. */\n  images: readonly MessageImageSource[]\n  /** Session-authorized image URL loader for the durable arm. */\n  loadImage: MessageImageLoader\n  /** Horizontal placement inside the owning record. */\n  align: \&#x27;start\&#x27; | \&#x27;end\&#x27;\n  /** Force every image into the compact message-attachment tile size. */\n  compact?: boolean\n}&#x27;,
++    ],
++    ownerPropsReferences: [
++      &#x27;Message&#x27;,
++      &#x27;MessageImageLoader&#x27;,
++      &#x27;MessageImageSource&#x27;,
++    ],
++    standardProps: [
++      &#x27;useResource: UseResource&#x27;,
++      &#x27;useWorkspaces: SnapshotSelectorHook&lt;WorkspaceSnapshot&gt;&#x27;,
++      &#x27;usePanelInfo: UsePanelInfo&#x27;,
++      &#x27;useSessions: UseSessions&#x27;,
++      &#x27;useSessionPendingInteraction: UseSessionPendingInteraction&#x27;,
++      &#x27;useWorkspaces: SnapshotSelectorHook&lt;WorkspaceSnapshot&gt;&#x27;,
++      &#x27;useQsAuth?: UseQsAuth | undefined&#x27;,
++      &#x27;useChat: UseChat&#x27;,
++      &#x27;useConversation: UseConversation&#x27;,
++      &#x27;useInput: SnapshotSelectorHook&lt;InputState&gt;&#x27;,
++      &#x27;inputActions: InputActions&#x27;,
++      &#x27;useSession: SessionSnapshotSelector&#x27;,
++      &#x27;sessionId: SessionId&#x27;,
++      &#x27;useProjection: UseProjection&#x27;,
++      &#x27;useTrajectory: UseTrajectory&#x27;,
++    ],
++    keyDomain: &#x27;&#x27;,
++    hookContext: &#x27;&#x27;,
++    slotInject: &#x27;&#x27;,
++    declaredBy: &#x27;the runtime itself (built in; always present)&#x27;,
++    occupants: [],
++    replaceRisk: &#x27;none&#x27;,
++    example: &#x27;return {\n  inject: [\&#x27;slots\&#x27;],\n  apply(ctx) {\n    ctx.slots.inject(\&#x27;qs.conversation.trajectory.images\&#x27;, () =&gt; ctx.slots.register(\n      { name: \&#x27;qs.conversation.trajectory.images\&#x27; },\n      () =&gt; React.createElement(\&#x27;div\&#x27;, null, \&#x27;hello\&#x27;),\n    ))\n  },\n}&#x27;,
++    source: &#x27;packages/qs/qs-ui-attachment/src/client/contract.ts:10&#x27;,
++  },
++  {
++    key: &#x27;qs.gate&#x27;,
++    kind: &#x27;single&#x27;,
++    scope: &#x27;root&#x27;,
++    summary: &#x27;登录视图挂载点；由 qs-login 贡献，未登录时渲染。&#x27;,
++    doc: &#x27;登录视图挂载点；由 qs-login 贡献，未登录时渲染。&#x27;,
++    registerOptions: [],
++    ownerProps: [
++      &#x27;/** 登录视图业主输入（无字段：登录页自持状态与副本）。 */\nexport interface QsGateOwnerProps { children?: never }&#x27;,
++    ],
++    ownerPropsReferences: [],
++    standardProps: [
++      &#x27;useResource: UseResource&#x27;,
++      &#x27;useWorkspaces: SnapshotSelectorHook&lt;WorkspaceSnapshot&gt;&#x27;,
++      &#x27;usePanelInfo: UsePanelInfo&#x27;,
++      &#x27;useSessions: UseSessions&#x27;,
++      &#x27;useSessionPendingInteraction: UseSessionPendingInteraction&#x27;,
++      &#x27;useWorkspaces: SnapshotSelectorHook&lt;WorkspaceSnapshot&gt;&#x27;,
++      &#x27;useQsAuth?: UseQsAuth | undefined&#x27;,
++    ],
++    keyDomain: &#x27;&#x27;,
++    hookContext: &#x27;&#x27;,
++    slotInject: &#x27;&#x27;,
++    declaredBy: &#x27;an entry in \&#x27;root\&#x27; (qs-shell), so it exists while that entry is mounted&#x27;,
++    occupants: [
++      &#x27;qs-login LoginPage&#x27;,
++    ],
++    replaceRisk: &#x27;shadows-shipped-ui&#x27;,
++    example: &#x27;return {\n  inject: [\&#x27;slots\&#x27;],\n  apply(ctx) {\n    ctx.slots.inject(\&#x27;qs.gate\&#x27;, () =&gt; ctx.slots.register(\n      { name: \&#x27;qs.gate\&#x27; },\n      () =&gt; React.createElement(\&#x27;div\&#x27;, null, \&#x27;hello\&#x27;),\n    ))\n  },\n}&#x27;,
++    source: &#x27;packages/qs/qs-shell/src/client/contract.ts:11&#x27;,
++  },
++  {
++    key: &#x27;qs.inspector&#x27;,
++    kind: &#x27;single&#x27;,
++    scope: &#x27;root&#x27;,
++    summary: &#x27;右栏挂载点；布局传入几何状态，qs-ui-sidebar-right 贡献内容。&#x27;,
++    doc: &#x27;右栏挂载点；布局传入几何状态，qs-ui-sidebar-right 贡献内容。&#x27;,
++    registerOptions: [],
++    ownerProps: [
++      &#x27;/** 右栏业主输入。 */\nexport interface QsInspectorOwnerProps {\n  readonly hidden: boolean\n  /** 外壳主动操作的递增序号；面板回报不增加序号。 */\n  readonly requestId: number\n  /** 回报官方会话面板的实际展开状态。 */\n  readonly reportOpen: (open: boolean) =&gt; void\n}&#x27;,
++    ],
++    ownerPropsReferences: [],
++    standardProps: [
++      &#x27;useResource: UseResource&#x27;,
++      &#x27;useWorkspaces: SnapshotSelectorHook&lt;WorkspaceSnapshot&gt;&#x27;,
++      &#x27;usePanelInfo: UsePanelInfo&#x27;,
++      &#x27;useSessions: UseSessions&#x27;,
++      &#x27;useSessionPendingInteraction: UseSessionPendingInteraction&#x27;,
++      &#x27;useWorkspaces: SnapshotSelectorHook&lt;WorkspaceSnapshot&gt;&#x27;,
++      &#x27;useQsAuth?: UseQsAuth | undefined&#x27;,
++    ],
++    keyDomain: &#x27;&#x27;,
++    hookContext: &#x27;&#x27;,
++    slotInject: &#x27;&#x27;,
++    declaredBy: &#x27;an entry in \&#x27;root\&#x27; (qs-shell), so it exists while that entry is mounted&#x27;,
++    occupants: [
++      &#x27;qs-ui-sidebar-right QsRightPanel&#x27;,
++    ],
++    replaceRisk: &#x27;shadows-shipped-ui&#x27;,
++    example: &#x27;return {\n  inject: [\&#x27;slots\&#x27;],\n  apply(ctx) {\n    ctx.slots.inject(\&#x27;qs.inspector\&#x27;, () =&gt; ctx.slots.register(\n      { name: \&#x27;qs.inspector\&#x27; },\n      () =&gt; React.createElement(\&#x27;div\&#x27;, null, \&#x27;hello\&#x27;),\n    ))\n  },\n}&#x27;,
++    source: &#x27;packages/qs/qs-shell/src/client/contract.ts:19&#x27;,
++  },
++  {
++    key: &#x27;qs.nav&#x27;,
++    kind: &#x27;single&#x27;,
++    scope: &#x27;root&#x27;,
++    summary: &#x27;Workspace/session navigation owned by the sidebar entry.&#x27;,
++    doc: &#x27;Workspace/session navigation owned by the sidebar entry.&#x27;,
++    registerOptions: [],
++    ownerProps: [],
++    ownerPropsReferences: [],
++    standardProps: [
++      &#x27;useResource: UseResource&#x27;,
++      &#x27;useWorkspaces: SnapshotSelectorHook&lt;WorkspaceSnapshot&gt;&#x27;,
++      &#x27;usePanelInfo: UsePanelInfo&#x27;,
++      &#x27;useSessions: UseSessions&#x27;,
++      &#x27;useSessionPendingInteraction: UseSessionPendingInteraction&#x27;,
++      &#x27;useWorkspaces: SnapshotSelectorHook&lt;WorkspaceSnapshot&gt;&#x27;,
++      &#x27;useQsAuth?: UseQsAuth | undefined&#x27;,
++    ],
++    keyDomain: &#x27;&#x27;,
++    hookContext: &#x27;&#x27;,
++    slotInject: &#x27;&#x27;,
++    declaredBy: &#x27;an entry in \&#x27;qs.sidebar\&#x27; (qs-ui-sidebar), so it exists while that entry is mounted&#x27;,
++    occupants: [
++      &#x27;qs-sessions SessionList&#x27;,
++    ],
++    replaceRisk: &#x27;shadows-shipped-ui&#x27;,
++    example: &#x27;return {\n  inject: [\&#x27;slots\&#x27;],\n  apply(ctx) {\n    ctx.slots.inject(\&#x27;qs.nav\&#x27;, () =&gt; ctx.slots.register(\n      { name: \&#x27;qs.nav\&#x27; },\n      () =&gt; React.createElement(\&#x27;div\&#x27;, null, \&#x27;hello\&#x27;),\n    ))\n  },\n}&#x27;,
++    source: &#x27;packages/qs/qs-ui-sidebar/src/client/index.ts:11&#x27;,
++  },
++  {
++    key: &#x27;qs.overlay&#x27;,
++    kind: &#x27;list&#x27;,
++    scope: &#x27;root&#x27;,
++    summary: &#x27;toast / dialog 宿主，也是 portal 目标；按 id 并列。&#x27;,
++    doc: &#x27;toast / dialog 宿主，也是 portal 目标；按 id 并列。&#x27;,
++    registerOptions: [
++      {
++        name: &#x27;id&#x27;,
++        requirement: &#x27;required&#x27;,
++        type: &#x27;string&#x27;,
++        doc: &#x27;Your cell key. Use an id of your own: a fresh id is added beside the shipped entries, while reusing a shipped id puts you in THAT cell and replaces it. Owners that filter by id address you by it.&#x27;,
++      },
++      {
++        name: &#x27;order&#x27;,
++        requirement: &#x27;optional&#x27;,
++        type: &#x27;number&#x27;,
++        doc: &#x27;Position among the entries, ascending (default 0).&#x27;,
++      },
++      {
++        name: &#x27;label&#x27;,
++        requirement: &#x27;optional&#x27;,
++        type: &#x27;string | (() =&gt; string)&#x27;,
++        doc: &#x27;Display text where the owner projects one (nav rows, tabs). A thunk is re-read on every projection, so localized text follows the active locale without re-registering.&#x27;,
++      },
++    ],
++    ownerProps: [
++      &#x27;/** overlay 宿主业主输入。 */\nexport interface QsOverlayOwnerProps { children?: never }&#x27;,
++    ],
++    ownerPropsReferences: [],
++    standardProps: [
++      &#x27;useResource: UseResource&#x27;,
++      &#x27;useWorkspaces: SnapshotSelectorHook&lt;WorkspaceSnapshot&gt;&#x27;,
++      &#x27;usePanelInfo: UsePanelInfo&#x27;,
++      &#x27;useSessions: UseSessions&#x27;,
++      &#x27;useSessionPendingInteraction: UseSessionPendingInteraction&#x27;,
++      &#x27;useWorkspaces: SnapshotSelectorHook&lt;WorkspaceSnapshot&gt;&#x27;,
++      &#x27;useQsAuth?: UseQsAuth | undefined&#x27;,
++    ],
++    keyDomain: &#x27;&#x27;,
++    hookContext: &#x27;&#x27;,
++    slotInject: &#x27;&#x27;,
++    declaredBy: &#x27;an entry in \&#x27;root\&#x27; (qs-shell), so it exists while that entry is mounted&#x27;,
++    occupants: [
++      &#x27;qs-shell QsOverlayHost id \&#x27;qs-overlay-toasts\&#x27;&#x27;,
++    ],
++    replaceRisk: &#x27;none&#x27;,
++    example: &#x27;return {\n  inject: [\&#x27;slots\&#x27;],\n  apply(ctx) {\n    ctx.slots.inject(\&#x27;qs.overlay\&#x27;, () =&gt; ctx.slots.register(\n      { name: \&#x27;qs.overlay\&#x27;, id: \&#x27;my-entry\&#x27;, order: 100, label: \&#x27;My entry\&#x27; },\n      () =&gt; React.createElement(\&#x27;div\&#x27;, null, \&#x27;hello\&#x27;),\n    ))\n  },\n}&#x27;,
++    source: &#x27;packages/qs/qs-shell/src/client/contract.ts:23&#x27;,
++  },
++  {
++    key: &#x27;qs.sidebar&#x27;,
++    kind: &#x27;single&#x27;,
++    scope: &#x27;root&#x27;,
++    summary: &#x27;Sidebar shell with its own workspace child slot.&#x27;,
++    doc: &#x27;Sidebar shell with its own workspace child slot.&#x27;,
++    registerOptions: [],
++    ownerProps: [],
++    ownerPropsReferences: [],
++    standardProps: [
++      &#x27;useResource: UseResource&#x27;,
++      &#x27;useWorkspaces: SnapshotSelectorHook&lt;WorkspaceSnapshot&gt;&#x27;,
++      &#x27;usePanelInfo: UsePanelInfo&#x27;,
++      &#x27;useSessions: UseSessions&#x27;,
++      &#x27;useSessionPendingInteraction: UseSessionPendingInteraction&#x27;,
++      &#x27;useWorkspaces: SnapshotSelectorHook&lt;WorkspaceSnapshot&gt;&#x27;,
++      &#x27;useQsAuth?: UseQsAuth | undefined&#x27;,
++    ],
++    keyDomain: &#x27;&#x27;,
++    hookContext: &#x27;&#x27;,
++    slotInject: &#x27;&#x27;,
++    declaredBy: &#x27;an entry in \&#x27;root\&#x27; (qs-shell), so it exists while that entry is mounted&#x27;,
++    occupants: [
++      &#x27;qs-ui-sidebar QsSideNav&#x27;,
++    ],
++    replaceRisk: &#x27;shadows-shipped-ui&#x27;,
++    example: &#x27;return {\n  inject: [\&#x27;slots\&#x27;],\n  apply(ctx) {\n    ctx.slots.inject(\&#x27;qs.sidebar\&#x27;, () =&gt; ctx.slots.register(\n      { name: \&#x27;qs.sidebar\&#x27; },\n      () =&gt; React.createElement(\&#x27;div\&#x27;, null, \&#x27;hello\&#x27;),\n    ))\n  },\n}&#x27;,
++    source: &#x27;packages/qs/qs-shell/src/client/contract.ts:15&#x27;,
++  },
++  {
++    key: &#x27;qs.sidebar.document&#x27;,
++    kind: &#x27;keyed&#x27;,
++    scope: &#x27;session&#x27;,
++    summary: &#x27;六类 QS 正文按官方实现身份分派。&#x27;,
++    doc: &#x27;六类 QS 正文按官方实现身份分派。&#x27;,
++    registerOptions: [
++      {
++        name: &#x27;key&#x27;,
++        requirement: &#x27;required&#x27;,
++        type: &#x27;string&#x27;,
++        doc: &#x27;Your cell key: the entry renders where the owner dispatches this exact key. Registering an already-occupied key replaces that occupant.&#x27;,
++      },
++    ],
++    ownerProps: [
++      &#x27;/** Slot contract table. Owners extend via declaration merging; entries are {@link SlotEntryDef}. */\nexport interface SlotMap {}&#x27;,
++    ],
++    ownerPropsReferences: [
++      &#x27;SlotEntryDef&#x27;,
++    ],
++    standardProps: [
++      &#x27;useResource: UseResource&#x27;,
++      &#x27;useWorkspaces: SnapshotSelectorHook&lt;WorkspaceSnapshot&gt;&#x27;,
++      &#x27;usePanelInfo: UsePanelInfo&#x27;,
++      &#x27;useSessions: UseSessions&#x27;,
++      &#x27;useSessionPendingInteraction: UseSessionPendingInteraction&#x27;,
++      &#x27;useWorkspaces: SnapshotSelectorHook&lt;WorkspaceSnapshot&gt;&#x27;,
++      &#x27;useQsAuth?: UseQsAuth | undefined&#x27;,
++      &#x27;useChat: UseChat&#x27;,
++      &#x27;useConversation: UseConversation&#x27;,
++      &#x27;useInput: SnapshotSelectorHook&lt;InputState&gt;&#x27;,
++      &#x27;inputActions: InputActions&#x27;,
++      &#x27;useSession: SessionSnapshotSelector&#x27;,
++      &#x27;sessionId: SessionId&#x27;,
++      &#x27;useProjection: UseProjection&#x27;,
++      &#x27;useTrajectory: UseTrajectory&#x27;,
++    ],
++    keyDomain: &#x27;open: any string the owner dispatches (no compile-time key set), already taken: @deepseek-ai/dsh-client-ui-sidebar-documentpreview/code, @deepseek-ai/dsh-client-ui-sidebar-documentpreview/html, @deepseek-ai/dsh-client-ui-sidebar-documentpreview/image, @deepseek-ai/dsh-client-ui-sidebar-documentpreview/markdown, @deepseek-ai/dsh-client-ui-sidebar-documentpreview/pdf, @deepseek-ai/dsh-client-ui-sidebar-documentpreview/text&#x27;,
++    hookContext: &#x27;UseSidebarRightTabInfo&#x27;,
++    slotInject: &#x27;{ hooks: { tabInfo: SlotHookFactory&lt;\&#x27;qs.sidebar.document\&#x27;, UseSidebarRightTabInfo&gt; } }&#x27;,
++    declaredBy: &#x27;an entry in \&#x27;qs.sidebar.right.tab\&#x27; (qs-ui-sidebar-documentpreview), so it exists while that entry is mounted&#x27;,
++    occupants: [
++      &#x27;qs-ui-sidebar-documentpreview CodeBody key \&#x27;@deepseek-ai/dsh-client-ui-sidebar-documentpreview/code\&#x27;&#x27;,
++      &#x27;qs-ui-sidebar-documentpreview HtmlBody key \&#x27;@deepseek-ai/dsh-client-ui-sidebar-documentpreview/html\&#x27;&#x27;,
++      &#x27;qs-ui-sidebar-documentpreview ImageBody key \&#x27;@deepseek-ai/dsh-client-ui-sidebar-documentpreview/image\&#x27;&#x27;,
++      &#x27;qs-ui-sidebar-documentpreview MarkdownBody key \&#x27;@deepseek-ai/dsh-client-ui-sidebar-documentpreview/markdown\&#x27;&#x27;,
++      &#x27;qs-ui-sidebar-documentpreview PdfBody key \&#x27;@deepseek-ai/dsh-client-ui-sidebar-documentpreview/pdf\&#x27;&#x27;,
++      &#x27;qs-ui-sidebar-documentpreview TextBody key \&#x27;@deepseek-ai/dsh-client-ui-sidebar-documentpreview/text\&#x27;&#x27;,
++    ],
++    replaceRisk: &#x27;shadows-shipped-ui&#x27;,
++    example: &#x27;return {\n  inject: [\&#x27;slots\&#x27;],\n  apply(ctx) {\n    ctx.slots.inject(\&#x27;qs.sidebar.document\&#x27;, () =&gt; ctx.slots.register(\n      { name: \&#x27;qs.sidebar.document\&#x27;, key: \&#x27;&lt;one key the owner dispatches&gt;\&#x27; },\n      () =&gt; React.createElement(\&#x27;div\&#x27;, null, \&#x27;hello\&#x27;),\n    ))\n  },\n}&#x27;,
++    source: &#x27;packages/qs/qs-ui-sidebar-documentpreview/src/client/contract.ts:9&#x27;,
++  },
++  {
++    key: &#x27;qs.sidebar.right.guide&#x27;,
++    kind: &#x27;chain&#x27;,
++    scope: &#x27;session&#x27;,
++    summary: &#x27;替换当前 guide 正文的 chain；接收其 useTabInfo，所有选择器拒绝或无贡献时保留注册表入口向导。&#x27;,
++    doc: &#x27;替换当前 guide 正文的 chain；接收其 useTabInfo，所有选择器拒绝或无贡献时保留注册表入口向导。&#x27;,
++    registerOptions: [
++      {
++        name: &#x27;select&#x27;,
++        requirement: &#x27;required&#x27;,
++        type: &#x27;(owner) =&gt; unknown | null&#x27;,
++        doc: &#x27;Pure routing selector. Entries are tried in ascending order; the first non-null result wins and arrives as the component\&#x27;s `matched` prop. All-null falls through to the owner\&#x27;s fallback.&#x27;,
++      },
++    ],
++    ownerProps: [],
++    ownerPropsReferences: [],
++    standardProps: [
++      &#x27;useResource: UseResource&#x27;,
++      &#x27;useWorkspaces: SnapshotSelectorHook&lt;WorkspaceSnapshot&gt;&#x27;,
++      &#x27;usePanelInfo: UsePanelInfo&#x27;,
++      &#x27;useSessions: UseSessions&#x27;,
++      &#x27;useSessionPendingInteraction: UseSessionPendingInteraction&#x27;,
++      &#x27;useWorkspaces: SnapshotSelectorHook&lt;WorkspaceSnapshot&gt;&#x27;,
++      &#x27;useQsAuth?: UseQsAuth | undefined&#x27;,
++      &#x27;useChat: UseChat&#x27;,
++      &#x27;useConversation: UseConversation&#x27;,
++      &#x27;useInput: SnapshotSelectorHook&lt;InputState&gt;&#x27;,
++      &#x27;inputActions: InputActions&#x27;,
++      &#x27;useSession: SessionSnapshotSelector&#x27;,
++      &#x27;sessionId: SessionId&#x27;,
++      &#x27;useProjection: UseProjection&#x27;,
++      &#x27;useTrajectory: UseTrajectory&#x27;,
++    ],
++    keyDomain: &#x27;&#x27;,
++    hookContext: &#x27;UseSidebarRightTabInfo&#x27;,
++    slotInject: &#x27;{ hooks: { tabInfo: SlotHookFactory&lt;\&#x27;qs.sidebar.right.guide\&#x27;, UseSidebarRightTabInfo&gt; } }&#x27;,
++    declaredBy: &#x27;an entry in \&#x27;qs.sidebar.right.tab\&#x27; (qs-ui-sidebar-right), so it exists while that entry is mounted&#x27;,
++    occupants: [],
++    replaceRisk: &#x27;none&#x27;,
++    example: &#x27;return {\n  inject: [\&#x27;slots\&#x27;],\n  apply(ctx) {\n    ctx.slots.inject(\&#x27;qs.sidebar.right.guide\&#x27;, () =&gt; ctx.slots.register(\n      { name: \&#x27;qs.sidebar.right.guide\&#x27;, select: owner =&gt; null },\n      () =&gt; React.createElement(\&#x27;div\&#x27;, null, \&#x27;hello\&#x27;),\n    ))\n  },\n}&#x27;,
++    source: &#x27;packages/qs/qs-ui-sidebar-right/src/client/contract.ts:15&#x27;,
++  },
++  {
++    key: &#x27;qs.sidebar.right.menu&#x27;,
++    kind: &#x27;list&#x27;,
++    scope: &#x27;session&#x27;,
++    summary: &#x27;按独立 id 贡献标签菜单项，接收 tab 和 dismiss；执行动作后必须 dismiss，无贡献只保留 docking 布局动作。&#x27;,
++    doc: &#x27;按独立 id 贡献标签菜单项，接收 tab 和 dismiss；执行动作后必须 dismiss，无贡献只保留 docking 布局动作。&#x27;,
++    registerOptions: [
++      {
++        name: &#x27;id&#x27;,
++        requirement: &#x27;required&#x27;,
++        type: &#x27;string&#x27;,
++        doc: &#x27;Your cell key. Use an id of your own: a fresh id is added beside the shipped entries, while reusing a shipped id puts you in THAT cell and replaces it. Owners that filter by id address you by it.&#x27;,
++      },
++      {
++        name: &#x27;order&#x27;,
++        requirement: &#x27;optional&#x27;,
++        type: &#x27;number&#x27;,
++        doc: &#x27;Position among the entries, ascending (default 0).&#x27;,
++      },
++      {
++        name: &#x27;label&#x27;,
++        requirement: &#x27;optional&#x27;,
++        type: &#x27;string | (() =&gt; string)&#x27;,
++        doc: &#x27;Display text where the owner projects one (nav rows, tabs). A thunk is re-read on every projection, so localized text follows the active locale without re-registering.&#x27;,
++      },
++    ],
+     ownerProps: [
+-      &#x27;/** 登录视图业主输入（无字段：登录页自持状态与副本）。 */\nexport interface QsGateOwnerProps { children?: never }&#x27;,
++      &#x27;/** Owner share of one tab-menu item occurrence. */\nexport interface SidebarRightTabMenuOwnerProps {\n  /** The tab whose menu is open. */\n  tab: TabRecord\n  /**\n   * Dismiss the menu.\n   *\n   * An item that acts MUST call this: the menu is the kit\&#x27;s, and it closes on\n   * its own actions only. An item that leaves it open leaves a menu floating\n   * over content the action may have just replaced.\n   */\n  dismiss: () =&gt; void\n}&#x27;,
++    ],
++    ownerPropsReferences: [
++      &#x27;TabRecord&#x27;,
+     ],
+-    ownerPropsReferences: [],
+     standardProps: [
+       &#x27;useResource: UseResource&#x27;,
+       &#x27;useWorkspaces: SnapshotSelectorHook&lt;WorkspaceSnapshot&gt;&#x27;,
+@@ -1542,27 +2137,33 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
+       &#x27;useSessionPendingInteraction: UseSessionPendingInteraction&#x27;,
+       &#x27;useWorkspaces: SnapshotSelectorHook&lt;WorkspaceSnapshot&gt;&#x27;,
+       &#x27;useQsAuth?: UseQsAuth | undefined&#x27;,
++      &#x27;useChat: UseChat&#x27;,
++      &#x27;useConversation: UseConversation&#x27;,
++      &#x27;useInput: SnapshotSelectorHook&lt;InputState&gt;&#x27;,
++      &#x27;inputActions: InputActions&#x27;,
++      &#x27;useSession: SessionSnapshotSelector&#x27;,
++      &#x27;sessionId: SessionId&#x27;,
++      &#x27;useProjection: UseProjection&#x27;,
++      &#x27;useTrajectory: UseTrajectory&#x27;,
+     ],
+     keyDomain: &#x27;&#x27;,
+     hookContext: &#x27;&#x27;,
+     slotInject: &#x27;&#x27;,
+-    declaredBy: &#x27;an entry in \&#x27;root\&#x27; (qs-shell), so it exists while that entry is mounted&#x27;,
+-    occupants: [
+-      &#x27;qs-login LoginPage&#x27;,
+-    ],
+-    replaceRisk: &#x27;shadows-shipped-ui&#x27;,
+-    example: &#x27;return {\n  inject: [\&#x27;slots\&#x27;],\n  apply(ctx) {\n    ctx.slots.inject(\&#x27;qs.gate\&#x27;, () =&gt; ctx.slots.register(\n      { name: \&#x27;qs.gate\&#x27; },\n      () =&gt; React.createElement(\&#x27;div\&#x27;, null, \&#x27;hello\&#x27;),\n    ))\n  },\n}&#x27;,
+-    source: &#x27;packages/qs/qs-shell/src/client/contract.ts:20&#x27;,
++    declaredBy: &#x27;an entry in \&#x27;qs.sidebar.right.session\&#x27; (qs-ui-sidebar-right), so it exists while that entry is mounted&#x27;,
++    occupants: [],
++    replaceRisk: &#x27;none&#x27;,
++    example: &#x27;return {\n  inject: [\&#x27;slots\&#x27;],\n  apply(ctx) {\n    ctx.slots.inject(\&#x27;qs.sidebar.right.menu\&#x27;, () =&gt; ctx.slots.register(\n      { name: \&#x27;qs.sidebar.right.menu\&#x27;, id: \&#x27;my-entry\&#x27;, order: 100, label: \&#x27;My entry\&#x27; },\n      () =&gt; React.createElement(\&#x27;div\&#x27;, null, \&#x27;hello\&#x27;),\n    ))\n  },\n}&#x27;,
++    source: &#x27;packages/qs/qs-ui-sidebar-right/src/client/contract.ts:17&#x27;,
+   },
+   {
+-    key: &#x27;qs.inspector&#x27;,
++    key: &#x27;qs.sidebar.right.session&#x27;,
+     kind: &#x27;single&#x27;,
+-    scope: &#x27;root&#x27;,
+-    summary: &#x27;右栏：工作区辅助面板骨架与空态；由 qs-shell 贡献。&#x27;,
+-    doc: &#x27;右栏：工作区辅助面板骨架与空态；由 qs-shell 贡献。&#x27;,
++    scope: &#x27;session&#x27;,
++    summary: &#x27;右栏 session 宿主，注册者接收外壳几何意图及 sessionId，负责绑定唯一官方导航状态；无贡献时不显示会话面板。&#x27;,
++    doc: &#x27;右栏 session 宿主，注册者接收外壳几何意图及 sessionId，负责绑定唯一官方导航状态；无贡献时不显示会话面板。&#x27;,
+     registerOptions: [],
+     ownerProps: [
+-      &#x27;/** 右栏业主输入。 */\nexport interface QsInspectorOwnerProps { children?: never }&#x27;,
++      &#x27;/** 右栏业主输入。 */\nexport interface QsInspectorOwnerProps {\n  readonly hidden: boolean\n  /** 外壳主动操作的递增序号；面板回报不增加序号。 */\n  readonly requestId: number\n  /** 回报官方会话面板的实际展开状态。 */\n  readonly reportOpen: (open: boolean) =&gt; void\n}&#x27;,
+     ],
+     ownerPropsReferences: [],
+     standardProps: [
+@@ -1573,28 +2174,41 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
+       &#x27;useSessionPendingInteraction: UseSessionPendingInteraction&#x27;,
+       &#x27;useWorkspaces: SnapshotSelectorHook&lt;WorkspaceSnapshot&gt;&#x27;,
+       &#x27;useQsAuth?: UseQsAuth | undefined&#x27;,
++      &#x27;useChat: UseChat&#x27;,
++      &#x27;useConversation: UseConversation&#x27;,
++      &#x27;useInput: SnapshotSelectorHook&lt;InputState&gt;&#x27;,
++      &#x27;inputActions: InputActions&#x27;,
++      &#x27;useSession: SessionSnapshotSelector&#x27;,
++      &#x27;sessionId: SessionId&#x27;,
++      &#x27;useProjection: UseProjection&#x27;,
++      &#x27;useTrajectory: UseTrajectory&#x27;,
+     ],
+     keyDomain: &#x27;&#x27;,
+     hookContext: &#x27;&#x27;,
+     slotInject: &#x27;&#x27;,
+-    declaredBy: &#x27;an entry in \&#x27;root\&#x27; (qs-shell), so it exists while that entry is mounted&#x27;,
++    declaredBy: &#x27;an entry in \&#x27;qs.inspector\&#x27; (qs-ui-sidebar-right), so it exists while that entry is mounted&#x27;,
+     occupants: [
+-      &#x27;qs-shell QsRightPanel&#x27;,
++      &#x27;qs-ui-sidebar-right QsPanelSession&#x27;,
+     ],
+     replaceRisk: &#x27;shadows-shipped-ui&#x27;,
+-    example: &#x27;return {\n  inject: [\&#x27;slots\&#x27;],\n  apply(ctx) {\n    ctx.slots.inject(\&#x27;qs.inspector\&#x27;, () =&gt; ctx.slots.register(\n      { name: \&#x27;qs.inspector\&#x27; },\n      () =&gt; React.createElement(\&#x27;div\&#x27;, null, \&#x27;hello\&#x27;),\n    ))\n  },\n}&#x27;,
+-    source: &#x27;packages/qs/qs-shell/src/client/contract.ts:34&#x27;,
++    example: &#x27;return {\n  inject: [\&#x27;slots\&#x27;],\n  apply(ctx) {\n    ctx.slots.inject(\&#x27;qs.sidebar.right.session\&#x27;, () =&gt; ctx.slots.register(\n      { name: \&#x27;qs.sidebar.right.session\&#x27; },\n      () =&gt; React.createElement(\&#x27;div\&#x27;, null, \&#x27;hello\&#x27;),\n    ))\n  },\n}&#x27;,
++    source: &#x27;packages/qs/qs-ui-sidebar-right/src/client/contract.ts:9&#x27;,
+   },
+   {
+-    key: &#x27;qs.nav&#x27;,
+-    kind: &#x27;single&#x27;,
+-    scope: &#x27;root&#x27;,
+-    summary: &#x27;左导航：会话列表容器；由 qs-sessions 贡献。&#x27;,
+-    doc: &#x27;左导航：会话列表容器；由 qs-sessions 贡献。&#x27;,
+-    registerOptions: [],
+-    ownerProps: [
+-      &#x27;/** 左导航业主输入。 */\nexport interface QsNavOwnerProps { children?: never }&#x27;,
++    key: &#x27;qs.sidebar.right.tab&#x27;,
++    kind: &#x27;keyed&#x27;,
++    scope: &#x27;session&#x27;,
++    summary: &#x27;按官方类型 definition.id 注册正文，接收 useTabInfo 读取身份、可见性、导航和生命周期；缺失注册显示不支持说明。&#x27;,
++    doc: &#x27;按官方类型 definition.id 注册正文，接收 useTabInfo 读取身份、可见性、导航和生命周期；缺失注册显示不支持说明。&#x27;,
++    registerOptions: [
++      {
++        name: &#x27;key&#x27;,
++        requirement: &#x27;required&#x27;,
++        type: &#x27;string&#x27;,
++        doc: &#x27;Your cell key: the entry renders where the owner dispatches this exact key. Registering an already-occupied key replaces that occupant.&#x27;,
++      },
+     ],
++    ownerProps: [],
+     ownerPropsReferences: [],
+     standardProps: [
+       &#x27;useResource: UseResource&#x27;,
+@@ -1604,47 +2218,43 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
+       &#x27;useSessionPendingInteraction: UseSessionPendingInteraction&#x27;,
+       &#x27;useWorkspaces: SnapshotSelectorHook&lt;WorkspaceSnapshot&gt;&#x27;,
+       &#x27;useQsAuth?: UseQsAuth | undefined&#x27;,
++      &#x27;useChat: UseChat&#x27;,
++      &#x27;useConversation: UseConversation&#x27;,
++      &#x27;useInput: SnapshotSelectorHook&lt;InputState&gt;&#x27;,
++      &#x27;inputActions: InputActions&#x27;,
++      &#x27;useSession: SessionSnapshotSelector&#x27;,
++      &#x27;sessionId: SessionId&#x27;,
++      &#x27;useProjection: UseProjection&#x27;,
++      &#x27;useTrajectory: UseTrajectory&#x27;,
+     ],
+-    keyDomain: &#x27;&#x27;,
+-    hookContext: &#x27;&#x27;,
+-    slotInject: &#x27;&#x27;,
+-    declaredBy: &#x27;an entry in \&#x27;root\&#x27; (qs-shell), so it exists while that entry is mounted&#x27;,
++    keyDomain: &#x27;open: any string the owner dispatches (no compile-time key set), already taken: @deepseek-ai/dsh-client-ui-sidebar-documentpreview, @deepseek-ai/dsh-client-ui-sidebar-right/guide&#x27;,
++    hookContext: &#x27;HookContextOf&lt;\&#x27;sidebar.right.pane.tab\&#x27;&gt;&#x27;,
++    slotInject: &#x27;SidebarRightTabInjected&#x27;,
++    declaredBy: &#x27;an entry in \&#x27;qs.sidebar.right.session\&#x27; (qs-ui-sidebar-right), so it exists while that entry is mounted&#x27;,
+     occupants: [
+-      &#x27;qs-sessions SessionList&#x27;,
++      &#x27;qs-ui-sidebar-documentpreview Preview key \&#x27;@deepseek-ai/dsh-client-ui-sidebar-documentpreview\&#x27;&#x27;,
++      &#x27;qs-ui-sidebar-files Files&#x27;,
++      &#x27;qs-ui-sidebar-right QsGuide key \&#x27;@deepseek-ai/dsh-client-ui-sidebar-right/guide\&#x27;&#x27;,
+     ],
+     replaceRisk: &#x27;shadows-shipped-ui&#x27;,
+-    example: &#x27;return {\n  inject: [\&#x27;slots\&#x27;],\n  apply(ctx) {\n    ctx.slots.inject(\&#x27;qs.nav\&#x27;, () =&gt; ctx.slots.register(\n      { name: \&#x27;qs.nav\&#x27; },\n      () =&gt; React.createElement(\&#x27;div\&#x27;, null, \&#x27;hello\&#x27;),\n    ))\n  },\n}&#x27;,
+-    source: &#x27;packages/qs/qs-shell/src/client/contract.ts:24&#x27;,
++    example: &#x27;return {\n  inject: [\&#x27;slots\&#x27;],\n  apply(ctx) {\n    ctx.slots.inject(\&#x27;qs.sidebar.right.tab\&#x27;, () =&gt; ctx.slots.register(\n      { name: \&#x27;qs.sidebar.right.tab\&#x27;, key: \&#x27;&lt;one key the owner dispatches&gt;\&#x27; },\n      () =&gt; React.createElement(\&#x27;div\&#x27;, null, \&#x27;hello\&#x27;),\n    ))\n  },\n}&#x27;,
++    source: &#x27;packages/qs/qs-ui-sidebar-right/src/client/contract.ts:11&#x27;,
+   },
+   {
+-    key: &#x27;qs.overlay&#x27;,
+-    kind: &#x27;list&#x27;,
+-    scope: &#x27;root&#x27;,
+-    summary: &#x27;toast / dialog 宿主，也是 portal 目标；按 id 并列。&#x27;,
+-    doc: &#x27;toast / dialog 宿主，也是 portal 目标；按 id 并列。&#x27;,
++    key: &#x27;qs.sidebar.right.tab.title&#x27;,
++    kind: &#x27;keyed&#x27;,
++    scope: &#x27;session&#x27;,
++    summary: &#x27;按与正文相同的 definition.id 注册动态标题；接收同一标签 hook，缺失时使用官方 record.title。&#x27;,
++    doc: &#x27;按与正文相同的 definition.id 注册动态标题；接收同一标签 hook，缺失时使用官方 record.title。&#x27;,
+     registerOptions: [
+       {
+-        name: &#x27;id&#x27;,
++        name: &#x27;key&#x27;,
+         requirement: &#x27;required&#x27;,
+         type: &#x27;string&#x27;,
+-        doc: &#x27;Your cell key. Use an id of your own: a fresh id is added beside the shipped entries, while reusing a shipped id puts you in THAT cell and replaces it. Owners that filter by id address you by it.&#x27;,
+-      },
+-      {
+-        name: &#x27;order&#x27;,
+-        requirement: &#x27;optional&#x27;,
+-        type: &#x27;number&#x27;,
+-        doc: &#x27;Position among the entries, ascending (default 0).&#x27;,
+-      },
+-      {
+-        name: &#x27;label&#x27;,
+-        requirement: &#x27;optional&#x27;,
+-        type: &#x27;string | (() =&gt; string)&#x27;,
+-        doc: &#x27;Display text where the owner projects one (nav rows, tabs). A thunk is re-read on every projection, so localized text follows the active locale without re-registering.&#x27;,
++        doc: &#x27;Your cell key: the entry renders where the owner dispatches this exact key. Registering an already-occupied key replaces that occupant.&#x27;,
+       },
+     ],
+-    ownerProps: [
+-      &#x27;/** overlay 宿主业主输入。 */\nexport interface QsOverlayOwnerProps { children?: never }&#x27;,
+-    ],
++    ownerProps: [],
+     ownerPropsReferences: [],
+     standardProps: [
+       &#x27;useResource: UseResource&#x27;,
+@@ -1654,24 +2264,33 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
+       &#x27;useSessionPendingInteraction: UseSessionPendingInteraction&#x27;,
+       &#x27;useWorkspaces: SnapshotSelectorHook&lt;WorkspaceSnapshot&gt;&#x27;,
+       &#x27;useQsAuth?: UseQsAuth | undefined&#x27;,
++      &#x27;useChat: UseChat&#x27;,
++      &#x27;useConversation: UseConversation&#x27;,
++      &#x27;useInput: SnapshotSelectorHook&lt;InputState&gt;&#x27;,
++      &#x27;inputActions: InputActions&#x27;,
++      &#x27;useSession: SessionSnapshotSelector&#x27;,
++      &#x27;sessionId: SessionId&#x27;,
++      &#x27;useProjection: UseProjection&#x27;,
++      &#x27;useTrajectory: UseTrajectory&#x27;,
+     ],
+-    keyDomain: &#x27;&#x27;,
+-    hookContext: &#x27;&#x27;,
+-    slotInject: &#x27;&#x27;,
+-    declaredBy: &#x27;an entry in \&#x27;root\&#x27; (qs-shell), so it exists while that entry is mounted&#x27;,
++    keyDomain: &#x27;open: any string the owner dispatches (no compile-time key set), already taken: @deepseek-ai/dsh-client-ui-sidebar-right/guide&#x27;,
++    hookContext: &#x27;HookContextOf&lt;\&#x27;sidebar.right.pane.tab.title\&#x27;&gt;&#x27;,
++    slotInject: &#x27;SidebarRightTabInjected&#x27;,
++    declaredBy: &#x27;an entry in \&#x27;qs.sidebar.right.session\&#x27; (qs-ui-sidebar-right), so it exists while that entry is mounted&#x27;,
+     occupants: [
+-      &#x27;qs-shell QsOverlayHost id \&#x27;qs-overlay-toasts\&#x27;&#x27;,
++      &#x27;qs-ui-sidebar-files FilesTitle&#x27;,
++      &#x27;qs-ui-sidebar-right GuideTitle key \&#x27;@deepseek-ai/dsh-client-ui-sidebar-right/guide\&#x27;&#x27;,
+     ],
+-    replaceRisk: &#x27;none&#x27;,
+-    example: &#x27;return {\n  inject: [\&#x27;slots\&#x27;],\n  apply(ctx) {\n    ctx.slots.inject(\&#x27;qs.overlay\&#x27;, () =&gt; ctx.slots.register(\n      { name: \&#x27;qs.overlay\&#x27;, id: \&#x27;my-entry\&#x27;, order: 100, label: \&#x27;My entry\&#x27; },\n      () =&gt; React.createElement(\&#x27;div\&#x27;, null, \&#x27;hello\&#x27;),\n    ))\n  },\n}&#x27;,
+-    source: &#x27;packages/qs/qs-shell/src/client/contract.ts:38&#x27;,
++    replaceRisk: &#x27;shadows-shipped-ui&#x27;,
++    example: &#x27;return {\n  inject: [\&#x27;slots\&#x27;],\n  apply(ctx) {\n    ctx.slots.inject(\&#x27;qs.sidebar.right.tab.title\&#x27;, () =&gt; ctx.slots.register(\n      { name: \&#x27;qs.sidebar.right.tab.title\&#x27;, key: \&#x27;&lt;one key the owner dispatches&gt;\&#x27; },\n      () =&gt; React.createElement(\&#x27;div\&#x27;, null, \&#x27;hello\&#x27;),\n    ))\n  },\n}&#x27;,
++    source: &#x27;packages/qs/qs-ui-sidebar-right/src/client/contract.ts:13&#x27;,
+   },
+   {
+     key: &#x27;qs.stage&#x27;,
+     kind: &#x27;single&#x27;,
+     scope: &#x27;root&#x27;,
+-    summary: &#x27;主区外框；由 qs-shell 贡献并声明其下的欢迎区、转写与输入区。&#x27;,
+-    doc: &#x27;主区外框；由 qs-shell 贡献并声明其下的欢迎区、转写与输入区。&#x27;,
++    summary: &#x27;会话视图挂载点；由 qs-composer 贡献并声明其子槽。&#x27;,
++    doc: &#x27;会话视图挂载点；由 qs-composer 贡献并声明其子槽。&#x27;,
+     registerOptions: [],
+     ownerProps: [
+       &#x27;/** 主区外框业主输入。 */\nexport interface QsStageOwnerProps { children?: never }&#x27;,
+@@ -1691,22 +2310,20 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
+     slotInject: &#x27;&#x27;,
+     declaredBy: &#x27;an entry in \&#x27;root\&#x27; (qs-shell), so it exists while that entry is mounted&#x27;,
+     occupants: [
+-      &#x27;qs-shell QsStage&#x27;,
++      &#x27;qs-composer QsStage&#x27;,
+     ],
+     replaceRisk: &#x27;shadows-shipped-ui&#x27;,
+     example: &#x27;return {\n  inject: [\&#x27;slots\&#x27;],\n  apply(ctx) {\n    ctx.slots.inject(\&#x27;qs.stage\&#x27;, () =&gt; ctx.slots.register(\n      { name: \&#x27;qs.stage\&#x27; },\n      () =&gt; React.createElement(\&#x27;div\&#x27;, null, \&#x27;hello\&#x27;),\n    ))\n  },\n}&#x27;,
+-    source: &#x27;packages/qs/qs-shell/src/client/contract.ts:26&#x27;,
++    source: &#x27;packages/qs/qs-shell/src/client/contract.ts:17&#x27;,
+   },
+   {
+     key: &#x27;qs.stage.body&#x27;,
+     kind: &#x27;single&#x27;,
+     scope: &#x27;session-maybe&#x27;,
+-    summary: &#x27;欢迎区与骨架；无会话时也渲染（session-maybe）。&#x27;,
+-    doc: &#x27;欢迎区与骨架；无会话时也渲染（session-maybe）。&#x27;,
++    summary: &#x27;Conversation welcome area, including the unbound session state.&#x27;,
++    doc: &#x27;Conversation welcome area, including the unbound session state.&#x27;,
+     registerOptions: [],
+-    ownerProps: [
+-      &#x27;/** 欢迎区业主输入。 */\nexport interface QsStageBodyOwnerProps { children?: never }&#x27;,
+-    ],
++    ownerProps: [],
+     ownerPropsReferences: [],
+     standardProps: [
+       &#x27;useResource: UseResource&#x27;,
+@@ -1726,20 +2343,20 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
+     keyDomain: &#x27;&#x27;,
+     hookContext: &#x27;&#x27;,
+     slotInject: &#x27;&#x27;,
+-    declaredBy: &#x27;an entry in \&#x27;qs.stage\&#x27; (qs-shell), so it exists while that entry is mounted&#x27;,
++    declaredBy: &#x27;an entry in \&#x27;qs.stage\&#x27; (qs-composer), so it exists while that entry is mounted&#x27;,
+     occupants: [
+-      &#x27;qs-shell QsWelcomePane&#x27;,
++      &#x27;qs-composer QsWelcomePane&#x27;,
+     ],
+     replaceRisk: &#x27;shadows-shipped-ui&#x27;,
+     example: &#x27;return {\n  inject: [\&#x27;slots\&#x27;],\n  apply(ctx) {\n    ctx.slots.inject(\&#x27;qs.stage.body\&#x27;, () =&gt; ctx.slots.register(\n      { name: \&#x27;qs.stage.body\&#x27; },\n      () =&gt; React.createElement(\&#x27;div\&#x27;, null, \&#x27;hello\&#x27;),\n    ))\n  },\n}&#x27;,
+-    source: &#x27;packages/qs/qs-shell/src/client/contract.ts:28&#x27;,
++    source: &#x27;packages/qs/qs-composer/src/client/contract.ts:17&#x27;,
+   },
+   {
+     key: &#x27;qs.stage.interaction&#x27;,
+     kind: &#x27;chain&#x27;,
+     scope: &#x27;session&#x27;,
+-    summary: &#x27;交互卡片位：审批与提问共用，位于消息流末尾（原型位置）。 `select` 按当前会话的 pending 类型选举：qs-approval priority 1、 qs-questions priority 2，升序第一个非 null 当选。**chain 条目崩溃不退位**， 因此卡片必须自带错误提示与重试。&#x27;,
+-    doc: &#x27;交互卡片位：审批与提问共用，位于消息流末尾（原型位置）。\n\n`select` 按当前会话的 pending 类型选举：qs-approval priority 1、\nqs-questions priority 2，升序第一个非 null 当选。**chain 条目崩溃不退位**，\n因此卡片必须自带错误提示与重试。&#x27;,
++    summary: &#x27;审批和提问复用唯一待回答数据与协议。&#x27;,
++    doc: &#x27;审批和提问复用唯一待回答数据与协议。&#x27;,
+     registerOptions: [
+       {
+         name: &#x27;select&#x27;,
+@@ -1774,25 +2391,60 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
+     keyDomain: &#x27;&#x27;,
+     hookContext: &#x27;&#x27;,
+     slotInject: &#x27;&#x27;,
+-    declaredBy: &#x27;an entry in \&#x27;qs.stage.transcript\&#x27; (qs-transcript), so it exists while that entry is mounted&#x27;,
++    declaredBy: &#x27;an entry in \&#x27;qs.stage.pending\&#x27; (qs-composer), so it exists while that entry is mounted&#x27;,
+     occupants: [
+       &#x27;qs-approval ApprovalCard&#x27;,
+       &#x27;qs-questions QuestionCard&#x27;,
+     ],
+     replaceRisk: &#x27;none&#x27;,
+     example: &#x27;return {\n  inject: [\&#x27;slots\&#x27;],\n  apply(ctx) {\n    ctx.slots.inject(\&#x27;qs.stage.interaction\&#x27;, () =&gt; ctx.slots.register(\n      { name: \&#x27;qs.stage.interaction\&#x27;, select: owner =&gt; null },\n      () =&gt; React.createElement(\&#x27;div\&#x27;, null, \&#x27;hello\&#x27;),\n    ))\n  },\n}&#x27;,
+-    source: &#x27;packages/qs/qs-transcript/src/client/contract.ts:37&#x27;,
++    source: &#x27;packages/qs/qs-composer/src/client/contract.ts:15&#x27;,
+   },
+   {
+-    key: &#x27;qs.stage.transcript&#x27;,
++    key: &#x27;qs.stage.pending&#x27;,
+     kind: &#x27;single&#x27;,
+     scope: &#x27;session&#x27;,
+-    summary: &#x27;转写行；严格会话作用域，无绑定不得渲染。由 qs-transcript 贡献。&#x27;,
+-    doc: &#x27;转写行；严格会话作用域，无绑定不得渲染。由 qs-transcript 贡献。&#x27;,
++    summary: &#x27;固定会话交互座位，不随阅读视图卸载。&#x27;,
++    doc: &#x27;固定会话交互座位，不随阅读视图卸载。&#x27;,
+     registerOptions: [],
+-    ownerProps: [
+-      &#x27;/** 转写业主输入。 */\nexport interface QsTranscriptOwnerProps { children?: never }&#x27;,
++    ownerProps: [],
++    ownerPropsReferences: [],
++    standardProps: [
++      &#x27;useResource: UseResource&#x27;,
++      &#x27;useWorkspaces: SnapshotSelectorHook&lt;WorkspaceSnapshot&gt;&#x27;,
++      &#x27;usePanelInfo: UsePanelInfo&#x27;,
++      &#x27;useSessions: UseSessions&#x27;,
++      &#x27;useSessionPendingInteraction: UseSessionPendingInteraction&#x27;,
++      &#x27;useWorkspaces: SnapshotSelectorHook&lt;WorkspaceSnapshot&gt;&#x27;,
++      &#x27;useQsAuth?: UseQsAuth | undefined&#x27;,
++      &#x27;useChat: UseChat&#x27;,
++      &#x27;useConversation: UseConversation&#x27;,
++      &#x27;useInput: SnapshotSelectorHook&lt;InputState&gt;&#x27;,
++      &#x27;inputActions: InputActions&#x27;,
++      &#x27;useSession: SessionSnapshotSelector&#x27;,
++      &#x27;sessionId: SessionId&#x27;,
++      &#x27;useProjection: UseProjection&#x27;,
++      &#x27;useTrajectory: UseTrajectory&#x27;,
++    ],
++    keyDomain: &#x27;&#x27;,
++    hookContext: &#x27;&#x27;,
++    slotInject: &#x27;&#x27;,
++    declaredBy: &#x27;an entry in \&#x27;qs.stage\&#x27; (qs-composer), so it exists while that entry is mounted&#x27;,
++    occupants: [
++      &#x27;qs-composer PendingSeat&#x27;,
+     ],
++    replaceRisk: &#x27;shadows-shipped-ui&#x27;,
++    example: &#x27;return {\n  inject: [\&#x27;slots\&#x27;],\n  apply(ctx) {\n    ctx.slots.inject(\&#x27;qs.stage.pending\&#x27;, () =&gt; ctx.slots.register(\n      { name: \&#x27;qs.stage.pending\&#x27; },\n      () =&gt; React.createElement(\&#x27;div\&#x27;, null, \&#x27;hello\&#x27;),\n    ))\n  },\n}&#x27;,
++    source: &#x27;packages/qs/qs-composer/src/client/contract.ts:13&#x27;,
++  },
++  {
++    key: &#x27;qs.stage.transcript&#x27;,
++    kind: &#x27;single&#x27;,
++    scope: &#x27;session&#x27;,
++    summary: &#x27;Session transcript supplied by the Chat presentation plugin.&#x27;,
++    doc: &#x27;Session transcript supplied by the Chat presentation plugin.&#x27;,
++    registerOptions: [],
++    ownerProps: [],
+     ownerPropsReferences: [],
+     standardProps: [
+       &#x27;useResource: UseResource&#x27;,
+@@ -1814,13 +2466,13 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
+     keyDomain: &#x27;&#x27;,
+     hookContext: &#x27;&#x27;,
+     slotInject: &#x27;&#x27;,
+-    declaredBy: &#x27;an entry in \&#x27;qs.stage\&#x27; (qs-shell), so it exists while that entry is mounted&#x27;,
++    declaredBy: &#x27;an entry in \&#x27;qs.stage\&#x27; (qs-composer), so it exists while that entry is mounted&#x27;,
+     occupants: [
+       &#x27;qs-transcript Transcript&#x27;,
+     ],
+     replaceRisk: &#x27;shadows-shipped-ui&#x27;,
+     example: &#x27;return {\n  inject: [\&#x27;slots\&#x27;],\n  apply(ctx) {\n    ctx.slots.inject(\&#x27;qs.stage.transcript\&#x27;, () =&gt; ctx.slots.register(\n      { name: \&#x27;qs.stage.transcript\&#x27; },\n      () =&gt; React.createElement(\&#x27;div\&#x27;, null, \&#x27;hello\&#x27;),\n    ))\n  },\n}&#x27;,
+-    source: &#x27;packages/qs/qs-shell/src/client/contract.ts:30&#x27;,
++    source: &#x27;packages/qs/qs-composer/src/client/contract.ts:19&#x27;,
+   },
+   {
+     key: &#x27;qs.stage.transcript.row&#x27;,
+@@ -1837,9 +2489,14 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
+       },
+     ],
+     ownerProps: [
+-      &#x27;/** 转写行业主输入：行键与父 entry 绑定的订阅座席。 */\nexport interface QsTranscriptRowOwnerProps {\n  /** 稳定的 Conversation Context 键（避开 React 保留的 key 属性名）。 */\n  readonly nodeKey: string\n  /** 父 entry 的 keyedHooks 绑出的单行订阅座席。 */\n  readonly useNode: UseQsChatNode\n  /** 同一行的 Turn-process 呈现订阅座席。 */\n  readonly useProcess: UseQsChatNodeProcess\n}&#x27;,
++      &#x27;/** 转写行业主输入：行键、父 entry 绑定的订阅座席与会话能力。 */\nexport interface QsTranscriptRowOwnerProps {\n  /** 图片槽由转写宿主唯一声明，行通过宿主委托渲染。 */\n  readonly renderMessageImages: import(\&#x27;@deepseek-ai/dsh-client-ui-conversation/client\&#x27;).RenderMessageImages\n  /** 文件识别沿用官方交付词表；未装配提供者时保持普通文本。 */\n  readonly fileMentions: (owner: Pick&lt;TurnTailOwnerProps, \&#x27;turn\&#x27; | \&#x27;seq\&#x27;&gt;) =&gt; MarkdownFileMentions | undefined\n  /** 稳定的 Conversation Context 键（避开 React 保留的 key 属性名）。 */\n  readonly nodeKey: string\n  /** 父 entry 的 keyedHooks 绑出的单行订阅座席。 */\n  readonly useNode: UseQsChatNode\n  /** 同一行的 Turn-process 呈现订阅座席。 */\n  readonly useProcess: UseQsChatNodeProcess\n  /**\n   * 按会话授权的图片装载（官方 uiConversation 的地址签发）。\n   *\n   * 行组件不持有 ctx，也不得自行拼装资源地址：需要渲染持久图片引用的行（如工具视图的\n   * read_image）只能通过这里取得装载器。\n   */\n  readonly loadImage: MessageImageLoader\n  /** 已完成轮的过程折叠状态（按会话创建，行只读写自己的折叠键）。 */\n  readonly fold: QsProcessFold\n}&#x27;,
+     ],
+     ownerPropsReferences: [
++      &#x27;MarkdownFileMentions&#x27;,
++      &#x27;MessageImageLoader&#x27;,
++      &#x27;QsProcessFold&#x27;,
++      &#x27;RenderMessageImages&#x27;,
++      &#x27;TurnTailOwnerProps&#x27;,
+       &#x27;UseQsChatNode&#x27;,
+       &#x27;UseQsChatNodeProcess&#x27;,
+     ],
+@@ -1860,16 +2517,17 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
+       &#x27;useProjection: UseProjection&#x27;,
+       &#x27;useTrajectory: UseTrajectory&#x27;,
+     ],
+-    keyDomain: &#x27;open: any string the owner dispatches (no compile-time key set), none are taken yet&#x27;,
+-    hookContext: &#x27;&#x27;,
+-    slotInject: &#x27;&#x27;,
++    keyDomain: &#x27;open: any string the owner dispatches (no compile-time key set), already taken: tool-call&#x27;,
++    hookContext: &#x27;ConversationLocationDataStore&lt;ConversationTurnDataMap&gt; | undefined&#x27;,
++    slotInject: &#x27;{ hooks: { turnData: SlotHookFactory&lt;\&#x27;qs.stage.transcript.row\&#x27;, UseChatNodeTurnData&gt; } }&#x27;,
+     declaredBy: &#x27;an entry in \&#x27;qs.stage.transcript\&#x27; (qs-transcript), so it exists while that entry is mounted&#x27;,
+     occupants: [
+       &#x27;qs-transcript component&#x27;,
++      &#x27;qs-ui-tool ToolCallRow key \&#x27;tool-call\&#x27;&#x27;,
+     ],
+-    replaceRisk: &#x27;none&#x27;,
++    replaceRisk: &#x27;shadows-shipped-ui&#x27;,
+     example: &#x27;return {\n  inject: [\&#x27;slots\&#x27;],\n  apply(ctx) {\n    ctx.slots.inject(\&#x27;qs.stage.transcript.row\&#x27;, () =&gt; ctx.slots.register(\n      { name: \&#x27;qs.stage.transcript.row\&#x27;, key: \&#x27;&lt;one key the owner dispatches&gt;\&#x27; },\n      () =&gt; React.createElement(\&#x27;div\&#x27;, null, \&#x27;hello\&#x27;),\n    ))\n  },\n}&#x27;,
+-    source: &#x27;packages/qs/qs-transcript/src/client/contract.ts:24&#x27;,
++    source: &#x27;packages/qs/qs-transcript/src/client/contract.ts:39&#x27;,
+   },
+   {
+     key: &#x27;qs.status&#x27;,
+@@ -1919,7 +2577,98 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
+     ],
+     replaceRisk: &#x27;none&#x27;,
+     example: &#x27;return {\n  inject: [\&#x27;slots\&#x27;],\n  apply(ctx) {\n    ctx.slots.inject(\&#x27;qs.status\&#x27;, () =&gt; ctx.slots.register(\n      { name: \&#x27;qs.status\&#x27;, id: \&#x27;my-entry\&#x27;, order: 100, label: \&#x27;My entry\&#x27; },\n      () =&gt; React.createElement(\&#x27;div\&#x27;, null, \&#x27;hello\&#x27;),\n    ))\n  },\n}&#x27;,
+-    source: &#x27;packages/qs/qs-shell/src/client/contract.ts:36&#x27;,
++    source: &#x27;packages/qs/qs-shell/src/client/contract.ts:21&#x27;,
++  },
++  {
++    key: &#x27;qs.tool.call.images&#x27;,
++    kind: &#x27;single&#x27;,
++    scope: &#x27;session&#x27;,
++    summary: &#x27;已有附件由独立呈现插件消费，读取权限来自会话加载器。&#x27;,
++    doc: &#x27;已有附件由独立呈现插件消费，读取权限来自会话加载器。&#x27;,
++    registerOptions: [],
++    ownerProps: [
++      &#x27;/** Message image group handed to the optional attachment presentation plugin. */\nexport interface MessageImagesOwnerProps {\n  /** Durable references or submission-echo previews in source order. */\n  images: readonly MessageImageSource[]\n  /** Session-authorized image URL loader for the durable arm. */\n  loadImage: MessageImageLoader\n  /** Horizontal placement inside the owning record. */\n  align: \&#x27;start\&#x27; | \&#x27;end\&#x27;\n  /** Force every image into the compact message-attachment tile size. */\n  compact?: boolean\n}&#x27;,
++    ],
++    ownerPropsReferences: [
++      &#x27;Message&#x27;,
++      &#x27;MessageImageLoader&#x27;,
++      &#x27;MessageImageSource&#x27;,
++    ],
++    standardProps: [
++      &#x27;useResource: UseResource&#x27;,
++      &#x27;useWorkspaces: SnapshotSelectorHook&lt;WorkspaceSnapshot&gt;&#x27;,
++      &#x27;usePanelInfo: UsePanelInfo&#x27;,
++      &#x27;useSessions: UseSessions&#x27;,
++      &#x27;useSessionPendingInteraction: UseSessionPendingInteraction&#x27;,
++      &#x27;useWorkspaces: SnapshotSelectorHook&lt;WorkspaceSnapshot&gt;&#x27;,
++      &#x27;useQsAuth?: UseQsAuth | undefined&#x27;,
++      &#x27;useChat: UseChat&#x27;,
++      &#x27;useConversation: UseConversation&#x27;,
++      &#x27;useInput: SnapshotSelectorHook&lt;InputState&gt;&#x27;,
++      &#x27;inputActions: InputActions&#x27;,
++      &#x27;useSession: SessionSnapshotSelector&#x27;,
++      &#x27;sessionId: SessionId&#x27;,
++      &#x27;useProjection: UseProjection&#x27;,
++      &#x27;useTrajectory: UseTrajectory&#x27;,
++    ],
++    keyDomain: &#x27;&#x27;,
++    hookContext: &#x27;&#x27;,
++    slotInject: &#x27;&#x27;,
++    declaredBy: &#x27;the runtime itself (built in; always present)&#x27;,
++    occupants: [],
++    replaceRisk: &#x27;none&#x27;,
++    example: &#x27;return {\n  inject: [\&#x27;slots\&#x27;],\n  apply(ctx) {\n    ctx.slots.inject(\&#x27;qs.tool.call.images\&#x27;, () =&gt; ctx.slots.register(\n      { name: \&#x27;qs.tool.call.images\&#x27; },\n      () =&gt; React.createElement(\&#x27;div\&#x27;, null, \&#x27;hello\&#x27;),\n    ))\n  },\n}&#x27;,
++    source: &#x27;packages/qs/qs-ui-tool/src/client/contract.ts:14&#x27;,
++  },
++  {
++    key: &#x27;qs.tool.call.toolview&#x27;,
++    kind: &#x27;keyed&#x27;,
++    scope: &#x27;session&#x27;,
++    summary: &#x27;单个工具调用的呈现：按 Wire 工具名分派。 键域开放：未认领的键（含无调用记录的孤儿结果）由声明者提供的兜底卡承载， 既不静默消失，也不伪装成某个已知工具。&#x27;,
++    doc: &#x27;单个工具调用的呈现：按 Wire 工具名分派。\n\n键域开放：未认领的键（含无调用记录的孤儿结果）由声明者提供的兜底卡承载，\n既不静默消失，也不伪装成某个已知工具。&#x27;,
++    registerOptions: [
++      {
++        name: &#x27;key&#x27;,
++        requirement: &#x27;required&#x27;,
++        type: &#x27;string&#x27;,
++        doc: &#x27;Your cell key: the entry renders where the owner dispatches this exact key. Registering an already-occupied key replaces that occupant.&#x27;,
++      },
++    ],
++    ownerProps: [
++      &#x27;/**\n * 工具子视图的 owner 输入。\n *\n * 只包含官方持久数据（调用头、结果、结构化 meta）与宿主按会话提供的能力：\n * 与官方 `ToolCallOwnerProps` 相比，这里没有 `openFile`、`inspect` 和 `home`——\n * 资源打开归右栏检查器（C9）、轨迹定位归轨迹视图（C17）、宿主账户家目录属 Host 事实；\n * 在对应里程碑接线前，视图不得伪造这些能力，路径只按会话工作区根做相对显示。\n */\nexport interface QsToolCallOwnerProps {\n  /** 跨运行与结算保持稳定的调用身份。 */\n  readonly callId: string\n  /** Wire 工具名；调用记录缺失时为空串。 */\n  readonly toolName: string\n  /** 该调用的运行头或已结算结果节点（自身拥有其子调用）。 */\n  readonly block: ToolCallBlock\n  /** 会话工作区根，用于相对路径摘要；未知时按原样显示。 */\n  readonly cwd: string | undefined\n  /** 按会话授权的图片装载；缺席时图片类结果只给文字限制说明。 */\n  readonly loadImage: MessageImageLoader | undefined\n}&#x27;,
++    ],
++    ownerPropsReferences: [
++      &#x27;MessageImageLoader&#x27;,
++      &#x27;ToolCallOwnerProps&#x27;,
++    ],
++    standardProps: [
++      &#x27;useResource: UseResource&#x27;,
++      &#x27;useWorkspaces: SnapshotSelectorHook&lt;WorkspaceSnapshot&gt;&#x27;,
++      &#x27;usePanelInfo: UsePanelInfo&#x27;,
++      &#x27;useSessions: UseSessions&#x27;,
++      &#x27;useSessionPendingInteraction: UseSessionPendingInteraction&#x27;,
++      &#x27;useWorkspaces: SnapshotSelectorHook&lt;WorkspaceSnapshot&gt;&#x27;,
++      &#x27;useQsAuth?: UseQsAuth | undefined&#x27;,
++      &#x27;useChat: UseChat&#x27;,
++      &#x27;useConversation: UseConversation&#x27;,
++      &#x27;useInput: SnapshotSelectorHook&lt;InputState&gt;&#x27;,
++      &#x27;inputActions: InputActions&#x27;,
++      &#x27;useSession: SessionSnapshotSelector&#x27;,
++      &#x27;sessionId: SessionId&#x27;,
++      &#x27;useProjection: UseProjection&#x27;,
++      &#x27;useTrajectory: UseTrajectory&#x27;,
++    ],
++    keyDomain: &#x27;open: any string the owner dispatches (no compile-time key set), already taken: present&#x27;,
++    hookContext: &#x27;&#x27;,
++    slotInject: &#x27;&#x27;,
++    declaredBy: &#x27;an entry in \&#x27;qs.stage.transcript.row\&#x27; (qs-ui-tool), so it exists while that entry is mounted&#x27;,
++    occupants: [
++      &#x27;qs-ui-deliverables PresentRow key \&#x27;present\&#x27;&#x27;,
++      &#x27;qs-ui-tool component&#x27;,
++    ],
++    replaceRisk: &#x27;shadows-shipped-ui&#x27;,
++    example: &#x27;return {\n  inject: [\&#x27;slots\&#x27;],\n  apply(ctx) {\n    ctx.slots.inject(\&#x27;qs.tool.call.toolview\&#x27;, () =&gt; ctx.slots.register(\n      { name: \&#x27;qs.tool.call.toolview\&#x27;, key: \&#x27;&lt;one key the owner dispatches&gt;\&#x27; },\n      () =&gt; React.createElement(\&#x27;div\&#x27;, null, \&#x27;hello\&#x27;),\n    ))\n  },\n}&#x27;,
++    source: &#x27;packages/qs/qs-ui-tool/src/client/contract.ts:21&#x27;,
+   },
+   {
+     key: &#x27;rightbar&#x27;,
+diff --git a/pnpm-lock.yaml b/pnpm-lock.yaml
+index 05cd15625f..e6cf4ee787 100644
+--- a/pnpm-lock.yaml
++++ b/pnpm-lock.yaml
+@@ -9,6 +9,15 @@ overrides:
+   &#x27;@deepseek-ai/schemastery&#x27;: link:vendor/schemastery
+   js-yaml@&gt;=4.0.0 &lt;4.3.2: 4.3.2
+   sharp@0.35.3: 0.35.4
++  fast-uri@&gt;=3.0.0 &lt;3.1.6: 3.1.6
++  brace-expansion@&gt;=2.0.0 &lt;2.1.4: 2.1.4
++  brace-expansion@&gt;=5.0.0 &lt;5.0.9: 5.0.9
++  undici@&gt;=7.0.0 &lt;7.29.0: 7.29.0
++  ip-address@&gt;=10.0.0 &lt;10.3.1: 10.3.1
++  nanoid@&gt;=3.0.0 &lt;3.3.18: 3.3.18
++  postcss@&gt;=8.0.0 &lt;8.5.23: 8.5.23
++  browserslist@&gt;=4.0.0 &lt;4.28.7: 4.28.7
++  vite@&gt;=5.0.0 &lt;6.4.3: 6.4.3
+
+ patchedDependencies:
+   &#x27;@electron/osx-sign@1.3.3&#x27;: 280e7b2816caf01423097d24e79107a66afeb563a348630ce9928ae8499a5861
+@@ -126,10 +135,10 @@ importers:
+         version: 6.0.3
+       vite-tsconfig-paths:
+         specifier: ^6.1.1
+-        version: 6.1.1(supports-color@9.4.0)(typescript@6.0.3)(vite@8.0.16(@types/node@22.20.0)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.22.4)(yaml@2.9.0))
++        version: 6.1.1(supports-color@9.4.0)(typescript@6.0.3)(vite@6.4.3(@types/node@22.20.0)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.22.4)(yaml@2.9.0))
+       vitest:
+         specifier: ^4.1.8
+-        version: 4.1.8(@opentelemetry/api@1.9.1)(@types/node@22.20.0)(@vitest/coverage-v8@4.1.8)(happy-dom@20.11.6)(jsdom@29.1.1(@noble/hashes@2.3.0))(vite@8.0.16(@types/node@22.20.0)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.22.4)(yaml@2.9.0))
++        version: 4.1.8(@opentelemetry/api@1.9.1)(@types/node@22.20.0)(@vitest/coverage-v8@4.1.8)(happy-dom@20.11.6)(jsdom@29.1.1(@noble/hashes@2.3.0))(vite@6.4.3(@types/node@22.20.0)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.22.4)(yaml@2.9.0))
+
+   apps/cli:
+     dependencies:
+@@ -529,8 +538,8 @@ importers:
+         specifier: 4.3.2
+         version: 4.3.2
+       pnpm:
+-        specifier: 11.7.0
+-        version: 11.7.0
++        specifier: 11.11.0
++        version: 11.11.0
+       tar:
+         specifier: ^7.5.0
+         version: 7.5.22
+@@ -652,7 +661,7 @@ importers:
+         specifier: ^6.0.3
+         version: 6.0.3
+       vite:
+-        specifier: ^6.0.0
++        specifier: 6.4.3
+         version: 6.4.3(@types/node@22.20.0)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.22.4)(yaml@2.9.0)
+       vitest:
+         specifier: ^4.1.8
+@@ -1984,6 +1993,39 @@ importers:
+       &#x27;@deepseek-ai/dsh-qs-transcript&#x27;:
+         specifier: workspace:^
+         version: link:../../qs/qs-transcript
++      &#x27;@deepseek-ai/dsh-qs-ui-attachment&#x27;:
++        specifier: workspace:^
++        version: link:../../qs/qs-ui-attachment
++      &#x27;@deepseek-ai/dsh-qs-ui-brand&#x27;:
++        specifier: workspace:^
++        version: link:../../qs/qs-ui-brand
++      &#x27;@deepseek-ai/dsh-qs-ui-commands&#x27;:
++        specifier: workspace:^
++        version: link:../../qs/qs-ui-commands
++      &#x27;@deepseek-ai/dsh-qs-ui-deliverables&#x27;:
++        specifier: workspace:^
++        version: link:../../qs/qs-ui-deliverables
++      &#x27;@deepseek-ai/dsh-qs-ui-input-trigger&#x27;:
++        specifier: workspace:^
++        version: link:../../qs/qs-ui-input-trigger
++      &#x27;@deepseek-ai/dsh-qs-ui-message-feedback&#x27;:
++        specifier: workspace:^
++        version: link:../../qs/qs-ui-message-feedback
++      &#x27;@deepseek-ai/dsh-qs-ui-sidebar&#x27;:
++        specifier: workspace:^
++        version: link:../../qs/qs-ui-sidebar
++      &#x27;@deepseek-ai/dsh-qs-ui-sidebar-documentpreview&#x27;:
++        specifier: workspace:^
++        version: link:../../qs/qs-ui-sidebar-documentpreview
++      &#x27;@deepseek-ai/dsh-qs-ui-sidebar-files&#x27;:
++        specifier: workspace:^
++        version: link:../../qs/qs-ui-sidebar-files
++      &#x27;@deepseek-ai/dsh-qs-ui-sidebar-right&#x27;:
++        specifier: workspace:^
++        version: link:../../qs/qs-ui-sidebar-right
++      &#x27;@deepseek-ai/dsh-qs-ui-tool&#x27;:
++        specifier: workspace:^
++        version: link:../../qs/qs-ui-tool
+       &#x27;@deepseek-ai/dsh-session-log-export&#x27;:
+         specifier: workspace:^
+         version: link:../../session-query/session-log-export
+@@ -6615,6 +6657,9 @@ importers:
+       &#x27;@deepseek-ai/dsh-launch-environment&#x27;:
+         specifier: workspace:^
+         version: link:../../util/launch-environment
++      &#x27;@deepseek-ai/schemastery&#x27;:
++        specifier: link:../../../vendor/schemastery
++        version: link:../../../vendor/schemastery
+     devDependencies:
+       &#x27;@deepseek-ai/cordis&#x27;:
+         specifier: workspace:^
+@@ -7665,6 +7710,9 @@ importers:
+       &#x27;@deepseek-ai/dsh-session&#x27;:
+         specifier: workspace:^
+         version: link:../../core/session
++      &#x27;@deepseek-ai/dsh-token-meter&#x27;:
++        specifier: workspace:^
++        version: link:../../llm/token-meter
+       &#x27;@deepseek-ai/dsh-util-crypto&#x27;:
+         specifier: workspace:^
+         version: link:../../util/crypto
+@@ -7797,6 +7845,9 @@ importers:
+       &#x27;@deepseek-ai/dsh-qs-shell&#x27;:
+         specifier: workspace:^
+         version: link:../qs-shell
++      &#x27;@deepseek-ai/dsh-qs-ui-sidebar&#x27;:
++        specifier: workspace:^
++        version: link:../qs-ui-sidebar
+       &#x27;@deepseek-ai/dsh-session&#x27;:
+         specifier: workspace:^
+         version: link:../../core/session
+@@ -7909,15 +7960,24 @@ importers:
+       &#x27;@deepseek-ai/dsh-client-ui-session&#x27;:
+         specifier: workspace:^
+         version: link:../../client/ui-session
++      &#x27;@deepseek-ai/dsh-client-ui-sidebar-right&#x27;:
++        specifier: workspace:^
++        version: link:../../client/ui-sidebar-right
+       &#x27;@deepseek-ai/dsh-client-ui-slots&#x27;:
+         specifier: workspace:^
+         version: link:../../client/ui-slots
++      &#x27;@deepseek-ai/dsh-qs-composer&#x27;:
++        specifier: workspace:^
++        version: link:../qs-composer
+       &#x27;@deepseek-ai/dsh-qs-shell&#x27;:
+         specifier: workspace:^
+         version: link:../qs-shell
+       &#x27;@deepseek-ai/dsh-session&#x27;:
+         specifier: workspace:^
+         version: link:../../core/session
++      &#x27;@deepseek-ai/dsh-util-workspace-path&#x27;:
++        specifier: workspace:^
++        version: link:../../util/workspace-path
+       &#x27;@types/react&#x27;:
+         specifier: ~18.3.1
+         version: 18.3.31
+@@ -7934,187 +7994,799 @@ importers:
+         specifier: ^18.2.0
+         version: 18.3.1(react@18.3.1)
+
+-  packages/runtime-diagnostics/invariants:
+-    dependencies:
+-      &#x27;@deepseek-ai/schemastery&#x27;:
+-        specifier: link:../../../vendor/schemastery
+-        version: link:../../../vendor/schemastery
++  packages/qs/qs-ui-attachment:
+     devDependencies:
+       &#x27;@deepseek-ai/cordis&#x27;:
+         specifier: workspace:^
+         version: link:../../../vendor/cordis
+-
+-  packages/sandbox/sandbox:
+-    dependencies:
+-      &#x27;@deepseek-ai/dsh-util-values&#x27;:
++      &#x27;@deepseek-ai/dsh-api-remotes&#x27;:
+         specifier: workspace:^
+-        version: link:../../util/values
+-    devDependencies:
+-      &#x27;@deepseek-ai/cordis&#x27;:
++        version: link:../../api/remotes
++      &#x27;@deepseek-ai/dsh-attachment&#x27;:
+         specifier: workspace:^
+-        version: link:../../../vendor/cordis
+-      &#x27;@deepseek-ai/dsh-llm&#x27;:
++        version: link:../../attachment/attachment
++      &#x27;@deepseek-ai/dsh-client-locale&#x27;:
+         specifier: workspace:^
+-        version: link:../../llm/llm
+-      &#x27;@deepseek-ai/dsh-session&#x27;:
++        version: link:../../client/locale
++      &#x27;@deepseek-ai/dsh-client-store&#x27;:
+         specifier: workspace:^
+-        version: link:../../core/session
+-
+-  packages/sandbox/sandbox-local:
+-    dependencies:
+-      &#x27;@deepseek-ai/dsh-sandbox-windows-acl&#x27;:
++        version: link:../../client/store
++      &#x27;@deepseek-ai/dsh-client-test-runtime&#x27;:
+         specifier: workspace:^
+-        version: link:../sandbox-windows-acl
+-      &#x27;@deepseek-ai/dsh-util-values&#x27;:
++        version: link:../../test-support/client-runtime
++      &#x27;@deepseek-ai/dsh-client-ui-chat&#x27;:
+         specifier: workspace:^
+-        version: link:../../util/values
+-      &#x27;@deepseek-ai/node-addon-system&#x27;:
++        version: link:../../client/ui-chat
++      &#x27;@deepseek-ai/dsh-client-ui-conversation&#x27;:
+         specifier: workspace:^
+-        version: link:../../../native/system/packages/entry
+-      &#x27;@deepseek-ai/schemastery&#x27;:
+-        specifier: link:../../../vendor/schemastery
+-        version: link:../../../vendor/schemastery
+-    devDependencies:
+-      &#x27;@deepseek-ai/cordis&#x27;:
++        version: link:../../client/ui-conversation
++      &#x27;@deepseek-ai/dsh-client-ui-primitives&#x27;:
+         specifier: workspace:^
+-        version: link:../../../vendor/cordis
+-      &#x27;@deepseek-ai/dsh-llm&#x27;:
++        version: link:../../client/ui-primitives
++      &#x27;@deepseek-ai/dsh-client-ui-renderer&#x27;:
+         specifier: workspace:^
+-        version: link:../../llm/llm
+-      &#x27;@deepseek-ai/dsh-sandbox&#x27;:
++        version: link:../../client/ui-renderer
++      &#x27;@deepseek-ai/dsh-client-ui-session&#x27;:
+         specifier: workspace:^
+-        version: link:../sandbox
++        version: link:../../client/ui-session
++      &#x27;@deepseek-ai/dsh-client-ui-slots&#x27;:
++        specifier: workspace:^
++        version: link:../../client/ui-slots
++      &#x27;@deepseek-ai/dsh-qs-transcript&#x27;:
++        specifier: workspace:^
++        version: link:../qs-transcript
++      &#x27;@deepseek-ai/dsh-qs-ui-tool&#x27;:
++        specifier: workspace:^
++        version: link:../qs-ui-tool
+       &#x27;@deepseek-ai/dsh-session&#x27;:
+         specifier: workspace:^
+         version: link:../../core/session
++      &#x27;@testing-library/react&#x27;:
++        specifier: ^16.1.0
++        version: 16.3.2(@testing-library/dom@10.4.1)(@types/react-dom@18.3.7(@types/react@18.3.31))(@types/react@18.3.31)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
++      &#x27;@types/react&#x27;:
++        specifier: ~18.3.1
++        version: 18.3.31
++      &#x27;@types/react-dom&#x27;:
++        specifier: ~18.3.0
++        version: 18.3.7(@types/react@18.3.31)
++      clsx:
++        specifier: ^2.0.0
++        version: 2.1.1
++      react:
++        specifier: ^18.2.0
++        version: 18.3.1
++      react-dom:
++        specifier: ^18.2.0
++        version: 18.3.1(react@18.3.1)
+
+-  packages/sandbox/sandbox-policy:
+-    dependencies:
+-      &#x27;@deepseek-ai/schemastery&#x27;:
+-        specifier: link:../../../vendor/schemastery
+-        version: link:../../../vendor/schemastery
+-      zod:
+-        specifier: ^4.4.3
+-        version: 4.4.3
++  packages/qs/qs-ui-brand:
+     devDependencies:
+       &#x27;@deepseek-ai/cordis&#x27;:
+         specifier: workspace:^
+         version: link:../../../vendor/cordis
+-      &#x27;@deepseek-ai/dsh-agent&#x27;:
+-        specifier: workspace:^
+-        version: link:../../core/agent
+-      &#x27;@deepseek-ai/dsh-invariants&#x27;:
++      &#x27;@deepseek-ai/dsh-client-locale&#x27;:
+         specifier: workspace:^
+-        version: link:../../runtime-diagnostics/invariants
+-      &#x27;@deepseek-ai/dsh-sandbox&#x27;:
++        version: link:../../client/locale
++      &#x27;@deepseek-ai/dsh-client-test-runtime&#x27;:
+         specifier: workspace:^
+-        version: link:../sandbox
+-      &#x27;@deepseek-ai/dsh-session&#x27;:
++        version: link:../../test-support/client-runtime
++      &#x27;@deepseek-ai/dsh-client-ui-renderer&#x27;:
+         specifier: workspace:^
+-        version: link:../../core/session
+-      &#x27;@deepseek-ai/dsh-session-projection&#x27;:
++        version: link:../../client/ui-renderer
++      &#x27;@deepseek-ai/dsh-client-ui-slots&#x27;:
+         specifier: workspace:^
+-        version: link:../../session/session-projection
+-      &#x27;@deepseek-ai/dsh-system-prompt&#x27;:
++        version: link:../../client/ui-slots
++      &#x27;@deepseek-ai/dsh-qs-shell&#x27;:
+         specifier: workspace:^
+-        version: link:../../core/system-prompt
++        version: link:../qs-shell
++      &#x27;@types/react&#x27;:
++        specifier: ~18.3.1
++        version: 18.3.31
++      clsx:
++        specifier: ^2.0.0
++        version: 2.1.1
++      react:
++        specifier: ^18.2.0
++        version: 18.3.1
+
+-  packages/sandbox/sandbox-windows-acl:
+-    dependencies:
+-      &#x27;@deepseek-ai/dsh-win32-process&#x27;:
+-        specifier: workspace:^
+-        version: link:../../subprocess/win32-process
+-      koffi:
+-        specifier: ^3.1.0
+-        version: 3.1.1
++  packages/qs/qs-ui-commands:
+     devDependencies:
+       &#x27;@deepseek-ai/cordis&#x27;:
+         specifier: workspace:^
+         version: link:../../../vendor/cordis
+-      &#x27;@deepseek-ai/dsh-pwsh-local&#x27;:
++      &#x27;@deepseek-ai/dsh-api-session-controller&#x27;:
+         specifier: workspace:^
+-        version: link:../../shell/pwsh-local
+-      &#x27;@deepseek-ai/dsh-sandbox-local&#x27;:
++        version: link:../../api/session-controller
++      &#x27;@deepseek-ai/dsh-client-locale&#x27;:
+         specifier: workspace:^
+-        version: link:../sandbox-local
+-
+-  packages/schedule/schedule:
+-    dependencies:
+-      zod:
+-        specifier: ^4.4.3
+-        version: 4.4.3
+-    devDependencies:
+-      &#x27;@deepseek-ai/cordis&#x27;:
++        version: link:../../client/locale
++      &#x27;@deepseek-ai/dsh-client-store&#x27;:
+         specifier: workspace:^
+-        version: link:../../../vendor/cordis
+-      &#x27;@deepseek-ai/cordis-plugin-loader&#x27;:
++        version: link:../../client/store
++      &#x27;@deepseek-ai/dsh-client-test-runtime&#x27;:
+         specifier: workspace:^
+-        version: link:../../../vendor/loader
+-      &#x27;@deepseek-ai/dsh-agent&#x27;:
++        version: link:../../test-support/client-runtime
++      &#x27;@deepseek-ai/dsh-client-ui-commands&#x27;:
+         specifier: workspace:^
+-        version: link:../../core/agent
+-      &#x27;@deepseek-ai/dsh-agent-loop&#x27;:
++        version: link:../../client/ui-commands
++      &#x27;@deepseek-ai/dsh-client-ui-primitives&#x27;:
+         specifier: workspace:^
+-        version: link:../../core/agent-loop
+-      &#x27;@deepseek-ai/dsh-agent-loop-testkit&#x27;:
++        version: link:../../client/ui-primitives
++      &#x27;@deepseek-ai/dsh-client-ui-renderer&#x27;:
+         specifier: workspace:^
+-        version: link:../../test-support/agent-loop-testkit
+-      &#x27;@deepseek-ai/dsh-brand&#x27;:
++        version: link:../../client/ui-renderer
++      &#x27;@deepseek-ai/dsh-client-ui-session&#x27;:
+         specifier: workspace:^
+-        version: link:../../util/brand
+-      &#x27;@deepseek-ai/dsh-invariants&#x27;:
++        version: link:../../client/ui-session
++      &#x27;@deepseek-ai/dsh-client-ui-slots&#x27;:
+         specifier: workspace:^
+-        version: link:../../runtime-diagnostics/invariants
+-      &#x27;@deepseek-ai/dsh-llm&#x27;:
++        version: link:../../client/ui-slots
++      &#x27;@deepseek-ai/dsh-qs-composer&#x27;:
+         specifier: workspace:^
+-        version: link:../../llm/llm
++        version: link:../qs-composer
+       &#x27;@deepseek-ai/dsh-session&#x27;:
+         specifier: workspace:^
+         version: link:../../core/session
+-      &#x27;@deepseek-ai/dsh-session-persistence&#x27;:
+-        specifier: workspace:^
+-        version: link:../../session/session-persistence
+-      &#x27;@deepseek-ai/dsh-session-persistence-jsonl&#x27;:
+-        specifier: workspace:^
+-        version: link:../../session/session-persistence-jsonl
+-      &#x27;@deepseek-ai/dsh-session-projection&#x27;:
+-        specifier: workspace:^
+-        version: link:../../session/session-projection
+-      &#x27;@deepseek-ai/dsh-system-prompt&#x27;:
+-        specifier: workspace:^
+-        version: link:../../core/system-prompt
+-      &#x27;@deepseek-ai/dsh-tools&#x27;:
+-        specifier: workspace:^
+-        version: link:../../core/tools
++      &#x27;@types/react&#x27;:
++        specifier: ~18.3.1
++        version: 18.3.31
++      react:
++        specifier: ^18.2.0
++        version: 18.3.1
+
+-  packages/sdk/client:
+-    dependencies:
+-      &#x27;@deepseek-ai/dsh&#x27;:
+-        specifier: workspace:*
+-        version: link:../../../apps/cli
++  packages/qs/qs-ui-deliverables:
+     devDependencies:
+       &#x27;@deepseek-ai/cordis&#x27;:
+         specifier: workspace:^
+         version: link:../../../vendor/cordis
+-      &#x27;@deepseek-ai/dsh-llm&#x27;:
++      &#x27;@deepseek-ai/dsh-api-remotes&#x27;:
+         specifier: workspace:^
+-        version: link:../../llm/llm
+-      &#x27;@deepseek-ai/dsh-sdk-protocol&#x27;:
++        version: link:../../api/remotes
++      &#x27;@deepseek-ai/dsh-client-locale&#x27;:
+         specifier: workspace:^
+-        version: link:../protocol
+-      &#x27;@deepseek-ai/dsh-session&#x27;:
++        version: link:../../client/locale
++      &#x27;@deepseek-ai/dsh-client-store&#x27;:
+         specifier: workspace:^
+-        version: link:../../core/session
+-
+-  packages/sdk/protocol:
+-    devDependencies:
+-      &#x27;@deepseek-ai/cordis&#x27;:
++        version: link:../../client/store
++      &#x27;@deepseek-ai/dsh-client-test-runtime&#x27;:
+         specifier: workspace:^
+-        version: link:../../../vendor/cordis
+-      &#x27;@deepseek-ai/dsh-llm&#x27;:
++        version: link:../../test-support/client-runtime
++      &#x27;@deepseek-ai/dsh-client-ui-chat&#x27;:
+         specifier: workspace:^
+-        version: link:../../llm/llm
+-      &#x27;@deepseek-ai/dsh-session&#x27;:
++        version: link:../../client/ui-chat
++      &#x27;@deepseek-ai/dsh-client-ui-deliverables&#x27;:
++        specifier: workspace:^
++        version: link:../../client/ui-deliverables
++      &#x27;@deepseek-ai/dsh-client-ui-dockkit&#x27;:
++        specifier: workspace:^
++        version: link:../../client/ui-dockkit
++      &#x27;@deepseek-ai/dsh-client-ui-primitives&#x27;:
++        specifier: workspace:^
++        version: link:../../client/ui-primitives
++      &#x27;@deepseek-ai/dsh-client-ui-renderer&#x27;:
++        specifier: workspace:^
++        version: link:../../client/ui-renderer
++      &#x27;@deepseek-ai/dsh-client-ui-session&#x27;:
++        specifier: workspace:^
++        version: link:../../client/ui-session
++      &#x27;@deepseek-ai/dsh-client-ui-sidebar-right&#x27;:
++        specifier: workspace:^
++        version: link:../../client/ui-sidebar-right
++      &#x27;@deepseek-ai/dsh-client-ui-slots&#x27;:
++        specifier: workspace:^
++        version: link:../../client/ui-slots
++      &#x27;@deepseek-ai/dsh-qs-transcript&#x27;:
++        specifier: workspace:^
++        version: link:../qs-transcript
++      &#x27;@deepseek-ai/dsh-qs-ui-tool&#x27;:
++        specifier: workspace:^
++        version: link:../qs-ui-tool
++      &#x27;@deepseek-ai/dsh-session&#x27;:
++        specifier: workspace:^
++        version: link:../../core/session
++      &#x27;@deepseek-ai/dsh-util-workspace-path&#x27;:
++        specifier: workspace:^
++        version: link:../../util/workspace-path
++      &#x27;@testing-library/react&#x27;:
++        specifier: ^16.1.0
++        version: 16.3.2(@testing-library/dom@10.4.1)(@types/react-dom@18.3.7(@types/react@18.3.31))(@types/react@18.3.31)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
++      &#x27;@types/react&#x27;:
++        specifier: ~18.3.1
++        version: 18.3.31
++      &#x27;@types/react-dom&#x27;:
++        specifier: ~18.3.0
++        version: 18.3.7(@types/react@18.3.31)
++      clsx:
++        specifier: ^2.0.0
++        version: 2.1.1
++      react:
++        specifier: ^18.2.0
++        version: 18.3.1
++      react-dom:
++        specifier: ^18.2.0
++        version: 18.3.1(react@18.3.1)
++
++  packages/qs/qs-ui-input-trigger:
++    devDependencies:
++      &#x27;@deepseek-ai/cordis&#x27;:
++        specifier: workspace:^
++        version: link:../../../vendor/cordis
++      &#x27;@deepseek-ai/dsh-api-session-controller&#x27;:
++        specifier: workspace:^
++        version: link:../../api/session-controller
++      &#x27;@deepseek-ai/dsh-client-locale&#x27;:
++        specifier: workspace:^
++        version: link:../../client/locale
++      &#x27;@deepseek-ai/dsh-client-store&#x27;:
++        specifier: workspace:^
++        version: link:../../client/store
++      &#x27;@deepseek-ai/dsh-client-test-runtime&#x27;:
++        specifier: workspace:^
++        version: link:../../test-support/client-runtime
++      &#x27;@deepseek-ai/dsh-client-ui-conversation&#x27;:
++        specifier: workspace:^
++        version: link:../../client/ui-conversation
++      &#x27;@deepseek-ai/dsh-client-ui-input-trigger&#x27;:
++        specifier: workspace:^
++        version: link:../../client/ui-input-trigger
++      &#x27;@deepseek-ai/dsh-client-ui-renderer&#x27;:
++        specifier: workspace:^
++        version: link:../../client/ui-renderer
++      &#x27;@deepseek-ai/dsh-client-ui-session&#x27;:
++        specifier: workspace:^
++        version: link:../../client/ui-session
++      &#x27;@deepseek-ai/dsh-client-ui-slots&#x27;:
++        specifier: workspace:^
++        version: link:../../client/ui-slots
++      &#x27;@deepseek-ai/dsh-qs-composer&#x27;:
++        specifier: workspace:^
++        version: link:../qs-composer
++      &#x27;@deepseek-ai/dsh-session&#x27;:
++        specifier: workspace:^
++        version: link:../../core/session
++      &#x27;@types/react&#x27;:
++        specifier: ~18.3.1
++        version: 18.3.31
++      clsx:
++        specifier: ^2.0.0
++        version: 2.1.1
++      react:
++        specifier: ^18.2.0
++        version: 18.3.1
++
++  packages/qs/qs-ui-message-feedback:
++    devDependencies:
++      &#x27;@deepseek-ai/cordis&#x27;:
++        specifier: workspace:^
++        version: link:../../../vendor/cordis
++      &#x27;@deepseek-ai/dsh-api-remotes&#x27;:
++        specifier: workspace:^
++        version: link:../../api/remotes
++      &#x27;@deepseek-ai/dsh-api-session-controller&#x27;:
++        specifier: workspace:^
++        version: link:../../api/session-controller
++      &#x27;@deepseek-ai/dsh-client-locale&#x27;:
++        specifier: workspace:^
++        version: link:../../client/locale
++      &#x27;@deepseek-ai/dsh-client-store&#x27;:
++        specifier: workspace:^
++        version: link:../../client/store
++      &#x27;@deepseek-ai/dsh-client-test-runtime&#x27;:
++        specifier: workspace:^
++        version: link:../../test-support/client-runtime
++      &#x27;@deepseek-ai/dsh-client-ui-message-feedback&#x27;:
++        specifier: workspace:^
++        version: link:../../client/ui-message-feedback
++      &#x27;@deepseek-ai/dsh-client-ui-primitives&#x27;:
++        specifier: workspace:^
++        version: link:../../client/ui-primitives
++      &#x27;@deepseek-ai/dsh-client-ui-renderer&#x27;:
++        specifier: workspace:^
++        version: link:../../client/ui-renderer
++      &#x27;@deepseek-ai/dsh-client-ui-session&#x27;:
++        specifier: workspace:^
++        version: link:../../client/ui-session
++      &#x27;@deepseek-ai/dsh-client-ui-slots&#x27;:
++        specifier: workspace:^
++        version: link:../../client/ui-slots
++      &#x27;@deepseek-ai/dsh-command-feedback&#x27;:
++        specifier: workspace:^
++        version: link:../../feedback/command-feedback
++      &#x27;@deepseek-ai/dsh-message-feedback&#x27;:
++        specifier: workspace:^
++        version: link:../../feedback/message-feedback
++      &#x27;@deepseek-ai/dsh-qs-composer&#x27;:
++        specifier: workspace:^
++        version: link:../qs-composer
++      &#x27;@deepseek-ai/dsh-qs-transcript&#x27;:
++        specifier: workspace:^
++        version: link:../qs-transcript
++      &#x27;@deepseek-ai/dsh-session&#x27;:
++        specifier: workspace:^
++        version: link:../../core/session
++      &#x27;@types/react&#x27;:
++        specifier: ~18.3.1
++        version: 18.3.31
++      react:
++        specifier: ^18.2.0
++        version: 18.3.1
++
++  packages/qs/qs-ui-sidebar:
++    devDependencies:
++      &#x27;@deepseek-ai/cordis&#x27;:
++        specifier: workspace:^
++        version: link:../../../vendor/cordis
++      &#x27;@deepseek-ai/dsh-client-locale&#x27;:
++        specifier: workspace:^
++        version: link:../../client/locale
++      &#x27;@deepseek-ai/dsh-client-test-runtime&#x27;:
++        specifier: workspace:^
++        version: link:../../test-support/client-runtime
++      &#x27;@deepseek-ai/dsh-client-ui-renderer&#x27;:
++        specifier: workspace:^
++        version: link:../../client/ui-renderer
++      &#x27;@deepseek-ai/dsh-client-ui-slots&#x27;:
++        specifier: workspace:^
++        version: link:../../client/ui-slots
++      &#x27;@deepseek-ai/dsh-qs-shell&#x27;:
++        specifier: workspace:^
++        version: link:../qs-shell
++      &#x27;@types/react&#x27;:
++        specifier: ~18.3.1
++        version: 18.3.31
++      clsx:
++        specifier: ^2.0.0
++        version: 2.1.1
++      react:
++        specifier: ^18.2.0
++        version: 18.3.1
++
++  packages/qs/qs-ui-sidebar-documentpreview:
++    devDependencies:
++      &#x27;@deepseek-ai/cordis&#x27;:
++        specifier: workspace:^
++        version: link:../../../vendor/cordis
++      &#x27;@deepseek-ai/dsh-api-remotes&#x27;:
++        specifier: workspace:^
++        version: link:../../api/remotes
++      &#x27;@deepseek-ai/dsh-api-workspace-files&#x27;:
++        specifier: workspace:^
++        version: link:../../api/workspace-files
++      &#x27;@deepseek-ai/dsh-client-locale&#x27;:
++        specifier: workspace:^
++        version: link:../../client/locale
++      &#x27;@deepseek-ai/dsh-client-resources&#x27;:
++        specifier: workspace:^
++        version: link:../../client/resources
++      &#x27;@deepseek-ai/dsh-client-store&#x27;:
++        specifier: workspace:^
++        version: link:../../client/store
++      &#x27;@deepseek-ai/dsh-client-test-runtime&#x27;:
++        specifier: workspace:^
++        version: link:../../test-support/client-runtime
++      &#x27;@deepseek-ai/dsh-client-ui-dockkit&#x27;:
++        specifier: workspace:^
++        version: link:../../client/ui-dockkit
++      &#x27;@deepseek-ai/dsh-client-ui-primitives&#x27;:
++        specifier: workspace:^
++        version: link:../../client/ui-primitives
++      &#x27;@deepseek-ai/dsh-client-ui-renderer&#x27;:
++        specifier: workspace:^
++        version: link:../../client/ui-renderer
++      &#x27;@deepseek-ai/dsh-client-ui-session&#x27;:
++        specifier: workspace:^
++        version: link:../../client/ui-session
++      &#x27;@deepseek-ai/dsh-client-ui-sidebar-documentpreview&#x27;:
++        specifier: workspace:^
++        version: link:../../client/ui-sidebar-documentpreview
++      &#x27;@deepseek-ai/dsh-client-ui-sidebar-right&#x27;:
++        specifier: workspace:^
++        version: link:../../client/ui-sidebar-right
++      &#x27;@deepseek-ai/dsh-client-ui-slots&#x27;:
++        specifier: workspace:^
++        version: link:../../client/ui-slots
++      &#x27;@deepseek-ai/dsh-qs-ui-sidebar-right&#x27;:
++        specifier: workspace:^
++        version: link:../qs-ui-sidebar-right
++      &#x27;@deepseek-ai/dsh-session&#x27;:
++        specifier: workspace:^
++        version: link:../../core/session
++      &#x27;@deepseek-ai/dsh-util-workspace-path&#x27;:
++        specifier: workspace:^
++        version: link:../../util/workspace-path
++      &#x27;@testing-library/react&#x27;:
++        specifier: ^16.1.0
++        version: 16.3.2(@testing-library/dom@10.4.1)(@types/react-dom@18.3.7(@types/react@18.3.31))(@types/react@18.3.31)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
++      &#x27;@types/react&#x27;:
++        specifier: ~18.3.1
++        version: 18.3.31
++      &#x27;@types/react-dom&#x27;:
++        specifier: ~18.3.0
++        version: 18.3.7(@types/react@18.3.31)
++      clsx:
++        specifier: ^2.0.0
++        version: 2.1.1
++      react:
++        specifier: ^18.2.0
++        version: 18.3.1
++      react-dom:
++        specifier: ^18.2.0
++        version: 18.3.1(react@18.3.1)
++
++  packages/qs/qs-ui-sidebar-files:
++    devDependencies:
++      &#x27;@deepseek-ai/cordis&#x27;:
++        specifier: workspace:^
++        version: link:../../../vendor/cordis
++      &#x27;@deepseek-ai/dsh-api-remotes&#x27;:
++        specifier: workspace:^
++        version: link:../../api/remotes
++      &#x27;@deepseek-ai/dsh-api-workspace-files&#x27;:
++        specifier: workspace:^
++        version: link:../../api/workspace-files
++      &#x27;@deepseek-ai/dsh-client-locale&#x27;:
++        specifier: workspace:^
++        version: link:../../client/locale
++      &#x27;@deepseek-ai/dsh-client-store&#x27;:
++        specifier: workspace:^
++        version: link:../../client/store
++      &#x27;@deepseek-ai/dsh-client-test-runtime&#x27;:
++        specifier: workspace:^
++        version: link:../../test-support/client-runtime
++      &#x27;@deepseek-ai/dsh-client-ui-dockkit&#x27;:
++        specifier: workspace:^
++        version: link:../../client/ui-dockkit
++      &#x27;@deepseek-ai/dsh-client-ui-primitives&#x27;:
++        specifier: workspace:^
++        version: link:../../client/ui-primitives
++      &#x27;@deepseek-ai/dsh-client-ui-renderer&#x27;:
++        specifier: workspace:^
++        version: link:../../client/ui-renderer
++      &#x27;@deepseek-ai/dsh-client-ui-session&#x27;:
++        specifier: workspace:^
++        version: link:../../client/ui-session
++      &#x27;@deepseek-ai/dsh-client-ui-sidebar-files&#x27;:
++        specifier: workspace:^
++        version: link:../../client/ui-sidebar-files
++      &#x27;@deepseek-ai/dsh-client-ui-sidebar-right&#x27;:
++        specifier: workspace:^
++        version: link:../../client/ui-sidebar-right
++      &#x27;@deepseek-ai/dsh-client-ui-slots&#x27;:
++        specifier: workspace:^
++        version: link:../../client/ui-slots
++      &#x27;@deepseek-ai/dsh-qs-ui-sidebar-right&#x27;:
++        specifier: workspace:^
++        version: link:../qs-ui-sidebar-right
++      &#x27;@deepseek-ai/dsh-session&#x27;:
++        specifier: workspace:^
++        version: link:../../core/session
++      &#x27;@deepseek-ai/dsh-util-workspace-path&#x27;:
++        specifier: workspace:^
++        version: link:../../util/workspace-path
++      &#x27;@testing-library/react&#x27;:
++        specifier: ^16.1.0
++        version: 16.3.2(@testing-library/dom@10.4.1)(@types/react-dom@18.3.7(@types/react@18.3.31))(@types/react@18.3.31)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
++      &#x27;@types/react&#x27;:
++        specifier: ~18.3.1
++        version: 18.3.31
++      &#x27;@types/react-dom&#x27;:
++        specifier: ~18.3.0
++        version: 18.3.7(@types/react@18.3.31)
++      clsx:
++        specifier: ^2.0.0
++        version: 2.1.1
++      react:
++        specifier: ^18.2.0
++        version: 18.3.1
++      react-dom:
++        specifier: ^18.2.0
++        version: 18.3.1(react@18.3.1)
++
++  packages/qs/qs-ui-sidebar-right:
++    devDependencies:
++      &#x27;@deepseek-ai/cordis&#x27;:
++        specifier: workspace:^
++        version: link:../../../vendor/cordis
++      &#x27;@deepseek-ai/dsh-client-locale&#x27;:
++        specifier: workspace:^
++        version: link:../../client/locale
++      &#x27;@deepseek-ai/dsh-client-test-runtime&#x27;:
++        specifier: workspace:^
++        version: link:../../test-support/client-runtime
++      &#x27;@deepseek-ai/dsh-client-ui-dockkit&#x27;:
++        specifier: workspace:^
++        version: link:../../client/ui-dockkit
++      &#x27;@deepseek-ai/dsh-client-ui-renderer&#x27;:
++        specifier: workspace:^
++        version: link:../../client/ui-renderer
++      &#x27;@deepseek-ai/dsh-client-ui-session&#x27;:
++        specifier: workspace:^
++        version: link:../../client/ui-session
++      &#x27;@deepseek-ai/dsh-client-ui-sidebar-right&#x27;:
++        specifier: workspace:^
++        version: link:../../client/ui-sidebar-right
++      &#x27;@deepseek-ai/dsh-client-ui-slots&#x27;:
++        specifier: workspace:^
++        version: link:../../client/ui-slots
++      &#x27;@deepseek-ai/dsh-qs-shell&#x27;:
++        specifier: workspace:^
++        version: link:../qs-shell
++      &#x27;@deepseek-ai/dsh-session&#x27;:
++        specifier: workspace:^
++        version: link:../../core/session
++      &#x27;@types/react&#x27;:
++        specifier: ~18.3.1
++        version: 18.3.31
++      &#x27;@types/react-dom&#x27;:
++        specifier: ~18.3.0
++        version: 18.3.7(@types/react@18.3.31)
++      clsx:
++        specifier: ^2.0.0
++        version: 2.1.1
++      react:
++        specifier: ^18.2.0
++        version: 18.3.1
++      react-dom:
++        specifier: ^18.2.0
++        version: 18.3.1(react@18.3.1)
++
++  packages/qs/qs-ui-tool:
++    devDependencies:
++      &#x27;@deepseek-ai/cordis&#x27;:
++        specifier: workspace:^
++        version: link:../../../vendor/cordis
++      &#x27;@deepseek-ai/dsh-api-session-controller&#x27;:
++        specifier: workspace:^
++        version: link:../../api/session-controller
++      &#x27;@deepseek-ai/dsh-attachment&#x27;:
++        specifier: workspace:^
++        version: link:../../attachment/attachment
++      &#x27;@deepseek-ai/dsh-client-connection&#x27;:
++        specifier: workspace:^
++        version: link:../../client/connection
++      &#x27;@deepseek-ai/dsh-client-locale&#x27;:
++        specifier: workspace:^
++        version: link:../../client/locale
++      &#x27;@deepseek-ai/dsh-client-store&#x27;:
++        specifier: workspace:^
++        version: link:../../client/store
++      &#x27;@deepseek-ai/dsh-client-test-runtime&#x27;:
++        specifier: workspace:^
++        version: link:../../test-support/client-runtime
++      &#x27;@deepseek-ai/dsh-client-ui-chat&#x27;:
++        specifier: workspace:^
++        version: link:../../client/ui-chat
++      &#x27;@deepseek-ai/dsh-client-ui-conversation&#x27;:
++        specifier: workspace:^
++        version: link:../../client/ui-conversation
++      &#x27;@deepseek-ai/dsh-client-ui-primitives&#x27;:
++        specifier: workspace:^
++        version: link:../../client/ui-primitives
++      &#x27;@deepseek-ai/dsh-client-ui-renderer&#x27;:
++        specifier: workspace:^
++        version: link:../../client/ui-renderer
++      &#x27;@deepseek-ai/dsh-client-ui-session&#x27;:
++        specifier: workspace:^
++        version: link:../../client/ui-session
++      &#x27;@deepseek-ai/dsh-client-ui-slots&#x27;:
++        specifier: workspace:^
++        version: link:../../client/ui-slots
++      &#x27;@deepseek-ai/dsh-qs-composer&#x27;:
++        specifier: workspace:^
++        version: link:../qs-composer
++      &#x27;@deepseek-ai/dsh-qs-shell&#x27;:
++        specifier: workspace:^
++        version: link:../qs-shell
++      &#x27;@deepseek-ai/dsh-qs-transcript&#x27;:
++        specifier: workspace:^
++        version: link:../qs-transcript
++      &#x27;@deepseek-ai/dsh-session&#x27;:
++        specifier: workspace:^
++        version: link:../../core/session
++      &#x27;@deepseek-ai/dsh-spill-policy&#x27;:
++        specifier: workspace:^
++        version: link:../../spill/spill-policy
++      &#x27;@deepseek-ai/dsh-util-workspace-path&#x27;:
++        specifier: workspace:^
++        version: link:../../util/workspace-path
++      &#x27;@types/react&#x27;:
++        specifier: ~18.3.1
++        version: 18.3.31
++      &#x27;@types/react-dom&#x27;:
++        specifier: ~18.3.0
++        version: 18.3.7(@types/react@18.3.31)
++      clsx:
++        specifier: ^2.0.0
++        version: 2.1.1
++      react:
++        specifier: ^18.2.0
++        version: 18.3.1
++      react-dom:
++        specifier: ^18.2.0
++        version: 18.3.1(react@18.3.1)
++
++  packages/runtime-diagnostics/invariants:
++    dependencies:
++      &#x27;@deepseek-ai/schemastery&#x27;:
++        specifier: link:../../../vendor/schemastery
++        version: link:../../../vendor/schemastery
++    devDependencies:
++      &#x27;@deepseek-ai/cordis&#x27;:
++        specifier: workspace:^
++        version: link:../../../vendor/cordis
++
++  packages/sandbox/sandbox:
++    dependencies:
++      &#x27;@deepseek-ai/dsh-util-values&#x27;:
++        specifier: workspace:^
++        version: link:../../util/values
++    devDependencies:
++      &#x27;@deepseek-ai/cordis&#x27;:
++        specifier: workspace:^
++        version: link:../../../vendor/cordis
++      &#x27;@deepseek-ai/dsh-llm&#x27;:
++        specifier: workspace:^
++        version: link:../../llm/llm
++      &#x27;@deepseek-ai/dsh-session&#x27;:
++        specifier: workspace:^
++        version: link:../../core/session
++
++  packages/sandbox/sandbox-local:
++    dependencies:
++      &#x27;@deepseek-ai/dsh-sandbox-windows-acl&#x27;:
++        specifier: workspace:^
++        version: link:../sandbox-windows-acl
++      &#x27;@deepseek-ai/dsh-util-values&#x27;:
++        specifier: workspace:^
++        version: link:../../util/values
++      &#x27;@deepseek-ai/node-addon-system&#x27;:
++        specifier: workspace:^
++        version: link:../../../native/system/packages/entry
++      &#x27;@deepseek-ai/schemastery&#x27;:
++        specifier: link:../../../vendor/schemastery
++        version: link:../../../vendor/schemastery
++    devDependencies:
++      &#x27;@deepseek-ai/cordis&#x27;:
++        specifier: workspace:^
++        version: link:../../../vendor/cordis
++      &#x27;@deepseek-ai/dsh-llm&#x27;:
++        specifier: workspace:^
++        version: link:../../llm/llm
++      &#x27;@deepseek-ai/dsh-sandbox&#x27;:
++        specifier: workspace:^
++        version: link:../sandbox
++      &#x27;@deepseek-ai/dsh-session&#x27;:
++        specifier: workspace:^
++        version: link:../../core/session
++
++  packages/sandbox/sandbox-policy:
++    dependencies:
++      &#x27;@deepseek-ai/schemastery&#x27;:
++        specifier: link:../../../vendor/schemastery
++        version: link:../../../vendor/schemastery
++      zod:
++        specifier: ^4.4.3
++        version: 4.4.3
++    devDependencies:
++      &#x27;@deepseek-ai/cordis&#x27;:
++        specifier: workspace:^
++        version: link:../../../vendor/cordis
++      &#x27;@deepseek-ai/dsh-agent&#x27;:
++        specifier: workspace:^
++        version: link:../../core/agent
++      &#x27;@deepseek-ai/dsh-invariants&#x27;:
++        specifier: workspace:^
++        version: link:../../runtime-diagnostics/invariants
++      &#x27;@deepseek-ai/dsh-sandbox&#x27;:
++        specifier: workspace:^
++        version: link:../sandbox
++      &#x27;@deepseek-ai/dsh-session&#x27;:
++        specifier: workspace:^
++        version: link:../../core/session
++      &#x27;@deepseek-ai/dsh-session-projection&#x27;:
++        specifier: workspace:^
++        version: link:../../session/session-projection
++      &#x27;@deepseek-ai/dsh-system-prompt&#x27;:
++        specifier: workspace:^
++        version: link:../../core/system-prompt
++
++  packages/sandbox/sandbox-windows-acl:
++    dependencies:
++      &#x27;@deepseek-ai/dsh-win32-process&#x27;:
++        specifier: workspace:^
++        version: link:../../subprocess/win32-process
++      koffi:
++        specifier: ^3.1.0
++        version: 3.1.1
++    devDependencies:
++      &#x27;@deepseek-ai/cordis&#x27;:
++        specifier: workspace:^
++        version: link:../../../vendor/cordis
++      &#x27;@deepseek-ai/dsh-pwsh-local&#x27;:
++        specifier: workspace:^
++        version: link:../../shell/pwsh-local
++      &#x27;@deepseek-ai/dsh-sandbox-local&#x27;:
++        specifier: workspace:^
++        version: link:../sandbox-local
++
++  packages/schedule/schedule:
++    dependencies:
++      zod:
++        specifier: ^4.4.3
++        version: 4.4.3
++    devDependencies:
++      &#x27;@deepseek-ai/cordis&#x27;:
++        specifier: workspace:^
++        version: link:../../../vendor/cordis
++      &#x27;@deepseek-ai/cordis-plugin-loader&#x27;:
++        specifier: workspace:^
++        version: link:../../../vendor/loader
++      &#x27;@deepseek-ai/dsh-agent&#x27;:
++        specifier: workspace:^
++        version: link:../../core/agent
++      &#x27;@deepseek-ai/dsh-agent-loop&#x27;:
++        specifier: workspace:^
++        version: link:../../core/agent-loop
++      &#x27;@deepseek-ai/dsh-agent-loop-testkit&#x27;:
++        specifier: workspace:^
++        version: link:../../test-support/agent-loop-testkit
++      &#x27;@deepseek-ai/dsh-brand&#x27;:
++        specifier: workspace:^
++        version: link:../../util/brand
++      &#x27;@deepseek-ai/dsh-invariants&#x27;:
++        specifier: workspace:^
++        version: link:../../runtime-diagnostics/invariants
++      &#x27;@deepseek-ai/dsh-llm&#x27;:
++        specifier: workspace:^
++        version: link:../../llm/llm
++      &#x27;@deepseek-ai/dsh-session&#x27;:
++        specifier: workspace:^
++        version: link:../../core/session
++      &#x27;@deepseek-ai/dsh-session-persistence&#x27;:
++        specifier: workspace:^
++        version: link:../../session/session-persistence
++      &#x27;@deepseek-ai/dsh-session-persistence-jsonl&#x27;:
++        specifier: workspace:^
++        version: link:../../session/session-persistence-jsonl
++      &#x27;@deepseek-ai/dsh-session-projection&#x27;:
++        specifier: workspace:^
++        version: link:../../session/session-projection
++      &#x27;@deepseek-ai/dsh-system-prompt&#x27;:
++        specifier: workspace:^
++        version: link:../../core/system-prompt
++      &#x27;@deepseek-ai/dsh-tools&#x27;:
++        specifier: workspace:^
++        version: link:../../core/tools
++
++  packages/sdk/client:
++    dependencies:
++      &#x27;@deepseek-ai/dsh&#x27;:
++        specifier: workspace:*
++        version: link:../../../apps/cli
++    devDependencies:
++      &#x27;@deepseek-ai/cordis&#x27;:
++        specifier: workspace:^
++        version: link:../../../vendor/cordis
++      &#x27;@deepseek-ai/dsh-llm&#x27;:
++        specifier: workspace:^
++        version: link:../../llm/llm
++      &#x27;@deepseek-ai/dsh-sdk-protocol&#x27;:
++        specifier: workspace:^
++        version: link:../protocol
++      &#x27;@deepseek-ai/dsh-session&#x27;:
++        specifier: workspace:^
++        version: link:../../core/session
++
++  packages/sdk/protocol:
++    devDependencies:
++      &#x27;@deepseek-ai/cordis&#x27;:
++        specifier: workspace:^
++        version: link:../../../vendor/cordis
++      &#x27;@deepseek-ai/dsh-llm&#x27;:
++        specifier: workspace:^
++        version: link:../../llm/llm
++      &#x27;@deepseek-ai/dsh-session&#x27;:
+         specifier: workspace:^
+         version: link:../../core/session
+       &#x27;@deepseek-ai/dsh-subagent&#x27;:
+@@ -10394,7 +11066,7 @@ importers:
+         version: 4.3.2
+       vitest:
+         specifier: ^4.1.8
+-        version: 4.1.8(@opentelemetry/api@1.9.1)(@types/node@25.9.3)(@vitest/coverage-v8@4.1.8)(happy-dom@20.11.6)(jsdom@29.1.1(@noble/hashes@2.3.0))(vite@8.0.16(@types/node@26.1.2)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.22.4)(yaml@2.9.0))
++        version: 4.1.8(@opentelemetry/api@1.9.1)(@types/node@25.9.3)(@vitest/coverage-v8@4.1.8)(happy-dom@20.11.6)(jsdom@29.1.1(@noble/hashes@2.3.0))(vite@6.4.3(@types/node@26.1.2)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.22.4)(yaml@2.9.0))
+     devDependencies:
+       &#x27;@deepseek-ai/cordis&#x27;:
+         specifier: workspace:^
+@@ -10599,7 +11271,7 @@ importers:
+         version: 4.3.2
+       vitest:
+         specifier: ^4.1.8
+-        version: 4.1.8(@opentelemetry/api@1.9.1)(@types/node@25.9.3)(@vitest/coverage-v8@4.1.8)(happy-dom@20.11.6)(jsdom@29.1.1(@noble/hashes@2.3.0))(vite@8.0.16(@types/node@26.1.2)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.22.4)(yaml@2.9.0))
++        version: 4.1.8(@opentelemetry/api@1.9.1)(@types/node@25.9.3)(@vitest/coverage-v8@4.1.8)(happy-dom@20.11.6)(jsdom@29.1.1(@noble/hashes@2.3.0))(vite@6.4.3(@types/node@26.1.2)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.22.4)(yaml@2.9.0))
+     devDependencies:
+       &#x27;@deepseek-ai/cordis&#x27;:
+         specifier: workspace:^
+@@ -11823,14 +12495,14 @@ importers:
+         specifier: 11.16.0
+         version: 11.16.0
+       vite:
+-        specifier: ^5.4.14
+-        version: 5.4.21(@types/node@25.9.3)(lightningcss@1.32.0)
++        specifier: 6.4.3
++        version: 6.4.3(@types/node@26.1.2)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.22.4)(yaml@2.9.0)
+       vitepress:
+         specifier: ^1.6.4
+-        version: 1.6.4(@algolia/client-search@5.55.2)(@types/node@25.9.3)(@types/react@18.3.31)(lightningcss@1.32.0)(postcss@8.5.15)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(search-insights@2.17.3)(typescript@6.0.3)
++        version: 1.6.4(@algolia/client-search@5.55.2)(@types/node@26.1.2)(@types/react@18.3.31)(jiti@2.7.0)(lightningcss@1.32.0)(postcss@8.5.23)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(search-insights@2.17.3)(tsx@4.22.4)(typescript@6.0.3)(yaml@2.9.0)
+       vitepress-plugin-mermaid:
+         specifier: ^2.0.17
+-        version: 2.0.17(mermaid@11.16.0)(vitepress@1.6.4(@algolia/client-search@5.55.2)(@types/node@25.9.3)(@types/react@18.3.31)(lightningcss@1.32.0)(postcss@8.5.15)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(search-insights@2.17.3)(typescript@6.0.3))
++        version: 2.0.17(mermaid@11.16.0)(vitepress@1.6.4(@algolia/client-search@5.55.2)(@types/node@26.1.2)(@types/react@18.3.31)(jiti@2.7.0)(lightningcss@1.32.0)(postcss@8.5.23)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(search-insights@2.17.3)(tsx@4.22.4)(typescript@6.0.3)(yaml@2.9.0))
+
+ packages:
+
+@@ -12415,12 +13087,6 @@ packages:
+   &#x27;@emnapi/wasi-threads@1.2.2&#x27;:
+     resolution: {integrity: sha512-c95qOXkHdydNKhscBTebqEC1CVAZpyqOfVfBzQ1qgzyl3gfeldUjIggDbIZgDKsHLgnsM+igH7TJ/eAasaVuMA==}
+
+-  &#x27;@esbuild/aix-ppc64@0.21.5&#x27;:
+-    resolution: {integrity: sha512-1SDgH6ZSPTlggy1yI6+Dbkiz8xzpHJEVAlF/AM1tHPLsf5STom9rwtjE4hKAF20FfXXNTFqEYXyJNWh1GiZedQ==}
+-    engines: {node: &#x27;&gt;=12&#x27;}
+-    cpu: [ppc64]
+-    os: [aix]
+-
+   &#x27;@esbuild/aix-ppc64@0.25.12&#x27;:
+     resolution: {integrity: sha512-Hhmwd6CInZ3dwpuGTF8fJG6yoWmsToE+vYgD4nytZVxcu1ulHpUQRAB1UJ8+N1Am3Mz4+xOByoQoSZf4D+CpkA==}
+     engines: {node: &#x27;&gt;=18&#x27;}
+@@ -12433,12 +13099,6 @@ packages:
+     cpu: [ppc64]
+     os: [aix]
+
+-  &#x27;@esbuild/android-arm64@0.21.5&#x27;:
+-    resolution: {integrity: sha512-c0uX9VAUBQ7dTDCjq+wdyGLowMdtR/GoC2U5IYk/7D1H1JYC0qseD7+11iMP2mRLN9RcCMRcjC4YMclCzGwS/A==}
+-    engines: {node: &#x27;&gt;=12&#x27;}
+-    cpu: [arm64]
+-    os: [android]
+-
+   &#x27;@esbuild/android-arm64@0.25.12&#x27;:
+     resolution: {integrity: sha512-6AAmLG7zwD1Z159jCKPvAxZd4y/VTO0VkprYy+3N2FtJ8+BQWFXU+OxARIwA46c5tdD9SsKGZ/1ocqBS/gAKHg==}
+     engines: {node: &#x27;&gt;=18&#x27;}
+@@ -12451,12 +13111,6 @@ packages:
+     cpu: [arm64]
+     os: [android]
+
+-  &#x27;@esbuild/android-arm@0.21.5&#x27;:
+-    resolution: {integrity: sha512-vCPvzSjpPHEi1siZdlvAlsPxXl7WbOVUBBAowWug4rJHb68Ox8KualB+1ocNvT5fjv6wpkX6o/iEpbDrf68zcg==}
+-    engines: {node: &#x27;&gt;=12&#x27;}
+-    cpu: [arm]
+-    os: [android]
+-
+   &#x27;@esbuild/android-arm@0.25.12&#x27;:
+     resolution: {integrity: sha512-VJ+sKvNA/GE7Ccacc9Cha7bpS8nyzVv0jdVgwNDaR4gDMC/2TTRc33Ip8qrNYUcpkOHUT5OZ0bUcNNVZQ9RLlg==}
+     engines: {node: &#x27;&gt;=18&#x27;}
+@@ -12469,12 +13123,6 @@ packages:
+     cpu: [arm]
+     os: [android]
+
+-  &#x27;@esbuild/android-x64@0.21.5&#x27;:
+-    resolution: {integrity: sha512-D7aPRUUNHRBwHxzxRvp856rjUHRFW1SdQATKXH2hqA0kAZb1hKmi02OpYRacl0TxIGz/ZmXWlbZgjwWYaCakTA==}
+-    engines: {node: &#x27;&gt;=12&#x27;}
+-    cpu: [x64]
+-    os: [android]
+-
+   &#x27;@esbuild/android-x64@0.25.12&#x27;:
+     resolution: {integrity: sha512-5jbb+2hhDHx5phYR2By8GTWEzn6I9UqR11Kwf22iKbNpYrsmRB18aX/9ivc5cabcUiAT/wM+YIZ6SG9QO6a8kg==}
+     engines: {node: &#x27;&gt;=18&#x27;}
+@@ -12487,12 +13135,6 @@ packages:
+     cpu: [x64]
+     os: [android]
+
+-  &#x27;@esbuild/darwin-arm64@0.21.5&#x27;:
+-    resolution: {integrity: sha512-DwqXqZyuk5AiWWf3UfLiRDJ5EDd49zg6O9wclZ7kUMv2WRFr4HKjXp/5t8JZ11QbQfUS6/cRCKGwYhtNAY88kQ==}
+-    engines: {node: &#x27;&gt;=12&#x27;}
+-    cpu: [arm64]
+-    os: [darwin]
+-
+   &#x27;@esbuild/darwin-arm64@0.25.12&#x27;:
+     resolution: {integrity: sha512-N3zl+lxHCifgIlcMUP5016ESkeQjLj/959RxxNYIthIg+CQHInujFuXeWbWMgnTo4cp5XVHqFPmpyu9J65C1Yg==}
+     engines: {node: &#x27;&gt;=18&#x27;}
+@@ -12505,12 +13147,6 @@ packages:
+     cpu: [arm64]
+     os: [darwin]
+
+-  &#x27;@esbuild/darwin-x64@0.21.5&#x27;:
+-    resolution: {integrity: sha512-se/JjF8NlmKVG4kNIuyWMV/22ZaerB+qaSi5MdrXtd6R08kvs2qCN4C09miupktDitvh8jRFflwGFBQcxZRjbw==}
+-    engines: {node: &#x27;&gt;=12&#x27;}
+-    cpu: [x64]
+-    os: [darwin]
+-
+   &#x27;@esbuild/darwin-x64@0.25.12&#x27;:
+     resolution: {integrity: sha512-HQ9ka4Kx21qHXwtlTUVbKJOAnmG1ipXhdWTmNXiPzPfWKpXqASVcWdnf2bnL73wgjNrFXAa3yYvBSd9pzfEIpA==}
+     engines: {node: &#x27;&gt;=18&#x27;}
+@@ -12523,12 +13159,6 @@ packages:
+     cpu: [x64]
+     os: [darwin]
+
+-  &#x27;@esbuild/freebsd-arm64@0.21.5&#x27;:
+-    resolution: {integrity: sha512-5JcRxxRDUJLX8JXp/wcBCy3pENnCgBR9bN6JsY4OmhfUtIHe3ZW0mawA7+RDAcMLrMIZaf03NlQiX9DGyB8h4g==}
+-    engines: {node: &#x27;&gt;=12&#x27;}
+-    cpu: [arm64]
+-    os: [freebsd]
+-
+   &#x27;@esbuild/freebsd-arm64@0.25.12&#x27;:
+     resolution: {integrity: sha512-gA0Bx759+7Jve03K1S0vkOu5Lg/85dou3EseOGUes8flVOGxbhDDh/iZaoek11Y8mtyKPGF3vP8XhnkDEAmzeg==}
+     engines: {node: &#x27;&gt;=18&#x27;}
+@@ -12541,12 +13171,6 @@ packages:
+     cpu: [arm64]
+     os: [freebsd]
+
+-  &#x27;@esbuild/freebsd-x64@0.21.5&#x27;:
+-    resolution: {integrity: sha512-J95kNBj1zkbMXtHVH29bBriQygMXqoVQOQYA+ISs0/2l3T9/kj42ow2mpqerRBxDJnmkUDCaQT/dfNXWX/ZZCQ==}
+-    engines: {node: &#x27;&gt;=12&#x27;}
+-    cpu: [x64]
+-    os: [freebsd]
+-
+   &#x27;@esbuild/freebsd-x64@0.25.12&#x27;:
+     resolution: {integrity: sha512-TGbO26Yw2xsHzxtbVFGEXBFH0FRAP7gtcPE7P5yP7wGy7cXK2oO7RyOhL5NLiqTlBh47XhmIUXuGciXEqYFfBQ==}
+     engines: {node: &#x27;&gt;=18&#x27;}
+@@ -12559,12 +13183,6 @@ packages:
+     cpu: [x64]
+     os: [freebsd]
+
+-  &#x27;@esbuild/linux-arm64@0.21.5&#x27;:
+-    resolution: {integrity: sha512-ibKvmyYzKsBeX8d8I7MH/TMfWDXBF3db4qM6sy+7re0YXya+K1cem3on9XgdT2EQGMu4hQyZhan7TeQ8XkGp4Q==}
+-    engines: {node: &#x27;&gt;=12&#x27;}
+-    cpu: [arm64]
+-    os: [linux]
+-
+   &#x27;@esbuild/linux-arm64@0.25.12&#x27;:
+     resolution: {integrity: sha512-8bwX7a8FghIgrupcxb4aUmYDLp8pX06rGh5HqDT7bB+8Rdells6mHvrFHHW2JAOPZUbnjUpKTLg6ECyzvas2AQ==}
+     engines: {node: &#x27;&gt;=18&#x27;}
+@@ -12577,12 +13195,6 @@ packages:
+     cpu: [arm64]
+     os: [linux]
+
+-  &#x27;@esbuild/linux-arm@0.21.5&#x27;:
+-    resolution: {integrity: sha512-bPb5AHZtbeNGjCKVZ9UGqGwo8EUu4cLq68E95A53KlxAPRmUyYv2D6F0uUI65XisGOL1hBP5mTronbgo+0bFcA==}
+-    engines: {node: &#x27;&gt;=12&#x27;}
+-    cpu: [arm]
+-    os: [linux]
+-
+   &#x27;@esbuild/linux-arm@0.25.12&#x27;:
+     resolution: {integrity: sha512-lPDGyC1JPDou8kGcywY0YILzWlhhnRjdof3UlcoqYmS9El818LLfJJc3PXXgZHrHCAKs/Z2SeZtDJr5MrkxtOw==}
+     engines: {node: &#x27;&gt;=18&#x27;}
+@@ -12595,12 +13207,6 @@ packages:
+     cpu: [arm]
+     os: [linux]
+
+-  &#x27;@esbuild/linux-ia32@0.21.5&#x27;:
+-    resolution: {integrity: sha512-YvjXDqLRqPDl2dvRODYmmhz4rPeVKYvppfGYKSNGdyZkA01046pLWyRKKI3ax8fbJoK5QbxblURkwK/MWY18Tg==}
+-    engines: {node: &#x27;&gt;=12&#x27;}
+-    cpu: [ia32]
+-    os: [linux]
+-
+   &#x27;@esbuild/linux-ia32@0.25.12&#x27;:
+     resolution: {integrity: sha512-0y9KrdVnbMM2/vG8KfU0byhUN+EFCny9+8g202gYqSSVMonbsCfLjUO+rCci7pM0WBEtz+oK/PIwHkzxkyharA==}
+     engines: {node: &#x27;&gt;=18&#x27;}
+@@ -12613,12 +13219,6 @@ packages:
+     cpu: [ia32]
+     os: [linux]
+
+-  &#x27;@esbuild/linux-loong64@0.21.5&#x27;:
+-    resolution: {integrity: sha512-uHf1BmMG8qEvzdrzAqg2SIG/02+4/DHB6a9Kbya0XDvwDEKCoC8ZRWI5JJvNdUjtciBGFQ5PuBlpEOXQj+JQSg==}
+-    engines: {node: &#x27;&gt;=12&#x27;}
+-    cpu: [loong64]
+-    os: [linux]
+-
+   &#x27;@esbuild/linux-loong64@0.25.12&#x27;:
+     resolution: {integrity: sha512-h///Lr5a9rib/v1GGqXVGzjL4TMvVTv+s1DPoxQdz7l/AYv6LDSxdIwzxkrPW438oUXiDtwM10o9PmwS/6Z0Ng==}
+     engines: {node: &#x27;&gt;=18&#x27;}
+@@ -12631,12 +13231,6 @@ packages:
+     cpu: [loong64]
+     os: [linux]
+
+-  &#x27;@esbuild/linux-mips64el@0.21.5&#x27;:
+-    resolution: {integrity: sha512-IajOmO+KJK23bj52dFSNCMsz1QP1DqM6cwLUv3W1QwyxkyIWecfafnI555fvSGqEKwjMXVLokcV5ygHW5b3Jbg==}
+-    engines: {node: &#x27;&gt;=12&#x27;}
+-    cpu: [mips64el]
+-    os: [linux]
+-
+   &#x27;@esbuild/linux-mips64el@0.25.12&#x27;:
+     resolution: {integrity: sha512-iyRrM1Pzy9GFMDLsXn1iHUm18nhKnNMWscjmp4+hpafcZjrr2WbT//d20xaGljXDBYHqRcl8HnxbX6uaA/eGVw==}
+     engines: {node: &#x27;&gt;=18&#x27;}
+@@ -12649,12 +13243,6 @@ packages:
+     cpu: [mips64el]
+     os: [linux]
+
+-  &#x27;@esbuild/linux-ppc64@0.21.5&#x27;:
+-    resolution: {integrity: sha512-1hHV/Z4OEfMwpLO8rp7CvlhBDnjsC3CttJXIhBi+5Aj5r+MBvy4egg7wCbe//hSsT+RvDAG7s81tAvpL2XAE4w==}
+-    engines: {node: &#x27;&gt;=12&#x27;}
+-    cpu: [ppc64]
+-    os: [linux]
+-
+   &#x27;@esbuild/linux-ppc64@0.25.12&#x27;:
+     resolution: {integrity: sha512-9meM/lRXxMi5PSUqEXRCtVjEZBGwB7P/D4yT8UG/mwIdze2aV4Vo6U5gD3+RsoHXKkHCfSxZKzmDssVlRj1QQA==}
+     engines: {node: &#x27;&gt;=18&#x27;}
+@@ -12667,12 +13255,6 @@ packages:
+     cpu: [ppc64]
+     os: [linux]
+
+-  &#x27;@esbuild/linux-riscv64@0.21.5&#x27;:
+-    resolution: {integrity: sha512-2HdXDMd9GMgTGrPWnJzP2ALSokE/0O5HhTUvWIbD3YdjME8JwvSCnNGBnTThKGEB91OZhzrJ4qIIxk/SBmyDDA==}
+-    engines: {node: &#x27;&gt;=12&#x27;}
+-    cpu: [riscv64]
+-    os: [linux]
+-
+   &#x27;@esbuild/linux-riscv64@0.25.12&#x27;:
+     resolution: {integrity: sha512-Zr7KR4hgKUpWAwb1f3o5ygT04MzqVrGEGXGLnj15YQDJErYu/BGg+wmFlIDOdJp0PmB0lLvxFIOXZgFRrdjR0w==}
+     engines: {node: &#x27;&gt;=18&#x27;}
+@@ -12685,12 +13267,6 @@ packages:
+     cpu: [riscv64]
+     os: [linux]
+
+-  &#x27;@esbuild/linux-s390x@0.21.5&#x27;:
+-    resolution: {integrity: sha512-zus5sxzqBJD3eXxwvjN1yQkRepANgxE9lgOW2qLnmr8ikMTphkjgXu1HR01K4FJg8h1kEEDAqDcZQtbrRnB41A==}
+-    engines: {node: &#x27;&gt;=12&#x27;}
+-    cpu: [s390x]
+-    os: [linux]
+-
+   &#x27;@esbuild/linux-s390x@0.25.12&#x27;:
+     resolution: {integrity: sha512-MsKncOcgTNvdtiISc/jZs/Zf8d0cl/t3gYWX8J9ubBnVOwlk65UIEEvgBORTiljloIWnBzLs4qhzPkJcitIzIg==}
+     engines: {node: &#x27;&gt;=18&#x27;}
+@@ -12703,12 +13279,6 @@ packages:
+     cpu: [s390x]
+     os: [linux]
+
+-  &#x27;@esbuild/linux-x64@0.21.5&#x27;:
+-    resolution: {integrity: sha512-1rYdTpyv03iycF1+BhzrzQJCdOuAOtaqHTWJZCWvijKD2N5Xu0TtVC8/+1faWqcP9iBCWOmjmhoH94dH82BxPQ==}
+-    engines: {node: &#x27;&gt;=12&#x27;}
+-    cpu: [x64]
+-    os: [linux]
+-
+   &#x27;@esbuild/linux-x64@0.25.12&#x27;:
+     resolution: {integrity: sha512-uqZMTLr/zR/ed4jIGnwSLkaHmPjOjJvnm6TVVitAa08SLS9Z0VM8wIRx7gWbJB5/J54YuIMInDquWyYvQLZkgw==}
+     engines: {node: &#x27;&gt;=18&#x27;}
+@@ -12733,12 +13303,6 @@ packages:
+     cpu: [arm64]
+     os: [netbsd]
+
+-  &#x27;@esbuild/netbsd-x64@0.21.5&#x27;:
+-    resolution: {integrity: sha512-Woi2MXzXjMULccIwMnLciyZH4nCIMpWQAs049KEeMvOcNADVxo0UBIQPfSmxB3CWKedngg7sWZdLvLczpe0tLg==}
+-    engines: {node: &#x27;&gt;=12&#x27;}
+-    cpu: [x64]
+-    os: [netbsd]
+-
+   &#x27;@esbuild/netbsd-x64@0.25.12&#x27;:
+     resolution: {integrity: sha512-Ld5pTlzPy3YwGec4OuHh1aCVCRvOXdH8DgRjfDy/oumVovmuSzWfnSJg+VtakB9Cm0gxNO9BzWkj6mtO1FMXkQ==}
+     engines: {node: &#x27;&gt;=18&#x27;}
+@@ -12763,12 +13327,6 @@ packages:
+     cpu: [arm64]
+     os: [openbsd]
+
+-  &#x27;@esbuild/openbsd-x64@0.21.5&#x27;:
+-    resolution: {integrity: sha512-HLNNw99xsvx12lFBUwoT8EVCsSvRNDVxNpjZ7bPn947b8gJPzeHWyNVhFsaerc0n3TsbOINvRP2byTZ5LKezow==}
+-    engines: {node: &#x27;&gt;=12&#x27;}
+-    cpu: [x64]
+-    os: [openbsd]
+-
+   &#x27;@esbuild/openbsd-x64@0.25.12&#x27;:
+     resolution: {integrity: sha512-MZyXUkZHjQxUvzK7rN8DJ3SRmrVrke8ZyRusHlP+kuwqTcfWLyqMOE3sScPPyeIXN/mDJIfGXvcMqCgYKekoQw==}
+     engines: {node: &#x27;&gt;=18&#x27;}
+@@ -12793,12 +13351,6 @@ packages:
+     cpu: [arm64]
+     os: [openharmony]
+
+-  &#x27;@esbuild/sunos-x64@0.21.5&#x27;:
+-    resolution: {integrity: sha512-6+gjmFpfy0BHU5Tpptkuh8+uw3mnrvgs+dSPQXQOv3ekbordwnzTVEb4qnIvQcYXq6gzkyTnoZ9dZG+D4garKg==}
+-    engines: {node: &#x27;&gt;=12&#x27;}
+-    cpu: [x64]
+-    os: [sunos]
+-
+   &#x27;@esbuild/sunos-x64@0.25.12&#x27;:
+     resolution: {integrity: sha512-3wGSCDyuTHQUzt0nV7bocDy72r2lI33QL3gkDNGkod22EsYl04sMf0qLb8luNKTOmgF/eDEDP5BFNwoBKH441w==}
+     engines: {node: &#x27;&gt;=18&#x27;}
+@@ -12811,12 +13363,6 @@ packages:
+     cpu: [x64]
+     os: [sunos]
+
+-  &#x27;@esbuild/win32-arm64@0.21.5&#x27;:
+-    resolution: {integrity: sha512-Z0gOTd75VvXqyq7nsl93zwahcTROgqvuAcYDUr+vOv8uHhNSKROyU961kgtCD1e95IqPKSQKH7tBTslnS3tA8A==}
+-    engines: {node: &#x27;&gt;=12&#x27;}
+-    cpu: [arm64]
+-    os: [win32]
+-
+   &#x27;@esbuild/win32-arm64@0.25.12&#x27;:
+     resolution: {integrity: sha512-rMmLrur64A7+DKlnSuwqUdRKyd3UE7oPJZmnljqEptesKM8wx9J8gx5u0+9Pq0fQQW8vqeKebwNXdfOyP+8Bsg==}
+     engines: {node: &#x27;&gt;=18&#x27;}
+@@ -12829,12 +13375,6 @@ packages:
+     cpu: [arm64]
+     os: [win32]
+
+-  &#x27;@esbuild/win32-ia32@0.21.5&#x27;:
+-    resolution: {integrity: sha512-SWXFF1CL2RVNMaVs+BBClwtfZSvDgtL//G/smwAc5oVK/UPu2Gu9tIaRgFmYFFKrmg3SyAjSrElf0TiJ1v8fYA==}
+-    engines: {node: &#x27;&gt;=12&#x27;}
+-    cpu: [ia32]
+-    os: [win32]
+-
+   &#x27;@esbuild/win32-ia32@0.25.12&#x27;:
+     resolution: {integrity: sha512-HkqnmmBoCbCwxUKKNPBixiWDGCpQGVsrQfJoVGYLPT41XWF8lHuE5N6WhVia2n4o5QK5M4tYr21827fNhi4byQ==}
+     engines: {node: &#x27;&gt;=18&#x27;}
+@@ -12847,12 +13387,6 @@ packages:
+     cpu: [ia32]
+     os: [win32]
+
+-  &#x27;@esbuild/win32-x64@0.21.5&#x27;:
+-    resolution: {integrity: sha512-tQd/1efJuzPC6rCFwEvLtci/xNFcTZknmXs98FYDfGE4wP9ClFV98nyKrzJKVPMhdDnjzLhdUyMX4PsQAPjwIw==}
+-    engines: {node: &#x27;&gt;=12&#x27;}
+-    cpu: [x64]
+-    os: [win32]
+-
+   &#x27;@esbuild/win32-x64@0.25.12&#x27;:
+     resolution: {integrity: sha512-alJC0uCZpTFrSL0CCDjcgleBXPnCrEAhTBILpeAp7M/OFgoqtAetfBzX0xM00MUsVVPpVjlPuMbREqnZCXaTnA==}
+     engines: {node: &#x27;&gt;=18&#x27;}
+@@ -13573,9 +14107,6 @@ packages:
+     resolution: {integrity: sha512-eSYWTm620tTk45EKSedaUL8MFYI8hW164hIXsgIHyxu3VobUB3fFCu5t0hQby6OoWRPsG1KkKUG2M5UadiLiVg==}
+     engines: {node: &#x27;&gt;=14&#x27;}
+
+-  &#x27;@oxc-project/types@0.133.0&#x27;:
+-    resolution: {integrity: sha512-KzkdCd6Uxqnf6l3HOw1xfatAlUURA0g14cvBYFyJ5SaNOQbOUvBr9PKArcPcrNIeRsBdgcUzOGrhKveVpvOIGA==}
+-
+   &#x27;@oxc-project/types@0.135.0&#x27;:
+     resolution: {integrity: sha512-wR+xRdFkUBMvcAjBJ2q2kcZM6d+DKu2NgoOyxZgYwZdLhmiv6+rnO8PZ/P68kMiZtIKm+pW7zyEJ4kSOs0vo+Q==}
+
+@@ -13894,73 +14425,36 @@ packages:
+     resolution: {integrity: sha512-YjkxVSLw5WMZQoARaryRAjcxA+GbBzWMJdwYZX5oLUt9cC/gew9as4Dn7tcLzPp7BPoR221VpTZ+78TRPawnjg==}
+     engines: {node: &#x27;&gt;= 22&#x27;}
+
+-  &#x27;@rolldown/binding-android-arm64@1.0.3&#x27;:
+-    resolution: {integrity: sha512-454rs7jHngixp/NMxd5srYD57OnzSlZ/eFTETjORQHLwJG1lRtmNOJcBerZlfu4GjKqeq8aCCIQrMdHyhI51Hw==}
+-    engines: {node: ^20.19.0 || &gt;=22.12.0}
+-    cpu: [arm64]
+-    os: [android]
+-
+   &#x27;@rolldown/binding-android-arm64@1.1.1&#x27;:
+     resolution: {integrity: sha512-BLf9Wak/gfwVb7NQTQW4wBgL3oAfPy7ArEkhwV543OVw/uY6B47z5xYsqPSZ9PDOorvURPinws6ThaFuNgGLgA==}
+     engines: {node: ^20.19.0 || &gt;=22.12.0}
+     cpu: [arm64]
+     os: [android]
+
+-  &#x27;@rolldown/binding-darwin-arm64@1.0.3&#x27;:
+-    resolution: {integrity: sha512-PcAhP+ynjURNyy8SKGl5DQP94aGuB/7JrXJb/t7P+hanXvQVMWzUvRRhBAcg/lNRadBhoUPqSoP4xw5tR/KBEA==}
+-    engines: {node: ^20.19.0 || &gt;=22.12.0}
+-    cpu: [arm64]
+-    os: [darwin]
+-
+   &#x27;@rolldown/binding-darwin-arm64@1.1.1&#x27;:
+     resolution: {integrity: sha512-rRZRPy/Ynb+Mxu0O6tfPldHeDgAn0sRij+IOUy6sFdUlv3hArGW/DloE3GfAxtqpOJuRNgF74Nr5gM4xBeU2jQ==}
+     engines: {node: ^20.19.0 || &gt;=22.12.0}
+     cpu: [arm64]
+     os: [darwin]
+
+-  &#x27;@rolldown/binding-darwin-x64@1.0.3&#x27;:
+-    resolution: {integrity: sha512-9YpfeUvSE2RS7wysJ81uOZkXJz7f7Q55H2Gvp3VEw/EsahqDtrphrZ0EwDLK5vvKOzaCrBsjF8JmnMLcUt78Gg==}
+-    engines: {node: ^20.19.0 || &gt;=22.12.0}
+-    cpu: [x64]
+-    os: [darwin]
+-
+   &#x27;@rolldown/binding-darwin-x64@1.1.1&#x27;:
+     resolution: {integrity: sha512-/MtefPxhKPyWWFM8L45OWiEqRf+eSU2Qv9ZAyTaoZOoGcoPKxbbhjTJO2/U2IThv0uDZ4NWHc3/oTsR6IEOtww==}
+     engines: {node: ^20.19.0 || &gt;=22.12.0}
+     cpu: [x64]
+     os: [darwin]
+
+-  &#x27;@rolldown/binding-freebsd-x64@1.0.3&#x27;:
+-    resolution: {integrity: sha512-yB1IlAsSNHncV6SCTL27/MVGR5htvQsoGxIv5KMGXALp+Ll1wYsn+x98M9MW7qa+NdSbvrrY7ANI4wLJ0n1e6g==}
+-    engines: {node: ^20.19.0 || &gt;=22.12.0}
+-    cpu: [x64]
+-    os: [freebsd]
+-
+   &#x27;@rolldown/binding-freebsd-x64@1.1.1&#x27;:
+     resolution: {integrity: sha512-202K+cpIi1kx/Zn7AtxBi4LTXSY67Aszb2K9rNsuW7FeBeh0nqoNmYLOSZidV0p88VPBzMmTZcHAdPNo3kRYzQ==}
+     engines: {node: ^20.19.0 || &gt;=22.12.0}
+     cpu: [x64]
+     os: [freebsd]
+
+-  &#x27;@rolldown/binding-linux-arm-gnueabihf@1.0.3&#x27;:
+-    resolution: {integrity: sha512-Yi30IVAAfLUCy2MseFjbB1jAMDl1VMCAas5StnYp8da9+CKvMd2H2cbEjWcw5NPaPqzvYkVIaF1nNUG+b7u/sw==}
+-    engines: {node: ^20.19.0 || &gt;=22.12.0}
+-    cpu: [arm]
+-    os: [linux]
+-
+   &#x27;@rolldown/binding-linux-arm-gnueabihf@1.1.1&#x27;:
+     resolution: {integrity: sha512-wl9NfeXNUwrXtUc063tddmZFUI6qiNs1CNOwni0OL4vC7MqVSYugra3ZgtDmtVy8e0DluJTENmzIv2BwqLzT4Q==}
+     engines: {node: ^20.19.0 || &gt;=22.12.0}
+     cpu: [arm]
+     os: [linux]
+
+-  &#x27;@rolldown/binding-linux-arm64-gnu@1.0.3&#x27;:
+-    resolution: {integrity: sha512-jsO7R8To+AdlYgUmN5sHSCZbfhtMBkO0WUx8iORQnPcMMdgr7qM2DQmMwgabs3GhNztdmoKkMKQFHD6DTMCIQw==}
+-    engines: {node: ^20.19.0 || &gt;=22.12.0}
+-    cpu: [arm64]
+-    os: [linux]
+-    libc: [glibc]
+-
+   &#x27;@rolldown/binding-linux-arm64-gnu@1.1.1&#x27;:
+     resolution: {integrity: sha512-at2EO4o7D/PJLC4Xik16bU4CcjQE2tSv1LfqMA0TRYQYQihRm3gZeDB8xaX28A9SFedibcAk5DeMCKt4REKG0A==}
+     engines: {node: ^20.19.0 || &gt;=22.12.0}
+@@ -13968,13 +14462,6 @@ packages:
+     os: [linux]
+     libc: [glibc]
+
+-  &#x27;@rolldown/binding-linux-arm64-musl@1.0.3&#x27;:
+-    resolution: {integrity: sha512-VWkUHwWriDciit80wleYwKILoR/KMvxh/IdwS/paX+ZgpuRpCrKLUdadJbc0NpBEiyhpYawsJ73j9aCvOH+f7Q==}
+-    engines: {node: ^20.19.0 || &gt;=22.12.0}
+-    cpu: [arm64]
+-    os: [linux]
+-    libc: [musl]
+-
+   &#x27;@rolldown/binding-linux-arm64-musl@1.1.1&#x27;:
+     resolution: {integrity: sha512-5PUjZx366h9tkJTPJF5eibxOlK3sGoeRiBJLLjjEB5/kLDuhr6qB3LkhqLz1smXNgsX+pBhnbcJBrPE30HznAA==}
+     engines: {node: ^20.19.0 || &gt;=22.12.0}
+@@ -13982,13 +14469,6 @@ packages:
+     os: [linux]
+     libc: [musl]
+
+-  &#x27;@rolldown/binding-linux-ppc64-gnu@1.0.3&#x27;:
+-    resolution: {integrity: sha512-5f1laC0SlIR0yDbFCd8acUhvJIag6N3zC5P7oUPN6wX0aOma+uKJ0wBDH5aq7I1PVI2ttTlhJwzwRIBnLiSGEg==}
+-    engines: {node: ^20.19.0 || &gt;=22.12.0}
+-    cpu: [ppc64]
+-    os: [linux]
+-    libc: [glibc]
+-
+   &#x27;@rolldown/binding-linux-ppc64-gnu@1.1.1&#x27;:
+     resolution: {integrity: sha512-1WK84XPeio3tjP1sM/TMXiC0G1i1iq1qGZ71KfNQjEFLU1kwD+Cv5T8nGySg/JUFwLbaScu6ve9DmeXlmqpkFA==}
+     engines: {node: ^20.19.0 || &gt;=22.12.0}
+@@ -13996,13 +14476,6 @@ packages:
+     os: [linux]
+     libc: [glibc]
+
+-  &#x27;@rolldown/binding-linux-s390x-gnu@1.0.3&#x27;:
+-    resolution: {integrity: sha512-Iq4ko0r4XsgbrF/LunNgHtAGLRRVE2kXonAXQ/MV0mC6jQpMOhW1SvtZja2EhC/kd05++bP78dsqBeIQyYJ6Yg==}
+-    engines: {node: ^20.19.0 || &gt;=22.12.0}
+-    cpu: [s390x]
+-    os: [linux]
+-    libc: [glibc]
+-
+   &#x27;@rolldown/binding-linux-s390x-gnu@1.1.1&#x27;:
+     resolution: {integrity: sha512-1nS1X5z1uMJ369RU25hTpKCFvUwXZp12dIzlzk4S+UxCTcSVGsAE6tzkOSufv/7jnmAtK0ZlrsJxh2fGmsnVSw==}
+     engines: {node: ^20.19.0 || &gt;=22.12.0}
+@@ -14010,13 +14483,6 @@ packages:
+     os: [linux]
+     libc: [glibc]
+
+-  &#x27;@rolldown/binding-linux-x64-gnu@1.0.3&#x27;:
+-    resolution: {integrity: sha512-B8m6tD5+/N5FeNQFbKlLA/2yVq9ycQP1SeedyEYYKWBNR3ZQbkvIUcNnDNM03lO1l5F2roiiFJGgvoLLyZXtSg==}
+-    engines: {node: ^20.19.0 || &gt;=22.12.0}
+-    cpu: [x64]
+-    os: [linux]
+-    libc: [glibc]
+-
+   &#x27;@rolldown/binding-linux-x64-gnu@1.1.1&#x27;:
+     resolution: {integrity: sha512-NwX/wspnq4vYyMFsqbYvzums3ki/Tk8FZbMzMAovPDp3OfLeYKby/D+9osokadXuYEV3OvpeHlwnr/bG8QMixA==}
+     engines: {node: ^20.19.0 || &gt;=22.12.0}
+@@ -14024,13 +14490,6 @@ packages:
+     os: [linux]
+     libc: [glibc]
+
+-  &#x27;@rolldown/binding-linux-x64-musl@1.0.3&#x27;:
+-    resolution: {integrity: sha512-pSdpdUJHkuCxun9LE7jvgUB9qsRgaiyNNCX7m/AvHTcq67AiT/Yhoxvw5zPfhrM8k/BfP8ce/hMOpthKDpEUow==}
+-    engines: {node: ^20.19.0 || &gt;=22.12.0}
+-    cpu: [x64]
+-    os: [linux]
+-    libc: [musl]
+-
+   &#x27;@rolldown/binding-linux-x64-musl@1.1.1&#x27;:
+     resolution: {integrity: sha512-+n46LhDrJFQM+229y4oXtVpj1G50U/+XuHMlpnisFTEXhrg9f/YIjp/HymX+PVJjBEr7XHRs3CFLelV464pqwA==}
+     engines: {node: ^20.19.0 || &gt;=22.12.0}
+@@ -14038,46 +14497,23 @@ packages:
+     os: [linux]
+     libc: [musl]
+
+-  &#x27;@rolldown/binding-openharmony-arm64@1.0.3&#x27;:
+-    resolution: {integrity: sha512-OXXS3RKJgX2uLwM+gYyuH5omcH8fL1LJs96pZGgtetVCahON57+d4SJHzTgZiOjxgGkSnpXpOsWuPDGAKAigEg==}
+-    engines: {node: ^20.19.0 || &gt;=22.12.0}
+-    cpu: [arm64]
+-    os: [openharmony]
+-
+   &#x27;@rolldown/binding-openharmony-arm64@1.1.1&#x27;:
+     resolution: {integrity: sha512-qGwEu47zOWYo7LdRHhCWTNhzwGtxXpdY6CERs8QEOqC0PXGGics/e3vHnyEUKt8xK6YkbZXFUCeklrpB6js8ag==}
+     engines: {node: ^20.19.0 || &gt;=22.12.0}
+     cpu: [arm64]
+     os: [openharmony]
+
+-  &#x27;@rolldown/binding-wasm32-wasi@1.0.3&#x27;:
+-    resolution: {integrity: sha512-JTtb8BWFynicNSoPrehsCzBtOKjZ6jhMiPFEmOiuXg1Fl8dn2KHQob+GuPSGR0dryQa1PQJbzjF3dqO/whhjLg==}
+-    engines: {node: ^20.19.0 || &gt;=22.12.0}
+-    cpu: [wasm32]
+-
+   &#x27;@rolldown/binding-wasm32-wasi@1.1.1&#x27;:
+     resolution: {integrity: sha512-qczfgEH8u0wHGGOXtA7UMAybNKuQjjEXairyQaw4WzjiMztfbgatG1h4OKays/smhtwbWltpKCRGtVhU6h40Sg==}
+     engines: {node: ^20.19.0 || &gt;=22.12.0}
+     cpu: [wasm32]
+
+-  &#x27;@rolldown/binding-win32-arm64-msvc@1.0.3&#x27;:
+-    resolution: {integrity: sha512-gEdFFEN70A/jxb2svrWsN3aDL7OUtmvlOy+6fa2jxG8K0wQ1ZbdeLGnidov6Yu5/733dI5ySfzFlQ/cb0bSz1g==}
+-    engines: {node: ^20.19.0 || &gt;=22.12.0}
+-    cpu: [arm64]
+-    os: [win32]
+-
+   &#x27;@rolldown/binding-win32-arm64-msvc@1.1.1&#x27;:
+     resolution: {integrity: sha512-4psXSh63mSbwJF+mB8/9yfUUEzBiHYcUjxa32EO9ZwKy0Ypwjcg4F10D8SvVXgd+isy2UUUjF9HJJnDu1T/4Gg==}
+     engines: {node: ^20.19.0 || &gt;=22.12.0}
+     cpu: [arm64]
+     os: [win32]
+
+-  &#x27;@rolldown/binding-win32-x64-msvc@1.0.3&#x27;:
+-    resolution: {integrity: sha512-eXB7CHuaQdqmJcc3koCNtNPmT/bj2gc999kUFgBxG8Ac0NdgXc4rkCHhqrgrhN3zddvvvrgzj1e90SuSfmyIXA==}
+-    engines: {node: ^20.19.0 || &gt;=22.12.0}
+-    cpu: [x64]
+-    os: [win32]
+-
+   &#x27;@rolldown/binding-win32-x64-msvc@1.1.1&#x27;:
+     resolution: {integrity: sha512-MUvC/HLXVjzkQkWiExdVTEEWf0py+GfWm8WKSZsekG3ih6a21iy0BHPF07X3JIf3ifoklZXTIaHTLPBgH1C3dw==}
+     engines: {node: ^20.19.0 || &gt;=22.12.0}
+@@ -14685,13 +15121,13 @@ packages:
+     resolution: {integrity: sha512-gUu9hwfWvvEDBBmgtAowQCojwZmJ5mcLn3aufeCsitijs3+f2NsrPtlAWIR6OPiqljl96GVCUbLe0HyqIpVaoA==}
+     engines: {node: ^14.18.0 || &gt;=16.0.0}
+     peerDependencies:
+-      vite: ^4.2.0 || ^5.0.0 || ^6.0.0 || ^7.0.0
++      vite: 6.4.3
+
+   &#x27;@vitejs/plugin-vue@5.2.4&#x27;:
+     resolution: {integrity: sha512-7Yx/SXSOcQq5HiiV3orevHUFn+pmMB4cgbEkDYgnkUWb0WfeQ/wa2yFv6D5ICiCQOVpjA7vYDXrC7AGO8yjDHA==}
+     engines: {node: ^18.0.0 || &gt;=20.0.0}
+     peerDependencies:
+-      vite: ^5.0.0 || ^6.0.0
++      vite: 6.4.3
+       vue: ^3.2.25
+
+   &#x27;@vitest/coverage-v8@4.1.8&#x27;:
+@@ -14710,7 +15146,7 @@ packages:
+     resolution: {integrity: sha512-LEiN/xe4OSIbKe9HQIp5OC24agGD9J5CnmMgsLohVVoOPWL9a2sBoR6VBx43jQZb7Kr1l4RCuyCJzcAa0+dojw==}
+     peerDependencies:
+       msw: ^2.4.9
+-      vite: ^6.0.0 || ^7.0.0 || ^8.0.0
++      vite: 6.4.3
+     peerDependenciesMeta:
+       msw:
+         optional: true
+@@ -15082,8 +15518,8 @@ packages:
+   base64-js@1.5.1:
+     resolution: {integrity: sha512-AKpaYlHn8t4SVbOHCy+b5+KKgvR4vrsD8vbvrbiQJps7fKDTkjkDry6ji0rUJjC0kzbNePLwzxq8iypo41qeWA==}
+
+-  baseline-browser-mapping@2.10.43:
+-    resolution: {integrity: sha512-AjYpR78kDWAY3Efj+cDTFH9t9SCoL7OoTp1BOb0mQV7S+6CiLwnWM3FyxhJtdPufDFKzmCSFoUncKjWgJEZTCQ==}
++  baseline-browser-mapping@2.11.25:
++    resolution: {integrity: sha512-gMmEShwwq7FJqMwvfRwvCl00v4kN+KOfJqXn+f4nrufak5gNHJOksd/60Dvjuz7sI8Y5WiSFBa8FEYr+zoyqCw==}
+     engines: {node: &#x27;&gt;=6.0.0&#x27;}
+     hasBin: true
+
+@@ -15123,15 +15559,15 @@ packages:
+   brace-expansion@1.1.18:
+     resolution: {integrity: sha512-Edep/X9fGqVNmzKBVsDYIOtD+z1tuezV70LBjdCst9Tqu76lsnvRiZ6oTic1n+/BIwX6QDGAO94PN4N2SADvtw==}
+
+-  brace-expansion@2.1.2:
+-    resolution: {integrity: sha512-w5JZcKgdhDOgOwm8H+KgbosopHMuGcl6qbulwjtz3SM7I7P3yW1eAjzMPLrIE+NQ9vjgANKHWeMHnrT0OXW1oA==}
++  brace-expansion@2.1.4:
++    resolution: {integrity: sha512-hGfVzPxthbf3+2yjg/RBs60cB0FhqBS/zvdV/4wn4/BmN0bNMMHPc4V/BbFieqf1TKAGGAHnY4eSjajCl0f2Xg==}
+
+-  brace-expansion@5.0.6:
+-    resolution: {integrity: sha512-kLpxurY4Z4r9sgMsyG0Z9uzsBlgiU/EFKhj/h91/8yHu0edo7XuixOIH3VcJ8kkxs6/jPzoI6U9Vj3WqbMQ94g==}
+-    engines: {node: 18 || 20 || &gt;=22}
++  brace-expansion@5.0.9:
++    resolution: {integrity: sha512-ScQ4IuvIEF1TMlP7Zt+vjJ//9zlPb2SDcxWxM3bk8s6t6GGdJ7KO1dCcTidOPJKePW30LE/2cT7wCyPho9/Wxg==}
++    engines: {node: 20 || &gt;=22}
+
+-  browserslist@4.28.6:
+-    resolution: {integrity: sha512-FQBYNK15VMslhLHpA7+n+n1GOlF1kId2xcCg7/j95f24AOF6VDYMNH4mFxF7KuaTdv627faazpOAjFzMrfJOUw==}
++  browserslist@4.28.7:
++    resolution: {integrity: sha512-JxV13hNrFxqjOc8alRbq9dK1MM79NEXYpma2B2J4wAtpWS5zIEIKqWPGCl7N4o7Uc7B7itylh7SuDujATRyyTw==}
+     engines: {node: ^6 || ^7 || ^8 || ^9 || ^10 || ^11 || ^12 || &gt;=13.7}
+     hasBin: true
+
+@@ -15783,11 +16219,6 @@ packages:
+   es6-error@4.1.1:
+     resolution: {integrity: sha512-Um/+FxMr9CISWh0bi5Zv0iOD+4cFh5qLeks1qhAopKVAJw3drgKbKySikp7wGhDL0HPeaja0P5ULZrxLkniUVg==}
+
+-  esbuild@0.21.5:
+-    resolution: {integrity: sha512-mg3OPMV4hXywwpoDxu3Qda5xCKQi+vCTZq8S9J/EpkhB2HzKXq4SNFZE3+NK93JYxc8VMSep+lOUSC/RVKaBqw==}
+-    engines: {node: &#x27;&gt;=12&#x27;}
+-    hasBin: true
+-
+   esbuild@0.25.12:
+     resolution: {integrity: sha512-bbPBYYrtZbkt6Os6FiTLCTFxvq4tt3JKall1vRwshA3fdVztsLAatFaZobhkBC8/BrPetoa0oksYoKXoG4ryJg==}
+     engines: {node: &#x27;&gt;=18&#x27;}
+@@ -15952,8 +16383,8 @@ packages:
+   fast-sha256@1.3.0:
+     resolution: {integrity: sha512-n11RGP/lrWEFI/bWdygLxhI+pVeo1ZYIVwvvPkW7azl/rOy+F3HYRZ2K5zeE9mmkhQppyv9sQFx0JM9UabnpPQ==}
+
+-  fast-uri@3.1.3:
+-    resolution: {integrity: sha512-i70LwGWUduXqzicKXWshooq+sWL1K3WUU5rKZNG/0i3a1OSoX3HqhH5WbWwTmqWfor4urUakGPiRQcleRZTwOg==}
++  fast-uri@3.1.6:
++    resolution: {integrity: sha512-7Ical1vFEMr0onbVzEDIreM22I4khW+fzyQPwvAFWBp1iwdshSZRsL4jjRvPG9JP1uiqMHRto+YU6R2/CzDz5Q==}
+
+   fast-xml-builder@1.2.0:
+     resolution: {integrity: sha512-00aAWieqff+ZJhsXA4g1g7M8k+7AYoMUUHF+/zFb5U6Uv/P0Vl4QZo84/IcufzYalLuEj9928bXN9PbbFzMF0Q==}
+@@ -16326,8 +16757,8 @@ packages:
+     resolution: {integrity: sha512-DRsRnQrbzdFjaQ1oe4C6/EIUymIOEix1qROEJTF9dbMq+M4Zrm6VaLp6SD/B9IsiEjPZuBSnWWFN+udajugdWA==}
+     engines: {node: &#x27;&gt;=20&#x27;}
+
+-  ip-address@10.2.0:
+-    resolution: {integrity: sha512-/+S6j4E9AHvW9SWMSEY9Xfy66O5PWvVEJ08O0y5JGyEKQpojb0K0GKpz/v5HJ/G0vi3D2sjGK78119oXZeE0qA==}
++  ip-address@10.3.1:
++    resolution: {integrity: sha512-1e9d3kb97NHJTIJDZW9rKqW2h6+dFa50Dy0fpPSMQp2ADje5gvKsXmdiK6dwY5t76TaTt5+P5N1Y/LoToIxP6g==}
+     engines: {node: &#x27;&gt;= 12&#x27;}
+
+   ipaddr.js@1.9.1:
+@@ -17030,8 +17461,8 @@ packages:
+   multistream@4.1.0:
+     resolution: {integrity: sha512-J1XDiAmmNpRCBfIWJv+n0ymC4ABcf/Pl+5YvC5B/D2f/2+8PtHvCNxMPKiQcZyi922Hq69J2YOpb1pTywfifyw==}
+
+-  nanoid@3.3.12:
+-    resolution: {integrity: sha512-ZB9RH/39qpq5Vu6Y+NmUaFhQR6pp+M2Xt76XBnEwDaGcVAqhlvxrl3B2bKS5D3NH3QR76v3aSrKaF/Kiy7lEtQ==}
++  nanoid@3.3.18:
++    resolution: {integrity: sha512-DTg4MJbGMWkfi6VZFdNt2/caMbQy4Ou+Op/hJQvGEWcnVfoA1QA+xzRKAzw9jD6+GVOOeYr/mIcuDSdug6F6+w==}
+     engines: {node: ^10 || ^12 || ^13.7 || ^14 || &gt;=15.0.1}
+     hasBin: true
+
+@@ -17365,8 +17796,8 @@ packages:
+     resolution: {integrity: sha512-uysumyrvkUX0rX/dEVqt8gC3sTBzd4zoWfLeS29nb53imdaXVvLINYXTI2GNqzaMuvacNx4uJQ8+b3zXR0pkgQ==}
+     engines: {node: &#x27;&gt;=10.4.0&#x27;}
+
+-  pnpm@11.7.0:
+-    resolution: {integrity: sha512-GcyFLBIMcSV2DyRD7mvgyltA+fUFmN4aCaHxd1A+AQ5Xwjx3ZG4B52HeWb+HT7IqM5jDOrlpH8E+uUa28PTWIA==}
++  pnpm@11.11.0:
++    resolution: {integrity: sha512-RGP2X9gO2A1pvB1L8WPulPYFxzgPwxi7Wy6+FfjNEtScUaTVnpUbQB52TTtsp1HL9RvFDtcAGmvLSTXmhMNIgg==}
+     engines: {node: &#x27;&gt;=22.13&#x27;}
+     hasBin: true
+
+@@ -17380,8 +17811,8 @@ packages:
+     resolution: {integrity: sha512-rEwq/ZHlJIKw++XtLAO8PPuOQA/zaPJOZJ37BVuN97nLpMJeuDVLVGRwbFoBgLudgdTMP2hdRJP++H+8QOA3vg==}
+     engines: {node: &#x27;&gt;= 10.12&#x27;}
+
+-  postcss@8.5.15:
+-    resolution: {integrity: sha512-FfR8sjd4em2T6fb3I2MwAJU7HWVMr9zba+enmQeeWFfCbm+UOC/0X4DS8XtpUTMwWMGbjKYP7xjfNekzyGmB3A==}
++  postcss@8.5.23:
++    resolution: {integrity: sha512-g50586zr4bZmwFiTlflMu8E0bDTb5I5gertgwAKmsdUlTQIhZtunzUlD1WSzwcVWPoAVpsrA6vlfCD7oXvRwgg==}
+     engines: {node: ^10 || ^12 || &gt;=14}
+
+   postject@1.0.0-alpha.6:
+@@ -17628,11 +18059,6 @@ packages:
+       vue-tsc:
+         optional: true
+
+-  rolldown@1.0.3:
+-    resolution: {integrity: sha512-i00lAJ2ks1BYr7rjNjKC7BcqAS7nVfiT3QX1SI5aY+AFHblCmaUf9OE9dbdzDvW6dJxbi2ZCZiy9v3CcwOiX3g==}
+-    engines: {node: ^20.19.0 || &gt;=22.12.0}
+-    hasBin: true
+-
+   rolldown@1.1.1:
+     resolution: {integrity: sha512-IN750c0p+s3jqJIsFLRZrQazmbAB1kkQDTtQjSt/gbS2ywLhlv4R5Shazer0FZKmuo/BsO3/w2UoYnUjuOZqHg==}
+     engines: {node: ^20.19.0 || &gt;=22.12.0}
+@@ -18124,8 +18550,8 @@ packages:
+     resolution: {integrity: sha512-LIY910g9TI13YS95lrMFrs8Rm/u/irgHeTWoKCoteeJ04CUJ92eEfj0rVn+7VKMPBpUPiUoBKfhNyLI23EE/KA==}
+     engines: {node: &#x27;&gt;=18.17&#x27;}
+
+-  undici@7.28.0:
+-    resolution: {integrity: sha512-cRZYrTDwWznlnRiPjggAGxZXanty6M8RV1ff8Wm4LWXBp7/IG8v5DnOm74DtUBp9OONpK75YlPnIjQqX0dBDtA==}
++  undici@7.29.0:
++    resolution: {integrity: sha512-IDxfleLmmbSskfWSUATiN1nfn2rDuvnMOqb5CWR92iIfojA0Ud+ulOAAEQ57LPr9rWmsreUyf5lwyao+7GNNVw==}
+     engines: {node: &#x27;&gt;=20.18.1&#x27;}
+
+   undici@8.10.0:
+@@ -18177,7 +18603,7 @@ packages:
+     resolution: {integrity: sha512-Js0m9cx+qOgDxo0eMiFGEueWztz+d4+M3rGlmKPT+T4IS/jP4ylw3Nwpu6cpTTP8R1MAC1kF4VbdLt3ARf209w==}
+     hasBin: true
+     peerDependencies:
+-      browserslist: &#x27;&gt;= 4.21.0&#x27;
++      browserslist: 4.28.7
+
+   uri-js@4.4.1:
+     resolution: {integrity: sha512-7rKUyy33Q1yc98pQ1DAmLtwX109F7TIfWlW1Ydo8Wl1ii1SeHieeh0HHfPeL2fMXK6z0s8ecKs9frCuLJvndBg==}
+@@ -18213,38 +18639,7 @@ packages:
+   vite-tsconfig-paths@6.1.1:
+     resolution: {integrity: sha512-2cihq7zliibCCZ8P9cKJrQBkfgdvcFkOOc3Y02o3GWUDLgqjWsZudaoiuOwO/gzTzy17cS5F7ZPo4bsnS4DGkg==}
+     peerDependencies:
+-      vite: &#x27;*&#x27;
+-
+-  vite@5.4.21:
+-    resolution: {integrity: sha512-o5a9xKjbtuhY6Bi5S3+HvbRERmouabWbyUcpXXUA1u+GNUKoROi9byOJ8M0nHbHYHkYICiMlqxkg1KkYmm25Sw==}
+-    engines: {node: ^18.0.0 || &gt;=20.0.0}
+-    hasBin: true
+-    peerDependencies:
+-      &#x27;@types/node&#x27;: ^18.0.0 || &gt;=20.0.0
+-      less: &#x27;*&#x27;
+-      lightningcss: ^1.21.0
+-      sass: &#x27;*&#x27;
+-      sass-embedded: &#x27;*&#x27;
+-      stylus: &#x27;*&#x27;
+-      sugarss: &#x27;*&#x27;
+-      terser: ^5.4.0
+-    peerDependenciesMeta:
+-      &#x27;@types/node&#x27;:
+-        optional: true
+-      less:
+-        optional: true
+-      lightningcss:
+-        optional: true
+-      sass:
+-        optional: true
+-      sass-embedded:
+-        optional: true
+-      stylus:
+-        optional: true
+-      sugarss:
+-        optional: true
+-      terser:
+-        optional: true
++      vite: 6.4.3
+
+   vite@6.4.3:
+     resolution: {integrity: sha512-NTKlcQjlAK7MlQoyb6LgaqHc8sso/pVyUJYWMws3jg21uTJw/LddqIFPcPqP6PzpgbIcZyKI85sFE4HBrQDA8A==}
+@@ -18286,49 +18681,6 @@ packages:
+       yaml:
+         optional: true
+
+-  vite@8.0.16:
+-    resolution: {integrity: sha512-h9bXPmJichP5fLmVQo3PyaGSDE2n3aPuomeAlVRm0JLmt4rY6zmPKd59HYI4LNW8oTK7tlTsuC7l/m7awx9Jcw==}
+-    engines: {node: ^20.19.0 || &gt;=22.12.0}
+-    hasBin: true
+-    peerDependencies:
+-      &#x27;@types/node&#x27;: ^20.19.0 || &gt;=22.12.0
+-      &#x27;@vitejs/devtools&#x27;: ^0.1.18
+-      esbuild: ^0.27.0 || ^0.28.0
+-      jiti: &#x27;&gt;=1.21.0&#x27;
+-      less: ^4.0.0
+-      sass: ^1.70.0
+-      sass-embedded: ^1.70.0
+-      stylus: &#x27;&gt;=0.54.8&#x27;
+-      sugarss: ^5.0.0
+-      terser: ^5.16.0
+-      tsx: ^4.8.1
+-      yaml: ^2.4.2
+-    peerDependenciesMeta:
+-      &#x27;@types/node&#x27;:
+-        optional: true
+-      &#x27;@vitejs/devtools&#x27;:
+-        optional: true
+-      esbuild:
+-        optional: true
+-      jiti:
+-        optional: true
+-      less:
+-        optional: true
+-      sass:
+-        optional: true
+-      sass-embedded:
+-        optional: true
+-      stylus:
+-        optional: true
+-      sugarss:
+-        optional: true
+-      terser:
+-        optional: true
+-      tsx:
+-        optional: true
+-      yaml:
+-        optional: true
+-
+   vitepress-plugin-mermaid@2.0.17:
+     resolution: {integrity: sha512-IUzYpwf61GC6k0XzfmAmNrLvMi9TRrVRMsUyCA8KNXhg/mQ1VqWnO0/tBVPiX5UoKF1mDUwqn5QV4qAJl6JnUg==}
+     peerDependencies:
+@@ -18340,7 +18692,7 @@ packages:
+     hasBin: true
+     peerDependencies:
+       markdown-it-mathjax3: ^4
+-      postcss: ^8
++      postcss: 8.5.23
+     peerDependenciesMeta:
+       markdown-it-mathjax3:
+         optional: true
+@@ -18363,7 +18715,7 @@ packages:
+       &#x27;@vitest/ui&#x27;: 4.1.8
+       happy-dom: &#x27;*&#x27;
+       jsdom: &#x27;*&#x27;
+-      vite: ^6.0.0 || ^7.0.0 || ^8.0.0
++      vite: 6.4.3
+     peerDependenciesMeta:
+       &#x27;@edge-runtime/vm&#x27;:
+         optional: true
+@@ -19133,7 +19485,7 @@ snapshots:
+     dependencies:
+       &#x27;@babel/compat-data&#x27;: 7.29.7
+       &#x27;@babel/helper-validator-option&#x27;: 7.29.7
+-      browserslist: 4.28.6
++      browserslist: 4.28.7
+       lru-cache: 5.1.1
+       semver: 6.3.1
+
+@@ -19355,7 +19707,7 @@ snapshots:
+       semver: 7.8.5
+       sumchecker: 3.0.1
+     optionalDependencies:
+-      undici: 7.28.0
++      undici: 7.29.0
+     transitivePeerDependencies:
+       - supports-color
+
+@@ -19449,153 +19801,102 @@ snapshots:
+       tslib: 2.8.1
+     optional: true
+
+-  &#x27;@esbuild/aix-ppc64@0.21.5&#x27;:
+-    optional: true
+-
+   &#x27;@esbuild/aix-ppc64@0.25.12&#x27;:
+     optional: true
+
+   &#x27;@esbuild/aix-ppc64@0.28.1&#x27;:
+     optional: true
+
+-  &#x27;@esbuild/android-arm64@0.21.5&#x27;:
+-    optional: true
+-
+   &#x27;@esbuild/android-arm64@0.25.12&#x27;:
+     optional: true
+
+   &#x27;@esbuild/android-arm64@0.28.1&#x27;:
+     optional: true
+
+-  &#x27;@esbuild/android-arm@0.21.5&#x27;:
+-    optional: true
+-
+   &#x27;@esbuild/android-arm@0.25.12&#x27;:
+     optional: true
+
+   &#x27;@esbuild/android-arm@0.28.1&#x27;:
+     optional: true
+
+-  &#x27;@esbuild/android-x64@0.21.5&#x27;:
+-    optional: true
+-
+   &#x27;@esbuild/android-x64@0.25.12&#x27;:
+     optional: true
+
+   &#x27;@esbuild/android-x64@0.28.1&#x27;:
+     optional: true
+
+-  &#x27;@esbuild/darwin-arm64@0.21.5&#x27;:
+-    optional: true
+-
+   &#x27;@esbuild/darwin-arm64@0.25.12&#x27;:
+     optional: true
+
+   &#x27;@esbuild/darwin-arm64@0.28.1&#x27;:
+     optional: true
+
+-  &#x27;@esbuild/darwin-x64@0.21.5&#x27;:
+-    optional: true
+-
+   &#x27;@esbuild/darwin-x64@0.25.12&#x27;:
+     optional: true
+
+   &#x27;@esbuild/darwin-x64@0.28.1&#x27;:
+     optional: true
+
+-  &#x27;@esbuild/freebsd-arm64@0.21.5&#x27;:
+-    optional: true
+-
+   &#x27;@esbuild/freebsd-arm64@0.25.12&#x27;:
+     optional: true
+
+   &#x27;@esbuild/freebsd-arm64@0.28.1&#x27;:
+     optional: true
+
+-  &#x27;@esbuild/freebsd-x64@0.21.5&#x27;:
+-    optional: true
+-
+   &#x27;@esbuild/freebsd-x64@0.25.12&#x27;:
+     optional: true
+
+   &#x27;@esbuild/freebsd-x64@0.28.1&#x27;:
+     optional: true
+
+-  &#x27;@esbuild/linux-arm64@0.21.5&#x27;:
+-    optional: true
+-
+   &#x27;@esbuild/linux-arm64@0.25.12&#x27;:
+     optional: true
+
+   &#x27;@esbuild/linux-arm64@0.28.1&#x27;:
+     optional: true
+
+-  &#x27;@esbuild/linux-arm@0.21.5&#x27;:
+-    optional: true
+-
+   &#x27;@esbuild/linux-arm@0.25.12&#x27;:
+     optional: true
+
+   &#x27;@esbuild/linux-arm@0.28.1&#x27;:
+     optional: true
+
+-  &#x27;@esbuild/linux-ia32@0.21.5&#x27;:
+-    optional: true
+-
+   &#x27;@esbuild/linux-ia32@0.25.12&#x27;:
+     optional: true
+
+   &#x27;@esbuild/linux-ia32@0.28.1&#x27;:
+     optional: true
+
+-  &#x27;@esbuild/linux-loong64@0.21.5&#x27;:
+-    optional: true
+-
+   &#x27;@esbuild/linux-loong64@0.25.12&#x27;:
+     optional: true
+
+   &#x27;@esbuild/linux-loong64@0.28.1&#x27;:
+     optional: true
+
+-  &#x27;@esbuild/linux-mips64el@0.21.5&#x27;:
+-    optional: true
+-
+   &#x27;@esbuild/linux-mips64el@0.25.12&#x27;:
+     optional: true
+
+   &#x27;@esbuild/linux-mips64el@0.28.1&#x27;:
+     optional: true
+
+-  &#x27;@esbuild/linux-ppc64@0.21.5&#x27;:
+-    optional: true
+-
+   &#x27;@esbuild/linux-ppc64@0.25.12&#x27;:
+     optional: true
+
+   &#x27;@esbuild/linux-ppc64@0.28.1&#x27;:
+     optional: true
+
+-  &#x27;@esbuild/linux-riscv64@0.21.5&#x27;:
+-    optional: true
+-
+   &#x27;@esbuild/linux-riscv64@0.25.12&#x27;:
+     optional: true
+
+   &#x27;@esbuild/linux-riscv64@0.28.1&#x27;:
+     optional: true
+
+-  &#x27;@esbuild/linux-s390x@0.21.5&#x27;:
+-    optional: true
+-
+   &#x27;@esbuild/linux-s390x@0.25.12&#x27;:
+     optional: true
+
+   &#x27;@esbuild/linux-s390x@0.28.1&#x27;:
+     optional: true
+
+-  &#x27;@esbuild/linux-x64@0.21.5&#x27;:
+-    optional: true
+-
+   &#x27;@esbuild/linux-x64@0.25.12&#x27;:
+     optional: true
+
+@@ -19608,9 +19909,6 @@ snapshots:
+   &#x27;@esbuild/netbsd-arm64@0.28.1&#x27;:
+     optional: true
+
+-  &#x27;@esbuild/netbsd-x64@0.21.5&#x27;:
+-    optional: true
+-
+   &#x27;@esbuild/netbsd-x64@0.25.12&#x27;:
+     optional: true
+
+@@ -19623,9 +19921,6 @@ snapshots:
+   &#x27;@esbuild/openbsd-arm64@0.28.1&#x27;:
+     optional: true
+
+-  &#x27;@esbuild/openbsd-x64@0.21.5&#x27;:
+-    optional: true
+-
+   &#x27;@esbuild/openbsd-x64@0.25.12&#x27;:
+     optional: true
+
+@@ -19638,36 +19933,24 @@ snapshots:
+   &#x27;@esbuild/openharmony-arm64@0.28.1&#x27;:
+     optional: true
+
+-  &#x27;@esbuild/sunos-x64@0.21.5&#x27;:
+-    optional: true
+-
+   &#x27;@esbuild/sunos-x64@0.25.12&#x27;:
+     optional: true
+
+   &#x27;@esbuild/sunos-x64@0.28.1&#x27;:
+     optional: true
+
+-  &#x27;@esbuild/win32-arm64@0.21.5&#x27;:
+-    optional: true
+-
+   &#x27;@esbuild/win32-arm64@0.25.12&#x27;:
+     optional: true
+
+   &#x27;@esbuild/win32-arm64@0.28.1&#x27;:
+     optional: true
+
+-  &#x27;@esbuild/win32-ia32@0.21.5&#x27;:
+-    optional: true
+-
+   &#x27;@esbuild/win32-ia32@0.25.12&#x27;:
+     optional: true
+
+   &#x27;@esbuild/win32-ia32@0.28.1&#x27;:
+     optional: true
+
+-  &#x27;@esbuild/win32-x64@0.21.5&#x27;:
+-    optional: true
+-
+   &#x27;@esbuild/win32-x64@0.25.12&#x27;:
+     optional: true
+
+@@ -20310,8 +20593,6 @@ snapshots:
+
+   &#x27;@opentelemetry/semantic-conventions@1.43.0&#x27;: {}
+
+-  &#x27;@oxc-project/types@0.133.0&#x27;: {}
+-
+   &#x27;@oxc-project/types@0.135.0&#x27;: {}
+
+   &#x27;@oxc-resolver/binding-android-arm-eabi@11.20.0&#x27;:
+@@ -20505,85 +20786,42 @@ snapshots:
+
+   &#x27;@roberts_lando/vfs@0.3.3&#x27;: {}
+
+-  &#x27;@rolldown/binding-android-arm64@1.0.3&#x27;:
+-    optional: true
+-
+   &#x27;@rolldown/binding-android-arm64@1.1.1&#x27;:
+     optional: true
+
+-  &#x27;@rolldown/binding-darwin-arm64@1.0.3&#x27;:
+-    optional: true
+-
+   &#x27;@rolldown/binding-darwin-arm64@1.1.1&#x27;:
+     optional: true
+
+-  &#x27;@rolldown/binding-darwin-x64@1.0.3&#x27;:
+-    optional: true
+-
+   &#x27;@rolldown/binding-darwin-x64@1.1.1&#x27;:
+     optional: true
+
+-  &#x27;@rolldown/binding-freebsd-x64@1.0.3&#x27;:
+-    optional: true
+-
+   &#x27;@rolldown/binding-freebsd-x64@1.1.1&#x27;:
+     optional: true
+
+-  &#x27;@rolldown/binding-linux-arm-gnueabihf@1.0.3&#x27;:
+-    optional: true
+-
+   &#x27;@rolldown/binding-linux-arm-gnueabihf@1.1.1&#x27;:
+     optional: true
+
+-  &#x27;@rolldown/binding-linux-arm64-gnu@1.0.3&#x27;:
+-    optional: true
+-
+   &#x27;@rolldown/binding-linux-arm64-gnu@1.1.1&#x27;:
+     optional: true
+
+-  &#x27;@rolldown/binding-linux-arm64-musl@1.0.3&#x27;:
+-    optional: true
+-
+   &#x27;@rolldown/binding-linux-arm64-musl@1.1.1&#x27;:
+     optional: true
+
+-  &#x27;@rolldown/binding-linux-ppc64-gnu@1.0.3&#x27;:
+-    optional: true
+-
+   &#x27;@rolldown/binding-linux-ppc64-gnu@1.1.1&#x27;:
+     optional: true
+
+-  &#x27;@rolldown/binding-linux-s390x-gnu@1.0.3&#x27;:
+-    optional: true
+-
+   &#x27;@rolldown/binding-linux-s390x-gnu@1.1.1&#x27;:
+     optional: true
+
+-  &#x27;@rolldown/binding-linux-x64-gnu@1.0.3&#x27;:
+-    optional: true
+-
+   &#x27;@rolldown/binding-linux-x64-gnu@1.1.1&#x27;:
+     optional: true
+
+-  &#x27;@rolldown/binding-linux-x64-musl@1.0.3&#x27;:
+-    optional: true
+-
+   &#x27;@rolldown/binding-linux-x64-musl@1.1.1&#x27;:
+     optional: true
+
+-  &#x27;@rolldown/binding-openharmony-arm64@1.0.3&#x27;:
+-    optional: true
+-
+   &#x27;@rolldown/binding-openharmony-arm64@1.1.1&#x27;:
+     optional: true
+
+-  &#x27;@rolldown/binding-wasm32-wasi@1.0.3&#x27;:
+-    dependencies:
+-      &#x27;@emnapi/core&#x27;: 1.10.0
+-      &#x27;@emnapi/runtime&#x27;: 1.10.0
+-      &#x27;@napi-rs/wasm-runtime&#x27;: 1.1.5(@emnapi/core@1.10.0)(@emnapi/runtime@1.10.0)
+-    optional: true
+-
+   &#x27;@rolldown/binding-wasm32-wasi@1.1.1&#x27;:
+     dependencies:
+       &#x27;@emnapi/core&#x27;: 1.11.0
+@@ -20591,15 +20829,9 @@ snapshots:
+       &#x27;@napi-rs/wasm-runtime&#x27;: 1.1.5(@emnapi/core@1.11.0)(@emnapi/runtime@1.11.0)
+     optional: true
+
+-  &#x27;@rolldown/binding-win32-arm64-msvc@1.0.3&#x27;:
+-    optional: true
+-
+   &#x27;@rolldown/binding-win32-arm64-msvc@1.1.1&#x27;:
+     optional: true
+
+-  &#x27;@rolldown/binding-win32-x64-msvc@1.0.3&#x27;:
+-    optional: true
+-
+   &#x27;@rolldown/binding-win32-x64-msvc@1.1.1&#x27;:
+     optional: true
+
+@@ -21232,9 +21464,9 @@ snapshots:
+     transitivePeerDependencies:
+       - supports-color
+
+-  &#x27;@vitejs/plugin-vue@5.2.4(vite@5.4.21(@types/node@25.9.3)(lightningcss@1.32.0))(vue@3.5.39(typescript@6.0.3))&#x27;:
++  &#x27;@vitejs/plugin-vue@5.2.4(vite@6.4.3(@types/node@26.1.2)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.22.4)(yaml@2.9.0))(vue@3.5.39(typescript@6.0.3))&#x27;:
+     dependencies:
+-      vite: 5.4.21(@types/node@25.9.3)(lightningcss@1.32.0)
++      vite: 6.4.3(@types/node@26.1.2)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.22.4)(yaml@2.9.0)
+       vue: 3.5.39(typescript@6.0.3)
+
+   &#x27;@vitest/coverage-v8@4.1.8(vitest@4.1.8)&#x27;:
+@@ -21249,7 +21481,7 @@ snapshots:
+       obug: 2.1.3
+       std-env: 4.1.0
+       tinyrainbow: 3.1.0
+-      vitest: 4.1.8(@opentelemetry/api@1.9.1)(@types/node@22.20.0)(@vitest/coverage-v8@4.1.8)(happy-dom@20.11.6)(jsdom@29.1.1(@noble/hashes@2.3.0))(vite@8.0.16(@types/node@22.20.0)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.22.4)(yaml@2.9.0))
++      vitest: 4.1.8(@opentelemetry/api@1.9.1)(@types/node@22.20.0)(@vitest/coverage-v8@4.1.8)(happy-dom@20.11.6)(jsdom@29.1.1(@noble/hashes@2.3.0))(vite@6.4.3(@types/node@22.20.0)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.22.4)(yaml@2.9.0))
+
+   &#x27;@vitest/expect@4.1.8&#x27;:
+     dependencies:
+@@ -21268,21 +21500,13 @@ snapshots:
+     optionalDependencies:
+       vite: 6.4.3(@types/node@22.20.0)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.22.4)(yaml@2.9.0)
+
+-  &#x27;@vitest/mocker@4.1.8(vite@8.0.16(@types/node@22.20.0)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.22.4)(yaml@2.9.0))&#x27;:
+-    dependencies:
+-      &#x27;@vitest/spy&#x27;: 4.1.8
+-      estree-walker: 3.0.3
+-      magic-string: 0.30.21
+-    optionalDependencies:
+-      vite: 8.0.16(@types/node@22.20.0)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.22.4)(yaml@2.9.0)
+-
+-  &#x27;@vitest/mocker@4.1.8(vite@8.0.16(@types/node@26.1.2)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.22.4)(yaml@2.9.0))&#x27;:
++  &#x27;@vitest/mocker@4.1.8(vite@6.4.3(@types/node@26.1.2)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.22.4)(yaml@2.9.0))&#x27;:
+     dependencies:
+       &#x27;@vitest/spy&#x27;: 4.1.8
+       estree-walker: 3.0.3
+       magic-string: 0.30.21
+     optionalDependencies:
+-      vite: 8.0.16(@types/node@26.1.2)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.22.4)(yaml@2.9.0)
++      vite: 6.4.3(@types/node@26.1.2)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.22.4)(yaml@2.9.0)
+
+   &#x27;@vitest/pretty-format@4.1.8&#x27;:
+     dependencies:
+@@ -21381,7 +21605,7 @@ snapshots:
+       &#x27;@vue/shared&#x27;: 3.5.39
+       estree-walker: 2.0.2
+       magic-string: 0.30.21
+-      postcss: 8.5.15
++      postcss: 8.5.23
+       source-map-js: 1.2.1
+
+   &#x27;@vue/compiler-ssr@3.5.39&#x27;:
+@@ -21468,7 +21692,7 @@ snapshots:
+       progress: 2.0.3
+       semver: 7.8.5
+       tar-fs: 3.1.3
+-      undici: 7.28.0
++      undici: 7.29.0
+       yargs: 16.2.2
+     transitivePeerDependencies:
+       - bare-abort-controller
+@@ -21542,7 +21766,7 @@ snapshots:
+   ajv@8.20.0:
+     dependencies:
+       fast-deep-equal: 3.1.3
+-      fast-uri: 3.1.3
++      fast-uri: 3.1.6
+       json-schema-traverse: 1.0.0
+       require-from-string: 2.0.2
+
+@@ -21702,7 +21926,7 @@ snapshots:
+
+   base64-js@1.5.1: {}
+
+-  baseline-browser-mapping@2.10.43: {}
++  baseline-browser-mapping@2.11.25: {}
+
+   basic-auth@2.0.1:
+     dependencies:
+@@ -21750,21 +21974,21 @@ snapshots:
+       balanced-match: 1.0.2
+       concat-map: 0.0.1
+
+-  brace-expansion@2.1.2:
++  brace-expansion@2.1.4:
+     dependencies:
+       balanced-match: 1.0.2
+
+-  brace-expansion@5.0.6:
++  brace-expansion@5.0.9:
+     dependencies:
+       balanced-match: 4.0.4
+
+-  browserslist@4.28.6:
++  browserslist@4.28.7:
+     dependencies:
+-      baseline-browser-mapping: 2.10.43
++      baseline-browser-mapping: 2.11.25
+       caniuse-lite: 1.0.30001806
+       electron-to-chromium: 1.5.393
+       node-releases: 2.0.51
+-      update-browserslist-db: 1.2.3(browserslist@4.28.6)
++      update-browserslist-db: 1.2.3(browserslist@4.28.7)
+
+   buffer-crc32@0.2.13: {}
+
+@@ -22323,7 +22547,7 @@ snapshots:
+       openapi-fetch: 0.14.1
+       platform: 1.3.6
+       tar: 7.5.22
+-      undici: 7.28.0
++      undici: 7.29.0
+
+   eastasianwidth@0.2.0: {}
+
+@@ -22457,32 +22681,6 @@ snapshots:
+   es6-error@4.1.1:
+     optional: true
+
+-  esbuild@0.21.5:
+-    optionalDependencies:
+-      &#x27;@esbuild/aix-ppc64&#x27;: 0.21.5
+-      &#x27;@esbuild/android-arm&#x27;: 0.21.5
+-      &#x27;@esbuild/android-arm64&#x27;: 0.21.5
+-      &#x27;@esbuild/android-x64&#x27;: 0.21.5
+-      &#x27;@esbuild/darwin-arm64&#x27;: 0.21.5
+-      &#x27;@esbuild/darwin-x64&#x27;: 0.21.5
+-      &#x27;@esbuild/freebsd-arm64&#x27;: 0.21.5
+-      &#x27;@esbuild/freebsd-x64&#x27;: 0.21.5
+-      &#x27;@esbuild/linux-arm&#x27;: 0.21.5
+-      &#x27;@esbuild/linux-arm64&#x27;: 0.21.5
+-      &#x27;@esbuild/linux-ia32&#x27;: 0.21.5
+-      &#x27;@esbuild/linux-loong64&#x27;: 0.21.5
+-      &#x27;@esbuild/linux-mips64el&#x27;: 0.21.5
+-      &#x27;@esbuild/linux-ppc64&#x27;: 0.21.5
+-      &#x27;@esbuild/linux-riscv64&#x27;: 0.21.5
+-      &#x27;@esbuild/linux-s390x&#x27;: 0.21.5
+-      &#x27;@esbuild/linux-x64&#x27;: 0.21.5
+-      &#x27;@esbuild/netbsd-x64&#x27;: 0.21.5
+-      &#x27;@esbuild/openbsd-x64&#x27;: 0.21.5
+-      &#x27;@esbuild/sunos-x64&#x27;: 0.21.5
+-      &#x27;@esbuild/win32-arm64&#x27;: 0.21.5
+-      &#x27;@esbuild/win32-ia32&#x27;: 0.21.5
+-      &#x27;@esbuild/win32-x64&#x27;: 0.21.5
+-
+   esbuild@0.25.12:
+     optionalDependencies:
+       &#x27;@esbuild/aix-ppc64&#x27;: 0.25.12
+@@ -22691,7 +22889,7 @@ snapshots:
+   express-rate-limit@8.5.2(express@5.2.1):
+     dependencies:
+       express: 5.2.1
+-      ip-address: 10.2.0
++      ip-address: 10.3.1
+
+   express@5.2.1:
+     dependencies:
+@@ -22752,7 +22950,7 @@ snapshots:
+
+   fast-sha256@1.3.0: {}
+
+-  fast-uri@3.1.3: {}
++  fast-uri@3.1.6: {}
+
+   fast-xml-builder@1.2.0:
+     dependencies:
+@@ -23200,7 +23398,7 @@ snapshots:
+
+   into-stream@9.1.0: {}
+
+-  ip-address@10.2.0: {}
++  ip-address@10.3.1: {}
+
+   ipaddr.js@1.9.1: {}
+
+@@ -23339,7 +23537,7 @@ snapshots:
+       saxes: 6.0.0
+       symbol-tree: 3.2.4
+       tough-cookie: 6.0.1
+-      undici: 7.28.0
++      undici: 7.29.0
+       w3c-xmlserializer: 5.0.0
+       webidl-conversions: 8.0.1
+       whatwg-mimetype: 5.0.0
+@@ -23989,7 +24187,7 @@ snapshots:
+
+   minimatch@10.2.5:
+     dependencies:
+-      brace-expansion: 5.0.6
++      brace-expansion: 5.0.9
+
+   minimatch@3.1.5:
+     dependencies:
+@@ -23997,11 +24195,11 @@ snapshots:
+
+   minimatch@5.1.9:
+     dependencies:
+-      brace-expansion: 2.1.2
++      brace-expansion: 2.1.4
+
+   minimatch@9.0.9:
+     dependencies:
+-      brace-expansion: 2.1.2
++      brace-expansion: 2.1.4
+
+   minimist@1.2.8: {}
+
+@@ -24032,7 +24230,7 @@ snapshots:
+       once: 1.4.0
+       readable-stream: 3.6.2
+
+-  nanoid@3.3.12: {}
++  nanoid@3.3.18: {}
+
+   napi-build-utils@2.0.0: {}
+
+@@ -24367,7 +24565,7 @@ snapshots:
+       base64-js: 1.5.1
+       xmlbuilder: 15.1.1
+
+-  pnpm@11.7.0: {}
++  pnpm@11.11.0: {}
+
+   points-on-curve@0.2.0: {}
+
+@@ -24383,9 +24581,9 @@ snapshots:
+     transitivePeerDependencies:
+       - supports-color
+
+-  postcss@8.5.15:
++  postcss@8.5.23:
+     dependencies:
+-      nanoid: 3.3.12
++      nanoid: 3.3.18
+       picocolors: 1.1.1
+       source-map-js: 1.2.1
+
+@@ -24643,27 +24841,6 @@ snapshots:
+     transitivePeerDependencies:
+       - oxc-resolver
+
+-  rolldown@1.0.3:
+-    dependencies:
+-      &#x27;@oxc-project/types&#x27;: 0.133.0
+-      &#x27;@rolldown/pluginutils&#x27;: 1.0.1
+-    optionalDependencies:
+-      &#x27;@rolldown/binding-android-arm64&#x27;: 1.0.3
+-      &#x27;@rolldown/binding-darwin-arm64&#x27;: 1.0.3
+-      &#x27;@rolldown/binding-darwin-x64&#x27;: 1.0.3
+-      &#x27;@rolldown/binding-freebsd-x64&#x27;: 1.0.3
+-      &#x27;@rolldown/binding-linux-arm-gnueabihf&#x27;: 1.0.3
+-      &#x27;@rolldown/binding-linux-arm64-gnu&#x27;: 1.0.3
+-      &#x27;@rolldown/binding-linux-arm64-musl&#x27;: 1.0.3
+-      &#x27;@rolldown/binding-linux-ppc64-gnu&#x27;: 1.0.3
+-      &#x27;@rolldown/binding-linux-s390x-gnu&#x27;: 1.0.3
+-      &#x27;@rolldown/binding-linux-x64-gnu&#x27;: 1.0.3
+-      &#x27;@rolldown/binding-linux-x64-musl&#x27;: 1.0.3
+-      &#x27;@rolldown/binding-openharmony-arm64&#x27;: 1.0.3
+-      &#x27;@rolldown/binding-wasm32-wasi&#x27;: 1.0.3
+-      &#x27;@rolldown/binding-win32-arm64-msvc&#x27;: 1.0.3
+-      &#x27;@rolldown/binding-win32-x64-msvc&#x27;: 1.0.3
+-
+   rolldown@1.1.1:
+     dependencies:
+       &#x27;@oxc-project/types&#x27;: 0.135.0
+@@ -25251,7 +25428,7 @@ snapshots:
+
+   undici@6.28.0: {}
+
+-  undici@7.28.0: {}
++  undici@7.29.0: {}
+
+   undici@8.10.0: {}
+
+@@ -25303,9 +25480,9 @@ snapshots:
+       graceful-fs: 4.2.11
+       node-int64: 0.4.0
+
+-  update-browserslist-db@1.2.3(browserslist@4.28.6):
++  update-browserslist-db@1.2.3(browserslist@4.28.7):
+     dependencies:
+-      browserslist: 4.28.6
++      browserslist: 4.28.7
+       escalade: 3.2.0
+       picocolors: 1.1.1
+
+@@ -25337,32 +25514,22 @@ snapshots:
+       &#x27;@types/unist&#x27;: 3.0.3
+       vfile-message: 4.0.3
+
+-  vite-tsconfig-paths@6.1.1(supports-color@9.4.0)(typescript@6.0.3)(vite@8.0.16(@types/node@22.20.0)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.22.4)(yaml@2.9.0)):
++  vite-tsconfig-paths@6.1.1(supports-color@9.4.0)(typescript@6.0.3)(vite@6.4.3(@types/node@22.20.0)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.22.4)(yaml@2.9.0)):
+     dependencies:
+       debug: 4.4.3(supports-color@9.4.0)
+       globrex: 0.1.2
+       tsconfck: 3.1.6(typescript@6.0.3)
+-      vite: 8.0.16(@types/node@22.20.0)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.22.4)(yaml@2.9.0)
++      vite: 6.4.3(@types/node@22.20.0)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.22.4)(yaml@2.9.0)
+     transitivePeerDependencies:
+       - supports-color
+       - typescript
+
+-  vite@5.4.21(@types/node@25.9.3)(lightningcss@1.32.0):
+-    dependencies:
+-      esbuild: 0.21.5
+-      postcss: 8.5.15
+-      rollup: 4.62.2
+-    optionalDependencies:
+-      &#x27;@types/node&#x27;: 25.9.3
+-      fsevents: 2.3.3
+-      lightningcss: 1.32.0
+-
+   vite@6.4.3(@types/node@22.20.0)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.22.4)(yaml@2.9.0):
+     dependencies:
+       esbuild: 0.25.12
+       fdir: 6.5.0(picomatch@4.0.4)
+       picomatch: 4.0.4
+-      postcss: 8.5.15
++      postcss: 8.5.23
+       rollup: 4.62.2
+       tinyglobby: 0.2.17
+     optionalDependencies:
+@@ -25373,44 +25540,30 @@ snapshots:
+       tsx: 4.22.4
+       yaml: 2.9.0
+
+-  vite@8.0.16(@types/node@22.20.0)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.22.4)(yaml@2.9.0):
+-    dependencies:
+-      lightningcss: 1.32.0
+-      picomatch: 4.0.4
+-      postcss: 8.5.15
+-      rolldown: 1.0.3
+-      tinyglobby: 0.2.17
+-    optionalDependencies:
+-      &#x27;@types/node&#x27;: 22.20.0
+-      esbuild: 0.28.1
+-      fsevents: 2.3.3
+-      jiti: 2.7.0
+-      tsx: 4.22.4
+-      yaml: 2.9.0
+-
+-  vite@8.0.16(@types/node@26.1.2)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.22.4)(yaml@2.9.0):
++  vite@6.4.3(@types/node@26.1.2)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.22.4)(yaml@2.9.0):
+     dependencies:
+-      lightningcss: 1.32.0
++      esbuild: 0.25.12
++      fdir: 6.5.0(picomatch@4.0.4)
+       picomatch: 4.0.4
+-      postcss: 8.5.15
+-      rolldown: 1.0.3
++      postcss: 8.5.23
++      rollup: 4.62.2
+       tinyglobby: 0.2.17
+     optionalDependencies:
+       &#x27;@types/node&#x27;: 26.1.2
+-      esbuild: 0.28.1
+       fsevents: 2.3.3
+       jiti: 2.7.0
++      lightningcss: 1.32.0
+       tsx: 4.22.4
+       yaml: 2.9.0
+
+-  vitepress-plugin-mermaid@2.0.17(mermaid@11.16.0)(vitepress@1.6.4(@algolia/client-search@5.55.2)(@types/node@25.9.3)(@types/react@18.3.31)(lightningcss@1.32.0)(postcss@8.5.15)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(search-insights@2.17.3)(typescript@6.0.3)):
++  vitepress-plugin-mermaid@2.0.17(mermaid@11.16.0)(vitepress@1.6.4(@algolia/client-search@5.55.2)(@types/node@26.1.2)(@types/react@18.3.31)(jiti@2.7.0)(lightningcss@1.32.0)(postcss@8.5.23)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(search-insights@2.17.3)(tsx@4.22.4)(typescript@6.0.3)(yaml@2.9.0)):
+     dependencies:
+       mermaid: 11.16.0
+-      vitepress: 1.6.4(@algolia/client-search@5.55.2)(@types/node@25.9.3)(@types/react@18.3.31)(lightningcss@1.32.0)(postcss@8.5.15)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(search-insights@2.17.3)(typescript@6.0.3)
++      vitepress: 1.6.4(@algolia/client-search@5.55.2)(@types/node@26.1.2)(@types/react@18.3.31)(jiti@2.7.0)(lightningcss@1.32.0)(postcss@8.5.23)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(search-insights@2.17.3)(tsx@4.22.4)(typescript@6.0.3)(yaml@2.9.0)
+     optionalDependencies:
+       &#x27;@mermaid-js/mermaid-mindmap&#x27;: 9.3.0
+
+-  vitepress@1.6.4(@algolia/client-search@5.55.2)(@types/node@25.9.3)(@types/react@18.3.31)(lightningcss@1.32.0)(postcss@8.5.15)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(search-insights@2.17.3)(typescript@6.0.3):
++  vitepress@1.6.4(@algolia/client-search@5.55.2)(@types/node@26.1.2)(@types/react@18.3.31)(jiti@2.7.0)(lightningcss@1.32.0)(postcss@8.5.23)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(search-insights@2.17.3)(tsx@4.22.4)(typescript@6.0.3)(yaml@2.9.0):
+     dependencies:
+       &#x27;@docsearch/css&#x27;: 3.8.2
+       &#x27;@docsearch/js&#x27;: 3.8.2(@algolia/client-search@5.55.2)(@types/react@18.3.31)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(search-insights@2.17.3)
+@@ -25419,7 +25572,7 @@ snapshots:
+       &#x27;@shikijs/transformers&#x27;: 2.5.0
+       &#x27;@shikijs/types&#x27;: 2.5.0
+       &#x27;@types/markdown-it&#x27;: 14.1.2
+-      &#x27;@vitejs/plugin-vue&#x27;: 5.2.4(vite@5.4.21(@types/node@25.9.3)(lightningcss@1.32.0))(vue@3.5.39(typescript@6.0.3))
++      &#x27;@vitejs/plugin-vue&#x27;: 5.2.4(vite@6.4.3(@types/node@26.1.2)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.22.4)(yaml@2.9.0))(vue@3.5.39(typescript@6.0.3))
+       &#x27;@vue/devtools-api&#x27;: 7.7.10
+       &#x27;@vue/shared&#x27;: 3.5.39
+       &#x27;@vueuse/core&#x27;: 12.8.2(typescript@6.0.3)
+@@ -25428,10 +25581,10 @@ snapshots:
+       mark.js: 8.11.1
+       minisearch: 7.2.0
+       shiki: 2.5.0
+-      vite: 5.4.21(@types/node@25.9.3)(lightningcss@1.32.0)
++      vite: 6.4.3(@types/node@26.1.2)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.22.4)(yaml@2.9.0)
+       vue: 3.5.39(typescript@6.0.3)
+     optionalDependencies:
+-      postcss: 8.5.15
++      postcss: 8.5.23
+     transitivePeerDependencies:
+       - &#x27;@algolia/client-search&#x27;
+       - &#x27;@types/node&#x27;
+@@ -25442,6 +25595,7 @@ snapshots:
+       - drauu
+       - fuse.js
+       - idb-keyval
++      - jiti
+       - jwt-decode
+       - less
+       - lightningcss
+@@ -25457,8 +25611,10 @@ snapshots:
+       - stylus
+       - sugarss
+       - terser
++      - tsx
+       - typescript
+       - universal-cookie
++      - yaml
+
+   vitest@4.1.8(@opentelemetry/api@1.9.1)(@types/node@22.20.0)(@vitest/coverage-v8@4.1.8)(happy-dom@20.11.6)(jsdom@29.1.1(@noble/hashes@2.3.0))(vite@6.4.3(@types/node@22.20.0)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.22.4)(yaml@2.9.0)):
+     dependencies:
+@@ -25491,41 +25647,10 @@ snapshots:
+     transitivePeerDependencies:
+       - msw
+
+-  vitest@4.1.8(@opentelemetry/api@1.9.1)(@types/node@22.20.0)(@vitest/coverage-v8@4.1.8)(happy-dom@20.11.6)(jsdom@29.1.1(@noble/hashes@2.3.0))(vite@8.0.16(@types/node@22.20.0)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.22.4)(yaml@2.9.0)):
+-    dependencies:
+-      &#x27;@vitest/expect&#x27;: 4.1.8
+-      &#x27;@vitest/mocker&#x27;: 4.1.8(vite@8.0.16(@types/node@22.20.0)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.22.4)(yaml@2.9.0))
+-      &#x27;@vitest/pretty-format&#x27;: 4.1.8
+-      &#x27;@vitest/runner&#x27;: 4.1.8
+-      &#x27;@vitest/snapshot&#x27;: 4.1.8
+-      &#x27;@vitest/spy&#x27;: 4.1.8
+-      &#x27;@vitest/utils&#x27;: 4.1.8
+-      es-module-lexer: 2.1.0
+-      expect-type: 1.3.0
+-      magic-string: 0.30.21
+-      obug: 2.1.3
+-      pathe: 2.0.3
+-      picomatch: 4.0.4
+-      std-env: 4.1.0
+-      tinybench: 2.9.0
+-      tinyexec: 1.2.4
+-      tinyglobby: 0.2.17
+-      tinyrainbow: 3.1.0
+-      vite: 8.0.16(@types/node@22.20.0)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.22.4)(yaml@2.9.0)
+-      why-is-node-running: 2.3.0
+-    optionalDependencies:
+-      &#x27;@opentelemetry/api&#x27;: 1.9.1
+-      &#x27;@types/node&#x27;: 22.20.0
+-      &#x27;@vitest/coverage-v8&#x27;: 4.1.8(vitest@4.1.8)
+-      happy-dom: 20.11.6
+-      jsdom: 29.1.1(@noble/hashes@2.3.0)
+-    transitivePeerDependencies:
+-      - msw
+-
+-  vitest@4.1.8(@opentelemetry/api@1.9.1)(@types/node@25.9.3)(@vitest/coverage-v8@4.1.8)(happy-dom@20.11.6)(jsdom@29.1.1(@noble/hashes@2.3.0))(vite@8.0.16(@types/node@26.1.2)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.22.4)(yaml@2.9.0)):
++  vitest@4.1.8(@opentelemetry/api@1.9.1)(@types/node@25.9.3)(@vitest/coverage-v8@4.1.8)(happy-dom@20.11.6)(jsdom@29.1.1(@noble/hashes@2.3.0))(vite@6.4.3(@types/node@26.1.2)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.22.4)(yaml@2.9.0)):
+     dependencies:
+       &#x27;@vitest/expect&#x27;: 4.1.8
+-      &#x27;@vitest/mocker&#x27;: 4.1.8(vite@8.0.16(@types/node@26.1.2)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.22.4)(yaml@2.9.0))
++      &#x27;@vitest/mocker&#x27;: 4.1.8(vite@6.4.3(@types/node@26.1.2)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.22.4)(yaml@2.9.0))
+       &#x27;@vitest/pretty-format&#x27;: 4.1.8
+       &#x27;@vitest/runner&#x27;: 4.1.8
+       &#x27;@vitest/snapshot&#x27;: 4.1.8
+@@ -25542,7 +25667,7 @@ snapshots:
+       tinyexec: 1.2.4
+       tinyglobby: 0.2.17
+       tinyrainbow: 3.1.0
+-      vite: 8.0.16(@types/node@26.1.2)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.22.4)(yaml@2.9.0)
++      vite: 6.4.3(@types/node@26.1.2)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.22.4)(yaml@2.9.0)
+       why-is-node-running: 2.3.0
+     optionalDependencies:
+       &#x27;@opentelemetry/api&#x27;: 1.9.1
+diff --git a/tsconfig.base.json b/tsconfig.base.json
+index 7a28614cc2..04af0acc31 100644
+--- a/tsconfig.base.json
++++ b/tsconfig.base.json
+@@ -195,6 +195,12 @@
+       &quot;@deepseek-ai/dsh-client-ui-chat/client&quot;: [&quot;./packages/client/ui-chat/src/client/index.ts&quot;],
+       &quot;@deepseek-ai/dsh-client-ui-conversation&quot;: [&quot;./packages/client/ui-conversation/src&quot;],
+       &quot;@deepseek-ai/dsh-client-ui-conversation/client&quot;: [&quot;./packages/client/ui-conversation/src/client/index.ts&quot;],
++      &quot;@deepseek-ai/dsh-qs-ui-brand/client&quot;: [&quot;./packages/qs/qs-ui-brand/src/client/index.ts&quot;],
++      &quot;@deepseek-ai/dsh-qs-ui-brand&quot;: [&quot;./packages/qs/qs-ui-brand/src/index.ts&quot;],
++      &quot;@deepseek-ai/dsh-qs-ui-sidebar/client&quot;: [&quot;./packages/qs/qs-ui-sidebar/src/client/index.ts&quot;],
++      &quot;@deepseek-ai/dsh-qs-ui-sidebar&quot;: [&quot;./packages/qs/qs-ui-sidebar/src/index.ts&quot;],
++      &quot;@deepseek-ai/dsh-qs-ui-sidebar-right/client&quot;: [&quot;./packages/qs/qs-ui-sidebar-right/src/client/index.ts&quot;],
++      &quot;@deepseek-ai/dsh-qs-ui-sidebar-right&quot;: [&quot;./packages/qs/qs-ui-sidebar-right/src/index.ts&quot;],
+       &quot;@deepseek-ai/dsh-qs-shell/client&quot;: [&quot;./packages/qs/qs-shell/src/client/index.ts&quot;],
+       &quot;@deepseek-ai/dsh-qs-login/client&quot;: [&quot;./packages/qs/qs-login/src/client/index.ts&quot;],
+       &quot;@deepseek-ai/dsh-qs-sessions/client&quot;: [&quot;./packages/qs/qs-sessions/src/client/index.ts&quot;],
+@@ -202,6 +208,13 @@
+       &quot;@deepseek-ai/dsh-qs-transcript/client&quot;: [&quot;./packages/qs/qs-transcript/src/client/index.ts&quot;],
+       &quot;@deepseek-ai/dsh-qs-approval/client&quot;: [&quot;./packages/qs/qs-approval/src/client/index.ts&quot;],
+       &quot;@deepseek-ai/dsh-qs-questions/client&quot;: [&quot;./packages/qs/qs-questions/src/client/index.ts&quot;],
++      // 奇术候选插件源码入口，供测试与类型检查使用。
++      // 奇术命令弹层复用官方控制器，保留独立浏览器入口。
++      // 奇术反馈呈现通过共享官方反馈 owner 注入。
++      &quot;@deepseek-ai/dsh-qs-ui-message-feedback/client&quot;: [&quot;./packages/qs/qs-ui-message-feedback/src/client/index.ts&quot;],
++      &quot;@deepseek-ai/dsh-qs-ui-commands/client&quot;: [&quot;./packages/qs/qs-ui-commands/src/client/index.ts&quot;],
++      &quot;@deepseek-ai/dsh-qs-ui-input-trigger/client&quot;: [&quot;./packages/qs/qs-ui-input-trigger/src/client/index.ts&quot;],
++      &quot;@deepseek-ai/dsh-qs-ui-tool/client&quot;: [&quot;./packages/qs/qs-ui-tool/src/client/index.ts&quot;],
+       &quot;@deepseek-ai/dsh-client-ui-tool&quot;: [&quot;./packages/client/ui-tool/src&quot;],
+       &quot;@deepseek-ai/dsh-tool-present/types&quot;: [&quot;./packages/fs/tool-present/src/types.ts&quot;],
+       &quot;@deepseek-ai/dsh-client-ui-deliverables&quot;: [&quot;./packages/client/ui-deliverables/src&quot;],
+@@ -353,6 +366,14 @@
+       &quot;@deepseek-ai/dsh-qs-sessions&quot;: [&quot;./packages/qs/qs-sessions/src&quot;],
+       &quot;@deepseek-ai/dsh-qs-shell&quot;: [&quot;./packages/qs/qs-shell/src&quot;],
+       &quot;@deepseek-ai/dsh-qs-transcript&quot;: [&quot;./packages/qs/qs-transcript/src&quot;],
++      &quot;@deepseek-ai/dsh-qs-ui-attachment&quot;: [&quot;./packages/qs/qs-ui-attachment/src&quot;],
++      &quot;@deepseek-ai/dsh-qs-ui-commands&quot;: [&quot;./packages/qs/qs-ui-commands/src&quot;],
++      &quot;@deepseek-ai/dsh-qs-ui-deliverables&quot;: [&quot;./packages/qs/qs-ui-deliverables/src&quot;],
++      &quot;@deepseek-ai/dsh-qs-ui-input-trigger&quot;: [&quot;./packages/qs/qs-ui-input-trigger/src&quot;],
++      &quot;@deepseek-ai/dsh-qs-ui-message-feedback&quot;: [&quot;./packages/qs/qs-ui-message-feedback/src&quot;],
++      &quot;@deepseek-ai/dsh-qs-ui-sidebar-documentpreview&quot;: [&quot;./packages/qs/qs-ui-sidebar-documentpreview/src&quot;],
++      &quot;@deepseek-ai/dsh-qs-ui-sidebar-files&quot;: [&quot;./packages/qs/qs-ui-sidebar-files/src&quot;],
++      &quot;@deepseek-ai/dsh-qs-ui-tool&quot;: [&quot;./packages/qs/qs-ui-tool/src&quot;],
+       &quot;@deepseek-ai/dsh-remote-mock&quot;: [&quot;./packages/test-support/remote-mock/src&quot;],
+       &quot;@deepseek-ai/dsh-repeat-tool-reminder&quot;: [&quot;./packages/guard/repeat-tool-reminder/src&quot;],
+       &quot;@deepseek-ai/dsh-sandbox&quot;: [&quot;./packages/sandbox/sandbox/src&quot;],
+diff --git a/tsconfig.client.json b/tsconfig.client.json
+index d98e089b4b..c3bb3d43e6 100644
+--- a/tsconfig.client.json
++++ b/tsconfig.client.json
+@@ -117,12 +117,27 @@
+     { &quot;path&quot;: &quot;./packages/client/web&quot; },
+     { &quot;path&quot;: &quot;./packages/context/file-reference&quot; },
+     { &quot;path&quot;: &quot;./apps/web&quot; },
++    { &quot;path&quot;: &quot;./packages/qs/qs-ui-brand&quot; },
++    { &quot;path&quot;: &quot;./packages/qs/qs-ui-sidebar&quot; },
++    { &quot;path&quot;: &quot;./packages/qs/qs-ui-sidebar-right&quot; },
+     { &quot;path&quot;: &quot;./packages/qs/qs-shell&quot; },
+     { &quot;path&quot;: &quot;./packages/qs/qs-login&quot; },
+     { &quot;path&quot;: &quot;./packages/qs/qs-sessions&quot; },
+     { &quot;path&quot;: &quot;./packages/qs/qs-composer&quot; },
+     { &quot;path&quot;: &quot;./packages/qs/qs-transcript&quot; },
+     { &quot;path&quot;: &quot;./packages/qs/qs-approval&quot; },
+-    { &quot;path&quot;: &quot;./packages/qs/qs-questions&quot; }
++    { &quot;path&quot;: &quot;./packages/qs/qs-questions&quot; },
++    { &quot;path&quot;: &quot;./packages/qs/qs-ui-tool&quot; },
++    // 奇术候选菜单作为独立客户端插件参与编译。
++    { &quot;path&quot;: &quot;./packages/qs/qs-ui-input-trigger&quot; },
++    // 奇术命令选项及风险确认作为独立插件编译。
++    { &quot;path&quot;: &quot;./packages/qs/qs-ui-commands&quot; },
++    // 奇术消息反馈独立插件与其测试属于客户端编译面。
++    { &quot;path&quot;: &quot;./packages/qs/qs-ui-message-feedback&quot; },
++    { &quot;path&quot;: &quot;./packages/qs/qs-ui-sidebar-files&quot; },
++    // 奇术文档预览独立呈现，复用官方文件读取状态。
++    { &quot;path&quot;: &quot;./packages/qs/qs-ui-sidebar-documentpreview&quot; },
++    { &quot;path&quot;: &quot;./packages/qs/qs-ui-deliverables&quot; },
++    { &quot;path&quot;: &quot;./packages/qs/qs-ui-attachment&quot; }
+   ]
+ }
+</pre></html>

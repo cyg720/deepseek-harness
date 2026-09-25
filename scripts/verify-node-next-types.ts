@@ -84,7 +84,8 @@ function linkPackage(pkg: WorkspacePackage, nodeModules: string): void {
   const parts = pkg.name.split('/')
   const link = resolve(nodeModules, ...parts)
   mkdirSync(dirname(link), { recursive: true })
-  symlinkSync(pkg.dir, link, 'dir')
+  // Windows 的临时包目录使用 junction，无需符号链接权限且仍指向真实声明文件。
+  symlinkSync(pkg.dir, link, process.platform === 'win32' ? 'junction' : 'dir')
 }
 
 const packages = workspacePackages()
@@ -117,7 +118,8 @@ try {
   if (existsSync(rootTypes)) {
     const typesDir = resolve(nodeModules, '@types')
     mkdirSync(typesDir, { recursive: true })
-    symlinkSync(rootTypes, resolve(typesDir, 'node'), 'dir')
+    // 与包目录保持同一种链接机制，不能让 @types/node 单独要求管理员权限。
+    symlinkSync(rootTypes, resolve(typesDir, 'node'), process.platform === 'win32' ? 'junction' : 'dir')
   }
 
   writeFileSync(resolve(tmp, 'package.json'), `${JSON.stringify({ type: 'module', private: true }, null, 2)}\n`)
@@ -156,6 +158,8 @@ try {
   failed = true
   const output = error as { stdout?: Buffer; stderr?: Buffer }
   console.error('verify-node-next-types: NodeNext consumer typecheck failed.\n')
+  // 文件系统错误没有 stdout/stderr；仍须保留错误码和失败操作以便定位。
+  console.error(String(error))
   console.error(`${output.stdout?.toString() ?? ''}${output.stderr?.toString() ?? ''}`)
 } finally {
   rmSync(tmp, { recursive: true, force: true })

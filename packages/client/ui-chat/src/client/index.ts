@@ -1,5 +1,7 @@
 /** Browser Chat target plugin. */
 export { apply, inject } from './apply.ts'
+// 二开只消费公开的偏好句柄，不导入官方内部控制器。
+export type { ChatPresentation } from './qs/presentation.ts'
 export type {} from './conversation-nodes/assistant.ts'
 export type {} from './conversation-nodes/command.ts'
 export type {} from './conversation-nodes/compaction.ts'

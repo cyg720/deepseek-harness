@@ -36,6 +36,8 @@ import {
   planSetMode, planSettle, planSplitPane, planUnfloatPane, record, replay, stepBack, stepForward,
 } from '@deepseek-ai/dsh-client-ui-dockkit'
 import { GUIDE_KIND, pageAddress, type SidebarRightSeed } from './contract/seed.ts'
+import { restoreLayout, type RestoredLayout } from './qs/restore-layout.ts'
+import { fitFloats } from './qs/fit-floats.ts'
 
 /** One session's docking surface: the layout, its sequence, and the id counter. */
 export interface SurfaceState {
@@ -216,6 +218,10 @@ function seat(
 
 /** Declared write set; each entry is one settled intent. */
 type SidebarRightActions = {
+  /** QS 视口变化一次调整所有浮窗，保留焦点与层叠，不创建缺席会话。 */
+  fitFloats: (draft: SidebarRightState, sessionId: string, viewport: { width: number; height: number }) => void
+  /** QS 刷新恢复只初始化缺席的布局；已存在的活跃操作始终优先。 */
+  restore: (draft: SidebarRightState, sessionId: string, layout: RestoredLayout) => void
   open: (draft: SidebarRightState, sessionId: string) => void
   setExpanded: (draft: SidebarRightState, sessionId: string, expanded: boolean) => void
   toggleExpanded: (draft: SidebarRightState, sessionId: string) => void
@@ -267,6 +273,17 @@ export function createSidebarRightStore(
   return defineStore({
     init: (): SidebarRightState => ({ bySession: {} }),
     actions: {
+      fitFloats: (d, sessionId: string, viewport: { width: number; height: number }) => {
+        if (d.bySession[sessionId] === undefined) return
+        d.bySession = seat(d, sessionId, surface => advance(surface, state => fitFloats(state, viewport), seed))
+      },
+      restore: (d, sessionId: string, layout: RestoredLayout) => {
+        if (d.bySession[sessionId] !== undefined) return
+        const counter = counting(0)
+        // 单次发布让官方 TabDomain 只为最终布局建立 occurrence 和资源 pin。
+        const restored = restoreLayout(layout, counter.mint, id => seedRecord(id, seed))
+        d.bySession = { ...d.bySession, [sessionId]: { layout: restored, history: EMPTY_HISTORY, minted: counter.used() } }
+      },
       // Materialize a session's surface without changing it, so the first read
       // after a session switch sees the collapsed empty column rather than nothing.
       open: (d, sessionId: string) => { d.bySession = seat(d, sessionId, surface => surface) },

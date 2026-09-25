@@ -388,6 +388,8 @@ function firstSentence(doc: string): string {
 
 /** Render one value as a single-quoted TypeScript literal. */
 function quote(value: string): string {
+  // Windows 源文件含 CRLF；先归一化，避免裸回车破坏生成的字符串字面量。
+  value = value.replaceAll('\r\n', '\n').replaceAll('\r', '\n')
   return `'${value.replaceAll('\\', '\\\\').replaceAll("'", "\\'").replaceAll('\n', '\\n')}'`
 }
 

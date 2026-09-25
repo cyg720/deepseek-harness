@@ -13,6 +13,9 @@
 import type { Branded } from '@deepseek-ai/dsh-brand'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 
+// 浏览器消费目标类型时同时获得 Remote 错误分类，不引入 Host 运行时代码。
+export type { GoalErrorCode } from './qs/error-codes.ts'
+
 /** Identifies one goal across its durable revisions. */
 export type GoalId = Branded<'GoalId'>
 

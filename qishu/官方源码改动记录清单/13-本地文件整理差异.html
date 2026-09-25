@@ -1,0 +1,18 @@
+<!doctype html><html lang="zh-CN"><meta charset="utf-8"><title>忽略规则改动</title><pre>diff --git a/.gitignore b/.gitignore
+index 9d53bf2c8c..75d7b97c5d 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -49,3 +49,12 @@ worktrees/
+ native/system/test/bin/
+ # QS 二开：复核运行日志属于本机产物，忽略此目录可避免提交噪声及环境信息。
+ /qishu/PRD/1-AI工作台/复核测试/logs
++/qishu/prototype/preview
++# QS 二开：提交人工验收记录，原始日志、覆盖率页面等生成证据仅保留本地。
++/qishu/PRD/1-AI工作台/复核测试/*
++!/qishu/PRD/1-AI工作台/复核测试/*.md
++# QS 二开：本机智能体记忆及可再生成的 M0 测试报告不进入共享仓库。
++/.workbuddy-ai/
++/qishu/prototype/validation/m0-license-recheck.json
++/qishu/prototype/validation/m0-probe-report.json
++/qishu/prototype/validation/m0-source-tests.json
+</pre></html>

@@ -41,6 +41,7 @@ export class ClientCordisInspectRegistry {
   private readonly active = new Map<CordisInspectRequestId, AbortController>()
   private publishQueued = false
   private syncChain = Promise.resolve()
+  private disposed = false
 
   /** @param host - folded manifest and query result transport. */
   constructor(private readonly host: ClientCordisInspectHost) {}
@@ -51,6 +52,7 @@ export class ClientCordisInspectRegistry {
    * @returns idempotent disposer.
    */
   register(registration: ClientCordisInspectProviderRegistration): () => void {
+    if (this.disposed) throw new Error('Client Cordis inspect registry is disposed')
     const { manifest } = registration
     if (manifest.id.trim() === '') throw new Error('Client Cordis inspect provider id must not be empty')
     if (this.providers.has(manifest.id)) throw new Error(`Client Cordis inspect provider "${manifest.id}" is already registered`)
@@ -74,15 +76,18 @@ export class ClientCordisInspectRegistry {
 
   /** Publish the current complete manifest, including after reconnect. */
   publish(): void {
-    if (this.publishQueued) return
+    if (this.disposed || this.publishQueued) return
     this.publishQueued = true
     queueMicrotask(() => {
       this.publishQueued = false
+      if (this.disposed) return
       const manifests = [...this.providers.values()].map(provider => provider.manifest)
       this.syncChain = this.syncChain.then(async () => {
+        if (this.disposed) return
         await this.host.sync(manifests)
       }).catch((error: unknown) => {
-        console.error('[cordis-client-runner] syncing inspect providers failed:', error)
+        // 连接级联卸载会使旧请求失效；仅已释放实例的迟到失败不再作为活动连接错误发布。
+        if (!this.disposed) console.error('[cordis-client-runner] syncing inspect providers failed:', error)
       })
     })
   }
@@ -93,7 +98,7 @@ export class ClientCordisInspectRegistry {
    * @returns after the first local result has been sent back to Host.
    */
   async query(request: CordisInspectQueryRequest): Promise<void> {
-    if (this.active.has(request.requestId)) return
+    if (this.disposed || this.active.has(request.requestId)) return
     const controller = new AbortController()
     this.active.set(request.requestId, controller)
     let resolution: CordisInspectQueryResolution
@@ -131,6 +136,14 @@ export class ClientCordisInspectRegistry {
     this.active.get(requestId)?.abort()
     this.active.delete(requestId)
   }
+
+  /** Stop queued publications and cancel locally owned queries after plugin teardown. */
+  dispose(): void {
+    this.disposed = true
+    this.providers.clear()
+    for (const controller of this.active.values()) controller.abort()
+    this.active.clear()
+  }
 }
 
 declare module '@deepseek-ai/cordis' {
@@ -146,5 +159,7 @@ declare module '@deepseek-ai/cordis' {
  * @param registry - page-local inspect registry to publish.
  */
 export function provideClientCordisInspect(ctx: Context, registry: ClientCordisInspectRegistry): void {
+  // 清单发布与查询必须和提供服务的插件同寿命，防止旧连接队列在重装后继续发送。
+  ctx.effect(() => () => { registry.dispose() }, 'cordis-client-runner: inspect registry lifetime')
   ctx.provide('cordisInspect', registry)
 }

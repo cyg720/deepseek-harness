@@ -117,12 +117,52 @@
     { "path": "./packages/client/web" },
     { "path": "./packages/context/file-reference" },
     { "path": "./apps/web" },
+    { "path": "./packages/qs/qs-ui-brand" },
+    { "path": "./packages/qs/qs-ui-sidebar" },
+    { "path": "./packages/qs/qs-ui-sidebar-right" },
     { "path": "./packages/qs/qs-shell" },
     { "path": "./packages/qs/qs-login" },
     { "path": "./packages/qs/qs-sessions" },
     { "path": "./packages/qs/qs-composer" },
     { "path": "./packages/qs/qs-transcript" },
     { "path": "./packages/qs/qs-approval" },
-    { "path": "./packages/qs/qs-questions" }
+    { "path": "./packages/qs/qs-questions" },
+    { "path": "./packages/qs/qs-ui-tool" },
+    // 奇术候选菜单作为独立客户端插件参与编译。
+    { "path": "./packages/qs/qs-ui-input-trigger" },
+    // 奇术命令选项及风险确认作为独立插件编译。
+    { "path": "./packages/qs/qs-ui-commands" },
+    // 奇术消息反馈独立插件与其测试属于客户端编译面。
+    { "path": "./packages/qs/qs-ui-message-feedback" },
+    { "path": "./packages/qs/qs-ui-sidebar-files" },
+    // 奇术文档预览独立呈现，复用官方文件读取状态。
+    { "path": "./packages/qs/qs-ui-sidebar-documentpreview" },
+    { "path": "./packages/qs/qs-ui-deliverables" },
+    { "path": "./packages/qs/qs-ui-attachment" },
+    // 奇术作业独立呈现，消费官方唯一控制流。
+    { "path": "./packages/qs/qs-ui-jobs" },
+    // 奇术日程独立编译，读取官方 Schedule 投影。
+    { "path": "./packages/qs/qs-ui-schedule" },
+    { "path": "./packages/qs/qs-ui-goal" },
+    // 奇术子代理目录及输入接管保持独立插件编译。
+    { "path": "./packages/qs/qs-ui-subagent" },
+    { "path": "./packages/qs/qs-ui-trajectory" },
+    { "path": "./packages/qs/qs-ui-settings-general" },
+    { "path": "./packages/qs/qs-locale" },
+    { "path": "./packages/qs/qs-ui-theme" },
+    // 奇术权限呈现独立编译，权限执行与设置存储继续复用官方服务。
+    { "path": "./packages/qs/qs-ui-permission-presets" },
+    // 奇术预设目录与后续管理呈现独立编译，复用官方 Host 预设能力。
+    { "path": "./packages/qs/qs-ui-agent-preset" },
+    // 奇术模型设置独立编译，复用官方访问服务。
+    { "path": "./packages/qs/qs-ui-settings-models" },
+    // 奇术模型呈现独立编译，官方模型目录继续保持唯一。
+    { "path": "./packages/qs/qs-ui-model-selection" },
+    { "path": "./packages/qs/qs-ui-settings-plugins" },
+    { "path": "./packages/qs/qs-ui-settings-plugin-inventory" },
+    // 独立原生选择器纳入 Client 编译，不重复装载 Host 服务。
+    { "path": "./packages/qs/qs-ui-directory-picker-native" },
+    // 浏览式选择器独立编译，路径解析仍归 Host 所有。
+    { "path": "./packages/qs/qs-ui-directory-picker-browse" }
   ]
 }

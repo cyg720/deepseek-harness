@@ -1,0 +1,113 @@
+<meta charset="utf-8"><title>共享转写显示偏好累计差异</title><h2 id="p0">packages/client/ui-chat/README.i18n.yaml</h2><pre>diff --git a/packages/client/ui-chat/README.i18n.yaml b/packages/client/ui-chat/README.i18n.yaml
+index 2d57733abd..c03cccf8a1 100644
+--- a/packages/client/ui-chat/README.i18n.yaml
++++ b/packages/client/ui-chat/README.i18n.yaml
+@@ -2,5 +2,5 @@
+ # side as of the last confirmed-consistent state. Both languages carry equal authority;
+ # after editing either side, bring the other along and re-record with:
+ #   pnpm run verify-translation-pairing --write packages/client/ui-chat/README.md
+-README.md: 78d45ecf61cbc7573e6e8d23b5e00bcf498226c0
+-README.zh.md: c191a3a312a9ec2cc7a68ccf413f4c0281f1ae25
++README.md: 9a84ec281096befcb42680e88939deda5dcc838d
++README.zh.md: 2a0892af26d088af511e2aa63e9bd7634a6a33de
+</pre><h2 id="p1">packages/client/ui-chat/README.md</h2><pre>diff --git a/packages/client/ui-chat/README.md b/packages/client/ui-chat/README.md
+index 78d45ecf61..9a84ec2810 100644
+--- a/packages/client/ui-chat/README.md
++++ b/packages/client/ui-chat/README.md
+@@ -54,6 +54,8 @@ The completed-turn action footer starts 20px below the preceding prose or extens
+ &lt;a id=&quot;turn-process-folding&quot;&gt;&lt;/a&gt;
+ ## Turn Process Folding
+
++The chatPresentation service exposes the existing transcriptView observable and setter to alternative presenters. It shares the official policy and Host persistence; each presenter must apply the selected mode to its own completed-turn rendering.
++
+ Settings → General exposes a persisted, localized `Normal` / `Compact` conversation-display preference in the `ui-chat` namespace; `Compact` is the default. Normal leaves process rows visible and renders no Turn-process control. In Compact mode, the System prompt remains independently visible before the opening User throughout the Turn. Context injection, reasoning, Assistant material, Tool rows, and Retry rows remain expanded while a Turn is open. At `turn/end`, its latest Step becomes the final-answer boundary only when it contains non-blank text, an image, or an unknown visible block—and no Tool-call block; preceding Context injection, reasoning, earlier Assistant material, Tool rows, and Retry rows then collapse by default. The control reports Turn-wide durable counts for non-subagent Tool calls, reply-bearing Assistant messages before the final answer, and subagent delegation calls; zero-valued segments are omitted, the Tool and subagent figures are mutually exclusive, and neither System prompt nor Context injection contributes a count. When all three counts are zero, the process still folds and the control reads `Thought for a while`. A full-width divider below the summary separates it from the answer or expanded process rows. User and steering messages, System prompt, error, max-token, and turn-tail rows stay outside, and a closed Turn with no final answer keeps all process evidence visible. A newly available process control is inserted without changing the relative order of existing rows: opening human input precedes the control and process rows from their first projection, while System prompt remains above that input. While older history remains available through Load earlier, process controls stay absent and no members are hidden; once history is complete, every eligible closed Turn uses the collapsed default immediately. Stable Chat Node Seats keep every renderer mounted, hidden members add no flow spacing, and a closed control sits 8px above its answer only when no independent input intervenes. Completion collapse does not depend on tail-follow position, so a reader above the tail may see the transcript reflow. An automatic collapse that would hide keyboard focus keeps the group open and leaves focus in place; a manual close focuses the process control before hiding its members. The session-scoped store records only manually expanded Turn-and-answer-Step generations; a different answer generation starts collapsed.
+
+ -----
+</pre><h2 id="p2">packages/client/ui-chat/README.zh.md</h2><pre>diff --git a/packages/client/ui-chat/README.zh.md b/packages/client/ui-chat/README.zh.md
+index c191a3a312..2a0892af26 100644
+--- a/packages/client/ui-chat/README.zh.md
++++ b/packages/client/ui-chat/README.zh.md
+@@ -56,6 +56,8 @@ kind: &quot;package-reference&quot;
+ &lt;a id=&quot;turn-process-folding&quot;&gt;&lt;/a&gt;
+ ## 轮次过程折叠
+
++chatPresentation 服务向替代呈现公开既有 transcriptView 可观察源和设置动作，共享官方控制器与 Host 持久化；各呈现必须将选择的模式应用到自身已完成轮次的展示。
++
+ 「设置 → 通用设置」提供持久化到 `ui-chat` 命名空间的「标准」/「紧凑」对话显示偏好，默认使用「紧凑」。标准模式保持所有过程行可见且不渲染轮次过程控件。紧凑模式下，系统提示词在整个轮次中始终独立显示于开场 User 上方。轮次打开期间，上下文注入、推理、Assistant 内容、工具行与重试行始终展开。到 `turn/end` 时，最后一个步骤只有在包含非空文本、图片或未知可见块且不含工具调用块时才成为最终答案边界；边界之前的上下文注入、推理、较早 Assistant 内容、工具行与重试行随后默认收起。控件展示覆盖整个轮次的非 subagent 工具调用数、最终答案之前带回复内容的 Assistant 消息数和 subagent 委派数；值为 0 的分段省略，工具调用与 subagent 两项互斥，系统提示词与上下文注入都不增加计数。三项全为 0 时过程仍会收起，控件标题显示「已思考」（英文为 `Thought for a while`）。摘要下方的通栏分隔线将其与正文或展开后的过程行隔开。用户与 steering 消息、系统提示词、错误、最大 token 与 turn-tail 行留在过程组外；关闭时没有最终答案的轮次保留全部过程证据。新的过程控件插入时不会改变既有行的相对顺序：开场人工输入从首次投影起便位于控件和过程行之前，系统提示词则始终位于该输入上方。只要仍可通过「加载更早」获取历史，过程控件就不出现，也不会隐藏任何成员；历史加载完整后，每个合格的已关闭轮次立即使用默认收起状态。稳定 Chat Node Seat 会让每个 renderer 保持挂载，隐藏成员不产生消息流间距；只有中间没有独立输入时，收起控件才与正文相隔 8px。完成后的收起不依赖是否跟随尾部，因此正在上方阅读的用户可能看到 transcript 重排。若自动收起会隐藏当前键盘焦点，则过程组保持展开且焦点留在原处；手动收起会先把焦点移到过程控件，再隐藏成员。会话作用域存储只记录用户手动展开的「轮次 + 正文步骤」generation；不同正文 generation 默认收起。
+
+ -----
+</pre><h2 id="p3">packages/client/ui-chat/src/client/apply.ts</h2><pre>diff --git a/packages/client/ui-chat/src/client/apply.ts b/packages/client/ui-chat/src/client/apply.ts
+index e0b5718ecc..3e6c255b42 100644
+--- a/packages/client/ui-chat/src/client/apply.ts
++++ b/packages/client/ui-chat/src/client/apply.ts
+@@ -33,6 +33,7 @@ import { en, NS, zh } from &#x27;./locale.ts&#x27;
+ import { TranscriptViewRow, type TranscriptViewRowInjected } from &#x27;./settings/TranscriptViewRow.tsx&#x27;
+ import { createChatStore } from &#x27;./stores.ts&#x27;
+ import { TranscriptViewPolicy } from &#x27;./transcript-view.ts&#x27;
++import type { ChatPresentation } from &#x27;./qs/presentation.ts&#x27;
+ import { CHAT_SETTINGS_NAMESPACE, type ChatSettings } from &#x27;../chat-settings.ts&#x27;
+ import { useTurnDataValue } from &#x27;./chat/use-turn-data.ts&#x27;
+
+@@ -83,6 +84,13 @@ export function apply(ctx: Context): void {
+     ctx.settingsScope.bind&lt;ChatSettings&gt;({ namespace: CHAT_SETTINGS_NAMESPACE }),
+   )
+
++  // 二开读取同一个官方偏好源；呈现卸载不新增第二份状态或落盘逻辑。
++  const presentation: ChatPresentation = {
++    transcriptView: transcriptView.mode,
++    setTranscriptView: (mode) =&gt; { transcriptView.setMode(mode) },
++  }
++  ctx.effect(() =&gt; ctx.reflect.provide(&#x27;chatPresentation&#x27;, presentation), &#x27;ui-chat: shared presentation&#x27;)
++
+   ctx.slots.inject(&#x27;settings.general.item&#x27;, () =&gt; ctx.slots.register({
+     name: &#x27;settings.general.item&#x27;,
+     id: &#x27;transcript-view&#x27;,
+</pre><h2 id="p4">packages/client/ui-chat/src/client/index.ts</h2><pre>diff --git a/packages/client/ui-chat/src/client/index.ts b/packages/client/ui-chat/src/client/index.ts
+index 450ce00fce..d92df638bc 100644
+--- a/packages/client/ui-chat/src/client/index.ts
++++ b/packages/client/ui-chat/src/client/index.ts
+@@ -1,5 +1,7 @@
+ /** Browser Chat target plugin. */
+ export { apply, inject } from &#x27;./apply.ts&#x27;
++// 二开只消费公开的偏好句柄，不导入官方内部控制器。
++export type { ChatPresentation } from &#x27;./qs/presentation.ts&#x27;
+ export type {} from &#x27;./conversation-nodes/assistant.ts&#x27;
+ export type {} from &#x27;./conversation-nodes/command.ts&#x27;
+ export type {} from &#x27;./conversation-nodes/compaction.ts&#x27;
+</pre>
+<h2 id="p5">scripts/gen-cordis-catalog.ts</h2><pre>diff --git a/scripts/gen-cordis-catalog.ts b/scripts/gen-cordis-catalog.ts
+index ed81fccc1f..815066eaf0 100644
+--- a/scripts/gen-cordis-catalog.ts
++++ b/scripts/gen-cordis-catalog.ts
+@@ -147,6 +147,10 @@ export const SERVICE_PAGE: Record&lt;string, string&gt; = {
+  * to a model as `cordis_runtime_inspect what:&quot;client&quot;`).
+  */
+ export const SERVICE_WALK_EXEMPTIONS: Record&lt;string, string&gt; = {
++  // 奇术发送准备注册表仅存在于 Client 面，接口由所属输入插件说明，不能混入 Host 服务目录。
++  qsSendPreparation: &#x27;client-side send preparation registry — packages/qs/qs-composer/README.md owns the API&#x27;,
++  // 奇术模型配置呈现复用 Client 访问服务，API 归官方模型设置文档，不进入 Host 服务目录。
++  modelsSettings: &#x27;client-side shared models presentation access — packages/client/ui-settings-models/README.md owns the API&#x27;,
+   appReady: &#x27;not a service: launcher-provided successful-startup signal — packages/boot/cmdline/README.md owns the launcher contract&#x27;,
+   appExit: &#x27;not a service: launcher-provided bounded process-exit callback — packages/boot/cmdline/README.md owns the launcher contract&#x27;,
+   cmdlineArgs: &#x27;not a service: launcher-provided immutable app argument accessor — packages/boot/cmdline/README.md owns the launcher contract&#x27;,
+@@ -178,6 +182,19 @@ export const SERVICE_WALK_EXEMPTIONS: Record&lt;string, string&gt; = {
+   workspaces: &#x27;client-side interface-typed browser service — packages/api/workspace-controller/README.md owns the API&#x27;,
+   resources: &#x27;client-side resource model (protocol providers, pins, live sources) — packages/client/resources/README.md owns the API&#x27;,
+   sidebarRight: &#x27;client-side right-Sidebar navigation face — packages/client/ui-sidebar-right/README.md owns the API&#x27;,
++  // 二开共享呈现属于 Client 面，由各原包 README 说明，不能漏过服务清单检查。
++  sidebarRightPresentation: &#x27;client-side shared presentation — packages/client/ui-sidebar-right/README.md owns the API&#x27;,
++  // 二开复用的会话呈现接口仅存在 Client 分面，API 归属原会话包 README。
++  conversationPresentation: &#x27;client-side shared presentation — packages/client/ui-conversation/README.md owns the API&#x27;,
++  // 二开共用 Chat 偏好，接口文档归官方 Chat 包，不属于 Host 服务投影。
++  chatPresentation: &#x27;client-side shared transcript preference — packages/client/ui-chat/README.md owns the API&#x27;,
++  // 目标呈现是 Client 专用接口，正式说明归原插件，Host 目录不生成它。
++  goalPresentation: &#x27;client-side shared presentation — packages/client/ui-goal/README.md owns the API&#x27;,
++  messageFeedbackPresentation: &#x27;client-side shared presentation — packages/client/ui-message-feedback/README.md owns the API&#x27;,
++  deliverablesPresentation: &#x27;client-side shared presentation — packages/client/ui-deliverables/README.md owns the API&#x27;,
++  documentPreviewPresentation: &#x27;client-side shared presentation — packages/client/ui-sidebar-documentpreview/README.md owns the API&#x27;,
++  documentPdfPresentation: &#x27;client-side shared presentation — packages/client/ui-sidebar-documentpreview/README.md owns the API&#x27;,
++  sidebarFilesPresentation: &#x27;client-side shared presentation — packages/client/ui-sidebar-files/README.md owns the API&#x27;,
+   sidebarRightTabs: &#x27;client-side right-Sidebar tab-type registry — packages/client/ui-sidebar-right/README.md owns the API&#x27;,
+   documentPreviews: &#x27;client-side document renderer registry — docs/subsystems/sidebar-right.md owns the API&#x27;,
+ }
+</pre>

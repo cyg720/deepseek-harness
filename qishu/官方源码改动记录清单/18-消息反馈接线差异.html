@@ -1,0 +1,1156 @@
+<!doctype html><html lang="zh-CN"><meta charset="utf-8"><title>消息反馈接线差异</title><style>body{font:16px system-ui;margin:2rem;background:#18211a;color:#dde5d5}pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#222f26;padding:1rem}</style><h1>消息反馈接线差异</h1><p>相对 4904755062702eaadf19c5897ab86bc6988716e9 的累计工作区差异，不是仅本批修改，批次目的以登记表为准。</p>
+<h2 id="file-0">packages/bundle/web-app/cordis.patch.yml</h2><pre>diff --git a/packages/bundle/web-app/cordis.patch.yml b/packages/bundle/web-app/cordis.patch.yml
+index 2419db1026..b44b9834cd 100644
+--- a/packages/bundle/web-app/cordis.patch.yml
++++ b/packages/bundle/web-app/cordis.patch.yml
+@@ -372,6 +372,14 @@
+     - id: qs-login
+       name: &#x27;@deepseek-ai/dsh-qs-login&#x27;
+
++    # 奇术：左右栏独立插件，对应官方 sidebar 插件，避免布局包直接实现侧栏。
++    # 奇术：品牌对应官方独立插件，布局只声明品牌槽。
++    - id: qs-ui-brand
++      name: &#x27;@deepseek-ai/dsh-qs-ui-brand&#x27;
++    - id: qs-ui-sidebar
++      name: &#x27;@deepseek-ai/dsh-qs-ui-sidebar&#x27;
++    - id: qs-ui-sidebar-right
++      name: &#x27;@deepseek-ai/dsh-qs-ui-sidebar-right&#x27;
+     - id: qs-sessions
+       name: &#x27;@deepseek-ai/dsh-qs-sessions&#x27;
+
+@@ -381,6 +389,21 @@
+     - id: qs-transcript
+       name: &#x27;@deepseek-ai/dsh-qs-transcript&#x27;
+
++    # 奇术：工具呈现，对应官方 ui-tool（工具树与八类工具子视图）。
++    - id: qs-ui-tool
++      name: &#x27;@deepseek-ai/dsh-qs-ui-tool&#x27;
++    # 奇术命令候选独立呈现，复用官方 inputTriggers 服务。
++    - id: qs-ui-input-trigger
++      name: &#x27;@deepseek-ai/dsh-qs-ui-input-trigger&#x27;
++
++    # 奇术命令选项与风险确认，复用官方 commandUi 唯一服务。
++    - id: qs-ui-commands
++      name: &#x27;@deepseek-ai/dsh-qs-ui-commands&#x27;
++
++    # 奇术消息反馈复用官方唯一执行器，独立注册按钮与表单。
++    - id: qs-ui-message-feedback
++      name: &#x27;@deepseek-ai/dsh-qs-ui-message-feedback&#x27;
++
+     - id: qs-approval
+       name: &#x27;@deepseek-ai/dsh-qs-approval&#x27;
+
+</pre>
+<h2 id="file-1">packages/bundle/web-app/package.json</h2><pre>diff --git a/packages/bundle/web-app/package.json b/packages/bundle/web-app/package.json
+index 862826b2bd..f277553458 100644
+--- a/packages/bundle/web-app/package.json
++++ b/packages/bundle/web-app/package.json
+@@ -113,6 +113,10 @@
+     &quot;@deepseek-ai/dsh-qs-login&quot;: &quot;workspace:^&quot;,
+     &quot;@deepseek-ai/dsh-qs-questions&quot;: &quot;workspace:^&quot;,
+     &quot;@deepseek-ai/dsh-qs-sessions&quot;: &quot;workspace:^&quot;,
++    &quot;@deepseek-ai/dsh-qs-ui-brand&quot;: &quot;workspace:^&quot;,
++    &quot;@deepseek-ai/dsh-qs-ui-sidebar&quot;: &quot;workspace:^&quot;,
++    &quot;@deepseek-ai/dsh-qs-ui-sidebar-right&quot;: &quot;workspace:^&quot;,
++    &quot;@deepseek-ai/dsh-qs-ui-tool&quot;: &quot;workspace:^&quot;,
+     &quot;@deepseek-ai/dsh-qs-shell&quot;: &quot;workspace:^&quot;,
+     &quot;@deepseek-ai/dsh-qs-transcript&quot;: &quot;workspace:^&quot;,
+     &quot;@deepseek-ai/dsh-session-log-export&quot;: &quot;workspace:^&quot;,
+@@ -125,7 +129,10 @@
+     &quot;@deepseek-ai/dsh-workspace&quot;: &quot;workspace:^&quot;,
+     &quot;@deepseek-ai/schemastery&quot;: &quot;workspace:^&quot;,
+     &quot;commander&quot;: &quot;^15.0.0&quot;,
+-    &quot;open&quot;: &quot;^11.0.0&quot;
++    &quot;open&quot;: &quot;^11.0.0&quot;,
++    &quot;@deepseek-ai/dsh-qs-ui-input-trigger&quot;: &quot;workspace:^&quot;,
++    &quot;@deepseek-ai/dsh-qs-ui-commands&quot;: &quot;workspace:^&quot;,
++    &quot;@deepseek-ai/dsh-qs-ui-message-feedback&quot;: &quot;workspace:^&quot;
+   },
+   &quot;peerDependencies&quot;: {
+     &quot;@deepseek-ai/cordis&quot;: &quot;workspace:^&quot;,
+</pre>
+<h2 id="file-2">packages/extensions/cordis-client-runner/src/client/slot-catalog.ts</h2><pre>diff --git a/packages/extensions/cordis-client-runner/src/client/slot-catalog.ts b/packages/extensions/cordis-client-runner/src/client/slot-catalog.ts
+index 7a1b04e1eb..9bfd1a2aac 100644
+--- a/packages/extensions/cordis-client-runner/src/client/slot-catalog.ts
++++ b/packages/extensions/cordis-client-runner/src/client/slot-catalog.ts
+@@ -147,9 +147,7 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
+     ownerProps: [
+       &#x27;/** Owner currency of finalized-assistant actions. */\nexport interface AssistantActionOwnerProps {\n  messageId: MessageId\n}&#x27;,
+     ],
+-    ownerPropsReferences: [
+-      &#x27;MessageId&#x27;,
+-    ],
++    ownerPropsReferences: [],
+     standardProps: [
+       &#x27;useResource: UseResource&#x27;,
+       &#x27;useWorkspaces: SnapshotSelectorHook&lt;WorkspaceSnapshot&gt;&#x27;,
+@@ -361,7 +359,6 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
+       &#x27;/** Owner values used to elect a composer takeover. */\nexport interface ComposerChainProps {\n  /** Current Session identity used by temporary business-owned entries. */\n  sessionId: SessionId | undefined\n  /** Current Session lifecycle state, absent without a selected Session. */\n  session: SessionSnapshot | undefined\n  /** Effective business-owned interaction awaiting the user in this Session. */\n  pendingInteraction: SessionPendingInteraction | undefined\n}&#x27;,
+     ],
+     ownerPropsReferences: [
+-      &#x27;SessionId&#x27;,
+       &#x27;SessionPendingInteraction&#x27;,
+       &#x27;SessionSnapshot&#x27;,
+     ],
+@@ -974,7 +971,6 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
+       &#x27;/** Message image group handed to the optional attachment presentation plugin. */\nexport interface MessageImagesOwnerProps {\n  /** Durable references or submission-echo previews in source order. */\n  images: readonly MessageImageSource[]\n  /** Session-authorized image URL loader for the durable arm. */\n  loadImage: MessageImageLoader\n  /** Horizontal placement inside the owning record. */\n  align: \&#x27;start\&#x27; | \&#x27;end\&#x27;\n  /** Force every image into the compact message-attachment tile size. */\n  compact?: boolean\n}&#x27;,
+     ],
+     ownerPropsReferences: [
+-      &#x27;Message&#x27;,
+       &#x27;MessageImageLoader&#x27;,
+       &#x27;MessageImageSource&#x27;,
+     ],
+@@ -1190,9 +1186,7 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
+     ownerProps: [
+       &#x27;/** Plain breadcrumb data handed to the optional lineage renderer. */\nexport interface ConversationHeaderLineageOwnerProps {\n  /** Session represented by this breadcrumb title. */\n  lineageSessionId: SessionId\n  /** Display title available to a combined title/control renderer. */\n  displayTitle: string\n  /** Navigate to an ancestor title when present. */\n  openTitle?: () =&gt; void\n}&#x27;,
+     ],
+-    ownerPropsReferences: [
+-      &#x27;SessionId&#x27;,
+-    ],
++    ownerPropsReferences: [],
+     standardProps: [
+       &#x27;useResource: UseResource&#x27;,
+       &#x27;useWorkspaces: SnapshotSelectorHook&lt;WorkspaceSnapshot&gt;&#x27;,
+@@ -1291,7 +1285,6 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
+       &#x27;/** Message image group handed to the optional attachment presentation plugin. */\nexport interface MessageImagesOwnerProps {\n  /** Durable references or submission-echo previews in source order. */\n  images: readonly MessageImageSource[]\n  /** Session-authorized image URL loader for the durable arm. */\n  loadImage: MessageImageLoader\n  /** Horizontal placement inside the owning record. */\n  align: \&#x27;start\&#x27; | \&#x27;end\&#x27;\n  /** Force every image into the compact message-attachment tile size. */\n  compact?: boolean\n}&#x27;,
+     ],
+     ownerPropsReferences: [
+-      &#x27;Message&#x27;,
+       &#x27;MessageImageLoader&#x27;,
+       &#x27;MessageImageSource&#x27;,
+     ],
+@@ -1455,6 +1448,120 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
+     example: &#x27;return {\n  inject: [\&#x27;slots\&#x27;],\n  apply(ctx) {\n    ctx.slots.inject(\&#x27;main.conversation\&#x27;, () =&gt; ctx.slots.register(\n      { name: \&#x27;main.conversation\&#x27; },\n      () =&gt; React.createElement(\&#x27;div\&#x27;, null, \&#x27;hello\&#x27;),\n    ))\n  },\n}&#x27;,
+     source: &#x27;packages/client/ui-conversation/src/client/contract/slots.ts:121&#x27;,
+   },
++  {
++    key: &#x27;qs.brand.mark&#x27;,
++    kind: &#x27;single&#x27;,
++    scope: &#x27;root&#x27;,
++    summary: &#x27;Independently contributed workbench brand symbol.&#x27;,
++    doc: &#x27;Independently contributed workbench brand symbol.&#x27;,
++    registerOptions: [],
++    ownerProps: [],
++    ownerPropsReferences: [],
++    standardProps: [
++      &#x27;useResource: UseResource&#x27;,
++      &#x27;useWorkspaces: SnapshotSelectorHook&lt;WorkspaceSnapshot&gt;&#x27;,
++      &#x27;usePanelInfo: UsePanelInfo&#x27;,
++      &#x27;useSessions: UseSessions&#x27;,
++      &#x27;useSessionPendingInteraction: UseSessionPendingInteraction&#x27;,
++      &#x27;useWorkspaces: SnapshotSelectorHook&lt;WorkspaceSnapshot&gt;&#x27;,
++      &#x27;useQsAuth?: UseQsAuth | undefined&#x27;,
++    ],
++    keyDomain: &#x27;&#x27;,
++    hookContext: &#x27;&#x27;,
++    slotInject: &#x27;&#x27;,
++    declaredBy: &#x27;an entry in \&#x27;qs.chrome\&#x27; (qs-shell), so it exists while that entry is mounted&#x27;,
++    occupants: [
++      &#x27;qs-ui-brand BrandMark&#x27;,
++    ],
++    replaceRisk: &#x27;shadows-shipped-ui&#x27;,
++    example: &#x27;return {\n  inject: [\&#x27;slots\&#x27;],\n  apply(ctx) {\n    ctx.slots.inject(\&#x27;qs.brand.mark\&#x27;, () =&gt; ctx.slots.register(\n      { name: \&#x27;qs.brand.mark\&#x27; },\n      () =&gt; React.createElement(\&#x27;div\&#x27;, null, \&#x27;hello\&#x27;),\n    ))\n  },\n}&#x27;,
++    source: &#x27;packages/qs/qs-shell/src/client/contract.ts:7&#x27;,
++  },
++  {
++    key: &#x27;qs.brand.name&#x27;,
++    kind: &#x27;single&#x27;,
++    scope: &#x27;root&#x27;,
++    summary: &#x27;Independently contributed workbench brand name.&#x27;,
++    doc: &#x27;Independently contributed workbench brand name.&#x27;,
++    registerOptions: [],
++    ownerProps: [],
++    ownerPropsReferences: [],
++    standardProps: [
++      &#x27;useResource: UseResource&#x27;,
++      &#x27;useWorkspaces: SnapshotSelectorHook&lt;WorkspaceSnapshot&gt;&#x27;,
++      &#x27;usePanelInfo: UsePanelInfo&#x27;,
++      &#x27;useSessions: UseSessions&#x27;,
++      &#x27;useSessionPendingInteraction: UseSessionPendingInteraction&#x27;,
++      &#x27;useWorkspaces: SnapshotSelectorHook&lt;WorkspaceSnapshot&gt;&#x27;,
++      &#x27;useQsAuth?: UseQsAuth | undefined&#x27;,
++    ],
++    keyDomain: &#x27;&#x27;,
++    hookContext: &#x27;&#x27;,
++    slotInject: &#x27;&#x27;,
++    declaredBy: &#x27;an entry in \&#x27;qs.chrome\&#x27; (qs-shell), so it exists while that entry is mounted&#x27;,
++    occupants: [
++      &#x27;qs-ui-brand BrandName&#x27;,
++    ],
++    replaceRisk: &#x27;shadows-shipped-ui&#x27;,
++    example: &#x27;return {\n  inject: [\&#x27;slots\&#x27;],\n  apply(ctx) {\n    ctx.slots.inject(\&#x27;qs.brand.name\&#x27;, () =&gt; ctx.slots.register(\n      { name: \&#x27;qs.brand.name\&#x27; },\n      () =&gt; React.createElement(\&#x27;div\&#x27;, null, \&#x27;hello\&#x27;),\n    ))\n  },\n}&#x27;,
++    source: &#x27;packages/qs/qs-shell/src/client/contract.ts:9&#x27;,
++  },
++  {
++    key: &#x27;qs.chat.assistant-actions&#x27;,
++    kind: &#x27;list&#x27;,
++    scope: &#x27;session&#x27;,
++    summary: &#x27;持久助手消息的扩展动作；运行中及无 messageId 的残片不提供此入口。&#x27;,
++    doc: &#x27;持久助手消息的扩展动作；运行中及无 messageId 的残片不提供此入口。&#x27;,
++    registerOptions: [
++      {
++        name: &#x27;id&#x27;,
++        requirement: &#x27;required&#x27;,
++        type: &#x27;string&#x27;,
++        doc: &#x27;Your cell key. Use an id of your own: a fresh id is added beside the shipped entries, while reusing a shipped id puts you in THAT cell and replaces it. Owners that filter by id address you by it.&#x27;,
++      },
++      {
++        name: &#x27;order&#x27;,
++        requirement: &#x27;optional&#x27;,
++        type: &#x27;number&#x27;,
++        doc: &#x27;Position among the entries, ascending (default 0).&#x27;,
++      },
++      {
++        name: &#x27;label&#x27;,
++        requirement: &#x27;optional&#x27;,
++        type: &#x27;string | (() =&gt; string)&#x27;,
++        doc: &#x27;Display text where the owner projects one (nav rows, tabs). A thunk is re-read on every projection, so localized text follows the active locale without re-registering.&#x27;,
++      },
++    ],
++    ownerProps: [],
++    ownerPropsReferences: [],
++    standardProps: [
++      &#x27;useResource: UseResource&#x27;,
++      &#x27;useWorkspaces: SnapshotSelectorHook&lt;WorkspaceSnapshot&gt;&#x27;,
++      &#x27;usePanelInfo: UsePanelInfo&#x27;,
++      &#x27;useSessions: UseSessions&#x27;,
++      &#x27;useSessionPendingInteraction: UseSessionPendingInteraction&#x27;,
++      &#x27;useWorkspaces: SnapshotSelectorHook&lt;WorkspaceSnapshot&gt;&#x27;,
++      &#x27;useQsAuth?: UseQsAuth | undefined&#x27;,
++      &#x27;useChat: UseChat&#x27;,
++      &#x27;useConversation: UseConversation&#x27;,
++      &#x27;useInput: SnapshotSelectorHook&lt;InputState&gt;&#x27;,
++      &#x27;inputActions: InputActions&#x27;,
++      &#x27;useSession: SessionSnapshotSelector&#x27;,
++      &#x27;sessionId: SessionId&#x27;,
++      &#x27;useProjection: UseProjection&#x27;,
++      &#x27;useTrajectory: UseTrajectory&#x27;,
++    ],
++    keyDomain: &#x27;&#x27;,
++    hookContext: &#x27;&#x27;,
++    slotInject: &#x27;&#x27;,
++    declaredBy: &#x27;the runtime itself (built in; always present)&#x27;,
++    occupants: [
++      &#x27;qs-ui-message-feedback Actions id \&#x27;qs-feedback\&#x27;&#x27;,
++    ],
++    replaceRisk: &#x27;none&#x27;,
++    example: &#x27;return {\n  inject: [\&#x27;slots\&#x27;],\n  apply(ctx) {\n    ctx.slots.inject(\&#x27;qs.chat.assistant-actions\&#x27;, () =&gt; ctx.slots.register(\n      { name: \&#x27;qs.chat.assistant-actions\&#x27;, id: \&#x27;my-entry\&#x27;, order: 100, label: \&#x27;My entry\&#x27; },\n      () =&gt; React.createElement(\&#x27;div\&#x27;, null, \&#x27;hello\&#x27;),\n    ))\n  },\n}&#x27;,
++    source: &#x27;packages/qs/qs-transcript/src/client/contract.ts:16&#x27;,
++  },
+   {
+     key: &#x27;qs.chrome&#x27;,
+     kind: &#x27;single&#x27;,
+@@ -1484,18 +1591,16 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
+     ],
+     replaceRisk: &#x27;shadows-shipped-ui&#x27;,
+     example: &#x27;return {\n  inject: [\&#x27;slots\&#x27;],\n  apply(ctx) {\n    ctx.slots.inject(\&#x27;qs.chrome\&#x27;, () =&gt; ctx.slots.register(\n      { name: \&#x27;qs.chrome\&#x27; },\n      () =&gt; React.createElement(\&#x27;div\&#x27;, null, \&#x27;hello\&#x27;),\n    ))\n  },\n}&#x27;,
+-    source: &#x27;packages/qs/qs-shell/src/client/contract.ts:22&#x27;,
++    source: &#x27;packages/qs/qs-shell/src/client/contract.ts:13&#x27;,
+   },
+   {
+     key: &#x27;qs.composer&#x27;,
+     kind: &#x27;single&#x27;,
+     scope: &#x27;session-maybe&#x27;,
+-    summary: &#x27;输入区；无会话时也渲染，此时 inputActions 为 undefined。由 qs-composer 贡献。&#x27;,
+-    doc: &#x27;输入区；无会话时也渲染，此时 inputActions 为 undefined。由 qs-composer 贡献。&#x27;,
++    summary: &#x27;输入视图接收会话或无会话座席；注册替换 QS 输入区，缺失时不提供输入。&#x27;,
++    doc: &#x27;输入视图接收会话或无会话座席；注册替换 QS 输入区，缺失时不提供输入。&#x27;,
+     registerOptions: [],
+-    ownerProps: [
+-      &#x27;/** 输入区业主输入。 */\nexport interface QsComposerOwnerProps { children?: never }&#x27;,
+-    ],
++    ownerProps: [],
+     ownerPropsReferences: [],
+     standardProps: [
+       &#x27;useResource: UseResource&#x27;,
+@@ -1515,13 +1620,76 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
+     keyDomain: &#x27;&#x27;,
+     hookContext: &#x27;&#x27;,
+     slotInject: &#x27;&#x27;,
+-    declaredBy: &#x27;an entry in \&#x27;qs.stage\&#x27; (qs-shell), so it exists while that entry is mounted&#x27;,
++    declaredBy: &#x27;an entry in \&#x27;qs.stage\&#x27; (qs-composer), so it exists while that entry is mounted&#x27;,
+     occupants: [
+       &#x27;qs-composer Composer&#x27;,
+     ],
+     replaceRisk: &#x27;shadows-shipped-ui&#x27;,
+     example: &#x27;return {\n  inject: [\&#x27;slots\&#x27;],\n  apply(ctx) {\n    ctx.slots.inject(\&#x27;qs.composer\&#x27;, () =&gt; ctx.slots.register(\n      { name: \&#x27;qs.composer\&#x27; },\n      () =&gt; React.createElement(\&#x27;div\&#x27;, null, \&#x27;hello\&#x27;),\n    ))\n  },\n}&#x27;,
+-    source: &#x27;packages/qs/qs-shell/src/client/contract.ts:32&#x27;,
++    source: &#x27;packages/qs/qs-composer/src/client/contract.ts:24&#x27;,
++  },
++  {
++    key: &#x27;qs.composer.overlay&#x27;,
++    kind: &#x27;list&#x27;,
++    scope: &#x27;session&#x27;,
++    summary: &#x27;Input view owned by this conversation plugin.&#x27;,
++    doc: &#x27;Input view owned by this conversation plugin. */\n/** 命令菜单与弹层由对应独立插件贡献。&#x27;,
++    registerOptions: [
++      {
++        name: &#x27;id&#x27;,
++        requirement: &#x27;required&#x27;,
++        type: &#x27;string&#x27;,
++        doc: &#x27;Your cell key. Use an id of your own: a fresh id is added beside the shipped entries, while reusing a shipped id puts you in THAT cell and replaces it. Owners that filter by id address you by it.&#x27;,
++      },
++      {
++        name: &#x27;order&#x27;,
++        requirement: &#x27;optional&#x27;,
++        type: &#x27;number&#x27;,
++        doc: &#x27;Position among the entries, ascending (default 0).&#x27;,
++      },
++      {
++        name: &#x27;label&#x27;,
++        requirement: &#x27;optional&#x27;,
++        type: &#x27;string | (() =&gt; string)&#x27;,
++        doc: &#x27;Display text where the owner projects one (nav rows, tabs). A thunk is re-read on every projection, so localized text follows the active locale without re-registering.&#x27;,
++      },
++    ],
++    ownerProps: [
++      &#x27;/** 菜单和弹层共享可见输入及独立冻结取得动作。 */\nexport interface QsCommandOverlayOwner {\n  readonly inputElement: { readonly current: HTMLTextAreaElement | null }\n  readonly frozen: boolean\n  readonly composing: { readonly current: boolean }\n  /** 安装当前输入的手势适配器；释放只移除同一实例。 */\n  readonly bindCommandInput: (bridge: QsCommandInputBridge) =&gt; () =&gt; void\n  readonly acquireFreeze: QsComposerInjected[\&#x27;acquireFreeze\&#x27;]\n}&#x27;,
++    ],
++    ownerPropsReferences: [
++      &#x27;QsCommandInputBridge&#x27;,
++      &#x27;QsComposerInjected&#x27;,
++    ],
++    standardProps: [
++      &#x27;useResource: UseResource&#x27;,
++      &#x27;useWorkspaces: SnapshotSelectorHook&lt;WorkspaceSnapshot&gt;&#x27;,
++      &#x27;usePanelInfo: UsePanelInfo&#x27;,
++      &#x27;useSessions: UseSessions&#x27;,
++      &#x27;useSessionPendingInteraction: UseSessionPendingInteraction&#x27;,
++      &#x27;useWorkspaces: SnapshotSelectorHook&lt;WorkspaceSnapshot&gt;&#x27;,
++      &#x27;useQsAuth?: UseQsAuth | undefined&#x27;,
++      &#x27;useChat: UseChat&#x27;,
++      &#x27;useConversation: UseConversation&#x27;,
++      &#x27;useInput: SnapshotSelectorHook&lt;InputState&gt;&#x27;,
++      &#x27;inputActions: InputActions&#x27;,
++      &#x27;useSession: SessionSnapshotSelector&#x27;,
++      &#x27;sessionId: SessionId&#x27;,
++      &#x27;useProjection: UseProjection&#x27;,
++      &#x27;useTrajectory: UseTrajectory&#x27;,
++    ],
++    keyDomain: &#x27;&#x27;,
++    hookContext: &#x27;&#x27;,
++    slotInject: &#x27;&#x27;,
++    declaredBy: &#x27;an entry in \&#x27;qs.composer\&#x27; (qs-composer), so it exists while that entry is mounted&#x27;,
++    occupants: [
++      &#x27;qs-ui-commands CommandPopup id \&#x27;qs-command-popup\&#x27;&#x27;,
++      &#x27;qs-ui-input-trigger CommandMenu id \&#x27;qs-command-menu\&#x27;&#x27;,
++      &#x27;qs-ui-message-feedback Feedback id \&#x27;qs-feedback-dialog\&#x27;&#x27;,
++    ],
++    replaceRisk: &#x27;none&#x27;,
++    example: &#x27;return {\n  inject: [\&#x27;slots\&#x27;],\n  apply(ctx) {\n    ctx.slots.inject(\&#x27;qs.composer.overlay\&#x27;, () =&gt; ctx.slots.register(\n      { name: \&#x27;qs.composer.overlay\&#x27;, id: \&#x27;my-entry\&#x27;, order: 100, label: \&#x27;My entry\&#x27; },\n      () =&gt; React.createElement(\&#x27;div\&#x27;, null, \&#x27;hello\&#x27;),\n    ))\n  },\n}&#x27;,
++    source: &#x27;packages/qs/qs-composer/src/client/contract.ts:22&#x27;,
+   },
+   {
+     key: &#x27;qs.gate&#x27;,
+@@ -1552,17 +1720,17 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
+     ],
+     replaceRisk: &#x27;shadows-shipped-ui&#x27;,
+     example: &#x27;return {\n  inject: [\&#x27;slots\&#x27;],\n  apply(ctx) {\n    ctx.slots.inject(\&#x27;qs.gate\&#x27;, () =&gt; ctx.slots.register(\n      { name: \&#x27;qs.gate\&#x27; },\n      () =&gt; React.createElement(\&#x27;div\&#x27;, null, \&#x27;hello\&#x27;),\n    ))\n  },\n}&#x27;,
+-    source: &#x27;packages/qs/qs-shell/src/client/contract.ts:20&#x27;,
++    source: &#x27;packages/qs/qs-shell/src/client/contract.ts:11&#x27;,
+   },
+   {
+     key: &#x27;qs.inspector&#x27;,
+     kind: &#x27;single&#x27;,
+     scope: &#x27;root&#x27;,
+-    summary: &#x27;右栏：工作区辅助面板骨架与空态；由 qs-shell 贡献。&#x27;,
+-    doc: &#x27;右栏：工作区辅助面板骨架与空态；由 qs-shell 贡献。&#x27;,
++    summary: &#x27;右栏挂载点；布局传入几何状态，qs-ui-sidebar-right 贡献内容。&#x27;,
++    doc: &#x27;右栏挂载点；布局传入几何状态，qs-ui-sidebar-right 贡献内容。&#x27;,
+     registerOptions: [],
+     ownerProps: [
+-      &#x27;/** 右栏业主输入。 */\nexport interface QsInspectorOwnerProps { children?: never }&#x27;,
++      &#x27;/** 右栏业主输入。 */\nexport interface QsInspectorOwnerProps {\n  readonly hidden: boolean\n  readonly selected: number\n  readonly setSelected: (index: number) =&gt; void\n}&#x27;,
+     ],
+     ownerPropsReferences: [],
+     standardProps: [
+@@ -1579,22 +1747,20 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
+     slotInject: &#x27;&#x27;,
+     declaredBy: &#x27;an entry in \&#x27;root\&#x27; (qs-shell), so it exists while that entry is mounted&#x27;,
+     occupants: [
+-      &#x27;qs-shell QsRightPanel&#x27;,
++      &#x27;qs-ui-sidebar-right QsRightPanel&#x27;,
+     ],
+     replaceRisk: &#x27;shadows-shipped-ui&#x27;,
+     example: &#x27;return {\n  inject: [\&#x27;slots\&#x27;],\n  apply(ctx) {\n    ctx.slots.inject(\&#x27;qs.inspector\&#x27;, () =&gt; ctx.slots.register(\n      { name: \&#x27;qs.inspector\&#x27; },\n      () =&gt; React.createElement(\&#x27;div\&#x27;, null, \&#x27;hello\&#x27;),\n    ))\n  },\n}&#x27;,
+-    source: &#x27;packages/qs/qs-shell/src/client/contract.ts:34&#x27;,
++    source: &#x27;packages/qs/qs-shell/src/client/contract.ts:19&#x27;,
+   },
+   {
+     key: &#x27;qs.nav&#x27;,
+     kind: &#x27;single&#x27;,
+     scope: &#x27;root&#x27;,
+-    summary: &#x27;左导航：会话列表容器；由 qs-sessions 贡献。&#x27;,
+-    doc: &#x27;左导航：会话列表容器；由 qs-sessions 贡献。&#x27;,
++    summary: &#x27;Workspace/session navigation owned by the sidebar entry.&#x27;,
++    doc: &#x27;Workspace/session navigation owned by the sidebar entry.&#x27;,
+     registerOptions: [],
+-    ownerProps: [
+-      &#x27;/** 左导航业主输入。 */\nexport interface QsNavOwnerProps { children?: never }&#x27;,
+-    ],
++    ownerProps: [],
+     ownerPropsReferences: [],
+     standardProps: [
+       &#x27;useResource: UseResource&#x27;,
+@@ -1608,13 +1774,13 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
+     keyDomain: &#x27;&#x27;,
+     hookContext: &#x27;&#x27;,
+     slotInject: &#x27;&#x27;,
+-    declaredBy: &#x27;an entry in \&#x27;root\&#x27; (qs-shell), so it exists while that entry is mounted&#x27;,
++    declaredBy: &#x27;an entry in \&#x27;qs.sidebar\&#x27; (qs-ui-sidebar), so it exists while that entry is mounted&#x27;,
+     occupants: [
+       &#x27;qs-sessions SessionList&#x27;,
+     ],
+     replaceRisk: &#x27;shadows-shipped-ui&#x27;,
+     example: &#x27;return {\n  inject: [\&#x27;slots\&#x27;],\n  apply(ctx) {\n    ctx.slots.inject(\&#x27;qs.nav\&#x27;, () =&gt; ctx.slots.register(\n      { name: \&#x27;qs.nav\&#x27; },\n      () =&gt; React.createElement(\&#x27;div\&#x27;, null, \&#x27;hello\&#x27;),\n    ))\n  },\n}&#x27;,
+-    source: &#x27;packages/qs/qs-shell/src/client/contract.ts:24&#x27;,
++    source: &#x27;packages/qs/qs-ui-sidebar/src/client/index.ts:11&#x27;,
+   },
+   {
+     key: &#x27;qs.overlay&#x27;,
+@@ -1664,14 +1830,43 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
+     ],
+     replaceRisk: &#x27;none&#x27;,
+     example: &#x27;return {\n  inject: [\&#x27;slots\&#x27;],\n  apply(ctx) {\n    ctx.slots.inject(\&#x27;qs.overlay\&#x27;, () =&gt; ctx.slots.register(\n      { name: \&#x27;qs.overlay\&#x27;, id: \&#x27;my-entry\&#x27;, order: 100, label: \&#x27;My entry\&#x27; },\n      () =&gt; React.createElement(\&#x27;div\&#x27;, null, \&#x27;hello\&#x27;),\n    ))\n  },\n}&#x27;,
+-    source: &#x27;packages/qs/qs-shell/src/client/contract.ts:38&#x27;,
++    source: &#x27;packages/qs/qs-shell/src/client/contract.ts:23&#x27;,
++  },
++  {
++    key: &#x27;qs.sidebar&#x27;,
++    kind: &#x27;single&#x27;,
++    scope: &#x27;root&#x27;,
++    summary: &#x27;Sidebar shell with its own workspace child slot.&#x27;,
++    doc: &#x27;Sidebar shell with its own workspace child slot.&#x27;,
++    registerOptions: [],
++    ownerProps: [],
++    ownerPropsReferences: [],
++    standardProps: [
++      &#x27;useResource: UseResource&#x27;,
++      &#x27;useWorkspaces: SnapshotSelectorHook&lt;WorkspaceSnapshot&gt;&#x27;,
++      &#x27;usePanelInfo: UsePanelInfo&#x27;,
++      &#x27;useSessions: UseSessions&#x27;,
++      &#x27;useSessionPendingInteraction: UseSessionPendingInteraction&#x27;,
++      &#x27;useWorkspaces: SnapshotSelectorHook&lt;WorkspaceSnapshot&gt;&#x27;,
++      &#x27;useQsAuth?: UseQsAuth | undefined&#x27;,
++    ],
++    keyDomain: &#x27;&#x27;,
++    hookContext: &#x27;&#x27;,
++    slotInject: &#x27;&#x27;,
++    declaredBy: &#x27;an entry in \&#x27;root\&#x27; (qs-shell), so it exists while that entry is mounted&#x27;,
++    occupants: [
++      &#x27;qs-ui-sidebar QsSideNav&#x27;,
++    ],
++    replaceRisk: &#x27;shadows-shipped-ui&#x27;,
++    example: &#x27;return {\n  inject: [\&#x27;slots\&#x27;],\n  apply(ctx) {\n    ctx.slots.inject(\&#x27;qs.sidebar\&#x27;, () =&gt; ctx.slots.register(\n      { name: \&#x27;qs.sidebar\&#x27; },\n      () =&gt; React.createElement(\&#x27;div\&#x27;, null, \&#x27;hello\&#x27;),\n    ))\n  },\n}&#x27;,
++    source: &#x27;packages/qs/qs-shell/src/client/contract.ts:15&#x27;,
+   },
+   {
+     key: &#x27;qs.stage&#x27;,
+     kind: &#x27;single&#x27;,
+     scope: &#x27;root&#x27;,
+-    summary: &#x27;主区外框；由 qs-shell 贡献并声明其下的欢迎区、转写与输入区。&#x27;,
+-    doc: &#x27;主区外框；由 qs-shell 贡献并声明其下的欢迎区、转写与输入区。&#x27;,
++    summary: &#x27;会话视图挂载点；由 qs-composer 贡献并声明其子槽。&#x27;,
++    doc: &#x27;会话视图挂载点；由 qs-composer 贡献并声明其子槽。&#x27;,
+     registerOptions: [],
+     ownerProps: [
+       &#x27;/** 主区外框业主输入。 */\nexport interface QsStageOwnerProps { children?: never }&#x27;,
+@@ -1691,22 +1886,20 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
+     slotInject: &#x27;&#x27;,
+     declaredBy: &#x27;an entry in \&#x27;root\&#x27; (qs-shell), so it exists while that entry is mounted&#x27;,
+     occupants: [
+-      &#x27;qs-shell QsStage&#x27;,
++      &#x27;qs-composer QsStage&#x27;,
+     ],
+     replaceRisk: &#x27;shadows-shipped-ui&#x27;,
+     example: &#x27;return {\n  inject: [\&#x27;slots\&#x27;],\n  apply(ctx) {\n    ctx.slots.inject(\&#x27;qs.stage\&#x27;, () =&gt; ctx.slots.register(\n      { name: \&#x27;qs.stage\&#x27; },\n      () =&gt; React.createElement(\&#x27;div\&#x27;, null, \&#x27;hello\&#x27;),\n    ))\n  },\n}&#x27;,
+-    source: &#x27;packages/qs/qs-shell/src/client/contract.ts:26&#x27;,
++    source: &#x27;packages/qs/qs-shell/src/client/contract.ts:17&#x27;,
+   },
+   {
+     key: &#x27;qs.stage.body&#x27;,
+     kind: &#x27;single&#x27;,
+     scope: &#x27;session-maybe&#x27;,
+-    summary: &#x27;欢迎区与骨架；无会话时也渲染（session-maybe）。&#x27;,
+-    doc: &#x27;欢迎区与骨架；无会话时也渲染（session-maybe）。&#x27;,
++    summary: &#x27;Conversation welcome area, including the unbound session state.&#x27;,
++    doc: &#x27;Conversation welcome area, including the unbound session state.&#x27;,
+     registerOptions: [],
+-    ownerProps: [
+-      &#x27;/** 欢迎区业主输入。 */\nexport interface QsStageBodyOwnerProps { children?: never }&#x27;,
+-    ],
++    ownerProps: [],
+     ownerPropsReferences: [],
+     standardProps: [
+       &#x27;useResource: UseResource&#x27;,
+@@ -1726,20 +1919,20 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
+     keyDomain: &#x27;&#x27;,
+     hookContext: &#x27;&#x27;,
+     slotInject: &#x27;&#x27;,
+-    declaredBy: &#x27;an entry in \&#x27;qs.stage\&#x27; (qs-shell), so it exists while that entry is mounted&#x27;,
++    declaredBy: &#x27;an entry in \&#x27;qs.stage\&#x27; (qs-composer), so it exists while that entry is mounted&#x27;,
+     occupants: [
+-      &#x27;qs-shell QsWelcomePane&#x27;,
++      &#x27;qs-composer QsWelcomePane&#x27;,
+     ],
+     replaceRisk: &#x27;shadows-shipped-ui&#x27;,
+     example: &#x27;return {\n  inject: [\&#x27;slots\&#x27;],\n  apply(ctx) {\n    ctx.slots.inject(\&#x27;qs.stage.body\&#x27;, () =&gt; ctx.slots.register(\n      { name: \&#x27;qs.stage.body\&#x27; },\n      () =&gt; React.createElement(\&#x27;div\&#x27;, null, \&#x27;hello\&#x27;),\n    ))\n  },\n}&#x27;,
+-    source: &#x27;packages/qs/qs-shell/src/client/contract.ts:28&#x27;,
++    source: &#x27;packages/qs/qs-composer/src/client/contract.ts:17&#x27;,
+   },
+   {
+     key: &#x27;qs.stage.interaction&#x27;,
+     kind: &#x27;chain&#x27;,
+     scope: &#x27;session&#x27;,
+-    summary: &#x27;交互卡片位：审批与提问共用，位于消息流末尾（原型位置）。 `select` 按当前会话的 pending 类型选举：qs-approval priority 1、 qs-questions priority 2，升序第一个非 null 当选。**chain 条目崩溃不退位**， 因此卡片必须自带错误提示与重试。&#x27;,
+-    doc: &#x27;交互卡片位：审批与提问共用，位于消息流末尾（原型位置）。\n\n`select` 按当前会话的 pending 类型选举：qs-approval priority 1、\nqs-questions priority 2，升序第一个非 null 当选。**chain 条目崩溃不退位**，\n因此卡片必须自带错误提示与重试。&#x27;,
++    summary: &#x27;审批和提问复用唯一待回答数据与协议。&#x27;,
++    doc: &#x27;审批和提问复用唯一待回答数据与协议。&#x27;,
+     registerOptions: [
+       {
+         name: &#x27;select&#x27;,
+@@ -1774,25 +1967,60 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
+     keyDomain: &#x27;&#x27;,
+     hookContext: &#x27;&#x27;,
+     slotInject: &#x27;&#x27;,
+-    declaredBy: &#x27;an entry in \&#x27;qs.stage.transcript\&#x27; (qs-transcript), so it exists while that entry is mounted&#x27;,
++    declaredBy: &#x27;an entry in \&#x27;qs.stage.pending\&#x27; (qs-composer), so it exists while that entry is mounted&#x27;,
+     occupants: [
+       &#x27;qs-approval ApprovalCard&#x27;,
+       &#x27;qs-questions QuestionCard&#x27;,
+     ],
+     replaceRisk: &#x27;none&#x27;,
+     example: &#x27;return {\n  inject: [\&#x27;slots\&#x27;],\n  apply(ctx) {\n    ctx.slots.inject(\&#x27;qs.stage.interaction\&#x27;, () =&gt; ctx.slots.register(\n      { name: \&#x27;qs.stage.interaction\&#x27;, select: owner =&gt; null },\n      () =&gt; React.createElement(\&#x27;div\&#x27;, null, \&#x27;hello\&#x27;),\n    ))\n  },\n}&#x27;,
+-    source: &#x27;packages/qs/qs-transcript/src/client/contract.ts:37&#x27;,
++    source: &#x27;packages/qs/qs-composer/src/client/contract.ts:15&#x27;,
+   },
+   {
+-    key: &#x27;qs.stage.transcript&#x27;,
++    key: &#x27;qs.stage.pending&#x27;,
+     kind: &#x27;single&#x27;,
+     scope: &#x27;session&#x27;,
+-    summary: &#x27;转写行；严格会话作用域，无绑定不得渲染。由 qs-transcript 贡献。&#x27;,
+-    doc: &#x27;转写行；严格会话作用域，无绑定不得渲染。由 qs-transcript 贡献。&#x27;,
++    summary: &#x27;固定会话交互座位，不随阅读视图卸载。&#x27;,
++    doc: &#x27;固定会话交互座位，不随阅读视图卸载。&#x27;,
+     registerOptions: [],
+-    ownerProps: [
+-      &#x27;/** 转写业主输入。 */\nexport interface QsTranscriptOwnerProps { children?: never }&#x27;,
++    ownerProps: [],
++    ownerPropsReferences: [],
++    standardProps: [
++      &#x27;useResource: UseResource&#x27;,
++      &#x27;useWorkspaces: SnapshotSelectorHook&lt;WorkspaceSnapshot&gt;&#x27;,
++      &#x27;usePanelInfo: UsePanelInfo&#x27;,
++      &#x27;useSessions: UseSessions&#x27;,
++      &#x27;useSessionPendingInteraction: UseSessionPendingInteraction&#x27;,
++      &#x27;useWorkspaces: SnapshotSelectorHook&lt;WorkspaceSnapshot&gt;&#x27;,
++      &#x27;useQsAuth?: UseQsAuth | undefined&#x27;,
++      &#x27;useChat: UseChat&#x27;,
++      &#x27;useConversation: UseConversation&#x27;,
++      &#x27;useInput: SnapshotSelectorHook&lt;InputState&gt;&#x27;,
++      &#x27;inputActions: InputActions&#x27;,
++      &#x27;useSession: SessionSnapshotSelector&#x27;,
++      &#x27;sessionId: SessionId&#x27;,
++      &#x27;useProjection: UseProjection&#x27;,
++      &#x27;useTrajectory: UseTrajectory&#x27;,
+     ],
++    keyDomain: &#x27;&#x27;,
++    hookContext: &#x27;&#x27;,
++    slotInject: &#x27;&#x27;,
++    declaredBy: &#x27;an entry in \&#x27;qs.stage\&#x27; (qs-composer), so it exists while that entry is mounted&#x27;,
++    occupants: [
++      &#x27;qs-composer PendingSeat&#x27;,
++    ],
++    replaceRisk: &#x27;shadows-shipped-ui&#x27;,
++    example: &#x27;return {\n  inject: [\&#x27;slots\&#x27;],\n  apply(ctx) {\n    ctx.slots.inject(\&#x27;qs.stage.pending\&#x27;, () =&gt; ctx.slots.register(\n      { name: \&#x27;qs.stage.pending\&#x27; },\n      () =&gt; React.createElement(\&#x27;div\&#x27;, null, \&#x27;hello\&#x27;),\n    ))\n  },\n}&#x27;,
++    source: &#x27;packages/qs/qs-composer/src/client/contract.ts:13&#x27;,
++  },
++  {
++    key: &#x27;qs.stage.transcript&#x27;,
++    kind: &#x27;single&#x27;,
++    scope: &#x27;session&#x27;,
++    summary: &#x27;Session transcript supplied by the Chat presentation plugin.&#x27;,
++    doc: &#x27;Session transcript supplied by the Chat presentation plugin.&#x27;,
++    registerOptions: [],
++    ownerProps: [],
+     ownerPropsReferences: [],
+     standardProps: [
+       &#x27;useResource: UseResource&#x27;,
+@@ -1814,13 +2042,13 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
+     keyDomain: &#x27;&#x27;,
+     hookContext: &#x27;&#x27;,
+     slotInject: &#x27;&#x27;,
+-    declaredBy: &#x27;an entry in \&#x27;qs.stage\&#x27; (qs-shell), so it exists while that entry is mounted&#x27;,
++    declaredBy: &#x27;an entry in \&#x27;qs.stage\&#x27; (qs-composer), so it exists while that entry is mounted&#x27;,
+     occupants: [
+       &#x27;qs-transcript Transcript&#x27;,
+     ],
+     replaceRisk: &#x27;shadows-shipped-ui&#x27;,
+     example: &#x27;return {\n  inject: [\&#x27;slots\&#x27;],\n  apply(ctx) {\n    ctx.slots.inject(\&#x27;qs.stage.transcript\&#x27;, () =&gt; ctx.slots.register(\n      { name: \&#x27;qs.stage.transcript\&#x27; },\n      () =&gt; React.createElement(\&#x27;div\&#x27;, null, \&#x27;hello\&#x27;),\n    ))\n  },\n}&#x27;,
+-    source: &#x27;packages/qs/qs-shell/src/client/contract.ts:30&#x27;,
++    source: &#x27;packages/qs/qs-composer/src/client/contract.ts:19&#x27;,
+   },
+   {
+     key: &#x27;qs.stage.transcript.row&#x27;,
+@@ -1837,9 +2065,11 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
+       },
+     ],
+     ownerProps: [
+-      &#x27;/** 转写行业主输入：行键与父 entry 绑定的订阅座席。 */\nexport interface QsTranscriptRowOwnerProps {\n  /** 稳定的 Conversation Context 键（避开 React 保留的 key 属性名）。 */\n  readonly nodeKey: string\n  /** 父 entry 的 keyedHooks 绑出的单行订阅座席。 */\n  readonly useNode: UseQsChatNode\n  /** 同一行的 Turn-process 呈现订阅座席。 */\n  readonly useProcess: UseQsChatNodeProcess\n}&#x27;,
++      &#x27;/** 转写行业主输入：行键、父 entry 绑定的订阅座席与会话能力。 */\nexport interface QsTranscriptRowOwnerProps {\n  /** 稳定的 Conversation Context 键（避开 React 保留的 key 属性名）。 */\n  readonly nodeKey: string\n  /** 父 entry 的 keyedHooks 绑出的单行订阅座席。 */\n  readonly useNode: UseQsChatNode\n  /** 同一行的 Turn-process 呈现订阅座席。 */\n  readonly useProcess: UseQsChatNodeProcess\n  /**\n   * 按会话授权的图片装载（官方 uiConversation 的地址签发）。\n   *\n   * 行组件不持有 ctx，也不得自行拼装资源地址：需要渲染持久图片引用的行（如工具视图的\n   * read_image）只能通过这里取得装载器。\n   */\n  readonly loadImage: MessageImageLoader\n  /** 已完成轮的过程折叠状态（按会话创建，行只读写自己的折叠键）。 */\n  readonly fold: QsProcessFold\n}&#x27;,
+     ],
+     ownerPropsReferences: [
++      &#x27;MessageImageLoader&#x27;,
++      &#x27;QsProcessFold&#x27;,
+       &#x27;UseQsChatNode&#x27;,
+       &#x27;UseQsChatNodeProcess&#x27;,
+     ],
+@@ -1860,16 +2090,17 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
+       &#x27;useProjection: UseProjection&#x27;,
+       &#x27;useTrajectory: UseTrajectory&#x27;,
+     ],
+-    keyDomain: &#x27;open: any string the owner dispatches (no compile-time key set), none are taken yet&#x27;,
++    keyDomain: &#x27;open: any string the owner dispatches (no compile-time key set), already taken: tool-call&#x27;,
+     hookContext: &#x27;&#x27;,
+     slotInject: &#x27;&#x27;,
+     declaredBy: &#x27;an entry in \&#x27;qs.stage.transcript\&#x27; (qs-transcript), so it exists while that entry is mounted&#x27;,
+     occupants: [
+       &#x27;qs-transcript component&#x27;,
++      &#x27;qs-ui-tool ToolCallRow key \&#x27;tool-call\&#x27;&#x27;,
+     ],
+-    replaceRisk: &#x27;none&#x27;,
++    replaceRisk: &#x27;shadows-shipped-ui&#x27;,
+     example: &#x27;return {\n  inject: [\&#x27;slots\&#x27;],\n  apply(ctx) {\n    ctx.slots.inject(\&#x27;qs.stage.transcript.row\&#x27;, () =&gt; ctx.slots.register(\n      { name: \&#x27;qs.stage.transcript.row\&#x27;, key: \&#x27;&lt;one key the owner dispatches&gt;\&#x27; },\n      () =&gt; React.createElement(\&#x27;div\&#x27;, null, \&#x27;hello\&#x27;),\n    ))\n  },\n}&#x27;,
+-    source: &#x27;packages/qs/qs-transcript/src/client/contract.ts:24&#x27;,
++    source: &#x27;packages/qs/qs-transcript/src/client/contract.ts:27&#x27;,
+   },
+   {
+     key: &#x27;qs.status&#x27;,
+@@ -1919,7 +2150,56 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
+     ],
+     replaceRisk: &#x27;none&#x27;,
+     example: &#x27;return {\n  inject: [\&#x27;slots\&#x27;],\n  apply(ctx) {\n    ctx.slots.inject(\&#x27;qs.status\&#x27;, () =&gt; ctx.slots.register(\n      { name: \&#x27;qs.status\&#x27;, id: \&#x27;my-entry\&#x27;, order: 100, label: \&#x27;My entry\&#x27; },\n      () =&gt; React.createElement(\&#x27;div\&#x27;, null, \&#x27;hello\&#x27;),\n    ))\n  },\n}&#x27;,
+-    source: &#x27;packages/qs/qs-shell/src/client/contract.ts:36&#x27;,
++    source: &#x27;packages/qs/qs-shell/src/client/contract.ts:21&#x27;,
++  },
++  {
++    key: &#x27;qs.tool.call.toolview&#x27;,
++    kind: &#x27;keyed&#x27;,
++    scope: &#x27;session&#x27;,
++    summary: &#x27;单个工具调用的呈现：按 Wire 工具名分派。 键域开放：未认领的键（含无调用记录的孤儿结果）由声明者提供的兜底卡承载， 既不静默消失，也不伪装成某个已知工具。&#x27;,
++    doc: &#x27;单个工具调用的呈现：按 Wire 工具名分派。\n\n键域开放：未认领的键（含无调用记录的孤儿结果）由声明者提供的兜底卡承载，\n既不静默消失，也不伪装成某个已知工具。&#x27;,
++    registerOptions: [
++      {
++        name: &#x27;key&#x27;,
++        requirement: &#x27;required&#x27;,
++        type: &#x27;string&#x27;,
++        doc: &#x27;Your cell key: the entry renders where the owner dispatches this exact key. Registering an already-occupied key replaces that occupant.&#x27;,
++      },
++    ],
++    ownerProps: [
++      &#x27;/**\n * 工具子视图的 owner 输入。\n *\n * 只包含官方持久数据（调用头、结果、结构化 meta）与宿主按会话提供的能力：\n * 与官方 `ToolCallOwnerProps` 相比，这里没有 `openFile`、`inspect` 和 `home`——\n * 资源打开归右栏检查器（C9）、轨迹定位归轨迹视图（C17）、宿主账户家目录属 Host 事实；\n * 在对应里程碑接线前，视图不得伪造这些能力，路径只按会话工作区根做相对显示。\n */\nexport interface QsToolCallOwnerProps {\n  /** 跨运行与结算保持稳定的调用身份。 */\n  readonly callId: string\n  /** Wire 工具名；调用记录缺失时为空串。 */\n  readonly toolName: string\n  /** 该调用的运行头或已结算结果节点（自身拥有其子调用）。 */\n  readonly block: ToolCallBlock\n  /** 会话工作区根，用于相对路径摘要；未知时按原样显示。 */\n  readonly cwd: string | undefined\n  /** 按会话授权的图片装载；缺席时图片类结果只给文字限制说明。 */\n  readonly loadImage: MessageImageLoader | undefined\n}&#x27;,
++    ],
++    ownerPropsReferences: [
++      &#x27;MessageImageLoader&#x27;,
++      &#x27;ToolCallOwnerProps&#x27;,
++    ],
++    standardProps: [
++      &#x27;useResource: UseResource&#x27;,
++      &#x27;useWorkspaces: SnapshotSelectorHook&lt;WorkspaceSnapshot&gt;&#x27;,
++      &#x27;usePanelInfo: UsePanelInfo&#x27;,
++      &#x27;useSessions: UseSessions&#x27;,
++      &#x27;useSessionPendingInteraction: UseSessionPendingInteraction&#x27;,
++      &#x27;useWorkspaces: SnapshotSelectorHook&lt;WorkspaceSnapshot&gt;&#x27;,
++      &#x27;useQsAuth?: UseQsAuth | undefined&#x27;,
++      &#x27;useChat: UseChat&#x27;,
++      &#x27;useConversation: UseConversation&#x27;,
++      &#x27;useInput: SnapshotSelectorHook&lt;InputState&gt;&#x27;,
++      &#x27;inputActions: InputActions&#x27;,
++      &#x27;useSession: SessionSnapshotSelector&#x27;,
++      &#x27;sessionId: SessionId&#x27;,
++      &#x27;useProjection: UseProjection&#x27;,
++      &#x27;useTrajectory: UseTrajectory&#x27;,
++    ],
++    keyDomain: &#x27;open: any string the owner dispatches (no compile-time key set), none are taken yet&#x27;,
++    hookContext: &#x27;&#x27;,
++    slotInject: &#x27;&#x27;,
++    declaredBy: &#x27;an entry in \&#x27;qs.stage.transcript.row\&#x27; (qs-ui-tool), so it exists while that entry is mounted&#x27;,
++    occupants: [
++      &#x27;qs-ui-tool component&#x27;,
++    ],
++    replaceRisk: &#x27;none&#x27;,
++    example: &#x27;return {\n  inject: [\&#x27;slots\&#x27;],\n  apply(ctx) {\n    ctx.slots.inject(\&#x27;qs.tool.call.toolview\&#x27;, () =&gt; ctx.slots.register(\n      { name: \&#x27;qs.tool.call.toolview\&#x27;, key: \&#x27;&lt;one key the owner dispatches&gt;\&#x27; },\n      () =&gt; React.createElement(\&#x27;div\&#x27;, null, \&#x27;hello\&#x27;),\n    ))\n  },\n}&#x27;,
++    source: &#x27;packages/qs/qs-ui-tool/src/client/contract.ts:19&#x27;,
+   },
+   {
+     key: &#x27;rightbar&#x27;,
+</pre>
+<h2 id="file-3">pnpm-lock.yaml</h2><pre>diff --git a/pnpm-lock.yaml b/pnpm-lock.yaml
+index 05cd15625f..5048e6e912 100644
+--- a/pnpm-lock.yaml
++++ b/pnpm-lock.yaml
+@@ -1984,6 +1984,27 @@ importers:
+       &#x27;@deepseek-ai/dsh-qs-transcript&#x27;:
+         specifier: workspace:^
+         version: link:../../qs/qs-transcript
++      &#x27;@deepseek-ai/dsh-qs-ui-brand&#x27;:
++        specifier: workspace:^
++        version: link:../../qs/qs-ui-brand
++      &#x27;@deepseek-ai/dsh-qs-ui-commands&#x27;:
++        specifier: workspace:^
++        version: link:../../qs/qs-ui-commands
++      &#x27;@deepseek-ai/dsh-qs-ui-input-trigger&#x27;:
++        specifier: workspace:^
++        version: link:../../qs/qs-ui-input-trigger
++      &#x27;@deepseek-ai/dsh-qs-ui-message-feedback&#x27;:
++        specifier: workspace:^
++        version: link:../../qs/qs-ui-message-feedback
++      &#x27;@deepseek-ai/dsh-qs-ui-sidebar&#x27;:
++        specifier: workspace:^
++        version: link:../../qs/qs-ui-sidebar
++      &#x27;@deepseek-ai/dsh-qs-ui-sidebar-right&#x27;:
++        specifier: workspace:^
++        version: link:../../qs/qs-ui-sidebar-right
++      &#x27;@deepseek-ai/dsh-qs-ui-tool&#x27;:
++        specifier: workspace:^
++        version: link:../../qs/qs-ui-tool
+       &#x27;@deepseek-ai/dsh-session-log-export&#x27;:
+         specifier: workspace:^
+         version: link:../../session-query/session-log-export
+@@ -6615,6 +6636,9 @@ importers:
+       &#x27;@deepseek-ai/dsh-launch-environment&#x27;:
+         specifier: workspace:^
+         version: link:../../util/launch-environment
++      &#x27;@deepseek-ai/schemastery&#x27;:
++        specifier: link:../../../vendor/schemastery
++        version: link:../../../vendor/schemastery
+     devDependencies:
+       &#x27;@deepseek-ai/cordis&#x27;:
+         specifier: workspace:^
+@@ -7665,6 +7689,9 @@ importers:
+       &#x27;@deepseek-ai/dsh-session&#x27;:
+         specifier: workspace:^
+         version: link:../../core/session
++      &#x27;@deepseek-ai/dsh-token-meter&#x27;:
++        specifier: workspace:^
++        version: link:../../llm/token-meter
+       &#x27;@deepseek-ai/dsh-util-crypto&#x27;:
+         specifier: workspace:^
+         version: link:../../util/crypto
+@@ -7797,6 +7824,9 @@ importers:
+       &#x27;@deepseek-ai/dsh-qs-shell&#x27;:
+         specifier: workspace:^
+         version: link:../qs-shell
++      &#x27;@deepseek-ai/dsh-qs-ui-sidebar&#x27;:
++        specifier: workspace:^
++        version: link:../qs-ui-sidebar
+       &#x27;@deepseek-ai/dsh-session&#x27;:
+         specifier: workspace:^
+         version: link:../../core/session
+@@ -7912,6 +7942,9 @@ importers:
+       &#x27;@deepseek-ai/dsh-client-ui-slots&#x27;:
+         specifier: workspace:^
+         version: link:../../client/ui-slots
++      &#x27;@deepseek-ai/dsh-qs-composer&#x27;:
++        specifier: workspace:^
++        version: link:../qs-composer
+       &#x27;@deepseek-ai/dsh-qs-shell&#x27;:
+         specifier: workspace:^
+         version: link:../qs-shell
+@@ -7934,6 +7967,321 @@ importers:
+         specifier: ^18.2.0
+         version: 18.3.1(react@18.3.1)
+
++  packages/qs/qs-ui-brand:
++    devDependencies:
++      &#x27;@deepseek-ai/cordis&#x27;:
++        specifier: workspace:^
++        version: link:../../../vendor/cordis
++      &#x27;@deepseek-ai/dsh-client-locale&#x27;:
++        specifier: workspace:^
++        version: link:../../client/locale
++      &#x27;@deepseek-ai/dsh-client-test-runtime&#x27;:
++        specifier: workspace:^
++        version: link:../../test-support/client-runtime
++      &#x27;@deepseek-ai/dsh-client-ui-renderer&#x27;:
++        specifier: workspace:^
++        version: link:../../client/ui-renderer
++      &#x27;@deepseek-ai/dsh-client-ui-slots&#x27;:
++        specifier: workspace:^
++        version: link:../../client/ui-slots
++      &#x27;@deepseek-ai/dsh-qs-shell&#x27;:
++        specifier: workspace:^
++        version: link:../qs-shell
++      &#x27;@types/react&#x27;:
++        specifier: ~18.3.1
++        version: 18.3.31
++      clsx:
++        specifier: ^2.0.0
++        version: 2.1.1
++      react:
++        specifier: ^18.2.0
++        version: 18.3.1
++
++  packages/qs/qs-ui-commands:
++    devDependencies:
++      &#x27;@deepseek-ai/cordis&#x27;:
++        specifier: workspace:^
++        version: link:../../../vendor/cordis
++      &#x27;@deepseek-ai/dsh-api-session-controller&#x27;:
++        specifier: workspace:^
++        version: link:../../api/session-controller
++      &#x27;@deepseek-ai/dsh-client-locale&#x27;:
++        specifier: workspace:^
++        version: link:../../client/locale
++      &#x27;@deepseek-ai/dsh-client-store&#x27;:
++        specifier: workspace:^
++        version: link:../../client/store
++      &#x27;@deepseek-ai/dsh-client-test-runtime&#x27;:
++        specifier: workspace:^
++        version: link:../../test-support/client-runtime
++      &#x27;@deepseek-ai/dsh-client-ui-commands&#x27;:
++        specifier: workspace:^
++        version: link:../../client/ui-commands
++      &#x27;@deepseek-ai/dsh-client-ui-primitives&#x27;:
++        specifier: workspace:^
++        version: link:../../client/ui-primitives
++      &#x27;@deepseek-ai/dsh-client-ui-renderer&#x27;:
++        specifier: workspace:^
++        version: link:../../client/ui-renderer
++      &#x27;@deepseek-ai/dsh-client-ui-session&#x27;:
++        specifier: workspace:^
++        version: link:../../client/ui-session
++      &#x27;@deepseek-ai/dsh-client-ui-slots&#x27;:
++        specifier: workspace:^
++        version: link:../../client/ui-slots
++      &#x27;@deepseek-ai/dsh-qs-composer&#x27;:
++        specifier: workspace:^
++        version: link:../qs-composer
++      &#x27;@deepseek-ai/dsh-session&#x27;:
++        specifier: workspace:^
++        version: link:../../core/session
++      &#x27;@types/react&#x27;:
++        specifier: ~18.3.1
++        version: 18.3.31
++      react:
++        specifier: ^18.2.0
++        version: 18.3.1
++
++  packages/qs/qs-ui-input-trigger:
++    devDependencies:
++      &#x27;@deepseek-ai/cordis&#x27;:
++        specifier: workspace:^
++        version: link:../../../vendor/cordis
++      &#x27;@deepseek-ai/dsh-api-session-controller&#x27;:
++        specifier: workspace:^
++        version: link:../../api/session-controller
++      &#x27;@deepseek-ai/dsh-client-locale&#x27;:
++        specifier: workspace:^
++        version: link:../../client/locale
++      &#x27;@deepseek-ai/dsh-client-store&#x27;:
++        specifier: workspace:^
++        version: link:../../client/store
++      &#x27;@deepseek-ai/dsh-client-test-runtime&#x27;:
++        specifier: workspace:^
++        version: link:../../test-support/client-runtime
++      &#x27;@deepseek-ai/dsh-client-ui-conversation&#x27;:
++        specifier: workspace:^
++        version: link:../../client/ui-conversation
++      &#x27;@deepseek-ai/dsh-client-ui-input-trigger&#x27;:
++        specifier: workspace:^
++        version: link:../../client/ui-input-trigger
++      &#x27;@deepseek-ai/dsh-client-ui-renderer&#x27;:
++        specifier: workspace:^
++        version: link:../../client/ui-renderer
++      &#x27;@deepseek-ai/dsh-client-ui-session&#x27;:
++        specifier: workspace:^
++        version: link:../../client/ui-session
++      &#x27;@deepseek-ai/dsh-client-ui-slots&#x27;:
++        specifier: workspace:^
++        version: link:../../client/ui-slots
++      &#x27;@deepseek-ai/dsh-qs-composer&#x27;:
++        specifier: workspace:^
++        version: link:../qs-composer
++      &#x27;@deepseek-ai/dsh-session&#x27;:
++        specifier: workspace:^
++        version: link:../../core/session
++      &#x27;@types/react&#x27;:
++        specifier: ~18.3.1
++        version: 18.3.31
++      clsx:
++        specifier: ^2.0.0
++        version: 2.1.1
++      react:
++        specifier: ^18.2.0
++        version: 18.3.1
++
++  packages/qs/qs-ui-message-feedback:
++    devDependencies:
++      &#x27;@deepseek-ai/cordis&#x27;:
++        specifier: workspace:^
++        version: link:../../../vendor/cordis
++      &#x27;@deepseek-ai/dsh-api-remotes&#x27;:
++        specifier: workspace:^
++        version: link:../../api/remotes
++      &#x27;@deepseek-ai/dsh-api-session-controller&#x27;:
++        specifier: workspace:^
++        version: link:../../api/session-controller
++      &#x27;@deepseek-ai/dsh-client-locale&#x27;:
++        specifier: workspace:^
++        version: link:../../client/locale
++      &#x27;@deepseek-ai/dsh-client-store&#x27;:
++        specifier: workspace:^
++        version: link:../../client/store
++      &#x27;@deepseek-ai/dsh-client-test-runtime&#x27;:
++        specifier: workspace:^
++        version: link:../../test-support/client-runtime
++      &#x27;@deepseek-ai/dsh-client-ui-message-feedback&#x27;:
++        specifier: workspace:^
++        version: link:../../client/ui-message-feedback
++      &#x27;@deepseek-ai/dsh-client-ui-primitives&#x27;:
++        specifier: workspace:^
++        version: link:../../client/ui-primitives
++      &#x27;@deepseek-ai/dsh-client-ui-renderer&#x27;:
++        specifier: workspace:^
++        version: link:../../client/ui-renderer
++      &#x27;@deepseek-ai/dsh-client-ui-session&#x27;:
++        specifier: workspace:^
++        version: link:../../client/ui-session
++      &#x27;@deepseek-ai/dsh-client-ui-slots&#x27;:
++        specifier: workspace:^
++        version: link:../../client/ui-slots
++      &#x27;@deepseek-ai/dsh-command-feedback&#x27;:
++        specifier: workspace:^
++        version: link:../../feedback/command-feedback
++      &#x27;@deepseek-ai/dsh-message-feedback&#x27;:
++        specifier: workspace:^
++        version: link:../../feedback/message-feedback
++      &#x27;@deepseek-ai/dsh-qs-composer&#x27;:
++        specifier: workspace:^
++        version: link:../qs-composer
++      &#x27;@deepseek-ai/dsh-qs-transcript&#x27;:
++        specifier: workspace:^
++        version: link:../qs-transcript
++      &#x27;@deepseek-ai/dsh-session&#x27;:
++        specifier: workspace:^
++        version: link:../../core/session
++      &#x27;@types/react&#x27;:
++        specifier: ~18.3.1
++        version: 18.3.31
++      react:
++        specifier: ^18.2.0
++        version: 18.3.1
++
++  packages/qs/qs-ui-sidebar:
++    devDependencies:
++      &#x27;@deepseek-ai/cordis&#x27;:
++        specifier: workspace:^
++        version: link:../../../vendor/cordis
++      &#x27;@deepseek-ai/dsh-client-locale&#x27;:
++        specifier: workspace:^
++        version: link:../../client/locale
++      &#x27;@deepseek-ai/dsh-client-test-runtime&#x27;:
++        specifier: workspace:^
++        version: link:../../test-support/client-runtime
++      &#x27;@deepseek-ai/dsh-client-ui-renderer&#x27;:
++        specifier: workspace:^
++        version: link:../../client/ui-renderer
++      &#x27;@deepseek-ai/dsh-client-ui-slots&#x27;:
++        specifier: workspace:^
++        version: link:../../client/ui-slots
++      &#x27;@deepseek-ai/dsh-qs-shell&#x27;:
++        specifier: workspace:^
++        version: link:../qs-shell
++      &#x27;@types/react&#x27;:
++        specifier: ~18.3.1
++        version: 18.3.31
++      clsx:
++        specifier: ^2.0.0
++        version: 2.1.1
++      react:
++        specifier: ^18.2.0
++        version: 18.3.1
++
++  packages/qs/qs-ui-sidebar-right:
++    devDependencies:
++      &#x27;@deepseek-ai/cordis&#x27;:
++        specifier: workspace:^
++        version: link:../../../vendor/cordis
++      &#x27;@deepseek-ai/dsh-client-locale&#x27;:
++        specifier: workspace:^
++        version: link:../../client/locale
++      &#x27;@deepseek-ai/dsh-client-test-runtime&#x27;:
++        specifier: workspace:^
++        version: link:../../test-support/client-runtime
++      &#x27;@deepseek-ai/dsh-client-ui-renderer&#x27;:
++        specifier: workspace:^
++        version: link:../../client/ui-renderer
++      &#x27;@deepseek-ai/dsh-client-ui-slots&#x27;:
++        specifier: workspace:^
++        version: link:../../client/ui-slots
++      &#x27;@deepseek-ai/dsh-qs-shell&#x27;:
++        specifier: workspace:^
++        version: link:../qs-shell
++      &#x27;@types/react&#x27;:
++        specifier: ~18.3.1
++        version: 18.3.31
++      clsx:
++        specifier: ^2.0.0
++        version: 2.1.1
++      react:
++        specifier: ^18.2.0
++        version: 18.3.1
++
++  packages/qs/qs-ui-tool:
++    devDependencies:
++      &#x27;@deepseek-ai/cordis&#x27;:
++        specifier: workspace:^
++        version: link:../../../vendor/cordis
++      &#x27;@deepseek-ai/dsh-api-session-controller&#x27;:
++        specifier: workspace:^
++        version: link:../../api/session-controller
++      &#x27;@deepseek-ai/dsh-attachment&#x27;:
++        specifier: workspace:^
++        version: link:../../attachment/attachment
++      &#x27;@deepseek-ai/dsh-client-connection&#x27;:
++        specifier: workspace:^
++        version: link:../../client/connection
++      &#x27;@deepseek-ai/dsh-client-locale&#x27;:
++        specifier: workspace:^
++        version: link:../../client/locale
++      &#x27;@deepseek-ai/dsh-client-store&#x27;:
++        specifier: workspace:^
++        version: link:../../client/store
++      &#x27;@deepseek-ai/dsh-client-test-runtime&#x27;:
++        specifier: workspace:^
++        version: link:../../test-support/client-runtime
++      &#x27;@deepseek-ai/dsh-client-ui-chat&#x27;:
++        specifier: workspace:^
++        version: link:../../client/ui-chat
++      &#x27;@deepseek-ai/dsh-client-ui-conversation&#x27;:
++        specifier: workspace:^
++        version: link:../../client/ui-conversation
++      &#x27;@deepseek-ai/dsh-client-ui-primitives&#x27;:
++        specifier: workspace:^
++        version: link:../../client/ui-primitives
++      &#x27;@deepseek-ai/dsh-client-ui-renderer&#x27;:
++        specifier: workspace:^
++        version: link:../../client/ui-renderer
++      &#x27;@deepseek-ai/dsh-client-ui-session&#x27;:
++        specifier: workspace:^
++        version: link:../../client/ui-session
++      &#x27;@deepseek-ai/dsh-client-ui-slots&#x27;:
++        specifier: workspace:^
++        version: link:../../client/ui-slots
++      &#x27;@deepseek-ai/dsh-qs-composer&#x27;:
++        specifier: workspace:^
++        version: link:../qs-composer
++      &#x27;@deepseek-ai/dsh-qs-shell&#x27;:
++        specifier: workspace:^
++        version: link:../qs-shell
++      &#x27;@deepseek-ai/dsh-qs-transcript&#x27;:
++        specifier: workspace:^
++        version: link:../qs-transcript
++      &#x27;@deepseek-ai/dsh-session&#x27;:
++        specifier: workspace:^
++        version: link:../../core/session
++      &#x27;@deepseek-ai/dsh-spill-policy&#x27;:
++        specifier: workspace:^
++        version: link:../../spill/spill-policy
++      &#x27;@deepseek-ai/dsh-util-workspace-path&#x27;:
++        specifier: workspace:^
++        version: link:../../util/workspace-path
++      &#x27;@types/react&#x27;:
++        specifier: ~18.3.1
++        version: 18.3.31
++      &#x27;@types/react-dom&#x27;:
++        specifier: ~18.3.0
++        version: 18.3.7(@types/react@18.3.31)
++      clsx:
++        specifier: ^2.0.0
++        version: 2.1.1
++      react:
++        specifier: ^18.2.0
++        version: 18.3.1
++      react-dom:
++        specifier: ^18.2.0
++        version: 18.3.1(react@18.3.1)
++
+   packages/runtime-diagnostics/invariants:
+     dependencies:
+       &#x27;@deepseek-ai/schemastery&#x27;:
+</pre>
+<h2 id="file-4">tsconfig.base.json</h2><pre>diff --git a/tsconfig.base.json b/tsconfig.base.json
+index 7a28614cc2..6d46e35c2b 100644
+--- a/tsconfig.base.json
++++ b/tsconfig.base.json
+@@ -195,6 +195,12 @@
+       &quot;@deepseek-ai/dsh-client-ui-chat/client&quot;: [&quot;./packages/client/ui-chat/src/client/index.ts&quot;],
+       &quot;@deepseek-ai/dsh-client-ui-conversation&quot;: [&quot;./packages/client/ui-conversation/src&quot;],
+       &quot;@deepseek-ai/dsh-client-ui-conversation/client&quot;: [&quot;./packages/client/ui-conversation/src/client/index.ts&quot;],
++      &quot;@deepseek-ai/dsh-qs-ui-brand/client&quot;: [&quot;./packages/qs/qs-ui-brand/src/client/index.ts&quot;],
++      &quot;@deepseek-ai/dsh-qs-ui-brand&quot;: [&quot;./packages/qs/qs-ui-brand/src/index.ts&quot;],
++      &quot;@deepseek-ai/dsh-qs-ui-sidebar/client&quot;: [&quot;./packages/qs/qs-ui-sidebar/src/client/index.ts&quot;],
++      &quot;@deepseek-ai/dsh-qs-ui-sidebar&quot;: [&quot;./packages/qs/qs-ui-sidebar/src/index.ts&quot;],
++      &quot;@deepseek-ai/dsh-qs-ui-sidebar-right/client&quot;: [&quot;./packages/qs/qs-ui-sidebar-right/src/client/index.ts&quot;],
++      &quot;@deepseek-ai/dsh-qs-ui-sidebar-right&quot;: [&quot;./packages/qs/qs-ui-sidebar-right/src/index.ts&quot;],
+       &quot;@deepseek-ai/dsh-qs-shell/client&quot;: [&quot;./packages/qs/qs-shell/src/client/index.ts&quot;],
+       &quot;@deepseek-ai/dsh-qs-login/client&quot;: [&quot;./packages/qs/qs-login/src/client/index.ts&quot;],
+       &quot;@deepseek-ai/dsh-qs-sessions/client&quot;: [&quot;./packages/qs/qs-sessions/src/client/index.ts&quot;],
+@@ -202,6 +208,13 @@
+       &quot;@deepseek-ai/dsh-qs-transcript/client&quot;: [&quot;./packages/qs/qs-transcript/src/client/index.ts&quot;],
+       &quot;@deepseek-ai/dsh-qs-approval/client&quot;: [&quot;./packages/qs/qs-approval/src/client/index.ts&quot;],
+       &quot;@deepseek-ai/dsh-qs-questions/client&quot;: [&quot;./packages/qs/qs-questions/src/client/index.ts&quot;],
++      // 奇术候选插件源码入口，供测试与类型检查使用。
++      // 奇术命令弹层复用官方控制器，保留独立浏览器入口。
++      // 奇术反馈呈现通过共享官方反馈 owner 注入。
++      &quot;@deepseek-ai/dsh-qs-ui-message-feedback/client&quot;: [&quot;./packages/qs/qs-ui-message-feedback/src/client/index.ts&quot;],
++      &quot;@deepseek-ai/dsh-qs-ui-commands/client&quot;: [&quot;./packages/qs/qs-ui-commands/src/client/index.ts&quot;],
++      &quot;@deepseek-ai/dsh-qs-ui-input-trigger/client&quot;: [&quot;./packages/qs/qs-ui-input-trigger/src/client/index.ts&quot;],
++      &quot;@deepseek-ai/dsh-qs-ui-tool/client&quot;: [&quot;./packages/qs/qs-ui-tool/src/client/index.ts&quot;],
+       &quot;@deepseek-ai/dsh-client-ui-tool&quot;: [&quot;./packages/client/ui-tool/src&quot;],
+       &quot;@deepseek-ai/dsh-tool-present/types&quot;: [&quot;./packages/fs/tool-present/src/types.ts&quot;],
+       &quot;@deepseek-ai/dsh-client-ui-deliverables&quot;: [&quot;./packages/client/ui-deliverables/src&quot;],
+@@ -353,6 +366,10 @@
+       &quot;@deepseek-ai/dsh-qs-sessions&quot;: [&quot;./packages/qs/qs-sessions/src&quot;],
+       &quot;@deepseek-ai/dsh-qs-shell&quot;: [&quot;./packages/qs/qs-shell/src&quot;],
+       &quot;@deepseek-ai/dsh-qs-transcript&quot;: [&quot;./packages/qs/qs-transcript/src&quot;],
++      &quot;@deepseek-ai/dsh-qs-ui-commands&quot;: [&quot;./packages/qs/qs-ui-commands/src&quot;],
++      &quot;@deepseek-ai/dsh-qs-ui-input-trigger&quot;: [&quot;./packages/qs/qs-ui-input-trigger/src&quot;],
++      &quot;@deepseek-ai/dsh-qs-ui-message-feedback&quot;: [&quot;./packages/qs/qs-ui-message-feedback/src&quot;],
++      &quot;@deepseek-ai/dsh-qs-ui-tool&quot;: [&quot;./packages/qs/qs-ui-tool/src&quot;],
+       &quot;@deepseek-ai/dsh-remote-mock&quot;: [&quot;./packages/test-support/remote-mock/src&quot;],
+       &quot;@deepseek-ai/dsh-repeat-tool-reminder&quot;: [&quot;./packages/guard/repeat-tool-reminder/src&quot;],
+       &quot;@deepseek-ai/dsh-sandbox&quot;: [&quot;./packages/sandbox/sandbox/src&quot;],
+</pre>
+<h2 id="file-5">tsconfig.client.json</h2><pre>diff --git a/tsconfig.client.json b/tsconfig.client.json
+index d98e089b4b..32e1e77bb3 100644
+--- a/tsconfig.client.json
++++ b/tsconfig.client.json
+@@ -117,12 +117,22 @@
+     { &quot;path&quot;: &quot;./packages/client/web&quot; },
+     { &quot;path&quot;: &quot;./packages/context/file-reference&quot; },
+     { &quot;path&quot;: &quot;./apps/web&quot; },
++    { &quot;path&quot;: &quot;./packages/qs/qs-ui-brand&quot; },
++    { &quot;path&quot;: &quot;./packages/qs/qs-ui-sidebar&quot; },
++    { &quot;path&quot;: &quot;./packages/qs/qs-ui-sidebar-right&quot; },
+     { &quot;path&quot;: &quot;./packages/qs/qs-shell&quot; },
+     { &quot;path&quot;: &quot;./packages/qs/qs-login&quot; },
+     { &quot;path&quot;: &quot;./packages/qs/qs-sessions&quot; },
+     { &quot;path&quot;: &quot;./packages/qs/qs-composer&quot; },
+     { &quot;path&quot;: &quot;./packages/qs/qs-transcript&quot; },
+     { &quot;path&quot;: &quot;./packages/qs/qs-approval&quot; },
+-    { &quot;path&quot;: &quot;./packages/qs/qs-questions&quot; }
++    { &quot;path&quot;: &quot;./packages/qs/qs-questions&quot; },
++    { &quot;path&quot;: &quot;./packages/qs/qs-ui-tool&quot; },
++    // 奇术候选菜单作为独立客户端插件参与编译。
++    { &quot;path&quot;: &quot;./packages/qs/qs-ui-input-trigger&quot; },
++    // 奇术命令选项及风险确认作为独立插件编译。
++    { &quot;path&quot;: &quot;./packages/qs/qs-ui-commands&quot; },
++    // 奇术消息反馈独立插件与其测试属于客户端编译面。
++    { &quot;path&quot;: &quot;./packages/qs/qs-ui-message-feedback&quot; }
+   ]
+ }
+</pre>
+</html>

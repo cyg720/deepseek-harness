@@ -82,6 +82,8 @@ view.roundsStarted, view.maxGoalRounds // continuation progress
 view.activation                        // 'armed' | 'disarmed' — not persisted
 ```
 
+Goal errors retain their `HarnessError` identity and expose the shared Remote failure protocol. Public Goal calls preserve the stable domain code, including `GOAL_STALE_REVISION`, with empty details; clients must branch on the code rather than parse the message. A rejected mutation appends no `goal/change` event and does not advance the current revision.
+
 -----
 
 <a id="understand-the-implementation"></a>

@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+/** @jsxRuntime classic */
 /**
  * ui-deliverables browser half: the derivation contract of
  * `producedForClosing` over engine-published Turn data, the row's rendering
@@ -6,6 +7,8 @@
  * (HMR safety) against the real SlotRegistry.
  */
 import { Context } from '@deepseek-ai/cordis'
+// 测试位于 solution 配置外，显式提供 classic JSX 所需的 React 绑定。
+import React from 'react'
 import { cleanup, fireEvent, render, within } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { SessionLiveEventEntry, SessionListState } from '@deepseek-ai/dsh-api-session-controller/client'
@@ -565,6 +568,9 @@ describe('plugin registration', () => {
     expect(preview.mock.calls).toEqual(Array.from({ length: 4 }, () => ['out/report.docx']))
     expect(fetcher).not.toHaveBeenCalled()
     const face = entry!.inject!(SessionId('child-session') as never) as unknown as DeliverablesInjected
+    // 官方和奇术必须使用同一份请求状态，而非各创建一个打开控制器。
+    expect(face).toBe(ctx.deliverablesPresentation.injected)
+    expect(ctx.deliverablesPresentation.select(owner)?.produced).toEqual(['site/report.html'])
     fetcher.mockResolvedValueOnce(Response.json({ name: 'desktop', available: true, fileManager: 'finder' }))
     await face.reloadPresentedHost()
     expect(face.hooks.presentedHost.getSnapshot()).toMatchObject({ name: 'desktop' })

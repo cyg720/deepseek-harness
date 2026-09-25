@@ -27,6 +27,8 @@ The package carries browser-to-Host Remote calls, exact Fetch responses, and con
 
 The browser uses HTTP POST for Remote unary calls. API Gateway owns the `/api/remote.mux` WebSocket and its logical streams; shell-owned compositions provide equivalent Remote streams through `connection.rpc.open` without opening a WebSocket. The Host half always provides the carrier-neutral RPC and exact `GET`/`HEAD`/`POST` route registries. When a Web carrier is present it also owns the sole `/api` route, Fetch bridge, browser authentication, and Host/Origin checks; a shell-owned carrier dispatches the shared Fetch handler directly. Each exact route declares buffered or streaming request-body handling before the bridge reads any bytes. Typert Gateway claims generated Remote endpoints, feature packages register non-JSON responses such as Session-log downloads and raw file uploads, and unclaimed requests return 404. Loopback hostname classification remains package-internal to the browser-facing Client state. Browser raw-body transfer is provided by [`dsh-client-file-upload`](../file-upload/README.md).
 
+The standalone browser fixture preserves the Goal domain codes for duplicate creation, stale revision, absent goal, and invalid transition, with empty details. Goal consumers can use the same code branches as real Host Remote calls.
+
 -----
 
 <a id="browser-authentication-and-request-trust"></a>
@@ -60,6 +62,8 @@ None, as the wire consumer layer moves already-composed messages between browser
 None; this package neither assembles nor sends a provider request.
 
 ## Known Limitations and Deferred Work
+
+The fixture RPC accepts boot-time inspect-manifest synchronization and returns an empty dynamic Cordis inventory. It does not implement dynamic package installation or inspect-query execution; unknown endpoints still reject.
 
 <a id="known-limitations-and-deferred-work"></a>
 

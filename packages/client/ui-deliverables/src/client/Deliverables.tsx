@@ -4,7 +4,9 @@ import type { TurnTailOwnerProps } from '@deepseek-ai/dsh-client-ui-chat/client'
 import { Button, IconChevronDownOutline14, IconChevronUpOutline14 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { GlobalStandardProps, InjectFace, PropsLocale, SessionStandardProps } from '@deepseek-ai/dsh-client-ui-slots'
 import type { ObservableSnapshot } from '@deepseek-ai/dsh-client-store'
-import type { PresentedOpenController } from './present-open.ts'
+import type { SessionId } from '@deepseek-ai/dsh-session/types'
+import type { PresentedOpenPhase } from './present-open.ts'
+import type { PresentedAction, PresentedHost } from '../presented.ts'
 import { ProducedFiles } from './ProducedFiles.tsx'
 import { presentedForClosing, selectProducedFiles, type PresentedPath } from './turn-deliverables.ts'
 import type { NS } from './locales.ts'
@@ -18,12 +20,13 @@ const COLLAPSED_PRESENTED_COUNT = 4
 
 /** Native-open callbacks and shared gesture status supplied by the plugin. */
 export interface DeliverablesInjected {
+  // 公开只读状态和显式动作类型，避免呈现服务暴露控制器及其可变存储实现。
   hooks: {
-    presentedOpen: ObservableSnapshot<ReturnType<PresentedOpenController['state']['getSnapshot']>>
-    presentedHost: ObservableSnapshot<ReturnType<PresentedOpenController['host']['getSnapshot']>>
+    presentedOpen: ObservableSnapshot<Record<string, PresentedOpenPhase | undefined>>
+    presentedHost: ObservableSnapshot<PresentedHost | 'error' | null>
   }
-  reloadPresentedHost: PresentedOpenController['loadHost']
-  openPresented: PresentedOpenController['open']
+  reloadPresentedHost: () => Promise<void>
+  openPresented: (sessionId: SessionId, seq: number, index: number, action?: PresentedAction) => Promise<void>
 }
 
 /**
@@ -31,7 +34,8 @@ export interface DeliverablesInjected {
  * @param owner - closing turn.
  * @returns matched files, or null for an empty turn.
  */
-export function selectDeliverables(owner: TurnTailOwnerProps): DeliverablesMatch | null {
+// 选择器只消费持久坐标，允许 QS 将文件动作注入到自身视图而无需伪造回调。
+export function selectDeliverables(owner: Pick<TurnTailOwnerProps, 'turn' | 'seq'>): DeliverablesMatch | null {
   const produced = selectProducedFiles(owner) ?? []
   const presented = presentedForClosing(owner)
   return produced.length + presented.length === 0 ? null : { produced, presented }

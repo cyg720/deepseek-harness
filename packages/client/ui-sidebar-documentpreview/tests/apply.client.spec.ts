@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 /**
  * The plugin's registrations, and their removal when the plugin goes.
  *
@@ -61,6 +62,9 @@ async function boot() {
     }),
   }
   const workspaceFiles = {
+    readRelated: vi.fn().mockResolvedValue({
+      ok: true, value: { absolutePath: '/workspace/style.css', version: 'v1', offset: 0, data: btoa('body { color: green }'), eof: true },
+    }),
     read: vi.fn().mockResolvedValue(page(1, ['first'], true)),
     readAll: vi.fn().mockResolvedValue({
       ok: true, value: { absolutePath: '/workspace/notes.md', version: 'v1', offset: 0, data: 'AAH/', eof: true },
@@ -74,16 +78,32 @@ async function boot() {
   const fiber = ctx.plugin({ inject: [...inject], apply })
   onTestFinished(async () => { await fiber.dispose() })
   await fiber.await()
-  return { tabs, registered, dictionaries, fiber, workspaceFiles }
+  return { ctx, tabs, registered, dictionaries, fiber, workspaceFiles }
 }
 
 describe('ui-sidebar-documentpreview apply', () => {
+  it('prepares finite HTML assets through the root document session and Host relative path', async () => {
+    const { ctx, workspaceFiles } = await boot()
+    const controller = new AbortController()
+    const html = await ctx.documentPreviewPresentation.prepareHtml(
+      'dsh-resource://file/session/s-1/work/index.html',
+      new TextEncoder().encode('<link rel="stylesheet" href="style.css?v=1"><h1>Preview</h1>'),
+      controller.signal, controller.signal,
+    )
+    expect(workspaceFiles.readRelated).toHaveBeenCalledExactlyOnceWith('s-1', 'work/index.html', 'style.css', expect.any(AbortSignal))
+    expect(html).toContain('document.write(html)')
+    controller.abort()
+    await expect(ctx.documentPreviewPresentation.prepareHtml(
+      'dsh-resource://file/session/s-1/work/index.html', new Uint8Array(), controller.signal, controller.signal,
+    )).rejects.toThrow()
+    expect(workspaceFiles.readRelated).toHaveBeenCalledTimes(1)
+  })
   it('keeps the host Loader entry inert', () => {
     expect(hostApply).not.toThrow()
   })
 
   it('registers the type, its dictionaries, and the body and title seats under the type\'s id, the body with a store and a face', async () => {
-    const { tabs, registered, dictionaries } = await boot()
+    const { ctx, tabs, registered, dictionaries } = await boot()
     expect(tabs.get(TEXTPREVIEW_KIND)?.priority).toBe('fallback')
     expect(tabs.get(TEXTPREVIEW_KIND)?.id).toBe(TEXTPREVIEW_ID)
     expect(dictionaries.get('sidebarDocumentPreview')).toEqual({ zh, en })
@@ -101,11 +121,15 @@ describe('ui-sidebar-documentpreview apply', () => {
     ])
     expect(registered[0]?.store).toBeDefined()
     expect(typeof registered[0]?.inject).toBe('function')
+    // 官方正文必须使用公开的同一状态与注入工厂，QS 不另建请求代次。
+    expect(registered[0]?.store).toBe(ctx.documentPreviewPresentation.store)
+    expect(registered[0]?.inject).toBe(ctx.documentPreviewPresentation.inject)
   })
 
   it('takes every registration back when the plugin is disposed', async () => {
-    const { tabs, registered, dictionaries, fiber } = await boot()
+    const { ctx, tabs, registered, dictionaries, fiber } = await boot()
     await fiber.dispose()
+    expect(ctx.get('documentPreviewPresentation')).toBeUndefined()
     expect(tabs.get(TEXTPREVIEW_KIND)).toBeUndefined()
     expect(registered).toEqual([])
     expect(dictionaries.size).toBe(0)

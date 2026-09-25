@@ -1,11 +1,12 @@
 /** Internal React bindings for renderer hosts and standard-source scopes. */
-import { createContext, useContext, type ReactNode } from 'react'
+import { createContext, useContext, useState, type ReactNode } from 'react'
 import type {
   HostObservable,
   KeyedStandardSource,
   MaybeSnapshotSelectorHook,
   SlotRendererHost,
   SnapshotSelectorHook,
+  SlotScopeAdapter,
   StandardSourceBinding,
 } from '@deepseek-ai/dsh-client-ui-slots'
 import { bindSnapshotSelector } from './bind.ts'
@@ -126,7 +127,7 @@ export function RootStandardProvider({ children }: { children: ReactNode }) {
   return <RootBindingContext.Provider value={binding}>{children}</RootBindingContext.Provider>
 }
 
-/** Subscribe to the scope roster before resolving and binding its current adapter. */
+/** Subscribe to scope replacement; suspend a previously installed tree while its adapter is absent. */
 export function ScopeProvider({
   scope,
   children,
@@ -137,7 +138,17 @@ export function ScopeProvider({
   const host = useHost()
   observableHook(host.scopeRevision)(value => value)
   const adapter = host.scope(scope)
-  if (adapter === undefined) throw new SlotAssemblyError(`scope '${scope}' rendered without an installed adapter`)
+  const [installed] = useState(adapter !== undefined)
+  if (adapter === undefined) {
+    if (!installed) throw new SlotAssemblyError(`scope '${scope}' rendered without an installed adapter`)
+    // 连接插件级联卸载时先撤销旧作用域子树；保留名单订阅，重装后自动恢复，初始缺失仍报错。
+    return null
+  }
+  return <ScopeAdapterBinding adapter={adapter}>{children}</ScopeAdapterBinding>
+}
+
+/** Keep adapter-owned hooks inside the subtree removed during scope teardown. */
+function ScopeAdapterBinding({ adapter, children }: { adapter: SlotScopeAdapter; children: ReactNode }) {
   const binding = observableHook(adapter.current)(value => value)
   return <ScopeBindingContext.Provider value={binding}>{children}</ScopeBindingContext.Provider>
 }

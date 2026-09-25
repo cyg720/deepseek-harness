@@ -32,7 +32,9 @@ import { registerConversationNodes } from './conversation-nodes/register.ts'
 import { en, NS, zh } from './locale.ts'
 import { TranscriptViewRow, type TranscriptViewRowInjected } from './settings/TranscriptViewRow.tsx'
 import { createChatStore } from './stores.ts'
+import { useSearchableHidden } from './chat/searchable-hidden.ts'
 import { TranscriptViewPolicy } from './transcript-view.ts'
+import type { ChatPresentation } from './qs/presentation.ts'
 import { CHAT_SETTINGS_NAMESPACE, type ChatSettings } from '../chat-settings.ts'
 import { useTurnDataValue } from './chat/use-turn-data.ts'
 
@@ -82,6 +84,15 @@ export function apply(ctx: Context): void {
   const transcriptView = new TranscriptViewPolicy(
     ctx.settingsScope.bind<ChatSettings>({ namespace: CHAT_SETTINGS_NAMESPACE }),
   )
+
+  // 二开读取同一个官方偏好源；呈现卸载不新增第二份状态或落盘逻辑。
+  const presentation: ChatPresentation = {
+    // 二开通过同一服务取得官方 Hook，保持客户端模块隔离与查找行为一致。
+    useSearchableHidden,
+    transcriptView: transcriptView.mode,
+    setTranscriptView: (mode) => { transcriptView.setMode(mode) },
+  }
+  ctx.effect(() => ctx.reflect.provide('chatPresentation', presentation), 'ui-chat: shared presentation')
 
   ctx.slots.inject('settings.general.item', () => ctx.slots.register({
     name: 'settings.general.item',

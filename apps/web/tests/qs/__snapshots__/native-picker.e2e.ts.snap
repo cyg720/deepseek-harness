@@ -1,0 +1,3 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`adopts a native directory and ignores a cancelled older picker through the real QS entries > QS native picker failure 1`] = `"Unable to add this directory. Choose again to retry."`;

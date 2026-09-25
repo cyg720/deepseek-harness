@@ -10,8 +10,35 @@
 // Kept under apps/web/tests/qs/ per the Qishu isolation rule. It asserts on DOM
 // contracts only and imports no Client package, which this lane forbids.
 import { fireEvent, screen, waitFor } from '@testing-library/react'
-import { expect, it } from 'vitest'
+import { afterEach, beforeEach, expect, it } from 'vitest'
 import { installAssembledBootEnv, mountAssembledApp } from '../assembled-boot.ts'
+
+// 运行时错误必须使验收失败，不能仅凭最终节点存在判定成功。
+const pageErrors: unknown[] = []
+const captureError = (event: ErrorEvent): void => { pageErrors.push(event.error ?? event.message) }
+const dialogDescriptors = new Map<string, PropertyDescriptor | undefined>()
+beforeEach(() => {
+  pageErrors.length = 0
+  window.addEventListener('error', captureError)
+  // jsdom 不实现顶层模态 API；仅补本场景读取的 open 与 close 事件，浏览器焦点由真实浏览器用例验收。
+  for (const name of ['showModal', 'close']) {
+    dialogDescriptors.set(name, Object.getOwnPropertyDescriptor(HTMLDialogElement.prototype, name))
+    Object.defineProperty(HTMLDialogElement.prototype, name, { configurable: true, value: function (this: HTMLDialogElement) {
+      this.toggleAttribute('open', name === 'showModal')
+      if (name === 'close') this.dispatchEvent(new Event('close'))
+    } })
+  }
+})
+afterEach(() => {
+  try { expect(pageErrors).toEqual([]) } finally {
+    window.removeEventListener('error', captureError)
+    for (const [name, descriptor] of dialogDescriptors) {
+      if (descriptor === undefined) Reflect.deleteProperty(HTMLDialogElement.prototype, name)
+      else Object.defineProperty(HTMLDialogElement.prototype, name, descriptor)
+    }
+    dialogDescriptors.clear()
+  }
+})
 
 installAssembledBootEnv()
 

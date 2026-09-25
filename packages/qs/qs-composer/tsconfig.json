@@ -43,6 +43,12 @@
     },
     {
       "path": "../../client/ui-model-selection"
+    },
+    {
+      "path": "../../llm/token-meter"
+    },
+    {
+      "path": "../qs-ui-settings-general"
     }
   ]
 }

@@ -147,6 +147,10 @@ export const SERVICE_PAGE: Record<string, string> = {
  * to a model as `cordis_runtime_inspect what:"client"`).
  */
 export const SERVICE_WALK_EXEMPTIONS: Record<string, string> = {
+  // 奇术发送准备注册表仅存在于 Client 面，接口由所属输入插件说明，不能混入 Host 服务目录。
+  qsSendPreparation: 'client-side send preparation registry — packages/qs/qs-composer/README.md owns the API',
+  // 奇术模型配置呈现复用 Client 访问服务，API 归官方模型设置文档，不进入 Host 服务目录。
+  modelsSettings: 'client-side shared models presentation access — packages/client/ui-settings-models/README.md owns the API',
   appReady: 'not a service: launcher-provided successful-startup signal — packages/boot/cmdline/README.md owns the launcher contract',
   appExit: 'not a service: launcher-provided bounded process-exit callback — packages/boot/cmdline/README.md owns the launcher contract',
   cmdlineArgs: 'not a service: launcher-provided immutable app argument accessor — packages/boot/cmdline/README.md owns the launcher contract',
@@ -178,6 +182,19 @@ export const SERVICE_WALK_EXEMPTIONS: Record<string, string> = {
   workspaces: 'client-side interface-typed browser service — packages/api/workspace-controller/README.md owns the API',
   resources: 'client-side resource model (protocol providers, pins, live sources) — packages/client/resources/README.md owns the API',
   sidebarRight: 'client-side right-Sidebar navigation face — packages/client/ui-sidebar-right/README.md owns the API',
+  // 二开共享呈现属于 Client 面，由各原包 README 说明，不能漏过服务清单检查。
+  sidebarRightPresentation: 'client-side shared presentation — packages/client/ui-sidebar-right/README.md owns the API',
+  // 二开复用的会话呈现接口仅存在 Client 分面，API 归属原会话包 README。
+  conversationPresentation: 'client-side shared presentation — packages/client/ui-conversation/README.md owns the API',
+  // 二开共用 Chat 偏好，接口文档归官方 Chat 包，不属于 Host 服务投影。
+  chatPresentation: 'client-side shared transcript preference — packages/client/ui-chat/README.md owns the API',
+  // 目标呈现是 Client 专用接口，正式说明归原插件，Host 目录不生成它。
+  goalPresentation: 'client-side shared presentation — packages/client/ui-goal/README.md owns the API',
+  messageFeedbackPresentation: 'client-side shared presentation — packages/client/ui-message-feedback/README.md owns the API',
+  deliverablesPresentation: 'client-side shared presentation — packages/client/ui-deliverables/README.md owns the API',
+  documentPreviewPresentation: 'client-side shared presentation — packages/client/ui-sidebar-documentpreview/README.md owns the API',
+  documentPdfPresentation: 'client-side shared presentation — packages/client/ui-sidebar-documentpreview/README.md owns the API',
+  sidebarFilesPresentation: 'client-side shared presentation — packages/client/ui-sidebar-files/README.md owns the API',
   sidebarRightTabs: 'client-side right-Sidebar tab-type registry — packages/client/ui-sidebar-right/README.md owns the API',
   documentPreviews: 'client-side document renderer registry — docs/subsystems/sidebar-right.md owns the API',
 }

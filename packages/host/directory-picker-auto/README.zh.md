@@ -109,6 +109,8 @@ kind: "package-reference"
 - **Linux 选择器探查只读 `PATH`**——以其他途径可用的 zenity／kdialog（shell 别名、未装在 PATH 上）仍判定为 `browse`；把任一二进制装到 `PATH` 上，下次启动即恢复 `native` 资格。
 - **仅在启动时判定**——一次判定服务本次启动的所有客户端；按连接自适应（同一台服务器，本地浏览器用 native、远程浏览器用 browse）需要按客户端的能力对象以及 seam 未携带的协议通告，等到出现同时服务两种形态的部署再做。
 
+可选 `additionalClientSurfaces.native` 与 `.browse` 列表在选中的 Host 和官方 Client 条目后追加呈现插件，两组默认均为空。加载前拒绝空名称、首尾空白、重复名称以及内置后端或呈现名称。附加条目失败会回滚整个选中组合；解析器清单必须声明两个分支的依赖。
+
 <a id="dev-note"></a>
 ### 开发备注
 

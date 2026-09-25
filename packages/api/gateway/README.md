@@ -88,3 +88,5 @@ None.
 </details>
 
 **Runtime invariant:** No companion is published. Host calls re-read authoritative Cordis and Typert state, while Client methods, descriptors, and `$on` subscriptions mutate in one owned effect.
+
+A backwards page belongs to the journal window that initiated it. Reconnection or continuity repair replaces that window and discards older pending page results before they can change entries or hasMore. Physical-stream cancellation alone is insufficient because a page can outlive a replacement within the same stream lifetime.

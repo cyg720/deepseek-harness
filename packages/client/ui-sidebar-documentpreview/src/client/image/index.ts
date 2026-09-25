@@ -1,3 +1,5 @@
+// 二开正文使用同一公开身份，避免复制私有字符串。
+import { documentPreviewIds } from '../qs/ids.ts'
 /** Builtin image metadata and keyed document-body registration. */
 import type { Context } from '@deepseek-ai/cordis'
 import type {} from '../index.ts'
@@ -6,7 +8,7 @@ import { ImageBody } from './ImageBody.tsx'
 import { en, zh } from './locales.ts'
 
 /** Image implementation identity, shared by metadata and the keyed slot. */
-export const IMAGE_BODY_ID = '@deepseek-ai/dsh-client-ui-sidebar-documentpreview/image'
+export const IMAGE_BODY_ID = documentPreviewIds.image
 
 /** File suffixes rendered by the builtin image body. */
 export const IMAGE_EXTENSIONS = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'ico', 'svg'] as const

@@ -1,0 +1,3107 @@
+<!doctype html><html lang="zh-CN"><meta charset="utf-8"><title>容器桌面检测差异</title><style>body{font:14px monospace;padding:24px}pre{white-space:pre-wrap;overflow-wrap:anywhere}</style><h1>HEAD 到工作区累计差异</h1><p>4904755062702eaadf19c5897ab86bc6988716e9</p><h2 id="p0">packages/util/native-command/README.i18n.yaml</h2><pre>diff --git a/packages/util/native-command/README.i18n.yaml b/packages/util/native-command/README.i18n.yaml
+index 743c7d85e5..68a082843a 100644
+--- a/packages/util/native-command/README.i18n.yaml
++++ b/packages/util/native-command/README.i18n.yaml
+@@ -2,5 +2,5 @@
+ # side as of the last confirmed-consistent state. Both languages carry equal authority;
+ # after editing either side, bring the other along and re-record with:
+ #   pnpm run verify-translation-pairing --write packages/util/native-command/README.md
+-README.md: 10b60266403f6a479a286cccd369ee2e52dd3aa6
+-README.zh.md: e8f2adda57ee257983a06bb2798c852cab20bf6a
++README.md: fcbb367d649ac0cefe52b327f82c7d38e8435fd4
++README.zh.md: 524db4345ded7846c24f2bc24228f55f5966c6c1
+</pre><h2 id="p1">packages/util/native-command/README.md</h2><pre>diff --git a/packages/util/native-command/README.md b/packages/util/native-command/README.md
+index 10b6026640..fcbb367d64 100644
+--- a/packages/util/native-command/README.md
++++ b/packages/util/native-command/README.md
+@@ -47,6 +47,8 @@ The `NativeCommandRunner` type is the injectable command boundary for host integ
+
+ `openNativePath(path, signal)` hands a path to the default application and prefers the named default browser for HTML and SVG where the platform can identify one. `openNativeTextFile(path, signal)` selects text-editor intent; on macOS it uses `open -t`. WSL paths are translated with `wslpath -w` before the Windows desktop receives them. `canOpenNativePath()` reports whether the current Host plausibly has a desktop target.
+
++Containers use Linux desktop detection even when their kernel or environment contains WSL markers. A display server is still required to advertise desktop availability; container detection uses `is-inside-container`. Test adapters can supply `insideContainer` together with explicit kernel and environment facts.
++
+ `revealNativePath(path, signal)` selects the file in Finder or Explorer, including WSL path translation, and opens its parent directory through `xdg-open` on desktop Linux. `nativeFileManager()` identifies that action for Host-derived UI labels; desktop availability remains a separate `canOpenNativePath()` check. Callers must authorize the absolute file path before invoking either operation. Platform dispatch is covered by injected-runner tests; native desktop verification belongs to the corresponding platform. Explorer receives an encoded file URI as a separate argument. Its exit code 1 is accepted as a delegated handoff; cancellation, missing executables, and other exit codes still reject. This acknowledgement does not prove that a desktop window selected the file.
+
+ -----
+</pre><h2 id="p2">packages/util/native-command/README.zh.md</h2><pre>diff --git a/packages/util/native-command/README.zh.md b/packages/util/native-command/README.zh.md
+index e8f2adda57..524db4345d 100644
+--- a/packages/util/native-command/README.zh.md
++++ b/packages/util/native-command/README.zh.md
+@@ -47,6 +47,8 @@ const { stdout, stderr } = await runNativeCommand(&#x27;osascript&#x27;, [&#x27;-e&#x27;, script], s
+
+ `openNativePath(path, signal)` 将路径交给默认应用；平台能够确定默认浏览器时，HTML 与 SVG 会优先交给该浏览器。`openNativeTextFile(path, signal)` 选择文本编辑器意图；macOS 使用 `open -t`。WSL 路径先通过 `wslpath -w` 转换，再交给 Windows 桌面。`canOpenNativePath()` 报告当前 Host 是否可能具备桌面目标。
+
++容器即使共享 WSL 内核或继承其环境标记，也按 Linux 桌面判断；只有声明显示服务时才提供桌面可用性。容器检测复用 `is-inside-container`；测试适配器可同时提供 `insideContainer`、内核与环境事实。
++
+ `revealNativePath(path, signal)` 在 Finder 或文件资源管理器中选中文件，包含 WSL 路径转换；在桌面 Linux 上通过 `xdg-open` 打开上层目录。`nativeFileManager()` 标识该操作，供 UI 根据 Host 选择文案；桌面是否可用仍由独立的 `canOpenNativePath()` 检查决定。调用方必须先授权绝对文件路径，再执行操作。平台分派由注入运行器的测试覆盖；原生桌面验证由对应平台负责。 Explorer 接收独立参数中的编码文件 URI。退出码 1 按已转交请求处理；取消、找不到可执行文件和其他退出码仍然报错。该确认不能证明桌面窗口已选中文件。
+
+ -----
+</pre><h2 id="p3">packages/util/native-command/package.json</h2><pre>diff --git a/packages/util/native-command/package.json b/packages/util/native-command/package.json
+index 31d5770858..bb48cb2e77 100644
+--- a/packages/util/native-command/package.json
++++ b/packages/util/native-command/package.json
+@@ -31,5 +31,8 @@
+   },
+   &quot;devDependencies&quot;: {
+     &quot;@deepseek-ai/cordis&quot;: &quot;workspace:^&quot;
++  },
++  &quot;dependencies&quot;: {
++    &quot;is-inside-container&quot;: &quot;^1.0.0&quot;
+   }
+ }
+</pre><h2 id="p4">packages/util/native-command/src/path-opener.ts</h2><pre>diff --git a/packages/util/native-command/src/path-opener.ts b/packages/util/native-command/src/path-opener.ts
+index 8f3443b3c1..cb2a6b547e 100644
+--- a/packages/util/native-command/src/path-opener.ts
++++ b/packages/util/native-command/src/path-opener.ts
+@@ -10,6 +10,7 @@
+  */
+
+ import { release as osRelease } from &#x27;node:os&#x27;
++import isInsideContainer from &#x27;is-inside-container&#x27;
+ import { dirname, extname } from &#x27;node:path&#x27;
+ import { pathToFileURL } from &#x27;node:url&#x27;
+ import { runNativeCommand, type NativeCommandRunner } from &#x27;./runner.ts&#x27;
+@@ -22,6 +23,8 @@ export interface PathOpenerInternals {
+   platform?: NodeJS.Platform
+   /** Kernel release override used to distinguish WSL from desktop Linux. */
+   osRelease?: string
++  /** Container detection override; containers use Linux desktop commands even on a WSL kernel. */
++  insideContainer?: boolean
+   /** Environment used for WSL markers and the desktop Linux browser convention. */
+   env?: NodeJS.ProcessEnv
+   run?: PathOpenerRunner
+@@ -94,6 +97,8 @@ function present(value: string | undefined): boolean {
+
+ /** Distinguish WSL from desktop Linux using its process and kernel markers. */
+ function isWsl(internals: PathOpenerInternals): boolean {
++  // 容器可能继承 WSL 内核或环境标记，但这些事实不能证明容器能调用 Windows 桌面。
++  if (internals.insideContainer ?? isInsideContainer()) return false
+   const env = internals.env ?? process.env
+   if (present(env.WSL_DISTRO_NAME) || present(env.WSL_INTEROP)) return true
+   return (internals.osRelease ?? osRelease()).toLowerCase().includes(&#x27;microsoft&#x27;)
+</pre><h2 id="p5">packages/util/native-command/tests/path-opener.spec.ts</h2><pre>diff --git a/packages/util/native-command/tests/path-opener.spec.ts b/packages/util/native-command/tests/path-opener.spec.ts
+index 5082d141ed..d7ef30a92f 100644
+--- a/packages/util/native-command/tests/path-opener.spec.ts
++++ b/packages/util/native-command/tests/path-opener.spec.ts
+@@ -37,7 +37,7 @@ describe(&#x27;native path opener&#x27;, () =&gt; {
+   it(&#x27;uses the Linux desktop association for text documents&#x27;, async () =&gt; {
+     const run = vi.fn&lt;PathOpenerRunner&gt;(async () =&gt; ({ stdout: &#x27;&#x27;, stderr: &#x27;&#x27; }))
+     await openNativeTextFile(&#x27;/tmp/settings.yaml&#x27;, signal(), {
+-      platform: &#x27;linux&#x27;, osRelease: &#x27;6.8.0-generic&#x27;, env: {}, run,
++      platform: &#x27;linux&#x27;, insideContainer: false, osRelease: &#x27;6.8.0-generic&#x27;, env: {}, run,
+     })
+     expect(run).toHaveBeenCalledWith(&#x27;xdg-open&#x27;, [&#x27;/tmp/settings.yaml&#x27;], expect.any(AbortSignal))
+   })
+@@ -52,7 +52,7 @@ describe(&#x27;native path opener&#x27;, () =&gt; {
+       ? { stdout: &#x27;\\\\wsl.localhost\\Ubuntu\\home\\test user\\settings.yaml\r\n&#x27;, stderr: &#x27;&#x27; }
+       : { stdout: &#x27;&#x27;, stderr: &#x27;&#x27; })
+     await openNativeTextFile(&#x27;/home/test user/settings.yaml&#x27;, requestSignal, {
+-      platform: &#x27;linux&#x27;, osRelease, env, run,
++      platform: &#x27;linux&#x27;, insideContainer: false, osRelease, env, run,
+     })
+     expect(run.mock.calls).toEqual([
+       [&#x27;wslpath&#x27;, [&#x27;-w&#x27;, &#x27;/home/test user/settings.yaml&#x27;], requestSignal],
+@@ -71,7 +71,7 @@ describe(&#x27;native path opener&#x27;, () =&gt; {
+   it(&#x27;rejects an empty WSL path translation before invoking Windows&#x27;, async () =&gt; {
+     const run = vi.fn&lt;PathOpenerRunner&gt;(async () =&gt; ({ stdout: &#x27;\r\n&#x27;, stderr: &#x27;&#x27; }))
+     await expect(openNativeTextFile(&#x27;/home/test/settings.yaml&#x27;, signal(), {
+-      platform: &#x27;linux&#x27;, osRelease: &#x27;6.8.0-generic&#x27;, env: { WSL_DISTRO_NAME: &#x27;Ubuntu&#x27; }, run,
++      platform: &#x27;linux&#x27;, insideContainer: false, osRelease: &#x27;6.8.0-generic&#x27;, env: { WSL_DISTRO_NAME: &#x27;Ubuntu&#x27; }, run,
+     })).rejects.toThrow(&#x27;wslpath returned no Windows path&#x27;)
+     expect(run).toHaveBeenCalledOnce()
+   })
+@@ -83,7 +83,7 @@ describe(&#x27;native path opener&#x27;, () =&gt; {
+       return { stdout: &#x27;\\\\wsl.localhost\\Ubuntu\\home\\test\\settings.yaml\n&#x27;, stderr: &#x27;&#x27; }
+     })
+     await expect(openNativeTextFile(&#x27;/home/test/settings.yaml&#x27;, abort.signal, {
+-      platform: &#x27;linux&#x27;, osRelease: &#x27;6.8.0-generic&#x27;, env: { WSL_DISTRO_NAME: &#x27;Ubuntu&#x27; }, run,
++      platform: &#x27;linux&#x27;, insideContainer: false, osRelease: &#x27;6.8.0-generic&#x27;, env: { WSL_DISTRO_NAME: &#x27;Ubuntu&#x27; }, run,
+     })).rejects.toThrow(&#x27;closed&#x27;)
+     expect(run).toHaveBeenCalledOnce()
+   })
+@@ -111,7 +111,7 @@ describe(&#x27;native path opener&#x27;, () =&gt; {
+   it(&#x27;opens with Linux xdg-open&#x27;, async () =&gt; {
+     const run = vi.fn&lt;PathOpenerRunner&gt;(async () =&gt; ({ stdout: &#x27;&#x27;, stderr: &#x27;&#x27; }))
+     await openNativePath(&#x27;/tmp/a.txt&#x27;, signal(), {
+-      platform: &#x27;linux&#x27;, osRelease: &#x27;6.8.0-generic&#x27;,
++      platform: &#x27;linux&#x27;, insideContainer: false, osRelease: &#x27;6.8.0-generic&#x27;,
+       env: { WSL_DISTRO_NAME: &#x27;&#x27;, WSL_INTEROP: &#x27;&#x27; }, run,
+     })
+     expect(run).toHaveBeenCalledWith(&#x27;xdg-open&#x27;, [&#x27;/tmp/a.txt&#x27;], expect.any(AbortSignal))
+@@ -142,7 +142,7 @@ describe(&#x27;native path opener&#x27;, () =&gt; {
+     const run = vi.fn&lt;PathOpenerRunner&gt;(async command =&gt; command === &#x27;wslpath&#x27;
+       ? { stdout: &#x27;C:\\settings.yaml\n&#x27;, stderr: &#x27;&#x27; }
+       : { stdout: &#x27;&#x27;, stderr: &#x27;&#x27; })
+-    await openNativePath(&#x27;/tmp/ambient-facts.yaml&#x27;, signal(), { platform: &#x27;linux&#x27;, run })
++    await openNativePath(&#x27;/tmp/ambient-facts.yaml&#x27;, signal(), { platform: &#x27;linux&#x27;, insideContainer: false, run })
+     expect(run.mock.calls[0]?.[0]).toBe(ambientWsl ? &#x27;wslpath&#x27; : &#x27;xdg-open&#x27;)
+   })
+
+@@ -237,7 +237,7 @@ describe(&#x27;browser-renderable documents&#x27;, () =&gt; {
+   it(&#x27;honors $BROWSER on linux and leaves windows to its association&#x27;, async () =&gt; {
+     const linux: string[][] = []
+     await openNativePath(&#x27;/w/page.html&#x27;, new AbortController().signal, {
+-      platform: &#x27;linux&#x27;,
++      platform: &#x27;linux&#x27;, insideContainer: false,
+       osRelease: &#x27;6.8.0-generic&#x27;,
+       env: { BROWSER: &#x27;firefox&#x27; },
+       run: async (command, args) =&gt; { linux.push([command, ...args]); return { stdout: &#x27;&#x27;, stderr: &#x27;&#x27; } },
+@@ -247,7 +247,7 @@ describe(&#x27;browser-renderable documents&#x27;, () =&gt; {
+     // Unset $BROWSER: xdg-open&#x27;s association is the fallback.
+     const bare: string[][] = []
+     await openNativePath(&#x27;/w/page.html&#x27;, new AbortController().signal, {
+-      platform: &#x27;linux&#x27;,
++      platform: &#x27;linux&#x27;, insideContainer: false,
+       osRelease: &#x27;6.8.0-generic&#x27;,
+       env: {},
+       run: async (command, args) =&gt; { bare.push([command, ...args]); return { stdout: &#x27;&#x27;, stderr: &#x27;&#x27; } },
+@@ -266,7 +266,7 @@ describe(&#x27;browser-renderable documents&#x27;, () =&gt; {
+   it(&#x27;hands browser-renderable WSL paths to the Windows desktop&#x27;, async () =&gt; {
+     const calls: string[][] = []
+     await openNativePath(&#x27;/home/test/page.html&#x27;, new AbortController().signal, {
+-      platform: &#x27;linux&#x27;,
++      platform: &#x27;linux&#x27;, insideContainer: false,
+       osRelease: &#x27;5.15.153.1-microsoft-standard-WSL2&#x27;,
+       env: { BROWSER: &#x27;firefox&#x27; },
+       run: async (command, args) =&gt; {
+@@ -296,14 +296,14 @@ describe(&#x27;canOpenNativePath&#x27;, () =&gt; {
+   })
+
+   it(&#x27;requires a display server or WSL interop on linux&#x27;, () =&gt; {
+-    const linux = { platform: &#x27;linux&#x27; as const, osRelease: &#x27;6.8.0-generic&#x27; }
++    const linux = { platform: &#x27;linux&#x27; as const, insideContainer: false, osRelease: &#x27;6.8.0-generic&#x27; }
+     // Headless is the case the capability exists for: `xdg-open` would spawn
+     // into nothing, so a surface should show the path as text instead.
+     expect(canOpenNativePath({ ...linux, env: {} })).toBe(false)
+     expect(canOpenNativePath({ ...linux, env: { DISPLAY: &#x27;:0&#x27; } })).toBe(true)
+     expect(canOpenNativePath({ ...linux, env: { WAYLAND_DISPLAY: &#x27;wayland-0&#x27; } })).toBe(true)
+     expect(canOpenNativePath({
+-      platform: &#x27;linux&#x27;, osRelease: &#x27;5.15.153.1-microsoft-standard-WSL2&#x27;, env: {},
++      platform: &#x27;linux&#x27;, insideContainer: false, osRelease: &#x27;5.15.153.1-microsoft-standard-WSL2&#x27;, env: {},
+     })).toBe(true)
+   })
+
+@@ -317,7 +317,7 @@ describe(&#x27;canOpenNativePath&#x27;, () =&gt; {
+     const expected = marked(env.WSL_DISTRO_NAME) || marked(env.WSL_INTEROP)
+       || marked(env.DISPLAY) || marked(env.WAYLAND_DISPLAY)
+
+-    expect(canOpenNativePath({ platform: &#x27;linux&#x27;, osRelease: &#x27;6.8.0-generic&#x27; })).toBe(expected)
++    expect(canOpenNativePath({ platform: &#x27;linux&#x27;, insideContainer: false, osRelease: &#x27;6.8.0-generic&#x27; })).toBe(expected)
+   })
+
+   it(&#x27;samples the ambient platform when none is named&#x27;, () =&gt; {
+@@ -343,7 +343,7 @@ describe(&#x27;native file manager&#x27;, () =&gt; {
+
+   it(&#x27;selects a translated WSL path in Explorer and never starts a Linux file manager&#x27;, async () =&gt; {
+     const run = vi.fn&lt;PathOpenerRunner&gt;(async () =&gt; ({ stdout: &#x27;C:\\work\\报告.txt\r\n&#x27;, stderr: &#x27;&#x27; }))
+-    const internals = { platform: &#x27;linux&#x27; as const, env: { WSL_DISTRO_NAME: &#x27;Ubuntu&#x27; }, run }
++    const internals = { platform: &#x27;linux&#x27; as const, insideContainer: false, env: { WSL_DISTRO_NAME: &#x27;Ubuntu&#x27; }, run }
+     expect(nativeFileManager(internals)).toBe(&#x27;explorer&#x27;)
+     await revealNativePath(&#x27;/mnt/c/work/报告.txt&#x27;, signal(), internals)
+     expect(run.mock.calls.map(([cmd, args]) =&gt; [cmd, args])).toEqual([
+@@ -354,7 +354,7 @@ describe(&#x27;native file manager&#x27;, () =&gt; {
+   it(&#x27;refuses empty WSL translations and cancelled translation without launching Explorer&#x27;, async () =&gt; {
+     const abort = new AbortController()
+     const run = vi.fn&lt;PathOpenerRunner&gt;(async () =&gt; ({ stdout: &#x27;&#x27;, stderr: &#x27;&#x27; }))
+-    const internals = { platform: &#x27;linux&#x27; as const, env: {}, osRelease: &#x27;microsoft&#x27;, run }
++    const internals = { platform: &#x27;linux&#x27; as const, insideContainer: false, env: {}, osRelease: &#x27;microsoft&#x27;, run }
+     await expect(revealNativePath(&#x27;/file&#x27;, signal(), internals)).rejects.toThrow(&#x27;no Windows path&#x27;)
+     run.mockImplementationOnce(async () =&gt; { abort.abort(new Error(&#x27;stopped&#x27;)); return { stdout: &#x27;C:\\file&#x27;, stderr: &#x27;&#x27; } })
+     await expect(revealNativePath(&#x27;/file&#x27;, abort.signal, internals)).rejects.toThrow(&#x27;stopped&#x27;)
+@@ -368,15 +368,21 @@ describe(&#x27;native file manager&#x27;, () =&gt; {
+     await expect(revealNativePath(&#x27;/file&#x27;, AbortSignal.abort(new Error(&#x27;cancelled&#x27;)), { run })).rejects.toThrow(&#x27;cancelled&#x27;)
+     expect(run).not.toHaveBeenCalled()
+     await expect(revealNativePath(&#x27;/file&#x27;, signal(), { platform: &#x27;darwin&#x27;, run })).rejects.toThrow(&#x27;desktop failed&#x27;)
+-    expect(nativeFileManager()).toBe(process.platform === &#x27;darwin&#x27; ? &#x27;finder&#x27; : process.platform === &#x27;win32&#x27; ? &#x27;explorer&#x27; : &#x27;directory&#x27;)
+   })
+ })
+
+
+ it(&#x27;uses the native runner for a file-manager handoff when none is injected&#x27;, async () =&gt; {
+-  execFileMock.mockImplementation((_command, _args, _options, callback) =&gt; { callback(null, &#x27;&#x27;, &#x27;&#x27;) })
++  // 默认平台由宿主决定，WSL 转换返回有效路径；同时验证 UI 管理器标识与实际执行命令一致。
++  execFileMock.mockImplementation((command, _args, _options, callback) =&gt; {
++    callback(null, command === &#x27;wslpath&#x27; ? &#x27;C:\\work\\report.txt&#x27; : &#x27;&#x27;, &#x27;&#x27;)
++  })
+   await revealNativePath(&#x27;/tmp/report.txt&#x27;, signal())
+-  expect(execFileMock).toHaveBeenCalled()
++  expect([
++    { manager: &#x27;finder&#x27;, command: &#x27;open&#x27; },
++    { manager: &#x27;explorer&#x27;, command: &#x27;explorer.exe&#x27; },
++    { manager: &#x27;directory&#x27;, command: &#x27;xdg-open&#x27; },
++  ]).toContainEqual({ manager: nativeFileManager(), command: execFileMock.mock.calls.at(-1)?.[0] })
+ })
+
+
+@@ -386,7 +392,7 @@ it.each([&#x27;win32&#x27;, &#x27;linux&#x27;] as const)(&#x27;accepts Explorer delegate exit 1 through t
+     else callback(Object.assign(new Error(&#x27;delegated&#x27;), { code: 1 }), &#x27;&#x27;, &#x27;&#x27;)
+   })
+   await expect(revealNativePath(platform === &#x27;win32&#x27; ? &#x27;C:\\work\\report.txt&#x27; : &#x27;/mnt/c/work/report.txt&#x27;, signal(),
+-    { platform, env: { WSL_DISTRO_NAME: &#x27;Ubuntu&#x27; } })).resolves.toBeUndefined()
++    { platform, insideContainer: false, env: { WSL_DISTRO_NAME: &#x27;Ubuntu&#x27; } })).resolves.toBeUndefined()
+ })
+
+ it.each([2, &#x27;ENOENT&#x27;, undefined])(&#x27;preserves Explorer failure %s&#x27;, async (code) =&gt; {
+</pre><h2 id="p6">pnpm-lock.yaml</h2><pre>diff --git a/pnpm-lock.yaml b/pnpm-lock.yaml
+index 05cd15625f..6c2f065e09 100644
+--- a/pnpm-lock.yaml
++++ b/pnpm-lock.yaml
+@@ -9,6 +9,15 @@ overrides:
+   &#x27;@deepseek-ai/schemastery&#x27;: link:vendor/schemastery
+   js-yaml@&gt;=4.0.0 &lt;4.3.2: 4.3.2
+   sharp@0.35.3: 0.35.4
++  fast-uri@&gt;=3.0.0 &lt;3.1.6: 3.1.6
++  brace-expansion@&gt;=2.0.0 &lt;2.1.4: 2.1.4
++  brace-expansion@&gt;=5.0.0 &lt;5.0.9: 5.0.9
++  undici@&gt;=7.0.0 &lt;7.29.0: 7.29.0
++  ip-address@&gt;=10.0.0 &lt;10.3.1: 10.3.1
++  nanoid@&gt;=3.0.0 &lt;3.3.18: 3.3.18
++  postcss@&gt;=8.0.0 &lt;8.5.23: 8.5.23
++  browserslist@&gt;=4.0.0 &lt;4.28.7: 4.28.7
++  vite@&gt;=5.0.0 &lt;6.4.3: 6.4.3
+
+ patchedDependencies:
+   &#x27;@electron/osx-sign@1.3.3&#x27;: 280e7b2816caf01423097d24e79107a66afeb563a348630ce9928ae8499a5861
+@@ -124,6 +133,9 @@ importers:
+       typescript:
+         specifier: ^6.0.3
+         version: 6.0.3
++      vite:
++        specifier: 8.0.16
++        version: 8.0.16(@types/node@22.20.0)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.22.4)(yaml@2.9.0)
+       vite-tsconfig-paths:
+         specifier: ^6.1.1
+         version: 6.1.1(supports-color@9.4.0)(typescript@6.0.3)(vite@8.0.16(@types/node@22.20.0)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.22.4)(yaml@2.9.0))
+@@ -529,8 +541,8 @@ importers:
+         specifier: 4.3.2
+         version: 4.3.2
+       pnpm:
+-        specifier: 11.7.0
+-        version: 11.7.0
++        specifier: 11.11.0
++        version: 11.11.0
+       tar:
+         specifier: ^7.5.0
+         version: 7.5.22
+@@ -652,7 +664,7 @@ importers:
+         specifier: ^6.0.3
+         version: 6.0.3
+       vite:
+-        specifier: ^6.0.0
++        specifier: 6.4.3
+         version: 6.4.3(@types/node@22.20.0)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.22.4)(yaml@2.9.0)
+       vitest:
+         specifier: ^4.1.8
+@@ -1969,6 +1981,9 @@ importers:
+       &#x27;@deepseek-ai/dsh-qs-composer&#x27;:
+         specifier: workspace:^
+         version: link:../../qs/qs-composer
++      &#x27;@deepseek-ai/dsh-qs-locale&#x27;:
++        specifier: workspace:^
++        version: link:../../qs/qs-locale
+       &#x27;@deepseek-ai/dsh-qs-login&#x27;:
+         specifier: workspace:^
+         version: link:../../qs/qs-login
+@@ -1984,6 +1999,84 @@ importers:
+       &#x27;@deepseek-ai/dsh-qs-transcript&#x27;:
+         specifier: workspace:^
+         version: link:../../qs/qs-transcript
++      &#x27;@deepseek-ai/dsh-qs-ui-agent-preset&#x27;:
++        specifier: workspace:^
++        version: link:../../qs/qs-ui-agent-preset
++      &#x27;@deepseek-ai/dsh-qs-ui-attachment&#x27;:
++        specifier: workspace:^
++        version: link:../../qs/qs-ui-attachment
++      &#x27;@deepseek-ai/dsh-qs-ui-brand&#x27;:
++        specifier: workspace:^
++        version: link:../../qs/qs-ui-brand
++      &#x27;@deepseek-ai/dsh-qs-ui-commands&#x27;:
++        specifier: workspace:^
++        version: link:../../qs/qs-ui-commands
++      &#x27;@deepseek-ai/dsh-qs-ui-deliverables&#x27;:
++        specifier: workspace:^
++        version: link:../../qs/qs-ui-deliverables
++      &#x27;@deepseek-ai/dsh-qs-ui-directory-picker-browse&#x27;:
++        specifier: workspace:^
++        version: link:../../qs/qs-ui-directory-picker-browse
++      &#x27;@deepseek-ai/dsh-qs-ui-directory-picker-native&#x27;:
++        specifier: workspace:^
++        version: link:../../qs/qs-ui-directory-picker-native
++      &#x27;@deepseek-ai/dsh-qs-ui-goal&#x27;:
++        specifier: workspace:^
++        version: link:../../qs/qs-ui-goal
++      &#x27;@deepseek-ai/dsh-qs-ui-input-trigger&#x27;:
++        specifier: workspace:^
++        version: link:../../qs/qs-ui-input-trigger
++      &#x27;@deepseek-ai/dsh-qs-ui-jobs&#x27;:
++        specifier: workspace:^
++        version: link:../../qs/qs-ui-jobs
++      &#x27;@deepseek-ai/dsh-qs-ui-message-feedback&#x27;:
++        specifier: workspace:^
++        version: link:../../qs/qs-ui-message-feedback
++      &#x27;@deepseek-ai/dsh-qs-ui-model-selection&#x27;:
++        specifier: workspace:^
++        version: link:../../qs/qs-ui-model-selection
++      &#x27;@deepseek-ai/dsh-qs-ui-permission-presets&#x27;:
++        specifier: workspace:^
++        version: link:../../qs/qs-ui-permission-presets
++      &#x27;@deepseek-ai/dsh-qs-ui-schedule&#x27;:
++        specifier: workspace:^
++        version: link:../../qs/qs-ui-schedule
++      &#x27;@deepseek-ai/dsh-qs-ui-settings-general&#x27;:
++        specifier: workspace:^
++        version: link:../../qs/qs-ui-settings-general
++      &#x27;@deepseek-ai/dsh-qs-ui-settings-models&#x27;:
++        specifier: workspace:^
++        version: link:../../qs/qs-ui-settings-models
++      &#x27;@deepseek-ai/dsh-qs-ui-settings-plugin-inventory&#x27;:
++        specifier: workspace:^
++        version: link:../../qs/qs-ui-settings-plugin-inventory
++      &#x27;@deepseek-ai/dsh-qs-ui-settings-plugins&#x27;:
++        specifier: workspace:^
++        version: link:../../qs/qs-ui-settings-plugins
++      &#x27;@deepseek-ai/dsh-qs-ui-sidebar&#x27;:
++        specifier: workspace:^
++        version: link:../../qs/qs-ui-sidebar
++      &#x27;@deepseek-ai/dsh-qs-ui-sidebar-documentpreview&#x27;:
++        specifier: workspace:^
++        version: link:../../qs/qs-ui-sidebar-documentpreview
++      &#x27;@deepseek-ai/dsh-qs-ui-sidebar-files&#x27;:
++        specifier: workspace:^
++        version: link:../../qs/qs-ui-sidebar-files
++      &#x27;@deepseek-ai/dsh-qs-ui-sidebar-right&#x27;:
++        specifier: workspace:^
++        version: link:../../qs/qs-ui-sidebar-right
++      &#x27;@deepseek-ai/dsh-qs-ui-subagent&#x27;:
++        specifier: workspace:^
++        version: link:../../qs/qs-ui-subagent
++      &#x27;@deepseek-ai/dsh-qs-ui-theme&#x27;:
++        specifier: workspace:^
++        version: link:../../qs/qs-ui-theme
++      &#x27;@deepseek-ai/dsh-qs-ui-tool&#x27;:
++        specifier: workspace:^
++        version: link:../../qs/qs-ui-tool
++      &#x27;@deepseek-ai/dsh-qs-ui-trajectory&#x27;:
++        specifier: workspace:^
++        version: link:../../qs/qs-ui-trajectory
+       &#x27;@deepseek-ai/dsh-session-log-export&#x27;:
+         specifier: workspace:^
+         version: link:../../session-query/session-log-export
+@@ -6615,6 +6708,9 @@ importers:
+       &#x27;@deepseek-ai/dsh-launch-environment&#x27;:
+         specifier: workspace:^
+         version: link:../../util/launch-environment
++      &#x27;@deepseek-ai/schemastery&#x27;:
++        specifier: link:../../../vendor/schemastery
++        version: link:../../../vendor/schemastery
+     devDependencies:
+       &#x27;@deepseek-ai/cordis&#x27;:
+         specifier: workspace:^
+@@ -7662,9 +7758,15 @@ importers:
+       &#x27;@deepseek-ai/dsh-qs-shell&#x27;:
+         specifier: workspace:^
+         version: link:../qs-shell
++      &#x27;@deepseek-ai/dsh-qs-ui-settings-general&#x27;:
++        specifier: workspace:^
++        version: link:../qs-ui-settings-general
+       &#x27;@deepseek-ai/dsh-session&#x27;:
+         specifier: workspace:^
+         version: link:../../core/session
++      &#x27;@deepseek-ai/dsh-token-meter&#x27;:
++        specifier: workspace:^
++        version: link:../../llm/token-meter
+       &#x27;@deepseek-ai/dsh-util-crypto&#x27;:
+         specifier: workspace:^
+         version: link:../../util/crypto
+@@ -7678,6 +7780,45 @@ importers:
+         specifier: ^18.2.0
+         version: 18.3.1
+
++  packages/qs/qs-locale:
++    devDependencies:
++      &#x27;@deepseek-ai/cordis&#x27;:
++        specifier: workspace:^
++        version: link:../../../vendor/cordis
++      &#x27;@deepseek-ai/dsh-client-locale&#x27;:
++        specifier: workspace:^
++        version: link:../../client/locale
++      &#x27;@deepseek-ai/dsh-client-test-runtime&#x27;:
++        specifier: workspace:^
++        version: link:../../test-support/client-runtime
++      &#x27;@deepseek-ai/dsh-client-ui-renderer&#x27;:
++        specifier: workspace:^
++        version: link:../../client/ui-renderer
++      &#x27;@deepseek-ai/dsh-client-ui-settings&#x27;:
++        specifier: workspace:^
++        version: link:../../client/ui-settings
++      &#x27;@deepseek-ai/dsh-client-ui-slots&#x27;:
++        specifier: workspace:^
++        version: link:../../client/ui-slots
++      &#x27;@deepseek-ai/dsh-qs-ui-settings-general&#x27;:
++        specifier: workspace:^
++        version: link:../qs-ui-settings-general
++      &#x27;@testing-library/react&#x27;:
++        specifier: ^16.1.0
++        version: 16.3.2(@testing-library/dom@10.4.1)(@types/react-dom@18.3.7(@types/react@18.3.31))(@types/react@18.3.31)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
++      &#x27;@types/react&#x27;:
++        specifier: ~18.3.1
++        version: 18.3.31
++      &#x27;@types/react-dom&#x27;:
++        specifier: ~18.3.0
++        version: 18.3.7(@types/react@18.3.31)
++      react:
++        specifier: ^18.2.0
++        version: 18.3.1
++      react-dom:
++        specifier: ^18.2.0
++        version: 18.3.1(react@18.3.1)
++
+   packages/qs/qs-login:
+     devDependencies:
+       &#x27;@deepseek-ai/cordis&#x27;:
+@@ -7794,9 +7935,15 @@ importers:
+       &#x27;@deepseek-ai/dsh-client-ui-workspace&#x27;:
+         specifier: workspace:^
+         version: link:../../client/ui-workspace
++      &#x27;@deepseek-ai/dsh-qs-composer&#x27;:
++        specifier: workspace:^
++        version: link:../qs-composer
+       &#x27;@deepseek-ai/dsh-qs-shell&#x27;:
+         specifier: workspace:^
+         version: link:../qs-shell
++      &#x27;@deepseek-ai/dsh-qs-ui-sidebar&#x27;:
++        specifier: workspace:^
++        version: link:../qs-ui-sidebar
+       &#x27;@deepseek-ai/dsh-session&#x27;:
+         specifier: workspace:^
+         version: link:../../core/session
+@@ -7824,57 +7971,1434 @@ importers:
+         version: link:../../client/locale
+       &#x27;@deepseek-ai/dsh-client-store&#x27;:
+         specifier: workspace:^
+-        version: link:../../client/store
+-      &#x27;@deepseek-ai/dsh-client-test-runtime&#x27;:
++        version: link:../../client/store
++      &#x27;@deepseek-ai/dsh-client-test-runtime&#x27;:
++        specifier: workspace:^
++        version: link:../../test-support/client-runtime
++      &#x27;@deepseek-ai/dsh-client-ui-conversation&#x27;:
++        specifier: workspace:^
++        version: link:../../client/ui-conversation
++      &#x27;@deepseek-ai/dsh-client-ui-renderer&#x27;:
++        specifier: workspace:^
++        version: link:../../client/ui-renderer
++      &#x27;@deepseek-ai/dsh-client-ui-session&#x27;:
++        specifier: workspace:^
++        version: link:../../client/ui-session
++      &#x27;@deepseek-ai/dsh-client-ui-sidebar&#x27;:
++        specifier: workspace:^
++        version: link:../../client/ui-sidebar
++      &#x27;@deepseek-ai/dsh-client-ui-slots&#x27;:
++        specifier: workspace:^
++        version: link:../../client/ui-slots
++      &#x27;@deepseek-ai/dsh-client-ui-theme&#x27;:
++        specifier: workspace:^
++        version: link:../../client/ui-theme
++      &#x27;@deepseek-ai/dsh-host-webserver&#x27;:
++        specifier: workspace:^
++        version: link:../../host/webserver
++      &#x27;@deepseek-ai/dsh-qs-approval&#x27;:
++        specifier: workspace:^
++        version: link:../qs-approval
++      &#x27;@deepseek-ai/dsh-qs-composer&#x27;:
++        specifier: workspace:^
++        version: link:../qs-composer
++      &#x27;@deepseek-ai/dsh-qs-login&#x27;:
++        specifier: workspace:^
++        version: link:../qs-login
++      &#x27;@deepseek-ai/dsh-qs-questions&#x27;:
++        specifier: workspace:^
++        version: link:../qs-questions
++      &#x27;@deepseek-ai/dsh-qs-sessions&#x27;:
++        specifier: workspace:^
++        version: link:../qs-sessions
++      &#x27;@deepseek-ai/dsh-qs-transcript&#x27;:
++        specifier: workspace:^
++        version: link:../qs-transcript
++      &#x27;@types/react&#x27;:
++        specifier: ~18.3.1
++        version: 18.3.31
++      clsx:
++        specifier: ^2.0.0
++        version: 2.1.1
++      react:
++        specifier: ^18.2.0
++        version: 18.3.1
++
++  packages/qs/qs-transcript:
++    devDependencies:
++      &#x27;@deepseek-ai/cordis&#x27;:
++        specifier: workspace:^
++        version: link:../../../vendor/cordis
++      &#x27;@deepseek-ai/dsh-api-remotes&#x27;:
++        specifier: workspace:^
++        version: link:../../api/remotes
++      &#x27;@deepseek-ai/dsh-api-session-controller&#x27;:
++        specifier: workspace:^
++        version: link:../../api/session-controller
++      &#x27;@deepseek-ai/dsh-client-connection&#x27;:
++        specifier: workspace:^
++        version: link:../../client/connection
++      &#x27;@deepseek-ai/dsh-client-locale&#x27;:
++        specifier: workspace:^
++        version: link:../../client/locale
++      &#x27;@deepseek-ai/dsh-client-store&#x27;:
++        specifier: workspace:^
++        version: link:../../client/store
++      &#x27;@deepseek-ai/dsh-client-test-runtime&#x27;:
++        specifier: workspace:^
++        version: link:../../test-support/client-runtime
++      &#x27;@deepseek-ai/dsh-client-ui-chat&#x27;:
++        specifier: workspace:^
++        version: link:../../client/ui-chat
++      &#x27;@deepseek-ai/dsh-client-ui-conversation&#x27;:
++        specifier: workspace:^
++        version: link:../../client/ui-conversation
++      &#x27;@deepseek-ai/dsh-client-ui-primitives&#x27;:
++        specifier: workspace:^
++        version: link:../../client/ui-primitives
++      &#x27;@deepseek-ai/dsh-client-ui-renderer&#x27;:
++        specifier: workspace:^
++        version: link:../../client/ui-renderer
++      &#x27;@deepseek-ai/dsh-client-ui-session&#x27;:
++        specifier: workspace:^
++        version: link:../../client/ui-session
++      &#x27;@deepseek-ai/dsh-client-ui-sidebar-right&#x27;:
++        specifier: workspace:^
++        version: link:../../client/ui-sidebar-right
++      &#x27;@deepseek-ai/dsh-client-ui-slots&#x27;:
++        specifier: workspace:^
++        version: link:../../client/ui-slots
++      &#x27;@deepseek-ai/dsh-qs-composer&#x27;:
++        specifier: workspace:^
++        version: link:../qs-composer
++      &#x27;@deepseek-ai/dsh-qs-shell&#x27;:
++        specifier: workspace:^
++        version: link:../qs-shell
++      &#x27;@deepseek-ai/dsh-qs-ui-settings-general&#x27;:
++        specifier: workspace:^
++        version: link:../qs-ui-settings-general
++      &#x27;@deepseek-ai/dsh-session&#x27;:
++        specifier: workspace:^
++        version: link:../../core/session
++      &#x27;@deepseek-ai/dsh-util-workspace-path&#x27;:
++        specifier: workspace:^
++        version: link:../../util/workspace-path
++      &#x27;@types/react&#x27;:
++        specifier: ~18.3.1
++        version: 18.3.31
++      &#x27;@types/react-dom&#x27;:
++        specifier: ~18.3.0
++        version: 18.3.7(@types/react@18.3.31)
++      clsx:
++        specifier: ^2.0.0
++        version: 2.1.1
++      react:
++        specifier: ^18.2.0
++        version: 18.3.1
++      react-dom:
++        specifier: ^18.2.0
++        version: 18.3.1(react@18.3.1)
++
++  packages/qs/qs-ui-agent-preset:
++    devDependencies:
++      &#x27;@deepseek-ai/cordis&#x27;:
++        specifier: workspace:^
++        version: link:../../../vendor/cordis
++      &#x27;@deepseek-ai/dsh-agent-presets&#x27;:
++        specifier: workspace:^
++        version: link:../../preset/agent-presets
++      &#x27;@deepseek-ai/dsh-api-remotes&#x27;:
++        specifier: workspace:^
++        version: link:../../api/remotes
++      &#x27;@deepseek-ai/dsh-client-locale&#x27;:
++        specifier: workspace:^
++        version: link:../../client/locale
++      &#x27;@deepseek-ai/dsh-client-test-runtime&#x27;:
++        specifier: workspace:^
++        version: link:../../test-support/client-runtime
++      &#x27;@deepseek-ai/dsh-client-ui-renderer&#x27;:
++        specifier: workspace:^
++        version: link:../../client/ui-renderer
++      &#x27;@deepseek-ai/dsh-client-ui-settings&#x27;:
++        specifier: workspace:^
++        version: link:../../client/ui-settings
++      &#x27;@deepseek-ai/dsh-client-ui-slots&#x27;:
++        specifier: workspace:^
++        version: link:../../client/ui-slots
++      &#x27;@deepseek-ai/dsh-qs-composer&#x27;:
++        specifier: workspace:^
++        version: link:../qs-composer
++      &#x27;@deepseek-ai/dsh-qs-ui-settings-general&#x27;:
++        specifier: workspace:^
++        version: link:../qs-ui-settings-general
++      &#x27;@testing-library/react&#x27;:
++        specifier: ^16.1.0
++        version: 16.3.2(@testing-library/dom@10.4.1)(@types/react-dom@18.3.7(@types/react@18.3.31))(@types/react@18.3.31)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
++      &#x27;@types/react&#x27;:
++        specifier: ~18.3.1
++        version: 18.3.31
++      &#x27;@types/react-dom&#x27;:
++        specifier: ~18.3.0
++        version: 18.3.7(@types/react@18.3.31)
++      react:
++        specifier: ^18.2.0
++        version: 18.3.1
++      react-dom:
++        specifier: ^18.2.0
++        version: 18.3.1(react@18.3.1)
++
++  packages/qs/qs-ui-attachment:
++    devDependencies:
++      &#x27;@deepseek-ai/cordis&#x27;:
++        specifier: workspace:^
++        version: link:../../../vendor/cordis
++      &#x27;@deepseek-ai/dsh-api-remotes&#x27;:
++        specifier: workspace:^
++        version: link:../../api/remotes
++      &#x27;@deepseek-ai/dsh-attachment&#x27;:
++        specifier: workspace:^
++        version: link:../../attachment/attachment
++      &#x27;@deepseek-ai/dsh-client-locale&#x27;:
++        specifier: workspace:^
++        version: link:../../client/locale
++      &#x27;@deepseek-ai/dsh-client-store&#x27;:
++        specifier: workspace:^
++        version: link:../../client/store
++      &#x27;@deepseek-ai/dsh-client-test-runtime&#x27;:
++        specifier: workspace:^
++        version: link:../../test-support/client-runtime
++      &#x27;@deepseek-ai/dsh-client-ui-chat&#x27;:
++        specifier: workspace:^
++        version: link:../../client/ui-chat
++      &#x27;@deepseek-ai/dsh-client-ui-conversation&#x27;:
++        specifier: workspace:^
++        version: link:../../client/ui-conversation
++      &#x27;@deepseek-ai/dsh-client-ui-primitives&#x27;:
++        specifier: workspace:^
++        version: link:../../client/ui-primitives
++      &#x27;@deepseek-ai/dsh-client-ui-renderer&#x27;:
++        specifier: workspace:^
++        version: link:../../client/ui-renderer
++      &#x27;@deepseek-ai/dsh-client-ui-session&#x27;:
++        specifier: workspace:^
++        version: link:../../client/ui-session
++      &#x27;@deepseek-ai/dsh-client-ui-slots&#x27;:
++        specifier: workspace:^
++        version: link:../../client/ui-slots
++      &#x27;@deepseek-ai/dsh-qs-transcript&#x27;:
++        specifier: workspace:^
++        version: link:../qs-transcript
++      &#x27;@deepseek-ai/dsh-qs-ui-tool&#x27;:
++        specifier: workspace:^
++        version: link:../qs-ui-tool
++      &#x27;@deepseek-ai/dsh-qs-ui-trajectory&#x27;:
++        specifier: workspace:^
++        version: link:../qs-ui-trajectory
++      &#x27;@deepseek-ai/dsh-session&#x27;:
++        specifier: workspace:^
++        version: link:../../core/session
++      &#x27;@testing-library/react&#x27;:
++        specifier: ^16.1.0
++        version: 16.3.2(@testing-library/dom@10.4.1)(@types/react-dom@18.3.7(@types/react@18.3.31))(@types/react@18.3.31)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
++      &#x27;@types/react&#x27;:
++        specifier: ~18.3.1
++        version: 18.3.31
++      &#x27;@types/react-dom&#x27;:
++        specifier: ~18.3.0
++        version: 18.3.7(@types/react@18.3.31)
++      clsx:
++        specifier: ^2.0.0
++        version: 2.1.1
++      react:
++        specifier: ^18.2.0
++        version: 18.3.1
++      react-dom:
++        specifier: ^18.2.0
++        version: 18.3.1(react@18.3.1)
++
++  packages/qs/qs-ui-brand:
++    devDependencies:
++      &#x27;@deepseek-ai/cordis&#x27;:
++        specifier: workspace:^
++        version: link:../../../vendor/cordis
++      &#x27;@deepseek-ai/dsh-client-locale&#x27;:
++        specifier: workspace:^
++        version: link:../../client/locale
++      &#x27;@deepseek-ai/dsh-client-test-runtime&#x27;:
++        specifier: workspace:^
++        version: link:../../test-support/client-runtime
++      &#x27;@deepseek-ai/dsh-client-ui-renderer&#x27;:
++        specifier: workspace:^
++        version: link:../../client/ui-renderer
++      &#x27;@deepseek-ai/dsh-client-ui-slots&#x27;:
++        specifier: workspace:^
++        version: link:../../client/ui-slots
++      &#x27;@deepseek-ai/dsh-qs-shell&#x27;:
++        specifier: workspace:^
++        version: link:../qs-shell
++      &#x27;@types/react&#x27;:
++        specifier: ~18.3.1
++        version: 18.3.31
++      clsx:
++        specifier: ^2.0.0
++        version: 2.1.1
++      react:
++        specifier: ^18.2.0
++        version: 18.3.1
++
++  packages/qs/qs-ui-commands:
++    devDependencies:
++      &#x27;@deepseek-ai/cordis&#x27;:
++        specifier: workspace:^
++        version: link:../../../vendor/cordis
++      &#x27;@deepseek-ai/dsh-api-session-controller&#x27;:
++        specifier: workspace:^
++        version: link:../../api/session-controller
++      &#x27;@deepseek-ai/dsh-client-locale&#x27;:
++        specifier: workspace:^
++        version: link:../../client/locale
++      &#x27;@deepseek-ai/dsh-client-store&#x27;:
++        specifier: workspace:^
++        version: link:../../client/store
++      &#x27;@deepseek-ai/dsh-client-test-runtime&#x27;:
++        specifier: workspace:^
++        version: link:../../test-support/client-runtime
++      &#x27;@deepseek-ai/dsh-client-ui-commands&#x27;:
++        specifier: workspace:^
++        version: link:../../client/ui-commands
++      &#x27;@deepseek-ai/dsh-client-ui-primitives&#x27;:
++        specifier: workspace:^
++        version: link:../../client/ui-primitives
++      &#x27;@deepseek-ai/dsh-client-ui-renderer&#x27;:
++        specifier: workspace:^
++        version: link:../../client/ui-renderer
++      &#x27;@deepseek-ai/dsh-client-ui-session&#x27;:
++        specifier: workspace:^
++        version: link:../../client/ui-session
++      &#x27;@deepseek-ai/dsh-client-ui-slots&#x27;:
++        specifier: workspace:^
++        version: link:../../client/ui-slots
++      &#x27;@deepseek-ai/dsh-qs-composer&#x27;:
++        specifier: workspace:^
++        version: link:../qs-composer
++      &#x27;@deepseek-ai/dsh-session&#x27;:
++        specifier: workspace:^
++        version: link:../../core/session
++      &#x27;@types/react&#x27;:
++        specifier: ~18.3.1
++        version: 18.3.31
++      react:
++        specifier: ^18.2.0
++        version: 18.3.1
++
++  packages/qs/qs-ui-deliverables:
++    devDependencies:
++      &#x27;@deepseek-ai/cordis&#x27;:
++        specifier: workspace:^
++        version: link:../../../vendor/cordis
++      &#x27;@deepseek-ai/dsh-api-remotes&#x27;:
++        specifier: workspace:^
++        version: link:../../api/remotes
++      &#x27;@deepseek-ai/dsh-client-locale&#x27;:
++        specifier: workspace:^
++        version: link:../../client/locale
++      &#x27;@deepseek-ai/dsh-client-store&#x27;:
++        specifier: workspace:^
++        version: link:../../client/store
++      &#x27;@deepseek-ai/dsh-client-test-runtime&#x27;:
++        specifier: workspace:^
++        version: link:../../test-support/client-runtime
++      &#x27;@deepseek-ai/dsh-client-ui-chat&#x27;:
++        specifier: workspace:^
++        version: link:../../client/ui-chat
++      &#x27;@deepseek-ai/dsh-client-ui-deliverables&#x27;:
++        specifier: workspace:^
++        version: link:../../client/ui-deliverables
++      &#x27;@deepseek-ai/dsh-client-ui-dockkit&#x27;:
++        specifier: workspace:^
++        version: link:../../client/ui-dockkit
++      &#x27;@deepseek-ai/dsh-client-ui-primitives&#x27;:
++        specifier: workspace:^
++        version: link:../../client/ui-primitives
++      &#x27;@deepseek-ai/dsh-client-ui-renderer&#x27;:
++        specifier: workspace:^
++        version: link:../../client/ui-renderer
++      &#x27;@deepseek-ai/dsh-client-ui-session&#x27;:
++        specifier: workspace:^
++        version: link:../../client/ui-session
++      &#x27;@deepseek-ai/dsh-client-ui-sidebar-right&#x27;:
++        specifier: workspace:^
++        version: link:../../client/ui-sidebar-right
++      &#x27;@deepseek-ai/dsh-client-ui-slots&#x27;:
++        specifier: workspace:^
++        version: link:../../client/ui-slots
++      &#x27;@deepseek-ai/dsh-qs-transcript&#x27;:
++        specifier: workspace:^
++        version: link:../qs-transcript
++      &#x27;@deepseek-ai/dsh-qs-ui-tool&#x27;:
++        specifier: workspace:^
++        version: link:../qs-ui-tool
++      &#x27;@deepseek-ai/dsh-session&#x27;:
++        specifier: workspace:^
++        version: link:../../core/session
++      &#x27;@deepseek-ai/dsh-util-workspace-path&#x27;:
++        specifier: workspace:^
++        version: link:../../util/workspace-path
++      &#x27;@testing-library/react&#x27;:
++        specifier: ^16.1.0
++        version: 16.3.2(@testing-library/dom@10.4.1)(@types/react-dom@18.3.7(@types/react@18.3.31))(@types/react@18.3.31)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
++      &#x27;@types/react&#x27;:
++        specifier: ~18.3.1
++        version: 18.3.31
++      &#x27;@types/react-dom&#x27;:
++        specifier: ~18.3.0
++        version: 18.3.7(@types/react@18.3.31)
++      clsx:
++        specifier: ^2.0.0
++        version: 2.1.1
++      react:
++        specifier: ^18.2.0
++        version: 18.3.1
++      react-dom:
++        specifier: ^18.2.0
++        version: 18.3.1(react@18.3.1)
++
++  packages/qs/qs-ui-directory-picker-browse:
++    devDependencies:
++      &#x27;@deepseek-ai/cordis&#x27;:
++        specifier: workspace:^
++        version: link:../../../vendor/cordis
++      &#x27;@deepseek-ai/dsh-api-remotes&#x27;:
++        specifier: workspace:^
++        version: link:../../api/remotes
++      &#x27;@deepseek-ai/dsh-client-locale&#x27;:
++        specifier: workspace:^
++        version: link:../../client/locale
++      &#x27;@deepseek-ai/dsh-client-test-runtime&#x27;:
++        specifier: workspace:^
++        version: link:../../test-support/client-runtime
++      &#x27;@deepseek-ai/dsh-client-ui-primitives&#x27;:
++        specifier: workspace:^
++        version: link:../../client/ui-primitives
++      &#x27;@deepseek-ai/dsh-client-ui-renderer&#x27;:
++        specifier: workspace:^
++        version: link:../../client/ui-renderer
++      &#x27;@deepseek-ai/dsh-client-ui-slots&#x27;:
++        specifier: workspace:^
++        version: link:../../client/ui-slots
++      &#x27;@deepseek-ai/dsh-client-ui-workspace&#x27;:
++        specifier: workspace:^
++        version: link:../../client/ui-workspace
++      &#x27;@deepseek-ai/dsh-qs-sessions&#x27;:
++        specifier: workspace:^
++        version: link:../qs-sessions
++      &#x27;@testing-library/react&#x27;:
++        specifier: ^16.1.0
++        version: 16.3.2(@testing-library/dom@10.4.1)(@types/react-dom@18.3.7(@types/react@18.3.31))(@types/react@18.3.31)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
++      &#x27;@types/react&#x27;:
++        specifier: ~18.3.1
++        version: 18.3.31
++      react:
++        specifier: ^18.2.0
++        version: 18.3.1
++      react-dom:
++        specifier: ^18.2.0
++        version: 18.3.1(react@18.3.1)
++
++  packages/qs/qs-ui-directory-picker-native:
++    devDependencies:
++      &#x27;@deepseek-ai/cordis&#x27;:
++        specifier: workspace:^
++        version: link:../../../vendor/cordis
++      &#x27;@deepseek-ai/dsh-client-test-runtime&#x27;:
++        specifier: workspace:^
++        version: link:../../test-support/client-runtime
++      &#x27;@deepseek-ai/dsh-client-ui-renderer&#x27;:
++        specifier: workspace:^
++        version: link:../../client/ui-renderer
++      &#x27;@deepseek-ai/dsh-client-ui-workspace&#x27;:
++        specifier: workspace:^
++        version: link:../../client/ui-workspace
++      &#x27;@deepseek-ai/dsh-qs-sessions&#x27;:
++        specifier: workspace:^
++        version: link:../qs-sessions
++      &#x27;@testing-library/react&#x27;:
++        specifier: ^16.1.0
++        version: 16.3.2(@testing-library/dom@10.4.1)(@types/react-dom@18.3.7(@types/react@18.3.31))(@types/react@18.3.31)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
++      &#x27;@types/react&#x27;:
++        specifier: ~18.3.1
++        version: 18.3.31
++      react:
++        specifier: ^18.2.0
++        version: 18.3.1
++      react-dom:
++        specifier: ^18.2.0
++        version: 18.3.1(react@18.3.1)
++
++  packages/qs/qs-ui-goal:
++    devDependencies:
++      &#x27;@deepseek-ai/cordis&#x27;:
++        specifier: workspace:^
++        version: link:../../../vendor/cordis
++      &#x27;@deepseek-ai/dsh-api-remotes&#x27;:
++        specifier: workspace:^
++        version: link:../../api/remotes
++      &#x27;@deepseek-ai/dsh-api-session-controller&#x27;:
++        specifier: workspace:^
++        version: link:../../api/session-controller
++      &#x27;@deepseek-ai/dsh-client-connection&#x27;:
++        specifier: workspace:^
++        version: link:../../client/connection
++      &#x27;@deepseek-ai/dsh-client-locale&#x27;:
++        specifier: workspace:^
++        version: link:../../client/locale
++      &#x27;@deepseek-ai/dsh-client-test-runtime&#x27;:
++        specifier: workspace:^
++        version: link:../../test-support/client-runtime
++      &#x27;@deepseek-ai/dsh-client-ui-goal&#x27;:
++        specifier: workspace:^
++        version: link:../../client/ui-goal
++      &#x27;@deepseek-ai/dsh-client-ui-primitives&#x27;:
++        specifier: workspace:^
++        version: link:../../client/ui-primitives
++      &#x27;@deepseek-ai/dsh-client-ui-renderer&#x27;:
++        specifier: workspace:^
++        version: link:../../client/ui-renderer
++      &#x27;@deepseek-ai/dsh-client-ui-session&#x27;:
++        specifier: workspace:^
++        version: link:../../client/ui-session
++      &#x27;@deepseek-ai/dsh-client-ui-slots&#x27;:
++        specifier: workspace:^
++        version: link:../../client/ui-slots
++      &#x27;@deepseek-ai/dsh-goal&#x27;:
++        specifier: workspace:^
++        version: link:../../goal/goal
++      &#x27;@deepseek-ai/dsh-qs-composer&#x27;:
++        specifier: workspace:^
++        version: link:../qs-composer
++      &#x27;@deepseek-ai/dsh-qs-transcript&#x27;:
++        specifier: workspace:^
++        version: link:../qs-transcript
++      &#x27;@deepseek-ai/dsh-session&#x27;:
++        specifier: workspace:^
++        version: link:../../core/session
++      &#x27;@testing-library/react&#x27;:
++        specifier: ^16.1.0
++        version: 16.3.2(@testing-library/dom@10.4.1)(@types/react-dom@18.3.7(@types/react@18.3.31))(@types/react@18.3.31)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
++      &#x27;@types/react&#x27;:
++        specifier: ~18.3.1
++        version: 18.3.31
++      &#x27;@types/react-dom&#x27;:
++        specifier: ~18.3.0
++        version: 18.3.7(@types/react@18.3.31)
++      react:
++        specifier: ^18.2.0
++        version: 18.3.1
++      react-dom:
++        specifier: ^18.2.0
++        version: 18.3.1(react@18.3.1)
++
++  packages/qs/qs-ui-input-trigger:
++    devDependencies:
++      &#x27;@deepseek-ai/cordis&#x27;:
++        specifier: workspace:^
++        version: link:../../../vendor/cordis
++      &#x27;@deepseek-ai/dsh-api-session-controller&#x27;:
++        specifier: workspace:^
++        version: link:../../api/session-controller
++      &#x27;@deepseek-ai/dsh-client-locale&#x27;:
++        specifier: workspace:^
++        version: link:../../client/locale
++      &#x27;@deepseek-ai/dsh-client-store&#x27;:
++        specifier: workspace:^
++        version: link:../../client/store
++      &#x27;@deepseek-ai/dsh-client-test-runtime&#x27;:
++        specifier: workspace:^
++        version: link:../../test-support/client-runtime
++      &#x27;@deepseek-ai/dsh-client-ui-conversation&#x27;:
++        specifier: workspace:^
++        version: link:../../client/ui-conversation
++      &#x27;@deepseek-ai/dsh-client-ui-input-trigger&#x27;:
++        specifier: workspace:^
++        version: link:../../client/ui-input-trigger
++      &#x27;@deepseek-ai/dsh-client-ui-renderer&#x27;:
++        specifier: workspace:^
++        version: link:../../client/ui-renderer
++      &#x27;@deepseek-ai/dsh-client-ui-session&#x27;:
++        specifier: workspace:^
++        version: link:../../client/ui-session
++      &#x27;@deepseek-ai/dsh-client-ui-slots&#x27;:
++        specifier: workspace:^
++        version: link:../../client/ui-slots
++      &#x27;@deepseek-ai/dsh-qs-composer&#x27;:
++        specifier: workspace:^
++        version: link:../qs-composer
++      &#x27;@deepseek-ai/dsh-session&#x27;:
++        specifier: workspace:^
++        version: link:../../core/session
++      &#x27;@types/react&#x27;:
++        specifier: ~18.3.1
++        version: 18.3.31
++      clsx:
++        specifier: ^2.0.0
++        version: 2.1.1
++      react:
++        specifier: ^18.2.0
++        version: 18.3.1
++
++  packages/qs/qs-ui-jobs:
++    devDependencies:
++      &#x27;@deepseek-ai/cordis&#x27;:
++        specifier: workspace:^
++        version: link:../../../vendor/cordis
++      &#x27;@deepseek-ai/dsh-api-remotes&#x27;:
++        specifier: workspace:^
++        version: link:../../api/remotes
++      &#x27;@deepseek-ai/dsh-api-session-controller&#x27;:
++        specifier: workspace:^
++        version: link:../../api/session-controller
++      &#x27;@deepseek-ai/dsh-client-connection&#x27;:
++        specifier: workspace:^
++        version: link:../../client/connection
++      &#x27;@deepseek-ai/dsh-client-locale&#x27;:
++        specifier: workspace:^
++        version: link:../../client/locale
++      &#x27;@deepseek-ai/dsh-client-store&#x27;:
++        specifier: workspace:^
++        version: link:../../client/store
++      &#x27;@deepseek-ai/dsh-client-test-runtime&#x27;:
++        specifier: workspace:^
++        version: link:../../test-support/client-runtime
++      &#x27;@deepseek-ai/dsh-client-ui-primitives&#x27;:
++        specifier: workspace:^
++        version: link:../../client/ui-primitives
++      &#x27;@deepseek-ai/dsh-client-ui-renderer&#x27;:
++        specifier: workspace:^
++        version: link:../../client/ui-renderer
++      &#x27;@deepseek-ai/dsh-client-ui-session&#x27;:
++        specifier: workspace:^
++        version: link:../../client/ui-session
++      &#x27;@deepseek-ai/dsh-client-ui-slots&#x27;:
++        specifier: workspace:^
++        version: link:../../client/ui-slots
++      &#x27;@deepseek-ai/dsh-qs-composer&#x27;:
++        specifier: workspace:^
++        version: link:../qs-composer
++      &#x27;@deepseek-ai/dsh-qs-shell&#x27;:
++        specifier: workspace:^
++        version: link:../qs-shell
++      &#x27;@deepseek-ai/dsh-session&#x27;:
++        specifier: workspace:^
++        version: link:../../core/session
++      &#x27;@testing-library/react&#x27;:
++        specifier: ^16.1.0
++        version: 16.3.2(@testing-library/dom@10.4.1)(@types/react-dom@18.3.7(@types/react@18.3.31))(@types/react@18.3.31)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
++      &#x27;@types/react&#x27;:
++        specifier: ~18.3.1
++        version: 18.3.31
++      &#x27;@types/react-dom&#x27;:
++        specifier: ~18.3.0
++        version: 18.3.7(@types/react@18.3.31)
++      react:
++        specifier: ^18.2.0
++        version: 18.3.1
++      react-dom:
++        specifier: ^18.2.0
++        version: 18.3.1(react@18.3.1)
++
++  packages/qs/qs-ui-message-feedback:
++    devDependencies:
++      &#x27;@deepseek-ai/cordis&#x27;:
++        specifier: workspace:^
++        version: link:../../../vendor/cordis
++      &#x27;@deepseek-ai/dsh-api-remotes&#x27;:
++        specifier: workspace:^
++        version: link:../../api/remotes
++      &#x27;@deepseek-ai/dsh-api-session-controller&#x27;:
++        specifier: workspace:^
++        version: link:../../api/session-controller
++      &#x27;@deepseek-ai/dsh-client-locale&#x27;:
++        specifier: workspace:^
++        version: link:../../client/locale
++      &#x27;@deepseek-ai/dsh-client-store&#x27;:
++        specifier: workspace:^
++        version: link:../../client/store
++      &#x27;@deepseek-ai/dsh-client-test-runtime&#x27;:
++        specifier: workspace:^
++        version: link:../../test-support/client-runtime
++      &#x27;@deepseek-ai/dsh-client-ui-message-feedback&#x27;:
++        specifier: workspace:^
++        version: link:../../client/ui-message-feedback
++      &#x27;@deepseek-ai/dsh-client-ui-primitives&#x27;:
++        specifier: workspace:^
++        version: link:../../client/ui-primitives
++      &#x27;@deepseek-ai/dsh-client-ui-renderer&#x27;:
++        specifier: workspace:^
++        version: link:../../client/ui-renderer
++      &#x27;@deepseek-ai/dsh-client-ui-session&#x27;:
++        specifier: workspace:^
++        version: link:../../client/ui-session
++      &#x27;@deepseek-ai/dsh-client-ui-slots&#x27;:
++        specifier: workspace:^
++        version: link:../../client/ui-slots
++      &#x27;@deepseek-ai/dsh-command-feedback&#x27;:
++        specifier: workspace:^
++        version: link:../../feedback/command-feedback
++      &#x27;@deepseek-ai/dsh-message-feedback&#x27;:
++        specifier: workspace:^
++        version: link:../../feedback/message-feedback
++      &#x27;@deepseek-ai/dsh-qs-composer&#x27;:
++        specifier: workspace:^
++        version: link:../qs-composer
++      &#x27;@deepseek-ai/dsh-qs-transcript&#x27;:
++        specifier: workspace:^
++        version: link:../qs-transcript
++      &#x27;@deepseek-ai/dsh-session&#x27;:
++        specifier: workspace:^
++        version: link:../../core/session
++      &#x27;@types/react&#x27;:
++        specifier: ~18.3.1
++        version: 18.3.31
++      react:
++        specifier: ^18.2.0
++        version: 18.3.1
++
++  packages/qs/qs-ui-model-selection:
++    devDependencies:
++      &#x27;@deepseek-ai/cordis&#x27;:
++        specifier: workspace:^
++        version: link:../../../vendor/cordis
++      &#x27;@deepseek-ai/dsh-api-remotes&#x27;:
++        specifier: workspace:^
++        version: link:../../api/remotes
++      &#x27;@deepseek-ai/dsh-api-session-controller&#x27;:
++        specifier: workspace:^
++        version: link:../../api/session-controller
++      &#x27;@deepseek-ai/dsh-client-locale&#x27;:
++        specifier: workspace:^
++        version: link:../../client/locale
++      &#x27;@deepseek-ai/dsh-client-test-runtime&#x27;:
++        specifier: workspace:^
++        version: link:../../test-support/client-runtime
++      &#x27;@deepseek-ai/dsh-client-ui-commands&#x27;:
++        specifier: workspace:^
++        version: link:../../client/ui-commands
++      &#x27;@deepseek-ai/dsh-client-ui-model-selection&#x27;:
++        specifier: workspace:^
++        version: link:../../client/ui-model-selection
++      &#x27;@deepseek-ai/dsh-client-ui-renderer&#x27;:
++        specifier: workspace:^
++        version: link:../../client/ui-renderer
++      &#x27;@deepseek-ai/dsh-client-ui-slots&#x27;:
++        specifier: workspace:^
++        version: link:../../client/ui-slots
++      &#x27;@deepseek-ai/dsh-qs-composer&#x27;:
++        specifier: workspace:^
++        version: link:../qs-composer
++      &#x27;@testing-library/react&#x27;:
++        specifier: ^16.1.0
++        version: 16.3.2(@testing-library/dom@10.4.1)(@types/react-dom@18.3.7(@types/react@18.3.31))(@types/react@18.3.31)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
++      &#x27;@types/react&#x27;:
++        specifier: ~18.3.1
++        version: 18.3.31
++      &#x27;@types/react-dom&#x27;:
++        specifier: ~18.3.0
++        version: 18.3.7(@types/react@18.3.31)
++      react:
++        specifier: ^18.2.0
++        version: 18.3.1
++      react-dom:
++        specifier: ^18.2.0
++        version: 18.3.1(react@18.3.1)
++
++  packages/qs/qs-ui-permission-presets:
++    devDependencies:
++      &#x27;@deepseek-ai/cordis&#x27;:
++        specifier: workspace:^
++        version: link:../../../vendor/cordis
++      &#x27;@deepseek-ai/dsh-api-remotes&#x27;:
++        specifier: workspace:^
++        version: link:../../api/remotes
++      &#x27;@deepseek-ai/dsh-client-locale&#x27;:
++        specifier: workspace:^
++        version: link:../../client/locale
++      &#x27;@deepseek-ai/dsh-client-test-runtime&#x27;:
++        specifier: workspace:^
++        version: link:../../test-support/client-runtime
++      &#x27;@deepseek-ai/dsh-client-ui-commands&#x27;:
++        specifier: workspace:^
++        version: link:../../client/ui-commands
++      &#x27;@deepseek-ai/dsh-client-ui-input-trigger&#x27;:
++        specifier: workspace:^
++        version: link:../../client/ui-input-trigger
++      &#x27;@deepseek-ai/dsh-client-ui-renderer&#x27;:
++        specifier: workspace:^
++        version: link:../../client/ui-renderer
++      &#x27;@deepseek-ai/dsh-client-ui-session&#x27;:
++        specifier: workspace:^
++        version: link:../../client/ui-session
++      &#x27;@deepseek-ai/dsh-client-ui-settings&#x27;:
++        specifier: workspace:^
++        version: link:../../client/ui-settings
++      &#x27;@deepseek-ai/dsh-client-ui-slots&#x27;:
++        specifier: workspace:^
++        version: link:../../client/ui-slots
++      &#x27;@deepseek-ai/dsh-permission-presets&#x27;:
++        specifier: workspace:^
++        version: link:../../interaction/permission-presets
++      &#x27;@deepseek-ai/dsh-qs-ui-settings-general&#x27;:
++        specifier: workspace:^
++        version: link:../qs-ui-settings-general
++      &#x27;@testing-library/react&#x27;:
++        specifier: ^16.1.0
++        version: 16.3.2(@testing-library/dom@10.4.1)(@types/react-dom@18.3.7(@types/react@18.3.31))(@types/react@18.3.31)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
++      &#x27;@types/react&#x27;:
++        specifier: ~18.3.1
++        version: 18.3.31
++      &#x27;@types/react-dom&#x27;:
++        specifier: ~18.3.0
++        version: 18.3.7(@types/react@18.3.31)
++      react:
++        specifier: ^18.2.0
++        version: 18.3.1
++      react-dom:
++        specifier: ^18.2.0
++        version: 18.3.1(react@18.3.1)
++
++  packages/qs/qs-ui-schedule:
++    devDependencies:
++      &#x27;@deepseek-ai/cordis&#x27;:
++        specifier: workspace:^
++        version: link:../../../vendor/cordis
++      &#x27;@deepseek-ai/dsh-api-session-controller&#x27;:
++        specifier: workspace:^
++        version: link:../../api/session-controller
++      &#x27;@deepseek-ai/dsh-client-locale&#x27;:
++        specifier: workspace:^
++        version: link:../../client/locale
++      &#x27;@deepseek-ai/dsh-client-test-runtime&#x27;:
++        specifier: workspace:^
++        version: link:../../test-support/client-runtime
++      &#x27;@deepseek-ai/dsh-client-ui-primitives&#x27;:
++        specifier: workspace:^
++        version: link:../../client/ui-primitives
++      &#x27;@deepseek-ai/dsh-client-ui-renderer&#x27;:
++        specifier: workspace:^
++        version: link:../../client/ui-renderer
++      &#x27;@deepseek-ai/dsh-client-ui-session&#x27;:
++        specifier: workspace:^
++        version: link:../../client/ui-session
++      &#x27;@deepseek-ai/dsh-client-ui-slots&#x27;:
++        specifier: workspace:^
++        version: link:../../client/ui-slots
++      &#x27;@deepseek-ai/dsh-qs-composer&#x27;:
++        specifier: workspace:^
++        version: link:../qs-composer
++      &#x27;@deepseek-ai/dsh-schedule&#x27;:
++        specifier: workspace:^
++        version: link:../../schedule/schedule
++      &#x27;@deepseek-ai/dsh-session&#x27;:
++        specifier: workspace:^
++        version: link:../../core/session
++      &#x27;@testing-library/react&#x27;:
++        specifier: ^16.1.0
++        version: 16.3.2(@testing-library/dom@10.4.1)(@types/react-dom@18.3.7(@types/react@18.3.31))(@types/react@18.3.31)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
++      &#x27;@types/react&#x27;:
++        specifier: ~18.3.1
++        version: 18.3.31
++      &#x27;@types/react-dom&#x27;:
++        specifier: ~18.3.0
++        version: 18.3.7(@types/react@18.3.31)
++      react:
++        specifier: ^18.2.0
++        version: 18.3.1
++      react-dom:
++        specifier: ^18.2.0
++        version: 18.3.1(react@18.3.1)
++
++  packages/qs/qs-ui-settings-general:
++    devDependencies:
++      &#x27;@deepseek-ai/cordis&#x27;:
++        specifier: workspace:^
++        version: link:../../../vendor/cordis
++      &#x27;@deepseek-ai/dsh-api-remotes&#x27;:
++        specifier: workspace:^
++        version: link:../../api/remotes
++      &#x27;@deepseek-ai/dsh-client-connection&#x27;:
++        specifier: workspace:^
++        version: link:../../client/connection
++      &#x27;@deepseek-ai/dsh-client-locale&#x27;:
++        specifier: workspace:^
++        version: link:../../client/locale
++      &#x27;@deepseek-ai/dsh-client-store&#x27;:
++        specifier: workspace:^
++        version: link:../../client/store
++      &#x27;@deepseek-ai/dsh-client-test-runtime&#x27;:
++        specifier: workspace:^
++        version: link:../../test-support/client-runtime
++      &#x27;@deepseek-ai/dsh-client-ui-renderer&#x27;:
++        specifier: workspace:^
++        version: link:../../client/ui-renderer
++      &#x27;@deepseek-ai/dsh-client-ui-session&#x27;:
++        specifier: workspace:^
++        version: link:../../client/ui-session
++      &#x27;@deepseek-ai/dsh-client-ui-settings&#x27;:
++        specifier: workspace:^
++        version: link:../../client/ui-settings
++      &#x27;@deepseek-ai/dsh-client-ui-slots&#x27;:
++        specifier: workspace:^
++        version: link:../../client/ui-slots
++      &#x27;@deepseek-ai/dsh-qs-ui-sidebar&#x27;:
++        specifier: workspace:^
++        version: link:../qs-ui-sidebar
++      &#x27;@testing-library/react&#x27;:
++        specifier: ^16.1.0
++        version: 16.3.2(@testing-library/dom@10.4.1)(@types/react-dom@18.3.7(@types/react@18.3.31))(@types/react@18.3.31)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
++      &#x27;@types/react&#x27;:
++        specifier: ~18.3.1
++        version: 18.3.31
++      &#x27;@types/react-dom&#x27;:
++        specifier: ~18.3.0
++        version: 18.3.7(@types/react@18.3.31)
++      react:
++        specifier: ^18.2.0
++        version: 18.3.1
++      react-dom:
++        specifier: ^18.2.0
++        version: 18.3.1(react@18.3.1)
++
++  packages/qs/qs-ui-settings-models:
++    devDependencies:
++      &#x27;@deepseek-ai/cordis&#x27;:
++        specifier: workspace:^
++        version: link:../../../vendor/cordis
++      &#x27;@deepseek-ai/dsh-api-remotes&#x27;:
++        specifier: workspace:^
++        version: link:../../api/remotes
++      &#x27;@deepseek-ai/dsh-client-locale&#x27;:
++        specifier: workspace:^
++        version: link:../../client/locale
++      &#x27;@deepseek-ai/dsh-client-test-runtime&#x27;:
++        specifier: workspace:^
++        version: link:../../test-support/client-runtime
++      &#x27;@deepseek-ai/dsh-client-ui-renderer&#x27;:
++        specifier: workspace:^
++        version: link:../../client/ui-renderer
++      &#x27;@deepseek-ai/dsh-client-ui-settings&#x27;:
++        specifier: workspace:^
++        version: link:../../client/ui-settings
++      &#x27;@deepseek-ai/dsh-client-ui-settings-models&#x27;:
++        specifier: workspace:^
++        version: link:../../client/ui-settings-models
++      &#x27;@deepseek-ai/dsh-client-ui-slots&#x27;:
++        specifier: workspace:^
++        version: link:../../client/ui-slots
++      &#x27;@deepseek-ai/dsh-qs-ui-settings-general&#x27;:
++        specifier: workspace:^
++        version: link:../qs-ui-settings-general
++      &#x27;@testing-library/react&#x27;:
++        specifier: ^16.1.0
++        version: 16.3.2(@testing-library/dom@10.4.1)(@types/react-dom@18.3.7(@types/react@18.3.31))(@types/react@18.3.31)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
++      &#x27;@types/react&#x27;:
++        specifier: ~18.3.1
++        version: 18.3.31
++      &#x27;@types/react-dom&#x27;:
++        specifier: ~18.3.0
++        version: 18.3.7(@types/react@18.3.31)
++      react:
++        specifier: ^18.2.0
++        version: 18.3.1
++      react-dom:
++        specifier: ^18.2.0
++        version: 18.3.1(react@18.3.1)
++
++  packages/qs/qs-ui-settings-plugin-inventory:
++    devDependencies:
++      &#x27;@deepseek-ai/cordis&#x27;:
++        specifier: workspace:^
++        version: link:../../../vendor/cordis
++      &#x27;@deepseek-ai/dsh-agent-presets&#x27;:
++        specifier: workspace:^
++        version: link:../../preset/agent-presets
++      &#x27;@deepseek-ai/dsh-api-remotes&#x27;:
++        specifier: workspace:^
++        version: link:../../api/remotes
++      &#x27;@deepseek-ai/dsh-client-locale&#x27;:
++        specifier: workspace:^
++        version: link:../../client/locale
++      &#x27;@deepseek-ai/dsh-client-test-runtime&#x27;:
++        specifier: workspace:^
++        version: link:../../test-support/client-runtime
++      &#x27;@deepseek-ai/dsh-client-ui-agent-preset&#x27;:
++        specifier: workspace:^
++        version: link:../../client/ui-agent-preset
++      &#x27;@deepseek-ai/dsh-client-ui-renderer&#x27;:
++        specifier: workspace:^
++        version: link:../../client/ui-renderer
++      &#x27;@deepseek-ai/dsh-client-ui-slots&#x27;:
++        specifier: workspace:^
++        version: link:../../client/ui-slots
++      &#x27;@deepseek-ai/dsh-qs-ui-settings-plugins&#x27;:
++        specifier: workspace:^
++        version: link:../qs-ui-settings-plugins
++      &#x27;@testing-library/react&#x27;:
++        specifier: ^16.1.0
++        version: 16.3.2(@testing-library/dom@10.4.1)(@types/react-dom@18.3.7(@types/react@18.3.31))(@types/react@18.3.31)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
++      &#x27;@types/react&#x27;:
++        specifier: ~18.3.1
++        version: 18.3.31
++      &#x27;@types/react-dom&#x27;:
++        specifier: ~18.3.0
++        version: 18.3.7(@types/react@18.3.31)
++      react:
++        specifier: ^18.2.0
++        version: 18.3.1
++      react-dom:
++        specifier: ^18.2.0
++        version: 18.3.1(react@18.3.1)
++
++  packages/qs/qs-ui-settings-plugins:
++    devDependencies:
++      &#x27;@deepseek-ai/cordis&#x27;:
++        specifier: workspace:^
++        version: link:../../../vendor/cordis
++      &#x27;@deepseek-ai/dsh-api-remotes&#x27;:
++        specifier: workspace:^
++        version: link:../../api/remotes
++      &#x27;@deepseek-ai/dsh-client-locale&#x27;:
++        specifier: workspace:^
++        version: link:../../client/locale
++      &#x27;@deepseek-ai/dsh-client-test-runtime&#x27;:
++        specifier: workspace:^
++        version: link:../../test-support/client-runtime
++      &#x27;@deepseek-ai/dsh-client-ui-renderer&#x27;:
++        specifier: workspace:^
++        version: link:../../client/ui-renderer
++      &#x27;@deepseek-ai/dsh-client-ui-settings&#x27;:
++        specifier: workspace:^
++        version: link:../../client/ui-settings
++      &#x27;@deepseek-ai/dsh-client-ui-slots&#x27;:
++        specifier: workspace:^
++        version: link:../../client/ui-slots
++      &#x27;@deepseek-ai/dsh-qs-ui-settings-general&#x27;:
++        specifier: workspace:^
++        version: link:../qs-ui-settings-general
++      &#x27;@testing-library/react&#x27;:
++        specifier: ^16.1.0
++        version: 16.3.2(@testing-library/dom@10.4.1)(@types/react-dom@18.3.7(@types/react@18.3.31))(@types/react@18.3.31)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
++      &#x27;@types/react&#x27;:
++        specifier: ~18.3.1
++        version: 18.3.31
++      &#x27;@types/react-dom&#x27;:
++        specifier: ~18.3.0
++        version: 18.3.7(@types/react@18.3.31)
++      react:
++        specifier: ^18.2.0
++        version: 18.3.1
++      react-dom:
++        specifier: ^18.2.0
++        version: 18.3.1(react@18.3.1)
++
++  packages/qs/qs-ui-sidebar:
++    devDependencies:
++      &#x27;@deepseek-ai/cordis&#x27;:
++        specifier: workspace:^
++        version: link:../../../vendor/cordis
++      &#x27;@deepseek-ai/dsh-client-locale&#x27;:
++        specifier: workspace:^
++        version: link:../../client/locale
++      &#x27;@deepseek-ai/dsh-client-test-runtime&#x27;:
++        specifier: workspace:^
++        version: link:../../test-support/client-runtime
++      &#x27;@deepseek-ai/dsh-client-ui-renderer&#x27;:
++        specifier: workspace:^
++        version: link:../../client/ui-renderer
++      &#x27;@deepseek-ai/dsh-client-ui-slots&#x27;:
++        specifier: workspace:^
++        version: link:../../client/ui-slots
++      &#x27;@deepseek-ai/dsh-qs-shell&#x27;:
++        specifier: workspace:^
++        version: link:../qs-shell
++      &#x27;@types/react&#x27;:
++        specifier: ~18.3.1
++        version: 18.3.31
++      clsx:
++        specifier: ^2.0.0
++        version: 2.1.1
++      react:
++        specifier: ^18.2.0
++        version: 18.3.1
++
++  packages/qs/qs-ui-sidebar-documentpreview:
++    devDependencies:
++      &#x27;@deepseek-ai/cordis&#x27;:
++        specifier: workspace:^
++        version: link:../../../vendor/cordis
++      &#x27;@deepseek-ai/dsh-api-remotes&#x27;:
++        specifier: workspace:^
++        version: link:../../api/remotes
++      &#x27;@deepseek-ai/dsh-api-workspace-files&#x27;:
++        specifier: workspace:^
++        version: link:../../api/workspace-files
++      &#x27;@deepseek-ai/dsh-client-locale&#x27;:
++        specifier: workspace:^
++        version: link:../../client/locale
++      &#x27;@deepseek-ai/dsh-client-resources&#x27;:
++        specifier: workspace:^
++        version: link:../../client/resources
++      &#x27;@deepseek-ai/dsh-client-store&#x27;:
++        specifier: workspace:^
++        version: link:../../client/store
++      &#x27;@deepseek-ai/dsh-client-test-runtime&#x27;:
++        specifier: workspace:^
++        version: link:../../test-support/client-runtime
++      &#x27;@deepseek-ai/dsh-client-ui-dockkit&#x27;:
++        specifier: workspace:^
++        version: link:../../client/ui-dockkit
++      &#x27;@deepseek-ai/dsh-client-ui-primitives&#x27;:
++        specifier: workspace:^
++        version: link:../../client/ui-primitives
++      &#x27;@deepseek-ai/dsh-client-ui-renderer&#x27;:
++        specifier: workspace:^
++        version: link:../../client/ui-renderer
++      &#x27;@deepseek-ai/dsh-client-ui-session&#x27;:
++        specifier: workspace:^
++        version: link:../../client/ui-session
++      &#x27;@deepseek-ai/dsh-client-ui-sidebar-documentpreview&#x27;:
++        specifier: workspace:^
++        version: link:../../client/ui-sidebar-documentpreview
++      &#x27;@deepseek-ai/dsh-client-ui-sidebar-right&#x27;:
++        specifier: workspace:^
++        version: link:../../client/ui-sidebar-right
++      &#x27;@deepseek-ai/dsh-client-ui-slots&#x27;:
++        specifier: workspace:^
++        version: link:../../client/ui-slots
++      &#x27;@deepseek-ai/dsh-qs-ui-sidebar-right&#x27;:
++        specifier: workspace:^
++        version: link:../qs-ui-sidebar-right
++      &#x27;@deepseek-ai/dsh-session&#x27;:
++        specifier: workspace:^
++        version: link:../../core/session
++      &#x27;@deepseek-ai/dsh-util-workspace-path&#x27;:
++        specifier: workspace:^
++        version: link:../../util/workspace-path
++      &#x27;@testing-library/react&#x27;:
++        specifier: ^16.1.0
++        version: 16.3.2(@testing-library/dom@10.4.1)(@types/react-dom@18.3.7(@types/react@18.3.31))(@types/react@18.3.31)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
++      &#x27;@types/react&#x27;:
++        specifier: ~18.3.1
++        version: 18.3.31
++      &#x27;@types/react-dom&#x27;:
++        specifier: ~18.3.0
++        version: 18.3.7(@types/react@18.3.31)
++      clsx:
++        specifier: ^2.0.0
++        version: 2.1.1
++      react:
++        specifier: ^18.2.0
++        version: 18.3.1
++      react-dom:
++        specifier: ^18.2.0
++        version: 18.3.1(react@18.3.1)
++
++  packages/qs/qs-ui-sidebar-files:
++    devDependencies:
++      &#x27;@deepseek-ai/cordis&#x27;:
++        specifier: workspace:^
++        version: link:../../../vendor/cordis
++      &#x27;@deepseek-ai/dsh-api-remotes&#x27;:
++        specifier: workspace:^
++        version: link:../../api/remotes
++      &#x27;@deepseek-ai/dsh-api-workspace-files&#x27;:
++        specifier: workspace:^
++        version: link:../../api/workspace-files
++      &#x27;@deepseek-ai/dsh-client-locale&#x27;:
++        specifier: workspace:^
++        version: link:../../client/locale
++      &#x27;@deepseek-ai/dsh-client-store&#x27;:
++        specifier: workspace:^
++        version: link:../../client/store
++      &#x27;@deepseek-ai/dsh-client-test-runtime&#x27;:
++        specifier: workspace:^
++        version: link:../../test-support/client-runtime
++      &#x27;@deepseek-ai/dsh-client-ui-dockkit&#x27;:
++        specifier: workspace:^
++        version: link:../../client/ui-dockkit
++      &#x27;@deepseek-ai/dsh-client-ui-primitives&#x27;:
++        specifier: workspace:^
++        version: link:../../client/ui-primitives
++      &#x27;@deepseek-ai/dsh-client-ui-renderer&#x27;:
++        specifier: workspace:^
++        version: link:../../client/ui-renderer
++      &#x27;@deepseek-ai/dsh-client-ui-session&#x27;:
++        specifier: workspace:^
++        version: link:../../client/ui-session
++      &#x27;@deepseek-ai/dsh-client-ui-sidebar-files&#x27;:
++        specifier: workspace:^
++        version: link:../../client/ui-sidebar-files
++      &#x27;@deepseek-ai/dsh-client-ui-sidebar-right&#x27;:
++        specifier: workspace:^
++        version: link:../../client/ui-sidebar-right
++      &#x27;@deepseek-ai/dsh-client-ui-slots&#x27;:
++        specifier: workspace:^
++        version: link:../../client/ui-slots
++      &#x27;@deepseek-ai/dsh-qs-ui-sidebar-right&#x27;:
++        specifier: workspace:^
++        version: link:../qs-ui-sidebar-right
++      &#x27;@deepseek-ai/dsh-session&#x27;:
++        specifier: workspace:^
++        version: link:../../core/session
++      &#x27;@deepseek-ai/dsh-util-workspace-path&#x27;:
++        specifier: workspace:^
++        version: link:../../util/workspace-path
++      &#x27;@testing-library/react&#x27;:
++        specifier: ^16.1.0
++        version: 16.3.2(@testing-library/dom@10.4.1)(@types/react-dom@18.3.7(@types/react@18.3.31))(@types/react@18.3.31)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
++      &#x27;@types/react&#x27;:
++        specifier: ~18.3.1
++        version: 18.3.31
++      &#x27;@types/react-dom&#x27;:
++        specifier: ~18.3.0
++        version: 18.3.7(@types/react@18.3.31)
++      clsx:
++        specifier: ^2.0.0
++        version: 2.1.1
++      react:
++        specifier: ^18.2.0
++        version: 18.3.1
++      react-dom:
++        specifier: ^18.2.0
++        version: 18.3.1(react@18.3.1)
++
++  packages/qs/qs-ui-sidebar-right:
++    devDependencies:
++      &#x27;@deepseek-ai/cordis&#x27;:
++        specifier: workspace:^
++        version: link:../../../vendor/cordis
++      &#x27;@deepseek-ai/dsh-client-locale&#x27;:
++        specifier: workspace:^
++        version: link:../../client/locale
++      &#x27;@deepseek-ai/dsh-client-test-runtime&#x27;:
++        specifier: workspace:^
++        version: link:../../test-support/client-runtime
++      &#x27;@deepseek-ai/dsh-client-ui-dockkit&#x27;:
++        specifier: workspace:^
++        version: link:../../client/ui-dockkit
++      &#x27;@deepseek-ai/dsh-client-ui-renderer&#x27;:
++        specifier: workspace:^
++        version: link:../../client/ui-renderer
++      &#x27;@deepseek-ai/dsh-client-ui-session&#x27;:
++        specifier: workspace:^
++        version: link:../../client/ui-session
++      &#x27;@deepseek-ai/dsh-client-ui-sidebar-right&#x27;:
++        specifier: workspace:^
++        version: link:../../client/ui-sidebar-right
++      &#x27;@deepseek-ai/dsh-client-ui-slots&#x27;:
++        specifier: workspace:^
++        version: link:../../client/ui-slots
++      &#x27;@deepseek-ai/dsh-qs-shell&#x27;:
++        specifier: workspace:^
++        version: link:../qs-shell
++      &#x27;@deepseek-ai/dsh-session&#x27;:
++        specifier: workspace:^
++        version: link:../../core/session
++      &#x27;@deepseek-ai/dsh-util-workspace-path&#x27;:
++        specifier: workspace:^
++        version: link:../../util/workspace-path
++      &#x27;@types/react&#x27;:
++        specifier: ~18.3.1
++        version: 18.3.31
++      &#x27;@types/react-dom&#x27;:
++        specifier: ~18.3.0
++        version: 18.3.7(@types/react@18.3.31)
++      clsx:
++        specifier: ^2.0.0
++        version: 2.1.1
++      react:
++        specifier: ^18.2.0
++        version: 18.3.1
++      react-dom:
++        specifier: ^18.2.0
++        version: 18.3.1(react@18.3.1)
++
++  packages/qs/qs-ui-subagent:
++    devDependencies:
++      &#x27;@deepseek-ai/cordis&#x27;:
++        specifier: workspace:^
++        version: link:../../../vendor/cordis
++      &#x27;@deepseek-ai/dsh-api-remotes&#x27;:
++        specifier: workspace:^
++        version: link:../../api/remotes
++      &#x27;@deepseek-ai/dsh-api-session-controller&#x27;:
++        specifier: workspace:^
++        version: link:../../api/session-controller
++      &#x27;@deepseek-ai/dsh-client-locale&#x27;:
++        specifier: workspace:^
++        version: link:../../client/locale
++      &#x27;@deepseek-ai/dsh-client-store&#x27;:
++        specifier: workspace:^
++        version: link:../../client/store
++      &#x27;@deepseek-ai/dsh-client-test-runtime&#x27;:
++        specifier: workspace:^
++        version: link:../../test-support/client-runtime
++      &#x27;@deepseek-ai/dsh-client-ui-conversation&#x27;:
++        specifier: workspace:^
++        version: link:../../client/ui-conversation
++      &#x27;@deepseek-ai/dsh-client-ui-primitives&#x27;:
++        specifier: workspace:^
++        version: link:../../client/ui-primitives
++      &#x27;@deepseek-ai/dsh-client-ui-renderer&#x27;:
++        specifier: workspace:^
++        version: link:../../client/ui-renderer
++      &#x27;@deepseek-ai/dsh-client-ui-session&#x27;:
++        specifier: workspace:^
++        version: link:../../client/ui-session
++      &#x27;@deepseek-ai/dsh-client-ui-slots&#x27;:
++        specifier: workspace:^
++        version: link:../../client/ui-slots
++      &#x27;@deepseek-ai/dsh-qs-composer&#x27;:
++        specifier: workspace:^
++        version: link:../qs-composer
++      &#x27;@deepseek-ai/dsh-session&#x27;:
++        specifier: workspace:^
++        version: link:../../core/session
++      &#x27;@deepseek-ai/dsh-subagent&#x27;:
++        specifier: workspace:^
++        version: link:../../subagent/subagent
++      &#x27;@testing-library/react&#x27;:
++        specifier: ^16.1.0
++        version: 16.3.2(@testing-library/dom@10.4.1)(@types/react-dom@18.3.7(@types/react@18.3.31))(@types/react@18.3.31)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
++      &#x27;@types/react&#x27;:
++        specifier: ~18.3.1
++        version: 18.3.31
++      &#x27;@types/react-dom&#x27;:
++        specifier: ~18.3.0
++        version: 18.3.7(@types/react@18.3.31)
++      react:
++        specifier: ^18.2.0
++        version: 18.3.1
++      react-dom:
++        specifier: ^18.2.0
++        version: 18.3.1(react@18.3.1)
++
++  packages/qs/qs-ui-theme:
++    devDependencies:
++      &#x27;@deepseek-ai/cordis&#x27;:
++        specifier: workspace:^
++        version: link:../../../vendor/cordis
++      &#x27;@deepseek-ai/dsh-client-locale&#x27;:
++        specifier: workspace:^
++        version: link:../../client/locale
++      &#x27;@deepseek-ai/dsh-client-test-runtime&#x27;:
++        specifier: workspace:^
++        version: link:../../test-support/client-runtime
++      &#x27;@deepseek-ai/dsh-client-ui-renderer&#x27;:
++        specifier: workspace:^
++        version: link:../../client/ui-renderer
++      &#x27;@deepseek-ai/dsh-client-ui-settings&#x27;:
++        specifier: workspace:^
++        version: link:../../client/ui-settings
++      &#x27;@deepseek-ai/dsh-client-ui-slots&#x27;:
++        specifier: workspace:^
++        version: link:../../client/ui-slots
++      &#x27;@deepseek-ai/dsh-client-ui-theme&#x27;:
++        specifier: workspace:^
++        version: link:../../client/ui-theme
++      &#x27;@deepseek-ai/dsh-qs-ui-settings-general&#x27;:
++        specifier: workspace:^
++        version: link:../qs-ui-settings-general
++      &#x27;@testing-library/react&#x27;:
++        specifier: ^16.1.0
++        version: 16.3.2(@testing-library/dom@10.4.1)(@types/react-dom@18.3.7(@types/react@18.3.31))(@types/react@18.3.31)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
++      &#x27;@types/react&#x27;:
++        specifier: ~18.3.1
++        version: 18.3.31
++      &#x27;@types/react-dom&#x27;:
++        specifier: ~18.3.0
++        version: 18.3.7(@types/react@18.3.31)
++      react:
++        specifier: ^18.2.0
++        version: 18.3.1
++      react-dom:
++        specifier: ^18.2.0
++        version: 18.3.1(react@18.3.1)
++
++  packages/qs/qs-ui-tool:
++    devDependencies:
++      &#x27;@deepseek-ai/cordis&#x27;:
++        specifier: workspace:^
++        version: link:../../../vendor/cordis
++      &#x27;@deepseek-ai/dsh-api-session-controller&#x27;:
++        specifier: workspace:^
++        version: link:../../api/session-controller
++      &#x27;@deepseek-ai/dsh-attachment&#x27;:
++        specifier: workspace:^
++        version: link:../../attachment/attachment
++      &#x27;@deepseek-ai/dsh-client-connection&#x27;:
++        specifier: workspace:^
++        version: link:../../client/connection
++      &#x27;@deepseek-ai/dsh-client-locale&#x27;:
++        specifier: workspace:^
++        version: link:../../client/locale
++      &#x27;@deepseek-ai/dsh-client-store&#x27;:
++        specifier: workspace:^
++        version: link:../../client/store
++      &#x27;@deepseek-ai/dsh-client-test-runtime&#x27;:
++        specifier: workspace:^
++        version: link:../../test-support/client-runtime
++      &#x27;@deepseek-ai/dsh-client-ui-chat&#x27;:
++        specifier: workspace:^
++        version: link:../../client/ui-chat
++      &#x27;@deepseek-ai/dsh-client-ui-conversation&#x27;:
++        specifier: workspace:^
++        version: link:../../client/ui-conversation
++      &#x27;@deepseek-ai/dsh-client-ui-primitives&#x27;:
+         specifier: workspace:^
+-        version: link:../../test-support/client-runtime
++        version: link:../../client/ui-primitives
+       &#x27;@deepseek-ai/dsh-client-ui-renderer&#x27;:
+         specifier: workspace:^
+         version: link:../../client/ui-renderer
+       &#x27;@deepseek-ai/dsh-client-ui-session&#x27;:
+         specifier: workspace:^
+         version: link:../../client/ui-session
+-      &#x27;@deepseek-ai/dsh-client-ui-sidebar&#x27;:
+-        specifier: workspace:^
+-        version: link:../../client/ui-sidebar
+       &#x27;@deepseek-ai/dsh-client-ui-slots&#x27;:
+         specifier: workspace:^
+         version: link:../../client/ui-slots
+-      &#x27;@deepseek-ai/dsh-client-ui-theme&#x27;:
+-        specifier: workspace:^
+-        version: link:../../client/ui-theme
+-      &#x27;@deepseek-ai/dsh-host-webserver&#x27;:
+-        specifier: workspace:^
+-        version: link:../../host/webserver
+-      &#x27;@deepseek-ai/dsh-qs-approval&#x27;:
+-        specifier: workspace:^
+-        version: link:../qs-approval
+       &#x27;@deepseek-ai/dsh-qs-composer&#x27;:
+         specifier: workspace:^
+         version: link:../qs-composer
+-      &#x27;@deepseek-ai/dsh-qs-login&#x27;:
+-        specifier: workspace:^
+-        version: link:../qs-login
+-      &#x27;@deepseek-ai/dsh-qs-questions&#x27;:
+-        specifier: workspace:^
+-        version: link:../qs-questions
+-      &#x27;@deepseek-ai/dsh-qs-sessions&#x27;:
++      &#x27;@deepseek-ai/dsh-qs-shell&#x27;:
+         specifier: workspace:^
+-        version: link:../qs-sessions
++        version: link:../qs-shell
+       &#x27;@deepseek-ai/dsh-qs-transcript&#x27;:
+         specifier: workspace:^
+         version: link:../qs-transcript
++      &#x27;@deepseek-ai/dsh-session&#x27;:
++        specifier: workspace:^
++        version: link:../../core/session
++      &#x27;@deepseek-ai/dsh-spill-policy&#x27;:
++        specifier: workspace:^
++        version: link:../../spill/spill-policy
++      &#x27;@deepseek-ai/dsh-util-workspace-path&#x27;:
++        specifier: workspace:^
++        version: link:../../util/workspace-path
+       &#x27;@types/react&#x27;:
+         specifier: ~18.3.1
+         version: 18.3.31
++      &#x27;@types/react-dom&#x27;:
++        specifier: ~18.3.0
++        version: 18.3.7(@types/react@18.3.31)
+       clsx:
+         specifier: ^2.0.0
+         version: 2.1.1
+       react:
+         specifier: ^18.2.0
+         version: 18.3.1
++      react-dom:
++        specifier: ^18.2.0
++        version: 18.3.1(react@18.3.1)
+
+-  packages/qs/qs-transcript:
++  packages/qs/qs-ui-trajectory:
+     devDependencies:
+       &#x27;@deepseek-ai/cordis&#x27;:
+         specifier: workspace:^
+@@ -7894,15 +9418,9 @@ importers:
+       &#x27;@deepseek-ai/dsh-client-test-runtime&#x27;:
+         specifier: workspace:^
+         version: link:../../test-support/client-runtime
+-      &#x27;@deepseek-ai/dsh-client-ui-chat&#x27;:
+-        specifier: workspace:^
+-        version: link:../../client/ui-chat
+       &#x27;@deepseek-ai/dsh-client-ui-conversation&#x27;:
+         specifier: workspace:^
+         version: link:../../client/ui-conversation
+-      &#x27;@deepseek-ai/dsh-client-ui-primitives&#x27;:
+-        specifier: workspace:^
+-        version: link:../../client/ui-primitives
+       &#x27;@deepseek-ai/dsh-client-ui-renderer&#x27;:
+         specifier: workspace:^
+         version: link:../../client/ui-renderer
+@@ -7912,21 +9430,30 @@ importers:
+       &#x27;@deepseek-ai/dsh-client-ui-slots&#x27;:
+         specifier: workspace:^
+         version: link:../../client/ui-slots
+-      &#x27;@deepseek-ai/dsh-qs-shell&#x27;:
++      &#x27;@deepseek-ai/dsh-client-ui-trajectory&#x27;:
+         specifier: workspace:^
+-        version: link:../qs-shell
++        version: link:../../client/ui-trajectory
++      &#x27;@deepseek-ai/dsh-qs-composer&#x27;:
++        specifier: workspace:^
++        version: link:../qs-composer
++      &#x27;@deepseek-ai/dsh-qs-ui-tool&#x27;:
++        specifier: workspace:^
++        version: link:../qs-ui-tool
+       &#x27;@deepseek-ai/dsh-session&#x27;:
+         specifier: workspace:^
+         version: link:../../core/session
++      &#x27;@deepseek-ai/dsh-util-values&#x27;:
++        specifier: workspace:^
++        version: link:../../util/values
++      &#x27;@testing-library/react&#x27;:
++        specifier: ^16.1.0
++        version: 16.3.2(@testing-library/dom@10.4.1)(@types/react-dom@18.3.7(@types/react@18.3.31))(@types/react@18.3.31)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+       &#x27;@types/react&#x27;:
+         specifier: ~18.3.1
+         version: 18.3.31
+       &#x27;@types/react-dom&#x27;:
+         specifier: ~18.3.0
+         version: 18.3.7(@types/react@18.3.31)
+-      clsx:
+-        specifier: ^2.0.0
+-        version: 2.1.1
+       react:
+         specifier: ^18.2.0
+         version: 18.3.1
+@@ -10810,6 +12337,10 @@ importers:
+         version: link:../../../vendor/cordis
+
+   packages/util/native-command:
++    dependencies:
++      is-inside-container:
++        specifier: ^1.0.0
++        version: 1.0.0
+     devDependencies:
+       &#x27;@deepseek-ai/cordis&#x27;:
+         specifier: workspace:^
+@@ -11823,14 +13354,14 @@ importers:
+         specifier: 11.16.0
+         version: 11.16.0
+       vite:
+-        specifier: ^5.4.14
+-        version: 5.4.21(@types/node@25.9.3)(lightningcss@1.32.0)
++        specifier: 6.4.3
++        version: 6.4.3(@types/node@26.1.2)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.22.4)(yaml@2.9.0)
+       vitepress:
+         specifier: ^1.6.4
+-        version: 1.6.4(@algolia/client-search@5.55.2)(@types/node@25.9.3)(@types/react@18.3.31)(lightningcss@1.32.0)(postcss@8.5.15)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(search-insights@2.17.3)(typescript@6.0.3)
++        version: 1.6.4(@algolia/client-search@5.55.2)(@types/node@26.1.2)(@types/react@18.3.31)(jiti@2.7.0)(lightningcss@1.32.0)(postcss@8.5.23)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(search-insights@2.17.3)(tsx@4.22.4)(typescript@6.0.3)(yaml@2.9.0)
+       vitepress-plugin-mermaid:
+         specifier: ^2.0.17
+-        version: 2.0.17(mermaid@11.16.0)(vitepress@1.6.4(@algolia/client-search@5.55.2)(@types/node@25.9.3)(@types/react@18.3.31)(lightningcss@1.32.0)(postcss@8.5.15)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(search-insights@2.17.3)(typescript@6.0.3))
++        version: 2.0.17(mermaid@11.16.0)(vitepress@1.6.4(@algolia/client-search@5.55.2)(@types/node@26.1.2)(@types/react@18.3.31)(jiti@2.7.0)(lightningcss@1.32.0)(postcss@8.5.23)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(search-insights@2.17.3)(tsx@4.22.4)(typescript@6.0.3)(yaml@2.9.0))
+
+ packages:
+
+@@ -12415,12 +13946,6 @@ packages:
+   &#x27;@emnapi/wasi-threads@1.2.2&#x27;:
+     resolution: {integrity: sha512-c95qOXkHdydNKhscBTebqEC1CVAZpyqOfVfBzQ1qgzyl3gfeldUjIggDbIZgDKsHLgnsM+igH7TJ/eAasaVuMA==}
+
+-  &#x27;@esbuild/aix-ppc64@0.21.5&#x27;:
+-    resolution: {integrity: sha512-1SDgH6ZSPTlggy1yI6+Dbkiz8xzpHJEVAlF/AM1tHPLsf5STom9rwtjE4hKAF20FfXXNTFqEYXyJNWh1GiZedQ==}
+-    engines: {node: &#x27;&gt;=12&#x27;}
+-    cpu: [ppc64]
+-    os: [aix]
+-
+   &#x27;@esbuild/aix-ppc64@0.25.12&#x27;:
+     resolution: {integrity: sha512-Hhmwd6CInZ3dwpuGTF8fJG6yoWmsToE+vYgD4nytZVxcu1ulHpUQRAB1UJ8+N1Am3Mz4+xOByoQoSZf4D+CpkA==}
+     engines: {node: &#x27;&gt;=18&#x27;}
+@@ -12433,12 +13958,6 @@ packages:
+     cpu: [ppc64]
+     os: [aix]
+
+-  &#x27;@esbuild/android-arm64@0.21.5&#x27;:
+-    resolution: {integrity: sha512-c0uX9VAUBQ7dTDCjq+wdyGLowMdtR/GoC2U5IYk/7D1H1JYC0qseD7+11iMP2mRLN9RcCMRcjC4YMclCzGwS/A==}
+-    engines: {node: &#x27;&gt;=12&#x27;}
+-    cpu: [arm64]
+-    os: [android]
+-
+   &#x27;@esbuild/android-arm64@0.25.12&#x27;:
+     resolution: {integrity: sha512-6AAmLG7zwD1Z159jCKPvAxZd4y/VTO0VkprYy+3N2FtJ8+BQWFXU+OxARIwA46c5tdD9SsKGZ/1ocqBS/gAKHg==}
+     engines: {node: &#x27;&gt;=18&#x27;}
+@@ -12451,12 +13970,6 @@ packages:
+     cpu: [arm64]
+     os: [android]
+
+-  &#x27;@esbuild/android-arm@0.21.5&#x27;:
+-    resolution: {integrity: sha512-vCPvzSjpPHEi1siZdlvAlsPxXl7WbOVUBBAowWug4rJHb68Ox8KualB+1ocNvT5fjv6wpkX6o/iEpbDrf68zcg==}
+-    engines: {node: &#x27;&gt;=12&#x27;}
+-    cpu: [arm]
+-    os: [android]
+-
+   &#x27;@esbuild/android-arm@0.25.12&#x27;:
+     resolution: {integrity: sha512-VJ+sKvNA/GE7Ccacc9Cha7bpS8nyzVv0jdVgwNDaR4gDMC/2TTRc33Ip8qrNYUcpkOHUT5OZ0bUcNNVZQ9RLlg==}
+     engines: {node: &#x27;&gt;=18&#x27;}
+@@ -12469,12 +13982,6 @@ packages:
+     cpu: [arm]
+     os: [android]
+
+-  &#x27;@esbuild/android-x64@0.21.5&#x27;:
+-    resolution: {integrity: sha512-D7aPRUUNHRBwHxzxRvp856rjUHRFW1SdQATKXH2hqA0kAZb1hKmi02OpYRacl0TxIGz/ZmXWlbZgjwWYaCakTA==}
+-    engines: {node: &#x27;&gt;=12&#x27;}
+-    cpu: [x64]
+-    os: [android]
+-
+   &#x27;@esbuild/android-x64@0.25.12&#x27;:
+     resolution: {integrity: sha512-5jbb+2hhDHx5phYR2By8GTWEzn6I9UqR11Kwf22iKbNpYrsmRB18aX/9ivc5cabcUiAT/wM+YIZ6SG9QO6a8kg==}
+     engines: {node: &#x27;&gt;=18&#x27;}
+@@ -12487,12 +13994,6 @@ packages:
+     cpu: [x64]
+     os: [android]
+
+-  &#x27;@esbuild/darwin-arm64@0.21.5&#x27;:
+-    resolution: {integrity: sha512-DwqXqZyuk5AiWWf3UfLiRDJ5EDd49zg6O9wclZ7kUMv2WRFr4HKjXp/5t8JZ11QbQfUS6/cRCKGwYhtNAY88kQ==}
+-    engines: {node: &#x27;&gt;=12&#x27;}
+-    cpu: [arm64]
+-    os: [darwin]
+-
+   &#x27;@esbuild/darwin-arm64@0.25.12&#x27;:
+     resolution: {integrity: sha512-N3zl+lxHCifgIlcMUP5016ESkeQjLj/959RxxNYIthIg+CQHInujFuXeWbWMgnTo4cp5XVHqFPmpyu9J65C1Yg==}
+     engines: {node: &#x27;&gt;=18&#x27;}
+@@ -12505,12 +14006,6 @@ packages:
+     cpu: [arm64]
+     os: [darwin]
+
+-  &#x27;@esbuild/darwin-x64@0.21.5&#x27;:
+-    resolution: {integrity: sha512-se/JjF8NlmKVG4kNIuyWMV/22ZaerB+qaSi5MdrXtd6R08kvs2qCN4C09miupktDitvh8jRFflwGFBQcxZRjbw==}
+-    engines: {node: &#x27;&gt;=12&#x27;}
+-    cpu: [x64]
+-    os: [darwin]
+-
+   &#x27;@esbuild/darwin-x64@0.25.12&#x27;:
+     resolution: {integrity: sha512-HQ9ka4Kx21qHXwtlTUVbKJOAnmG1ipXhdWTmNXiPzPfWKpXqASVcWdnf2bnL73wgjNrFXAa3yYvBSd9pzfEIpA==}
+     engines: {node: &#x27;&gt;=18&#x27;}
+@@ -12523,12 +14018,6 @@ packages:
+     cpu: [x64]
+     os: [darwin]
+
+-  &#x27;@esbuild/freebsd-arm64@0.21.5&#x27;:
+-    resolution: {integrity: sha512-5JcRxxRDUJLX8JXp/wcBCy3pENnCgBR9bN6JsY4OmhfUtIHe3ZW0mawA7+RDAcMLrMIZaf03NlQiX9DGyB8h4g==}
+-    engines: {node: &#x27;&gt;=12&#x27;}
+-    cpu: [arm64]
+-    os: [freebsd]
+-
+   &#x27;@esbuild/freebsd-arm64@0.25.12&#x27;:
+     resolution: {integrity: sha512-gA0Bx759+7Jve03K1S0vkOu5Lg/85dou3EseOGUes8flVOGxbhDDh/iZaoek11Y8mtyKPGF3vP8XhnkDEAmzeg==}
+     engines: {node: &#x27;&gt;=18&#x27;}
+@@ -12541,12 +14030,6 @@ packages:
+     cpu: [arm64]
+     os: [freebsd]
+
+-  &#x27;@esbuild/freebsd-x64@0.21.5&#x27;:
+-    resolution: {integrity: sha512-J95kNBj1zkbMXtHVH29bBriQygMXqoVQOQYA+ISs0/2l3T9/kj42ow2mpqerRBxDJnmkUDCaQT/dfNXWX/ZZCQ==}
+-    engines: {node: &#x27;&gt;=12&#x27;}
+-    cpu: [x64]
+-    os: [freebsd]
+-
+   &#x27;@esbuild/freebsd-x64@0.25.12&#x27;:
+     resolution: {integrity: sha512-TGbO26Yw2xsHzxtbVFGEXBFH0FRAP7gtcPE7P5yP7wGy7cXK2oO7RyOhL5NLiqTlBh47XhmIUXuGciXEqYFfBQ==}
+     engines: {node: &#x27;&gt;=18&#x27;}
+@@ -12559,12 +14042,6 @@ packages:
+     cpu: [x64]
+     os: [freebsd]
+
+-  &#x27;@esbuild/linux-arm64@0.21.5&#x27;:
+-    resolution: {integrity: sha512-ibKvmyYzKsBeX8d8I7MH/TMfWDXBF3db4qM6sy+7re0YXya+K1cem3on9XgdT2EQGMu4hQyZhan7TeQ8XkGp4Q==}
+-    engines: {node: &#x27;&gt;=12&#x27;}
+-    cpu: [arm64]
+-    os: [linux]
+-
+   &#x27;@esbuild/linux-arm64@0.25.12&#x27;:
+     resolution: {integrity: sha512-8bwX7a8FghIgrupcxb4aUmYDLp8pX06rGh5HqDT7bB+8Rdells6mHvrFHHW2JAOPZUbnjUpKTLg6ECyzvas2AQ==}
+     engines: {node: &#x27;&gt;=18&#x27;}
+@@ -12577,12 +14054,6 @@ packages:
+     cpu: [arm64]
+     os: [linux]
+
+-  &#x27;@esbuild/linux-arm@0.21.5&#x27;:
+-    resolution: {integrity: sha512-bPb5AHZtbeNGjCKVZ9UGqGwo8EUu4cLq68E95A53KlxAPRmUyYv2D6F0uUI65XisGOL1hBP5mTronbgo+0bFcA==}
+-    engines: {node: &#x27;&gt;=12&#x27;}
+-    cpu: [arm]
+-    os: [linux]
+-
+   &#x27;@esbuild/linux-arm@0.25.12&#x27;:
+     resolution: {integrity: sha512-lPDGyC1JPDou8kGcywY0YILzWlhhnRjdof3UlcoqYmS9El818LLfJJc3PXXgZHrHCAKs/Z2SeZtDJr5MrkxtOw==}
+     engines: {node: &#x27;&gt;=18&#x27;}
+@@ -12595,12 +14066,6 @@ packages:
+     cpu: [arm]
+     os: [linux]
+
+-  &#x27;@esbuild/linux-ia32@0.21.5&#x27;:
+-    resolution: {integrity: sha512-YvjXDqLRqPDl2dvRODYmmhz4rPeVKYvppfGYKSNGdyZkA01046pLWyRKKI3ax8fbJoK5QbxblURkwK/MWY18Tg==}
+-    engines: {node: &#x27;&gt;=12&#x27;}
+-    cpu: [ia32]
+-    os: [linux]
+-
+   &#x27;@esbuild/linux-ia32@0.25.12&#x27;:
+     resolution: {integrity: sha512-0y9KrdVnbMM2/vG8KfU0byhUN+EFCny9+8g202gYqSSVMonbsCfLjUO+rCci7pM0WBEtz+oK/PIwHkzxkyharA==}
+     engines: {node: &#x27;&gt;=18&#x27;}
+@@ -12613,12 +14078,6 @@ packages:
+     cpu: [ia32]
+     os: [linux]
+
+-  &#x27;@esbuild/linux-loong64@0.21.5&#x27;:
+-    resolution: {integrity: sha512-uHf1BmMG8qEvzdrzAqg2SIG/02+4/DHB6a9Kbya0XDvwDEKCoC8ZRWI5JJvNdUjtciBGFQ5PuBlpEOXQj+JQSg==}
+-    engines: {node: &#x27;&gt;=12&#x27;}
+-    cpu: [loong64]
+-    os: [linux]
+-
+   &#x27;@esbuild/linux-loong64@0.25.12&#x27;:
+     resolution: {integrity: sha512-h///Lr5a9rib/v1GGqXVGzjL4TMvVTv+s1DPoxQdz7l/AYv6LDSxdIwzxkrPW438oUXiDtwM10o9PmwS/6Z0Ng==}
+     engines: {node: &#x27;&gt;=18&#x27;}
+@@ -12631,12 +14090,6 @@ packages:
+     cpu: [loong64]
+     os: [linux]
+
+-  &#x27;@esbuild/linux-mips64el@0.21.5&#x27;:
+-    resolution: {integrity: sha512-IajOmO+KJK23bj52dFSNCMsz1QP1DqM6cwLUv3W1QwyxkyIWecfafnI555fvSGqEKwjMXVLokcV5ygHW5b3Jbg==}
+-    engines: {node: &#x27;&gt;=12&#x27;}
+-    cpu: [mips64el]
+-    os: [linux]
+-
+   &#x27;@esbuild/linux-mips64el@0.25.12&#x27;:
+     resolution: {integrity: sha512-iyRrM1Pzy9GFMDLsXn1iHUm18nhKnNMWscjmp4+hpafcZjrr2WbT//d20xaGljXDBYHqRcl8HnxbX6uaA/eGVw==}
+     engines: {node: &#x27;&gt;=18&#x27;}
+@@ -12649,12 +14102,6 @@ packages:
+     cpu: [mips64el]
+     os: [linux]
+
+-  &#x27;@esbuild/linux-ppc64@0.21.5&#x27;:
+-    resolution: {integrity: sha512-1hHV/Z4OEfMwpLO8rp7CvlhBDnjsC3CttJXIhBi+5Aj5r+MBvy4egg7wCbe//hSsT+RvDAG7s81tAvpL2XAE4w==}
+-    engines: {node: &#x27;&gt;=12&#x27;}
+-    cpu: [ppc64]
+-    os: [linux]
+-
+   &#x27;@esbuild/linux-ppc64@0.25.12&#x27;:
+     resolution: {integrity: sha512-9meM/lRXxMi5PSUqEXRCtVjEZBGwB7P/D4yT8UG/mwIdze2aV4Vo6U5gD3+RsoHXKkHCfSxZKzmDssVlRj1QQA==}
+     engines: {node: &#x27;&gt;=18&#x27;}
+@@ -12667,12 +14114,6 @@ packages:
+     cpu: [ppc64]
+     os: [linux]
+
+-  &#x27;@esbuild/linux-riscv64@0.21.5&#x27;:
+-    resolution: {integrity: sha512-2HdXDMd9GMgTGrPWnJzP2ALSokE/0O5HhTUvWIbD3YdjME8JwvSCnNGBnTThKGEB91OZhzrJ4qIIxk/SBmyDDA==}
+-    engines: {node: &#x27;&gt;=12&#x27;}
+-    cpu: [riscv64]
+-    os: [linux]
+-
+   &#x27;@esbuild/linux-riscv64@0.25.12&#x27;:
+     resolution: {integrity: sha512-Zr7KR4hgKUpWAwb1f3o5ygT04MzqVrGEGXGLnj15YQDJErYu/BGg+wmFlIDOdJp0PmB0lLvxFIOXZgFRrdjR0w==}
+     engines: {node: &#x27;&gt;=18&#x27;}
+@@ -12685,12 +14126,6 @@ packages:
+     cpu: [riscv64]
+     os: [linux]
+
+-  &#x27;@esbuild/linux-s390x@0.21.5&#x27;:
+-    resolution: {integrity: sha512-zus5sxzqBJD3eXxwvjN1yQkRepANgxE9lgOW2qLnmr8ikMTphkjgXu1HR01K4FJg8h1kEEDAqDcZQtbrRnB41A==}
+-    engines: {node: &#x27;&gt;=12&#x27;}
+-    cpu: [s390x]
+-    os: [linux]
+-
+   &#x27;@esbuild/linux-s390x@0.25.12&#x27;:
+     resolution: {integrity: sha512-MsKncOcgTNvdtiISc/jZs/Zf8d0cl/t3gYWX8J9ubBnVOwlk65UIEEvgBORTiljloIWnBzLs4qhzPkJcitIzIg==}
+     engines: {node: &#x27;&gt;=18&#x27;}
+@@ -12703,12 +14138,6 @@ packages:
+     cpu: [s390x]
+     os: [linux]
+
+-  &#x27;@esbuild/linux-x64@0.21.5&#x27;:
+-    resolution: {integrity: sha512-1rYdTpyv03iycF1+BhzrzQJCdOuAOtaqHTWJZCWvijKD2N5Xu0TtVC8/+1faWqcP9iBCWOmjmhoH94dH82BxPQ==}
+-    engines: {node: &#x27;&gt;=12&#x27;}
+-    cpu: [x64]
+-    os: [linux]
+-
+   &#x27;@esbuild/linux-x64@0.25.12&#x27;:
+     resolution: {integrity: sha512-uqZMTLr/zR/ed4jIGnwSLkaHmPjOjJvnm6TVVitAa08SLS9Z0VM8wIRx7gWbJB5/J54YuIMInDquWyYvQLZkgw==}
+     engines: {node: &#x27;&gt;=18&#x27;}
+@@ -12733,12 +14162,6 @@ packages:
+     cpu: [arm64]
+     os: [netbsd]
+
+-  &#x27;@esbuild/netbsd-x64@0.21.5&#x27;:
+-    resolution: {integrity: sha512-Woi2MXzXjMULccIwMnLciyZH4nCIMpWQAs049KEeMvOcNADVxo0UBIQPfSmxB3CWKedngg7sWZdLvLczpe0tLg==}
+-    engines: {node: &#x27;&gt;=12&#x27;}
+-    cpu: [x64]
+-    os: [netbsd]
+-
+   &#x27;@esbuild/netbsd-x64@0.25.12&#x27;:
+     resolution: {integrity: sha512-Ld5pTlzPy3YwGec4OuHh1aCVCRvOXdH8DgRjfDy/oumVovmuSzWfnSJg+VtakB9Cm0gxNO9BzWkj6mtO1FMXkQ==}
+     engines: {node: &#x27;&gt;=18&#x27;}
+@@ -12763,12 +14186,6 @@ packages:
+     cpu: [arm64]
+     os: [openbsd]
+
+-  &#x27;@esbuild/openbsd-x64@0.21.5&#x27;:
+-    resolution: {integrity: sha512-HLNNw99xsvx12lFBUwoT8EVCsSvRNDVxNpjZ7bPn947b8gJPzeHWyNVhFsaerc0n3TsbOINvRP2byTZ5LKezow==}
+-    engines: {node: &#x27;&gt;=12&#x27;}
+-    cpu: [x64]
+-    os: [openbsd]
+-
+   &#x27;@esbuild/openbsd-x64@0.25.12&#x27;:
+     resolution: {integrity: sha512-MZyXUkZHjQxUvzK7rN8DJ3SRmrVrke8ZyRusHlP+kuwqTcfWLyqMOE3sScPPyeIXN/mDJIfGXvcMqCgYKekoQw==}
+     engines: {node: &#x27;&gt;=18&#x27;}
+@@ -12793,12 +14210,6 @@ packages:
+     cpu: [arm64]
+     os: [openharmony]
+
+-  &#x27;@esbuild/sunos-x64@0.21.5&#x27;:
+-    resolution: {integrity: sha512-6+gjmFpfy0BHU5Tpptkuh8+uw3mnrvgs+dSPQXQOv3ekbordwnzTVEb4qnIvQcYXq6gzkyTnoZ9dZG+D4garKg==}
+-    engines: {node: &#x27;&gt;=12&#x27;}
+-    cpu: [x64]
+-    os: [sunos]
+-
+   &#x27;@esbuild/sunos-x64@0.25.12&#x27;:
+     resolution: {integrity: sha512-3wGSCDyuTHQUzt0nV7bocDy72r2lI33QL3gkDNGkod22EsYl04sMf0qLb8luNKTOmgF/eDEDP5BFNwoBKH441w==}
+     engines: {node: &#x27;&gt;=18&#x27;}
+@@ -12811,12 +14222,6 @@ packages:
+     cpu: [x64]
+     os: [sunos]
+
+-  &#x27;@esbuild/win32-arm64@0.21.5&#x27;:
+-    resolution: {integrity: sha512-Z0gOTd75VvXqyq7nsl93zwahcTROgqvuAcYDUr+vOv8uHhNSKROyU961kgtCD1e95IqPKSQKH7tBTslnS3tA8A==}
+-    engines: {node: &#x27;&gt;=12&#x27;}
+-    cpu: [arm64]
+-    os: [win32]
+-
+   &#x27;@esbuild/win32-arm64@0.25.12&#x27;:
+     resolution: {integrity: sha512-rMmLrur64A7+DKlnSuwqUdRKyd3UE7oPJZmnljqEptesKM8wx9J8gx5u0+9Pq0fQQW8vqeKebwNXdfOyP+8Bsg==}
+     engines: {node: &#x27;&gt;=18&#x27;}
+@@ -12829,12 +14234,6 @@ packages:
+     cpu: [arm64]
+     os: [win32]
+
+-  &#x27;@esbuild/win32-ia32@0.21.5&#x27;:
+-    resolution: {integrity: sha512-SWXFF1CL2RVNMaVs+BBClwtfZSvDgtL//G/smwAc5oVK/UPu2Gu9tIaRgFmYFFKrmg3SyAjSrElf0TiJ1v8fYA==}
+-    engines: {node: &#x27;&gt;=12&#x27;}
+-    cpu: [ia32]
+-    os: [win32]
+-
+   &#x27;@esbuild/win32-ia32@0.25.12&#x27;:
+     resolution: {integrity: sha512-HkqnmmBoCbCwxUKKNPBixiWDGCpQGVsrQfJoVGYLPT41XWF8lHuE5N6WhVia2n4o5QK5M4tYr21827fNhi4byQ==}
+     engines: {node: &#x27;&gt;=18&#x27;}
+@@ -12847,12 +14246,6 @@ packages:
+     cpu: [ia32]
+     os: [win32]
+
+-  &#x27;@esbuild/win32-x64@0.21.5&#x27;:
+-    resolution: {integrity: sha512-tQd/1efJuzPC6rCFwEvLtci/xNFcTZknmXs98FYDfGE4wP9ClFV98nyKrzJKVPMhdDnjzLhdUyMX4PsQAPjwIw==}
+-    engines: {node: &#x27;&gt;=12&#x27;}
+-    cpu: [x64]
+-    os: [win32]
+-
+   &#x27;@esbuild/win32-x64@0.25.12&#x27;:
+     resolution: {integrity: sha512-alJC0uCZpTFrSL0CCDjcgleBXPnCrEAhTBILpeAp7M/OFgoqtAetfBzX0xM00MUsVVPpVjlPuMbREqnZCXaTnA==}
+     engines: {node: &#x27;&gt;=18&#x27;}
+@@ -14685,13 +16078,13 @@ packages:
+     resolution: {integrity: sha512-gUu9hwfWvvEDBBmgtAowQCojwZmJ5mcLn3aufeCsitijs3+f2NsrPtlAWIR6OPiqljl96GVCUbLe0HyqIpVaoA==}
+     engines: {node: ^14.18.0 || &gt;=16.0.0}
+     peerDependencies:
+-      vite: ^4.2.0 || ^5.0.0 || ^6.0.0 || ^7.0.0
++      vite: 6.4.3
+
+   &#x27;@vitejs/plugin-vue@5.2.4&#x27;:
+     resolution: {integrity: sha512-7Yx/SXSOcQq5HiiV3orevHUFn+pmMB4cgbEkDYgnkUWb0WfeQ/wa2yFv6D5ICiCQOVpjA7vYDXrC7AGO8yjDHA==}
+     engines: {node: ^18.0.0 || &gt;=20.0.0}
+     peerDependencies:
+-      vite: ^5.0.0 || ^6.0.0
++      vite: 6.4.3
+       vue: ^3.2.25
+
+   &#x27;@vitest/coverage-v8@4.1.8&#x27;:
+@@ -14710,7 +16103,7 @@ packages:
+     resolution: {integrity: sha512-LEiN/xe4OSIbKe9HQIp5OC24agGD9J5CnmMgsLohVVoOPWL9a2sBoR6VBx43jQZb7Kr1l4RCuyCJzcAa0+dojw==}
+     peerDependencies:
+       msw: ^2.4.9
+-      vite: ^6.0.0 || ^7.0.0 || ^8.0.0
++      vite: 6.4.3
+     peerDependenciesMeta:
+       msw:
+         optional: true
+@@ -15082,8 +16475,8 @@ packages:
+   base64-js@1.5.1:
+     resolution: {integrity: sha512-AKpaYlHn8t4SVbOHCy+b5+KKgvR4vrsD8vbvrbiQJps7fKDTkjkDry6ji0rUJjC0kzbNePLwzxq8iypo41qeWA==}
+
+-  baseline-browser-mapping@2.10.43:
+-    resolution: {integrity: sha512-AjYpR78kDWAY3Efj+cDTFH9t9SCoL7OoTp1BOb0mQV7S+6CiLwnWM3FyxhJtdPufDFKzmCSFoUncKjWgJEZTCQ==}
++  baseline-browser-mapping@2.11.25:
++    resolution: {integrity: sha512-gMmEShwwq7FJqMwvfRwvCl00v4kN+KOfJqXn+f4nrufak5gNHJOksd/60Dvjuz7sI8Y5WiSFBa8FEYr+zoyqCw==}
+     engines: {node: &#x27;&gt;=6.0.0&#x27;}
+     hasBin: true
+
+@@ -15123,15 +16516,15 @@ packages:
+   brace-expansion@1.1.18:
+     resolution: {integrity: sha512-Edep/X9fGqVNmzKBVsDYIOtD+z1tuezV70LBjdCst9Tqu76lsnvRiZ6oTic1n+/BIwX6QDGAO94PN4N2SADvtw==}
+
+-  brace-expansion@2.1.2:
+-    resolution: {integrity: sha512-w5JZcKgdhDOgOwm8H+KgbosopHMuGcl6qbulwjtz3SM7I7P3yW1eAjzMPLrIE+NQ9vjgANKHWeMHnrT0OXW1oA==}
++  brace-expansion@2.1.4:
++    resolution: {integrity: sha512-hGfVzPxthbf3+2yjg/RBs60cB0FhqBS/zvdV/4wn4/BmN0bNMMHPc4V/BbFieqf1TKAGGAHnY4eSjajCl0f2Xg==}
+
+-  brace-expansion@5.0.6:
+-    resolution: {integrity: sha512-kLpxurY4Z4r9sgMsyG0Z9uzsBlgiU/EFKhj/h91/8yHu0edo7XuixOIH3VcJ8kkxs6/jPzoI6U9Vj3WqbMQ94g==}
+-    engines: {node: 18 || 20 || &gt;=22}
++  brace-expansion@5.0.9:
++    resolution: {integrity: sha512-ScQ4IuvIEF1TMlP7Zt+vjJ//9zlPb2SDcxWxM3bk8s6t6GGdJ7KO1dCcTidOPJKePW30LE/2cT7wCyPho9/Wxg==}
++    engines: {node: 20 || &gt;=22}
+
+-  browserslist@4.28.6:
+-    resolution: {integrity: sha512-FQBYNK15VMslhLHpA7+n+n1GOlF1kId2xcCg7/j95f24AOF6VDYMNH4mFxF7KuaTdv627faazpOAjFzMrfJOUw==}
++  browserslist@4.28.7:
++    resolution: {integrity: sha512-JxV13hNrFxqjOc8alRbq9dK1MM79NEXYpma2B2J4wAtpWS5zIEIKqWPGCl7N4o7Uc7B7itylh7SuDujATRyyTw==}
+     engines: {node: ^6 || ^7 || ^8 || ^9 || ^10 || ^11 || ^12 || &gt;=13.7}
+     hasBin: true
+
+@@ -15783,11 +17176,6 @@ packages:
+   es6-error@4.1.1:
+     resolution: {integrity: sha512-Um/+FxMr9CISWh0bi5Zv0iOD+4cFh5qLeks1qhAopKVAJw3drgKbKySikp7wGhDL0HPeaja0P5ULZrxLkniUVg==}
+
+-  esbuild@0.21.5:
+-    resolution: {integrity: sha512-mg3OPMV4hXywwpoDxu3Qda5xCKQi+vCTZq8S9J/EpkhB2HzKXq4SNFZE3+NK93JYxc8VMSep+lOUSC/RVKaBqw==}
+-    engines: {node: &#x27;&gt;=12&#x27;}
+-    hasBin: true
+-
+   esbuild@0.25.12:
+     resolution: {integrity: sha512-bbPBYYrtZbkt6Os6FiTLCTFxvq4tt3JKall1vRwshA3fdVztsLAatFaZobhkBC8/BrPetoa0oksYoKXoG4ryJg==}
+     engines: {node: &#x27;&gt;=18&#x27;}
+@@ -15952,8 +17340,8 @@ packages:
+   fast-sha256@1.3.0:
+     resolution: {integrity: sha512-n11RGP/lrWEFI/bWdygLxhI+pVeo1ZYIVwvvPkW7azl/rOy+F3HYRZ2K5zeE9mmkhQppyv9sQFx0JM9UabnpPQ==}
+
+-  fast-uri@3.1.3:
+-    resolution: {integrity: sha512-i70LwGWUduXqzicKXWshooq+sWL1K3WUU5rKZNG/0i3a1OSoX3HqhH5WbWwTmqWfor4urUakGPiRQcleRZTwOg==}
++  fast-uri@3.1.6:
++    resolution: {integrity: sha512-7Ical1vFEMr0onbVzEDIreM22I4khW+fzyQPwvAFWBp1iwdshSZRsL4jjRvPG9JP1uiqMHRto+YU6R2/CzDz5Q==}
+
+   fast-xml-builder@1.2.0:
+     resolution: {integrity: sha512-00aAWieqff+ZJhsXA4g1g7M8k+7AYoMUUHF+/zFb5U6Uv/P0Vl4QZo84/IcufzYalLuEj9928bXN9PbbFzMF0Q==}
+@@ -16326,8 +17714,8 @@ packages:
+     resolution: {integrity: sha512-DRsRnQrbzdFjaQ1oe4C6/EIUymIOEix1qROEJTF9dbMq+M4Zrm6VaLp6SD/B9IsiEjPZuBSnWWFN+udajugdWA==}
+     engines: {node: &#x27;&gt;=20&#x27;}
+
+-  ip-address@10.2.0:
+-    resolution: {integrity: sha512-/+S6j4E9AHvW9SWMSEY9Xfy66O5PWvVEJ08O0y5JGyEKQpojb0K0GKpz/v5HJ/G0vi3D2sjGK78119oXZeE0qA==}
++  ip-address@10.3.1:
++    resolution: {integrity: sha512-1e9d3kb97NHJTIJDZW9rKqW2h6+dFa50Dy0fpPSMQp2ADje5gvKsXmdiK6dwY5t76TaTt5+P5N1Y/LoToIxP6g==}
+     engines: {node: &#x27;&gt;= 12&#x27;}
+
+   ipaddr.js@1.9.1:
+@@ -17030,8 +18418,8 @@ packages:
+   multistream@4.1.0:
+     resolution: {integrity: sha512-J1XDiAmmNpRCBfIWJv+n0ymC4ABcf/Pl+5YvC5B/D2f/2+8PtHvCNxMPKiQcZyi922Hq69J2YOpb1pTywfifyw==}
+
+-  nanoid@3.3.12:
+-    resolution: {integrity: sha512-ZB9RH/39qpq5Vu6Y+NmUaFhQR6pp+M2Xt76XBnEwDaGcVAqhlvxrl3B2bKS5D3NH3QR76v3aSrKaF/Kiy7lEtQ==}
++  nanoid@3.3.18:
++    resolution: {integrity: sha512-DTg4MJbGMWkfi6VZFdNt2/caMbQy4Ou+Op/hJQvGEWcnVfoA1QA+xzRKAzw9jD6+GVOOeYr/mIcuDSdug6F6+w==}
+     engines: {node: ^10 || ^12 || ^13.7 || ^14 || &gt;=15.0.1}
+     hasBin: true
+
+@@ -17365,8 +18753,8 @@ packages:
+     resolution: {integrity: sha512-uysumyrvkUX0rX/dEVqt8gC3sTBzd4zoWfLeS29nb53imdaXVvLINYXTI2GNqzaMuvacNx4uJQ8+b3zXR0pkgQ==}
+     engines: {node: &#x27;&gt;=10.4.0&#x27;}
+
+-  pnpm@11.7.0:
+-    resolution: {integrity: sha512-GcyFLBIMcSV2DyRD7mvgyltA+fUFmN4aCaHxd1A+AQ5Xwjx3ZG4B52HeWb+HT7IqM5jDOrlpH8E+uUa28PTWIA==}
++  pnpm@11.11.0:
++    resolution: {integrity: sha512-RGP2X9gO2A1pvB1L8WPulPYFxzgPwxi7Wy6+FfjNEtScUaTVnpUbQB52TTtsp1HL9RvFDtcAGmvLSTXmhMNIgg==}
+     engines: {node: &#x27;&gt;=22.13&#x27;}
+     hasBin: true
+
+@@ -17380,8 +18768,8 @@ packages:
+     resolution: {integrity: sha512-rEwq/ZHlJIKw++XtLAO8PPuOQA/zaPJOZJ37BVuN97nLpMJeuDVLVGRwbFoBgLudgdTMP2hdRJP++H+8QOA3vg==}
+     engines: {node: &#x27;&gt;= 10.12&#x27;}
+
+-  postcss@8.5.15:
+-    resolution: {integrity: sha512-FfR8sjd4em2T6fb3I2MwAJU7HWVMr9zba+enmQeeWFfCbm+UOC/0X4DS8XtpUTMwWMGbjKYP7xjfNekzyGmB3A==}
++  postcss@8.5.23:
++    resolution: {integrity: sha512-g50586zr4bZmwFiTlflMu8E0bDTb5I5gertgwAKmsdUlTQIhZtunzUlD1WSzwcVWPoAVpsrA6vlfCD7oXvRwgg==}
+     engines: {node: ^10 || ^12 || &gt;=14}
+
+   postject@1.0.0-alpha.6:
+@@ -18124,8 +19512,8 @@ packages:
+     resolution: {integrity: sha512-LIY910g9TI13YS95lrMFrs8Rm/u/irgHeTWoKCoteeJ04CUJ92eEfj0rVn+7VKMPBpUPiUoBKfhNyLI23EE/KA==}
+     engines: {node: &#x27;&gt;=18.17&#x27;}
+
+-  undici@7.28.0:
+-    resolution: {integrity: sha512-cRZYrTDwWznlnRiPjggAGxZXanty6M8RV1ff8Wm4LWXBp7/IG8v5DnOm74DtUBp9OONpK75YlPnIjQqX0dBDtA==}
++  undici@7.29.0:
++    resolution: {integrity: sha512-IDxfleLmmbSskfWSUATiN1nfn2rDuvnMOqb5CWR92iIfojA0Ud+ulOAAEQ57LPr9rWmsreUyf5lwyao+7GNNVw==}
+     engines: {node: &#x27;&gt;=20.18.1&#x27;}
+
+   undici@8.10.0:
+@@ -18177,7 +19565,7 @@ packages:
+     resolution: {integrity: sha512-Js0m9cx+qOgDxo0eMiFGEueWztz+d4+M3rGlmKPT+T4IS/jP4ylw3Nwpu6cpTTP8R1MAC1kF4VbdLt3ARf209w==}
+     hasBin: true
+     peerDependencies:
+-      browserslist: &#x27;&gt;= 4.21.0&#x27;
++      browserslist: 4.28.7
+
+   uri-js@4.4.1:
+     resolution: {integrity: sha512-7rKUyy33Q1yc98pQ1DAmLtwX109F7TIfWlW1Ydo8Wl1ii1SeHieeh0HHfPeL2fMXK6z0s8ecKs9frCuLJvndBg==}
+@@ -18213,38 +19601,7 @@ packages:
+   vite-tsconfig-paths@6.1.1:
+     resolution: {integrity: sha512-2cihq7zliibCCZ8P9cKJrQBkfgdvcFkOOc3Y02o3GWUDLgqjWsZudaoiuOwO/gzTzy17cS5F7ZPo4bsnS4DGkg==}
+     peerDependencies:
+-      vite: &#x27;*&#x27;
+-
+-  vite@5.4.21:
+-    resolution: {integrity: sha512-o5a9xKjbtuhY6Bi5S3+HvbRERmouabWbyUcpXXUA1u+GNUKoROi9byOJ8M0nHbHYHkYICiMlqxkg1KkYmm25Sw==}
+-    engines: {node: ^18.0.0 || &gt;=20.0.0}
+-    hasBin: true
+-    peerDependencies:
+-      &#x27;@types/node&#x27;: ^18.0.0 || &gt;=20.0.0
+-      less: &#x27;*&#x27;
+-      lightningcss: ^1.21.0
+-      sass: &#x27;*&#x27;
+-      sass-embedded: &#x27;*&#x27;
+-      stylus: &#x27;*&#x27;
+-      sugarss: &#x27;*&#x27;
+-      terser: ^5.4.0
+-    peerDependenciesMeta:
+-      &#x27;@types/node&#x27;:
+-        optional: true
+-      less:
+-        optional: true
+-      lightningcss:
+-        optional: true
+-      sass:
+-        optional: true
+-      sass-embedded:
+-        optional: true
+-      stylus:
+-        optional: true
+-      sugarss:
+-        optional: true
+-      terser:
+-        optional: true
++      vite: 6.4.3
+
+   vite@6.4.3:
+     resolution: {integrity: sha512-NTKlcQjlAK7MlQoyb6LgaqHc8sso/pVyUJYWMws3jg21uTJw/LddqIFPcPqP6PzpgbIcZyKI85sFE4HBrQDA8A==}
+@@ -18340,7 +19697,7 @@ packages:
+     hasBin: true
+     peerDependencies:
+       markdown-it-mathjax3: ^4
+-      postcss: ^8
++      postcss: 8.5.23
+     peerDependenciesMeta:
+       markdown-it-mathjax3:
+         optional: true
+@@ -18363,7 +19720,7 @@ packages:
+       &#x27;@vitest/ui&#x27;: 4.1.8
+       happy-dom: &#x27;*&#x27;
+       jsdom: &#x27;*&#x27;
+-      vite: ^6.0.0 || ^7.0.0 || ^8.0.0
++      vite: 6.4.3
+     peerDependenciesMeta:
+       &#x27;@edge-runtime/vm&#x27;:
+         optional: true
+@@ -19133,7 +20490,7 @@ snapshots:
+     dependencies:
+       &#x27;@babel/compat-data&#x27;: 7.29.7
+       &#x27;@babel/helper-validator-option&#x27;: 7.29.7
+-      browserslist: 4.28.6
++      browserslist: 4.28.7
+       lru-cache: 5.1.1
+       semver: 6.3.1
+
+@@ -19355,7 +20712,7 @@ snapshots:
+       semver: 7.8.5
+       sumchecker: 3.0.1
+     optionalDependencies:
+-      undici: 7.28.0
++      undici: 7.29.0
+     transitivePeerDependencies:
+       - supports-color
+
+@@ -19449,153 +20806,102 @@ snapshots:
+       tslib: 2.8.1
+     optional: true
+
+-  &#x27;@esbuild/aix-ppc64@0.21.5&#x27;:
+-    optional: true
+-
+   &#x27;@esbuild/aix-ppc64@0.25.12&#x27;:
+     optional: true
+
+   &#x27;@esbuild/aix-ppc64@0.28.1&#x27;:
+     optional: true
+
+-  &#x27;@esbuild/android-arm64@0.21.5&#x27;:
+-    optional: true
+-
+   &#x27;@esbuild/android-arm64@0.25.12&#x27;:
+     optional: true
+
+   &#x27;@esbuild/android-arm64@0.28.1&#x27;:
+     optional: true
+
+-  &#x27;@esbuild/android-arm@0.21.5&#x27;:
+-    optional: true
+-
+   &#x27;@esbuild/android-arm@0.25.12&#x27;:
+     optional: true
+
+   &#x27;@esbuild/android-arm@0.28.1&#x27;:
+     optional: true
+
+-  &#x27;@esbuild/android-x64@0.21.5&#x27;:
+-    optional: true
+-
+   &#x27;@esbuild/android-x64@0.25.12&#x27;:
+     optional: true
+
+   &#x27;@esbuild/android-x64@0.28.1&#x27;:
+     optional: true
+
+-  &#x27;@esbuild/darwin-arm64@0.21.5&#x27;:
+-    optional: true
+-
+   &#x27;@esbuild/darwin-arm64@0.25.12&#x27;:
+     optional: true
+
+   &#x27;@esbuild/darwin-arm64@0.28.1&#x27;:
+     optional: true
+
+-  &#x27;@esbuild/darwin-x64@0.21.5&#x27;:
+-    optional: true
+-
+   &#x27;@esbuild/darwin-x64@0.25.12&#x27;:
+     optional: true
+
+   &#x27;@esbuild/darwin-x64@0.28.1&#x27;:
+     optional: true
+
+-  &#x27;@esbuild/freebsd-arm64@0.21.5&#x27;:
+-    optional: true
+-
+   &#x27;@esbuild/freebsd-arm64@0.25.12&#x27;:
+     optional: true
+
+   &#x27;@esbuild/freebsd-arm64@0.28.1&#x27;:
+     optional: true
+
+-  &#x27;@esbuild/freebsd-x64@0.21.5&#x27;:
+-    optional: true
+-
+   &#x27;@esbuild/freebsd-x64@0.25.12&#x27;:
+     optional: true
+
+   &#x27;@esbuild/freebsd-x64@0.28.1&#x27;:
+     optional: true
+
+-  &#x27;@esbuild/linux-arm64@0.21.5&#x27;:
+-    optional: true
+-
+   &#x27;@esbuild/linux-arm64@0.25.12&#x27;:
+     optional: true
+
+   &#x27;@esbuild/linux-arm64@0.28.1&#x27;:
+     optional: true
+
+-  &#x27;@esbuild/linux-arm@0.21.5&#x27;:
+-    optional: true
+-
+   &#x27;@esbuild/linux-arm@0.25.12&#x27;:
+     optional: true
+
+   &#x27;@esbuild/linux-arm@0.28.1&#x27;:
+     optional: true
+
+-  &#x27;@esbuild/linux-ia32@0.21.5&#x27;:
+-    optional: true
+-
+   &#x27;@esbuild/linux-ia32@0.25.12&#x27;:
+     optional: true
+
+   &#x27;@esbuild/linux-ia32@0.28.1&#x27;:
+     optional: true
+
+-  &#x27;@esbuild/linux-loong64@0.21.5&#x27;:
+-    optional: true
+-
+   &#x27;@esbuild/linux-loong64@0.25.12&#x27;:
+     optional: true
+
+   &#x27;@esbuild/linux-loong64@0.28.1&#x27;:
+     optional: true
+
+-  &#x27;@esbuild/linux-mips64el@0.21.5&#x27;:
+-    optional: true
+-
+   &#x27;@esbuild/linux-mips64el@0.25.12&#x27;:
+     optional: true
+
+   &#x27;@esbuild/linux-mips64el@0.28.1&#x27;:
+     optional: true
+
+-  &#x27;@esbuild/linux-ppc64@0.21.5&#x27;:
+-    optional: true
+-
+   &#x27;@esbuild/linux-ppc64@0.25.12&#x27;:
+     optional: true
+
+   &#x27;@esbuild/linux-ppc64@0.28.1&#x27;:
+     optional: true
+
+-  &#x27;@esbuild/linux-riscv64@0.21.5&#x27;:
+-    optional: true
+-
+   &#x27;@esbuild/linux-riscv64@0.25.12&#x27;:
+     optional: true
+
+   &#x27;@esbuild/linux-riscv64@0.28.1&#x27;:
+     optional: true
+
+-  &#x27;@esbuild/linux-s390x@0.21.5&#x27;:
+-    optional: true
+-
+   &#x27;@esbuild/linux-s390x@0.25.12&#x27;:
+     optional: true
+
+   &#x27;@esbuild/linux-s390x@0.28.1&#x27;:
+     optional: true
+
+-  &#x27;@esbuild/linux-x64@0.21.5&#x27;:
+-    optional: true
+-
+   &#x27;@esbuild/linux-x64@0.25.12&#x27;:
+     optional: true
+
+@@ -19608,9 +20914,6 @@ snapshots:
+   &#x27;@esbuild/netbsd-arm64@0.28.1&#x27;:
+     optional: true
+
+-  &#x27;@esbuild/netbsd-x64@0.21.5&#x27;:
+-    optional: true
+-
+   &#x27;@esbuild/netbsd-x64@0.25.12&#x27;:
+     optional: true
+
+@@ -19623,9 +20926,6 @@ snapshots:
+   &#x27;@esbuild/openbsd-arm64@0.28.1&#x27;:
+     optional: true
+
+-  &#x27;@esbuild/openbsd-x64@0.21.5&#x27;:
+-    optional: true
+-
+   &#x27;@esbuild/openbsd-x64@0.25.12&#x27;:
+     optional: true
+
+@@ -19638,36 +20938,24 @@ snapshots:
+   &#x27;@esbuild/openharmony-arm64@0.28.1&#x27;:
+     optional: true
+
+-  &#x27;@esbuild/sunos-x64@0.21.5&#x27;:
+-    optional: true
+-
+   &#x27;@esbuild/sunos-x64@0.25.12&#x27;:
+     optional: true
+
+   &#x27;@esbuild/sunos-x64@0.28.1&#x27;:
+     optional: true
+
+-  &#x27;@esbuild/win32-arm64@0.21.5&#x27;:
+-    optional: true
+-
+   &#x27;@esbuild/win32-arm64@0.25.12&#x27;:
+     optional: true
+
+   &#x27;@esbuild/win32-arm64@0.28.1&#x27;:
+     optional: true
+
+-  &#x27;@esbuild/win32-ia32@0.21.5&#x27;:
+-    optional: true
+-
+   &#x27;@esbuild/win32-ia32@0.25.12&#x27;:
+     optional: true
+
+   &#x27;@esbuild/win32-ia32@0.28.1&#x27;:
+     optional: true
+
+-  &#x27;@esbuild/win32-x64@0.21.5&#x27;:
+-    optional: true
+-
+   &#x27;@esbuild/win32-x64@0.25.12&#x27;:
+     optional: true
+
+@@ -21232,9 +22520,9 @@ snapshots:
+     transitivePeerDependencies:
+       - supports-color
+
+-  &#x27;@vitejs/plugin-vue@5.2.4(vite@5.4.21(@types/node@25.9.3)(lightningcss@1.32.0))(vue@3.5.39(typescript@6.0.3))&#x27;:
++  &#x27;@vitejs/plugin-vue@5.2.4(vite@6.4.3(@types/node@26.1.2)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.22.4)(yaml@2.9.0))(vue@3.5.39(typescript@6.0.3))&#x27;:
+     dependencies:
+-      vite: 5.4.21(@types/node@25.9.3)(lightningcss@1.32.0)
++      vite: 6.4.3(@types/node@26.1.2)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.22.4)(yaml@2.9.0)
+       vue: 3.5.39(typescript@6.0.3)
+
+   &#x27;@vitest/coverage-v8@4.1.8(vitest@4.1.8)&#x27;:
+@@ -21381,7 +22669,7 @@ snapshots:
+       &#x27;@vue/shared&#x27;: 3.5.39
+       estree-walker: 2.0.2
+       magic-string: 0.30.21
+-      postcss: 8.5.15
++      postcss: 8.5.23
+       source-map-js: 1.2.1
+
+   &#x27;@vue/compiler-ssr@3.5.39&#x27;:
+@@ -21468,7 +22756,7 @@ snapshots:
+       progress: 2.0.3
+       semver: 7.8.5
+       tar-fs: 3.1.3
+-      undici: 7.28.0
++      undici: 7.29.0
+       yargs: 16.2.2
+     transitivePeerDependencies:
+       - bare-abort-controller
+@@ -21542,7 +22830,7 @@ snapshots:
+   ajv@8.20.0:
+     dependencies:
+       fast-deep-equal: 3.1.3
+-      fast-uri: 3.1.3
++      fast-uri: 3.1.6
+       json-schema-traverse: 1.0.0
+       require-from-string: 2.0.2
+
+@@ -21702,7 +22990,7 @@ snapshots:
+
+   base64-js@1.5.1: {}
+
+-  baseline-browser-mapping@2.10.43: {}
++  baseline-browser-mapping@2.11.25: {}
+
+   basic-auth@2.0.1:
+     dependencies:
+@@ -21750,21 +23038,21 @@ snapshots:
+       balanced-match: 1.0.2
+       concat-map: 0.0.1
+
+-  brace-expansion@2.1.2:
++  brace-expansion@2.1.4:
+     dependencies:
+       balanced-match: 1.0.2
+
+-  brace-expansion@5.0.6:
++  brace-expansion@5.0.9:
+     dependencies:
+       balanced-match: 4.0.4
+
+-  browserslist@4.28.6:
++  browserslist@4.28.7:
+     dependencies:
+-      baseline-browser-mapping: 2.10.43
++      baseline-browser-mapping: 2.11.25
+       caniuse-lite: 1.0.30001806
+       electron-to-chromium: 1.5.393
+       node-releases: 2.0.51
+-      update-browserslist-db: 1.2.3(browserslist@4.28.6)
++      update-browserslist-db: 1.2.3(browserslist@4.28.7)
+
+   buffer-crc32@0.2.13: {}
+
+@@ -22323,7 +23611,7 @@ snapshots:
+       openapi-fetch: 0.14.1
+       platform: 1.3.6
+       tar: 7.5.22
+-      undici: 7.28.0
++      undici: 7.29.0
+
+   eastasianwidth@0.2.0: {}
+
+@@ -22457,32 +23745,6 @@ snapshots:
+   es6-error@4.1.1:
+     optional: true
+
+-  esbuild@0.21.5:
+-    optionalDependencies:
+-      &#x27;@esbuild/aix-ppc64&#x27;: 0.21.5
+-      &#x27;@esbuild/android-arm&#x27;: 0.21.5
+-      &#x27;@esbuild/android-arm64&#x27;: 0.21.5
+-      &#x27;@esbuild/android-x64&#x27;: 0.21.5
+-      &#x27;@esbuild/darwin-arm64&#x27;: 0.21.5
+-      &#x27;@esbuild/darwin-x64&#x27;: 0.21.5
+-      &#x27;@esbuild/freebsd-arm64&#x27;: 0.21.5
+-      &#x27;@esbuild/freebsd-x64&#x27;: 0.21.5
+-      &#x27;@esbuild/linux-arm&#x27;: 0.21.5
+-      &#x27;@esbuild/linux-arm64&#x27;: 0.21.5
+-      &#x27;@esbuild/linux-ia32&#x27;: 0.21.5
+-      &#x27;@esbuild/linux-loong64&#x27;: 0.21.5
+-      &#x27;@esbuild/linux-mips64el&#x27;: 0.21.5
+-      &#x27;@esbuild/linux-ppc64&#x27;: 0.21.5
+-      &#x27;@esbuild/linux-riscv64&#x27;: 0.21.5
+-      &#x27;@esbuild/linux-s390x&#x27;: 0.21.5
+-      &#x27;@esbuild/linux-x64&#x27;: 0.21.5
+-      &#x27;@esbuild/netbsd-x64&#x27;: 0.21.5
+-      &#x27;@esbuild/openbsd-x64&#x27;: 0.21.5
+-      &#x27;@esbuild/sunos-x64&#x27;: 0.21.5
+-      &#x27;@esbuild/win32-arm64&#x27;: 0.21.5
+-      &#x27;@esbuild/win32-ia32&#x27;: 0.21.5
+-      &#x27;@esbuild/win32-x64&#x27;: 0.21.5
+-
+   esbuild@0.25.12:
+     optionalDependencies:
+       &#x27;@esbuild/aix-ppc64&#x27;: 0.25.12
+@@ -22691,7 +23953,7 @@ snapshots:
+   express-rate-limit@8.5.2(express@5.2.1):
+     dependencies:
+       express: 5.2.1
+-      ip-address: 10.2.0
++      ip-address: 10.3.1
+
+   express@5.2.1:
+     dependencies:
+@@ -22752,7 +24014,7 @@ snapshots:
+
+   fast-sha256@1.3.0: {}
+
+-  fast-uri@3.1.3: {}
++  fast-uri@3.1.6: {}
+
+   fast-xml-builder@1.2.0:
+     dependencies:
+@@ -23200,7 +24462,7 @@ snapshots:
+
+   into-stream@9.1.0: {}
+
+-  ip-address@10.2.0: {}
++  ip-address@10.3.1: {}
+
+   ipaddr.js@1.9.1: {}
+
+@@ -23339,7 +24601,7 @@ snapshots:
+       saxes: 6.0.0
+       symbol-tree: 3.2.4
+       tough-cookie: 6.0.1
+-      undici: 7.28.0
++      undici: 7.29.0
+       w3c-xmlserializer: 5.0.0
+       webidl-conversions: 8.0.1
+       whatwg-mimetype: 5.0.0
+@@ -23989,7 +25251,7 @@ snapshots:
+
+   minimatch@10.2.5:
+     dependencies:
+-      brace-expansion: 5.0.6
++      brace-expansion: 5.0.9
+
+   minimatch@3.1.5:
+     dependencies:
+@@ -23997,11 +25259,11 @@ snapshots:
+
+   minimatch@5.1.9:
+     dependencies:
+-      brace-expansion: 2.1.2
++      brace-expansion: 2.1.4
+
+   minimatch@9.0.9:
+     dependencies:
+-      brace-expansion: 2.1.2
++      brace-expansion: 2.1.4
+
+   minimist@1.2.8: {}
+
+@@ -24032,7 +25294,7 @@ snapshots:
+       once: 1.4.0
+       readable-stream: 3.6.2
+
+-  nanoid@3.3.12: {}
++  nanoid@3.3.18: {}
+
+   napi-build-utils@2.0.0: {}
+
+@@ -24367,7 +25629,7 @@ snapshots:
+       base64-js: 1.5.1
+       xmlbuilder: 15.1.1
+
+-  pnpm@11.7.0: {}
++  pnpm@11.11.0: {}
+
+   points-on-curve@0.2.0: {}
+
+@@ -24383,9 +25645,9 @@ snapshots:
+     transitivePeerDependencies:
+       - supports-color
+
+-  postcss@8.5.15:
++  postcss@8.5.23:
+     dependencies:
+-      nanoid: 3.3.12
++      nanoid: 3.3.18
+       picocolors: 1.1.1
+       source-map-js: 1.2.1
+
+@@ -25251,7 +26513,7 @@ snapshots:
+
+   undici@6.28.0: {}
+
+-  undici@7.28.0: {}
++  undici@7.29.0: {}
+
+   undici@8.10.0: {}
+
+@@ -25303,9 +26565,9 @@ snapshots:
+       graceful-fs: 4.2.11
+       node-int64: 0.4.0
+
+-  update-browserslist-db@1.2.3(browserslist@4.28.6):
++  update-browserslist-db@1.2.3(browserslist@4.28.7):
+     dependencies:
+-      browserslist: 4.28.6
++      browserslist: 4.28.7
+       escalade: 3.2.0
+       picocolors: 1.1.1
+
+@@ -25347,26 +26609,32 @@ snapshots:
+       - supports-color
+       - typescript
+
+-  vite@5.4.21(@types/node@25.9.3)(lightningcss@1.32.0):
++  vite@6.4.3(@types/node@22.20.0)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.22.4)(yaml@2.9.0):
+     dependencies:
+-      esbuild: 0.21.5
+-      postcss: 8.5.15
++      esbuild: 0.25.12
++      fdir: 6.5.0(picomatch@4.0.4)
++      picomatch: 4.0.4
++      postcss: 8.5.23
+       rollup: 4.62.2
++      tinyglobby: 0.2.17
+     optionalDependencies:
+-      &#x27;@types/node&#x27;: 25.9.3
++      &#x27;@types/node&#x27;: 22.20.0
+       fsevents: 2.3.3
++      jiti: 2.7.0
+       lightningcss: 1.32.0
++      tsx: 4.22.4
++      yaml: 2.9.0
+
+-  vite@6.4.3(@types/node@22.20.0)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.22.4)(yaml@2.9.0):
++  vite@6.4.3(@types/node@26.1.2)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.22.4)(yaml@2.9.0):
+     dependencies:
+       esbuild: 0.25.12
+       fdir: 6.5.0(picomatch@4.0.4)
+       picomatch: 4.0.4
+-      postcss: 8.5.15
++      postcss: 8.5.23
+       rollup: 4.62.2
+       tinyglobby: 0.2.17
+     optionalDependencies:
+-      &#x27;@types/node&#x27;: 22.20.0
++      &#x27;@types/node&#x27;: 26.1.2
+       fsevents: 2.3.3
+       jiti: 2.7.0
+       lightningcss: 1.32.0
+@@ -25377,7 +26645,7 @@ snapshots:
+     dependencies:
+       lightningcss: 1.32.0
+       picomatch: 4.0.4
+-      postcss: 8.5.15
++      postcss: 8.5.23
+       rolldown: 1.0.3
+       tinyglobby: 0.2.17
+     optionalDependencies:
+@@ -25392,7 +26660,7 @@ snapshots:
+     dependencies:
+       lightningcss: 1.32.0
+       picomatch: 4.0.4
+-      postcss: 8.5.15
++      postcss: 8.5.23
+       rolldown: 1.0.3
+       tinyglobby: 0.2.17
+     optionalDependencies:
+@@ -25403,14 +26671,14 @@ snapshots:
+       tsx: 4.22.4
+       yaml: 2.9.0
+
+-  vitepress-plugin-mermaid@2.0.17(mermaid@11.16.0)(vitepress@1.6.4(@algolia/client-search@5.55.2)(@types/node@25.9.3)(@types/react@18.3.31)(lightningcss@1.32.0)(postcss@8.5.15)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(search-insights@2.17.3)(typescript@6.0.3)):
++  vitepress-plugin-mermaid@2.0.17(mermaid@11.16.0)(vitepress@1.6.4(@algolia/client-search@5.55.2)(@types/node@26.1.2)(@types/react@18.3.31)(jiti@2.7.0)(lightningcss@1.32.0)(postcss@8.5.23)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(search-insights@2.17.3)(tsx@4.22.4)(typescript@6.0.3)(yaml@2.9.0)):
+     dependencies:
+       mermaid: 11.16.0
+-      vitepress: 1.6.4(@algolia/client-search@5.55.2)(@types/node@25.9.3)(@types/react@18.3.31)(lightningcss@1.32.0)(postcss@8.5.15)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(search-insights@2.17.3)(typescript@6.0.3)
++      vitepress: 1.6.4(@algolia/client-search@5.55.2)(@types/node@26.1.2)(@types/react@18.3.31)(jiti@2.7.0)(lightningcss@1.32.0)(postcss@8.5.23)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(search-insights@2.17.3)(tsx@4.22.4)(typescript@6.0.3)(yaml@2.9.0)
+     optionalDependencies:
+       &#x27;@mermaid-js/mermaid-mindmap&#x27;: 9.3.0
+
+-  vitepress@1.6.4(@algolia/client-search@5.55.2)(@types/node@25.9.3)(@types/react@18.3.31)(lightningcss@1.32.0)(postcss@8.5.15)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(search-insights@2.17.3)(typescript@6.0.3):
++  vitepress@1.6.4(@algolia/client-search@5.55.2)(@types/node@26.1.2)(@types/react@18.3.31)(jiti@2.7.0)(lightningcss@1.32.0)(postcss@8.5.23)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(search-insights@2.17.3)(tsx@4.22.4)(typescript@6.0.3)(yaml@2.9.0):
+     dependencies:
+       &#x27;@docsearch/css&#x27;: 3.8.2
+       &#x27;@docsearch/js&#x27;: 3.8.2(@algolia/client-search@5.55.2)(@types/react@18.3.31)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(search-insights@2.17.3)
+@@ -25419,7 +26687,7 @@ snapshots:
+       &#x27;@shikijs/transformers&#x27;: 2.5.0
+       &#x27;@shikijs/types&#x27;: 2.5.0
+       &#x27;@types/markdown-it&#x27;: 14.1.2
+-      &#x27;@vitejs/plugin-vue&#x27;: 5.2.4(vite@5.4.21(@types/node@25.9.3)(lightningcss@1.32.0))(vue@3.5.39(typescript@6.0.3))
++      &#x27;@vitejs/plugin-vue&#x27;: 5.2.4(vite@6.4.3(@types/node@26.1.2)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.22.4)(yaml@2.9.0))(vue@3.5.39(typescript@6.0.3))
+       &#x27;@vue/devtools-api&#x27;: 7.7.10
+       &#x27;@vue/shared&#x27;: 3.5.39
+       &#x27;@vueuse/core&#x27;: 12.8.2(typescript@6.0.3)
+@@ -25428,10 +26696,10 @@ snapshots:
+       mark.js: 8.11.1
+       minisearch: 7.2.0
+       shiki: 2.5.0
+-      vite: 5.4.21(@types/node@25.9.3)(lightningcss@1.32.0)
++      vite: 6.4.3(@types/node@26.1.2)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.22.4)(yaml@2.9.0)
+       vue: 3.5.39(typescript@6.0.3)
+     optionalDependencies:
+-      postcss: 8.5.15
++      postcss: 8.5.23
+     transitivePeerDependencies:
+       - &#x27;@algolia/client-search&#x27;
+       - &#x27;@types/node&#x27;
+@@ -25442,6 +26710,7 @@ snapshots:
+       - drauu
+       - fuse.js
+       - idb-keyval
++      - jiti
+       - jwt-decode
+       - less
+       - lightningcss
+@@ -25457,8 +26726,10 @@ snapshots:
+       - stylus
+       - sugarss
+       - terser
++      - tsx
+       - typescript
+       - universal-cookie
++      - yaml
+
+   vitest@4.1.8(@opentelemetry/api@1.9.1)(@types/node@22.20.0)(@vitest/coverage-v8@4.1.8)(happy-dom@20.11.6)(jsdom@29.1.1(@noble/hashes@2.3.0))(vite@6.4.3(@types/node@22.20.0)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.22.4)(yaml@2.9.0)):
+     dependencies:
+</pre><h2 id="p7">THIRD_PARTY_NOTICES.md</h2><pre>diff --git a/THIRD_PARTY_NOTICES.md b/THIRD_PARTY_NOTICES.md
+index 34b3f4481d..f3b5cd5a41 100644
+--- a/THIRD_PARTY_NOTICES.md
++++ b/THIRD_PARTY_NOTICES.md
+@@ -72,6 +72,7 @@ External packages installed for runtime use or distributed inside the prebuilt b
+ | [`fflate`](https://github.com/101arrowz/fflate) | MIT |
+ | [`immer`](https://github.com/immerjs/immer) | MIT |
+ | [`ipaddr.js`](https://github.com/whitequark/ipaddr.js) | MIT |
++| [`is-inside-container`](https://github.com/sindresorhus/is-inside-container) | MIT |
+ | [`js-yaml`](https://github.com/nodeca/js-yaml) | MIT |
+ | [`katex`](https://github.com/KaTeX/KaTeX) | MIT |
+ | [`koffi`](https://github.com/Koromix/koffi) | MIT |
+</pre></html>

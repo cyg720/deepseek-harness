@@ -40,6 +40,18 @@
     },
     {
       "path": "../../client/ui-primitives"
+    },
+    {
+      "path": "../qs-composer"
+    },
+    {
+      "path": "../../client/ui-sidebar-right"
+    },
+    {
+      "path": "../../util/workspace-path"
+    },
+    {
+      "path": "../qs-ui-settings-general"
     }
   ]
 }

@@ -31,6 +31,8 @@ kind: "package-reference"
 
 `mount(container)` 会安装 slot 渲染器、在存在时 hydrate 现有启动 DOM、在下一次绘制前把组装后的应用渲染进容器，并返回一个卸载 React 根的 disposer。渲染器执行全程序唯一一次上下文级 `renderSlot('root')` 调用；注册的根占用方拥有产品布局与文档元数据。
 
+首次渲染缺少会话作用域适配器属于装配错误。插件替换期间已安装的适配器被移除时，渲染器卸载其绑定子树并释放订阅，同时保留作用域名单订阅。新适配器安装后按其当前绑定恢复渲染；被移除的适配器不能继续更新恢复后的子树。
+
 ### 对业务插件
 
 业务插件通过 slot 系统注册组件；渲染器在 outlet 处把运行时的会话与 Workspace observable source 绑定为 selector 钩子。插件通过其组合 props 收到标准会话 props（session id、对话快照钩子）——它绝不导入渲染器，也不触碰 React 内部机制。

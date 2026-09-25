@@ -1,3 +1,4 @@
+import type { InputTriggerConsumerPolicy } from './qs/consumer.ts'
 /**
  * InputTriggerService (`ctx.inputTriggers`): the root half of the trigger pipeline — the
  * stateless source registry plus the per-session controller map. Every piece
@@ -103,6 +104,17 @@ export class InputTriggerService extends Service implements InputTriggerServiceC
       live.controllers.delete(id)
     }, 'slash: session controller')
     return controller
+  }
+
+  /**
+   * 为实际挂载的输入呈现取得独占租约。
+   * @param actx - 会话作用域。
+   * @param policy - 来源限制。
+   * @returns 同一控制器和释放动作。
+   */
+  acquireConsumer(actx: ClientContext, policy: InputTriggerConsumerPolicy): { controller: InputTriggerController; release: () => void } {
+    const controller = this.sessionOf(actx)
+    return { controller, release: controller.acquireConsumer(policy) }
   }
 
   private sessions(): ISessions {

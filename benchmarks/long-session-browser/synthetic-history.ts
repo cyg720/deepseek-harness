@@ -20,11 +20,13 @@ export const DELTAS = 120
 export const PACE_MS = 16
 
 /** Create mixed prose, code, reasoning and tool history without reading user data.
+ * @param turns - Number of complete turns in the synthetic history.
  * @returns Current Session JSONL accepted by the shared Web seeder.
  */
-export function syntheticHistory(): string {
+export function syntheticHistory(turns = HISTORY_TURNS): string {
   const session = Session.create(SessionId(SESSION_ID))
-  for (let turn = 1; turn <= HISTORY_TURNS; turn++) {
+  // 奇术容量测量复用同一合法历史生成器；官方基准仍使用默认轮数。
+  for (let turn = 1; turn <= turns; turn++) {
     session.append('turn/start', { turn })
     session.append('step/start', { turn, step: 1 })
     if (turn === 1) session.append('system/message', {

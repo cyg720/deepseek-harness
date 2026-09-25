@@ -1,0 +1,4 @@
+- id: qs-shell
+  config:
+    defaultUi: workbench
+    showOfficialUiEntry: true

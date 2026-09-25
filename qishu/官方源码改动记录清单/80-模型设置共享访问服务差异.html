@@ -1,0 +1,146 @@
+<!doctype html><html lang="zh-CN"><meta charset="utf-8"><title>模型设置共享访问服务差异</title><style>body{font:14px monospace;margin:24px}pre{white-space:pre-wrap;overflow-wrap:anywhere}.add{color:#16703b}.del{color:#b52424}</style><h1>HEAD 至工作区累计差异</h1><h2 id="p0">packages/client/ui-settings-models/README.i18n.yaml</h2><pre><span class="del">--- HEAD/packages/client/ui-settings-models/README.i18n.yaml
+</span>
+<span class="add">+++ working-tree/packages/client/ui-settings-models/README.i18n.yaml
+</span>
+<span class="">@@ -2,5 +2,5 @@
+</span>
+<span class=""> # side as of the last confirmed-consistent state. Both languages carry equal authority;</span>
+<span class=""> # after editing either side, bring the other along and re-record with:</span>
+<span class=""> #   pnpm run verify-translation-pairing --write packages/client/ui-settings-models/README.md</span>
+<span class="del">-README.md: 283761d17f857c9142a59ee3b333081df84ecd9c</span>
+<span class="del">-README.zh.md: 61029555adfc3ee14ccb5b083322d7ae5dbedfee</span>
+<span class="add">+README.md: 403208efd6b904e6eb4cdc90614ef54f8b676ca7</span>
+<span class="add">+README.zh.md: e23860c86431ee9abeb360ad60c816883a423d4f</span>
+</pre><h2 id="p1">packages/client/ui-settings-models/README.md</h2><pre><span class="del">--- HEAD/packages/client/ui-settings-models/README.md
+</span>
+<span class="add">+++ working-tree/packages/client/ui-settings-models/README.md
+</span>
+<span class="">@@ -57,7 +57,7 @@
+</span>
+<span class=""> &lt;details&gt;</span>
+<span class=""> &lt;summary&gt;Implementation internals — click to expand&lt;/summary&gt;</span>
+<span class=""> </span>
+<span class="del">-The page never holds a full settings section: it holds only the REDACTED descriptor, so every edit lands as `settings.mutate` path ops against the stored section — a set per changed field, an unset per cleared one, and a single unset for a deleted provider row.</span>
+<span class="add">+The page never holds a full settings section: it holds only the REDACTED descriptor, so every edit lands as `settings.mutate` path ops against the stored section — a set per changed field, an unset per cleared one, and a single unset for a deleted provider row. `ctx.modelsSettings.face` exposes this same controller, schema callbacks, write operations, and welcome state to independently mounted presentations. The access service creates no additional directory or settings mirror; it is disposed with this plugin, and dependent presentations remount against fresh instances when the plugin returns.</span>
+<span class=""> </span>
+<span class=""> ### Validation</span>
+<span class=""> </span>
+</pre><h2 id="p2">packages/client/ui-settings-models/README.zh.md</h2><pre><span class="del">--- HEAD/packages/client/ui-settings-models/README.zh.md
+</span>
+<span class="add">+++ working-tree/packages/client/ui-settings-models/README.zh.md
+</span>
+<span class="">@@ -57,7 +57,7 @@
+</span>
+<span class=""> &lt;details&gt;</span>
+<span class=""> &lt;summary&gt;实现细节——点击展开&lt;/summary&gt;</span>
+<span class=""> </span>
+<span class="del">-页面只持有脱敏后的描述符，从不持有完整设置分区：因此每次编辑都以 `settings.mutate` 路径操作落到已存分区上——每个改动字段一次 set、每个清除字段一次 unset、删除提供方行则一次 unset。</span>
+<span class="add">+页面只持有脱敏后的描述符，从不持有完整设置分区：因此每次编辑都以 `settings.mutate` 路径操作落到已存分区上——每个改动字段一次 set、每个清除字段一次 unset、删除提供方行则一次 unset。 `ctx.modelsSettings.face` 向独立装配的呈现公开同一控制器、schema 回调、写入操作和欢迎状态。访问服务不创建额外目录或设置镜像，随本插件释放；插件恢复后，依赖它的呈现重新绑定新实例。</span>
+<span class=""> </span>
+<span class=""> ### 校验</span>
+<span class=""> </span>
+</pre><h2 id="p3">packages/client/ui-settings-models/src/client/index.ts</h2><pre><span class="del">--- HEAD/packages/client/ui-settings-models/src/client/index.ts
+</span>
+<span class="add">+++ working-tree/packages/client/ui-settings-models/src/client/index.ts
+</span>
+<span class="">@@ -23,6 +23,8 @@
+</span>
+<span class=""> import type { WelcomeNoticeInjected } from &#x27;./WelcomeNotice.tsx&#x27;</span>
+<span class=""> import { decodeWelcomeSection, WelcomeNoticeStore } from &#x27;./welcome-store.ts&#x27;</span>
+<span class=""> import { ModelsSettingsStore } from &#x27;./store.ts&#x27;</span>
+<span class="add">+import { ModelsSettingsAccess } from &#x27;./qs/access.ts&#x27;</span>
+<span class="add">+export type { ModelsSettingsFace } from &#x27;./qs/access.ts&#x27;</span>
+<span class=""> import { createModelsOperations } from &#x27;./operations.ts&#x27;</span>
+<span class=""> import { createSettingsSchemaOperations } from &#x27;./schema-operations.ts&#x27;</span>
+<span class=""> import { en, zh, type ModelsKey } from &#x27;./locales.ts&#x27;</span>
+<span class="">@@ -103,6 +105,8 @@
+</span>
+<span class="">     namespace: WELCOME_NOTICE_SETTINGS_NAMESPACE,</span>
+<span class="">     decode: decodeWelcomeSection,</span>
+<span class="">   }))</span>
+<span class="add">+  // 两套呈现共享既有控制器和写入操作，服务释放后依赖它的二开插件同步卸载。</span>
+<span class="add">+  new ModelsSettingsAccess(ctx, { controller, operations, schema, welcome: welcomeController })</span>
+<span class="">   const welcomeInjected = (): WelcomeNoticeInjected =&gt; ({</span>
+<span class="">     controller: welcomeController,</span>
+<span class="">     hooks: { welcome: welcomeController.store },</span>
+</pre><h2 id="p4">packages/client/ui-settings-models/tests/apply.client.spec.ts</h2><pre><span class="del">--- HEAD/packages/client/ui-settings-models/tests/apply.client.spec.ts
+</span>
+<span class="add">+++ working-tree/packages/client/ui-settings-models/tests/apply.client.spec.ts
+</span>
+<span class="">@@ -321,3 +321,39 @@
+</span>
+<span class="">     expect(describe).toHaveBeenCalledTimes(2)</span>
+<span class="">   })</span>
+<span class=""> })</span>
+<span class="add">+</span>
+<span class="add">+// 访问服务复用官方注入对象，二开消费者与官方插件共同装卸。</span>
+<span class="add">+it(&#x27;共享模型设置访问面不复制控制器且支持依赖卸载重装&#x27;, async () =&gt; {</span>
+<span class="add">+  const b = await bench()</span>
+<span class="add">+  const declaration = declare(b.slots)</span>
+<span class="add">+  const first = b.ctx.plugin({ inject: [...inject], apply })</span>
+<span class="add">+  await first.await()</span>
+<span class="add">+  const face = b.ctx.modelsSettings.face</span>
+<span class="add">+  const entry = b.slots.entries(&#x27;settings.section&#x27;)[0]!</span>
+<span class="add">+  const injected = (entry.inject as unknown as () =&gt; import(&#x27;../src/client/ModelsSection.tsx&#x27;).ModelsSectionInjected)()</span>
+<span class="add">+  expect(face.controller).toBe(injected.controller)</span>
+<span class="add">+  expect(face.operations).toBe(injected.operations)</span>
+<span class="add">+  expect(face.schema).toBe(injected.schema)</span>
+<span class="add">+  expect(face.controller.store.getSnapshot().status).toBe(&#x27;idle&#x27;)</span>
+<span class="add">+  const welcome = b.slots.entries(&#x27;settings.onboarding&#x27;).find(row =&gt; row.options.id === &#x27;welcome-notice&#x27;)!</span>
+<span class="add">+  expect((welcome.inject as unknown as () =&gt; import(&#x27;../src/client/WelcomeNotice.tsx&#x27;).WelcomeNoticeInjected)().controller)</span>
+<span class="add">+    .toBe(face.welcome)</span>
+<span class="add">+  const mounted: unknown[] = []</span>
+<span class="add">+  let disposed = 0</span>
+<span class="add">+  const consumer = b.ctx.plugin({ inject: [&#x27;modelsSettings&#x27;], apply: (ctx: Context) =&gt; {</span>
+<span class="add">+    ctx.effect(() =&gt; { mounted.push(ctx.modelsSettings.face); return () =&gt; { disposed++ } }, &#x27;fixture model consumer&#x27;)</span>
+<span class="add">+  } })</span>
+<span class="add">+  await consumer.await()</span>
+<span class="add">+  expect(mounted).toEqual([face])</span>
+<span class="add">+  await first.dispose()</span>
+<span class="add">+  expect(b.ctx.get(&#x27;modelsSettings&#x27;)).toBeUndefined()</span>
+<span class="add">+  expect(disposed).toBe(1)</span>
+<span class="add">+  const second = b.ctx.plugin({ inject: [...inject], apply })</span>
+<span class="add">+  try {</span>
+<span class="add">+    await second.await()</span>
+<span class="add">+    await vi.waitFor(() =&gt; { expect(mounted).toHaveLength(2) })</span>
+<span class="add">+    expect(mounted[1]).toBe(b.ctx.modelsSettings.face)</span>
+<span class="add">+    expect(b.ctx.modelsSettings.face.controller).not.toBe(face.controller)</span>
+<span class="add">+    expect(b.ctx.modelsSettings.face.welcome).not.toBe(face.welcome)</span>
+<span class="add">+  } finally { await consumer.dispose(); await second.dispose(); declaration() }</span>
+<span class="add">+})</span>
+</pre><h2 id="p5">scripts/gen-cordis-catalog.ts</h2><pre><span class="del">--- HEAD/scripts/gen-cordis-catalog.ts
+</span>
+<span class="add">+++ working-tree/scripts/gen-cordis-catalog.ts
+</span>
+<span class="">@@ -147,6 +147,10 @@
+</span>
+<span class="">  * to a model as `cordis_runtime_inspect what:&quot;client&quot;`).</span>
+<span class="">  */</span>
+<span class=""> export const SERVICE_WALK_EXEMPTIONS: Record&lt;string, string&gt; = {</span>
+<span class="add">+  // 奇术发送准备注册表仅存在于 Client 面，接口由所属输入插件说明，不能混入 Host 服务目录。</span>
+<span class="add">+  qsSendPreparation: &#x27;client-side send preparation registry — packages/qs/qs-composer/README.md owns the API&#x27;,</span>
+<span class="add">+  // 奇术模型配置呈现复用 Client 访问服务，API 归官方模型设置文档，不进入 Host 服务目录。</span>
+<span class="add">+  modelsSettings: &#x27;client-side shared models presentation access — packages/client/ui-settings-models/README.md owns the API&#x27;,</span>
+<span class="">   appReady: &#x27;not a service: launcher-provided successful-startup signal — packages/boot/cmdline/README.md owns the launcher contract&#x27;,</span>
+<span class="">   appExit: &#x27;not a service: launcher-provided bounded process-exit callback — packages/boot/cmdline/README.md owns the launcher contract&#x27;,</span>
+<span class="">   cmdlineArgs: &#x27;not a service: launcher-provided immutable app argument accessor — packages/boot/cmdline/README.md owns the launcher contract&#x27;,</span>
+<span class="">@@ -178,6 +182,17 @@
+</span>
+<span class="">   workspaces: &#x27;client-side interface-typed browser service — packages/api/workspace-controller/README.md owns the API&#x27;,</span>
+<span class="">   resources: &#x27;client-side resource model (protocol providers, pins, live sources) — packages/client/resources/README.md owns the API&#x27;,</span>
+<span class="">   sidebarRight: &#x27;client-side right-Sidebar navigation face — packages/client/ui-sidebar-right/README.md owns the API&#x27;,</span>
+<span class="add">+  // 二开共享呈现属于 Client 面，由各原包 README 说明，不能漏过服务清单检查。</span>
+<span class="add">+  sidebarRightPresentation: &#x27;client-side shared presentation — packages/client/ui-sidebar-right/README.md owns the API&#x27;,</span>
+<span class="add">+  // 二开复用的会话呈现接口仅存在 Client 分面，API 归属原会话包 README。</span>
+<span class="add">+  conversationPresentation: &#x27;client-side shared presentation — packages/client/ui-conversation/README.md owns the API&#x27;,</span>
+<span class="add">+  // 目标呈现是 Client 专用接口，正式说明归原插件，Host 目录不生成它。</span>
+<span class="add">+  goalPresentation: &#x27;client-side shared presentation — packages/client/ui-goal/README.md owns the API&#x27;,</span>
+<span class="add">+  messageFeedbackPresentation: &#x27;client-side shared presentation — packages/client/ui-message-feedback/README.md owns the API&#x27;,</span>
+<span class="add">+  deliverablesPresentation: &#x27;client-side shared presentation — packages/client/ui-deliverables/README.md owns the API&#x27;,</span>
+<span class="add">+  documentPreviewPresentation: &#x27;client-side shared presentation — packages/client/ui-sidebar-documentpreview/README.md owns the API&#x27;,</span>
+<span class="add">+  documentPdfPresentation: &#x27;client-side shared presentation — packages/client/ui-sidebar-documentpreview/README.md owns the API&#x27;,</span>
+<span class="add">+  sidebarFilesPresentation: &#x27;client-side shared presentation — packages/client/ui-sidebar-files/README.md owns the API&#x27;,</span>
+<span class="">   sidebarRightTabs: &#x27;client-side right-Sidebar tab-type registry — packages/client/ui-sidebar-right/README.md owns the API&#x27;,</span>
+<span class="">   documentPreviews: &#x27;client-side document renderer registry — docs/subsystems/sidebar-right.md owns the API&#x27;,</span>
+<span class=""> }</span>
+</pre></html>

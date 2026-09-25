@@ -77,6 +77,8 @@ function controllerBench(sources: InputTriggerSource[] = [], key = 'a') {
     all: () => sources,
   }
   const controller = new InputTriggerController({ actx: scope.ctx, sessionId: sid(key), roster })
+  // 行为台显式模拟一个已挂载的官方输入，不绕过租约策略。
+  controller.acquireConsumer({ triggers: ['/', '@'] })
   return { root, actx: scope.ctx, controller, sources }
 }
 
@@ -112,7 +114,9 @@ describe('registerSource', () => {
     const disposeB = inputTriggers.registerSource(b.source)
 
     const ca = inputTriggers.sessionOf(mint('a').actx)
+    ca.acquireConsumer({ triggers: ['/', '@'] })
     const cb = inputTriggers.sessionOf(mint('b').actx)
+    cb.acquireConsumer({ triggers: ['/', '@'] })
     ca.track('/o', 2, { tier: 'plain' }, 1)
     cb.track('/o', 2, { tier: 'plain' }, 1)
     await tick()
@@ -130,7 +134,9 @@ describe('registerSource', () => {
   it('a source registered after controller birth warms in every live controller', async () => {
     const { inputTriggers, mint } = await serviceBench()
     const ca = inputTriggers.sessionOf(mint('a').actx)
+    ca.acquireConsumer({ triggers: ['/', '@'] })
     const cb = inputTriggers.sessionOf(mint('b').actx)
+    cb.acquireConsumer({ triggers: ['/', '@'] })
     const late = deferredSource('/', 'late', { lexicon: () => ['fresh'] })
     inputTriggers.registerSource(late.source)
     expect(late.warm).toHaveBeenNthCalledWith(1, { sessionId: sid('a') })
@@ -142,6 +148,7 @@ describe('registerSource', () => {
   it('HMR shape: dispose of the registering fiber removes the source', async () => {
     const { root, inputTriggers, mint } = await serviceBench()
     const controller = inputTriggers.sessionOf(mint('a').actx)
+    controller.acquireConsumer({ triggers: ['/', '@'] })
     const fiber = root.plugin({
       apply(pluginCtx: Context) {
         pluginCtx.effect(
@@ -168,6 +175,7 @@ describe('sessionOf', () => {
     const { inputTriggers, mint } = await serviceBench()
     const a = mint('a')
     const first = inputTriggers.sessionOf(a.actx)
+    first.acquireConsumer({ triggers: ['/', '@'] })
     expect(inputTriggers.sessionOf(a.actx)).toBe(first)
     expect(inputTriggers.sessionOf(mint('b').actx)).not.toBe(first)
   })
@@ -197,6 +205,7 @@ describe('sessionOf', () => {
     inputTriggers.registerSource(readySource('/', 'command', [{ name: 'goal' }]).source)
     const a = mint('a')
     const controller = inputTriggers.sessionOf(a.actx)
+    controller.acquireConsumer({ triggers: ['/', '@'] })
     controller.track('/g', 2, { tier: 'plain' }, 1)
     await tick()
     expect(controller.menu.getSnapshot().open).toBe(true)
@@ -215,7 +224,9 @@ describe('sessionOf', () => {
     const src = deferredSource('/', 'command')
     inputTriggers.registerSource(src.source)
     const ca = inputTriggers.sessionOf(mint('a').actx)
+    ca.acquireConsumer({ triggers: ['/', '@'] })
     const cb = inputTriggers.sessionOf(mint('b').actx)
+    cb.acquireConsumer({ triggers: ['/', '@'] })
 
     ca.track('/g', 2, { tier: 'plain' }, 1)
     expect(ca.menu.getSnapshot().open).toBe(true)
@@ -238,8 +249,11 @@ describe('sessionOf', () => {
       onPick: () => undefined,
     })
     const first = inputTriggers.sessionOf(mint('a').actx)
+    first.acquireConsumer({ triggers: ['/', '@'] })
     const second = inputTriggers.sessionOf(mint('b').actx)
+    second.acquireConsumer({ triggers: ['/', '@'] })
     const closed = inputTriggers.sessionOf(mint('c').actx)
+    closed.acquireConsumer({ triggers: ['/', '@'] })
     first.track('/c', 2, { tier: 'plain' }, 1)
     second.track('/c', 2, { tier: 'plain' }, 1)
     await tick()

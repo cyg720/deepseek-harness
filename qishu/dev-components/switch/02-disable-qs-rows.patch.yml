@@ -1,26 +1,73 @@
-# 彻底停用自建界面（卸载 7 行，完全不加载我们的插件代码）
-#
-# 用法（任选其一）：
-#   1) 临时：pnpm dsh web --patch ./qishu/dev-components/switch/02-disable-qs-rows.patch.yml
-#   2) 常驻：把下面的行并入 $DSH_HOME/cordis.patch.yml（对所有 profile 生效）
-#
-# 为什么必须 7 行一起停：
-#   槽声明随声明者消失。qs-shell 是 `qs.*` 槽的唯一声明者，若只停它而其余包仍加载，
-#   那些包注册未声明槽会在加载时抛错（ui-slots/src/index.ts:828-830）。
-#
-# 适用场景：排查"问题是否由我们的插件引起"；日常切换建议用 01-switch-to-official.patch.yml。
-# 行 id 以 M0 落地时的实际 id 为准（建议与包目录同名：qs-shell、qs-login、…、qs-questions）。
-# 验证：pnpm dsh web --dump-config；首屏出现官方 sidebar / 设置 / 会话即切换成功。
+# 停用 Web bundle 的全部 QS 呈现插件，保留官方界面与唯一业务服务。
+# 临时使用：pnpm dsh --profile web --patch ./qishu/dev-components/switch/02-disable-qs-rows.patch.yml
+# 仅用于 Web profile；不要放入对所有 profile 生效的全局配置。
+# 目录选择器还会动态追加 QS 插件，必须同时清空附加名单；官方目录后端及呈现仍保留。
+- id: directory-picker
+  config:
+    additionalClientSurfaces:
+      native: []
+      browse: []
 
+# 下列行对应当前 Web bundle 的全部 QS 顶层插件；新增插件时须同步回退清单和浏览器验收。
 - id: qs-shell
   disabled: true
 - id: qs-login
+  disabled: true
+- id: qs-ui-brand
+  disabled: true
+- id: qs-ui-sidebar
+  disabled: true
+- id: qs-ui-sidebar-right
   disabled: true
 - id: qs-sessions
   disabled: true
 - id: qs-composer
   disabled: true
 - id: qs-transcript
+  disabled: true
+- id: qs-ui-tool
+  disabled: true
+- id: qs-ui-input-trigger
+  disabled: true
+- id: qs-ui-commands
+  disabled: true
+- id: qs-ui-message-feedback
+  disabled: true
+- id: qs-ui-sidebar-files
+  disabled: true
+- id: qs-ui-schedule
+  disabled: true
+- id: qs-ui-settings-plugins
+  disabled: true
+- id: qs-ui-settings-plugin-inventory
+  disabled: true
+- id: qs-ui-theme
+  disabled: true
+- id: qs-ui-permission-presets
+  disabled: true
+- id: qs-ui-model-selection
+  disabled: true
+- id: qs-ui-agent-preset
+  disabled: true
+- id: qs-locale
+  disabled: true
+- id: qs-ui-settings-general
+  disabled: true
+- id: qs-ui-settings-models
+  disabled: true
+- id: qs-ui-trajectory
+  disabled: true
+- id: qs-ui-subagent
+  disabled: true
+- id: qs-ui-goal
+  disabled: true
+- id: qs-ui-jobs
+  disabled: true
+- id: qs-ui-attachment
+  disabled: true
+- id: qs-ui-deliverables
+  disabled: true
+- id: qs-ui-sidebar-documentpreview
   disabled: true
 - id: qs-approval
   disabled: true

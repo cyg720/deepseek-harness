@@ -110,3 +110,5 @@ None.
 </details>
 
 **Runtime invariant:** No companion is published. Prompt, slot, dictionary, file-action route, and optional service registrations are effect-owned; the Session log owns declarations and the filesystem owns file contents.
+
+The `deliverablesPresentation` service publishes the existing closing-turn selector, action coordinate key and injected native-open state to alternate presentations. The official plugin remains the sole owner of the event projection and opening controller; unloading an alternate view does not cancel a shared request. Selectors require only turn and sequence, while each view supplies its own preview navigation.

@@ -1,0 +1,63 @@
+<!doctype html><html lang="zh-CN"><meta charset="utf-8"><title>模型选择传输失败恢复差异</title><style>body{font:14px monospace;margin:24px}pre{white-space:pre-wrap;overflow-wrap:anywhere}.add{color:#16703b}.del{color:#b52424}</style><h1>当前 HEAD 至工作区的累计差异</h1><h2 id="p0">packages/client/ui-model-selection/README.i18n.yaml</h2><pre><span class="del">--- HEAD/packages/client/ui-model-selection/README.i18n.yaml
+</span>
+<span class="add">+++ working-tree/packages/client/ui-model-selection/README.i18n.yaml
+</span>
+<span class="">@@ -2,5 +2,5 @@
+</span>
+<span class=""> # side as of the last confirmed-consistent state. Both languages carry equal authority;</span>
+<span class=""> # after editing either side, bring the other along and re-record with:</span>
+<span class=""> #   pnpm run verify-translation-pairing --write packages/client/ui-model-selection/README.md</span>
+<span class="del">-README.md: f3c373619fec0482876d8ac540f06e188b5b34d9</span>
+<span class="del">-README.zh.md: b8ee9cd73bb3fd5cdf0d0ecd8559b271c5abc933</span>
+<span class="add">+README.md: fc5f725161ea25204b72cc43ca1c5cf51e9452c9</span>
+<span class="add">+README.zh.md: da7ab042340d7e9c53d74c7bee998f0d8ab0ccc1</span>
+</pre><h2 id="p1">packages/client/ui-model-selection/README.md</h2><pre><span class="del">--- HEAD/packages/client/ui-model-selection/README.md
+</span>
+<span class="add">+++ working-tree/packages/client/ui-model-selection/README.md
+</span>
+<span class="">@@ -43,7 +43,7 @@
+</span>
+<span class=""> &lt;details&gt;</span>
+<span class=""> &lt;summary&gt;Implementation internals — click to expand&lt;/summary&gt;</span>
+<span class=""> </span>
+<span class="del">-Two entries over ONE per-session directory owned by `ModelDirectoryResolver` (`ctx.modelDirectories`): the `/model` popupSelect contribution (registered through `ctx.commandUi`) and the composer&#x27;s named `conversation.input.model` seat both load the session&#x27;s advisory directory through `session.models` and submit through `session.selectModel` via the same `ModelDirectory` instance, so a switch made in either entry is what the other shows next. Directory loads and selections share a generation counter so an older response never overwrites a newer one; a connection reset drops every resident projection and repulls the Host-restored selection before display. Directories are per-session, resolved lazily, and disposed with the session scope; addressed subagent sessions expose neither entry. Every resident directory refetches directly on forwarded `llm/adapters-updated` and `settings/document-updated` owner events.</span>
+<span class="add">+The `/model` command and composer model seat share one per-session `ModelDirectory` owned by `ModelDirectoryResolver`. A Host-wide catalog loads through `session.modelCatalog`; selections use `session.selectModel`, and the durable Session projection determines the displayed current model. Catalog and selection requests have independent generation counters. Connection resets invalidate pending selections and refresh the shared catalog while retaining the last complete view until fresh data arrives. Transport rejections and unsuccessful RPC responses release the selection lock and expose an error; late responses after reset, disposal, or a newer selection cannot change operation status. Directories are disposed with their session scopes, and addressed subagents expose neither entry. Adapter, settings, and credential-reference updates refresh the shared catalog.</span>
+<span class=""> </span>
+<span class=""> &lt;/details&gt;</span>
+<span class=""> </span>
+</pre><h2 id="p2">packages/client/ui-model-selection/README.zh.md</h2><pre><span class="del">--- HEAD/packages/client/ui-model-selection/README.zh.md
+</span>
+<span class="add">+++ working-tree/packages/client/ui-model-selection/README.zh.md
+</span>
+<span class="">@@ -43,7 +43,7 @@
+</span>
+<span class=""> &lt;details&gt;</span>
+<span class=""> &lt;summary&gt;实现细节——点击展开&lt;/summary&gt;</span>
+<span class=""> </span>
+<span class="del">-两个入口共用一份由 `ModelDirectoryResolver`（`ctx.modelDirectories`）持有的会话级目录：`/model` popupSelect 贡献项（经 `ctx.commandUi` 注册）与 composer 的具名 `conversation.input.model` 位都经 `session.models` 加载会话的建议目录、经 `session.selectModel` 通过同一个 `ModelDirectory` 实例提交，因此任一入口所做的切换正是另一个入口接下来显示的。目录加载与选择共享一个代次计数器，旧响应不会覆盖新结果；连接重置丢弃所有常驻投影，并在显示前重新拉取 Host 恢复的选择。目录按会话惰性解析，随会话作用域一并 dispose（资源释放）；已寻址 subagent 会话不公开任一入口。每份常驻目录都会直接在转发的 `llm/adapters-updated` 与 `settings/document-updated` owner 事件上重拉。</span>
+<span class="add">+`/model` 命令和 composer 模型位共用 `ModelDirectoryResolver` 持有的一份会话级 `ModelDirectory`。Host 级目录通过 `session.modelCatalog` 加载，选择操作调用 `session.selectModel`，显示的当前模型由持久 Session 投影决定。目录与选择请求各自维护代次。连接重置使待处理选择失效并刷新共享目录，新数据到达前保留最后一份完整视图。传输拒绝与 RPC 失败均释放选择锁并呈现错误；重置、卸载或新选择之后的迟到响应不能改变操作状态。目录随会话作用域释放，已寻址子代理不提供任一入口。适配器、设置和凭据引用更新会刷新共享目录。</span>
+<span class=""> </span>
+<span class=""> &lt;/details&gt;</span>
+<span class=""> </span>
+</pre><h2 id="p3">packages/client/ui-model-selection/src/client/directory.ts</h2><pre><span class="del">--- HEAD/packages/client/ui-model-selection/src/client/directory.ts
+</span>
+<span class="add">+++ working-tree/packages/client/ui-model-selection/src/client/directory.ts
+</span>
+<span class="">@@ -96,6 +96,15 @@
+</span>
+<span class="">       ...selection.reasoningEffort === undefined</span>
+<span class="">         ? {}</span>
+<span class="">         : { reasoningEffort: selection.reasoningEffort },</span>
+<span class="add">+    }).catch((error: unknown) =&gt; {</span>
+<span class="add">+      // 传输拒绝不含 RPC 错误信封，仍须释放选择锁；旧连接或已卸载目录不能回写。</span>
+<span class="add">+      if (!this.disposed &amp;&amp; generation === this.generation) {</span>
+<span class="add">+        this.store.update((state) =&gt; {</span>
+<span class="add">+          state.status = &#x27;error&#x27;</span>
+<span class="add">+          state.error = error instanceof Error ? error.message : String(error)</span>
+<span class="add">+        })</span>
+<span class="add">+      }</span>
+<span class="add">+      throw error</span>
+<span class="">     })</span>
+<span class="">     if (this.disposed || generation !== this.generation) {</span>
+<span class="">       if (!result.ok) throw new Error(`${result.error.code}: ${result.error.message}`)</span>
+</pre></html>

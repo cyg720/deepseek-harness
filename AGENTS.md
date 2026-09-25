@@ -1,8 +1,10 @@
 # AGENTS.md
 
-DeepSeek Harness is an all-plugin Cordis agent harness. Read [docs/architecture.md](docs/architecture.md) before changing `packages/`; documentation follows [docs/AGENTS.md](docs/AGENTS.md).
+DeepSeek Harness uses Cordis plugins throughout. Read [docs/architecture.md](docs/architecture.md) before changing `packages/`; documentation follows [docs/AGENTS.md](docs/AGENTS.md).
 
 奇术二开新增文件进入官方目录时必须放在对应的`qs/`子目录，已有`packages/qs/`及`qishu/`不重复嵌套。每次改动官方原文件（含配置、脚本、生成文件、测试、文档及本规则），必须同批更新[官方源码改动记录清单](qishu/官方源码改动记录清单/00-登记规则与索引.md)，记录路径、原因、状态、验证及上游影响；回退也须登记，不得将计划标为已实现。该目录只登记官方原文件改动，二开自有文件无论存放何处均不登记。
+
+奇术二开必须遵循官方“一切皆插件”：本次范围内替换几个官方插件，就按其真实职责逐项对应几个独立二开插件；官方包内子插件也保持对应注册与生命周期，不按页面或业务清单合并多个官方插件。先查源码并维护官方→QS 对应表，再设计、编码及验证独立装配、卸载和重装。自有新增功能（如登录）另设插件并标注无官方对应；复用的官方底层服务保持唯一，不为凑数量复制服务或建立空插件。此规则用于保持上游职责可追踪、升级可对照，适用于后续全部二开。
 
 ## Pre-stable APIs and released Session data
 

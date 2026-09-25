@@ -33,6 +33,10 @@
 <li>清除浏览器的此站点数据即可恢复初始样例。使用 file 地址与 localhost 地址时，浏览器存储互相独立。</li>
 </ul>
 <h2>自适应布局</h2><p>支持手机、平板、桌面及横屏窄高窗口。窗口跨越 700 px 和 960 px 断点时自动调整侧栏，返回桌面时恢复该布局的开关状态；缩放不会重建对话输入框或弹窗。手机端左右栏互斥，平板右栏使用遮罩浮层，可点击遮罩或按 Esc 收起。输入区随可用视口高度适配，长内容在各自区域内滚动。</p><h2>原型的实际限制</h2><p>没有真实认证、后端 API、模型推理、通知调度、设备操作或外部服务连接。模型选择与深度思考只改变演示交互；语音输入使用可点击的示例转写，不访问麦克风。当前项目是工作区内的单个展示项目，新建按钮更新项目名称，不创建独立的项目数据容器。</p>
-<h2>代码与验收</h2><p><code>index.html</code> 为入口，<code>styles.css</code> 为样式，<code>app.js</code> 为本地状态与交互，<code>factory.svg</code> 为登录页动态插图，<code>serve.cjs</code> 为静态服务器。<code>preview/</code> 保留实测截图，<code>validation/</code> 保留浏览器验证脚本与结果。</p>
+<h2>第二优先：转写与诊断</h2><p>登录后选择「交互演示 → 第二优先 · 转写与诊断」。工具树、过程收尾、错误重试、历史分页、队列、上下文压缩和命令共 39 种状态，均在现有工作台内呈现。使用对话顶部的选择器切换状态；命令在下方输入区操作。退出预览恢复原草稿，切换其他会话不会覆盖其对话。所有结果仅为本地演示，不执行真实命令。</p><p>新增界面由 <code>second-priority.js</code>、<code>second-priority.css</code> 提供；验收见 <a href="validation/第二优先原型验收.md">第二优先原型验收</a>。状态切换通过不能替代正式插件的服务、权限与并发测试。</p><h2>代码与验收</h2><p><code>index.html</code> 为入口，<code>styles.css</code> 为样式，<code>app.js</code> 为本地状态与交互，<code>factory.svg</code> 为登录页动态插图，<code>serve.cjs</code> 为静态服务器。<code>preview/</code> 保留实测截图，<code>validation/</code> 保留浏览器验证脚本与结果。</p>
 <p>验证脚本使用 Playwright；可用环境变量 <code>PLAYWRIGHT_MODULE</code> 指定模块目录、<code>BROWSER_PATH</code> 指定浏览器可执行文件、<code>PROTOTYPE_URL</code> 指定已启动的原型地址，然后运行 <code>node validation/verify.cjs</code>。脚本在隔离浏览器中检查关键流程，不修改用户浏览器数据。</p>
+<h2>第二优先：工作台差异化（二合一）</h2>
+<p>登录后选择「交互演示 → 第二优先 · 工作台差异化（二合一）」。新增检查器、通知反馈、工作区文件、多面板布局、后台作业、调度目录、目标、子代理、请求轨迹、设置、外部授权、品牌共 12 组 91 个状态。沿用当前外壳与深浅主题；顶部选择器用于评审，退出预览恢复原会话。</p>
+<p>可操作文件预览、标签键盘切换、目录取消/确认、面板拖拽与刷新恢复、目标编辑与清除、设置失败重试、授权及撤销。设置七个分区保留各自草稿。布局仅保存到独立的 <code>qs-prototype-workbench-layout-v1</code> 本地键。外部系统使用模拟数据，不输入真实凭证，不发送业务请求。</p>
+<p>实现由 <code>workbench-priority.js</code> 与 <code>workbench-priority.css</code> 提供。<a href="validation/第二优先工作台原型验收.md">工作台原型验收</a>记录测试、范围及限制；状态稿不代表正式插件、真实后端或授权安全验收完成。</p>
 </body></html>

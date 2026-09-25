@@ -1,0 +1,6 @@
+/* 原型设置行的标签、说明与右侧控件，颜色来自奇术令牌。 */
+.row { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 18px 0; border-bottom: 1px solid var(--qs-line); }
+.row label { font-weight: 600; }
+.row p { margin: 6px 0 0; font-size: 12px; color: var(--qs-muted); }
+.row select { padding: 8px 12px; border: 1px solid var(--qs-line); border-radius: 8px; font: inherit; color: var(--qs-text); background: var(--qs-surface); max-width: 100%; }
+@media(max-width: 700px) { .row { align-items: stretch; flex-direction: column; gap: 10px; } }

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
-import { groupSessions } from '../src/client/pins-store.ts'
+import { createQsPinsStore, groupSessions } from '../src/client/pins-store.ts'
 
 const id = (value: string): SessionId => value as SessionId
 
@@ -40,4 +40,18 @@ describe('会话分组', () => {
     })
     expect(groups.recent[0]?.title).toBe('x')
   })
+})
+
+/** 置顶操作只调整目标身份，不影响其他会话的顺序。 */
+it('切换和归档清理置顶时保持其他会话', () => {
+  const store = createQsPinsStore().create()
+  expect(store.getSnapshot().pinned).toEqual([])
+  store.actions.toggle(id('a')); store.actions.toggle(id('b'))
+  expect(store.getSnapshot().pinned).toEqual([id('a'), id('b')])
+  store.actions.toggle(id('a'))
+  expect(store.getSnapshot().pinned).toEqual([id('b')])
+  store.actions.forget(id('missing'))
+  expect(store.getSnapshot().pinned).toEqual([id('b')])
+  store.actions.forget(id('b'))
+  expect(store.getSnapshot().pinned).toEqual([])
 })

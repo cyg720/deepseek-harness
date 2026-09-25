@@ -1,3 +1,82 @@
 // Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
 
-exports[`returns to the latest message after sending from a scrolled historical session > submitted turn footer 1`] = `"Generation complete"`;
+exports[`keeps deferred integrations informational and returns focus without external requests > QS deferred integration scope 1`] = `
+"Apps
+
+Third-party integrations are deferred for this release. This entry is informational only.
+
+No external systems are connected, authorization requested or third-party credentials stored here. Future integration requires agreed systems, permitted operations and authentication. Static sign-in does not grant access to external systems.
+
+Back to conversation"
+`;
+
+exports[`keeps deferred integrations informational and returns focus without external requests > QS deferred integration scope 2`] = `
+"Apps
+
+Third-party integrations are deferred for this release. This entry is informational only.
+
+No external systems are connected, authorization requested or third-party credentials stored here. Future integration requires agreed systems, permitted operations and authentication. Static sign-in does not grant access to external systems.
+
+Back to conversation"
+`;
+
+exports[`opens durable delivered files in Qishu without issuing native desktop actions > QS durable delivered files 1`] = `
+[
+  "report.txt",
+  "说明.txt",
+]
+`;
+
+exports[`preserves session tabs across official and Qishu presentations and renders docking gestures > plain file preview 1`] = `
+"QS file tree evidence
+"
+`;
+
+exports[`preserves session tabs across official and Qishu presentations and renders docking gestures > registered panel guide 1`] = `
+"Workspace panels
+Workspace files
+
+Browse files in this session's workspace"
+`;
+
+exports[`records message feedback durably, retains failed drafts, and separates bare session feedback > feedback form target and categories 1`] = `
+"Submit feedback
+Cancel
+
+Feedback target: assistant message · qs-feedback-history
+3a579a27-361f-428b-9d81-4b13c37d9ca2
+
+Add details to help us improve. Your submission will include the current conversation log.
+
+Task result
+Instruction understanding and following
+Product features and interaction
+Stability and speed
+Resource usage and cost
+Security, privacy, and permissions
+Other
+Cancel
+Submit"
+`;
+
+exports[`returns to the latest message after sending from a scrolled historical session > command risk confirmation 1`] = `
+"Enable Full access?
+×
+
+Full access reduces confirmation steps and lets the agent perform more actions directly, including sensitive operations, file changes, or external commands. Only use it when you trust the current task.
+
+I understand the risks and want to continue
+Cancel
+Enable Full access"
+`;
+
+exports[`returns to the latest message after sending from a scrolled historical session > submitted turn footer 1`] = `
+"Generation complete
+No duration or token metrics are available."
+`;
+
+exports[`shows real Host job transitions in the independent Qishu header contribution > QS completed job notification 1`] = `"- text: A background job in “Use the bash tool to” completed."`;
+
+exports[`shows real Host job transitions in the independent Qishu header contribution > QS failed job notification 1`] = `"- text: A background job in “Use the bash tool to” failed. Check the job list for its status."`;
+
+exports[`shows real Host job transitions in the independent Qishu header contribution > QS killed job notification 1`] = `"- text: A background job in “Use the bash tool to” was terminated."`;

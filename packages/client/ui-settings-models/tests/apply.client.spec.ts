@@ -321,3 +321,39 @@ describe('pushed invalidations', () => {
     expect(describe).toHaveBeenCalledTimes(2)
   })
 })
+
+// 访问服务复用官方注入对象，二开消费者与官方插件共同装卸。
+it('共享模型设置访问面不复制控制器且支持依赖卸载重装', async () => {
+  const b = await bench()
+  const declaration = declare(b.slots)
+  const first = b.ctx.plugin({ inject: [...inject], apply })
+  await first.await()
+  const face = b.ctx.modelsSettings.face
+  const entry = b.slots.entries('settings.section')[0]!
+  const injected = (entry.inject as unknown as () => import('../src/client/ModelsSection.tsx').ModelsSectionInjected)()
+  expect(face.controller).toBe(injected.controller)
+  expect(face.operations).toBe(injected.operations)
+  expect(face.schema).toBe(injected.schema)
+  expect(face.controller.store.getSnapshot().status).toBe('idle')
+  const welcome = b.slots.entries('settings.onboarding').find(row => row.options.id === 'welcome-notice')!
+  expect((welcome.inject as unknown as () => import('../src/client/WelcomeNotice.tsx').WelcomeNoticeInjected)().controller)
+    .toBe(face.welcome)
+  const mounted: unknown[] = []
+  let disposed = 0
+  const consumer = b.ctx.plugin({ inject: ['modelsSettings'], apply: (ctx: Context) => {
+    ctx.effect(() => { mounted.push(ctx.modelsSettings.face); return () => { disposed++ } }, 'fixture model consumer')
+  } })
+  await consumer.await()
+  expect(mounted).toEqual([face])
+  await first.dispose()
+  expect(b.ctx.get('modelsSettings')).toBeUndefined()
+  expect(disposed).toBe(1)
+  const second = b.ctx.plugin({ inject: [...inject], apply })
+  try {
+    await second.await()
+    await vi.waitFor(() => { expect(mounted).toHaveLength(2) })
+    expect(mounted[1]).toBe(b.ctx.modelsSettings.face)
+    expect(b.ctx.modelsSettings.face.controller).not.toBe(face.controller)
+    expect(b.ctx.modelsSettings.face.welcome).not.toBe(face.welcome)
+  } finally { await consumer.dispose(); await second.dispose(); declaration() }
+})

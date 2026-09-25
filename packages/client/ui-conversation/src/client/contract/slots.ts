@@ -304,6 +304,8 @@ export interface ComposerBarOwnerProps {
 
 /** Package-private operations injected into the resident composer bar. */
 export interface ComposerBarInjected {
+  /** 可见输入挂载时持有租约，卸载时释放；无触发器提供者时为空。 */
+  acquireTriggerConsumer?: () => (() => void) | undefined
   keyboard: ComposerKeyboard | undefined
   addFiles: ((files: readonly File[]) => string | null) | undefined
   removeAttachment: ((id: DraftAttachmentId) => void) | undefined

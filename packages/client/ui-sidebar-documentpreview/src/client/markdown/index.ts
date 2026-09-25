@@ -1,3 +1,5 @@
+// 二开正文使用同一公开身份，避免复制私有字符串。
+import { documentPreviewIds } from '../qs/ids.ts'
 /** Builtin Markdown metadata and keyed document-body registration. */
 import type { Context } from '@deepseek-ai/cordis'
 import type {} from '../index.ts'
@@ -6,7 +8,7 @@ import { MarkdownBody } from './MarkdownBody.tsx'
 import { en, zh } from './locales.ts'
 
 /** Implementation identity shared by metadata and the document slot. */
-export const MARKDOWN_BODY_ID = '@deepseek-ai/dsh-client-ui-sidebar-documentpreview/markdown'
+export const MARKDOWN_BODY_ID = documentPreviewIds.markdown
 
 /**
  * Describe the Markdown implementation without taking ownership of loading.

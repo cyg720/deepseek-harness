@@ -1,10 +1,180 @@
 // Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
 
+exports[`coordinates QS final reasoning with the process disclosure and transcript preference > QS revealed final reasoning 1`] = `"- group: Reasoning QS persisted final reasoning marker"`;
+
+exports[`keeps QS stop available for an offline-parent child and resumes queued work through real child input > QS running child input restriction 1`] = `"The parent session is not confirmed available. Input is disabled; a running task can still be stopped."`;
+
+exports[`navigates QS persisted children and renders one-shot and unavailable-parent read-only input > QS one-shot read-only composer 1`] = `
+"Read-only child session
+
+One-shot child sessions are history-only and cannot accept another question."
+`;
+
+exports[`navigates QS persisted children and renders one-shot and unavailable-parent read-only input > QS unavailable-parent composer 1`] = `
+"Read-only child session
+
+The parent session is unavailable. This child cannot accept another question."
+`;
+
+exports[`opens QS settings from the sidebar and restores focus after Escape without losing the composer draft > QS numeric configuration cards 1`] = `
+[
+  "Shell 执行配置",
+  "AgentLoop 配置",
+]
+`;
+
+exports[`opens QS settings from the sidebar and restores focus after Escape without losing the composer draft > QS read-only inventory plugin card 1`] = `
+"@deepseek-ai/dsh-qs-ui-settings-plugin-inventory
+已启用"
+`;
+
+exports[`opens QS settings from the sidebar and restores focus after Escape without losing the composer draft > QS settings general section 1`] = `"General"`;
+
+exports[`opens the independent QS trajectory and preserves the composer draft across reading views > QS history is not a request input reconstruction 1`] = `"These are loaded history records, not the complete model input of an individual request."`;
+
+exports[`opens the independent QS trajectory and preserves the composer draft across reading views > QS initial trajectory support notice 1`] = `"Recorded requests, history messages and tool results are shown here. File attachment access is not connected yet."`;
+
+exports[`opens the independent QS trajectory and preserves the composer draft across reading views > QS loaded turn navigation 1`] = `
+[
+  "Choose a loaded turn",
+  "Turn 1",
+  "Turn 2",
+  "Turn 3",
+  "Turn 4",
+  "Turn 5",
+  "Turn 6",
+  "Turn 7",
+  "Turn 8",
+]
+`;
+
+exports[`opens the independent QS trajectory and preserves the composer draft across reading views > QS recorded request token metrics 1`] = `
+{
+  "cache": "Not recorded",
+  "input": "2007",
+  "output": "200",
+}
+`;
+
+exports[`opens the independent QS trajectory and preserves the composer draft across reading views > QS request result navigation target 1`] = `"Assistant message · 6"`;
+
+exports[`opens the independent QS trajectory and preserves the composer draft across reading views > QS tool card trajectory target 1`] = `"Tool result · 57"`;
+
+exports[`operates the QS goal dock through the real Host and preserves a conflicting draft > QS clear goal confirmation 1`] = `
+"Clear goal
+
+Clear this goal? The conversation history will be preserved.
+
+My preserved draft
+
+Cancel
+Confirm clear"
+`;
+
+exports[`operates the QS goal dock through the real Host and preserves a conflicting draft > QS clear goal confirmation 2`] = `
+"Clear goal
+
+Clear this goal? The conversation history will be preserved.
+
+My preserved draft
+
+Cancel
+Confirm clear"
+`;
+
+exports[`operates the QS goal dock through the real Host and preserves a conflicting draft > QS goal command input 1`] = `"/goal"`;
+
+exports[`operates the QS goal dock through the real Host and preserves a conflicting draft > QS live assistant before cancellation 1`] = `
+"Assistant is generating · Turn 2 · Step 1
+partial"
+`;
+
+exports[`operates the QS goal dock through the real Host and preserves a conflicting draft > completed QS goal after two cancelled rounds 1`] = `
+"Goal complete
+
+My preserved draft
+
+2 rounds started / limit 256
+
+Edit goal
+Clear goal
+
+Request accepted; waiting for state synchronization."
+`;
+
+exports[`persists QS preset policy through Host and restores it after reload and UI switches > QS blank-session preset selector 1`] = `
+"- text: Session preset
+- combobox "Session preset":
+  - option "标准模式" [selected]
+  - option "PTC 模式"
+  - option "极简模式"
+  - option "创造模式""
+`;
+
+exports[`persists QS preset policy through Host and restores it after reload and UI switches > QS persisted preset settings 1`] = `
+"Agent presets
+
+New sessions use the selected preset. Existing sessions retain their initial composition.
+
+Refresh directory
+Allow preset selection for new sessions
+Saved default preset
+标准模式
+PTC 模式
+极简模式
+创造模式
+标准模式standardSystem preset
+
+功能完整的编码 Agent，支持文件编辑、Shell、文件与网页检索、Skills、计划、目标、子代理和工作流。
+
+PTC 模式ptcSystem presetNew-session default
+
+功能完整的编码 Agent，但默认不提供 workflow 工具；其他工具通过 PTC 模式 SDK 呈现，让模型用一个 TypeScript 程序组合多步操作。
+
+极简模式minimalSystem preset
+
+仅提供持久 shell 的单工具编码 Agent。
+
+创造模式cordisSystem preset
+
+用于创建自定义 Agent preset：具备标准模式的全部能力，并提供运行时检查、插件实验和 preset 创作指导。"
+`;
+
+exports[`prepends older history and preserves the visible row after first page: empty > QS empty history page notice 1`] = `"No earlier records were loaded this time. Please retry manually."`;
+
+exports[`recovers versioned QS layout preferences and keeps denied storage usable > QS invalid layout recovery 1`] = `
+"Saved layout data is invalid or uses an unsupported version. Affected settings use defaults.
+Reset layout"
+`;
+
+exports[`recovers versioned QS layout preferences and keeps denied storage usable > QS unavailable layout storage 1`] = `
+"The browser cannot save the layout. Changes apply only to this page.
+Reset layout"
+`;
+
+exports[`restores QS tabs, splits and file resources across refresh and bounds narrow-window floats > QS deferred integrations explanation 1`] = `
+"Third-party integrations are deferred for this release. This entry is informational only.
+
+No external systems are connected, authorization requested or third-party credentials stored here. Future integration requires agreed systems, permitted operations and authentication. Static sign-in does not grant access to external systems."
+`;
+
+exports[`restores QS tabs, splits and file resources across refresh and bounds narrow-window floats > QS recovered panel layout notice 1`] = `
+"Some saved panels were unavailable or did not fit this window. Available panels were restored.
+Clear saved layout"
+`;
+
+exports[`selects a QS model through the shared real Host directory and retains it after reload > QS model and effort selectors 1`] = `
+"- text: Select model
+- combobox "Select model":
+  - option "DeepSeek · DeepSeek-V4-Flash"
+  - option "DeepSeek · DeepSeek-V4-Flash-Vision-Exp" [selected]"
+`;
+
 exports[`settles the recorded approval-composer turn through QS allow > approval-composer pending QS card 1`] = `
 "- region "A tool asks to run":
   - text: Needs your confirmation
   - heading "A tool asks to run" [level=3]
-  - paragraph: pwsh
+  - paragraph: <platform shell>
   - region "Call arguments":
     - term: Reason given
     - definition: "escalate sandbox to workspace-write: Need to write the notes.txt file as requested by the user."
@@ -21,7 +191,7 @@ exports[`settles the recorded approval-composer turn through QS reject > approva
 "- region "A tool asks to run":
   - text: Needs your confirmation
   - heading "A tool asks to run" [level=3]
-  - paragraph: pwsh
+  - paragraph: <platform shell>
   - region "Call arguments":
     - term: Reason given
     - definition: "escalate sandbox to workspace-write: Need to write the notes.txt file as requested by the user."
@@ -35,6 +205,27 @@ exports[`settles the recorded approval-composer turn through QS reject > approva
 `;
 
 exports[`settles the recorded question-composer turn through QS answer > question-composer pending QS card 1`] = `
+"- region "Needs your answer":
+  - text: Needs your answer
+  - heading "Needs your answer" [level=3]
+  - group "Pick one · Which color do you prefer?":
+    - text: Pick one · Which color do you prefer?
+    - checkbox "Blue A cool recessive hue that reads as calm and trustworthy in long reading sessions and dense dashboards." [checked]
+    - strong: Blue
+    - text: A cool recessive hue that reads as calm and trustworthy in long reading sessions and dense dashboards.
+    - checkbox "Green A restful mid-spectrum hue with the highest perceived brightness, easiest on the eye over long sessions."
+    - strong: Green
+    - text: A restful mid-spectrum hue with the highest perceived brightness, easiest on the eye over long sessions. Other (type your own)
+    - textbox "Other (type your own)":
+      - /placeholder: Type your answer…
+      - text: Include accessibility notes
+  - paragraph: This step waits until you answer.
+  - button "Submit answers""
+`;
+
+exports[`settles the recorded question-composer turn through QS other-client > QS remotely settled question status 1`] = `"The pending request status has changed. Follow the current session state."`;
+
+exports[`settles the recorded question-composer turn through QS other-client > question-composer pending QS card 1`] = `
 "- region "Needs your answer":
   - text: Needs your answer
   - heading "Needs your answer" [level=3]
@@ -70,4 +261,12 @@ exports[`settles the recorded question-composer turn through QS stop > question-
       - text: Include accessibility notes
   - paragraph: This step waits until you answer.
   - button "Submit answers""
+`;
+
+exports[`switches registered QS workspaces and reuses their blank sessions > QS registered workspace choices 1`] = `
+[
+  "Choose workspace",
+  "second-workspace",
+  "first-workspace",
+]
 `;

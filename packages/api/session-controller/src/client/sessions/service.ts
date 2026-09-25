@@ -31,6 +31,7 @@ import type { SessionFace } from '../contract/session.ts'
 import type { AgentContext, ISessions } from '../contract/sessions.ts'
 import { createScope, scopeOf as scopeTagOf } from '../scope.ts'
 import { SessionManager } from './manager.ts'
+import { SessionControlOwner } from '../qs/control-owner.ts'
 import type { SessionRemotes } from './remotes.ts'
 import type { SessionListPhase, SessionSearchResultItem, SubagentCatalogSnapshot } from './manager.ts'
 import type { Session } from './session.ts'
@@ -189,6 +190,8 @@ export class ClientSessions implements ISessions {
   readonly searchResultLimit = SESSION_SEARCH_RESULT_LIMIT
   /** List snapshot store (list RPC + host stream increments; re-pulled on reconnect) — the useSessions standard feed, current included. */
   readonly list: SnapshotStore<SessionListState>
+  /** QS 与官方消费者共享控制流状态；实例生命周期仍由根装配持有。 */
+  readonly control: SessionControlOwner
   /** The object-layer instance cluster and frame dispatch entry. */
   private readonly manager: SessionManager
   /**
@@ -222,6 +225,7 @@ export class ClientSessions implements ISessions {
     private readonly rootCtx: Context,
     remote: SessionRemotes,
   ) {
+    this.control = new SessionControlOwner(remote, (frame) => { this.handleControlFrame(frame) })
     this.selection = createSnapshotStore<SessionSelection>(
       {},
       { persist: { name: 'dsh.sessions.current' } })
@@ -345,6 +349,8 @@ export class ClientSessions implements ISessions {
    */
   handleControlFrame(frame: Parameters<SessionManager['handleControlFrame']>[0]): void {
     this.manager.handleControlFrame(frame)
+    // 基线先投影再由控制流所有者发布 ready，避免通知消费者将重连终态误判为实时完成。
+    if (frame.type === 'baseline') this.projectList()
   }
 
   /**

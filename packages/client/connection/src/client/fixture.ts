@@ -2241,9 +2241,10 @@ function createFixtureWorld(options: FixtureOptions): FixtureWorld {
     activation: 'armed' | 'disarmed'
   }
 
-  const goalFailure = <T>(message: string): RpcResult<T> => ({
+  // 独立浏览器样本也保留 Goal 领域分类，保证冲突界面不会只在样本里退化成通用错误。
+  const goalFailure = <T>(code: string, message: string): RpcResult<T> => ({
     ok: false,
-    error: { code: 'gateway/internal', message, details: {} },
+    error: { code, message, details: {} },
   })
 
   const requireGoalSession = (id: SessionId): RpcResult<never> | undefined => (
@@ -2634,7 +2635,7 @@ function createFixtureWorld(options: FixtureOptions): FixtureWorld {
       if (missing !== undefined) return missing
       const current = backscanGoal(logOf(id))
       if (current !== null && current.goal.phase !== 'complete') {
-        return goalFailure(`goal "${current.goal.id}" already exists`)
+        return goalFailure('GOAL_ALREADY_EXISTS', `goal "${current.goal.id}" already exists`)
       }
       const now = Date.now()
       const projection = appendGoalChange(id, {
@@ -2698,8 +2699,9 @@ function createFixtureWorld(options: FixtureOptions): FixtureWorld {
     const missing = requireGoalSession(id)
     if (missing !== undefined) return missing
     const current = backscanGoal(logOf(id))
-    if (current === null || current.goal.id !== ref.id || current.goal.revision !== ref.revision) {
-      return goalFailure('stale or missing goal revision')
+    if (current === null) return goalFailure('GOAL_NOT_FOUND', 'no current goal')
+    if (current.goal.id !== ref.id || current.goal.revision !== ref.revision) {
+      return goalFailure('GOAL_STALE_REVISION', 'stale goal revision')
     }
     return { ok: true, value: current }
   }
@@ -2715,7 +2717,7 @@ function createFixtureWorld(options: FixtureOptions): FixtureWorld {
     const current = resolved.value
     const goal = next(current)
     if (goal === undefined) {
-      return goalFailure(`invalid goal transition from "${current.goal.phase}"`)
+      return goalFailure('GOAL_INVALID_TRANSITION', `invalid goal transition from "${current.goal.phase}"`)
     }
     const currentActivation = goalActivations.get(id)
       ?? (current.goal.phase === 'active' ? 'armed' : 'disarmed')
@@ -3926,6 +3928,9 @@ function createFixtureWorld(options: FixtureOptions): FixtureWorld {
             { id: 'acme-gateway', name: 'Acme Gateway' },
           ],
         })
+        // QS 装配回归需要官方启动调用；夹具未装动态插件，名录为空，不伪造安装能力。
+        case 'dynamicCordisRunner/syncInspectManifest': return Promise.resolve({ ok: true, value: null })
+        case 'dynamicCordisRunner/inventory': return Promise.resolve({ ok: true, value: [] })
         case 'llm/listConfigurableProviders': return Promise.resolve({
           ok: true,
           value: [

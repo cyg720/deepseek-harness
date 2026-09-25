@@ -5,11 +5,11 @@ import {
 
 describe('行 kind 分派', () => {
   it('自绘 kind 命中本体，其余走兜底', () => {
-    expect(rowKeyOf('user')).toBe('user')
-    expect(rowKeyOf('assistant-step')).toBe('assistant-step')
-    expect(rowKeyOf('steering')).toBe('steering')
-    expect(rowKeyOf('tool-call')).toBe('unknown')
-    expect(rowKeyOf('未注册的 kind')).toBe('unknown')
+    expect(rowKeyOf('user', ['user', 'steering', 'context', 'assistant-step', 'system-prompt', 'turn-process', 'turn-tail'])).toBe('user')
+    expect(rowKeyOf('assistant-step', ['user', 'steering', 'context', 'assistant-step', 'system-prompt', 'turn-process', 'turn-tail'])).toBe('assistant-step')
+    expect(rowKeyOf('steering', ['user', 'steering', 'context', 'assistant-step', 'system-prompt', 'turn-process', 'turn-tail'])).toBe('steering')
+    expect(rowKeyOf('tool-call', ['user', 'steering', 'context', 'assistant-step', 'system-prompt', 'turn-process', 'turn-tail'])).toBe('unknown')
+    expect(rowKeyOf('未注册的 kind', ['user', 'steering', 'context', 'assistant-step', 'system-prompt', 'turn-process', 'turn-tail'])).toBe('unknown')
   })
 })
 

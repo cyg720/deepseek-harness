@@ -342,7 +342,9 @@ async function hydrateReplayFixtures(scenario: CorpusScenario, cwd: string): Pro
   await mkdir(root, { recursive: true })
   return Promise.all((await fixtureFiles(scenario)).map(async (source) => {
     const destination = join(root, basename(source))
-    await writeFile(destination, (await readFile(source, 'utf8')).replaceAll('{{cwd}}', cwd))
+    // 工作目录嵌入 JSON 字符串，必须转义 Windows 反斜杠及引号，避免回放插件解析失败并触发整树回滚。
+    const serializedCwd = JSON.stringify(cwd).slice(1, -1)
+    await writeFile(destination, (await readFile(source, 'utf8')).replaceAll('{{cwd}}', serializedCwd))
     return destination
   }))
 }

@@ -41,11 +41,11 @@ The following files own the prototype evidence. Read final CSS cascade values, i
 
 | Source | Purpose |
 | --- | --- |
-| [styles.css](../PRD/1-AI工作台/prototype/styles.css) | Colors, dimensions, component states, breakpoints, and motion. |
-| [app.js](../PRD/1-AI工作台/prototype/app.js) | Page composition, theme placement, panel defaults, and interaction semantics. |
-| [factory.svg](../PRD/1-AI工作台/prototype/factory.svg) | Login illustration and its independent animation rules. |
-| [interactions.js](../PRD/1-AI工作台/prototype/interactions.js) | Approval, question, and plan-review card composition, states, and answer semantics. |
-| [Prototype](../PRD/1-AI工作台/prototype/index.html) / [usage notes](../PRD/1-AI工作台/prototype/使用说明.html) | Interactive visual reference and simulation limits. |
+| [styles.css](../prototype/styles.css) | Colors, dimensions, component states, breakpoints, and motion. |
+| [app.js](../prototype/app.js) | Page composition, theme placement, panel defaults, and interaction semantics. |
+| [factory.svg](../prototype/factory.svg) | Login illustration and its independent animation rules. |
+| [interactions.js](../prototype/interactions.js) | Approval, question, and plan-review card composition, states, and answer semantics. |
+| [Prototype](../prototype/index.html) / [usage notes](../prototype/使用说明.html) | Interactive visual reference and simulation limits. |
 
 The scope is the login page, conversation workbench, sidebar entries, context panel, their dialogs, and the approval, question, and plan-review cards. Mock accounts, model labels, sample business data, simulated connections, and the prototype-only simulation controls are not production interface requirements.
 
@@ -162,7 +162,7 @@ Define resting, hover, selected, focus, disabled, loading, empty, and error stat
 | Disabled/loading | Disabled buttons use opacity .4 and a not-allowed cursor; generation exposes stop. | Use real disabled semantics and keep an explicit loading label; do not communicate state by color alone. |
 | Empty/error | Empty panels explain what is missing; login errors use an alert region. | Provide a next action or correction and keep entered content when an operation fails. |
 
-Reference dark navigation colors are `#354b32` and `#e0e8d7`; the [recorded hover check](../PRD/1-AI工作台/prototype/validation/theme-brand-report.json) reports a text contrast ratio of approximately 7.57:1 for these controls. This is evidence for those controls only, not a full accessibility audit.
+Reference dark navigation colors are `#354b32` and `#e0e8d7`; the [recorded hover check](../prototype/validation/theme-brand-report.json) reports a text contrast ratio of approximately 7.57:1 for these controls. This is evidence for those controls only, not a full accessibility audit.
 
 <a id="responsive"></a>
 
@@ -217,7 +217,7 @@ Keep state pseudo-classes on the target selector itself; do not introduce a desc
 
 ## Acceptance checklist
 
-Review the implementation against the following list. The [prototype browser report](../PRD/1-AI工作台/prototype/validation/report.json) records historical interaction checks; it does not certify new application code.
+Review the implementation against the following list. The [prototype browser report](../prototype/validation/report.json) records historical interaction checks; it does not certify new application code.
 
 - Check login, new conversation, existing conversation, catalogs, dialogs, files, todos, and calendar in both themes where theme switching applies.
 - Exercise hover, selected hover, keyboard focus, disabled, loading, empty, and error states. Dark sessions and app entries must not become light-filled on hover.

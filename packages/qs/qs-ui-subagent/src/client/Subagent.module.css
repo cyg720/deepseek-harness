@@ -1,0 +1,12 @@
+/* 沿用奇术主题；目录和只读提示限制在视口内，长标题允许换行。 */
+.root { position: relative; min-width: 0; }
+.button { color: var(--qs-text); background: var(--qs-subtle); border: 1px solid var(--qs-line); border-radius: 8px; padding: 6px 10px; cursor: pointer; font: inherit; overflow-wrap: anywhere; }
+.button:focus-visible { outline: 2px solid var(--qs-accent); outline-offset: 2px; }
+.panel { position: absolute; z-index: 100; right: 0; top: calc(100% + 8px); width: min(440px, calc(100vw - 48px)); max-height: min(560px, calc(100dvh - 160px)); box-sizing: border-box; overflow: auto; padding: 16px; border: 1px solid var(--qs-line); border-radius: 12px; background: var(--qs-bg); color: var(--qs-text); box-shadow: var(--qs-shadow); }
+.list { list-style: none; margin: 8px 0; padding-left: 12px; border-left: 1px solid var(--qs-line); }
+.row { min-width: 0; overflow-wrap: anywhere; padding: 6px 0; }
+.meta { display: block; color: var(--qs-muted); font-size: 12px; }
+.readOnly { padding: 16px; border: 1px solid var(--qs-line); border-radius: 12px; color: var(--qs-muted); overflow-wrap: anywhere; }
+.lineage { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 12px; }
+.scope { display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px; }
+.scope select { min-width: 0; max-width: 100%; }

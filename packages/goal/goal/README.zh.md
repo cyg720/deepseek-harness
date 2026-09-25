@@ -82,6 +82,8 @@ view.roundsStarted, view.maxGoalRounds // continuation progress
 view.activation                        // 'armed' | 'disarmed' — not persisted
 ```
 
+目标错误保留 `HarnessError` 身份并实现共享 Remote 错误协议。公开 Goal 调用保留稳定领域代码（包括 `GOAL_STALE_REVISION`），details 为空；客户端按 code 分支，不解析 message。拒绝的变更不追加 `goal/change` 事件，也不推进当前 revision。
+
 -----
 
 <a id="understand-the-implementation"></a>

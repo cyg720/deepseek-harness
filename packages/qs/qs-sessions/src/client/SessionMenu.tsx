@@ -46,6 +46,8 @@ export function SessionMenu(props: SessionMenuProps): ReactNode {
   const [step, setStep] = useState<Step>('menu')
   const [draft, setDraft] = useState(title)
   const [error, setError] = useState<'archive' | 'generic' | undefined>(undefined)
+  // 服务调用同步占用实例，React 尚未禁用按钮时也不能重复保存。
+  const busyRef = useRef(false)
   const [busy, setBusy] = useState(false)
 
   useEffect(() => {
@@ -64,9 +66,10 @@ export function SessionMenu(props: SessionMenuProps): ReactNode {
 
   const run = async (work: () => Promise<boolean>, failure: 'archive' | 'generic'): Promise<void> => {
     const controller = lifetime.current
-    if (busy || controller === undefined) return
+    if (busyRef.current || controller === undefined) return
     const closed = (): boolean => controller.signal.aborted
     if (closed()) return
+    busyRef.current = true
     setBusy(true)
     setError(undefined)
     try {
@@ -78,7 +81,7 @@ export function SessionMenu(props: SessionMenuProps): ReactNode {
       // Service rejections leave the dialog and draft available for retry.
       if (!closed()) setError(failure)
     } finally {
-      if (!closed()) setBusy(false)
+      if (!closed()) { busyRef.current = false; setBusy(false) }
     }
   }
 

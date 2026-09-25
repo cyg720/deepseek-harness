@@ -23,6 +23,8 @@ import { WelcomeNotice } from './WelcomeNotice.tsx'
 import type { WelcomeNoticeInjected } from './WelcomeNotice.tsx'
 import { decodeWelcomeSection, WelcomeNoticeStore } from './welcome-store.ts'
 import { ModelsSettingsStore } from './store.ts'
+import { ModelsSettingsAccess } from './qs/access.ts'
+export type { ModelsSettingsFace } from './qs/access.ts'
 import { createModelsOperations } from './operations.ts'
 import { createSettingsSchemaOperations } from './schema-operations.ts'
 import { en, zh, type ModelsKey } from './locales.ts'
@@ -103,6 +105,8 @@ export function apply(ctx: ClientContext): void {
     namespace: WELCOME_NOTICE_SETTINGS_NAMESPACE,
     decode: decodeWelcomeSection,
   }))
+  // 两套呈现共享既有控制器和写入操作，服务释放后依赖它的二开插件同步卸载。
+  new ModelsSettingsAccess(ctx, { controller, operations, schema, welcome: welcomeController })
   const welcomeInjected = (): WelcomeNoticeInjected => ({
     controller: welcomeController,
     hooks: { welcome: welcomeController.store },

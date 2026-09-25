@@ -179,6 +179,30 @@ const req = (query: string, position: 'leading' | 'inline' = 'leading') =>
   ({ query, position, drilled: false, signal: new AbortController().signal })
 
 describe('registration', () => {
+  it('显式呈现优先级不依赖加载顺序，卸载恢复官方且不可用时回退', async () => {
+    for (const overrideFirst of [true, false]) {
+      const { command, source, warm, mint } = await bench()
+      mint('s1'); await warm(proj('s1'))
+      const calls: string[] = []
+      let enabled = true
+      const base: CommandDecoration = { name: 'plan', available: () => true, ui: { kind: 'action', run: () => { calls.push('official') } } }
+      const replacement: CommandDecoration = { name: 'plan', priority: 1, available: () => enabled, ui: { kind: 'action', run: () => { calls.push('replacement') } } }
+      const entries = overrideFirst ? [replacement, base] : [base, replacement]
+      const dispose = entries.map(entry => command.decorate(entry))
+      expect(() => command.decorate(replacement)).toThrow('duplicate decoration')
+      menuPick(source, 'plan', proj('s1'))
+      await source.matchEnter!(proj('s1'), '/plan', new AbortController().signal, { attachments: 0 })
+      expect(calls).toEqual(['replacement', 'replacement'])
+      enabled = false; menuPick(source, 'plan', proj('s1')); expect(calls.at(-1)).toBe('official')
+      enabled = true
+      dispose[overrideFirst ? 0 : 1]!()
+      menuPick(source, 'plan', proj('s1')); expect(calls.at(-1)).toBe('official')
+      const remount = command.decorate(replacement)
+      dispose[overrideFirst ? 1 : 0]!()
+      menuPick(source, 'plan', proj('s1')); expect(calls.at(-1)).toBe('replacement')
+      remount()
+    }
+  })
   it('registers the "/" source with matchSpace/matchEnter/warm hooks and removes it on fiber disposal', async () => {
     const { registered, source, fiber } = await bench()
     expect(typeof source.matchSpace).toBe('function')
@@ -1022,4 +1046,22 @@ describe('directory invalidation events', () => {
     await new Promise(resolve => setTimeout(resolve, 0))
     expect(source.matchSpace!(proj('s2'), '/attach')).not.toBeUndefined()
   })
+})
+
+// 二开模型入口是客户端自有命令；装饰必须同时覆盖菜单与回车，并可完整释放。
+it('decorates available client contributions and restores their original UI on removal', async () => {
+  const original = vi.fn(), override = vi.fn()
+  const { command, source, mint, warm } = await bench({ commands: () => Promise.resolve({ commands: [] }) })
+  command.register({ name: 'file', available: () => true, ui: { kind: 'action', run: original } })
+  const scope = mint('s1')
+  scope.ctx.on('slash/input-consume-token', () => true)
+  await warm(proj('s1'))
+  const remove = command.decorate({ name: 'file', priority: 1, available: () => true, ui: { kind: 'action', run: override } })
+  expect(menuPick(source, 'file', proj('s1'))).toBe('handled')
+  expect(await source.matchEnter!(proj('s1'), '/file', new AbortController().signal, { attachments: 1 })).toBe('handled')
+  expect(override).toHaveBeenCalledTimes(2); expect(original).not.toHaveBeenCalled()
+  remove()
+  expect(menuPick(source, 'file', proj('s1'))).toBe('handled')
+  expect(await source.matchEnter!(proj('s1'), '/file', new AbortController().signal, { attachments: 1 })).toBe('handled')
+  expect(original).toHaveBeenCalledTimes(2)
 })

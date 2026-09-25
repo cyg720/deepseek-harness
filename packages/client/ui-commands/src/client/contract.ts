@@ -84,12 +84,14 @@ export interface CommandContribution {
  * row, its argument claim (space / argued enter), and its lifecycle logging;
  * the decoration replaces only the bare menu-pick/enter with a popup whose
  * onSelect typically submits a completed line back through command.execute.
- * A decoration never manufactures a row: a name with no host catalog entry
+ * A decoration never manufactures a row: a name with no available contribution or host catalog entry
  * in the session's directory simply never reaches the decoration.
  */
 export interface CommandDecoration {
-  /** The HOST command name this decorates (without the leading slash). */
+  /** 已存在的 Host 或客户端贡献命令名；二开呈现不创建命令或扩大原贡献可用范围。 */
   readonly name: string
+  /** 显式呈现优先级，较大者优先；默认 0，同名同优先级仍拒绝重复注册。 */
+  readonly priority?: number
   /** Capability filter, called with a fresh projection per bare invocation. */
   available(session: ClientSessionContext): boolean
   /** The bare-invocation UI. */
@@ -105,7 +107,7 @@ export interface CommandUiContract {
   register(contribution: CommandContribution): () => void
   /**
    * Hang a bare-invocation decoration on one host command; effect disposer.
-   * Duplicate names throw at registration.
+   * Duplicate names at the same priority throw at registration; disposal restores lower-priority presentations.
    */
   decorate(decoration: CommandDecoration): () => void
   /** Resolve the per-session popup controller for one session scope (wiring/overlay layer). */

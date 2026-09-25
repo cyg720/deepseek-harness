@@ -80,6 +80,8 @@ kind: "package-reference"
 - **无跨标签页推送**——另一个标签页的评分要等到重连或下一次冲突响应才可见，不会立即出现；控制器不消费反馈日志事件。
 - **仅限对话视图**——trajectory 与 waterfall 视图不渲染反馈控件，尽管它们的助手节点也带有相同的 `messageId`。
 
+`ctx.messageFeedbackPresentation.actions(sessionId)` 和 `.dialog(sessionId)` 提供已有会话反馈源与动作。其他界面共享草稿和提交状态，不重复安装 `/feedback` 装饰。
+
 <a id="dev-note"></a>
 ### 开发备注
 

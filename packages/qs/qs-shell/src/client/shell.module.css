@@ -45,7 +45,7 @@
   letter-spacing: 2px;
 }
 
-.topbar .logoMark {
+.topbar :global(.qs-logo-mark) {
   width: 32px;
   height: 32px;
   border-radius: 9px;
@@ -78,6 +78,11 @@
   flex: 1;
   position: relative;
 }
+
+/* 存储恢复提示位于布局外侧，不挤入会话正文或覆盖窄屏操作。 */
+.layoutNotice { display: flex; flex-shrink: 0; align-items: center; gap: 12px; padding: 8px 16px; border-bottom: 1px solid var(--qs-line); background: var(--qs-surface); font-size: 12px; }
+.layoutNotice span { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.layoutNotice button { color: var(--qs-text); background: var(--qs-subtle); border: 1px solid var(--qs-line); border-radius: 6px; padding: 4px 8px; cursor: pointer; }
 
 .mobileOverlay {
   display: none;

@@ -118,12 +118,20 @@ None; this package neither assembles nor sends a provider request.
 
 <a id="known-limitations-and-deferred-work"></a>
 
-- **Memory-only.** Nothing is persisted; a reload starts every session collapsed.
+- **No built-in storage.** This plugin keeps layouts in memory; a presentation plugin may persist committed layouts through observeLayouts and initialize an absent surface through restore.
 - **No surface without a session.** State is keyed by session id, so the hero screen shows nothing on the right.
 - **Hard-coded stacking.** The panel and the float host use fixed z-index values because the client has no z-index token layer yet.
 - **Undo is not exposed.** The recorded sequence is stepped only through the `@internal` service methods; product controls are deliberately absent.
 - **Titles are fixed at open time.** A type's `title(address)` is captured into the record; a live title comes only from the optional title seat.
 - **No content navigation stack.** Stepping back replays layout operations; an editor-style back/forward over visited content is not built.
+
+`ctx.sidebarRightPresentation` exposes the same store handle as the official seat, `seat(sessionId)` injections and the tab hook factory. Alternate presentations must acquire bindings only while mounted and release them on unmount; they must not create another store or TabDomain.
+
+The store restore action initializes an absent Session surface from resolved layout entries in one commit, mints runtime identities and starts with empty undo history. Existing surfaces take precedence, including explicitly opened empty surfaces. Callers validate persisted input, resource ownership, tab availability, geometry and page uniqueness before invoking it; the action owns neither browser storage nor resource authorization.
+
+The fitFloats store action constrains floating rectangles to a positive viewport in one history entry without changing tab identities, focus or stacking. Missing Sessions and already fitting layouts are unchanged.
+
+observeLayouts synchronously replays existing committed layouts and reports later commits independently of mounted seats. It exposes no writes or resource ownership. Consumer disposal removes only its listener; service disposal releases all observed store subscriptions. One failing listener does not starve other listeners.
 
 <a id="dev-note"></a>
 ### Dev Note

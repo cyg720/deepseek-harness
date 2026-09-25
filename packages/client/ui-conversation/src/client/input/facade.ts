@@ -395,11 +395,6 @@ export class SessionInputShell implements SessionInput {
       return
     }
     this.dispatchRun(({ type: 'enter', mode, draft: this.projection.clipboardText }))
-    const phase = this.snapshot.phase
-    if (phase === 'adjudicating' || phase === 'submitting') {
-      this.deps.popup?.()?.dismiss()
-      this.deps.inputTriggers?.()?.track(this.projection.detectText, 0, { tier: 'frozen' }, this.rev)
-    }
   }
 
   /**
@@ -655,7 +650,13 @@ export class SessionInputShell implements SessionInput {
   /** Dispatch + execute, refreshing the claim decoration when the styled token flips. */
   private dispatchRun(ev: Parameters<SubmitMachine['dispatch']>[0]): void {
     const beforeToken = this.activeClaimToken()
-    this.run(this.core.dispatch(ev))
+    const effects = this.core.dispatch(ev)
+    // 提交进入锁定态时先关闭旧弹层，命令同步打开的新选择器不能被事后清理关闭。
+    if (ev.type === 'enter' && (this.core.state.phase === 'adjudicating' || this.core.state.phase === 'submitting')) {
+      this.deps.popup?.()?.dismiss()
+      this.deps.inputTriggers?.()?.track(this.projection.detectText, 0, { tier: 'frozen' }, this.rev)
+    }
+    this.run(effects)
     if (this.activeClaimToken() !== beforeToken) refreshClaimDecoration(this.editor)
   }
 

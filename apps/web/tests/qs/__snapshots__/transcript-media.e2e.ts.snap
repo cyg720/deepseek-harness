@@ -1,3 +1,46 @@
 // Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
 
-exports[`loads a workspace image and shows unsupported attachment history without bypassing file policy > non-text history notice 1`] = `"This message contains images or other non-text content not supported by this workbench. The original session record is preserved and can be viewed in the official interface."`;
+exports[`loads workspace and durable images while retaining unsupported history and file policy > ordinary file history 1`] = `
+"report.bin
+BIN 1B"
+`;
+
+exports[`loads workspace and durable images while retaining unsupported history and file policy > trajectory file metadata and access limitation 1`] = `
+"Attachment name
+report.bin
+Size (bytes)
+1
+
+Only recorded file information is shown. Opening and downloading are unavailable."
+`;
+
+exports[`手动压缩只有一条落地记录，摘要可展开，原历史保留且 checkpoint 信封不显示 > failed command result 1`] = `
+"permission
+
+Command failed
+
+View complete command result
+Permission update rejected
+Host diagnostic remains readable"
+`;
+
+exports[`手动压缩只有一条落地记录，摘要可展开，原历史保留且 checkpoint 信封不显示 > landed manual compaction 1`] = `
+"Context compacted
+
+Replaced 1 model-context records (estimated 17 tokens)
+
+Original conversation history remains available; this marker records replacement of model context.
+
+View compaction summary
+Summary from the durable compaction event"
+`;
+
+exports[`手动压缩只有一条落地记录，摘要可展开，原历史保留且 checkpoint 信封不显示 > trajectory compaction recorded outputs 1`] = `
+"Expand recorded context
+Recorded compaction summary
+Summary from the durable compaction event
+Recorded raw output
+Reasoning record
+Recorded compaction reasoning
+Recorded provider summary"
+`;

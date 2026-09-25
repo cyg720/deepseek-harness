@@ -15,8 +15,9 @@ import type {} from '@deepseek-ai/dsh-client-locale/client'
 import type {} from '@deepseek-ai/dsh-client-ui-conversation/client'
 import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
 import { PresentedOpenController } from './present-open.ts'
+import { createDeliverablesPresentation, type DeliverablesPresentation } from './qs/presentation.ts'
 import { PresentRow } from './PresentRow.tsx'
-import { Deliverables, selectDeliverables, type DeliverablesInjected } from './Deliverables.tsx'
+import { Deliverables } from './Deliverables.tsx'
 import { en, NS, zh, type DeliverablesKey } from './locales.ts'
 import {
   deliverablesDefinition, presentedForClosing, producedFileMentions, selectProducedFiles,
@@ -31,6 +32,18 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
 
 export { ProducedFiles, type ProducedFilesProps } from './ProducedFiles.tsx'
 export { producedForClosing } from './turn-deliverables.ts'
+export type { DeliverablesPresentation } from './qs/presentation.ts'
+export type { DeliverablesInjected } from './Deliverables.tsx'
+export type { PresentedPath } from './turn-deliverables.ts'
+export type { PresentedAction, PresentedHost } from '../presented.ts'
+export type { PresentedOpenPhase } from './present-open.ts'
+
+declare module '@deepseek-ai/cordis' {
+  interface Context {
+    /** 奇术与官方共用交付投影和本机操作，不另建请求所有者。 */
+    deliverablesPresentation: DeliverablesPresentation
+  }
+}
 
 /** Required services for the tail-slot registration and its dictionaries. */
 export const inject = ['slots', 'locale', 'uiConversation', 'remote', 'remote.session']
@@ -41,6 +54,9 @@ export const inject = ['slots', 'locale', 'uiConversation', 'remote', 'remote.se
  */
 export function apply(ctx: ClientContext): void {
   const opener = new PresentedOpenController()
+  // 原插件仍负责控制器释放；切换呈现不丢失正在执行的打开状态。
+  const presentation = createDeliverablesPresentation(opener)
+  ctx.provide('deliverablesPresentation', presentation)
   ctx.effect(() => () => opener.dispose())
   ctx.on('connection/reset', () => { opener.resetHost() })
   ctx.uiConversation.events.register(deliverablesDefinition)
@@ -49,13 +65,9 @@ export function apply(ctx: ClientContext): void {
     'conversation.chat.turnTail',
     () => ctx.slots.register({
       name: 'conversation.chat.turnTail',
-      select: selectDeliverables,
+      select: presentation.select,
       locale: NS,
-      inject: (): DeliverablesInjected => ({
-        hooks: { presentedOpen: opener.state, presentedHost: opener.host },
-        reloadPresentedHost: () => opener.loadHost(),
-        openPresented: (sessionId, seq, index, action) => opener.open(sessionId, seq, index, action),
-      }),
+      inject: () => presentation.injected,
     }, Deliverables),
   )
   ctx.slots.inject('tool.call.toolview', () => ctx.slots.register(

@@ -1,0 +1,331 @@
+<!doctype html><html lang="zh"><meta charset="utf-8"><title>目标共享呈现接口差异</title><style>body{font:14px system-ui;margin:24px}pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#f5f5f5;padding:16px}.add{color:#17632e}.del{color:#a22222}</style><h1>相对 HEAD 的工作树差异（包含既有未提交修改）</h1><section id="goal-001"><h2>packages/client/ui-goal/README.i18n.yaml</h2><pre><span class="context">diff --git a/packages/client/ui-goal/README.i18n.yaml b/packages/client/ui-goal/README.i18n.yaml</span>
+<span class="context">index 62cc82fdc4..ab58a7e29b 100644</span>
+<span class="del">--- a/packages/client/ui-goal/README.i18n.yaml</span>
+<span class="add">+++ b/packages/client/ui-goal/README.i18n.yaml</span>
+<span class="context">@@ -2,5 +2,5 @@</span>
+<span class="context"> # side as of the last confirmed-consistent state. Both languages carry equal authority;</span>
+<span class="context"> # after editing either side, bring the other along and re-record with:</span>
+<span class="context"> #   pnpm run verify-translation-pairing --write packages/client/ui-goal/README.md</span>
+<span class="del">-README.md: 4a2c0c18f41cd4965ee8170ec7a93843d7427769</span>
+<span class="del">-README.zh.md: 1d3d6dd7aef4a2b37c273a7a43e09bed05d33f9d</span>
+<span class="add">+README.md: 8c661678cbf0f2af9984e0a9fb637f8c93753179</span>
+<span class="add">+README.zh.md: 7f3928b17c0b03d8a22b4e88d7908441bc3e8bba</span></pre></section><section id="goal-002"><h2>packages/client/ui-goal/README.md</h2><pre><span class="context">diff --git a/packages/client/ui-goal/README.md b/packages/client/ui-goal/README.md</span>
+<span class="context">index 4a2c0c18f4..8c661678cb 100644</span>
+<span class="del">--- a/packages/client/ui-goal/README.md</span>
+<span class="add">+++ b/packages/client/ui-goal/README.md</span>
+<span class="context">@@ -45,6 +45,8 @@ A rejected mutation surfaces the Remote error inline on the strip; loading, abse</span>
+<span class="context"> </span>
+<span class="context"> The durable goal arrives through `useProjection(&#x27;goal&#x27;)` (seeded by the history tail page and updated by `session/projection` frames). The inject face carries a registrant-private activation hook source plus the four mutation verbs. That source starts only while the framework hook observes it, reads `ctx.remote.goals.get`, subscribes to `goal/activation-changed`, and refreshes on running-state or connection resets. Live-event epochs invalidate in-flight reads, so a stale HTTP result cannot overwrite a newer activation edge; running refreshes retain the last known activation until the read resolves. The strip owns no domain store or cross-plugin cache. Each mutation reads the CAS ref from the session&#x27;s current projected value at call time, and the RPC&#x27;s compare-and-set is the staleness guard. The strip single-flights mutations synchronously because a pending render cannot fence same-frame clicks. The command-input projection is a separate Conversation Definition that builds a `command-input` Chat Node before the generic command result Node; it never creates `user/message` or a model turn.</span>
+<span class="context"> </span>
+<span class="add">+The public `goalPresentation.bind(sessionId)` supplies the same activation source and mutation actions used by the official dock. Alternate presentations reuse this provider and do not register another command-input Definition. Actions accept an optional observed GoalRef; when supplied, that exact id and revision reaches Host CAS, while existing callers that omit it retain current-projection lookup. A connection reset clears process-local activation until a fresh authoritative read or event arrives.</span>
+<span class="add">+</span>
+<span class="context"> &lt;/details&gt;</span>
+<span class="context"> </span>
+<span class="context"> -----</span></pre></section><section id="goal-003"><h2>packages/client/ui-goal/README.zh.md</h2><pre><span class="context">diff --git a/packages/client/ui-goal/README.zh.md b/packages/client/ui-goal/README.zh.md</span>
+<span class="context">index 1d3d6dd7ae..7f3928b17c 100644</span>
+<span class="del">--- a/packages/client/ui-goal/README.zh.md</span>
+<span class="add">+++ b/packages/client/ui-goal/README.zh.md</span>
+<span class="context">@@ -45,6 +45,8 @@ Web GUI 的 goal 界面同时显示持久 goal 状态及当前的进程本地激</span>
+<span class="context"> </span>
+<span class="context"> 持久 goal 经 `useProjection(&#x27;goal&#x27;)` 到达（由历史尾页播种、`session/projection` 帧更新）。注入面携带注册方私有的激活钩子源与四个变更动词。该源仅在框架钩子观察它时启动；启动后会读取 `ctx.remote.goals.get`、订阅 `goal/activation-changed`，并在 running 状态或连接重置时刷新。实时事件 epoch 会让在途读取失效，因此较旧的 HTTP 响应不能覆盖较新的 activation 变化；running 刷新会保留最后一次已知 activation，直到读取完成。条带不持有领域存储或跨插件缓存。每个变更在调用时从会话当前投影值读取 CAS ref，比较并交换（RPC 的 CAS）就是陈旧性护栏。由于 React 的 pending 渲染无法拦住同一帧内的点击，条带会同步为变更建立 single-flight 防护。指令输入投影是独立的 Conversation Definition，在通用命令结果 Node 之前构建 `command-input` Chat Node；它绝不创建 `user/message` 或模型轮次。</span>
+<span class="context"> </span>
+<span class="add">+公开的 `goalPresentation.bind(sessionId)` 提供官方 dock 使用的同一激活来源和修改动作。其他呈现复用该提供者，不再注册 command-input Definition。动作接受可选的已观察 GoalRef；传入时，将原样的 id 与 revision 交给 Host CAS，省略参数的既有调用方继续读取当前投影。连接重置会清除进程本地激活状态，直到新的权威查询或事件到达。</span>
+<span class="add">+</span>
+<span class="context"> &lt;/details&gt;</span>
+<span class="context"> </span>
+<span class="context"> -----</span></pre></section><section id="goal-004"><h2>packages/client/ui-goal/src/client/activation-source.ts</h2><pre><span class="context">diff --git a/packages/client/ui-goal/src/client/activation-source.ts b/packages/client/ui-goal/src/client/activation-source.ts</span>
+<span class="context">index 23c65740a0..84cadfc643 100644</span>
+<span class="del">--- a/packages/client/ui-goal/src/client/activation-source.ts</span>
+<span class="add">+++ b/packages/client/ui-goal/src/client/activation-source.ts</span>
+<span class="context">@@ -63,7 +63,7 @@ export function createGoalActivationSource(deps: GoalActivationDeps): HostObserv</span>
+<span class="context">       if (read !== readEpoch || startedAtEvent !== eventEpoch || startedAtProjection !== projectionEpoch) return</span>
+<span class="context">       if (!result.ok) return</span>
+<span class="context">       const goal = result.value</span>
+<span class="del">-      /* v8 ignore next 4 -- projection drive is the authoritative clear edge; an active projection with no live goal is transient. */</span>
+<span class="add">+      // 投影值可在微任务通知前变更；空远端结果只在投影也已清空时清除激活。</span>
+<span class="context">       if (goal === undefined) {</span>
+<span class="context">         if (activeRef(deps.projection.getSnapshot()) === undefined) publish({})</span>
+<span class="context">         return</span>
+<span class="context">@@ -104,7 +104,10 @@ export function createGoalActivationSource(deps: GoalActivationDeps): HostObserv</span>
+<span class="context">   const onReset = (): void =&gt; {</span>
+<span class="context">     eventEpoch++</span>
+<span class="context">     projectionEpoch++</span>
+<span class="del">-    startRead(activeRef(deps.projection.getSnapshot()))</span>
+<span class="add">+    // 新连接代次不能沿用旧进程的 armed 状态，等待权威读取或新激活事件。</span>
+<span class="add">+    const ref = activeRef(deps.projection.getSnapshot())</span>
+<span class="add">+    publish(ref === undefined ? {} : { id: ref.id, revision: ref.revision })</span>
+<span class="add">+    startRead(ref)</span>
+<span class="context">   }</span>
+<span class="context"> </span>
+<span class="context">   const start = (): void =&gt; {</span></pre></section><section id="goal-005"><h2>packages/client/ui-goal/src/client/index.ts</h2><pre><span class="context">diff --git a/packages/client/ui-goal/src/client/index.ts b/packages/client/ui-goal/src/client/index.ts</span>
+<span class="context">index 93e1c996bf..2deb6b5908 100644</span>
+<span class="del">--- a/packages/client/ui-goal/src/client/index.ts</span>
+<span class="add">+++ b/packages/client/ui-goal/src/client/index.ts</span>
+<span class="context">@@ -31,10 +31,14 @@ import { GoalDock } from &#x27;./GoalBar.tsx&#x27;</span>
+<span class="context"> import { GoalCommandInputView } from &#x27;./GoalCommandInputView.tsx&#x27;</span>
+<span class="context"> import { goalCommandInputDefinition } from &#x27;./goal-command-input.ts&#x27;</span>
+<span class="context"> import { en, zh, type GoalKey } from &#x27;./locales.ts&#x27;</span>
+<span class="add">+import type { GoalPresentation } from &#x27;./qs/presentation.ts&#x27;</span>
+<span class="add">+</span>
+<span class="add">+export type { GoalPresentation } from &#x27;./qs/presentation.ts&#x27;</span>
+<span class="add">+export type { GoalCommandInputData } from &#x27;./goal-command-input.ts&#x27;</span>
+<span class="context"> </span>
+<span class="context"> export { GoalBar, GoalDock } from &#x27;./GoalBar.tsx&#x27;</span>
+<span class="context"> export type {</span>
+<span class="del">-  GoalActionResult, GoalBarActions,</span>
+<span class="add">+  GoalActionResult, GoalBarActions, GoalBarInjected, GoalActivationSnapshot,</span>
+<span class="context"> } from &#x27;./slots.ts&#x27;</span>
+<span class="context"> export type { GoalKey } from &#x27;./locales.ts&#x27;</span>
+<span class="context"> </span>
+<span class="context">@@ -80,12 +84,9 @@ export function apply(ctx: ClientContext): void {</span>
+<span class="context">     error: { code: &#x27;no-current-goal&#x27;, message: &#x27;no current goal to mutate&#x27; },</span>
+<span class="context">   }</span>
+<span class="context"> </span>
+<span class="del">-  ctx.slots.inject(&#x27;conversation.input.dock&#x27;, () =&gt; ctx.slots.register({</span>
+<span class="del">-    name: &#x27;conversation.input.dock&#x27;,</span>
+<span class="del">-    id: &#x27;goal&#x27;,</span>
+<span class="del">-    order: 10,</span>
+<span class="del">-    locale: NS,</span>
+<span class="del">-    inject: (sessionId): GoalBarInjected =&gt; {</span>
+<span class="add">+  // 二开复用官方 CAS 动作与按需激活订阅，不重复创建执行服务或历史投影。</span>
+<span class="add">+  const presentation: GoalPresentation = {</span>
+<span class="add">+    bind(sessionId): GoalBarInjected {</span>
+<span class="context">       const binding = sessions.binding(sessionId)</span>
+<span class="context">       if (binding === undefined) throw new Error(`ui-goal: session &quot;${sessionId}&quot; is unavailable`)</span>
+<span class="context">       const goalActivation = createGoalActivationSource({</span>
+<span class="context">@@ -99,27 +100,36 @@ export function apply(ctx: ClientContext): void {</span>
+<span class="context">       })</span>
+<span class="context">       return {</span>
+<span class="context">         hooks: { goalActivation },</span>
+<span class="del">-        onEdit: async (objective) =&gt; {</span>
+<span class="del">-          const ref = refOf(sessionId)</span>
+<span class="add">+        onEdit: async (objective, expectedRef) =&gt; {</span>
+<span class="add">+          const ref = expectedRef ?? refOf(sessionId)</span>
+<span class="context">           if (ref === undefined) return noCurrentGoal</span>
+<span class="context">           return await ctx.remote.goals.edit(sessionId, ref, { objective })</span>
+<span class="context">         },</span>
+<span class="del">-        onPause: async () =&gt; {</span>
+<span class="del">-          const ref = refOf(sessionId)</span>
+<span class="add">+        onPause: async (expectedRef) =&gt; {</span>
+<span class="add">+          const ref = expectedRef ?? refOf(sessionId)</span>
+<span class="context">           if (ref === undefined) return noCurrentGoal</span>
+<span class="context">           return await ctx.remote.goals.pause(sessionId, ref)</span>
+<span class="context">         },</span>
+<span class="del">-        onResume: async () =&gt; {</span>
+<span class="del">-          const ref = refOf(sessionId)</span>
+<span class="add">+        onResume: async (expectedRef) =&gt; {</span>
+<span class="add">+          const ref = expectedRef ?? refOf(sessionId)</span>
+<span class="context">           if (ref === undefined) return noCurrentGoal</span>
+<span class="context">           return await ctx.remote.goals.resume(sessionId, ref)</span>
+<span class="context">         },</span>
+<span class="del">-        onClear: async () =&gt; {</span>
+<span class="del">-          const ref = refOf(sessionId)</span>
+<span class="add">+        onClear: async (expectedRef) =&gt; {</span>
+<span class="add">+          const ref = expectedRef ?? refOf(sessionId)</span>
+<span class="context">           if (ref === undefined) return noCurrentGoal</span>
+<span class="context">           return await ctx.remote.goals.clear(sessionId, ref)</span>
+<span class="context">         },</span>
+<span class="context">       }</span>
+<span class="context">     },</span>
+<span class="add">+  }</span>
+<span class="add">+  ctx.provide(&#x27;goalPresentation&#x27;, presentation)</span>
+<span class="add">+</span>
+<span class="add">+  ctx.slots.inject(&#x27;conversation.input.dock&#x27;, () =&gt; ctx.slots.register({</span>
+<span class="add">+    name: &#x27;conversation.input.dock&#x27;,</span>
+<span class="add">+    id: &#x27;goal&#x27;,</span>
+<span class="add">+    order: 10,</span>
+<span class="add">+    locale: NS,</span>
+<span class="add">+    inject: sessionId =&gt; presentation.bind(sessionId),</span>
+<span class="context">   }, GoalDock))</span>
+<span class="context"> }</span></pre></section><section id="goal-006"><h2>packages/client/ui-goal/src/client/slots.ts</h2><pre><span class="context">diff --git a/packages/client/ui-goal/src/client/slots.ts b/packages/client/ui-goal/src/client/slots.ts</span>
+<span class="context">index eeffa48f17..f8ab76c355 100644</span>
+<span class="del">--- a/packages/client/ui-goal/src/client/slots.ts</span>
+<span class="add">+++ b/packages/client/ui-goal/src/client/slots.ts</span>
+<span class="context">@@ -9,7 +9,7 @@</span>
+<span class="context"> </span>
+<span class="context"> import type { RemoteResult } from &#x27;@deepseek-ai/dsh-api-remotes/client&#x27;</span>
+<span class="context"> import type { HostObservable } from &#x27;@deepseek-ai/dsh-client-ui-slots&#x27;</span>
+<span class="del">-import type { GoalActivation, GoalId } from &#x27;@deepseek-ai/dsh-goal/client&#x27;</span>
+<span class="add">+import type { GoalActivation, GoalId, GoalRef } from &#x27;@deepseek-ai/dsh-goal/client&#x27;</span>
+<span class="context"> </span>
+<span class="context"> /**</span>
+<span class="context">  * The one failure the strip reports without a wire call: the session projects</span>
+<span class="context">@@ -44,19 +44,31 @@ export interface GoalActivationInjected {</span>
+<span class="context">   }</span>
+<span class="context"> }</span>
+<span class="context"> </span>
+<span class="del">-/** Injected business face of the GoalBar dock entry: the mutation verbs (function properties: the strip destructures them freely). */</span>
+<span class="add">+/**</span>
+<span class="add">+ * 二开可提交用户看到的 ref，由 Host CAS 拒绝过期编辑；官方未传时保持现有读取语义。</span>
+<span class="add">+ * Injected business face of the GoalBar dock entry: the mutation verbs (function properties: the strip destructures them freely). */</span>
+<span class="context"> export interface GoalBarActions {</span>
+<span class="context">   /**</span>
+<span class="context">    * Replace the current goal&#x27;s objective (CAS on the projected ref).</span>
+<span class="context">    * @param objective - replacement objective text.</span>
+<span class="add">+   * @param expectedRef - optional visible revision; omitted consumers use the current projection.</span>
+<span class="add">+   */</span>
+<span class="add">+  onEdit: (objective: string, expectedRef?: GoalRef) =&gt; Promise&lt;GoalActionResult&gt;</span>
+<span class="add">+  /**</span>
+<span class="add">+   * Pause an active goal.</span>
+<span class="add">+   * @param expectedRef - optional visible revision; omitted consumers use the current projection.</span>
+<span class="add">+   */</span>
+<span class="add">+  onPause: (expectedRef?: GoalRef) =&gt; Promise&lt;GoalActionResult&gt;</span>
+<span class="add">+  /**</span>
+<span class="add">+   * Resume a paused goal.</span>
+<span class="add">+   * @param expectedRef - optional visible revision; omitted consumers use the current projection.</span>
+<span class="add">+   */</span>
+<span class="add">+  onResume: (expectedRef?: GoalRef) =&gt; Promise&lt;GoalActionResult&gt;</span>
+<span class="add">+  /**</span>
+<span class="add">+   * Clear the current goal (tombstone).</span>
+<span class="add">+   * @param expectedRef - optional visible revision; omitted consumers use the current projection.</span>
+<span class="context">    */</span>
+<span class="del">-  onEdit: (objective: string) =&gt; Promise&lt;GoalActionResult&gt;</span>
+<span class="del">-  /** Pause an active goal. */</span>
+<span class="del">-  onPause: () =&gt; Promise&lt;GoalActionResult&gt;</span>
+<span class="del">-  /** Resume a paused goal. */</span>
+<span class="del">-  onResume: () =&gt; Promise&lt;GoalActionResult&gt;</span>
+<span class="del">-  /** Clear the current goal (tombstone). */</span>
+<span class="del">-  onClear: () =&gt; Promise&lt;GoalActionResult&gt;</span>
+<span class="add">+  onClear: (expectedRef?: GoalRef) =&gt; Promise&lt;GoalActionResult&gt;</span>
+<span class="context"> }</span>
+<span class="context"> </span>
+<span class="context"> /** Injected business face of the GoalBar dock entry. */</span></pre></section><section id="goal-007"><h2>packages/client/ui-goal/tests/activation-source.client.spec.ts</h2><pre><span class="context">diff --git a/packages/client/ui-goal/tests/activation-source.client.spec.ts b/packages/client/ui-goal/tests/activation-source.client.spec.ts</span>
+<span class="context">index be8aee64fb..cae908999d 100644</span>
+<span class="del">--- a/packages/client/ui-goal/tests/activation-source.client.spec.ts</span>
+<span class="add">+++ b/packages/client/ui-goal/tests/activation-source.client.spec.ts</span>
+<span class="context">@@ -1,4 +1,8 @@</span>
+<span class="context"> import { describe, expect, it, vi } from &#x27;vitest&#x27;</span>
+<span class="add">+// 仅测试接入真实投影容器，生产消费者仍通过官方会话座席读取。</span>
+<span class="add">+import { ProjectionValueStore } from &#x27;@deepseek-ai/dsh-api-session-controller/src/client/sessions/projection-store.ts&#x27;</span>
+<span class="add">+import type { HostObservable } from &#x27;@deepseek-ai/dsh-client-ui-slots&#x27;</span>
+<span class="add">+import type { SessionSeq } from &#x27;@deepseek-ai/dsh-session/types&#x27;</span>
+<span class="context"> import { createSnapshotStore } from &#x27;@deepseek-ai/dsh-client-store&#x27;</span>
+<span class="context"> import type { RemoteResult } from &#x27;@deepseek-ai/dsh-api-remotes/client&#x27;</span>
+<span class="context"> import type { GoalActivationChanged, GoalId, GoalProjection, GoalView } from &#x27;@deepseek-ai/dsh-goal/client&#x27;</span>
+<span class="context">@@ -197,3 +201,58 @@ describe(&#x27;goal activation source&#x27;, () =&gt; {</span>
+<span class="context">     dispose()</span>
+<span class="context">   })</span>
+<span class="context"> })</span>
+<span class="add">+</span>
+<span class="add">+// 连接重置清除旧进程的激活权限，旧读结果不能恢复已失效的 armed 状态。</span>
+<span class="add">+it(&#x27;invalidates activation on connection reset until the replacement read settles&#x27;, async () =&gt; {</span>
+<span class="add">+  const reads: ReturnType&lt;typeof Promise.withResolvers&lt;RemoteResult&lt;GoalView | undefined&gt;&gt;&gt;[] = []</span>
+<span class="add">+  let reset: (() =&gt; void) | undefined</span>
+<span class="add">+  const source = createGoalActivationSource({</span>
+<span class="add">+    projection: createSnapshotStore&lt;GoalProjection | null | undefined&gt;(projection()),</span>
+<span class="add">+    session: createSnapshotStore({ running: false }),</span>
+<span class="add">+    getGoal: () =&gt; {</span>
+<span class="add">+      const read = Promise.withResolvers&lt;RemoteResult&lt;GoalView | undefined&gt;&gt;()</span>
+<span class="add">+      reads.push(read)</span>
+<span class="add">+      return read.promise</span>
+<span class="add">+    },</span>
+<span class="add">+    subscribeActivation: () =&gt; () =&gt; {},</span>
+<span class="add">+    subscribeReset: (listener) =&gt; { reset = listener; return () =&gt; { reset = undefined } },</span>
+<span class="add">+  })</span>
+<span class="add">+  const dispose = source.subscribe(() =&gt; {})</span>
+<span class="add">+  try {</span>
+<span class="add">+    reads[0]!.resolve({ ok: true, value: goalView(&#x27;armed&#x27;) })</span>
+<span class="add">+    await Promise.resolve()</span>
+<span class="add">+    expect(source.getSnapshot().activation).toBe(&#x27;armed&#x27;)</span>
+<span class="add">+    reset!()</span>
+<span class="add">+    expect(source.getSnapshot()).toEqual({ id: GOAL_ID, revision: 1 })</span>
+<span class="add">+    reset!()</span>
+<span class="add">+    reads[1]!.resolve({ ok: true, value: goalView(&#x27;armed&#x27;) })</span>
+<span class="add">+    await Promise.resolve()</span>
+<span class="add">+    expect(source.getSnapshot().activation).toBeUndefined()</span>
+<span class="add">+    reads[2]!.resolve({ ok: true, value: goalView(&#x27;disarmed&#x27;) })</span>
+<span class="add">+    await Promise.resolve()</span>
+<span class="add">+    expect(source.getSnapshot().activation).toBe(&#x27;disarmed&#x27;)</span>
+<span class="add">+  } finally { dispose() }</span>
+<span class="add">+})</span>
+<span class="add">+</span>
+<span class="add">+// 使用官方微任务投影容器：值可先读取，通知在下一微任务到达。</span>
+<span class="add">+it.each([false, true])(&#x27;handles an empty live result before a projection notification: %s&#x27;, async (clear) =&gt; {</span>
+<span class="add">+  const values = new ProjectionValueStore()</span>
+<span class="add">+  values.apply(&#x27;goal&#x27;, projection(), 0 as SessionSeq)</span>
+<span class="add">+  await Promise.resolve()</span>
+<span class="add">+  const read = Promise.withResolvers&lt;RemoteResult&lt;GoalView | undefined&gt;&gt;()</span>
+<span class="add">+  const source = createGoalActivationSource({</span>
+<span class="add">+    projection: values.faceOf(&#x27;goal&#x27;) as HostObservable&lt;GoalProjection | null | undefined&gt;,</span>
+<span class="add">+    session: createSnapshotStore({ running: false }),</span>
+<span class="add">+    getGoal: () =&gt; read.promise,</span>
+<span class="add">+    subscribeActivation: () =&gt; () =&gt; {},</span>
+<span class="add">+    subscribeReset: () =&gt; () =&gt; {},</span>
+<span class="add">+  })</span>
+<span class="add">+  const dispose = source.subscribe(() =&gt; {})</span>
+<span class="add">+  try {</span>
+<span class="add">+    read.resolve({ ok: true, value: undefined })</span>
+<span class="add">+    if (clear) values.apply(&#x27;goal&#x27;, null, 1 as SessionSeq)</span>
+<span class="add">+    await Promise.resolve()</span>
+<span class="add">+    expect(source.getSnapshot()).toEqual(clear ? {} : { id: GOAL_ID, revision: 1 })</span>
+<span class="add">+    expect(source.getSnapshot().activation).toBeUndefined()</span>
+<span class="add">+  } finally { dispose() }</span>
+<span class="add">+})</span></pre></section><section id="goal-008"><h2>packages/client/ui-goal/tests/browser-plugin.client.spec.tsx</h2><pre><span class="context">diff --git a/packages/client/ui-goal/tests/browser-plugin.client.spec.tsx b/packages/client/ui-goal/tests/browser-plugin.client.spec.tsx</span>
+<span class="context">index 6181f3621b..9e1ed78bbc 100644</span>
+<span class="del">--- a/packages/client/ui-goal/tests/browser-plugin.client.spec.tsx</span>
+<span class="add">+++ b/packages/client/ui-goal/tests/browser-plugin.client.spec.tsx</span>
+<span class="context">@@ -328,3 +328,45 @@ describe(&#x27;ui-goal node half&#x27;, () =&gt; {</span>
+<span class="context">     expect(() =&gt; { nodeApply() }).not.toThrow()</span>
+<span class="context">   })</span>
+<span class="context"> })</span>
+<span class="add">+</span>
+<span class="add">+// 公开呈现能力与官方 dock 共用动作实现，挂载依赖释放时服务随之撤销。</span>
+<span class="add">+it(&#x27;shares CAS actions through the public presentation and removes the service on disposal&#x27;, async () =&gt; {</span>
+<span class="add">+  const options = { projection: makeProjection(7) }</span>
+<span class="add">+  const b = await bench(options)</span>
+<span class="add">+  try {</span>
+<span class="add">+    await b.fiber.await()</span>
+<span class="add">+    const presentation = b.ctx.goalPresentation</span>
+<span class="add">+    const bind = vi.spyOn(presentation, &#x27;bind&#x27;)</span>
+<span class="add">+    const official = b.entry()!.inject!(sid(&#x27;s1&#x27;))</span>
+<span class="add">+    expect(bind).toHaveBeenCalledExactlyOnceWith(sid(&#x27;s1&#x27;))</span>
+<span class="add">+    const alternate = presentation.bind(sid(&#x27;s1&#x27;))</span>
+<span class="add">+    expect(b.definitions().map(definition =&gt; definition.kind)).toEqual([&#x27;goal-command-input&#x27;])</span>
+<span class="add">+    expect(b.calls).toEqual([])</span>
+<span class="add">+    options.projection = makeProjection(8)</span>
+<span class="add">+    await alternate.onEdit(&#x27;Shared objective&#x27;)</span>
+<span class="add">+    await official.onPause()</span>
+<span class="add">+    expect(b.calls).toEqual([</span>
+<span class="add">+      { method: &#x27;goals/edit&#x27;, args: [&#x27;s1&#x27;, { id: GOAL_ID, revision: 8 }, { objective: &#x27;Shared objective&#x27; }] },</span>
+<span class="add">+      { method: &#x27;goals/pause&#x27;, args: [&#x27;s1&#x27;, { id: GOAL_ID, revision: 8 }] },</span>
+<span class="add">+    ])</span>
+<span class="add">+    expect(() =&gt; presentation.bind(sid(&#x27;missing&#x27;))).toThrow(/unavailable/)</span>
+<span class="add">+    await b.fiber.dispose()</span>
+<span class="add">+    expect(b.ctx.get(&#x27;goalPresentation&#x27;)).toBeUndefined()</span>
+<span class="add">+  } finally { await b.ctx.fiber.dispose(); vi.restoreAllMocks() }</span>
+<span class="add">+})</span>
+<span class="add">+</span>
+<span class="add">+// 显式携带用户看到的旧 ref，不能自动升级为当前版本后覆盖他人修改。</span>
+<span class="add">+it(&#x27;forwards an explicitly observed revision to Host CAS for every mutation&#x27;, async () =&gt; {</span>
+<span class="add">+  const b = await bench({ projection: makeProjection(9) })</span>
+<span class="add">+  try {</span>
+<span class="add">+    await b.fiber.await()</span>
+<span class="add">+    const face = b.ctx.goalPresentation.bind(sid(&#x27;s1&#x27;))</span>
+<span class="add">+    const observed = { id: GOAL_ID, revision: 8 }</span>
+<span class="add">+    await face.onEdit(&#x27;Observed draft&#x27;, observed)</span>
+<span class="add">+    await face.onPause(observed)</span>
+<span class="add">+    await face.onResume(observed)</span>
+<span class="add">+    await face.onClear(observed)</span>
+<span class="add">+    expect(b.calls.map(call =&gt; call.args[1])).toEqual([observed, observed, observed, observed])</span>
+<span class="add">+    expect(b.calls[0]!.args[2]).toEqual({ objective: &#x27;Observed draft&#x27; })</span>
+<span class="add">+  } finally { await b.ctx.fiber.dispose() }</span>
+<span class="add">+})</span></pre></section><section id="goal-009"><h2>scripts/gen-cordis-catalog.ts</h2><pre><span class="context">diff --git a/scripts/gen-cordis-catalog.ts b/scripts/gen-cordis-catalog.ts</span>
+<span class="context">index ed81fccc1f..1b3f31dd32 100644</span>
+<span class="del">--- a/scripts/gen-cordis-catalog.ts</span>
+<span class="add">+++ b/scripts/gen-cordis-catalog.ts</span>
+<span class="context">@@ -178,6 +178,15 @@ export const SERVICE_WALK_EXEMPTIONS: Record&lt;string, string&gt; = {</span>
+<span class="context">   workspaces: &#x27;client-side interface-typed browser service — packages/api/workspace-controller/README.md owns the API&#x27;,</span>
+<span class="context">   resources: &#x27;client-side resource model (protocol providers, pins, live sources) — packages/client/resources/README.md owns the API&#x27;,</span>
+<span class="context">   sidebarRight: &#x27;client-side right-Sidebar navigation face — packages/client/ui-sidebar-right/README.md owns the API&#x27;,</span>
+<span class="add">+  // 二开共享呈现属于 Client 面，由各原包 README 说明，不能漏过服务清单检查。</span>
+<span class="add">+  sidebarRightPresentation: &#x27;client-side shared presentation — packages/client/ui-sidebar-right/README.md owns the API&#x27;,</span>
+<span class="add">+  // 目标呈现是 Client 专用接口，正式说明归原插件，Host 目录不生成它。</span>
+<span class="add">+  goalPresentation: &#x27;client-side shared presentation — packages/client/ui-goal/README.md owns the API&#x27;,</span>
+<span class="add">+  messageFeedbackPresentation: &#x27;client-side shared presentation — packages/client/ui-message-feedback/README.md owns the API&#x27;,</span>
+<span class="add">+  deliverablesPresentation: &#x27;client-side shared presentation — packages/client/ui-deliverables/README.md owns the API&#x27;,</span>
+<span class="add">+  documentPreviewPresentation: &#x27;client-side shared presentation — packages/client/ui-sidebar-documentpreview/README.md owns the API&#x27;,</span>
+<span class="add">+  documentPdfPresentation: &#x27;client-side shared presentation — packages/client/ui-sidebar-documentpreview/README.md owns the API&#x27;,</span>
+<span class="add">+  sidebarFilesPresentation: &#x27;client-side shared presentation — packages/client/ui-sidebar-files/README.md owns the API&#x27;,</span>
+<span class="context">   sidebarRightTabs: &#x27;client-side right-Sidebar tab-type registry — packages/client/ui-sidebar-right/README.md owns the API&#x27;,</span>
+<span class="context">   documentPreviews: &#x27;client-side document renderer registry — docs/subsystems/sidebar-right.md owns the API&#x27;,</span>
+<span class="context"> }</span></pre></section></html>

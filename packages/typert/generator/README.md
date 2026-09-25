@@ -128,6 +128,8 @@ These limits define what the generator cannot model or emit; they are current pa
 - **No generated schema imports across faces** — cross-face links are represented for analysis, but no generated schema requires a runtime cross-face Zod import.
 - **Discovery covers concrete public exports only** — declarations neither exported nor imported by the reachable graph are intentionally outside the package model.
 
+Cross-face references may resolve through a manifest-declared built declaration entry already loaded by the current TypeScript program. Export identity is still checked against the requested symbol; missing or non-exported symbols fail analysis.
+
 <a id="dev-note"></a>
 ### Dev Note
 

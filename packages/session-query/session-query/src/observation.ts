@@ -1,6 +1,7 @@
 /** Shared live/prepared observations for Session page and lifecycle consumers. */
 
 import type { Context } from '@deepseek-ai/cordis'
+import { symbols } from '@deepseek-ai/cordis'
 import { SessionLogOffset, SessionSeq } from '@deepseek-ai/dsh-session'
 import type { Session, SessionEvent, SessionHeader, SessionId , SessionLogOffset as SessionLogOffsetType , SessionSeqCursor } from '@deepseek-ai/dsh-session'
 import type SessionPersistence from '@deepseek-ai/dsh-session-persistence'
@@ -115,36 +116,41 @@ export class SessionObservationReader {
         throwIfObservationAborted(signal)
         const attached = this.ctx.sessions.get(sessionId)
         if (attached !== undefined) return this.live(attached, projectionMode)
-        // The handle marks persisted events as adoptable; synthetic closers
-        // are owned by this read, so the combined seed needs no copy.
-        const seed = loaded.events
-        let session: Session
-        try {
-          session = this.ctx.sessions.prepare(sessionId, {
-            seed,
-            meta: structuredClone(loaded.header),
-            inheritedEventCount: loaded.inheritedEventCount,
-            eventState: loaded.eventState,
-          })
-        } catch (error: unknown) {
-          // The store rejects an id with a live owner: that owner is the
-          // fresher source, so retry the live path. Any other rejection means
-          // the stored log failed restore validation.
-          if (this.ctx.sessions.get(sessionId) !== undefined) continue
-          throw new SessionQueryError(
-            `stored session "${sessionId}" is corrupt: ${errorMessage(error)}`,
-            'SESSION_QUERY_CORRUPT_SESSION',
-            { cause: error },
-          )
+        // 并发冷读取可能已发布同一持久版本；复用准备实例，避免重复恢复全部投影。
+        // 每个读取仍独立完成 I/O、取消检查和句柄关闭，不共享调用方的取消信号。
+        entry = this.cachedEntry(persistence, sessionId, snapshot.revision)
+        if (entry === undefined) {
+          // The handle marks persisted events as adoptable; synthetic closers
+          // are owned by this read, so the combined seed needs no copy.
+          const seed = loaded.events
+          let session: Session
+          try {
+            session = this.ctx.sessions.prepare(sessionId, {
+              seed,
+              meta: structuredClone(loaded.header),
+              inheritedEventCount: loaded.inheritedEventCount,
+              eventState: loaded.eventState,
+            })
+          } catch (error: unknown) {
+            // The store rejects an id with a live owner: that owner is the
+            // fresher source, so retry the live path. Any other rejection means
+            // the stored log failed restore validation.
+            if (this.ctx.sessions.get(sessionId) !== undefined) continue
+            throw new SessionQueryError(
+              `stored session "${sessionId}" is corrupt: ${errorMessage(error)}`,
+              'SESSION_QUERY_CORRUPT_SESSION',
+              { cause: error },
+            )
+          }
+          entry = {
+            persistence: persistenceOwner(persistence),
+            revision: snapshot.revision,
+            session,
+            events: Object.freeze(seed),
+            refs: 0,
+          }
+          this.store(sessionId, entry)
         }
-        entry = {
-          persistence,
-          revision: snapshot.revision,
-          session,
-          events: Object.freeze(seed),
-          refs: 0,
-        }
-        this.store(sessionId, entry)
       }
 
       let projections: ProjectionSnapshot | undefined
@@ -206,7 +212,7 @@ export class SessionObservationReader {
     revision: SessionPersistenceRevision,
   ): PreparedEntry | undefined {
     const cached = this.cache.get(sessionId)
-    if (cached === undefined || cached.persistence !== persistence || cached.revision !== revision) {
+    if (cached === undefined || cached.persistence !== persistenceOwner(persistence) || cached.revision !== revision) {
       return undefined
     }
     this.cache.delete(sessionId)
@@ -313,6 +319,11 @@ export class SessionObservationReader {
       ? registry.hydrate(entry.session, {}, entry.events, SessionLogOffset(0))
       : cache.hydratePrepared(entry.session, entry.events)
   }
+}
+
+/** 仅以 Cordis 原始服务标识缓存所有者；实际 I/O 仍使用带上下文的代理，不能绕开作用域。 */
+function persistenceOwner(persistence: SessionPersistence): SessionPersistence {
+  return (persistence as SessionPersistence & { [symbols.original]?: SessionPersistence })[symbols.original] ?? persistence
 }
 
 function throwIfObservationAborted(signal: AbortSignal | undefined): void {

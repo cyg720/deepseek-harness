@@ -1,15 +1,4 @@
-/**
- * 奇术工作台的浏览器入口。
- *
- * 本包是七个 qs-* 包中唯一注册 `root` 的包：以**负优先级**遮蔽官方 `AppFrame`
- * （同优先级注册会抛错，负优先级才稳定胜出）。同时它声明全部顶层 `qs.*` 槽，
- * 其余六个包用 `ctx.slots.inject(key, …)` 等待声明后贡献，因此不依赖加载顺序。
- *
- * 回退语义（见 10-界面切换与回退配置 第四节）：
- * - `defaultUi: official` ⇒ 不注册奇术 root（官方显示，贡献等待）；
- * - 停用全部七行 ⇒ 自建注册与副作用全部释放；
- * - 把 priority 改正数 ⇒ 官方显示，但**自建注册仍在**，不得据此断言"无残留"。
- */
+/** Layout presentation corresponding to official ui-layout. Conversation and sidebar views register independently. */
 import type { Context as ClientContext } from '@deepseek-ai/cordis'
 import type { HostObservable } from '@deepseek-ai/dsh-client-ui-slots'
 // 仅类型：引入 SlotRegistry 的 ctx.slots 服务合并与槽位契约。
@@ -24,7 +13,7 @@ import './styles/tokens.css'
 import './styles/contract.css'
 import { readInjectedQsShellConfig } from '../config.ts'
 import type {
-  IQsAuth, IQsUiMode, QsChromeInjected, QsConnectionSnapshot, QsOverlayInjected,
+  IQsAuth, IQsUiMode, IQsToast, QsChromeInjected, QsConnectionSnapshot, QsOverlayInjected,
   QsShellRootInjected, QsStatusInjected, QsThemeSnapshot, QsToast, QsUiId, QsUiModeSnapshot,
 } from './contract.ts'
 import { createQsLayoutStore } from './layout-store.ts'
@@ -33,11 +22,8 @@ import { QsUiModeController } from './ui-mode.ts'
 import { AppShell } from './AppShell.tsx'
 import { QsOfficialReturn, type QsOfficialReturnInjected } from './OfficialReturn.tsx'
 import { QsOverlayHost } from './OverlayHost.tsx'
-import { QsRightPanel } from './RightPanel.tsx'
 import { QsStatusBar } from './StatusBar.tsx'
-import { QsStage } from './Stage.tsx'
 import { QsTopBar } from './TopBar.tsx'
-import { QsWelcomePane } from './WelcomePane.tsx'
 
 /** 本包的本地化命名空间。 */
 const NS = 'qs-shell'
@@ -90,7 +76,7 @@ export function apply(ctx: ClientContext): void {
   let disposeOfficialEntry: (() => void) | undefined
 
   const mountWorkbench = (): void => {
-    if (disposeWorkbench !== undefined) return
+    // 同界面请求由 QsUiModeController 拦截；此处只负责首次挂载或实际切换。
     const disposers = [
       ctx.slots.register({
         name: 'root',
@@ -99,7 +85,7 @@ export function apply(ctx: ClientContext): void {
         children: {
           'qs.gate': { kind: 'single', scope: 'root' },
           'qs.chrome': { kind: 'single', scope: 'root' },
-          'qs.nav': { kind: 'single', scope: 'root' },
+          'qs.sidebar': { kind: 'single', scope: 'root' },
           'qs.stage': { kind: 'single', scope: 'root' },
           'qs.inspector': { kind: 'single', scope: 'root' },
           'qs.status': { kind: 'list', scope: 'root' },
@@ -108,17 +94,6 @@ export function apply(ctx: ClientContext): void {
         store: layoutStore,
         inject: (): QsShellRootInjected => ({ hooks: { qsTheme: themeSource } }),
       }, AppShell),
-      // qs.stage 的入口自己声明并渲染欢迎区、转写与输入区三个子槽（R15/R27）。
-      ctx.slots.register({
-        name: 'qs.stage',
-        locale: NS,
-        children: {
-          'qs.stage.body': { kind: 'single', scope: 'session-maybe' },
-          'qs.stage.transcript': { kind: 'single', scope: 'session' },
-          'qs.composer': { kind: 'single', scope: 'session-maybe' },
-        },
-      }, QsStage),
-      ctx.slots.register({ name: 'qs.stage.body', locale: NS }, QsWelcomePane),
       ctx.slots.register({
         name: 'qs.status',
         id: 'qs-status-connection',
@@ -135,12 +110,11 @@ export function apply(ctx: ClientContext): void {
         inject: (): QsOverlayInjected => ({ hooks: { qsToasts: toastSource } }),
       }, QsOverlayHost),
       ctx.slots.register({
-        name: 'qs.inspector',
-        locale: NS,
-        store: layoutStore,
-      }, QsRightPanel),
-      ctx.slots.register({
         name: 'qs.chrome',
+        children: {
+          'qs.brand.mark': { kind: 'single', scope: 'root' },
+          'qs.brand.name': { kind: 'single', scope: 'root' },
+        },
         locale: NS,
         store: layoutStore,
         inject: (): QsChromeInjected => ({
@@ -191,7 +165,7 @@ export function apply(ctx: ClientContext): void {
   const mode: IQsUiMode = new QsUiModeController(config, (ui: QsUiId) => { applyUi(ui) })
 
   const mountOfficialEntry = (): void => {
-    if (disposeOfficialEntry !== undefined) return
+    // 返回入口随实际界面切换挂载，离开官方界面时统一释放。
     disposeOfficialEntry = ctx.slots.inject('sidebar.footer.action', () => ctx.slots.register({
       name: 'sidebar.footer.action',
       id: 'qs-official-return',
@@ -216,7 +190,14 @@ export function apply(ctx: ClientContext): void {
   }
 
   ctx.effect(() => ctx.reflect.provide('qsShell', mode), 'qs-shell: switch controller')
-  ctx.effect(() => ctx.reflect.provide('qsToast', { show: showToast }), 'qs-shell: toast service')
+  const clearToasts = (): void => {
+    for (const timer of toastTimers) clearTimeout(timer)
+    toastTimers.clear()
+    publishToasts([])
+  }
+  ctx.effect(() => ctx.reflect.provide('qsToast', {
+    show: showToast, clear: clearToasts, notificationCapacity: config.notificationCapacity,
+  } satisfies IQsToast), 'qs-shell: toast service')
 
   applyUi(config.defaultUi)
 

@@ -1,3 +1,5 @@
+// 二开正文使用同一公开身份，避免复制私有字符串。
+import { documentPreviewIds } from '../qs/ids.ts'
 /** Plain text implementation registered through the same document extension points as other viewers. */
 import type { Context } from '@deepseek-ai/cordis'
 import type {} from '../index.ts'
@@ -5,7 +7,7 @@ import type { DocumentPreviewDefinition } from '../document/registry.ts'
 import { TextBody } from './TextBody.tsx'
 
 /** Stable plain-text implementation identity within this package. */
-export const PLAIN_BODY_ID = '@deepseek-ai/dsh-client-ui-sidebar-documentpreview/text'
+export const PLAIN_BODY_ID = documentPreviewIds.text
 
 /**
  * Describe the plain-text fallback.

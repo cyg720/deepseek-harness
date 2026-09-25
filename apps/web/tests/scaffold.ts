@@ -285,6 +285,9 @@ export interface WebScaffold {
 
 /** Options for {@link launchWebScaffold}. */
 export interface LaunchOptions {
+  /** 目录能力组合：默认固定 browse；原生与自动分支测试显式选择，避免夹具覆盖被测配置。 */
+  directoryPicker?: 'browse' | 'native' | 'auto'
+
   /** Enable the real Open In rows with deterministic launch-environment facts. */
   openInAppEnvironment?: LaunchEnvironmentSnapshot
   /** Compare the replayed root session with `replayFixture`; defaults on for a manifest-owned canonical recording. */
@@ -512,6 +515,7 @@ export async function launchWebScaffold(options: LaunchOptions = {}): Promise<We
     surfaceContext?: boolean
   } | undefined
   const surfaceContext = webRuntimeConfig?.surfaceContext !== false
+  const directoryPicker = options.directoryPicker ?? 'browse'
   const patches: PatchOptions[] = [
     ...basePatches,
     ...surfacePatches,
@@ -611,11 +615,14 @@ export async function launchWebScaffold(options: LaunchOptions = {}): Promise<We
     // the in-app browse dialog), so pin -browse deterministically on every
     // host: patch `name` is an assertion, not an override, hence the
     // disable+insert pair.
-    { id: 'directory-picker', disabled: true },
-    { insert: [
-      { id: 'directory-picker-browse', name: '@deepseek-ai/dsh-host-directory-picker-browse' },
-      { id: 'ui-directory-picker-browse', name: '@deepseek-ai/dsh-client-ui-directory-picker-browse' },
-    ] },
+    // 原生/自动验收必须保留指定能力；其他现有用例继续固定 browse。
+    ...directoryPicker === 'auto' ? [] : [
+      { id: 'directory-picker', disabled: true },
+      { insert: [
+        { id: `directory-picker-${directoryPicker}`, name: `@deepseek-ai/dsh-host-directory-picker-${directoryPicker}` },
+        { id: `ui-directory-picker-${directoryPicker}`, name: `@deepseek-ai/dsh-client-ui-directory-picker-${directoryPicker}` },
+      ] },
+    ],
     // Ordinary scenarios exclude host-dependent application discovery. The
     // Open In scenario supplies launch facts that suppress every native probe.
     { id: 'open-in-app', disabled: options.openInAppEnvironment === undefined },

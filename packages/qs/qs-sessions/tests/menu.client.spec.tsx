@@ -116,3 +116,21 @@ it.each(['false', 'reject'] as const)('retains a rename draft after %s and relea
   await waitFor(() => { expect(onClose).toHaveBeenCalled() })
   expect(renameSession).toHaveBeenCalledTimes(2)
 })
+
+/** 同批点击合并为一次重命名，关闭后的排队点击不得再次调用服务。 */
+it('阻止同批重复保存及关闭后的迟到保存', async () => {
+  const pending = Promise.withResolvers<boolean>()
+  const renameSession = vi.fn(() => pending.promise)
+  const onClose = vi.fn()
+  render(<SessionMenu sessionId={'session' as SessionId} title="Original" pinned={false} archivable
+    actions={{ renameSession, archiveSession: vi.fn(), togglePin: vi.fn() }} onClose={onClose} t={key => zh[key]} />)
+  fireEvent.click(screen.getByRole('button', { name: zh['menu.rename'] }))
+  const save = screen.getByRole('button', { name: zh['rename.save'] })
+  act(() => { save.click(); save.click() })
+  expect(renameSession).toHaveBeenCalledExactlyOnceWith('session', 'Original')
+  await act(async () => { pending.resolve(false); await pending.promise })
+  fireEvent.click(screen.getAllByRole('button', { name: zh['menu.close'] })[0]!)
+  fireEvent.click(save)
+  expect(renameSession).toHaveBeenCalledOnce()
+  expect(onClose).toHaveBeenCalledOnce()
+})

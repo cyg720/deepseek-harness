@@ -31,6 +31,10 @@ Mount this plugin alongside `ui-input-trigger` and `ui-conversation`; the `/` so
 
 A contribution is a client-owned command; a host-name collision fails loudly. Its UI is a popupSelect spec or an action: a callback a bare invocation runs after the trigger token is consumed, without submitting a message. Business packages own their actions and availability; the composer registers File through this same API. A decoration adds a bare-invocation popup or action to an existing host command while preserving its catalog row, argument claim, and lifecycle logging; it never fires without a matching host row. Menu queries fuzzy-match ordered, case-insensitive subsequences of command names and titles, with prefixes first and no section headings.
 
+Decorations default to priority 0. Explicitly different priorities can coexist for the same Host command; the highest available priority wins. Duplicate registrations at the same priority still throw. Disposing an override restores the remaining presentation regardless of installation order. This changes only bare invocation presentation, not Host command identity, arguments, or execution.
+
+Decorations also apply to available client-owned contributions. The original contribution must remain available; decorations cannot create a missing command or widen its capability. Menu picks and bare Enter use the same effective UI and attachment rule. Removing the decoration restores the original contribution.
+
 ### Built-in row faces
 
 First-party command definitions carry stable `definitionId` values. The client selects their localized titles, descriptions, icons, and input spellings by identity; changing a Host description cannot change that selection. Same-name overrides without the matching identity keep their own copy and receive no first-party aliases. Chinese and English spellings resolve through the same effective Session catalog in every locale, preserving the typed spelling in the draft and submitting the registered Host name. Contributions supply their own `label`, `description`, and `icon`, read on every candidate pass. Empty-query section order follows names, with unlisted rows closing Commands.

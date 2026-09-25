@@ -1,0 +1,13 @@
+/* 使用奇术主题变量；长详情与窄视口不能撑开外壳。 */
+.root { position: relative; min-width: 0; }
+.trigger, .action { color: var(--qs-text); background: var(--qs-subtle); border: 1px solid var(--qs-line); border-radius: 8px; padding: 6px 10px; cursor: pointer; font: inherit; }
+.trigger:focus-visible, .action:focus-visible { outline: 2px solid var(--qs-accent); outline-offset: 2px; }
+.panel { position: absolute; z-index: 100; right: 0; top: calc(100% + 8px); width: min(420px, calc(100vw - 48px)); max-height: min(560px, calc(100dvh - 160px)); box-sizing: border-box; overflow: auto; padding: 16px; border: 1px solid var(--qs-line); border-radius: 12px; background: var(--qs-bg); color: var(--qs-text); font-size: 12px; line-height: 1.6; box-shadow: var(--qs-shadow); }
+.list { list-style: none; padding: 0; margin: 12px 0; }
+.row { border-top: 1px solid var(--qs-line); padding: 12px 0; overflow-wrap: anywhere; min-width: 0; }
+.rowTitle { display: flex; align-items: flex-start; gap: 8px; }
+.rowTitle strong { flex: 1; min-width: 0; }
+.rowTitle span:last-child { flex-shrink: 0; }
+.row small, .limitation, .row dt { color: var(--qs-muted); }
+.row dl { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 4px 12px; }
+.row dd { margin: 0; }

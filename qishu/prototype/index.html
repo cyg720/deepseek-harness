@@ -6,6 +6,8 @@
   <meta name="color-scheme" content="light">
   <title>奇术 · AI 工作台</title>
   <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="second-priority.css">
+  <link rel="stylesheet" href="workbench-priority.css">
 </head>
 <body>
   <div id="root"></div>
@@ -16,5 +18,12 @@
   <script src="interactions.js"></script>
   <script src="app.js"></script>
   <script src="conversation-demo.js"></script>
+  <!-- 第二优先状态在原工作台内演示，不连接真实服务。 -->
+  <script src="second-priority.js"></script>
+  <!-- 合并后的工作台能力在同一外壳内预览，授权和写入仅为本地模拟。 -->
+  <!-- 编码前字段与组合状态补稿，仍为无业务请求的静态原型。 -->
+  <link rel="stylesheet" href="readiness.css">
+  <script src="readiness.js"></script>
+  <script src="workbench-priority.js"></script>
 </body>
 </html>

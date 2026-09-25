@@ -42,6 +42,7 @@ import { GUIDE_ID, guideDefinition } from './tabs/guide/definition.ts'
 import { guideTabInfoFactory, tabInfoFactory } from './tab-info.ts'
 import type { TabId } from '@deepseek-ai/dsh-client-ui-dockkit'
 import { defaultSeed } from './contract/seed.ts'
+import { createLayoutObserver, type LayoutListener } from './qs/layout-observer.ts'
 
 export type { RightbarSeatProps, SidebarRightInjected, SidebarRightPresentation } from './shell/SidebarRight.tsx'
 export type { GuideBodyProps, GuideInjected } from './tabs/guide/GuideBody.tsx'
@@ -69,6 +70,26 @@ export type { PinResource, SidebarRightNavigator, TabOccurrence } from './tab-do
 export type { SidebarRightKey } from './locales.ts'
 export type { OpenContentIntent } from './stores.ts'
 
+/** 两套界面共享同一 StoreDecl 和 TabDomain；座位负责绑定与解绑。 */
+export interface SidebarRightPresentationService {
+  /**
+   * 观察已有及后续已提交布局；切换呈现不会中止通知。
+   * @param listener - 会话和只读布局接收者。
+   * @returns 释放本观察订阅；不释放布局或资源。
+   */
+  observeLayouts(listener: LayoutListener): () => void
+  /** 同一会话的两个呈现必须使用相同句柄。 */
+  readonly store: ReturnType<typeof createSidebarRightStore>
+  /**
+   * 为指定会话组装呈现动作，不创建第二份状态。
+   * @param sessionId - 会话标识。
+   * @returns 绑定动作与标签导航订阅。
+   */
+  seat(sessionId: SessionId): SidebarRightInjected
+  /** 正文和标题复用官方标签信息订阅。 */
+  readonly tab: { readonly hooks: { readonly tabInfo: typeof tabInfoFactory } }
+}
+
 /** This package's copy namespace. */
 const NS = 'sidebarRight'
 
@@ -79,6 +100,8 @@ declare module '@deepseek-ai/cordis' {
   interface Context {
     /** Right-Sidebar navigation and presentation face. */
     sidebarRight: SidebarRightController
+    /** 二开呈现复用唯一 store、adoption 和标签域。 */
+    sidebarRightPresentation: SidebarRightPresentationService
     /** Right-Sidebar tab-type registry (stage one of a tab type's registration). */
     sidebarRightTabs: SidebarRightTabRegistry
   }
@@ -121,6 +144,7 @@ export function apply(ctx: ClientContext): void {
 
   ctx.effect(() => {
     const handle = createSidebarRightStore(() => defaultSeed(tabs))
+    const layouts = createLayoutObserver()
     // The runtime mints one instance of this handle per session (the scope key
     // is the session id) and caches it per key. Each is adopted as it is minted,
     // so a tab's own action reaches its session's store while another session
@@ -130,7 +154,11 @@ export function apply(ctx: ClientContext): void {
       ...handle,
       create: (scopeKey) => {
         const instance = handle.create(scopeKey)
-        if (scopeKey !== undefined) adoptions.push(adopt(scopeKey as SessionId, instance))
+        if (scopeKey !== undefined) {
+          adoptions.push(adopt(scopeKey as SessionId, instance))
+          // 资源 occurrence 先同步，再通知独立于界面的布局持久化消费者。
+          layouts.attach(scopeKey as SessionId, instance)
+        }
         return instance
       },
     }
@@ -145,6 +173,18 @@ export function apply(ctx: ClientContext): void {
       hooks: { tabTypes: { subscribe: listener => tabs.subscribe(listener), getSnapshot: () => tabs.entries() } },
     }
 
+    // 服务不创建第二份状态，切换界面只更换实际挂载的座位。
+    const presentation: SidebarRightPresentationService = {
+      observeLayouts: listener => layouts.watch(listener),
+      store,
+      tab: { hooks: { tabInfo: tabInfoFactory } },
+      seat: (sessionId): SidebarRightInjected => ({
+        ...injected,
+        keyedHooks: { tabNavigation: key => controller.tabDomain.occurrence(sessionId, { id: key as TabId }).navigation },
+        occurrence: tab => controller.tabDomain.occurrence(sessionId, tab),
+      }),
+    }
+    const disposePresentation = ctx.reflect.provide('sidebarRightPresentation', presentation)
     const disposeTypes = [tabs.register(guideDefinition(t))]
     const disposeSeat = ctx.slots.inject('rightbar', function* () {
       yield ctx.slots.register({
@@ -155,16 +195,12 @@ export function apply(ctx: ClientContext): void {
         name: 'rightbar.session',
         locale: NS,
         children: {
-          'sidebar.right.pane.tab': { kind: 'keyed', scope: 'session', inject: { hooks: { tabInfo: tabInfoFactory } } },
-          'sidebar.right.pane.tab.title': { kind: 'keyed', scope: 'session', inject: { hooks: { tabInfo: tabInfoFactory } } },
+          'sidebar.right.pane.tab': { kind: 'keyed', scope: 'session', inject: presentation.tab },
+          'sidebar.right.pane.tab.title': { kind: 'keyed', scope: 'session', inject: presentation.tab },
           'sidebar.right.tab.menu.item': { kind: 'list', scope: 'session' },
         },
         store,
-        inject: (sessionId): SidebarRightInjected => ({
-          ...injected,
-          keyedHooks: { tabNavigation: key => controller.tabDomain.occurrence(sessionId, { id: key as TabId }).navigation },
-          occurrence: tab => controller.tabDomain.occurrence(sessionId, tab),
-        }),
+        inject: sessionId => presentation.seat(sessionId),
       }, RightbarSeat)
     })
     // The expand button shares the panel's store: it only needs to know whether
@@ -196,6 +232,8 @@ export function apply(ctx: ClientContext): void {
       GuideTitle,
     ))
     return () => {
+      layouts.dispose()
+      void disposePresentation()
       disposeGuideTitle()
       disposeGuide()
       disposeExpand()

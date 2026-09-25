@@ -1,0 +1,336 @@
+<!doctype html><meta charset="utf-8"><title>物理重连分页窗口隔离差异</title><style>body{font:14px sans-serif;margin:24px}pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#f4f4f4;padding:16px}.add{color:#087c2c}.del{color:#b31d28}</style>
+<h1>HEAD 至工作区累计差异</h1><p>基线 4904755062702eaadf19c5897ab86bc6988716e9；2026-09-24。未提交。</p>
+<h2 id="p0">packages/api/gateway/README.i18n.yaml</h2><pre><span class="">diff --git a/packages/api/gateway/README.i18n.yaml b/packages/api/gateway/README.i18n.yaml</span>
+<span class="">index 4d79b9f4c9..61dc570846 100644</span>
+<span class="del">--- a/packages/api/gateway/README.i18n.yaml</span>
+<span class="add">+++ b/packages/api/gateway/README.i18n.yaml</span>
+<span class="">@@ -2,5 +2,5 @@</span>
+<span class=""> # side as of the last confirmed-consistent state. Both languages carry equal authority;</span>
+<span class=""> # after editing either side, bring the other along and re-record with:</span>
+<span class=""> #   pnpm run verify-translation-pairing --write packages/api/gateway/README.md</span>
+<span class="del">-README.md: 561081c3a5de716e563eaa9764f387e329365504</span>
+<span class="del">-README.zh.md: 9588b194efc64d14a17a69323a14d6118d0e7d7e</span>
+<span class="add">+README.md: 7c10ea85e12574a151aadd536504e2fdd47a7fee</span>
+<span class="add">+README.zh.md: ab273b5cf60b3fa44ab966ca7480631e79aa9ef5</span></pre>
+<h2 id="p1">packages/api/gateway/README.md</h2><pre><span class="">diff --git a/packages/api/gateway/README.md b/packages/api/gateway/README.md</span>
+<span class="">index 561081c3a5..7c10ea85e1 100644</span>
+<span class="del">--- a/packages/api/gateway/README.md</span>
+<span class="add">+++ b/packages/api/gateway/README.md</span>
+<span class="">@@ -88,3 +88,5 @@ None.</span>
+<span class=""> &lt;/details&gt;</span>
+<span class=""> </span>
+<span class=""> **Runtime invariant:** No companion is published. Host calls re-read authoritative Cordis and Typert state, while Client methods, descriptors, and `$on` subscriptions mutate in one owned effect.</span>
+<span class="add">+</span>
+<span class="add">+A backwards page belongs to the journal window that initiated it. Reconnection or continuity repair replaces that window and discards older pending page results before they can change entries or hasMore. Physical-stream cancellation alone is insufficient because a page can outlive a replacement within the same stream lifetime.</span></pre>
+<h2 id="p2">packages/api/gateway/README.zh.md</h2><pre><span class="">diff --git a/packages/api/gateway/README.zh.md b/packages/api/gateway/README.zh.md</span>
+<span class="">index 9588b194ef..ab273b5cf6 100644</span>
+<span class="del">--- a/packages/api/gateway/README.zh.md</span>
+<span class="add">+++ b/packages/api/gateway/README.zh.md</span>
+<span class="">@@ -88,3 +88,5 @@ Host 组合可通过 `registerRemoteEvents()` 注册唯一的应用事件 source</span>
+<span class=""> &lt;/details&gt;</span>
+<span class=""> </span>
+<span class=""> **运行时不变式：** 不发布伴生入口。Host 调用会重新读取权威的 Cordis 与 Typert 状态，Client 方法、描述符与 `$on` 订阅的变更则统一归属同一个 effect。</span>
+<span class="add">+</span>
+<span class="add">+向前翻页结果只属于发起请求时的历史窗口。重连或连续性修复替换窗口后，旧分页结果不能改变条目或 hasMore。物理流的整体取消信号不足以提供该保护，因为窗口替换时流的生命周期可能仍然有效。</span></pre>
+<h2 id="p3">packages/api/gateway/src/client/journal-stream.ts</h2><pre><span class="">diff --git a/packages/api/gateway/src/client/journal-stream.ts b/packages/api/gateway/src/client/journal-stream.ts</span>
+<span class="">index ab013abdf3..a1038fbb53 100644</span>
+<span class="del">--- a/packages/api/gateway/src/client/journal-stream.ts</span>
+<span class="add">+++ b/packages/api/gateway/src/client/journal-stream.ts</span>
+<span class="">@@ -95,6 +95,8 @@ export abstract class RemoteJournalStream&lt;</span>
+<span class="">   private resumeCursor: Cursor | undefined</span>
+<span class="">   private hasResumeCursor = false</span>
+<span class="">   private generation = 0</span>
+<span class="add">+  // QS 修复：窗口替换也可能发生在同一载体代次，独立版本使旧分页失效。</span>
+<span class="add">+  private windowRevision = 0</span>
+<span class="">   private firstCursor: Cursor | undefined</span>
+<span class="">   private lastCursor: Cursor | undefined</span>
+<span class="">   private started = false</span>
+<span class="">@@ -187,8 +189,10 @@ export abstract class RemoteJournalStream&lt;</span>
+<span class="">    */</span>
+<span class="">   async prepend(request: PageRequest): Promise&lt;void&gt; {</span>
+<span class="">     if (!this.opened || this.disposed) throw new Error(`${this.options.name} is not open`)</span>
+<span class="add">+    const revision = this.windowRevision</span>
+<span class="">     const page = await this.readPage(request, this.currentCursor(), this.stream.signal)</span>
+<span class="">     this.stream.signal.throwIfAborted()</span>
+<span class="add">+    if (revision !== this.windowRevision) return</span>
+<span class="">     const entries = this.options.entries(page)</span>
+<span class="">     this.assertPage(entries)</span>
+<span class="">     const before = this.firstCursor</span>
+<span class="">@@ -294,6 +298,7 @@ export abstract class RemoteJournalStream&lt;</span>
+<span class="">     this.firstCursor = first === undefined ? undefined : this.options.first(first)</span>
+<span class="">     this.lastCursor = cursor</span>
+<span class="">     this.setResumeCursor(cursor)</span>
+<span class="add">+    this.windowRevision++</span>
+<span class="">     this.options.publish({</span>
+<span class="">       type: &#x27;replace&#x27;,</span>
+<span class="">       page,</span>
+<span class="">@@ -382,6 +387,7 @@ export abstract class RemoteJournalStream&lt;</span>
+<span class="">     this.firstCursor = first === undefined ? undefined : this.options.first(first)</span>
+<span class="">     this.lastCursor = this.tailCursor(entries)</span>
+<span class="">     this.setResumeCursor(this.lastCursor)</span>
+<span class="add">+    this.windowRevision++</span>
+<span class="">     this.options.publish({</span>
+<span class="">       type: &#x27;replace&#x27;,</span>
+<span class="">       page,</span></pre>
+<h2 id="p4">packages/api/gateway/tests/journal-stream.client.spec.ts</h2><pre><span class="">diff --git a/packages/api/gateway/tests/journal-stream.client.spec.ts b/packages/api/gateway/tests/journal-stream.client.spec.ts</span>
+<span class="">index 498f5a033b..904b4d0cc2 100644</span>
+<span class="del">--- a/packages/api/gateway/tests/journal-stream.client.spec.ts</span>
+<span class="add">+++ b/packages/api/gateway/tests/journal-stream.client.spec.ts</span>
+<span class="">@@ -313,6 +313,27 @@ describe(&#x27;RemoteJournalStream&#x27;, () =&gt; {</span>
+<span class="">     await fixture.journal.dispose()</span>
+<span class="">   })</span>
+<span class=""> </span>
+<span class="add">+  // 旧 HTTP 分页不能改写重连后的窗口，即使请求使用的整体生命周期尚未销毁。</span>
+<span class="add">+  it(&#x27;discards a delayed prepend after a replacement window arrives&#x27;, async () =&gt; {</span>
+<span class="add">+    const held = Promise.withResolvers&lt;Page&gt;()</span>
+<span class="add">+    const fixture = journalFixture([</span>
+<span class="add">+      { frames: [opened(5, page(&#x27;initial&#x27;, [4, 5], true))], hold: true },</span>
+<span class="add">+      { frames: [opened(5, page(&#x27;replacement&#x27;, [4, 5], true))], hold: true },</span>
+<span class="add">+    ], [held.promise, page(&#x27;current&#x27;, [2, 3], true)])</span>
+<span class="add">+    try {</span>
+<span class="add">+      await fixture.journal.open({ limit: 2 })</span>
+<span class="add">+      const old = fixture.journal.prepend({ before: 4 })</span>
+<span class="add">+      fixture.journal.restart()</span>
+<span class="add">+      await vi.waitFor(() =&gt; { expect(fixture.changes).toHaveLength(2) })</span>
+<span class="add">+      held.resolve(page(&#x27;stale&#x27;, [2, 3], false))</span>
+<span class="add">+      await old</span>
+<span class="add">+      expect(fixture.changes).toHaveLength(2)</span>
+<span class="add">+      await fixture.journal.prepend({ before: 4 })</span>
+<span class="add">+      expect(fixture.changes.at(-1)).toMatchObject({ type: &#x27;prepend&#x27;, page: { marker: &#x27;current&#x27; }, hasMore: true })</span>
+<span class="add">+      expect(fixture.failed).not.toHaveBeenCalled()</span>
+<span class="add">+    } finally { held.resolve(page(&#x27;stale&#x27;, [2, 3])); await fixture.journal.dispose() }</span>
+<span class="add">+  })</span>
+<span class="add">+</span>
+<span class="">   it(&#x27;exposes its shared cancellation signal&#x27;, async () =&gt; {</span>
+<span class="">     const fixture = journalFixture(</span>
+<span class="">       [{ frames: [opened(-1, page(&#x27;empty&#x27;, []))], hold: true }],</span></pre>
+<h2 id="p5">packages/api/session-controller/README.i18n.yaml</h2><pre><span class="">diff --git a/packages/api/session-controller/README.i18n.yaml b/packages/api/session-controller/README.i18n.yaml</span>
+<span class="">index 3620f28368..b31aedbaf1 100644</span>
+<span class="del">--- a/packages/api/session-controller/README.i18n.yaml</span>
+<span class="add">+++ b/packages/api/session-controller/README.i18n.yaml</span>
+<span class="">@@ -2,5 +2,5 @@</span>
+<span class=""> # side as of the last confirmed-consistent state. Both languages carry equal authority;</span>
+<span class=""> # after editing either side, bring the other along and re-record with:</span>
+<span class=""> #   pnpm run verify-translation-pairing --write packages/api/session-controller/README.md</span>
+<span class="del">-README.md: 768c8704775d422c9c48d7d40a58d589f715b718</span>
+<span class="del">-README.zh.md: 3c1de73d13678b15af233196894b51fffa952f67</span>
+<span class="add">+README.md: 6f856439c66f3abca9a5a35f01d5d94e346aab4a</span>
+<span class="add">+README.zh.md: cdc65afeabc3a2f22b13bf6c5f242df5a6f56a7c</span></pre>
+<h2 id="p6">packages/api/session-controller/README.md</h2><pre><span class="">diff --git a/packages/api/session-controller/README.md b/packages/api/session-controller/README.md</span>
+<span class="">index 768c870477..6f856439c6 100644</span>
+<span class="del">--- a/packages/api/session-controller/README.md</span>
+<span class="add">+++ b/packages/api/session-controller/README.md</span>
+<span class="">@@ -75,6 +75,10 @@ No direct effect; model requests remain owned by the Agent and LLM packages.</span>
+<span class=""> - File-reference completion uses the shared Agent lookup and can resume a cold Session; the `skills/list` catalog is the non-activating alternative for skill metadata.</span>
+<span class=""> </span>
+<span class=""> </span>
+<span class="add">+`SessionSnapshot.historyLoad` reports idle, loading, succeeded, failed or cancelled paging, with request and connection identities. Success reports progress and remaining history; failures retain the window and expose no raw server error. Reconnection invalidates old settlement and busy-state updates.</span>
+<span class="add">+</span>
+<span class="add">+`ISessions.control.state` reports loading, ready, reconnecting, failed or disposed independently of the Session directory. Its baseline counter advances after each accepted control baseline; jobsBySession is projected synchronously before readiness is published. `control.retry()` coalesces requests after terminal failure, waits for the previous consumer to stop and starts one replacement; it does not wait for that replacement baseline. Carrier failures use the existing automatic reconnection. Published domain snapshots remain available during recovery; this status does not implement task completion notifications. TestSessions starts with loading status and rejects an unstubbed control retry.</span>
+<span class="add">+</span>
+<span class=""> &lt;a id=&quot;dev-note&quot;&gt;&lt;/a&gt;</span>
+<span class=""> ### Dev Note</span>
+<span class=""> </span>
+<span class="">@@ -86,3 +90,5 @@ None.</span>
+<span class=""> &lt;/details&gt;</span>
+<span class=""> </span>
+<span class=""> **Runtime invariant:** No companion is published. Every page and frame is checked against the addressed durable Session.</span>
+<span class="add">+</span>
+<span class="add">+Replacing the history window invalidates pending paging identities and releases loadingOlder, including automatic carrier reconnection without Session.resync. The local connectionEpoch also advances for continuity repairs; late completion cannot close a newer paging request or continue an older loadThrough target.</span></pre>
+<h2 id="p7">packages/api/session-controller/README.zh.md</h2><pre><span class="">diff --git a/packages/api/session-controller/README.zh.md b/packages/api/session-controller/README.zh.md</span>
+<span class="">index 3c1de73d13..cdc65afeab 100644</span>
+<span class="del">--- a/packages/api/session-controller/README.zh.md</span>
+<span class="add">+++ b/packages/api/session-controller/README.zh.md</span>
+<span class="">@@ -75,6 +75,10 @@ Session 对象还承载本地提交回显：`session.beginSubmission` 在调用</span>
+<span class=""> - 文件引用补全使用共享 Agent lookup，因此可能恢复冷 Session；`skills/list` 目录是不激活 Agent 的 skill 元数据读取路径。</span>
+<span class=""> </span>
+<span class=""> </span>
+<span class="add">+`SessionSnapshot.historyLoad` 提供闲置、加载中、成功、失败和取消五种分页状态，并携带请求及连接身份。成功报告进展和剩余历史；失败保留窗口，不暴露原始服务端错误。重连后旧请求不能更新结算或忙碌状态。</span>
+<span class="add">+</span>
+<span class="add">+`ISessions.control.state` 独立于会话目录报告加载中、就绪、重连中、失败或已处置；每次接收控制基线后递增 baseline 计数；发布就绪状态前同步投影 jobsBySession。`control.retry()` 合并终止失败后的并发请求，等待旧消费者停止后启动唯一替代实例，不等待新基线到达。载体失败仍使用既有自动重连。恢复期间保留已发布的领域快照；该状态不等于已实现任务完成通知。TestSessions 初始为加载中，未提供行为的控制流重试会拒绝。</span>
+<span class="add">+</span>
+<span class=""> &lt;a id=&quot;dev-note&quot;&gt;&lt;/a&gt;</span>
+<span class=""> ### 开发备注</span>
+<span class=""> </span>
+<span class="">@@ -86,3 +90,5 @@ Session 对象还承载本地提交回显：`session.beginSubmission` 在调用</span>
+<span class=""> &lt;/details&gt;</span>
+<span class=""> </span>
+<span class=""> **运行时不变式：** 不发布伴生入口。每个分页与帧都会对照其指向的持久 Session 校验。</span>
+<span class="add">+</span>
+<span class="add">+历史窗口替换会使在途分页身份失效并释放 loadingOlder，包括未调用 Session.resync 的载体自动重连。本地 connectionEpoch 在连续性修复时也递增；迟到结算不能关闭新分页请求或继续旧 loadThrough 目标。</span></pre>
+<h2 id="p8">packages/api/session-controller/src/client/sessions/session.ts</h2><pre><span class="">diff --git a/packages/api/session-controller/src/client/sessions/session.ts b/packages/api/session-controller/src/client/sessions/session.ts</span>
+<span class="">index 2945f0b5c4..395705b397 100644</span>
+<span class="del">--- a/packages/api/session-controller/src/client/sessions/session.ts</span>
+<span class="add">+++ b/packages/api/session-controller/src/client/sessions/session.ts</span>
+<span class="">@@ -2,6 +2,8 @@</span>
+<span class=""> </span>
+<span class=""> import type { Context } from &#x27;@deepseek-ai/cordis&#x27;</span>
+<span class=""> import { randomUUID } from &#x27;@deepseek-ai/dsh-util-crypto&#x27;</span>
+<span class="add">+// 二开分页状态在唯一 Session 执行器中维护，防止旧请求覆盖重连后的新操作。</span>
+<span class="add">+import type { HistoryLoadRequest, HistoryLoadState } from &#x27;../qs/history-state.ts&#x27;</span>
+<span class=""> import type { AttachmentIdType, FileAttachmentRef, ImageAttachmentRef } from &#x27;@deepseek-ai/dsh-attachment&#x27;</span>
+<span class=""> import type { SubagentAddress } from &#x27;@deepseek-ai/dsh-subagent/client&#x27;</span>
+<span class=""> import type { MessageId } from &#x27;@deepseek-ai/dsh-llm/brand&#x27;</span>
+<span class="">@@ -95,6 +97,10 @@ export class Session implements SessionFace {</span>
+<span class="">    *  passes drop all writes once the generation moves on. */</span>
+<span class="">   private openGeneration = 0</span>
+<span class="">   private loadingOlder = false</span>
+<span class="add">+  private historyLoad: HistoryLoadState = { phase: &#x27;idle&#x27; }</span>
+<span class="add">+  private historyRequest = 0</span>
+<span class="add">+  // QS 修复：物理重连会替换窗口而不重新创建 Session，分页身份单独跟随窗口代次。</span>
+<span class="add">+  private historyEpoch = 0</span>
+<span class="">   /** Shared low-water target of the running jump loop; null when no jump is paging. */</span>
+<span class="">   private jumpTargetSeq: SessionSeq | null = null</span>
+<span class="">   /** The running jump loop&#x27;s completion, shared by retargeting callers. */</span>
+<span class="">@@ -392,17 +398,23 @@ export class Session implements SessionFace {</span>
+<span class="">     if (this.openState !== &#x27;open&#x27; || !this.hasMore || this.loadingOlder) return</span>
+<span class="">     const events = this.events</span>
+<span class="">     if (events === undefined) return</span>
+<span class="add">+    const request = this.beginHistoryLoad(&#x27;older&#x27;)</span>
+<span class="add">+    const before = this.baseSeq</span>
+<span class="">     this.loadingOlder = true</span>
+<span class="">     this.notifier.markDirty()</span>
+<span class="">     try {</span>
+<span class="">       await events.prepend({ beforeSeq: this.baseSeq, maxMessages: PAGE_MESSAGES })</span>
+<span class="add">+      if (this.isCurrentHistory(request)) this.historyLoad = { ...request, phase: &#x27;succeeded&#x27;, progressed: this.baseSeq &lt; before, hasMore: this.hasMore }</span>
+<span class="">     } catch (error) {</span>
+<span class="add">+      if (this.isCurrentHistory(request)) this.historyLoad = { ...request, phase: &#x27;failed&#x27; }</span>
+<span class="">       if (!isRemoteFailure(error)) {</span>
+<span class="">         console.error(&#x27;[session-controller] loadOlder failed:&#x27;, error)</span>
+<span class="">       }</span>
+<span class="">     } finally {</span>
+<span class="del">-      this.loadingOlder = false</span>
+<span class="del">-      this.notifier.markDirty()</span>
+<span class="add">+      if (this.isCurrentHistory(request)) {</span>
+<span class="add">+        this.loadingOlder = false</span>
+<span class="add">+        this.notifier.markDirty()</span>
+<span class="add">+      }</span>
+<span class="">     }</span>
+<span class="">   }</span>
+<span class=""> </span>
+<span class="">@@ -412,6 +424,9 @@ export class Session implements SessionFace {</span>
+<span class="">     if (this.jumpPromise !== null) {</span>
+<span class="">       // Retarget the running loop to the lowest requested seq.</span>
+<span class="">       this.jumpTargetSeq = SessionSeq(Math.min(this.jumpTargetSeq ?? seq, seq))</span>
+<span class="add">+      // 合并跳转后公开实际最低目标，避免 UI 仍显示首次请求目标。</span>
+<span class="add">+      if (this.historyLoad.phase === &#x27;loading&#x27;) this.historyLoad = { ...this.historyLoad, targetSeq: this.jumpTargetSeq }</span>
+<span class="add">+      this.notifier.markDirty()</span>
+<span class="">       return this.jumpPromise</span>
+<span class="">     }</span>
+<span class="">     // A plain single-page pull owns the busy flag; the jump does not queue</span>
+<span class="">@@ -420,44 +435,75 @@ export class Session implements SessionFace {</span>
+<span class="">     // loop starts here.</span>
+<span class="">     if (this.loadingOlder) return Promise.resolve()</span>
+<span class="">     this.jumpTargetSeq = seq</span>
+<span class="add">+    const request = this.beginHistoryLoad(&#x27;through&#x27;, seq)</span>
+<span class="add">+    const initialBase = this.baseSeq</span>
+<span class="">     this.loadingOlder = true</span>
+<span class="">     this.notifier.markDirty()</span>
+<span class="">     // Stale-pass guard (the doOpen pattern): a resync mid-loop replaces the</span>
+<span class="">     // stream generation; this pass then stops instead of paging the new</span>
+<span class="">     // generation toward its old target.</span>
+<span class="del">-    const generation = this.openGeneration</span>
+<span class="add">+    const generation = this.historyEpoch</span>
+<span class="">     this.jumpPromise = (async () =&gt; {</span>
+<span class="">       try {</span>
+<span class="">         while (this.hasMore &amp;&amp; this.jumpTargetSeq !== null &amp;&amp; this.baseSeq &gt; this.jumpTargetSeq) {</span>
+<span class="del">-          if (generation !== this.openGeneration) return</span>
+<span class="add">+          if (generation !== this.historyEpoch) return</span>
+<span class="">           const events = this.events</span>
+<span class="">           if (events === undefined) return</span>
+<span class="">           const before = this.baseSeq</span>
+<span class="">           await events.prepend({ beforeSeq: this.baseSeq, maxMessages: JUMP_PAGE_MESSAGES })</span>
+<span class="">           // No-progress guard: an empty or dropped page that still claims more</span>
+<span class="">           // history must end the loop, not spin it.</span>
+<span class="del">-          if (this.baseSeq &gt;= before) return</span>
+<span class="add">+          if (this.baseSeq &gt;= before) break</span>
+<span class="">         }</span>
+<span class="add">+        if (this.isCurrentHistory(request)) this.historyLoad = { ...request, targetSeq: this.jumpTargetSeq ?? seq, phase: &#x27;succeeded&#x27;, progressed: this.baseSeq &lt; initialBase, hasMore: this.hasMore }</span>
+<span class="">       } catch (error) {</span>
+<span class="add">+        if (this.isCurrentHistory(request)) this.historyLoad = { ...request, targetSeq: this.jumpTargetSeq ?? seq, phase: &#x27;failed&#x27; }</span>
+<span class="">         if (!isRemoteFailure(error)) {</span>
+<span class="">           console.error(&#x27;[session-controller] loadThrough failed:&#x27;, error)</span>
+<span class="">         }</span>
+<span class="">       } finally {</span>
+<span class="del">-        this.jumpTargetSeq = null</span>
+<span class="del">-        this.jumpPromise = null</span>
+<span class="del">-        this.loadingOlder = false</span>
+<span class="del">-        this.notifier.markDirty()</span>
+<span class="add">+        if (this.isCurrentHistory(request)) {</span>
+<span class="add">+          this.jumpTargetSeq = null</span>
+<span class="add">+          this.jumpPromise = null</span>
+<span class="add">+          this.loadingOlder = false</span>
+<span class="add">+          this.notifier.markDirty()</span>
+<span class="add">+        }</span>
+<span class="">       }</span>
+<span class="">     })()</span>
+<span class="">     return this.jumpPromise</span>
+<span class="">   }</span>
+<span class=""> </span>
+<span class="add">+  /** 本地分页序号与连接代次共同约束迟到回包。 */</span>
+<span class="add">+  private beginHistoryLoad(kind: HistoryLoadRequest[&#x27;kind&#x27;], targetSeq?: SessionSeq): HistoryLoadRequest {</span>
+<span class="add">+    const request: HistoryLoadRequest = {</span>
+<span class="add">+      requestId: ++this.historyRequest, connectionEpoch: this.historyEpoch, kind,</span>
+<span class="add">+      ...(targetSeq === undefined ? {} : { targetSeq }),</span>
+<span class="add">+    }</span>
+<span class="add">+    this.historyLoad = { ...request, phase: &#x27;loading&#x27; }</span>
+<span class="add">+    return request</span>
+<span class="add">+  }</span>
+<span class="add">+</span>
+<span class="add">+  /** 旧请求不能清除新请求的 busy 标志或错误。 */</span>
+<span class="add">+  private isCurrentHistory(request: HistoryLoadRequest): boolean {</span>
+<span class="add">+    return request.connectionEpoch === this.historyEpoch &amp;&amp; request.requestId === this.historyRequest</span>
+<span class="add">+  }</span>
+<span class="add">+</span>
+<span class="add">+  /** 断开当前历史读取时立即释放分页占用，最终回包由代次检查丢弃。 */</span>
+<span class="add">+  private cancelHistoryLoad(): void {</span>
+<span class="add">+    this.historyEpoch++</span>
+<span class="add">+    if (this.historyLoad.phase !== &#x27;idle&#x27;) this.historyLoad = { ...this.historyLoad, phase: &#x27;cancelled&#x27; }</span>
+<span class="add">+    this.loadingOlder = false</span>
+<span class="add">+    this.jumpTargetSeq = null</span>
+<span class="add">+    this.jumpPromise = null</span>
+<span class="add">+  }</span>
+<span class="add">+</span>
+<span class="">   /** Rebuild an opened history source after address replacement.</span>
+<span class="">    *  Invalidates any in-flight open first; queue state belongs to the independently</span>
+<span class="">    *  reconnecting control stream and remains untouched. */</span>
+<span class="">   async resync(): Promise&lt;void&gt; {</span>
+<span class="">     if (this.openState === &#x27;cold&#x27;) return // never opened: no window to rebuild (doOpen flips to &#x27;loading&#x27; synchronously, so cold implies no in-flight open)</span>
+<span class="">     this.openGeneration++</span>
+<span class="add">+    this.cancelHistoryLoad()</span>
+<span class="">     const events = this.events</span>
+<span class="">     this.events = undefined</span>
+<span class="">     await events?.dispose()</span>
+<span class="">@@ -595,6 +641,7 @@ export class Session implements SessionFace {</span>
+<span class="">       this.retireFailedSubmission(requestId)</span>
+<span class="">     }</span>
+<span class="">     this.openGeneration++</span>
+<span class="add">+    this.cancelHistoryLoad()</span>
+<span class="">     const events = this.events</span>
+<span class="">     this.events = undefined</span>
+<span class="">     await events?.dispose()</span>
+<span class="">@@ -636,6 +683,8 @@ export class Session implements SessionFace {</span>
+<span class="">   private acceptEventChange(change: SessionJournalChange): void {</span>
+<span class="">     switch (change.type) {</span>
+<span class="">       case &#x27;replace&#x27;:</span>
+<span class="add">+        // QS 修复：新窗口立即释放旧分页；迟到回包不能清除随后发起的分页状态。</span>
+<span class="add">+        this.cancelHistoryLoad()</span>
+<span class="">         this.installWindow(</span>
+<span class="">           change.entries,</span>
+<span class="">           change.hasMore,</span>
+<span class="">@@ -784,6 +833,7 @@ export class Session implements SessionFace {</span>
+<span class="">     if (generation !== this.openGeneration || this.events !== events) return</span>
+<span class="">     if (!isRemoteFailure(error)) throw error</span>
+<span class="">     this.openGeneration++</span>
+<span class="add">+    this.cancelHistoryLoad()</span>
+<span class="">     this.events = undefined</span>
+<span class="">     this.openPromise = null</span>
+<span class="">     this.openState = &#x27;error&#x27;</span>
+<span class="">@@ -809,6 +859,7 @@ export class Session implements SessionFace {</span>
+<span class="">       openError: this.openError,</span>
+<span class="">       hasMore: this.hasMore,</span>
+<span class="">       loadingOlder: this.loadingOlder,</span>
+<span class="add">+      historyLoad: this.historyLoad,</span>
+<span class="">       promptError: this.promptError,</span>
+<span class="">       blank: this.blankBit,</span>
+<span class="">       lastAgentError: this.lastAgentError,</span></pre>

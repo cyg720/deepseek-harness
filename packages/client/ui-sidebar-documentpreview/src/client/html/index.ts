@@ -1,3 +1,5 @@
+// 二开正文使用同一公开身份，避免复制私有字符串。
+import { documentPreviewIds } from '../qs/ids.ts'
 /** Builtin HTML metadata and keyed body registration; assembly belongs to the package entry. */
 import type { Context } from '@deepseek-ai/cordis'
 import type {} from '../index.ts'
@@ -8,7 +10,7 @@ import type { HtmlBodyProps } from './HtmlBody.tsx'
 import { en, zh } from './locales.ts'
 
 /** HTML implementation identity, shared by metadata and the keyed slot. */
-export const HTML_BODY_ID = '@deepseek-ai/dsh-client-ui-sidebar-documentpreview/html'
+export const HTML_BODY_ID = documentPreviewIds.html
 
 /**
  * Describe the builtin HTML renderer's file types and loading mode.

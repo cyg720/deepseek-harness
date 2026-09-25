@@ -31,5 +31,8 @@
   },
   "devDependencies": {
     "@deepseek-ai/cordis": "workspace:^"
+  },
+  "dependencies": {
+    "is-inside-container": "^1.0.0"
   }
 }

@@ -22,6 +22,7 @@
  */
 
 import { stat } from 'node:fs/promises'
+import { presetScopeBindings } from './qs/scope-bindings.ts'
 import { Context } from '@deepseek-ai/cordis'
 import { evaluate } from '@deepseek-ai/cordis-plugin-loader'
 import z from '@deepseek-ai/schemastery'
@@ -166,6 +167,8 @@ export class AgentPresets extends TypertRemoteService {
   constructor(ctx: Context, public config: Config) {
     super(ctx, 'agentPresets')
     this.selfCtx = ctx
+    // 奇术热卸载恢复：Agent 可存活于提供者重启，同一 Loader 条目必须保留原始重绑定权限。
+    this.bindings = presetScopeBindings(ctx.fiber.entry ?? this)
     const { baseUrl } = ctx
     if (baseUrl === undefined) {
       // Self-contained misconfiguration, so it fails at load: without a base
@@ -415,10 +418,11 @@ export class AgentPresets extends TypertRemoteService {
   /**
    * Parent bindings of the agents this roster composed, keyed by the agent's
    * scope key. The binding is dsh-scope's only re-link capability; holding it
-   * here makes this service the sole authority that can move an agent between
-   * standing compositions. WeakMap: entries die with their agents.
+   * within one Loader owner preserves its authority across provider restarts.
+   * Other Loader entries and direct service instances do not share bindings.
+   * WeakMap entries die with their agents.
    */
-  private readonly bindings = new WeakMap<ScopeKey, ScopeParentBinding>()
+  private readonly bindings: WeakMap<ScopeKey, ScopeParentBinding>
 
   /**
    * Compose one agent from a preset: ensure the preset's standing mount, then
@@ -441,7 +445,7 @@ export class AgentPresets extends TypertRemoteService {
     const preset = await this.resolveMountable(id)
     const standing = await this.ensureStanding(preset)
     // The one bind of this agent's ancestry. The binding is the only re-link
-    // authority, held privately so nothing outside this roster can move a
+    // authority, held privately so nothing outside this Loader owner can move a
     // composed agent to another preset; a later recompose layer re-links
     // through it under the caller-owned blank-session contract.
     this.bindings.set(agentKey, bindScopeParent(agentKey, standing.key))

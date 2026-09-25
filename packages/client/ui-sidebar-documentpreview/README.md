@@ -32,6 +32,12 @@ Preview readable files in the right Sidebar and choose among registered renderer
 
 Document implementations register metadata with `ctx.documentPreviews.register({ id, extensions, priority, title, loading, wrap? })` and a body under the same `id` in the keyed, Session-scoped `sidebar.right.tab.document` child slot. Own both registrations with effects and wait for the child slot through `ctx.slots.inject`. Bodies receive `resourceAddress`, prepared `content`, `wrap`, `scrollportRef`, and the standard `useTabInfo`/`useResource` hooks; they do not receive a custom resource loader. A renderer that owns an inner scrolling element attaches `scrollportRef` to it, and the owner returns to the shared body when that element unmounts. Metadata declares `loading: 'text-pages'` or `'bytes-complete'`. The registry retains all matching alternatives: `extension` (the default) ranks above `builtin`, then longer suffixes rank first, then registration order. The dropdown preserves a selected implementation while it remains available; removing it selects the next candidate. Builtin bodies use these same registrations.
 
+The `documentPreviewPresentation` service exposes the official store handle and injection factory to alternate presentations. The factory caches its result by the bound store actions, so both views share read generations, renderer metadata subscriptions and reading preferences. Switching views does not create a second file reader; tab abort remains responsible for forgetting its content.
+
+The shared presentation also exposes `prepareHtml`: it composes the existing finite HTML packer, relative Host reader and opaque-frame bootstrap. Its result contains document text only, never a Host callback; the consuming view owns Blob creation and revocation.
+
+The `documentPdfPresentation` service exposes the PDF page store, tab retention, worker opening and bounded canvas rendering to alternate bodies. Each mounted body owns its document and render cancellation; unloading the plugin forgets retained page preferences.
+
 <a id="addresses"></a>
 ## Addresses
 
@@ -78,6 +84,8 @@ No direct effect; what the user reads here never enters a model request.
 - **Finite local HTML dependencies.** Only direct classic `.js` and stylesheet `.css` references are packed. Browser-resolved resources retain browser origin and network restrictions; no runtime file-read bridge is exposed to the iframe.
 - **Package-local wrap glyphs.** `IconWrapFill16` and `IconNowrapFill16` live in `src/client/icons.tsx` until the shared icon set carries them; their props already match the shared icon contract.
 - **Scroll writes are unthrottled.** Every scroll event records its offset in the store; the line blocks are memoized so the resulting re-render hands React the same elements back.
+
+The public `documentPreviewIds` readonly map supplies the six built-in body identities. Alternate body slots reuse these identities and the existing metadata registry; exporting an identity does not register an alternate renderer.
 
 <a id="dev-note"></a>
 ### Dev Note

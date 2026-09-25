@@ -1,0 +1,70 @@
+<!doctype html><html lang="zh-CN"><meta charset="utf-8"><title>附件接口撤回核对</title><style>pre{white-space:pre-wrap;overflow-wrap:anywhere}</style><h1>2026-09-23 撤回后核对</h1><p>保留此前任务的累计修改；本批上传接口已撤回。</p><section id="f0"><h2>packages/client/ui-conversation/README.i18n.yaml</h2><pre>diff --git a/packages/client/ui-conversation/README.i18n.yaml b/packages/client/ui-conversation/README.i18n.yaml
+index 1d4a2f080c..7cc564faf4 100644
+--- a/packages/client/ui-conversation/README.i18n.yaml
++++ b/packages/client/ui-conversation/README.i18n.yaml
+@@ -2,5 +2,5 @@
+ # side as of the last confirmed-consistent state. Both languages carry equal authority;
+ # after editing either side, bring the other along and re-record with:
+ #   pnpm run verify-translation-pairing --write packages/client/ui-conversation/README.md
+-README.md: 45854724db183d73a29aac6b30c796f8ae42e3dc
+-README.zh.md: 06ac1b094873cfd44ed4da1992b3a93b83b5e55d
++README.md: c6587bb6d86a87b3f15e486ee35f6dc4b8c22faa
++README.zh.md: 4e476549b8b13dbfa2232e55058625f521fd5a06
+</pre></section><section id="f1"><h2>packages/client/ui-conversation/README.md</h2><pre>diff --git a/packages/client/ui-conversation/README.md b/packages/client/ui-conversation/README.md
+index 45854724db..c6587bb6d8 100644
+--- a/packages/client/ui-conversation/README.md
++++ b/packages/client/ui-conversation/README.md
+@@ -36,6 +36,8 @@ Target packages declaration-merge their snapshot and Location data maps, then re
+ &lt;a id=&quot;shell-and-standard-props&quot;&gt;&lt;/a&gt;
+ ## Shell and standard props
+
++The visible input acquires the existing trigger controller with both slash and reference triggers enabled and releases its exclusive lease on unmount. Resolving a controller alone does not enable sources. Alternative input presentations must acquire their own policy and preserve structured drafts when their editor cannot represent them.
++
+ The composer registers the File command action and owns its label, availability, and native file-dialog callback. Menu availability and invocation both consult the mounted composer&#x27;s current attachment-intake policy. Unmounting or locking the composer disables that action; disposing the plugin removes its registration. The callback binding stays inside the input module.
+
+ Claimed commands retain their identity and highlight when only their arguments and trailing separator are deleted; editing the command name releases the claim. The same rules apply to every command and locale, including `/goal`, `/目标`, `/plan`, and `/计划`. Command hints and ordinary placeholders remain hidden throughout IME composition and reappear only after the editor commits the final text and the corresponding input is empty.
+</pre></section><section id="f2"><h2>packages/client/ui-conversation/README.zh.md</h2><pre>diff --git a/packages/client/ui-conversation/README.zh.md b/packages/client/ui-conversation/README.zh.md
+index 06ac1b0948..4e476549b8 100644
+--- a/packages/client/ui-conversation/README.zh.md
++++ b/packages/client/ui-conversation/README.zh.md
+@@ -36,6 +36,8 @@ target package 通过 declaration merge 扩展 snapshot 与 Location data map，
+ &lt;a id=&quot;shell-and-standard-props&quot;&gt;&lt;/a&gt;
+ ## Shell 与标准 props
+
++可见输入取得现有触发器控制器的独占租约，启用斜杠及引用两类触发符，并在卸载时释放。仅解析控制器不会启用来源。其他输入呈现必须取得各自策略；编辑器不能表示结构化草稿时，应保留原草稿。
++
+ 输入框注册「文件」命令动作，负责其标题、可用性和原生文件选择器回调。菜单可用性与实际调用都读取已挂载输入框当前的附件接收策略。输入框卸载或锁定后该动作不可用，插件 dispose（资源释放）时移除注册。回调绑定留在输入模块内部。
+
+ 已认领的命令在仅删除参数和末尾分隔空格时保留身份与高亮，改动命令名才会释放认领。所有命令和语言使用相同规则，包括 `/goal`、`/目标`、`/plan` 和 `/计划`。输入法组合输入期间，命令提示和普通占位文字持续隐藏，直到编辑器提交最终文字且对应输入为空时才重新显示。
+</pre></section><section id="f3"><h2>packages/client/ui-conversation/src/client/apply.ts</h2><pre>diff --git a/packages/client/ui-conversation/src/client/apply.ts b/packages/client/ui-conversation/src/client/apply.ts
+index 95e6c5f3bc..2435449784 100644
+--- a/packages/client/ui-conversation/src/client/apply.ts
++++ b/packages/client/ui-conversation/src/client/apply.ts
+@@ -352,6 +352,8 @@ export function apply(ctx: Context, config: Config = Config({})): void {
+       const shell = inputHub.shell(sessionId)
+       const inputTriggers = inputHub.inputTriggers(sessionId)
+       return {
++        // 官方输入允许全部来源；接口不在 inject 执行时取得租约，避免隐藏座位占用。
++        acquireTriggerConsumer: () =&gt; inputTriggers?.acquireConsumer?.({ triggers: [&#x27;/&#x27;, &#x27;@&#x27;] }),
+         keyboard: shell,
+         addFiles: (files) =&gt; {
+           if (sessions.binding(sessionId) === undefined) return t(&#x27;file.sessionUnavailable&#x27;)
+</pre></section><section id="f4"><h2>packages/client/ui-conversation/src/client/index.ts</h2><pre>本批增量已撤回，当前与 HEAD 一致。</pre></section><section id="f5"><h2>packages/client/ui-conversation/tests/apply-inject.client.spec.tsx</h2><pre>本批增量已撤回，当前与 HEAD 一致。</pre></section><section id="f6"><h2>scripts/gen-cordis-catalog.ts</h2><pre>diff --git a/scripts/gen-cordis-catalog.ts b/scripts/gen-cordis-catalog.ts
+index ed81fccc1f..64eef18531 100644
+--- a/scripts/gen-cordis-catalog.ts
++++ b/scripts/gen-cordis-catalog.ts
+@@ -178,6 +178,13 @@ export const SERVICE_WALK_EXEMPTIONS: Record&lt;string, string&gt; = {
+   workspaces: &#x27;client-side interface-typed browser service — packages/api/workspace-controller/README.md owns the API&#x27;,
+   resources: &#x27;client-side resource model (protocol providers, pins, live sources) — packages/client/resources/README.md owns the API&#x27;,
+   sidebarRight: &#x27;client-side right-Sidebar navigation face — packages/client/ui-sidebar-right/README.md owns the API&#x27;,
++  // 二开共享呈现属于 Client 面，由各原包 README 说明，不能漏过服务清单检查。
++  sidebarRightPresentation: &#x27;client-side shared presentation — packages/client/ui-sidebar-right/README.md owns the API&#x27;,
++  messageFeedbackPresentation: &#x27;client-side shared presentation — packages/client/ui-message-feedback/README.md owns the API&#x27;,
++  deliverablesPresentation: &#x27;client-side shared presentation — packages/client/ui-deliverables/README.md owns the API&#x27;,
++  documentPreviewPresentation: &#x27;client-side shared presentation — packages/client/ui-sidebar-documentpreview/README.md owns the API&#x27;,
++  documentPdfPresentation: &#x27;client-side shared presentation — packages/client/ui-sidebar-documentpreview/README.md owns the API&#x27;,
++  sidebarFilesPresentation: &#x27;client-side shared presentation — packages/client/ui-sidebar-files/README.md owns the API&#x27;,
+   sidebarRightTabs: &#x27;client-side right-Sidebar tab-type registry — packages/client/ui-sidebar-right/README.md owns the API&#x27;,
+   documentPreviews: &#x27;client-side document renderer registry — docs/subsystems/sidebar-right.md owns the API&#x27;,
+ }
+</pre></section></html>

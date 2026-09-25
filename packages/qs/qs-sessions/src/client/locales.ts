@@ -3,6 +3,17 @@ import type { QsSessionsLocaleKey } from './contract.ts'
 
 /** 简体中文字典。 */
 export const zh = {
+  'directory.add': '添加工作区…',
+  'directory.cancel': '取消目录选择',
+  'directory.failed': '无法添加该目录，请重新选择后重试。',
+  'directory.adopting': '正在登记工作区…',
+  'workspace.listFailed': '工作区列表暂不可用，请检查连接。',
+  'workspace.title': '工作区',
+  'workspace.choose': '选择工作区',
+  'workspace.failed': '工作区操作失败，请重新选择后重试。',
+  'workspace.loading': '正在加载工作区…',
+  'workspace.empty': '暂无可用工作区。',
+  'workspace.opening': '正在打开工作区…',
   'group.pinned': '置顶',
   'group.recent': '最近',
   'list.empty': '还没有会话。',
@@ -28,6 +39,17 @@ export const zh = {
 
 /** 英文字典。 */
 export const en = {
+  'directory.add': 'Add workspace…',
+  'directory.cancel': 'Cancel directory selection',
+  'directory.failed': 'Unable to add this directory. Choose again to retry.',
+  'directory.adopting': 'Registering workspace…',
+  'workspace.listFailed': 'The workspace list is unavailable. Check your connection.',
+  'workspace.title': 'Workspace',
+  'workspace.choose': 'Choose workspace',
+  'workspace.failed': 'Workspace operation failed. Select a workspace to retry.',
+  'workspace.loading': 'Loading workspaces…',
+  'workspace.empty': 'No workspaces are available.',
+  'workspace.opening': 'Opening workspace…',
   'group.pinned': 'Pinned',
   'group.recent': 'Recent',
   'list.empty': 'No sessions yet.',

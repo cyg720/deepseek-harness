@@ -78,6 +78,8 @@ kind: "package-reference"
 - **只有全局 source 层**——会话 scope 的 source 注册（逐会话遮蔽）已有设计但未启用；台账记录着触发条件，即真实的逐会话 source 需求。
 - **overlay 的 SlotMap 合并归属与 slot 所有权分离**：唯一的 `conversation.input.overlay` 合并放在本包，而 ui-conversation 拥有其锚点、children 声明与生命周期，因为依赖方向是 ui-conversation → ui-input-trigger。
 
+`acquireConsumer(scope, policy)` 为可见输入取得已有控制器的独占租约。策略限制触发符、来源选择、词库和命令仲裁。释放会取消候选，迟到仲裁被拒绝。取得租约前、释放后及控制器卸载后均不启用来源。同步来源回调释放租约后，其返回的编辑也不能写入输入。官方输入租用两种触发符，QS 输入只租用斜杠。
+
 <a id="dev-note"></a>
 ### 开发备注
 

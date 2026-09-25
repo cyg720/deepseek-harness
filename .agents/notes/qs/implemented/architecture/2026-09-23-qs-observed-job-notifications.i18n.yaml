@@ -1,0 +1,6 @@
+# Bilingual-pair consistency record (docs/i18n/README.md): the git blob hash of each
+# side as of the last confirmed-consistent state. Both languages carry equal authority;
+# after editing either side, bring the other along and re-record with:
+#   pnpm run verify-translation-pairing --write .agents/notes/qs/implemented/architecture/2026-09-23-qs-observed-job-notifications.md
+2026-09-23-qs-observed-job-notifications.md: 5c2bbbe5a703b66cf35d0350aa7d004e60d2e154
+2026-09-23-qs-observed-job-notifications.zh.md: 31cfad3f801dc8d80e323695034e86f275805861

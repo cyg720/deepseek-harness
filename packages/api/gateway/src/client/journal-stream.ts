@@ -95,6 +95,8 @@ export abstract class RemoteJournalStream<
   private resumeCursor: Cursor | undefined
   private hasResumeCursor = false
   private generation = 0
+  // QS 修复：窗口替换也可能发生在同一载体代次，独立版本使旧分页失效。
+  private windowRevision = 0
   private firstCursor: Cursor | undefined
   private lastCursor: Cursor | undefined
   private started = false
@@ -187,8 +189,10 @@ export abstract class RemoteJournalStream<
    */
   async prepend(request: PageRequest): Promise<void> {
     if (!this.opened || this.disposed) throw new Error(`${this.options.name} is not open`)
+    const revision = this.windowRevision
     const page = await this.readPage(request, this.currentCursor(), this.stream.signal)
     this.stream.signal.throwIfAborted()
+    if (revision !== this.windowRevision) return
     const entries = this.options.entries(page)
     this.assertPage(entries)
     const before = this.firstCursor
@@ -294,6 +298,7 @@ export abstract class RemoteJournalStream<
     this.firstCursor = first === undefined ? undefined : this.options.first(first)
     this.lastCursor = cursor
     this.setResumeCursor(cursor)
+    this.windowRevision++
     this.options.publish({
       type: 'replace',
       page,
@@ -382,6 +387,7 @@ export abstract class RemoteJournalStream<
     this.firstCursor = first === undefined ? undefined : this.options.first(first)
     this.lastCursor = this.tailCursor(entries)
     this.setResumeCursor(this.lastCursor)
+    this.windowRevision++
     this.options.publish({
       type: 'replace',
       page,

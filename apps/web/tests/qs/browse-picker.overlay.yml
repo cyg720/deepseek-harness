@@ -1,0 +1,8 @@
+# 固定浏览式 Host 由 scaffold 装配；此行只增加独立 QS 呈现。
+- id: qs-shell
+  config:
+    defaultUi: workbench
+    showOfficialUiEntry: false
+- insert:
+    - id: qs-browse-picker-test
+      name: '@deepseek-ai/dsh-qs-ui-directory-picker-browse'

@@ -16,15 +16,16 @@ export const NATIVE_ROW_KINDS = [
 export type NativeRowKind = typeof NATIVE_ROW_KINDS[number]
 
 /** 行组件的注册键：自绘 kind 或通用兜底。 */
-export type RowKey = NativeRowKind | 'unknown'
+export type RowKey = string
 
 /**
  * 把节点 kind 归一到行注册键。
  * @param kind - Chat 节点判别式。
+ * @param available - 当前未退位的有效行注册键。
  * @returns 自绘 kind，或 `'unknown'`（未知 kind 走兜底行，不静默消失）。
  */
-export function rowKeyOf(kind: string): RowKey {
-  return (NATIVE_ROW_KINDS as readonly string[]).includes(kind) ? kind as NativeRowKind : 'unknown'
+export function rowKeyOf(kind: string, available: readonly string[]): RowKey {
+  return available.includes(kind) ? kind : 'unknown'
 }
 
 /** 一行文本块。 */

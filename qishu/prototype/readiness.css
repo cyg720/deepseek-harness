@@ -1,0 +1,13 @@
+/* 补稿沿用工作台变量；长字段与待回答区各自滚动，避免撑开窄屏。 */
+.wb-card fieldset { border: 0; padding: 0; min-width: 0; display: grid; gap: 12px; }
+.wb-card label, .wb-actions label { display: grid; gap: 6px; min-width: 0; }
+.wb-card input, .wb-card select, .wb-card textarea, .wb-actions select { width: 100%; max-width: 100%; box-sizing: border-box; }
+.wb-card iframe { width: 100%; height: 240px; border: 1px solid var(--line); background: white; }
+.wb-card dd { margin-inline-start: 0; overflow-wrap: anywhere; }
+.ready-composer { max-height: 42vh; overflow: auto; padding: 8px; font: 13px/1.65 var(--font-sans, sans-serif); color: var(--text); }
+.ready-composer label { display: grid; gap: 4px; }
+.ready-composer textarea { width: 100%; min-height: 48px; box-sizing: border-box; }
+.ready-composer .wb-card { padding: 10px; margin: 0 0 8px; }
+.ready-composer input, .ready-composer select, .ready-composer textarea, .wb-card input, .wb-card select, .wb-card textarea { font: inherit; color: var(--text); background: var(--surface); border: 1px solid var(--line); border-radius: 7px; padding: 7px 9px; }
+.ready-composer p { margin: 6px 0; color: var(--muted); }
+@media (max-width: 600px) { .wb-actions { flex-wrap: wrap; } .ready-composer { max-height: 48vh; } }

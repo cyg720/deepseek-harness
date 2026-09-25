@@ -31,6 +31,8 @@ Mount `@deepseek-ai/dsh-qs-approval` with the other Qishu plugin rows in the [We
 
 The official approval domain owns pending requests and answers. A failed answer retries the same approval decision. This package contributes a request-keyed interaction card and derives displayed details from the recorded tool call. It has no independent authority requiring a runtime invariant companion.
 
+Each request holds a synchronous submission lock until its answer fails or the card is replaced; duplicate events cannot send another answer.
+
 </details>
 
 No runtime invariant companion is published because the official services own the authoritative session data and this package only presents it.

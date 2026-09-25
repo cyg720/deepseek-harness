@@ -1,0 +1,15 @@
+/* 选项容器自行滚动，使用工作台共享主题。 */
+.card { display: grid; gap: 8px; min-width: 0; padding: 12px; border: 1px solid var(--qs-line); border-radius: 10px; background: var(--qs-surface); color: inherit; overflow-wrap: anywhere; }
+.heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.heading strong { min-width: 0; }
+.card button, .card input { color: inherit; background: transparent; border: 1px solid var(--qs-line); border-radius: 6px; padding: 6px 8px; }
+.card input { min-width: 0; width: 100%; box-sizing: border-box; }
+.list { position: relative; overflow-y: auto; max-height: 180px; overscroll-behavior: contain; }
+.list button { display: grid; width: 100%; text-align: start; gap: 4px; border-color: transparent; overflow-wrap: anywhere; }
+.list button[aria-selected="true"] { background: var(--qs-subtle); }
+.list small { opacity: .75; }
+
+/* 模态留在工作台主题树中，长风险说明仅在对话框内滚动。 */
+.confirmation { overflow-wrap: anywhere; overflow-y: auto; }
+.acknowledgement { display: flex; align-items: start; gap: 8px; }
+.acknowledgement input { flex: 0 0 auto; margin-top: 3px; }

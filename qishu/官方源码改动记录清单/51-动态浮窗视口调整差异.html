@@ -1,0 +1,94 @@
+<!doctype html><html lang="zh"><meta charset="utf-8"><title>动态浮窗视口调整差异</title><style>body{font-family:system-ui;margin:2rem}pre{white-space:pre-wrap;overflow-wrap:anywhere}</style><h1>工作区相对 HEAD 的累计差异</h1>
+<h2 id="live-float-001">packages/client/ui-sidebar-right/README.i18n.yaml</h2><pre>diff --git a/packages/client/ui-sidebar-right/README.i18n.yaml b/packages/client/ui-sidebar-right/README.i18n.yaml
+index b8e427d0f9..4bb85f3634 100644
+--- a/packages/client/ui-sidebar-right/README.i18n.yaml
++++ b/packages/client/ui-sidebar-right/README.i18n.yaml
+@@ -2,5 +2,5 @@
+ # side as of the last confirmed-consistent state. Both languages carry equal authority;
+ # after editing either side, bring the other along and re-record with:
+ #   pnpm run verify-translation-pairing --write packages/client/ui-sidebar-right/README.md
+-README.md: c947b5411f51aff54f480949af203d192662adbf
+-README.zh.md: 641a8fab400bbfadaf9a1b4b96ab8369a8121edf
++README.md: fee5280a15f7cbdeac4d72ec55c167a06364d731
++README.zh.md: 16b1186d91ff27ea7452463f3ff710871b8256d6
+</pre>
+<h2 id="live-float-002">packages/client/ui-sidebar-right/README.md</h2><pre>diff --git a/packages/client/ui-sidebar-right/README.md b/packages/client/ui-sidebar-right/README.md
+index c947b5411f..fee5280a15 100644
+--- a/packages/client/ui-sidebar-right/README.md
++++ b/packages/client/ui-sidebar-right/README.md
+@@ -125,6 +125,12 @@ None; this package neither assembles nor sends a provider request.
+ - **Titles are fixed at open time.** A type&#x27;s `title(address)` is captured into the record; a live title comes only from the optional title seat.
+ - **No content navigation stack.** Stepping back replays layout operations; an editor-style back/forward over visited content is not built.
+
++`ctx.sidebarRightPresentation` exposes the same store handle as the official seat, `seat(sessionId)` injections and the tab hook factory. Alternate presentations must acquire bindings only while mounted and release them on unmount; they must not create another store or TabDomain.
++
++The store restore action initializes an absent Session surface from resolved layout entries in one commit, mints runtime identities and starts with empty undo history. Existing surfaces take precedence, including explicitly opened empty surfaces. Callers validate persisted input, resource ownership, tab availability, geometry and page uniqueness before invoking it; the action owns neither browser storage nor resource authorization.
++
++The fitFloats store action constrains floating rectangles to a positive viewport in one history entry without changing tab identities, focus or stacking. Missing Sessions and already fitting layouts are unchanged.
++
+ &lt;a id=&quot;dev-note&quot;&gt;&lt;/a&gt;
+ ### Dev Note
+
+</pre>
+<h2 id="live-float-003">packages/client/ui-sidebar-right/README.zh.md</h2><pre>diff --git a/packages/client/ui-sidebar-right/README.zh.md b/packages/client/ui-sidebar-right/README.zh.md
+index 641a8fab40..16b1186d91 100644
+--- a/packages/client/ui-sidebar-right/README.zh.md
++++ b/packages/client/ui-sidebar-right/README.zh.md
+@@ -125,6 +125,12 @@ Tab域按（Session，Tab id）保留导航、中止信号与绑定动作；私
+ - **标题在打开时固定。** 类型的 `title(address)` 被捕获进记录；会变的标题只来自可选的标题席位。
+ - **没有内容导航栈。** 后退回放的是布局操作；编辑器式的「已访问内容」前进/后退尚未构建。
+
++`ctx.sidebarRightPresentation` 提供官方座位使用的同一存储句柄、`seat(sessionId)` 注入和标签 hook 工厂。其他呈现只在挂载时绑定，卸载时释放，不得创建第二份存储或 TabDomain。
++
++store 的 restore 动作从已解析布局条目一次性初始化缺席的会话停靠面，分配运行时身份并使用空撤销历史。已存在的停靠面优先，包括显式打开的空停靠面。调用方须先校验持久化输入、资源归属、标签可用性、几何和页面唯一性；此动作不负责浏览器存储或资源授权。
++
++store 的 fitFloats 动作以一次历史记录将浮窗矩形收敛到正尺寸视口，不改变标签身份、焦点或层叠。缺席会话和已在视口内的布局保持不变。
++
+ &lt;a id=&quot;dev-note&quot;&gt;&lt;/a&gt;
+ ### 开发备注
+
+</pre>
+<h2 id="live-float-004">packages/client/ui-sidebar-right/src/client/stores.ts</h2><pre>diff --git a/packages/client/ui-sidebar-right/src/client/stores.ts b/packages/client/ui-sidebar-right/src/client/stores.ts
+index 88cb40a1b3..70651f920c 100644
+--- a/packages/client/ui-sidebar-right/src/client/stores.ts
++++ b/packages/client/ui-sidebar-right/src/client/stores.ts
+@@ -36,6 +36,8 @@ import {
+   planSetMode, planSettle, planSplitPane, planUnfloatPane, record, replay, stepBack, stepForward,
+ } from &#x27;@deepseek-ai/dsh-client-ui-dockkit&#x27;
+ import { GUIDE_KIND, pageAddress, type SidebarRightSeed } from &#x27;./contract/seed.ts&#x27;
++import { restoreLayout, type RestoredLayout } from &#x27;./qs/restore-layout.ts&#x27;
++import { fitFloats } from &#x27;./qs/fit-floats.ts&#x27;
+
+ /** One session&#x27;s docking surface: the layout, its sequence, and the id counter. */
+ export interface SurfaceState {
+@@ -216,6 +218,10 @@ function seat(
+
+ /** Declared write set; each entry is one settled intent. */
+ type SidebarRightActions = {
++  /** QS 视口变化一次调整所有浮窗，保留焦点与层叠，不创建缺席会话。 */
++  fitFloats: (draft: SidebarRightState, sessionId: string, viewport: { width: number; height: number }) =&gt; void
++  /** QS 刷新恢复只初始化缺席的布局；已存在的活跃操作始终优先。 */
++  restore: (draft: SidebarRightState, sessionId: string, layout: RestoredLayout) =&gt; void
+   open: (draft: SidebarRightState, sessionId: string) =&gt; void
+   setExpanded: (draft: SidebarRightState, sessionId: string, expanded: boolean) =&gt; void
+   toggleExpanded: (draft: SidebarRightState, sessionId: string) =&gt; void
+@@ -267,6 +273,17 @@ export function createSidebarRightStore(
+   return defineStore({
+     init: (): SidebarRightState =&gt; ({ bySession: {} }),
+     actions: {
++      fitFloats: (d, sessionId: string, viewport: { width: number; height: number }) =&gt; {
++        if (d.bySession[sessionId] === undefined) return
++        d.bySession = seat(d, sessionId, surface =&gt; advance(surface, state =&gt; fitFloats(state, viewport), seed))
++      },
++      restore: (d, sessionId: string, layout: RestoredLayout) =&gt; {
++        if (d.bySession[sessionId] !== undefined) return
++        const counter = counting(0)
++        // 单次发布让官方 TabDomain 只为最终布局建立 occurrence 和资源 pin。
++        const restored = restoreLayout(layout, counter.mint, id =&gt; seedRecord(id, seed))
++        d.bySession = { ...d.bySession, [sessionId]: { layout: restored, history: EMPTY_HISTORY, minted: counter.used() } }
++      },
+       // Materialize a session&#x27;s surface without changing it, so the first read
+       // after a session switch sees the collapsed empty column rather than nothing.
+       open: (d, sessionId: string) =&gt; { d.bySession = seat(d, sessionId, surface =&gt; surface) },
+</pre>
+</html>

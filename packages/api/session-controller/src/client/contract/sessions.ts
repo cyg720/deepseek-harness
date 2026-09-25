@@ -14,11 +14,14 @@ import type { SessionSearchResultItem } from '../sessions/manager.ts'
 import type { SessionBinding, SessionListState } from '../sessions/service.ts'
 import type { SessionFace } from './session.ts'
 import type { ObservableSnapshot } from '@deepseek-ai/dsh-client-store'
+import type { SessionControlStatus } from '../qs/control-owner.ts'
 
 export type { AgentContext } from '../scope.ts'
 
 /** The sessions-service face injected as `ctx.sessions`. */
 export interface ISessions {
+  /** QS 作业视图复用唯一控制流的状态和失败恢复，不另开订阅。 */
+  readonly control: SessionControlStatus
   /** The useSessions standard feed (list rows + current selection; read face — writes stay inside the domain). */
   readonly list: ObservableSnapshot<SessionListState>
   /**

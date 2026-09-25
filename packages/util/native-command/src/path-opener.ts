@@ -10,6 +10,7 @@
  */
 
 import { release as osRelease } from 'node:os'
+import isInsideContainer from 'is-inside-container'
 import { dirname, extname } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { runNativeCommand, type NativeCommandRunner } from './runner.ts'
@@ -22,6 +23,8 @@ export interface PathOpenerInternals {
   platform?: NodeJS.Platform
   /** Kernel release override used to distinguish WSL from desktop Linux. */
   osRelease?: string
+  /** Container detection override; containers use Linux desktop commands even on a WSL kernel. */
+  insideContainer?: boolean
   /** Environment used for WSL markers and the desktop Linux browser convention. */
   env?: NodeJS.ProcessEnv
   run?: PathOpenerRunner
@@ -94,6 +97,8 @@ function present(value: string | undefined): boolean {
 
 /** Distinguish WSL from desktop Linux using its process and kernel markers. */
 function isWsl(internals: PathOpenerInternals): boolean {
+  // 容器可能继承 WSL 内核或环境标记，但这些事实不能证明容器能调用 Windows 桌面。
+  if (internals.insideContainer ?? isInsideContainer()) return false
   const env = internals.env ?? process.env
   if (present(env.WSL_DISTRO_NAME) || present(env.WSL_INTEROP)) return true
   return (internals.osRelease ?? osRelease()).toLowerCase().includes('microsoft')

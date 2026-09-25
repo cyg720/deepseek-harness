@@ -1,0 +1,16 @@
+<!doctype html><html lang="zh-CN"><meta charset="utf-8"><title>SDK 回放路径转义差异</title><style>body{font:15px monospace;padding:24px}pre{white-space:pre-wrap;overflow-wrap:anywhere}.add{color:#176b29}.del{color:#ab2424}</style><h1>HEAD → 工作区：SDK 回放路径转义</h1><p>基线 4904755062702eaadf19c5897ab86bc6988716e9；以 git diff 实际头部为准。</p><pre><span class="">diff --git a/snapshots/sdk/sdk.snapshot.ts b/snapshots/sdk/sdk.snapshot.ts</span>
+<span class="">index cd62c0e4b7..ac0de3b18a 100644</span>
+<span class="del">--- a/snapshots/sdk/sdk.snapshot.ts</span>
+<span class="add">+++ b/snapshots/sdk/sdk.snapshot.ts</span>
+<span class="">@@ -342,7 +342,9 @@ async function hydrateReplayFixtures(scenario: CorpusScenario, cwd: string): Pro</span>
+<span class="">   await mkdir(root, { recursive: true })</span>
+<span class="">   return Promise.all((await fixtureFiles(scenario)).map(async (source) =&gt; {</span>
+<span class="">     const destination = join(root, basename(source))</span>
+<span class="del">-    await writeFile(destination, (await readFile(source, &#x27;utf8&#x27;)).replaceAll(&#x27;{{cwd}}&#x27;, cwd))</span>
+<span class="add">+    // 工作目录嵌入 JSON 字符串，必须转义 Windows 反斜杠及引号，避免回放插件解析失败并触发整树回滚。</span>
+<span class="add">+    const serializedCwd = JSON.stringify(cwd).slice(1, -1)</span>
+<span class="add">+    await writeFile(destination, (await readFile(source, &#x27;utf8&#x27;)).replaceAll(&#x27;{{cwd}}&#x27;, serializedCwd))</span>
+<span class="">     return destination</span>
+<span class="">   }))</span>
+<span class=""> }</span>
+</pre></html>

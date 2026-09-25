@@ -1,0 +1,12 @@
+/* 反馈独立于任务通知，颜色随工作台主题变化。 */
+.actions { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.actions button { background: transparent; color: var(--qs-muted); border: 0; cursor: pointer; padding: 5px; }
+.actions button[aria-pressed="true"] { color: var(--qs-accent); background: var(--qs-subtle); border-radius: 6px; }
+.dialog { color: var(--qs-text); background: var(--qs-surface); }
+.target { overflow-wrap: anywhere; }
+.target code { display: block; }
+.categories { display: flex; gap: 8px; flex-wrap: wrap; }
+.categories button, .notice button { color: inherit; background: transparent; border: 1px solid var(--qs-line); border-radius: 6px; padding: 6px 10px; }
+.categories button[aria-pressed="true"] { background: var(--qs-subtle); }
+.detail { display: block; box-sizing: border-box; width: 100%; min-height: 120px; margin-top: 12px; color: inherit; background: var(--qs-bg); border: 1px solid var(--qs-line); border-radius: 8px; padding: 10px; }
+.notice { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px; }

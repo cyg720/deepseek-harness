@@ -1680,6 +1680,10 @@ describe('fixture Connection RPC', () => {
     const { id: goalId, revision } = (goalCreated.value as { ref: { id: string; revision: number } }).ref
     expect(revision).toBe(1)
     const ref = (at: number) => ({ id: goalId, revision: at })
+    // 样本与真实 Host 使用同一分类；失败不得生成额外的目标变更。
+    expect(await goal('goals/create', { request: { objective: 'duplicate' } })).toMatchObject({
+      ok: false, error: { code: 'GOAL_ALREADY_EXISTS', details: {} },
+    })
     expect((await goal('goals/edit', { ref: ref(1), request: { objective: 'ship it v2' } })).ok).toBe(true)
     expect(await goal('goals/get', {})).toMatchObject({
       ok: true, value: { objective: 'ship it v2', revision: 2, activation: 'armed' },
@@ -1691,11 +1695,18 @@ describe('fixture Connection RPC', () => {
     expect((await goal('goals/pause', { ref: ref(2) })).ok).toBe(true)
     expect((await goal('goals/resume', { ref: ref(3) })).ok).toBe(true)
     // A stale ref loses the CAS check.
-    expect((await goal('goals/pause', { ref: ref(1) })).ok).toBe(false)
+    expect(await goal('goals/pause', { ref: ref(1) })).toMatchObject({
+      ok: false, error: { code: 'GOAL_STALE_REVISION', details: {} },
+    })
     expect((await goal('goals/complete', { ref: ref(4) })).ok).toBe(true)
     // complete → complete is an invalid transition.
-    expect((await goal('goals/complete', { ref: ref(5) })).ok).toBe(false)
+    expect(await goal('goals/complete', { ref: ref(5) })).toMatchObject({
+      ok: false, error: { code: 'GOAL_INVALID_TRANSITION', details: {} },
+    })
     expect(await goal('goals/clear', { ref: ref(5) })).toEqual({ ok: true, value: ref(6) })
+    expect(await goal('goals/pause', { ref: ref(6) })).toMatchObject({
+      ok: false, error: { code: 'GOAL_NOT_FOUND', details: {} },
+    })
 
     const goalHistory = await sessions.history({ sessionId: id })
     if (!goalHistory.result.ok) throw new Error('goal history failed')

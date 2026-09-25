@@ -127,6 +127,9 @@ describe('ui-message-feedback browser plugin', () => {
     await b.fiber.await()
 
     const face = b.entry()!.inject!(sid('s1'))
+    // 两套界面使用同一个源，换呈现不丢草稿或重复请求。
+    expect(b.ctx.messageFeedbackPresentation.actions(sid('s1')).hooks.feedback).toBe(face.hooks.feedback)
+    expect(b.ctx.messageFeedbackPresentation.dialog(sid('s1')).hooks.dialog).toBe(b.dialogEntry()!.inject!(sid('s1')).hooks.dialog)
     expect(face.hooks.feedback.getSnapshot()).toMatchObject({ status: 'cold' })
     expect(face.ensure).toBeTypeOf('function')
     expect(face.current(MSG)).toBeUndefined()

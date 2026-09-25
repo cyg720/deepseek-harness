@@ -139,6 +139,8 @@ async function scopedBench(register?: (inputTriggers: InputTriggerService) => vo
   const wiring = shell
   const sessionStore = createSnapshotStore<SessionSnapshot>(sessionSnapshot(sessionId))
   const barProps: InputBarProps = {
+    // 通过真实组件挂载取得租约，卸载后禁止继续驱动来源。
+    acquireTriggerConsumer: () => controller.acquireConsumer({ triggers: ['/', '@'] }),
     usePanelInfo: selector => selector({ activePanelId: null }),
     sessionId,
     SessionProvider: ({ children }) => children,

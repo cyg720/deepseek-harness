@@ -99,3 +99,8 @@ describe('plan-review 判定', () => {
     expect(planReviewOf([withoutDetail])).toBeUndefined()
   })
 })
+
+/** 声明方案意图但无任何选项时仍交给通用回答，不臆造批准按钮。 */
+it('无选项的方案意图不构成方案确认卡', () => {
+  expect(planReviewOf([{ id: 'plan', question: 'Review', detail: 'Plan', intent: { kind: 'plan-review', approve: 'Yes' } }])).toBeUndefined()
+})

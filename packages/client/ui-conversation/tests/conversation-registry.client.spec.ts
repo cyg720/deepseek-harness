@@ -33,6 +33,8 @@ function sessionSnapshot(): SessionSnapshot {
     openError: null,
     hasMore: false,
     loadingOlder: false,
+    // QS：完整会话样本包含权威分页状态。
+    historyLoad: { phase: 'idle' },
     promptError: null,
     blank: true,
     lastAgentError: null,
@@ -78,6 +80,11 @@ function fakeSessions(ctx: Context): { sessions: ISessions; binding: SessionBind
     currentAddress: undefined,
   })
   const sessions = {
+    // QS 只读控制状态属于公共接口；此注册用例不模拟控制流成功。
+    control: {
+      state: createSnapshotStore({ phase: 'loading' as const, baseline: 0 }),
+      retry: () => Promise.reject(new Error('unused fake control retry')),
+    },
     list,
     searchResultLimit: 50,
     create: () => Promise.reject(new Error('unused fake Sessions operation')),

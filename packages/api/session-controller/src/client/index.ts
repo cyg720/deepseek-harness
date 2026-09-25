@@ -4,7 +4,6 @@ import type { Context } from '@deepseek-ai/cordis'
 import type {} from '@deepseek-ai/dsh-agent/types'
 import type {} from '@deepseek-ai/dsh-client-connection/client'
 import type {} from '@deepseek-ai/dsh-client-file-upload/client'
-import { createSessionControlStream } from './transport.ts'
 import { ClientSessions } from './sessions/service.ts'
 import type { SessionRemotes } from './sessions/remotes.ts'
 import type {} from '../remote-events.ts'
@@ -34,6 +33,8 @@ export type {
   SubagentCatalogSnapshot,
 } from './sessions/manager.ts'
 export type { Session } from './sessions/session.ts'
+// QS 与官方消费者共用同一分页状态类型。
+export type { HistoryLoadState, HistoryLoadRequest } from './qs/history-state.ts'
 export type {
   ProjectionsBaseline,
   ProjectionValueStore,
@@ -49,6 +50,8 @@ export type {
   SubmissionHandle,
 } from './contract/session.ts'
 export type { ISessions } from './contract/sessions.ts'
+// QS 作业消费公开状态，禁止复制控制流或将目录刷新当作重试。
+export type { SessionControlStatus, SessionControlSnapshot } from './qs/control-owner.ts'
 export { MutableSessionEventSource } from './contract/events.ts'
 export type {
   AssistantLiveChunkEvent,
@@ -111,10 +114,8 @@ export function apply(ctx: Context): void {
     sessions.handleSessionError(sessionId, message)
   })
 
-  const control = createSessionControlStream(remotes, {
-    accept: (frame) => { sessions.handleControlFrame(frame) },
-    failed: (error) => { console.error('[session-controller] control stream failed:', error) },
-  })
+  // 终止失败由同一所有者串行更换实例，官方及 QS 共享唯一消费器。
+  const control = sessions.control
   control.start()
   ctx.on('connection/reset', () => { sessions.handleConnected() })
   if (ctx.remote.$host.home !== undefined) sessions.handleConnected()

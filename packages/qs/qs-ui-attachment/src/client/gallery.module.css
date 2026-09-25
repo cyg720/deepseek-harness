@@ -1,0 +1,11 @@
+.gallery { display: flex; flex-wrap: wrap; gap: 8px; min-width: 0; max-width: 100%; }
+.gallery[data-align="end"] { justify-content: flex-end; }
+.thumbnail { padding: 0; border: 1px solid var(--qs-border, #526149); border-radius: 8px; overflow: hidden; background: transparent; cursor: zoom-in; max-width: 100%; }
+.thumbnail img { display: block; max-width: 240px; max-height: 240px; width: auto; height: auto; object-fit: contain; }
+.gallery[data-compact="true"] .thumbnail img { width: 64px; height: 64px; object-fit: cover; }
+.original { position: relative; display: block; max-width: min(100%, 1600px); max-height: calc(100vh - 80px); object-fit: contain; }
+.retry { color: inherit; background: transparent; border: 1px solid var(--qs-border, #526149); padding: 8px; border-radius: 6px; cursor: pointer; }
+
+.backdrop { position: fixed; inset: 0; z-index: 1000; display: grid; place-items: center; padding: 40px; }
+.mask { position: absolute; inset: 0; background: var(--dsw-alias-bg-mask-1); backdrop-filter: var(--dsw-mask-blur); }
+.close { position: fixed; top: 20px; right: 20px; z-index: 1; padding: 8px 12px; border-radius: 8px; border: 1px solid var(--qs-border, #526149); background: var(--dsw-specific-input-major); color: inherit; cursor: pointer; }

@@ -1,0 +1,114 @@
+<meta charset="utf-8"><title>连接夹具 Cordis 启动接口累计差异</title><h2 id="p0">packages/client/connection/README.i18n.yaml</h2><pre>diff --git a/packages/client/connection/README.i18n.yaml b/packages/client/connection/README.i18n.yaml
+index 8ed7cbac92..e2f512eade 100644
+--- a/packages/client/connection/README.i18n.yaml
++++ b/packages/client/connection/README.i18n.yaml
+@@ -2,5 +2,5 @@
+ # side as of the last confirmed-consistent state. Both languages carry equal authority;
+ # after editing either side, bring the other along and re-record with:
+ #   pnpm run verify-translation-pairing --write packages/client/connection/README.md
+-README.md: 865c894403d2177e15085d0616289cf8950b555d
+-README.zh.md: d3d0a62035b1770ecc1b9f81aa775dad0c86cb11
++README.md: 61860541bd6b3db4f2172d9c038bb73f8d26c4e5
++README.zh.md: 6fccc1096e4339643c96c5628b9d8b3e030a1e45
+</pre><h2 id="p1">packages/client/connection/README.md</h2><pre>diff --git a/packages/client/connection/README.md b/packages/client/connection/README.md
+index 865c894403..61860541bd 100644
+--- a/packages/client/connection/README.md
++++ b/packages/client/connection/README.md
+@@ -27,6 +27,8 @@ The package carries browser-to-Host Remote calls, exact Fetch responses, and con
+
+ The browser uses HTTP POST for Remote unary calls. API Gateway owns the `/api/remote.mux` WebSocket and its logical streams; shell-owned compositions provide equivalent Remote streams through `connection.rpc.open` without opening a WebSocket. The Host half always provides the carrier-neutral RPC and exact `GET`/`HEAD`/`POST` route registries. When a Web carrier is present it also owns the sole `/api` route, Fetch bridge, browser authentication, and Host/Origin checks; a shell-owned carrier dispatches the shared Fetch handler directly. Each exact route declares buffered or streaming request-body handling before the bridge reads any bytes. Typert Gateway claims generated Remote endpoints, feature packages register non-JSON responses such as Session-log downloads and raw file uploads, and unclaimed requests return 404. Loopback hostname classification remains package-internal to the browser-facing Client state. Browser raw-body transfer is provided by [`dsh-client-file-upload`](../file-upload/README.md).
+
++The standalone browser fixture preserves the Goal domain codes for duplicate creation, stale revision, absent goal, and invalid transition, with empty details. Goal consumers can use the same code branches as real Host Remote calls.
++
+ -----
+
+ &lt;a id=&quot;browser-authentication-and-request-trust&quot;&gt;&lt;/a&gt;
+@@ -61,6 +63,8 @@ None; this package neither assembles nor sends a provider request.
+
+ ## Known Limitations and Deferred Work
+
++The fixture RPC accepts boot-time inspect-manifest synchronization and returns an empty dynamic Cordis inventory. It does not implement dynamic package installation or inspect-query execution; unknown endpoints still reject.
++
+ &lt;a id=&quot;known-limitations-and-deferred-work&quot;&gt;&lt;/a&gt;
+
+ - **Buffered `/api` routes retain each request body in memory** — `maxRequestBodyBytes` (default 300 MiB, sized for the default 200 MiB aggregate image limit after base64 expansion plus envelope headroom) bounds ordinary image and RPC envelopes. Opt-in streaming routes receive backpressured chunks and bypass the aggregate cap; route implementations own persistence, cancellation, and any storage quota.
+</pre><h2 id="p2">packages/client/connection/README.zh.md</h2><pre>diff --git a/packages/client/connection/README.zh.md b/packages/client/connection/README.zh.md
+index d3d0a62035..6fccc1096e 100644
+--- a/packages/client/connection/README.zh.md
++++ b/packages/client/connection/README.zh.md
+@@ -27,6 +27,8 @@ kind: &quot;package-reference&quot;
+
+ 浏览器通过 HTTP POST 执行 Remote 一元调用；API Gateway 自己拥有 `/api/remote.mux` WebSocket 及其逻辑流。由 shell 持有的组合通过 `connection.rpc.open` 提供等价的 Remote 流，不打开 WebSocket。Host half 始终提供与载体无关的 RPC 注册表和精确 `GET`/`HEAD`/`POST` 路由注册表。存在 Web 载体时，它还持有唯一 `/api` route、Fetch bridge、浏览器认证与 Host/Origin 校验；由 shell 持有的载体则直接分派共享 Fetch handler。每条精确路由会在 bridge 读取任何字节前声明缓冲或流式请求体处理方式。Typert Gateway 认领生成的 Remote endpoint，功能包注册 Session 日志下载、原始文件上传等非 JSON 响应，未认领的请求返回 404。Loopback hostname 判定只供浏览器侧当前页面状态使用，留在包内。浏览器原始请求体传输由 [`dsh-client-file-upload`](../file-upload/README.zh.md) 提供。
+
++独立浏览器样本对重复创建、旧 revision、目标缺失和非法状态转换保留 Goal 领域代码，details 为空。Goal 消费方可以使用与真实 Host Remote 调用相同的 code 分支。
++
+ -----
+
+ &lt;a id=&quot;browser-authentication-and-request-trust&quot;&gt;&lt;/a&gt;
+@@ -61,6 +63,8 @@ API Gateway Client 把内部 `$events` 逻辑流注册为唯一 generation sourc
+
+ ## 已知限制与暂缓事项
+
++夹具 RPC 接受启动时的检查清单同步，并返回空动态 Cordis 名录；不实现动态包安装或检查查询执行，未知接口仍拒绝。
++
+ &lt;a id=&quot;known-limitations-and-deferred-work&quot;&gt;&lt;/a&gt;
+
+ - **缓冲型 `/api` 路由会把每个请求体保留在内存里**：`maxRequestBodyBytes`（默认 300 MiB，按默认 200 MiB 图片总量上限经 base64 膨胀加信封余量得出）限制普通图片与 RPC 信封。显式启用的流式路由接收带背压的分块并绕过总量上限；路由实现负责持久化、取消与存储配额。
+</pre><h2 id="p3">packages/client/connection/src/client/fixture.ts</h2><pre>diff --git a/packages/client/connection/src/client/fixture.ts b/packages/client/connection/src/client/fixture.ts
+index a27749f61a..044bc99dba 100644
+--- a/packages/client/connection/src/client/fixture.ts
++++ b/packages/client/connection/src/client/fixture.ts
+@@ -2241,9 +2241,10 @@ function createFixtureWorld(options: FixtureOptions): FixtureWorld {
+     activation: &#x27;armed&#x27; | &#x27;disarmed&#x27;
+   }
+
+-  const goalFailure = &lt;T&gt;(message: string): RpcResult&lt;T&gt; =&gt; ({
++  // 独立浏览器样本也保留 Goal 领域分类，保证冲突界面不会只在样本里退化成通用错误。
++  const goalFailure = &lt;T&gt;(code: string, message: string): RpcResult&lt;T&gt; =&gt; ({
+     ok: false,
+-    error: { code: &#x27;gateway/internal&#x27;, message, details: {} },
++    error: { code, message, details: {} },
+   })
+
+   const requireGoalSession = (id: SessionId): RpcResult&lt;never&gt; | undefined =&gt; (
+@@ -2634,7 +2635,7 @@ function createFixtureWorld(options: FixtureOptions): FixtureWorld {
+       if (missing !== undefined) return missing
+       const current = backscanGoal(logOf(id))
+       if (current !== null &amp;&amp; current.goal.phase !== &#x27;complete&#x27;) {
+-        return goalFailure(`goal &quot;${current.goal.id}&quot; already exists`)
++        return goalFailure(&#x27;GOAL_ALREADY_EXISTS&#x27;, `goal &quot;${current.goal.id}&quot; already exists`)
+       }
+       const now = Date.now()
+       const projection = appendGoalChange(id, {
+@@ -2698,8 +2699,9 @@ function createFixtureWorld(options: FixtureOptions): FixtureWorld {
+     const missing = requireGoalSession(id)
+     if (missing !== undefined) return missing
+     const current = backscanGoal(logOf(id))
+-    if (current === null || current.goal.id !== ref.id || current.goal.revision !== ref.revision) {
+-      return goalFailure(&#x27;stale or missing goal revision&#x27;)
++    if (current === null) return goalFailure(&#x27;GOAL_NOT_FOUND&#x27;, &#x27;no current goal&#x27;)
++    if (current.goal.id !== ref.id || current.goal.revision !== ref.revision) {
++      return goalFailure(&#x27;GOAL_STALE_REVISION&#x27;, &#x27;stale goal revision&#x27;)
+     }
+     return { ok: true, value: current }
+   }
+@@ -2715,7 +2717,7 @@ function createFixtureWorld(options: FixtureOptions): FixtureWorld {
+     const current = resolved.value
+     const goal = next(current)
+     if (goal === undefined) {
+-      return goalFailure(`invalid goal transition from &quot;${current.goal.phase}&quot;`)
++      return goalFailure(&#x27;GOAL_INVALID_TRANSITION&#x27;, `invalid goal transition from &quot;${current.goal.phase}&quot;`)
+     }
+     const currentActivation = goalActivations.get(id)
+       ?? (current.goal.phase === &#x27;active&#x27; ? &#x27;armed&#x27; : &#x27;disarmed&#x27;)
+@@ -3926,6 +3928,9 @@ function createFixtureWorld(options: FixtureOptions): FixtureWorld {
+             { id: &#x27;acme-gateway&#x27;, name: &#x27;Acme Gateway&#x27; },
+           ],
+         })
++        // QS 装配回归需要官方启动调用；夹具未装动态插件，名录为空，不伪造安装能力。
++        case &#x27;dynamicCordisRunner/syncInspectManifest&#x27;: return Promise.resolve({ ok: true, value: null })
++        case &#x27;dynamicCordisRunner/inventory&#x27;: return Promise.resolve({ ok: true, value: [] })
+         case &#x27;llm/listConfigurableProviders&#x27;: return Promise.resolve({
+           ok: true,
+           value: [
+</pre>

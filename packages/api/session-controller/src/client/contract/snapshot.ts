@@ -6,6 +6,8 @@ import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import type { SubagentAddress } from '@deepseek-ai/dsh-subagent/client'
 import type { RemoteFailure } from '@deepseek-ai/dsh-typert-protocol'
 import type { SessionRequestId } from '../../types.ts'
+// QS 分页错误必须由执行器发布，不能由视图超时猜测。
+import type { HistoryLoadState } from '../qs/history-state.ts'
 
 /** One transient inbox occurrence from the authoritative queue snapshot. */
 export interface QueuedMessage {
@@ -96,6 +98,8 @@ export interface SessionSnapshot {
   readonly openError: RemoteFailure | null
   readonly hasMore: boolean
   readonly loadingOlder: boolean
+  /** 最近一次分页操作的可观察状态；不包含原始错误或敏感响应。 */
+  readonly historyLoad: HistoryLoadState
   readonly promptError: PromptError | null
   readonly blank: boolean
   readonly lastAgentError: string | null

@@ -1,0 +1,24 @@
+/* 原型请求卡使用奇术令牌；长记录在自身区域折行，不撑开工作台。 */
+.root { max-width: 1020px; margin: 24px auto; padding: 0 12px 24px; font-size: 13px; line-height: 1.8; overflow-wrap: anywhere; min-width: 0; color: var(--qs-text); }
+.card { margin: 16px 0; border: 1px solid var(--qs-line); border-radius: 12px; padding: 20px; background: var(--qs-surface); }
+.card header { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.card h3 { margin: 0 0 14px; font-size: 16px; font-weight: 550; }
+.card dl { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.card dl > div { padding: 10px; background: var(--qs-subtle); border-radius: 8px; min-width: 0; }
+.card dt { color: var(--qs-muted); font-size: 11px; }
+.notice { color: var(--qs-muted); font-size: 12px; }
+.card dd { margin: 0; font-size: 17px; overflow-wrap: anywhere; }
+.card pre { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 260px; overflow: auto; padding: 16px; background: var(--qs-subtle); border-radius: 8px; font-size: 12px; }
+.card details { padding: 12px 0; border-top: 1px solid var(--qs-line); }
+.card summary { cursor: pointer; color: var(--qs-accent); }
+.root button { border: 1px solid var(--qs-line); border-radius: 8px; padding: 8px 12px; background: var(--qs-surface); color: var(--qs-text); cursor: pointer; }
+.root button:disabled { opacity: .5; cursor: default; }
+.root :focus-visible { outline: 2px solid var(--qs-accent); outline-offset: 2px; }
+
+/* 与原型工作台增量的卡片及指标断点保持一致。 */
+@media (max-width: 1000px) { .card dl { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 700px) { .root { margin: 16px auto; padding: 0 4px 18px; } .card { padding: 14px; } }
+
+/* 轮次入口保持原型表单样式，选项数量不增加主阅读区高度。 */
+.turnNavigation { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; color: var(--qs-muted); }
+.turnNavigation select { max-width: 100%; padding: 8px 12px; border: 1px solid var(--qs-line); border-radius: 8px; background: var(--qs-surface); color: var(--qs-text); font: inherit; }

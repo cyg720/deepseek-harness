@@ -43,7 +43,7 @@ Web GUI 允许用户通过 `/model` 弹窗或 composer 模型控件切换既有�
 <details>
 <summary>实现细节——点击展开</summary>
 
-两个入口共用一份由 `ModelDirectoryResolver`（`ctx.modelDirectories`）持有的会话级目录：`/model` popupSelect 贡献项（经 `ctx.commandUi` 注册）与 composer 的具名 `conversation.input.model` 位都经 `session.models` 加载会话的建议目录、经 `session.selectModel` 通过同一个 `ModelDirectory` 实例提交，因此任一入口所做的切换正是另一个入口接下来显示的。目录加载与选择共享一个代次计数器，旧响应不会覆盖新结果；连接重置丢弃所有常驻投影，并在显示前重新拉取 Host 恢复的选择。目录按会话惰性解析，随会话作用域一并 dispose（资源释放）；已寻址 subagent 会话不公开任一入口。每份常驻目录都会直接在转发的 `llm/adapters-updated` 与 `settings/document-updated` owner 事件上重拉。
+`/model` 命令和 composer 模型位共用 `ModelDirectoryResolver` 持有的一份会话级 `ModelDirectory`。Host 级目录通过 `session.modelCatalog` 加载，选择操作调用 `session.selectModel`，显示的当前模型由持久 Session 投影决定。目录与选择请求各自维护代次。连接重置使待处理选择失效并刷新共享目录，新数据到达前保留最后一份完整视图。传输拒绝与 RPC 失败均释放选择锁并呈现错误；重置、卸载或新选择之后的迟到响应不能改变操作状态。目录随会话作用域释放，已寻址子代理不提供任一入口。适配器、设置和凭据引用更新会刷新共享目录。
 
 </details>
 

@@ -1,7 +1,7 @@
 /**
  * 奇术工作台的布局 store。
  *
- * 持有左侧导航、右侧面板与活动标签。初始值来自视口（>700 左开、>960 右开），
+ * 持有面板几何与外壳操作序号；会话标签由官方右栏 store 持有。初始值来自视口（>700 左开、>960 右开），
  * 并在窗口尺寸变化时按断点重新判定（原型只在初始化读 innerWidth，规范明确要求补 resize）。
  */
 import { defineStore, type EngineStoreHandle } from '@deepseek-ai/dsh-client-store'
@@ -14,6 +14,9 @@ export const RIGHT_OPEN_QUERY = '(min-width: 961px)'
 /** Browser-local workbench layout preference. */
 export const LAYOUT_STORE_KEY = 'dsh.qs.layout'
 
+/** 仅布局偏好格式版本；会话和官方标签状态不属于此记录。 */
+const LAYOUT_VERSION = 1
+
 /** 布局状态。 */
 export interface QsLayoutState {
   /** 左侧导航是否展开。 */
@@ -24,13 +27,17 @@ export interface QsLayoutState {
   compact: boolean
   leftWidth: number | undefined
   rightWidth: number | undefined
-  activeRightTab: number
+  /** 仅内存中的外壳意图序号，不从浏览器存储恢复。 */
+  rightRequestId: number
+  /** 恢复或存储失败的可见提示，不写入持久化记录。 */
+  storageNotice: 'recovered' | 'memory' | undefined
 }
 
 /** 布局 store 的写入集。 */
 type QsLayoutActions = {
   setWidth: (draft: QsLayoutState, side: 'left' | 'right', width: number) => void
-  setRightTab: (draft: QsLayoutState, tab: number) => void
+  /** 同步会话面板实际状态，不发出新的展开意图。 */
+  reportRightOpen: (draft: QsLayoutState, open: boolean) => void
   reset: (draft: QsLayoutState) => void
   setLeftOpen: (draft: QsLayoutState, open: boolean) => void
   setRightOpen: (draft: QsLayoutState, open: boolean) => void
@@ -62,30 +69,49 @@ export function createQsLayoutStore(): EngineStoreHandle<QsLayoutState, QsLayout
     compact: !matchesViewport(LEFT_OPEN_QUERY),
     leftWidth: undefined,
     rightWidth: undefined,
-    activeRightTab: 0,
+    rightRequestId: 0,
+    storageNotice: undefined,
   }
   const defaults = { ...remembered }
   try {
-    const saved: unknown = JSON.parse(globalThis.localStorage.getItem(LAYOUT_STORE_KEY) ?? 'null')
-    if (typeof saved === 'object' && saved !== null) {
+    const raw = globalThis.localStorage.getItem(LAYOUT_STORE_KEY)
+    const saved: unknown = raw === null ? undefined : JSON.parse(raw)
+    if (typeof saved === 'object' && saved !== null && !Array.isArray(saved)) {
       const value = saved as Record<string, unknown>
-      for (const key of ['leftWidth', 'rightWidth'] as const) {
-        const width = value[key]
-        if (typeof width === 'number' && Number.isFinite(width) && width >= 180 && width <= 480) remembered[key] = width
+      // 无版本记录是第一优先发布的格式；未知版本不能当作当前结构解释。
+      if (value.version === undefined || value.version === LAYOUT_VERSION) {
+        for (const key of ['leftWidth', 'rightWidth'] as const) {
+          const width = value[key]
+          if (width === undefined) continue
+          if (typeof width === 'number' && Number.isFinite(width) && width >= 180 && width <= 480) remembered[key] = width
+          else remembered.storageNotice = 'recovered'
+        }
+        for (const key of ['leftOpen', 'rightOpen'] as const) {
+          const open = value[key]
+          if (open === undefined) continue
+          if (typeof open !== 'boolean') remembered.storageNotice = 'recovered'
+          else if (!remembered.compact && (key === 'leftOpen' || lastWide)) remembered[key] = open
+        }
+      } else {
+        remembered.storageNotice = 'recovered'
       }
-      if (value.activeRightTab === 0 || value.activeRightTab === 1 || value.activeRightTab === 2) {
-        remembered.activeRightTab = value.activeRightTab
-      }
-      if (!remembered.compact) {
-        if (typeof value.leftOpen === 'boolean') remembered.leftOpen = value.leftOpen
-        if (lastWide && typeof value.rightOpen === 'boolean') remembered.rightOpen = value.rightOpen
-      }
+    } else if (saved !== undefined) {
+      remembered.storageNotice = 'recovered'
     }
-  } catch { /* Missing, corrupt or browser-denied storage uses viewport defaults. */ }
+  } catch (error) {
+    // JSON 损坏与浏览器拒绝存储都不能阻止工作台启动，提示不包含原始记录。
+    remembered.storageNotice = error instanceof SyntaxError ? 'recovered' : 'memory'
+  }
   const remember = (state: QsLayoutState): void => {
+    try {
+      // 只允许几何与开合偏好，禁止未来新增的会话正文/临时状态随对象展开进入存储。
+      globalThis.localStorage.setItem(LAYOUT_STORE_KEY, JSON.stringify({
+        version: LAYOUT_VERSION, leftOpen: state.leftOpen, rightOpen: state.rightOpen,
+        leftWidth: state.leftWidth, rightWidth: state.rightWidth,
+      }))
+      if (state.storageNotice === 'memory') state.storageNotice = undefined
+    } catch { state.storageNotice = 'memory' /* 浏览器拒绝写入时，当前实例仍保留布局。 */ }
     remembered = { ...state }
-    try { globalThis.localStorage.setItem(LAYOUT_STORE_KEY, JSON.stringify(remembered)) }
-    catch { /* Browser storage denial keeps layout choices in this plugin instance. */ }
   }
   return defineStore({
     init: (): QsLayoutState => {
@@ -99,22 +125,23 @@ export function createQsLayoutStore(): EngineStoreHandle<QsLayoutState, QsLayout
     },
     actions: {
       setWidth: (d, side, width) => { d[side === 'left' ? 'leftWidth' : 'rightWidth'] = Math.min(480, Math.max(180, width)); remember(d) },
-      setRightTab: (d, tab) => { d.activeRightTab = tab; remember(d) },
+      reportRightOpen: (d, open) => { d.rightOpen = open; remember(d) },
       reset: (d) => {
         Object.assign(d, defaults, {
           compact: !matchesViewport(LEFT_OPEN_QUERY),
           leftOpen: matchesViewport(LEFT_OPEN_QUERY),
           rightOpen: matchesViewport(RIGHT_OPEN_QUERY),
         })
-        remembered = { ...d }
         try { globalThis.localStorage.removeItem(LAYOUT_STORE_KEY) }
-        catch { /* Browser storage denial does not prevent logout. */ }
+        catch { d.storageNotice = 'memory' /* 浏览器拒绝清理不阻断退出或内存布局恢复。 */ }
+        remembered = { ...d }
       },
       setLeftOpen: (d, open: boolean) => { d.leftOpen = open; remember(d) },
-      setRightOpen: (d, open: boolean) => { d.rightOpen = open; remember(d) },
+      setRightOpen: (d, open: boolean) => { d.rightRequestId += 1; d.rightOpen = open; remember(d) },
       toggleLeft: (d) => { d.leftOpen = !d.leftOpen; remember(d) },
-      toggleRight: (d) => { d.rightOpen = !d.rightOpen; remember(d) },
+      toggleRight: (d) => { d.rightRequestId += 1; d.rightOpen = !d.rightOpen; remember(d) },
       applyViewport: (d, viewport) => {
+        d.rightRequestId += 1
         lastWide = viewport.wide
         d.compact = viewport.narrow
         if (viewport.narrow) {

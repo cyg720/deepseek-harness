@@ -1,0 +1,29 @@
+.root { display: flex; flex-direction: column; min-width: 0; height: 100%; color: var(--qs-text); }
+.toolbar { display: flex; flex-wrap: wrap; gap: 8px; padding: 12px; border-bottom: 1px solid var(--qs-border); }
+.path { width: 100%; overflow-wrap: anywhere; font-size: 12px; }
+.toolbar button, .toolbar select, .more { color: inherit; background: var(--qs-surface); border: 1px solid var(--qs-border); border-radius: 6px; padding: 6px; }
+.scroll { overflow: auto; flex: 1; min-height: 0; position: relative; }
+.notice { padding: 12px; overflow-wrap: anywhere; }
+.source { min-width: 100%; width: max-content; padding: 12px; box-sizing: border-box; }
+.source pre { margin: 0; white-space: pre; }
+.source[data-wrap='true'] { width: 100%; }
+.source[data-wrap='true'] pre { white-space: pre-wrap; overflow-wrap: anywhere; }
+.source [data-target='true'] { background: var(--qs-surface); outline: 1px solid var(--qs-border); }
+.more { display: block; margin: 12px auto; }
+.root button:focus-visible, .root select:focus-visible { outline: 2px solid var(--qs-accent); outline-offset: 2px; }
+.markdown { padding: 16px; overflow-wrap: anywhere; min-width: 0; }
+.codeRenderer { display: flex; flex-direction: column; height: 100%; min-height: 0; min-width: 0; overflow: hidden; }
+.codeRenderer .code { --dsl-code-block-background: transparent; --dsl-code-block-line-white-space: pre; display: flex; flex-direction: column; flex: 1; min-height: 0; margin: 0; }
+.codeRenderer .code > [data-code-block-content] { position: relative; overflow: auto; flex: 1; min-height: 0; }
+.codeRenderer .code pre { min-width: 100%; overflow: visible; white-space: pre; }
+.codeRenderer[data-wrap='true'] .code { --dsl-code-block-line-white-space: pre-wrap; }
+.codeRenderer[data-wrap='true'] .code pre { white-space: pre-wrap; overflow-wrap: anywhere; }
+.imageFrame { display: flex; width: max-content; min-width: 100%; height: max-content; min-height: 100%; box-sizing: border-box; padding: 8px; }
+.image { display: block; flex: none; width: auto; height: auto; max-width: none; max-height: none; margin: auto; user-select: none; }
+.image[hidden] { display: none; }
+.htmlFrame { display: block; width: 100%; height: 100%; min-height: 240px; border: 0; background: white; }
+.pdf { display: flex; flex-direction: column; padding: 8px; overflow-x: hidden; }
+.pdfPage { width: 100%; min-width: 0; padding: 12px; box-sizing: border-box; }
+.pdfPlaceholder { width: 100%; aspect-ratio: 3 / 4; display: grid; place-items: center; }
+.pdfCanvas { display: block; width: min(var(--pdf-page-width), 100%); max-width: 100%; height: auto; margin-inline: auto; }
+.pdfCanvas[hidden] { display: none; }

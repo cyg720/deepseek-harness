@@ -222,6 +222,43 @@ function validateEntry(value: unknown, file: string, path: string): void {
 
 function recordPlugin(entry: Record<string, unknown>, file: string): void {
   if (typeof entry.name === 'string') pluginReferences.push({ file, name: entry.name })
+  // 二开附加呈现也是 Loader 动态依赖；两分支都检查解析器清单。
+  const additional = additionalClientSurfaceReferences(entry, file)
+  errors.push(...additional.errors)
+  pluginReferences.push(...additional.references)
+}
+
+/**
+ * 检查目录选择器附加呈现，供正式配置门禁和隔离反例共用。
+ * @param entry - 已解析的 Loader 条目。
+ * @param file - 用于诊断的配置路径。
+ * @returns 两个分支的依赖引用和配置错误。
+ */
+export function additionalClientSurfaceReferences(entry: Record<string, unknown>, file: string): {
+  references: PluginReference[]
+  errors: string[]
+} {
+  const references: PluginReference[] = []
+  const problems: string[] = []
+  if (entry.name !== CHOOSER_PACKAGE || !isRecord(entry.config)) return { references, errors: problems }
+  const additional = entry.config.additionalClientSurfaces
+  if (additional === undefined) return { references, errors: problems }
+  if (!isRecord(additional)) return { references, errors: [`${file}: additionalClientSurfaces must be a static native/browse map`] }
+  for (const kind of ['native', 'browse']) {
+    const names = additional[kind]
+    if (names === undefined) continue
+    if (!isUnknownArray(names) || names.some(name => typeof name !== 'string')) {
+      problems.push(`${file}: additionalClientSurfaces.${kind} must contain static package names`)
+      continue
+    }
+    const seen = new Set(CHOOSER_BACKEND_PACKAGES)
+    for (const name of names as string[]) {
+      if (name.trim() !== name || name.length === 0 || seen.has(name)) problems.push(`${file}: duplicate or invalid additional surface ${name}`)
+      seen.add(name)
+      references.push({ file, name })
+    }
+  }
+  return { references, errors: problems }
 }
 
 function validateAppResolution(): string[] {

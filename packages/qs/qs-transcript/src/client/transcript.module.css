@@ -55,7 +55,8 @@
   padding: 13px 17px;
   border-radius: 13px 13px 3px 13px;
   max-width: 85%;
-  font-size: 13px;
+  /* 跟随官方正文字号，保留原型的字号层级。 */
+  font-size: calc(var(--dsh-content-font-size, 14px) - 1px);
   line-height: 1.8;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
@@ -66,7 +67,8 @@
   padding: 11px 15px;
   border-radius: 11px;
   max-width: 85%;
-  font-size: 12px;
+  /* 跟随官方正文字号，保留原型的字号层级。 */
+  font-size: calc(var(--dsh-content-font-size, 14px) - 2px);
   line-height: 1.8;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
@@ -109,7 +111,8 @@
 }
 
 .aiContent {
-  font-size: 13px;
+  /* 跟随官方正文字号，保留原型的字号层级。 */
+  font-size: calc(var(--dsh-content-font-size, 14px) - 1px);
   line-height: 1.95;
   color: var(--qs-text);
 }
@@ -159,6 +162,37 @@
   gap: 8px 16px;
   color: var(--qs-muted);
   font-size: 11px;
+}
+
+/* 过程展开后的活动计数与诊断行的辅助文本；保持可选中、可换行。 */
+.muted {
+  color: var(--qs-muted);
+  overflow-wrap: anywhere;
+}
+
+.activity {
+  flex-basis: 100%;
+  margin: 4px 0 0;
+  padding-left: 18px;
+}
+
+.diagnostic {
+  border-left: 3px solid var(--qs-danger, #d9534f);
+  padding-left: 10px;
+}
+
+.diagHead {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font-weight: 500;
+}
+
+.diagHead small,
+.diagHead code {
+  color: var(--qs-muted);
+  font-size: 11px;
+  overflow-wrap: anywhere;
 }
 
 .pending {
@@ -211,3 +245,14 @@
     max-width: 95%;
   }
 }
+
+.attachments { display: flex; flex-wrap: wrap; gap: 8px; max-width: 100%; }
+.fileCard { display: inline-flex; gap: 8px; align-items: center; max-width: 100%; min-width: 0; padding: 8px 12px; border: 1px solid var(--qs-border, #526149); border-radius: 8px; }
+.fileCard > span { min-width: 0; }
+.fileName { display: block; overflow-wrap: anywhere; }
+
+.settingRow { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 18px 0; border-bottom: 1px solid var(--qs-line); }
+.settingRow label { font-weight: 600; }
+.settingRow p { margin: 6px 0 0; font-size: 12px; color: var(--qs-muted); }
+.settingRow select { padding: 8px 12px; border: 1px solid var(--qs-line); border-radius: 8px; font: inherit; color: var(--qs-text); background: var(--qs-surface); max-width: 100%; }
+@media(max-width: 700px) { .settingRow { align-items: stretch; flex-direction: column; gap: 10px; } }

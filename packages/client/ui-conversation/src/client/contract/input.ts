@@ -119,6 +119,12 @@ export interface InputTriggerHit {
 
 /** Structural per-Session trigger provider consumed by the input shell. */
 export interface InputTriggerController {
+  /**
+   * 可选能力用于兼容第三方触发器；官方实现提供独占呈现租约。
+   * @param policy - 可见输入允许的触发符与来源。
+   * @returns 释放动作。
+   */
+  acquireConsumer?(policy: { readonly triggers: readonly ('/' | '@')[]; readonly sources?: readonly string[] }): () => void
   readonly launcher: ObservableSnapshot<string | null>
   readonly lexicon: ObservableSnapshot<ReadonlyMap<'/' | '@', readonly string[]>>
   /** @param draft - current draft. @param caret - caret offset. @param guard - availability tier. @param draftRev - input revision. */

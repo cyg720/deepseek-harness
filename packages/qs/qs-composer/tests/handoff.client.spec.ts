@@ -82,3 +82,8 @@ describe('队列视图模型', () => {
     ])
   })
 })
+
+/** 无文本预览的混合队列保留身份和不可编辑状态，不伪造正文。 */
+it('缺失队列预览显示空文本', () => {
+  expect(queueRows([{ id: 'media', placement: 'queued' }])).toEqual([{ id: 'media', text: '', placement: 'queued', editable: false }])
+})

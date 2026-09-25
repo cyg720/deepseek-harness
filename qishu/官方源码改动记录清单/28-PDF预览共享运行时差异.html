@@ -1,0 +1,1085 @@
+<!doctype html><meta charset="utf-8"><title>PDF 官方改动</title><style>body{font-family:system-ui;padding:24px}pre{white-space:pre-wrap;overflow-wrap:anywhere}</style><h1>PDF 官方改动累计快照</h1><h2 id="f1">packages/client/ui-sidebar-documentpreview/README.i18n.yaml</h2><pre>diff --git a/packages/client/ui-sidebar-documentpreview/README.i18n.yaml b/packages/client/ui-sidebar-documentpreview/README.i18n.yaml
+index 9eab9c47f9..1389e887a8 100644
+--- a/packages/client/ui-sidebar-documentpreview/README.i18n.yaml
++++ b/packages/client/ui-sidebar-documentpreview/README.i18n.yaml
+@@ -2,5 +2,5 @@
+ # side as of the last confirmed-consistent state. Both languages carry equal authority;
+ # after editing either side, bring the other along and re-record with:
+ #   pnpm run verify-translation-pairing --write packages/client/ui-sidebar-documentpreview/README.md
+-README.md: e3659ed08a7c82f7c5ef314806ea07262f421caa
+-README.zh.md: 29393ed6b8694ac8fd8f68f398c12e633e237351
++README.md: 00cff9100c83e720d3fdde02122723d940304433
++README.zh.md: 14fe8c7458aa7bd82bb576c7f6301df3ee9e612b
+</pre><h2 id="f2">packages/client/ui-sidebar-documentpreview/README.md</h2><pre>diff --git a/packages/client/ui-sidebar-documentpreview/README.md b/packages/client/ui-sidebar-documentpreview/README.md
+index e3659ed08a..00cff9100c 100644
+--- a/packages/client/ui-sidebar-documentpreview/README.md
++++ b/packages/client/ui-sidebar-documentpreview/README.md
+@@ -32,6 +32,12 @@ Preview readable files in the right Sidebar and choose among registered renderer
+
+ Document implementations register metadata with `ctx.documentPreviews.register({ id, extensions, priority, title, loading, wrap? })` and a body under the same `id` in the keyed, Session-scoped `sidebar.right.tab.document` child slot. Own both registrations with effects and wait for the child slot through `ctx.slots.inject`. Bodies receive `resourceAddress`, prepared `content`, `wrap`, `scrollportRef`, and the standard `useTabInfo`/`useResource` hooks; they do not receive a custom resource loader. A renderer that owns an inner scrolling element attaches `scrollportRef` to it, and the owner returns to the shared body when that element unmounts. Metadata declares `loading: &#x27;text-pages&#x27;` or `&#x27;bytes-complete&#x27;`. The registry retains all matching alternatives: `extension` (the default) ranks above `builtin`, then longer suffixes rank first, then registration order. The dropdown preserves a selected implementation while it remains available; removing it selects the next candidate. Builtin bodies use these same registrations.
+
++The `documentPreviewPresentation` service exposes the official store handle and injection factory to alternate presentations. The factory caches its result by the bound store actions, so both views share read generations, renderer metadata subscriptions and reading preferences. Switching views does not create a second file reader; tab abort remains responsible for forgetting its content.
++
++The shared presentation also exposes `prepareHtml`: it composes the existing finite HTML packer, relative Host reader and opaque-frame bootstrap. Its result contains document text only, never a Host callback; the consuming view owns Blob creation and revocation.
++
++The `documentPdfPresentation` service exposes the PDF page store, tab retention, worker opening and bounded canvas rendering to alternate bodies. Each mounted body owns its document and render cancellation; unloading the plugin forgets retained page preferences.
++
+ &lt;a id=&quot;addresses&quot;&gt;&lt;/a&gt;
+ ## Addresses
+
+@@ -79,6 +85,8 @@ No direct effect; what the user reads here never enters a model request.
+ - **Package-local wrap glyphs.** `IconWrapFill16` and `IconNowrapFill16` live in `src/client/icons.tsx` until the shared icon set carries them; their props already match the shared icon contract.
+ - **Scroll writes are unthrottled.** Every scroll event records its offset in the store; the line blocks are memoized so the resulting re-render hands React the same elements back.
+
++The public `documentPreviewIds` readonly map supplies the six built-in body identities. Alternate body slots reuse these identities and the existing metadata registry; exporting an identity does not register an alternate renderer.
++
+ &lt;a id=&quot;dev-note&quot;&gt;&lt;/a&gt;
+ ### Dev Note
+
+</pre><h2 id="f3">packages/client/ui-sidebar-documentpreview/README.zh.md</h2><pre>diff --git a/packages/client/ui-sidebar-documentpreview/README.zh.md b/packages/client/ui-sidebar-documentpreview/README.zh.md
+index 29393ed6b8..14fe8c7458 100644
+--- a/packages/client/ui-sidebar-documentpreview/README.zh.md
++++ b/packages/client/ui-sidebar-documentpreview/README.zh.md
+@@ -32,6 +32,12 @@ kind: &quot;package-reference&quot;
+
+ 文档实现在 `ctx.documentPreviews.register({ id, extensions, priority, title, loading, wrap? })` 注册元数据，并以相同 `id` 向 keyed、Session 作用域的子 slot `sidebar.right.tab.document` 注册正文。两处注册都由 effect 持有，通过 `ctx.slots.inject` 等待子 slot。正文接收 `resourceAddress`、准备好的 `content`、`wrap`、`scrollportRef` 和标准 `useTabInfo`/`useResource` 钩子，不接收自定义资源加载器。拥有内部滚动元素的渲染器把 `scrollportRef` 挂到该元素上；该元素卸载后，owner 恢复使用共享正文。元数据声明 `loading: &#x27;text-pages&#x27;` 或 `&#x27;bytes-complete&#x27;`。注册表保留所有匹配备选：`extension`（默认）优先于 `builtin`，随后按更长的后缀、再按注册顺序排列。所选实现仍可用时，下拉选择保持不变；移除后选择下一个候选。内置正文也使用相同注册方式。
+
++`documentPreviewPresentation` 服务向替代呈现提供官方 store 句柄和注入工厂。工厂按绑定后的 store actions 缓存结果，两种界面共享读取代次、渲染类型订阅和阅读偏好。界面切换不会另建文件读取器；标签 abort 仍负责清理内容。
++
++共享呈现还提供 `prepareHtml`，组合既有的有限 HTML 打包器、Host 相对读取和不透明 frame 引导。结果仅包含文档文本，不包含 Host 回调；消费视图负责 Blob 创建和释放。
++
++`documentPdfPresentation` 服务向替代正文公开 PDF 页码状态、标签保留、worker 打开及受限画布绘制。挂载的正文拥有文档和绘制取消责任；插件卸载清理保留的页码偏好。
++
+ &lt;a id=&quot;addresses&quot;&gt;&lt;/a&gt;
+ ## 地址
+
+@@ -79,6 +85,8 @@ PNG、JPEG、GIF、WebP、BMP、ICO 和 SVG 通过 Blob URL 在 `&lt;img&gt;` 静态
+ - **换行图标为包内自绘。** `IconWrapFill16` 与 `IconNowrapFill16` 住在 `src/client/icons.tsx`，直到共享图标集提供为止；它们的 props 已与共享图标契约一致。
+ - **滚动写入未节流。** 每次滚动事件都把偏移记进 store；行块已 memo 化，于是由此引发的重渲染交还给 React 的是同一批元素。
+
++公开只读表 `documentPreviewIds` 提供六种内置正文身份。其他正文槽复用这些身份及现有元数据注册表；导出身份不代表已注册二开渲染器。
++
+ &lt;a id=&quot;dev-note&quot;&gt;&lt;/a&gt;
+ ### 开发备注
+
+</pre><h2 id="f4">packages/client/ui-sidebar-documentpreview/src/client/index.ts</h2><pre>diff --git a/packages/client/ui-sidebar-documentpreview/src/client/index.ts b/packages/client/ui-sidebar-documentpreview/src/client/index.ts
+index ef76084e07..8f55067fdd 100644
+--- a/packages/client/ui-sidebar-documentpreview/src/client/index.ts
++++ b/packages/client/ui-sidebar-documentpreview/src/client/index.ts
+@@ -21,12 +21,12 @@ import type {} from &#x27;@deepseek-ai/dsh-api-gateway/client&#x27;
+ import type {} from &#x27;@deepseek-ai/dsh-api-workspace-files/remote&#x27;
+ import type { WorkspaceFileParams } from &#x27;@deepseek-ai/dsh-api-workspace-files/client&#x27;
+ import { TextPreview } from &#x27;./TextPreview.tsx&#x27;
+-import type { TextPreviewInjected } from &#x27;./TextPreview.tsx&#x27;
+ import { TextTitle } from &#x27;./TextTitle.tsx&#x27;
+ import { TEXTPREVIEW_ID, textDefinition } from &#x27;./definition.ts&#x27;
+-import { textFace } from &#x27;./face.ts&#x27;
+-import { createReadPage } from &#x27;./rpc.ts&#x27;
+-import { createTextStore } from &#x27;./store.ts&#x27;
++import { createDocumentPresentation } from &#x27;./qs/presentation.ts&#x27;
++import type { DocumentPreviewPresentation } from &#x27;./qs/presentation.ts&#x27;
++import type { PdfPresentation } from &#x27;./qs/pdf-presentation.ts&#x27;
++import { hostFileOf } from &#x27;./rpc.ts&#x27;
+ import { en, zh } from &#x27;./locales.ts&#x27;
+ import { DocumentPreviewRegistry } from &#x27;./document/registry.ts&#x27;
+ import { documentTabInfoFactory } from &#x27;./document/contract.ts&#x27;
+@@ -42,6 +42,11 @@ import { apply as registerCode } from &#x27;./code/index.ts&#x27;
+ // share, plus the types a consumer of the seat or the store names.
+ export type { SidebarDocumentPreviewKey } from &#x27;./locales.ts&#x27;
+ export type { TextPreviewProps } from &#x27;./TextPreview.tsx&#x27;
++export type { TextPreviewInjected } from &#x27;./TextPreview.tsx&#x27;
++export type { DocumentPreviewPresentation } from &#x27;./qs/presentation.ts&#x27;
++export type { PdfPresentation } from &#x27;./qs/pdf-presentation.ts&#x27;
++export type { PdfBodyInjected } from &#x27;./pdf/PdfBody.tsx&#x27;
++export type { PdfDocument, PdfSession } from &#x27;./pdf/document.ts&#x27;
+ export type { TextInjected } from &#x27;./face.ts&#x27;
+ export type { ReadWorkspaceFilePage, SessionFile, WorkspaceFilesReadRemote } from &#x27;./rpc.ts&#x27;
+ export type { TextPage, TextState, TextStore, TextTabState } from &#x27;./store.ts&#x27;
+@@ -52,6 +57,10 @@ declare module &#x27;@deepseek-ai/cordis&#x27; {
+   interface Context {
+     /** File-extension renderer registrations, independent from their keyed document bodies. */
+     documentPreviews: DocumentPreviewRegistry
++    /** 官方与 QS 共享文件内容和请求代次；正文卸载不销毁仍存活的标签状态。 */
++    documentPreviewPresentation: DocumentPreviewPresentation
++    /** 双界面共用 PDF 页码状态和 worker/画布操作；挂载正文拥有运行时实例。 */
++    documentPdfPresentation: PdfPresentation
+   }
+ }
+
+@@ -89,19 +98,27 @@ export function apply(ctx: ClientContext): void {
+   ctx.effect(() =&gt; ctx.sidebarRightTabs.register(textDefinition()), &#x27;ui-sidebar-documentpreview: text type&#x27;)
+   ctx.effect(() =&gt; ctx.locale.register(NS, { zh, en }), &#x27;ui-sidebar-documentpreview: dictionaries&#x27;)
+
+-  const store = createTextStore()
+-  const face = textFace(
+-    createReadPage(ctx.remote),
++  // 同一标签跨界面刷新时必须共享请求代次，防止旧读取覆盖新内容。
++  const presentation = createDocumentPresentation(
++    ctx.remote,
+     (file, signal) =&gt; ctx.remote.workspaceFiles.readAll(file.sessionId, file.path, signal),
++    previews,
++    // HTML 静态依赖沿用源文档会话及 Host 路径权限，不暴露任意文件桥接给 iframe。
++    (address, relativePath, signal) =&gt; {
++      const file = hostFileOf(address)
++      return ctx.remote.workspaceFiles.readRelated(file.sessionId, file.path, relativePath, signal)
++    },
+   )
+-  const source = { getSnapshot: previews.getSnapshot, subscribe: previews.subscribe }
++  const disposePresentation = ctx.reflect.provide(&#x27;documentPreviewPresentation&#x27;, presentation)
++  ctx.effect(() =&gt; disposePresentation)
++  const { store, inject: bindPreview } = presentation
+   ctx.effect(() =&gt; ctx.slots.inject(&#x27;sidebar.right.pane.tab&#x27;, () =&gt; ctx.slots.register(
+     {
+       name: &#x27;sidebar.right.pane.tab&#x27;, key: TEXTPREVIEW_ID, locale: NS, store,
+       children: {
+         &#x27;sidebar.right.tab.document&#x27;: { kind: &#x27;keyed&#x27;, scope: &#x27;session&#x27;, inject: { hooks: { tabInfo: documentTabInfoFactory } } },
+       },
+-      inject: (sessionId, actions): TextPreviewInjected =&gt; ({ ...face(sessionId, actions), hooks: { documentPreviews: source } }),
++      inject: bindPreview,
+     },
+     TextPreview,
+   )), &#x27;ui-sidebar-documentpreview: text body&#x27;)
+@@ -116,3 +133,6 @@ export function apply(ctx: ClientContext): void {
+   registerPdf(ctx)
+   registerCode(ctx)
+ }
++
++// 二开仅复用身份；定义注册与读取策略仍由本插件负责。
++export { documentPreviewIds } from &#x27;./qs/ids.ts&#x27;
+</pre><h2 id="f5">packages/client/ui-sidebar-documentpreview/src/client/pdf/index.ts</h2><pre>diff --git a/packages/client/ui-sidebar-documentpreview/src/client/pdf/index.ts b/packages/client/ui-sidebar-documentpreview/src/client/pdf/index.ts
+index 525088c7f6..33bacd6e5a 100644
+--- a/packages/client/ui-sidebar-documentpreview/src/client/pdf/index.ts
++++ b/packages/client/ui-sidebar-documentpreview/src/client/pdf/index.ts
+@@ -1,13 +1,15 @@
++// 二开正文使用同一公开身份，避免复制私有字符串。
++import { documentPreviewIds } from &#x27;../qs/ids.ts&#x27;
+ /** Builtin PDF registration through document metadata and the keyed body slot. */
+ import type { Context } from &#x27;@deepseek-ai/cordis&#x27;
+ import type {} from &#x27;../index.ts&#x27;
+ import type { DocumentPreviewDefinition } from &#x27;../document/registry.ts&#x27;
+-import { PdfBody, type PdfBodyInjected } from &#x27;./PdfBody.tsx&#x27;
+-import { createPdfStore } from &#x27;./store.ts&#x27;
++import { PdfBody } from &#x27;./PdfBody.tsx&#x27;
++import { createPdfPresentation } from &#x27;../qs/pdf-presentation.ts&#x27;
+ import { en, zh } from &#x27;./locales.ts&#x27;
+
+ /** PDF metadata and keyed body share this package-local implementation identity. */
+-export const PDF_BODY_ID = &#x27;@deepseek-ai/dsh-client-ui-sidebar-documentpreview/pdf&#x27;
++export const PDF_BODY_ID = documentPreviewIds.pdf
+
+ /**
+  * Describe the builtin PDF renderer independently from its keyed body slot.
+@@ -23,25 +25,12 @@ export function apply(ctx: Context): void {
+   ctx.effect(() =&gt; ctx.locale.register(&#x27;sidebarPdf&#x27;, { zh, en }))
+   const t = ctx.locale.bind(&#x27;sidebarPdf&#x27;)
+   ctx.effect(() =&gt; ctx.documentPreviews.register(pdfBodyDefinition(() =&gt; t(&#x27;title&#x27;))))
+-  const store = createPdfStore()
+-  const retained = new Map&lt;AbortSignal, () =&gt; void&gt;()
+-  ctx.effect(() =&gt; () =&gt; {
+-    for (const forget of retained.values()) forget()
+-  })
++  // 页码与标签保留由唯一服务持有，双界面不复制 PDF worker 实现。
++  const { presentation, dispose } = createPdfPresentation()
++  const release = ctx.reflect.provide(&#x27;documentPdfPresentation&#x27;, presentation)
++  ctx.effect(() =&gt; () =&gt; { dispose(); return release() })
+   ctx.effect(() =&gt; ctx.slots.inject(&#x27;sidebar.right.tab.document&#x27;, () =&gt; ctx.slots.register({
+-    name: &#x27;sidebar.right.tab.document&#x27;, key: PDF_BODY_ID, locale: &#x27;sidebarPdf&#x27;, store,
+-    inject: (_sessionId, actions): PdfBodyInjected =&gt; ({
+-      retainTab: (tabId, signal) =&gt; {
+-        if (signal.aborted) { actions.forget(tabId); return }
+-        if (retained.has(signal)) return
+-        const forget = (): void =&gt; {
+-          signal.removeEventListener(&#x27;abort&#x27;, forget)
+-          retained.delete(signal)
+-          actions.forget(tabId)
+-        }
+-        retained.set(signal, forget)
+-        signal.addEventListener(&#x27;abort&#x27;, forget, { once: true })
+-      },
+-    }),
++    name: &#x27;sidebar.right.tab.document&#x27;, key: PDF_BODY_ID, locale: &#x27;sidebarPdf&#x27;, store: presentation.store,
++    inject: presentation.inject,
+   }, PdfBody)))
+ }
+</pre><h2 id="f6">packages/client/ui-sidebar-documentpreview/tests/pdf-registration.client.spec.ts</h2><pre>diff --git a/packages/client/ui-sidebar-documentpreview/tests/pdf-registration.client.spec.ts b/packages/client/ui-sidebar-documentpreview/tests/pdf-registration.client.spec.ts
+index 580a291d26..e619921210 100644
+--- a/packages/client/ui-sidebar-documentpreview/tests/pdf-registration.client.spec.ts
++++ b/packages/client/ui-sidebar-documentpreview/tests/pdf-registration.client.spec.ts
+@@ -48,7 +48,11 @@ describe(&#x27;PDF registration&#x27;, () =&gt; {
+       expect(dictionaries.get(&#x27;sidebarPdf&#x27;)).toEqual({ zh, en })
+       expect(entries[0]).toMatchObject({ name: &#x27;sidebar.right.tab.document&#x27;, key: PDF_BODY_ID, locale: &#x27;sidebarPdf&#x27; })
+       const instance = entries[0]!.store.create()
++      // 官方 PDF 与 QS 使用同一 store 和注入工厂，视图切换保留页码。
++      expect(entries[0]!.store).toBe(ctx.documentPdfPresentation.store)
++      expect(entries[0]!.inject).toBe(ctx.documentPdfPresentation.inject)
+       const face = entries[0]!.inject(&#x27;s1&#x27; as SessionId, instance.actions)
++      expect(entries[0]!.inject(&#x27;s1&#x27; as SessionId, instance.actions)).toBe(face)
+       const controller = new AbortController()
+       face.retainTab(&#x27;one&#x27; as TabId, controller.signal)
+       face.retainTab(&#x27;one&#x27; as TabId, controller.signal)
+@@ -62,6 +66,7 @@ describe(&#x27;PDF registration&#x27;, () =&gt; {
+       face.retainTab(&#x27;two&#x27; as TabId, other.signal)
+       instance.actions.page(&#x27;two&#x27; as TabId, 2)
+       await fiber.dispose()
++      expect(ctx.get(&#x27;documentPdfPresentation&#x27;)).toBeUndefined()
+       expect(instance.getSnapshot().byTab).toEqual({})
+       expect(previews.getSnapshot()).toEqual([])
+       expect(entries).toEqual([])
+</pre><h2 id="f7">packages/extensions/cordis-client-runner/src/client/slot-catalog.ts</h2><pre>diff --git a/packages/extensions/cordis-client-runner/src/client/slot-catalog.ts b/packages/extensions/cordis-client-runner/src/client/slot-catalog.ts
+index 7a1b04e1eb..194818df2e 100644
+--- a/packages/extensions/cordis-client-runner/src/client/slot-catalog.ts
++++ b/packages/extensions/cordis-client-runner/src/client/slot-catalog.ts
+@@ -1455,6 +1455,124 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
+     example: &#x27;return {\n  inject: [\&#x27;slots\&#x27;],\n  apply(ctx) {\n    ctx.slots.inject(\&#x27;main.conversation\&#x27;, () =&gt; ctx.slots.register(\n      { name: \&#x27;main.conversation\&#x27; },\n      () =&gt; React.createElement(\&#x27;div\&#x27;, null, \&#x27;hello\&#x27;),\n    ))\n  },\n}&#x27;,
+     source: &#x27;packages/client/ui-conversation/src/client/contract/slots.ts:121&#x27;,
+   },
++  {
++    key: &#x27;qs.brand.mark&#x27;,
++    kind: &#x27;single&#x27;,
++    scope: &#x27;root&#x27;,
++    summary: &#x27;Independently contributed workbench brand symbol.&#x27;,
++    doc: &#x27;Independently contributed workbench brand symbol.&#x27;,
++    registerOptions: [],
++    ownerProps: [],
++    ownerPropsReferences: [],
++    standardProps: [
++      &#x27;useResource: UseResource&#x27;,
++      &#x27;useWorkspaces: SnapshotSelectorHook&lt;WorkspaceSnapshot&gt;&#x27;,
++      &#x27;usePanelInfo: UsePanelInfo&#x27;,
++      &#x27;useSessions: UseSessions&#x27;,
++      &#x27;useSessionPendingInteraction: UseSessionPendingInteraction&#x27;,
++      &#x27;useWorkspaces: SnapshotSelectorHook&lt;WorkspaceSnapshot&gt;&#x27;,
++      &#x27;useQsAuth?: UseQsAuth | undefined&#x27;,
++    ],
++    keyDomain: &#x27;&#x27;,
++    hookContext: &#x27;&#x27;,
++    slotInject: &#x27;&#x27;,
++    declaredBy: &#x27;an entry in \&#x27;qs.chrome\&#x27; (qs-shell), so it exists while that entry is mounted&#x27;,
++    occupants: [
++      &#x27;qs-ui-brand BrandMark&#x27;,
++    ],
++    replaceRisk: &#x27;shadows-shipped-ui&#x27;,
++    example: &#x27;return {\n  inject: [\&#x27;slots\&#x27;],\n  apply(ctx) {\n    ctx.slots.inject(\&#x27;qs.brand.mark\&#x27;, () =&gt; ctx.slots.register(\n      { name: \&#x27;qs.brand.mark\&#x27; },\n      () =&gt; React.createElement(\&#x27;div\&#x27;, null, \&#x27;hello\&#x27;),\n    ))\n  },\n}&#x27;,
++    source: &#x27;packages/qs/qs-shell/src/client/contract.ts:7&#x27;,
++  },
++  {
++    key: &#x27;qs.brand.name&#x27;,
++    kind: &#x27;single&#x27;,
++    scope: &#x27;root&#x27;,
++    summary: &#x27;Independently contributed workbench brand name.&#x27;,
++    doc: &#x27;Independently contributed workbench brand name.&#x27;,
++    registerOptions: [],
++    ownerProps: [],
++    ownerPropsReferences: [],
++    standardProps: [
++      &#x27;useResource: UseResource&#x27;,
++      &#x27;useWorkspaces: SnapshotSelectorHook&lt;WorkspaceSnapshot&gt;&#x27;,
++      &#x27;usePanelInfo: UsePanelInfo&#x27;,
++      &#x27;useSessions: UseSessions&#x27;,
++      &#x27;useSessionPendingInteraction: UseSessionPendingInteraction&#x27;,
++      &#x27;useWorkspaces: SnapshotSelectorHook&lt;WorkspaceSnapshot&gt;&#x27;,
++      &#x27;useQsAuth?: UseQsAuth | undefined&#x27;,
++    ],
++    keyDomain: &#x27;&#x27;,
++    hookContext: &#x27;&#x27;,
++    slotInject: &#x27;&#x27;,
++    declaredBy: &#x27;an entry in \&#x27;qs.chrome\&#x27; (qs-shell), so it exists while that entry is mounted&#x27;,
++    occupants: [
++      &#x27;qs-ui-brand BrandName&#x27;,
++    ],
++    replaceRisk: &#x27;shadows-shipped-ui&#x27;,
++    example: &#x27;return {\n  inject: [\&#x27;slots\&#x27;],\n  apply(ctx) {\n    ctx.slots.inject(\&#x27;qs.brand.name\&#x27;, () =&gt; ctx.slots.register(\n      { name: \&#x27;qs.brand.name\&#x27; },\n      () =&gt; React.createElement(\&#x27;div\&#x27;, null, \&#x27;hello\&#x27;),\n    ))\n  },\n}&#x27;,
++    source: &#x27;packages/qs/qs-shell/src/client/contract.ts:9&#x27;,
++  },
++  {
++    key: &#x27;qs.chat.assistant-actions&#x27;,
++    kind: &#x27;list&#x27;,
++    scope: &#x27;session&#x27;,
++    summary: &#x27;持久助手消息的扩展动作；运行中及无 messageId 的残片不提供此入口。&#x27;,
++    doc: &#x27;持久助手消息的扩展动作；运行中及无 messageId 的残片不提供此入口。&#x27;,
++    registerOptions: [
++      {
++        name: &#x27;id&#x27;,
++        requirement: &#x27;required&#x27;,
++        type: &#x27;string&#x27;,
++        doc: &#x27;Your cell key. Use an id of your own: a fresh id is added beside the shipped entries, while reusing a shipped id puts you in THAT cell and replaces it. Owners that filter by id address you by it.&#x27;,
++      },
++      {
++        name: &#x27;order&#x27;,
++        requirement: &#x27;optional&#x27;,
++        type: &#x27;number&#x27;,
++        doc: &#x27;Position among the entries, ascending (default 0).&#x27;,
++      },
++      {
++        name: &#x27;label&#x27;,
++        requirement: &#x27;optional&#x27;,
++        type: &#x27;string | (() =&gt; string)&#x27;,
++        doc: &#x27;Display text where the owner projects one (nav rows, tabs). A thunk is re-read on every projection, so localized text follows the active locale without re-registering.&#x27;,
++      },
++    ],
++    ownerProps: [
++      &#x27;/** Stable identity carried by one message across inbox, log, and model-request boundaries. */\nexport type MessageId = Branded&lt;\&#x27;MessageId\&#x27;&gt;&#x27;,
++    ],
++    ownerPropsReferences: [
++      &#x27;Branded&#x27;,
++    ],
++    standardProps: [
++      &#x27;useResource: UseResource&#x27;,
++      &#x27;useWorkspaces: SnapshotSelectorHook&lt;WorkspaceSnapshot&gt;&#x27;,
++      &#x27;usePanelInfo: UsePanelInfo&#x27;,
++      &#x27;useSessions: UseSessions&#x27;,
++      &#x27;useSessionPendingInteraction: UseSessionPendingInteraction&#x27;,
++      &#x27;useWorkspaces: SnapshotSelectorHook&lt;WorkspaceSnapshot&gt;&#x27;,
++      &#x27;useQsAuth?: UseQsAuth | undefined&#x27;,
++      &#x27;useChat: UseChat&#x27;,
++      &#x27;useConversation: UseConversation&#x27;,
++      &#x27;useInput: SnapshotSelectorHook&lt;InputState&gt;&#x27;,
++      &#x27;inputActions: InputActions&#x27;,
++      &#x27;useSession: SessionSnapshotSelector&#x27;,
++      &#x27;sessionId: SessionId&#x27;,
++      &#x27;useProjection: UseProjection&#x27;,
++      &#x27;useTrajectory: UseTrajectory&#x27;,
++    ],
++    keyDomain: &#x27;&#x27;,
++    hookContext: &#x27;&#x27;,
++    slotInject: &#x27;&#x27;,
++    declaredBy: &#x27;the runtime itself (built in; always present)&#x27;,
++    occupants: [
++      &#x27;qs-ui-message-feedback Actions id \&#x27;qs-feedback\&#x27;&#x27;,
++    ],
++    replaceRisk: &#x27;none&#x27;,
++    example: &#x27;return {\n  inject: [\&#x27;slots\&#x27;],\n  apply(ctx) {\n    ctx.slots.inject(\&#x27;qs.chat.assistant-actions\&#x27;, () =&gt; ctx.slots.register(\n      { name: \&#x27;qs.chat.assistant-actions\&#x27;, id: \&#x27;my-entry\&#x27;, order: 100, label: \&#x27;My entry\&#x27; },\n      () =&gt; React.createElement(\&#x27;div\&#x27;, null, \&#x27;hello\&#x27;),\n    ))\n  },\n}&#x27;,
++    source: &#x27;packages/qs/qs-transcript/src/client/contract.ts:16&#x27;,
++  },
+   {
+     key: &#x27;qs.chrome&#x27;,
+     kind: &#x27;single&#x27;,
+@@ -1484,18 +1602,16 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
+     ],
+     replaceRisk: &#x27;shadows-shipped-ui&#x27;,
+     example: &#x27;return {\n  inject: [\&#x27;slots\&#x27;],\n  apply(ctx) {\n    ctx.slots.inject(\&#x27;qs.chrome\&#x27;, () =&gt; ctx.slots.register(\n      { name: \&#x27;qs.chrome\&#x27; },\n      () =&gt; React.createElement(\&#x27;div\&#x27;, null, \&#x27;hello\&#x27;),\n    ))\n  },\n}&#x27;,
+-    source: &#x27;packages/qs/qs-shell/src/client/contract.ts:22&#x27;,
++    source: &#x27;packages/qs/qs-shell/src/client/contract.ts:13&#x27;,
+   },
+   {
+     key: &#x27;qs.composer&#x27;,
+     kind: &#x27;single&#x27;,
+     scope: &#x27;session-maybe&#x27;,
+-    summary: &#x27;输入区；无会话时也渲染，此时 inputActions 为 undefined。由 qs-composer 贡献。&#x27;,
+-    doc: &#x27;输入区；无会话时也渲染，此时 inputActions 为 undefined。由 qs-composer 贡献。&#x27;,
++    summary: &#x27;输入视图接收会话或无会话座席；注册替换 QS 输入区，缺失时不提供输入。&#x27;,
++    doc: &#x27;输入视图接收会话或无会话座席；注册替换 QS 输入区，缺失时不提供输入。&#x27;,
+     registerOptions: [],
+-    ownerProps: [
+-      &#x27;/** 输入区业主输入。 */\nexport interface QsComposerOwnerProps { children?: never }&#x27;,
+-    ],
++    ownerProps: [],
+     ownerPropsReferences: [],
+     standardProps: [
+       &#x27;useResource: UseResource&#x27;,
+@@ -1515,13 +1631,76 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
+     keyDomain: &#x27;&#x27;,
+     hookContext: &#x27;&#x27;,
+     slotInject: &#x27;&#x27;,
+-    declaredBy: &#x27;an entry in \&#x27;qs.stage\&#x27; (qs-shell), so it exists while that entry is mounted&#x27;,
++    declaredBy: &#x27;an entry in \&#x27;qs.stage\&#x27; (qs-composer), so it exists while that entry is mounted&#x27;,
+     occupants: [
+       &#x27;qs-composer Composer&#x27;,
+     ],
+     replaceRisk: &#x27;shadows-shipped-ui&#x27;,
+     example: &#x27;return {\n  inject: [\&#x27;slots\&#x27;],\n  apply(ctx) {\n    ctx.slots.inject(\&#x27;qs.composer\&#x27;, () =&gt; ctx.slots.register(\n      { name: \&#x27;qs.composer\&#x27; },\n      () =&gt; React.createElement(\&#x27;div\&#x27;, null, \&#x27;hello\&#x27;),\n    ))\n  },\n}&#x27;,
+-    source: &#x27;packages/qs/qs-shell/src/client/contract.ts:32&#x27;,
++    source: &#x27;packages/qs/qs-composer/src/client/contract.ts:24&#x27;,
++  },
++  {
++    key: &#x27;qs.composer.overlay&#x27;,
++    kind: &#x27;list&#x27;,
++    scope: &#x27;session&#x27;,
++    summary: &#x27;Input view owned by this conversation plugin.&#x27;,
++    doc: &#x27;Input view owned by this conversation plugin. */\n/** 命令菜单与弹层由对应独立插件贡献。&#x27;,
++    registerOptions: [
++      {
++        name: &#x27;id&#x27;,
++        requirement: &#x27;required&#x27;,
++        type: &#x27;string&#x27;,
++        doc: &#x27;Your cell key. Use an id of your own: a fresh id is added beside the shipped entries, while reusing a shipped id puts you in THAT cell and replaces it. Owners that filter by id address you by it.&#x27;,
++      },
++      {
++        name: &#x27;order&#x27;,
++        requirement: &#x27;optional&#x27;,
++        type: &#x27;number&#x27;,
++        doc: &#x27;Position among the entries, ascending (default 0).&#x27;,
++      },
++      {
++        name: &#x27;label&#x27;,
++        requirement: &#x27;optional&#x27;,
++        type: &#x27;string | (() =&gt; string)&#x27;,
++        doc: &#x27;Display text where the owner projects one (nav rows, tabs). A thunk is re-read on every projection, so localized text follows the active locale without re-registering.&#x27;,
++      },
++    ],
++    ownerProps: [
++      &#x27;/** 菜单和弹层共享可见输入及独立冻结取得动作。 */\nexport interface QsCommandOverlayOwner {\n  readonly inputElement: { readonly current: HTMLTextAreaElement | null }\n  readonly frozen: boolean\n  readonly composing: { readonly current: boolean }\n  /** 安装当前输入的手势适配器；释放只移除同一实例。 */\n  readonly bindCommandInput: (bridge: QsCommandInputBridge) =&gt; () =&gt; void\n  readonly acquireFreeze: QsComposerInjected[\&#x27;acquireFreeze\&#x27;]\n}&#x27;,
++    ],
++    ownerPropsReferences: [
++      &#x27;QsCommandInputBridge&#x27;,
++      &#x27;QsComposerInjected&#x27;,
++    ],
++    standardProps: [
++      &#x27;useResource: UseResource&#x27;,
++      &#x27;useWorkspaces: SnapshotSelectorHook&lt;WorkspaceSnapshot&gt;&#x27;,
++      &#x27;usePanelInfo: UsePanelInfo&#x27;,
++      &#x27;useSessions: UseSessions&#x27;,
++      &#x27;useSessionPendingInteraction: UseSessionPendingInteraction&#x27;,
++      &#x27;useWorkspaces: SnapshotSelectorHook&lt;WorkspaceSnapshot&gt;&#x27;,
++      &#x27;useQsAuth?: UseQsAuth | undefined&#x27;,
++      &#x27;useChat: UseChat&#x27;,
++      &#x27;useConversation: UseConversation&#x27;,
++      &#x27;useInput: SnapshotSelectorHook&lt;InputState&gt;&#x27;,
++      &#x27;inputActions: InputActions&#x27;,
++      &#x27;useSession: SessionSnapshotSelector&#x27;,
++      &#x27;sessionId: SessionId&#x27;,
++      &#x27;useProjection: UseProjection&#x27;,
++      &#x27;useTrajectory: UseTrajectory&#x27;,
++    ],
++    keyDomain: &#x27;&#x27;,
++    hookContext: &#x27;&#x27;,
++    slotInject: &#x27;&#x27;,
++    declaredBy: &#x27;an entry in \&#x27;qs.composer\&#x27; (qs-composer), so it exists while that entry is mounted&#x27;,
++    occupants: [
++      &#x27;qs-ui-commands CommandPopup id \&#x27;qs-command-popup\&#x27;&#x27;,
++      &#x27;qs-ui-input-trigger CommandMenu id \&#x27;qs-command-menu\&#x27;&#x27;,
++      &#x27;qs-ui-message-feedback Feedback id \&#x27;qs-feedback-dialog\&#x27;&#x27;,
++    ],
++    replaceRisk: &#x27;none&#x27;,
++    example: &#x27;return {\n  inject: [\&#x27;slots\&#x27;],\n  apply(ctx) {\n    ctx.slots.inject(\&#x27;qs.composer.overlay\&#x27;, () =&gt; ctx.slots.register(\n      { name: \&#x27;qs.composer.overlay\&#x27;, id: \&#x27;my-entry\&#x27;, order: 100, label: \&#x27;My entry\&#x27; },\n      () =&gt; React.createElement(\&#x27;div\&#x27;, null, \&#x27;hello\&#x27;),\n    ))\n  },\n}&#x27;,
++    source: &#x27;packages/qs/qs-composer/src/client/contract.ts:22&#x27;,
+   },
+   {
+     key: &#x27;qs.gate&#x27;,
+@@ -1552,17 +1731,17 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
+     ],
+     replaceRisk: &#x27;shadows-shipped-ui&#x27;,
+     example: &#x27;return {\n  inject: [\&#x27;slots\&#x27;],\n  apply(ctx) {\n    ctx.slots.inject(\&#x27;qs.gate\&#x27;, () =&gt; ctx.slots.register(\n      { name: \&#x27;qs.gate\&#x27; },\n      () =&gt; React.createElement(\&#x27;div\&#x27;, null, \&#x27;hello\&#x27;),\n    ))\n  },\n}&#x27;,
+-    source: &#x27;packages/qs/qs-shell/src/client/contract.ts:20&#x27;,
++    source: &#x27;packages/qs/qs-shell/src/client/contract.ts:11&#x27;,
+   },
+   {
+     key: &#x27;qs.inspector&#x27;,
+     kind: &#x27;single&#x27;,
+     scope: &#x27;root&#x27;,
+-    summary: &#x27;右栏：工作区辅助面板骨架与空态；由 qs-shell 贡献。&#x27;,
+-    doc: &#x27;右栏：工作区辅助面板骨架与空态；由 qs-shell 贡献。&#x27;,
++    summary: &#x27;右栏挂载点；布局传入几何状态，qs-ui-sidebar-right 贡献内容。&#x27;,
++    doc: &#x27;右栏挂载点；布局传入几何状态，qs-ui-sidebar-right 贡献内容。&#x27;,
+     registerOptions: [],
+     ownerProps: [
+-      &#x27;/** 右栏业主输入。 */\nexport interface QsInspectorOwnerProps { children?: never }&#x27;,
++      &#x27;/** 右栏业主输入。 */\nexport interface QsInspectorOwnerProps {\n  readonly hidden: boolean\n  /** 外壳主动操作的递增序号；面板回报不增加序号。 */\n  readonly requestId: number\n  /** 回报官方会话面板的实际展开状态。 */\n  readonly reportOpen: (open: boolean) =&gt; void\n}&#x27;,
+     ],
+     ownerPropsReferences: [],
+     standardProps: [
+@@ -1579,22 +1758,20 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
+     slotInject: &#x27;&#x27;,
+     declaredBy: &#x27;an entry in \&#x27;root\&#x27; (qs-shell), so it exists while that entry is mounted&#x27;,
+     occupants: [
+-      &#x27;qs-shell QsRightPanel&#x27;,
++      &#x27;qs-ui-sidebar-right QsRightPanel&#x27;,
+     ],
+     replaceRisk: &#x27;shadows-shipped-ui&#x27;,
+     example: &#x27;return {\n  inject: [\&#x27;slots\&#x27;],\n  apply(ctx) {\n    ctx.slots.inject(\&#x27;qs.inspector\&#x27;, () =&gt; ctx.slots.register(\n      { name: \&#x27;qs.inspector\&#x27; },\n      () =&gt; React.createElement(\&#x27;div\&#x27;, null, \&#x27;hello\&#x27;),\n    ))\n  },\n}&#x27;,
+-    source: &#x27;packages/qs/qs-shell/src/client/contract.ts:34&#x27;,
++    source: &#x27;packages/qs/qs-shell/src/client/contract.ts:19&#x27;,
+   },
+   {
+     key: &#x27;qs.nav&#x27;,
+     kind: &#x27;single&#x27;,
+     scope: &#x27;root&#x27;,
+-    summary: &#x27;左导航：会话列表容器；由 qs-sessions 贡献。&#x27;,
+-    doc: &#x27;左导航：会话列表容器；由 qs-sessions 贡献。&#x27;,
++    summary: &#x27;Workspace/session navigation owned by the sidebar entry.&#x27;,
++    doc: &#x27;Workspace/session navigation owned by the sidebar entry.&#x27;,
+     registerOptions: [],
+-    ownerProps: [
+-      &#x27;/** 左导航业主输入。 */\nexport interface QsNavOwnerProps { children?: never }&#x27;,
+-    ],
++    ownerProps: [],
+     ownerPropsReferences: [],
+     standardProps: [
+       &#x27;useResource: UseResource&#x27;,
+@@ -1608,13 +1785,13 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
+     keyDomain: &#x27;&#x27;,
+     hookContext: &#x27;&#x27;,
+     slotInject: &#x27;&#x27;,
+-    declaredBy: &#x27;an entry in \&#x27;root\&#x27; (qs-shell), so it exists while that entry is mounted&#x27;,
++    declaredBy: &#x27;an entry in \&#x27;qs.sidebar\&#x27; (qs-ui-sidebar), so it exists while that entry is mounted&#x27;,
+     occupants: [
+       &#x27;qs-sessions SessionList&#x27;,
+     ],
+     replaceRisk: &#x27;shadows-shipped-ui&#x27;,
+     example: &#x27;return {\n  inject: [\&#x27;slots\&#x27;],\n  apply(ctx) {\n    ctx.slots.inject(\&#x27;qs.nav\&#x27;, () =&gt; ctx.slots.register(\n      { name: \&#x27;qs.nav\&#x27; },\n      () =&gt; React.createElement(\&#x27;div\&#x27;, null, \&#x27;hello\&#x27;),\n    ))\n  },\n}&#x27;,
+-    source: &#x27;packages/qs/qs-shell/src/client/contract.ts:24&#x27;,
++    source: &#x27;packages/qs/qs-ui-sidebar/src/client/index.ts:11&#x27;,
+   },
+   {
+     key: &#x27;qs.overlay&#x27;,
+@@ -1664,14 +1841,326 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
+     ],
+     replaceRisk: &#x27;none&#x27;,
+     example: &#x27;return {\n  inject: [\&#x27;slots\&#x27;],\n  apply(ctx) {\n    ctx.slots.inject(\&#x27;qs.overlay\&#x27;, () =&gt; ctx.slots.register(\n      { name: \&#x27;qs.overlay\&#x27;, id: \&#x27;my-entry\&#x27;, order: 100, label: \&#x27;My entry\&#x27; },\n      () =&gt; React.createElement(\&#x27;div\&#x27;, null, \&#x27;hello\&#x27;),\n    ))\n  },\n}&#x27;,
+-    source: &#x27;packages/qs/qs-shell/src/client/contract.ts:38&#x27;,
++    source: &#x27;packages/qs/qs-shell/src/client/contract.ts:23&#x27;,
++  },
++  {
++    key: &#x27;qs.sidebar&#x27;,
++    kind: &#x27;single&#x27;,
++    scope: &#x27;root&#x27;,
++    summary: &#x27;Sidebar shell with its own workspace child slot.&#x27;,
++    doc: &#x27;Sidebar shell with its own workspace child slot.&#x27;,
++    registerOptions: [],
++    ownerProps: [],
++    ownerPropsReferences: [],
++    standardProps: [
++      &#x27;useResource: UseResource&#x27;,
++      &#x27;useWorkspaces: SnapshotSelectorHook&lt;WorkspaceSnapshot&gt;&#x27;,
++      &#x27;usePanelInfo: UsePanelInfo&#x27;,
++      &#x27;useSessions: UseSessions&#x27;,
++      &#x27;useSessionPendingInteraction: UseSessionPendingInteraction&#x27;,
++      &#x27;useWorkspaces: SnapshotSelectorHook&lt;WorkspaceSnapshot&gt;&#x27;,
++      &#x27;useQsAuth?: UseQsAuth | undefined&#x27;,
++    ],
++    keyDomain: &#x27;&#x27;,
++    hookContext: &#x27;&#x27;,
++    slotInject: &#x27;&#x27;,
++    declaredBy: &#x27;an entry in \&#x27;root\&#x27; (qs-shell), so it exists while that entry is mounted&#x27;,
++    occupants: [
++      &#x27;qs-ui-sidebar QsSideNav&#x27;,
++    ],
++    replaceRisk: &#x27;shadows-shipped-ui&#x27;,
++    example: &#x27;return {\n  inject: [\&#x27;slots\&#x27;],\n  apply(ctx) {\n    ctx.slots.inject(\&#x27;qs.sidebar\&#x27;, () =&gt; ctx.slots.register(\n      { name: \&#x27;qs.sidebar\&#x27; },\n      () =&gt; React.createElement(\&#x27;div\&#x27;, null, \&#x27;hello\&#x27;),\n    ))\n  },\n}&#x27;,
++    source: &#x27;packages/qs/qs-shell/src/client/contract.ts:15&#x27;,
++  },
++  {
++    key: &#x27;qs.sidebar.document&#x27;,
++    kind: &#x27;keyed&#x27;,
++    scope: &#x27;session&#x27;,
++    summary: &#x27;六类 QS 正文按官方实现身份分派。&#x27;,
++    doc: &#x27;六类 QS 正文按官方实现身份分派。&#x27;,
++    registerOptions: [
++      {
++        name: &#x27;key&#x27;,
++        requirement: &#x27;required&#x27;,
++        type: &#x27;string&#x27;,
++        doc: &#x27;Your cell key: the entry renders where the owner dispatches this exact key. Registering an already-occupied key replaces that occupant.&#x27;,
++      },
++    ],
++    ownerProps: [
++      &#x27;/** Slot contract table. Owners extend via declaration merging; entries are {@link SlotEntryDef}. */\nexport interface SlotMap {}&#x27;,
++    ],
++    ownerPropsReferences: [
++      &#x27;SlotEntryDef&#x27;,
++    ],
++    standardProps: [
++      &#x27;useResource: UseResource&#x27;,
++      &#x27;useWorkspaces: SnapshotSelectorHook&lt;WorkspaceSnapshot&gt;&#x27;,
++      &#x27;usePanelInfo: UsePanelInfo&#x27;,
++      &#x27;useSessions: UseSessions&#x27;,
++      &#x27;useSessionPendingInteraction: UseSessionPendingInteraction&#x27;,
++      &#x27;useWorkspaces: SnapshotSelectorHook&lt;WorkspaceSnapshot&gt;&#x27;,
++      &#x27;useQsAuth?: UseQsAuth | undefined&#x27;,
++      &#x27;useChat: UseChat&#x27;,
++      &#x27;useConversation: UseConversation&#x27;,
++      &#x27;useInput: SnapshotSelectorHook&lt;InputState&gt;&#x27;,
++      &#x27;inputActions: InputActions&#x27;,
++      &#x27;useSession: SessionSnapshotSelector&#x27;,
++      &#x27;sessionId: SessionId&#x27;,
++      &#x27;useProjection: UseProjection&#x27;,
++      &#x27;useTrajectory: UseTrajectory&#x27;,
++    ],
++    keyDomain: &#x27;open: any string the owner dispatches (no compile-time key set), already taken: @deepseek-ai/dsh-client-ui-sidebar-documentpreview/code, @deepseek-ai/dsh-client-ui-sidebar-documentpreview/html, @deepseek-ai/dsh-client-ui-sidebar-documentpreview/image, @deepseek-ai/dsh-client-ui-sidebar-documentpreview/markdown, @deepseek-ai/dsh-client-ui-sidebar-documentpreview/pdf, @deepseek-ai/dsh-client-ui-sidebar-documentpreview/text&#x27;,
++    hookContext: &#x27;UseSidebarRightTabInfo&#x27;,
++    slotInject: &#x27;{ hooks: { tabInfo: SlotHookFactory&lt;\&#x27;qs.sidebar.document\&#x27;, UseSidebarRightTabInfo&gt; } }&#x27;,
++    declaredBy: &#x27;an entry in \&#x27;qs.sidebar.right.tab\&#x27; (qs-ui-sidebar-documentpreview), so it exists while that entry is mounted&#x27;,
++    occupants: [
++      &#x27;qs-ui-sidebar-documentpreview CodeBody key \&#x27;@deepseek-ai/dsh-client-ui-sidebar-documentpreview/code\&#x27;&#x27;,
++      &#x27;qs-ui-sidebar-documentpreview HtmlBody key \&#x27;@deepseek-ai/dsh-client-ui-sidebar-documentpreview/html\&#x27;&#x27;,
++      &#x27;qs-ui-sidebar-documentpreview ImageBody key \&#x27;@deepseek-ai/dsh-client-ui-sidebar-documentpreview/image\&#x27;&#x27;,
++      &#x27;qs-ui-sidebar-documentpreview MarkdownBody key \&#x27;@deepseek-ai/dsh-client-ui-sidebar-documentpreview/markdown\&#x27;&#x27;,
++      &#x27;qs-ui-sidebar-documentpreview PdfBody key \&#x27;@deepseek-ai/dsh-client-ui-sidebar-documentpreview/pdf\&#x27;&#x27;,
++      &#x27;qs-ui-sidebar-documentpreview TextBody key \&#x27;@deepseek-ai/dsh-client-ui-sidebar-documentpreview/text\&#x27;&#x27;,
++    ],
++    replaceRisk: &#x27;shadows-shipped-ui&#x27;,
++    example: &#x27;return {\n  inject: [\&#x27;slots\&#x27;],\n  apply(ctx) {\n    ctx.slots.inject(\&#x27;qs.sidebar.document\&#x27;, () =&gt; ctx.slots.register(\n      { name: \&#x27;qs.sidebar.document\&#x27;, key: \&#x27;&lt;one key the owner dispatches&gt;\&#x27; },\n      () =&gt; React.createElement(\&#x27;div\&#x27;, null, \&#x27;hello\&#x27;),\n    ))\n  },\n}&#x27;,
++    source: &#x27;packages/qs/qs-ui-sidebar-documentpreview/src/client/contract.ts:9&#x27;,
++  },
++  {
++    key: &#x27;qs.sidebar.right.guide&#x27;,
++    kind: &#x27;chain&#x27;,
++    scope: &#x27;session&#x27;,
++    summary: &#x27;替换当前 guide 正文的 chain；接收其 useTabInfo，所有选择器拒绝或无贡献时保留注册表入口向导。&#x27;,
++    doc: &#x27;替换当前 guide 正文的 chain；接收其 useTabInfo，所有选择器拒绝或无贡献时保留注册表入口向导。&#x27;,
++    registerOptions: [
++      {
++        name: &#x27;select&#x27;,
++        requirement: &#x27;required&#x27;,
++        type: &#x27;(owner) =&gt; unknown | null&#x27;,
++        doc: &#x27;Pure routing selector. Entries are tried in ascending order; the first non-null result wins and arrives as the component\&#x27;s `matched` prop. All-null falls through to the owner\&#x27;s fallback.&#x27;,
++      },
++    ],
++    ownerProps: [],
++    ownerPropsReferences: [],
++    standardProps: [
++      &#x27;useResource: UseResource&#x27;,
++      &#x27;useWorkspaces: SnapshotSelectorHook&lt;WorkspaceSnapshot&gt;&#x27;,
++      &#x27;usePanelInfo: UsePanelInfo&#x27;,
++      &#x27;useSessions: UseSessions&#x27;,
++      &#x27;useSessionPendingInteraction: UseSessionPendingInteraction&#x27;,
++      &#x27;useWorkspaces: SnapshotSelectorHook&lt;WorkspaceSnapshot&gt;&#x27;,
++      &#x27;useQsAuth?: UseQsAuth | undefined&#x27;,
++      &#x27;useChat: UseChat&#x27;,
++      &#x27;useConversation: UseConversation&#x27;,
++      &#x27;useInput: SnapshotSelectorHook&lt;InputState&gt;&#x27;,
++      &#x27;inputActions: InputActions&#x27;,
++      &#x27;useSession: SessionSnapshotSelector&#x27;,
++      &#x27;sessionId: SessionId&#x27;,
++      &#x27;useProjection: UseProjection&#x27;,
++      &#x27;useTrajectory: UseTrajectory&#x27;,
++    ],
++    keyDomain: &#x27;&#x27;,
++    hookContext: &#x27;UseSidebarRightTabInfo&#x27;,
++    slotInject: &#x27;{ hooks: { tabInfo: SlotHookFactory&lt;\&#x27;qs.sidebar.right.guide\&#x27;, UseSidebarRightTabInfo&gt; } }&#x27;,
++    declaredBy: &#x27;an entry in \&#x27;qs.sidebar.right.tab\&#x27; (qs-ui-sidebar-right), so it exists while that entry is mounted&#x27;,
++    occupants: [],
++    replaceRisk: &#x27;none&#x27;,
++    example: &#x27;return {\n  inject: [\&#x27;slots\&#x27;],\n  apply(ctx) {\n    ctx.slots.inject(\&#x27;qs.sidebar.right.guide\&#x27;, () =&gt; ctx.slots.register(\n      { name: \&#x27;qs.sidebar.right.guide\&#x27;, select: owner =&gt; null },\n      () =&gt; React.createElement(\&#x27;div\&#x27;, null, \&#x27;hello\&#x27;),\n    ))\n  },\n}&#x27;,
++    source: &#x27;packages/qs/qs-ui-sidebar-right/src/client/contract.ts:15&#x27;,
++  },
++  {
++    key: &#x27;qs.sidebar.right.menu&#x27;,
++    kind: &#x27;list&#x27;,
++    scope: &#x27;session&#x27;,
++    summary: &#x27;按独立 id 贡献标签菜单项，接收 tab 和 dismiss；执行动作后必须 dismiss，无贡献只保留 docking 布局动作。&#x27;,
++    doc: &#x27;按独立 id 贡献标签菜单项，接收 tab 和 dismiss；执行动作后必须 dismiss，无贡献只保留 docking 布局动作。&#x27;,
++    registerOptions: [
++      {
++        name: &#x27;id&#x27;,
++        requirement: &#x27;required&#x27;,
++        type: &#x27;string&#x27;,
++        doc: &#x27;Your cell key. Use an id of your own: a fresh id is added beside the shipped entries, while reusing a shipped id puts you in THAT cell and replaces it. Owners that filter by id address you by it.&#x27;,
++      },
++      {
++        name: &#x27;order&#x27;,
++        requirement: &#x27;optional&#x27;,
++        type: &#x27;number&#x27;,
++        doc: &#x27;Position among the entries, ascending (default 0).&#x27;,
++      },
++      {
++        name: &#x27;label&#x27;,
++        requirement: &#x27;optional&#x27;,
++        type: &#x27;string | (() =&gt; string)&#x27;,
++        doc: &#x27;Display text where the owner projects one (nav rows, tabs). A thunk is re-read on every projection, so localized text follows the active locale without re-registering.&#x27;,
++      },
++    ],
++    ownerProps: [
++      &#x27;/** Owner share of one tab-menu item occurrence. */\nexport interface SidebarRightTabMenuOwnerProps {\n  /** The tab whose menu is open. */\n  tab: TabRecord\n  /**\n   * Dismiss the menu.\n   *\n   * An item that acts MUST call this: the menu is the kit\&#x27;s, and it closes on\n   * its own actions only. An item that leaves it open leaves a menu floating\n   * over content the action may have just replaced.\n   */\n  dismiss: () =&gt; void\n}&#x27;,
++    ],
++    ownerPropsReferences: [
++      &#x27;TabRecord&#x27;,
++    ],
++    standardProps: [
++      &#x27;useResource: UseResource&#x27;,
++      &#x27;useWorkspaces: SnapshotSelectorHook&lt;WorkspaceSnapshot&gt;&#x27;,
++      &#x27;usePanelInfo: UsePanelInfo&#x27;,
++      &#x27;useSessions: UseSessions&#x27;,
++      &#x27;useSessionPendingInteraction: UseSessionPendingInteraction&#x27;,
++      &#x27;useWorkspaces: SnapshotSelectorHook&lt;WorkspaceSnapshot&gt;&#x27;,
++      &#x27;useQsAuth?: UseQsAuth | undefined&#x27;,
++      &#x27;useChat: UseChat&#x27;,
++      &#x27;useConversation: UseConversation&#x27;,
++      &#x27;useInput: SnapshotSelectorHook&lt;InputState&gt;&#x27;,
++      &#x27;inputActions: InputActions&#x27;,
++      &#x27;useSession: SessionSnapshotSelector&#x27;,
++      &#x27;sessionId: SessionId&#x27;,
++      &#x27;useProjection: UseProjection&#x27;,
++      &#x27;useTrajectory: UseTrajectory&#x27;,
++    ],
++    keyDomain: &#x27;&#x27;,
++    hookContext: &#x27;&#x27;,
++    slotInject: &#x27;&#x27;,
++    declaredBy: &#x27;an entry in \&#x27;qs.sidebar.right.session\&#x27; (qs-ui-sidebar-right), so it exists while that entry is mounted&#x27;,
++    occupants: [],
++    replaceRisk: &#x27;none&#x27;,
++    example: &#x27;return {\n  inject: [\&#x27;slots\&#x27;],\n  apply(ctx) {\n    ctx.slots.inject(\&#x27;qs.sidebar.right.menu\&#x27;, () =&gt; ctx.slots.register(\n      { name: \&#x27;qs.sidebar.right.menu\&#x27;, id: \&#x27;my-entry\&#x27;, order: 100, label: \&#x27;My entry\&#x27; },\n      () =&gt; React.createElement(\&#x27;div\&#x27;, null, \&#x27;hello\&#x27;),\n    ))\n  },\n}&#x27;,
++    source: &#x27;packages/qs/qs-ui-sidebar-right/src/client/contract.ts:17&#x27;,
++  },
++  {
++    key: &#x27;qs.sidebar.right.session&#x27;,
++    kind: &#x27;single&#x27;,
++    scope: &#x27;session&#x27;,
++    summary: &#x27;右栏 session 宿主，注册者接收外壳几何意图及 sessionId，负责绑定唯一官方导航状态；无贡献时不显示会话面板。&#x27;,
++    doc: &#x27;右栏 session 宿主，注册者接收外壳几何意图及 sessionId，负责绑定唯一官方导航状态；无贡献时不显示会话面板。&#x27;,
++    registerOptions: [],
++    ownerProps: [
++      &#x27;/** 右栏业主输入。 */\nexport interface QsInspectorOwnerProps {\n  readonly hidden: boolean\n  /** 外壳主动操作的递增序号；面板回报不增加序号。 */\n  readonly requestId: number\n  /** 回报官方会话面板的实际展开状态。 */\n  readonly reportOpen: (open: boolean) =&gt; void\n}&#x27;,
++    ],
++    ownerPropsReferences: [],
++    standardProps: [
++      &#x27;useResource: UseResource&#x27;,
++      &#x27;useWorkspaces: SnapshotSelectorHook&lt;WorkspaceSnapshot&gt;&#x27;,
++      &#x27;usePanelInfo: UsePanelInfo&#x27;,
++      &#x27;useSessions: UseSessions&#x27;,
++      &#x27;useSessionPendingInteraction: UseSessionPendingInteraction&#x27;,
++      &#x27;useWorkspaces: SnapshotSelectorHook&lt;WorkspaceSnapshot&gt;&#x27;,
++      &#x27;useQsAuth?: UseQsAuth | undefined&#x27;,
++      &#x27;useChat: UseChat&#x27;,
++      &#x27;useConversation: UseConversation&#x27;,
++      &#x27;useInput: SnapshotSelectorHook&lt;InputState&gt;&#x27;,
++      &#x27;inputActions: InputActions&#x27;,
++      &#x27;useSession: SessionSnapshotSelector&#x27;,
++      &#x27;sessionId: SessionId&#x27;,
++      &#x27;useProjection: UseProjection&#x27;,
++      &#x27;useTrajectory: UseTrajectory&#x27;,
++    ],
++    keyDomain: &#x27;&#x27;,
++    hookContext: &#x27;&#x27;,
++    slotInject: &#x27;&#x27;,
++    declaredBy: &#x27;an entry in \&#x27;qs.inspector\&#x27; (qs-ui-sidebar-right), so it exists while that entry is mounted&#x27;,
++    occupants: [
++      &#x27;qs-ui-sidebar-right QsPanelSession&#x27;,
++    ],
++    replaceRisk: &#x27;shadows-shipped-ui&#x27;,
++    example: &#x27;return {\n  inject: [\&#x27;slots\&#x27;],\n  apply(ctx) {\n    ctx.slots.inject(\&#x27;qs.sidebar.right.session\&#x27;, () =&gt; ctx.slots.register(\n      { name: \&#x27;qs.sidebar.right.session\&#x27; },\n      () =&gt; React.createElement(\&#x27;div\&#x27;, null, \&#x27;hello\&#x27;),\n    ))\n  },\n}&#x27;,
++    source: &#x27;packages/qs/qs-ui-sidebar-right/src/client/contract.ts:9&#x27;,
++  },
++  {
++    key: &#x27;qs.sidebar.right.tab&#x27;,
++    kind: &#x27;keyed&#x27;,
++    scope: &#x27;session&#x27;,
++    summary: &#x27;按官方类型 definition.id 注册正文，接收 useTabInfo 读取身份、可见性、导航和生命周期；缺失注册显示不支持说明。&#x27;,
++    doc: &#x27;按官方类型 definition.id 注册正文，接收 useTabInfo 读取身份、可见性、导航和生命周期；缺失注册显示不支持说明。&#x27;,
++    registerOptions: [
++      {
++        name: &#x27;key&#x27;,
++        requirement: &#x27;required&#x27;,
++        type: &#x27;string&#x27;,
++        doc: &#x27;Your cell key: the entry renders where the owner dispatches this exact key. Registering an already-occupied key replaces that occupant.&#x27;,
++      },
++    ],
++    ownerProps: [],
++    ownerPropsReferences: [],
++    standardProps: [
++      &#x27;useResource: UseResource&#x27;,
++      &#x27;useWorkspaces: SnapshotSelectorHook&lt;WorkspaceSnapshot&gt;&#x27;,
++      &#x27;usePanelInfo: UsePanelInfo&#x27;,
++      &#x27;useSessions: UseSessions&#x27;,
++      &#x27;useSessionPendingInteraction: UseSessionPendingInteraction&#x27;,
++      &#x27;useWorkspaces: SnapshotSelectorHook&lt;WorkspaceSnapshot&gt;&#x27;,
++      &#x27;useQsAuth?: UseQsAuth | undefined&#x27;,
++      &#x27;useChat: UseChat&#x27;,
++      &#x27;useConversation: UseConversation&#x27;,
++      &#x27;useInput: SnapshotSelectorHook&lt;InputState&gt;&#x27;,
++      &#x27;inputActions: InputActions&#x27;,
++      &#x27;useSession: SessionSnapshotSelector&#x27;,
++      &#x27;sessionId: SessionId&#x27;,
++      &#x27;useProjection: UseProjection&#x27;,
++      &#x27;useTrajectory: UseTrajectory&#x27;,
++    ],
++    keyDomain: &#x27;open: any string the owner dispatches (no compile-time key set), already taken: @deepseek-ai/dsh-client-ui-sidebar-documentpreview, @deepseek-ai/dsh-client-ui-sidebar-right/guide&#x27;,
++    hookContext: &#x27;HookContextOf&lt;\&#x27;sidebar.right.pane.tab\&#x27;&gt;&#x27;,
++    slotInject: &#x27;SidebarRightTabInjected&#x27;,
++    declaredBy: &#x27;an entry in \&#x27;qs.sidebar.right.session\&#x27; (qs-ui-sidebar-right), so it exists while that entry is mounted&#x27;,
++    occupants: [
++      &#x27;qs-ui-sidebar-documentpreview Preview key \&#x27;@deepseek-ai/dsh-client-ui-sidebar-documentpreview\&#x27;&#x27;,
++      &#x27;qs-ui-sidebar-files Files&#x27;,
++      &#x27;qs-ui-sidebar-right QsGuide key \&#x27;@deepseek-ai/dsh-client-ui-sidebar-right/guide\&#x27;&#x27;,
++    ],
++    replaceRisk: &#x27;shadows-shipped-ui&#x27;,
++    example: &#x27;return {\n  inject: [\&#x27;slots\&#x27;],\n  apply(ctx) {\n    ctx.slots.inject(\&#x27;qs.sidebar.right.tab\&#x27;, () =&gt; ctx.slots.register(\n      { name: \&#x27;qs.sidebar.right.tab\&#x27;, key: \&#x27;&lt;one key the owner dispatches&gt;\&#x27; },\n      () =&gt; React.createElement(\&#x27;div\&#x27;, null, \&#x27;hello\&#x27;),\n    ))\n  },\n}&#x27;,
++    source: &#x27;packages/qs/qs-ui-sidebar-right/src/client/contract.ts:11&#x27;,
++  },
++  {
++    key: &#x27;qs.sidebar.right.tab.title&#x27;,
++    kind: &#x27;keyed&#x27;,
++    scope: &#x27;session&#x27;,
++    summary: &#x27;按与正文相同的 definition.id 注册动态标题；接收同一标签 hook，缺失时使用官方 record.title。&#x27;,
++    doc: &#x27;按与正文相同的 definition.id 注册动态标题；接收同一标签 hook，缺失时使用官方 record.title。&#x27;,
++    registerOptions: [
++      {
++        name: &#x27;key&#x27;,
++        requirement: &#x27;required&#x27;,
++        type: &#x27;string&#x27;,
++        doc: &#x27;Your cell key: the entry renders where the owner dispatches this exact key. Registering an already-occupied key replaces that occupant.&#x27;,
++      },
++    ],
++    ownerProps: [],
++    ownerPropsReferences: [],
++    standardProps: [
++      &#x27;useResource: UseResource&#x27;,
++      &#x27;useWorkspaces: SnapshotSelectorHook&lt;WorkspaceSnapshot&gt;&#x27;,
++      &#x27;usePanelInfo: UsePanelInfo&#x27;,
++      &#x27;useSessions: UseSessions&#x27;,
++      &#x27;useSessionPendingInteraction: UseSessionPendingInteraction&#x27;,
++      &#x27;useWorkspaces: SnapshotSelectorHook&lt;WorkspaceSnapshot&gt;&#x27;,
++      &#x27;useQsAuth?: UseQsAuth | undefined&#x27;,
++      &#x27;useChat: UseChat&#x27;,
++      &#x27;useConversation: UseConversation&#x27;,
++      &#x27;useInput: SnapshotSelectorHook&lt;InputState&gt;&#x27;,
++      &#x27;inputActions: InputActions&#x27;,
++      &#x27;useSession: SessionSnapshotSelector&#x27;,
++      &#x27;sessionId: SessionId&#x27;,
++      &#x27;useProjection: UseProjection&#x27;,
++      &#x27;useTrajectory: UseTrajectory&#x27;,
++    ],
++    keyDomain: &#x27;open: any string the owner dispatches (no compile-time key set), already taken: @deepseek-ai/dsh-client-ui-sidebar-right/guide&#x27;,
++    hookContext: &#x27;HookContextOf&lt;\&#x27;sidebar.right.pane.tab.title\&#x27;&gt;&#x27;,
++    slotInject: &#x27;SidebarRightTabInjected&#x27;,
++    declaredBy: &#x27;an entry in \&#x27;qs.sidebar.right.session\&#x27; (qs-ui-sidebar-right), so it exists while that entry is mounted&#x27;,
++    occupants: [
++      &#x27;qs-ui-sidebar-files FilesTitle&#x27;,
++      &#x27;qs-ui-sidebar-right GuideTitle key \&#x27;@deepseek-ai/dsh-client-ui-sidebar-right/guide\&#x27;&#x27;,
++    ],
++    replaceRisk: &#x27;shadows-shipped-ui&#x27;,
++    example: &#x27;return {\n  inject: [\&#x27;slots\&#x27;],\n  apply(ctx) {\n    ctx.slots.inject(\&#x27;qs.sidebar.right.tab.title\&#x27;, () =&gt; ctx.slots.register(\n      { name: \&#x27;qs.sidebar.right.tab.title\&#x27;, key: \&#x27;&lt;one key the owner dispatches&gt;\&#x27; },\n      () =&gt; React.createElement(\&#x27;div\&#x27;, null, \&#x27;hello\&#x27;),\n    ))\n  },\n}&#x27;,
++    source: &#x27;packages/qs/qs-ui-sidebar-right/src/client/contract.ts:13&#x27;,
+   },
+   {
+     key: &#x27;qs.stage&#x27;,
+     kind: &#x27;single&#x27;,
+     scope: &#x27;root&#x27;,
+-    summary: &#x27;主区外框；由 qs-shell 贡献并声明其下的欢迎区、转写与输入区。&#x27;,
+-    doc: &#x27;主区外框；由 qs-shell 贡献并声明其下的欢迎区、转写与输入区。&#x27;,
++    summary: &#x27;会话视图挂载点；由 qs-composer 贡献并声明其子槽。&#x27;,
++    doc: &#x27;会话视图挂载点；由 qs-composer 贡献并声明其子槽。&#x27;,
+     registerOptions: [],
+     ownerProps: [
+       &#x27;/** 主区外框业主输入。 */\nexport interface QsStageOwnerProps { children?: never }&#x27;,
+@@ -1691,22 +2180,20 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
+     slotInject: &#x27;&#x27;,
+     declaredBy: &#x27;an entry in \&#x27;root\&#x27; (qs-shell), so it exists while that entry is mounted&#x27;,
+     occupants: [
+-      &#x27;qs-shell QsStage&#x27;,
++      &#x27;qs-composer QsStage&#x27;,
+     ],
+     replaceRisk: &#x27;shadows-shipped-ui&#x27;,
+     example: &#x27;return {\n  inject: [\&#x27;slots\&#x27;],\n  apply(ctx) {\n    ctx.slots.inject(\&#x27;qs.stage\&#x27;, () =&gt; ctx.slots.register(\n      { name: \&#x27;qs.stage\&#x27; },\n      () =&gt; React.createElement(\&#x27;div\&#x27;, null, \&#x27;hello\&#x27;),\n    ))\n  },\n}&#x27;,
+-    source: &#x27;packages/qs/qs-shell/src/client/contract.ts:26&#x27;,
++    source: &#x27;packages/qs/qs-shell/src/client/contract.ts:17&#x27;,
+   },
+   {
+     key: &#x27;qs.stage.body&#x27;,
+     kind: &#x27;single&#x27;,
+     scope: &#x27;session-maybe&#x27;,
+-    summary: &#x27;欢迎区与骨架；无会话时也渲染（session-maybe）。&#x27;,
+-    doc: &#x27;欢迎区与骨架；无会话时也渲染（session-maybe）。&#x27;,
++    summary: &#x27;Conversation welcome area, including the unbound session state.&#x27;,
++    doc: &#x27;Conversation welcome area, including the unbound session state.&#x27;,
+     registerOptions: [],
+-    ownerProps: [
+-      &#x27;/** 欢迎区业主输入。 */\nexport interface QsStageBodyOwnerProps { children?: never }&#x27;,
+-    ],
++    ownerProps: [],
+     ownerPropsReferences: [],
+     standardProps: [
+       &#x27;useResource: UseResource&#x27;,
+@@ -1726,20 +2213,20 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
+     keyDomain: &#x27;&#x27;,
+     hookContext: &#x27;&#x27;,
+     slotInject: &#x27;&#x27;,
+-    declaredBy: &#x27;an entry in \&#x27;qs.stage\&#x27; (qs-shell), so it exists while that entry is mounted&#x27;,
++    declaredBy: &#x27;an entry in \&#x27;qs.stage\&#x27; (qs-composer), so it exists while that entry is mounted&#x27;,
+     occupants: [
+-      &#x27;qs-shell QsWelcomePane&#x27;,
++      &#x27;qs-composer QsWelcomePane&#x27;,
+     ],
+     replaceRisk: &#x27;shadows-shipped-ui&#x27;,
+     example: &#x27;return {\n  inject: [\&#x27;slots\&#x27;],\n  apply(ctx) {\n    ctx.slots.inject(\&#x27;qs.stage.body\&#x27;, () =&gt; ctx.slots.register(\n      { name: \&#x27;qs.stage.body\&#x27; },\n      () =&gt; React.createElement(\&#x27;div\&#x27;, null, \&#x27;hello\&#x27;),\n    ))\n  },\n}&#x27;,
+-    source: &#x27;packages/qs/qs-shell/src/client/contract.ts:28&#x27;,
++    source: &#x27;packages/qs/qs-composer/src/client/contract.ts:17&#x27;,
+   },
+   {
+     key: &#x27;qs.stage.interaction&#x27;,
+     kind: &#x27;chain&#x27;,
+     scope: &#x27;session&#x27;,
+-    summary: &#x27;交互卡片位：审批与提问共用，位于消息流末尾（原型位置）。 `select` 按当前会话的 pending 类型选举：qs-approval priority 1、 qs-questions priority 2，升序第一个非 null 当选。**chain 条目崩溃不退位**， 因此卡片必须自带错误提示与重试。&#x27;,
+-    doc: &#x27;交互卡片位：审批与提问共用，位于消息流末尾（原型位置）。\n\n`select` 按当前会话的 pending 类型选举：qs-approval priority 1、\nqs-questions priority 2，升序第一个非 null 当选。**chain 条目崩溃不退位**，\n因此卡片必须自带错误提示与重试。&#x27;,
++    summary: &#x27;审批和提问复用唯一待回答数据与协议。&#x27;,
++    doc: &#x27;审批和提问复用唯一待回答数据与协议。&#x27;,
+     registerOptions: [
+       {
+         name: &#x27;select&#x27;,
+@@ -1774,25 +2261,60 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
+     keyDomain: &#x27;&#x27;,
+     hookContext: &#x27;&#x27;,
+     slotInject: &#x27;&#x27;,
+-    declaredBy: &#x27;an entry in \&#x27;qs.stage.transcript\&#x27; (qs-transcript), so it exists while that entry is mounted&#x27;,
++    declaredBy: &#x27;an entry in \&#x27;qs.stage.pending\&#x27; (qs-composer), so it exists while that entry is mounted&#x27;,
+     occupants: [
+       &#x27;qs-approval ApprovalCard&#x27;,
+       &#x27;qs-questions QuestionCard&#x27;,
+     ],
+     replaceRisk: &#x27;none&#x27;,
+     example: &#x27;return {\n  inject: [\&#x27;slots\&#x27;],\n  apply(ctx) {\n    ctx.slots.inject(\&#x27;qs.stage.interaction\&#x27;, () =&gt; ctx.slots.register(\n      { name: \&#x27;qs.stage.interaction\&#x27;, select: owner =&gt; null },\n      () =&gt; React.createElement(\&#x27;div\&#x27;, null, \&#x27;hello\&#x27;),\n    ))\n  },\n}&#x27;,
+-    source: &#x27;packages/qs/qs-transcript/src/client/contract.ts:37&#x27;,
++    source: &#x27;packages/qs/qs-composer/src/client/contract.ts:15&#x27;,
+   },
+   {
+-    key: &#x27;qs.stage.transcript&#x27;,
++    key: &#x27;qs.stage.pending&#x27;,
+     kind: &#x27;single&#x27;,
+     scope: &#x27;session&#x27;,
+-    summary: &#x27;转写行；严格会话作用域，无绑定不得渲染。由 qs-transcript 贡献。&#x27;,
+-    doc: &#x27;转写行；严格会话作用域，无绑定不得渲染。由 qs-transcript 贡献。&#x27;,
++    summary: &#x27;固定会话交互座位，不随阅读视图卸载。&#x27;,
++    doc: &#x27;固定会话交互座位，不随阅读视图卸载。&#x27;,
+     registerOptions: [],
+-    ownerProps: [
+-      &#x27;/** 转写业主输入。 */\nexport interface QsTranscriptOwnerProps { children?: never }&#x27;,
++    ownerProps: [],
++    ownerPropsReferences: [],
++    standardProps: [
++      &#x27;useResource: UseResource&#x27;,
++      &#x27;useWorkspaces: SnapshotSelectorHook&lt;WorkspaceSnapshot&gt;&#x27;,
++      &#x27;usePanelInfo: UsePanelInfo&#x27;,
++      &#x27;useSessions: UseSessions&#x27;,
++      &#x27;useSessionPendingInteraction: UseSessionPendingInteraction&#x27;,
++      &#x27;useWorkspaces: SnapshotSelectorHook&lt;WorkspaceSnapshot&gt;&#x27;,
++      &#x27;useQsAuth?: UseQsAuth | undefined&#x27;,
++      &#x27;useChat: UseChat&#x27;,
++      &#x27;useConversation: UseConversation&#x27;,
++      &#x27;useInput: SnapshotSelectorHook&lt;InputState&gt;&#x27;,
++      &#x27;inputActions: InputActions&#x27;,
++      &#x27;useSession: SessionSnapshotSelector&#x27;,
++      &#x27;sessionId: SessionId&#x27;,
++      &#x27;useProjection: UseProjection&#x27;,
++      &#x27;useTrajectory: UseTrajectory&#x27;,
++    ],
++    keyDomain: &#x27;&#x27;,
++    hookContext: &#x27;&#x27;,
++    slotInject: &#x27;&#x27;,
++    declaredBy: &#x27;an entry in \&#x27;qs.stage\&#x27; (qs-composer), so it exists while that entry is mounted&#x27;,
++    occupants: [
++      &#x27;qs-composer PendingSeat&#x27;,
+     ],
++    replaceRisk: &#x27;shadows-shipped-ui&#x27;,
++    example: &#x27;return {\n  inject: [\&#x27;slots\&#x27;],\n  apply(ctx) {\n    ctx.slots.inject(\&#x27;qs.stage.pending\&#x27;, () =&gt; ctx.slots.register(\n      { name: \&#x27;qs.stage.pending\&#x27; },\n      () =&gt; React.createElement(\&#x27;div\&#x27;, null, \&#x27;hello\&#x27;),\n    ))\n  },\n}&#x27;,
++    source: &#x27;packages/qs/qs-composer/src/client/contract.ts:13&#x27;,
++  },
++  {
++    key: &#x27;qs.stage.transcript&#x27;,
++    kind: &#x27;single&#x27;,
++    scope: &#x27;session&#x27;,
++    summary: &#x27;Session transcript supplied by the Chat presentation plugin.&#x27;,
++    doc: &#x27;Session transcript supplied by the Chat presentation plugin.&#x27;,
++    registerOptions: [],
++    ownerProps: [],
+     ownerPropsReferences: [],
+     standardProps: [
+       &#x27;useResource: UseResource&#x27;,
+@@ -1814,13 +2336,13 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
+     keyDomain: &#x27;&#x27;,
+     hookContext: &#x27;&#x27;,
+     slotInject: &#x27;&#x27;,
+-    declaredBy: &#x27;an entry in \&#x27;qs.stage\&#x27; (qs-shell), so it exists while that entry is mounted&#x27;,
++    declaredBy: &#x27;an entry in \&#x27;qs.stage\&#x27; (qs-composer), so it exists while that entry is mounted&#x27;,
+     occupants: [
+       &#x27;qs-transcript Transcript&#x27;,
+     ],
+     replaceRisk: &#x27;shadows-shipped-ui&#x27;,
+     example: &#x27;return {\n  inject: [\&#x27;slots\&#x27;],\n  apply(ctx) {\n    ctx.slots.inject(\&#x27;qs.stage.transcript\&#x27;, () =&gt; ctx.slots.register(\n      { name: \&#x27;qs.stage.transcript\&#x27; },\n      () =&gt; React.createElement(\&#x27;div\&#x27;, null, \&#x27;hello\&#x27;),\n    ))\n  },\n}&#x27;,
+-    source: &#x27;packages/qs/qs-shell/src/client/contract.ts:30&#x27;,
++    source: &#x27;packages/qs/qs-composer/src/client/contract.ts:19&#x27;,
+   },
+   {
+     key: &#x27;qs.stage.transcript.row&#x27;,
+@@ -1837,9 +2359,11 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
+       },
+     ],
+     ownerProps: [
+-      &#x27;/** 转写行业主输入：行键与父 entry 绑定的订阅座席。 */\nexport interface QsTranscriptRowOwnerProps {\n  /** 稳定的 Conversation Context 键（避开 React 保留的 key 属性名）。 */\n  readonly nodeKey: string\n  /** 父 entry 的 keyedHooks 绑出的单行订阅座席。 */\n  readonly useNode: UseQsChatNode\n  /** 同一行的 Turn-process 呈现订阅座席。 */\n  readonly useProcess: UseQsChatNodeProcess\n}&#x27;,
++      &#x27;/** 转写行业主输入：行键、父 entry 绑定的订阅座席与会话能力。 */\nexport interface QsTranscriptRowOwnerProps {\n  /** 稳定的 Conversation Context 键（避开 React 保留的 key 属性名）。 */\n  readonly nodeKey: string\n  /** 父 entry 的 keyedHooks 绑出的单行订阅座席。 */\n  readonly useNode: UseQsChatNode\n  /** 同一行的 Turn-process 呈现订阅座席。 */\n  readonly useProcess: UseQsChatNodeProcess\n  /**\n   * 按会话授权的图片装载（官方 uiConversation 的地址签发）。\n   *\n   * 行组件不持有 ctx，也不得自行拼装资源地址：需要渲染持久图片引用的行（如工具视图的\n   * read_image）只能通过这里取得装载器。\n   */\n  readonly loadImage: MessageImageLoader\n  /** 已完成轮的过程折叠状态（按会话创建，行只读写自己的折叠键）。 */\n  readonly fold: QsProcessFold\n}&#x27;,
+     ],
+     ownerPropsReferences: [
++      &#x27;MessageImageLoader&#x27;,
++      &#x27;QsProcessFold&#x27;,
+       &#x27;UseQsChatNode&#x27;,
+       &#x27;UseQsChatNodeProcess&#x27;,
+     ],
+@@ -1860,16 +2384,17 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
+       &#x27;useProjection: UseProjection&#x27;,
+       &#x27;useTrajectory: UseTrajectory&#x27;,
+     ],
+-    keyDomain: &#x27;open: any string the owner dispatches (no compile-time key set), none are taken yet&#x27;,
++    keyDomain: &#x27;open: any string the owner dispatches (no compile-time key set), already taken: tool-call&#x27;,
+     hookContext: &#x27;&#x27;,
+     slotInject: &#x27;&#x27;,
+     declaredBy: &#x27;an entry in \&#x27;qs.stage.transcript\&#x27; (qs-transcript), so it exists while that entry is mounted&#x27;,
+     occupants: [
+       &#x27;qs-transcript component&#x27;,
++      &#x27;qs-ui-tool ToolCallRow key \&#x27;tool-call\&#x27;&#x27;,
+     ],
+-    replaceRisk: &#x27;none&#x27;,
++    replaceRisk: &#x27;shadows-shipped-ui&#x27;,
+     example: &#x27;return {\n  inject: [\&#x27;slots\&#x27;],\n  apply(ctx) {\n    ctx.slots.inject(\&#x27;qs.stage.transcript.row\&#x27;, () =&gt; ctx.slots.register(\n      { name: \&#x27;qs.stage.transcript.row\&#x27;, key: \&#x27;&lt;one key the owner dispatches&gt;\&#x27; },\n      () =&gt; React.createElement(\&#x27;div\&#x27;, null, \&#x27;hello\&#x27;),\n    ))\n  },\n}&#x27;,
+-    source: &#x27;packages/qs/qs-transcript/src/client/contract.ts:24&#x27;,
++    source: &#x27;packages/qs/qs-transcript/src/client/contract.ts:27&#x27;,
+   },
+   {
+     key: &#x27;qs.status&#x27;,
+@@ -1919,7 +2444,56 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
+     ],
+     replaceRisk: &#x27;none&#x27;,
+     example: &#x27;return {\n  inject: [\&#x27;slots\&#x27;],\n  apply(ctx) {\n    ctx.slots.inject(\&#x27;qs.status\&#x27;, () =&gt; ctx.slots.register(\n      { name: \&#x27;qs.status\&#x27;, id: \&#x27;my-entry\&#x27;, order: 100, label: \&#x27;My entry\&#x27; },\n      () =&gt; React.createElement(\&#x27;div\&#x27;, null, \&#x27;hello\&#x27;),\n    ))\n  },\n}&#x27;,
+-    source: &#x27;packages/qs/qs-shell/src/client/contract.ts:36&#x27;,
++    source: &#x27;packages/qs/qs-shell/src/client/contract.ts:21&#x27;,
++  },
++  {
++    key: &#x27;qs.tool.call.toolview&#x27;,
++    kind: &#x27;keyed&#x27;,
++    scope: &#x27;session&#x27;,
++    summary: &#x27;单个工具调用的呈现：按 Wire 工具名分派。 键域开放：未认领的键（含无调用记录的孤儿结果）由声明者提供的兜底卡承载， 既不静默消失，也不伪装成某个已知工具。&#x27;,
++    doc: &#x27;单个工具调用的呈现：按 Wire 工具名分派。\n\n键域开放：未认领的键（含无调用记录的孤儿结果）由声明者提供的兜底卡承载，\n既不静默消失，也不伪装成某个已知工具。&#x27;,
++    registerOptions: [
++      {
++        name: &#x27;key&#x27;,
++        requirement: &#x27;required&#x27;,
++        type: &#x27;string&#x27;,
++        doc: &#x27;Your cell key: the entry renders where the owner dispatches this exact key. Registering an already-occupied key replaces that occupant.&#x27;,
++      },
++    ],
++    ownerProps: [
++      &#x27;/**\n * 工具子视图的 owner 输入。\n *\n * 只包含官方持久数据（调用头、结果、结构化 meta）与宿主按会话提供的能力：\n * 与官方 `ToolCallOwnerProps` 相比，这里没有 `openFile`、`inspect` 和 `home`——\n * 资源打开归右栏检查器（C9）、轨迹定位归轨迹视图（C17）、宿主账户家目录属 Host 事实；\n * 在对应里程碑接线前，视图不得伪造这些能力，路径只按会话工作区根做相对显示。\n */\nexport interface QsToolCallOwnerProps {\n  /** 跨运行与结算保持稳定的调用身份。 */\n  readonly callId: string\n  /** Wire 工具名；调用记录缺失时为空串。 */\n  readonly toolName: string\n  /** 该调用的运行头或已结算结果节点（自身拥有其子调用）。 */\n  readonly block: ToolCallBlock\n  /** 会话工作区根，用于相对路径摘要；未知时按原样显示。 */\n  readonly cwd: string | undefined\n  /** 按会话授权的图片装载；缺席时图片类结果只给文字限制说明。 */\n  readonly loadImage: MessageImageLoader | undefined\n}&#x27;,
++    ],
++    ownerPropsReferences: [
++      &#x27;MessageImageLoader&#x27;,
++      &#x27;ToolCallOwnerProps&#x27;,
++    ],
++    standardProps: [
++      &#x27;useResource: UseResource&#x27;,
++      &#x27;useWorkspaces: SnapshotSelectorHook&lt;WorkspaceSnapshot&gt;&#x27;,
++      &#x27;usePanelInfo: UsePanelInfo&#x27;,
++      &#x27;useSessions: UseSessions&#x27;,
++      &#x27;useSessionPendingInteraction: UseSessionPendingInteraction&#x27;,
++      &#x27;useWorkspaces: SnapshotSelectorHook&lt;WorkspaceSnapshot&gt;&#x27;,
++      &#x27;useQsAuth?: UseQsAuth | undefined&#x27;,
++      &#x27;useChat: UseChat&#x27;,
++      &#x27;useConversation: UseConversation&#x27;,
++      &#x27;useInput: SnapshotSelectorHook&lt;InputState&gt;&#x27;,
++      &#x27;inputActions: InputActions&#x27;,
++      &#x27;useSession: SessionSnapshotSelector&#x27;,
++      &#x27;sessionId: SessionId&#x27;,
++      &#x27;useProjection: UseProjection&#x27;,
++      &#x27;useTrajectory: UseTrajectory&#x27;,
++    ],
++    keyDomain: &#x27;open: any string the owner dispatches (no compile-time key set), none are taken yet&#x27;,
++    hookContext: &#x27;&#x27;,
++    slotInject: &#x27;&#x27;,
++    declaredBy: &#x27;an entry in \&#x27;qs.stage.transcript.row\&#x27; (qs-ui-tool), so it exists while that entry is mounted&#x27;,
++    occupants: [
++      &#x27;qs-ui-tool component&#x27;,
++    ],
++    replaceRisk: &#x27;none&#x27;,
++    example: &#x27;return {\n  inject: [\&#x27;slots\&#x27;],\n  apply(ctx) {\n    ctx.slots.inject(\&#x27;qs.tool.call.toolview\&#x27;, () =&gt; ctx.slots.register(\n      { name: \&#x27;qs.tool.call.toolview\&#x27;, key: \&#x27;&lt;one key the owner dispatches&gt;\&#x27; },\n      () =&gt; React.createElement(\&#x27;div\&#x27;, null, \&#x27;hello\&#x27;),\n    ))\n  },\n}&#x27;,
++    source: &#x27;packages/qs/qs-ui-tool/src/client/contract.ts:19&#x27;,
+   },
+   {
+     key: &#x27;rightbar&#x27;,
+</pre>

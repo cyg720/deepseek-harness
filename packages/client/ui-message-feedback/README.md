@@ -80,6 +80,8 @@ These limits define the current feedback surface. They are current package const
 - **No cross-tab push** — a second tab's rating becomes visible on reconnect or on the next conflict reply, not immediately; the controller does not consume feedback log events.
 - **Chat view only** — the trajectory and waterfall views render no feedback controls even though their assistant nodes carry the same `messageId`.
 
+`ctx.messageFeedbackPresentation.actions(sessionId)` and `.dialog(sessionId)` expose the existing per-session feedback sources and actions. Alternate views share draft and submission state; they do not install a second `/feedback` decoration.
+
 <a id="dev-note"></a>
 ### Dev Note
 

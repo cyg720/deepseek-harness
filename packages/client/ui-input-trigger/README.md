@@ -78,6 +78,8 @@ These limits define the current trigger pipeline. They are current package const
 - **Global source layer only** — session-scope source registration (per-session shadowing) is designed but not enabled; the ledger tracks the trigger condition, a real per-session source need.
 - **Overlay SlotMap merge home is split from slot ownership** — the sole `conversation.input.overlay` merge lives here, while ui-conversation owns its anchor, children declaration, and lifecycle because the dependency direction is ui-conversation → ui-input-trigger.
 
+`acquireConsumer(scope, policy)` obtains an exclusive visible-input lease on the existing controller. Policy filters trigger and source selection, lexicons and command adjudication. Release cancels candidates; late adjudication is rejected. No sources are enabled before acquisition, after release, or after controller disposal. A synchronous source callback that releases the lease cannot apply its returned edit. Official input leases both triggers and QS input leases slash only.
+
 <a id="dev-note"></a>
 ### Dev Note
 

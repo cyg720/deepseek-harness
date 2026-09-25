@@ -70,7 +70,8 @@
   padding: 2px 2px 12px;
   background: none;
   color: var(--qs-text);
-  font-size: 13px;
+  /* 官方字号偏好控制正文，保留原型输入区相对正文小 1px 的比例。 */
+  font-size: calc(var(--dsh-content-font-size, 14px) - 1px);
   line-height: 1.8;
 }
 
@@ -210,7 +211,8 @@
   }
 
   .input {
-    font-size: 16px;
+    /* 移动端至少 16px，避免聚焦输入框时浏览器自动放大。 */
+    font-size: max(16px, calc(var(--dsh-content-font-size, 14px) - 1px));
     min-height: 88px;
   }
 
@@ -223,3 +225,14 @@
     padding: 9px;
   }
 }
+
+/* 估算面板在输入区域内展开，长说明在窄屏换行。 */
+.pressure { min-width: 0; overflow-wrap: anywhere; padding: 0.25rem 0; }
+.pressureBody { max-height: 14rem; overflow: auto; }
+
+/* 原型通用设置的左右布局；窄屏将选择控件移到标签下方。 */
+.settingRow { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 18px 0; border-bottom: 1px solid var(--qs-line); }
+.settingRow label { font-weight: 600; }
+.settingRow p { margin: 6px 0 0; font-size: 12px; color: var(--qs-muted); }
+.settingRow select { padding: 8px 12px; border: 1px solid var(--qs-line); border-radius: 8px; font: inherit; color: var(--qs-text); background: var(--qs-surface); max-width: 100%; }
+@media(max-width: 700px) { .settingRow { align-items: stretch; flex-direction: column; gap: 10px; } }

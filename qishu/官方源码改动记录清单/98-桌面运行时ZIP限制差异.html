@@ -1,0 +1,58 @@
+<!doctype html><html lang="zh-CN"><meta charset="utf-8"><title>桌面运行时 ZIP 限制差异</title><style>body{font:14px system-ui;margin:24px}pre{white-space:pre-wrap;overflow-wrap:anywhere}.add{color:#14702c}.del{color:#a82020}</style><h1>HEAD 至工作区累计差异</h1><h2>apps/desktop/scripts/prepare-runtime.ts</h2><pre><span class="">diff --git a/apps/desktop/scripts/prepare-runtime.ts b/apps/desktop/scripts/prepare-runtime.ts</span>
+<span class="">index 1b22293c23..5879b0ed54 100644</span>
+<span class="del">--- a/apps/desktop/scripts/prepare-runtime.ts</span>
+<span class="add">+++ b/apps/desktop/scripts/prepare-runtime.ts</span>
+<span class="">@@ -7,7 +7,7 @@ import { chmod, readFile } from &#x27;node:fs/promises&#x27;</span>
+<span class=""> import { createRequire } from &#x27;node:module&#x27;</span>
+<span class=""> import { dirname, join } from &#x27;node:path&#x27;</span>
+<span class=""> import { pipeline } from &#x27;node:stream/promises&#x27;</span>
+<span class="del">-import extractZip from &#x27;extract-zip&#x27;</span>
+<span class="add">+import { extractRuntimeZip } from &#x27;./qs/extract-runtime-zip.ts&#x27;</span>
+<span class=""> import { extract } from &#x27;tar&#x27;</span>
+<span class=""> import { resolveDesktopTargetBuildPaths } from &#x27;./desktop-build-paths.mjs&#x27;</span>
+<span class=""> </span>
+<span class="">@@ -55,7 +55,8 @@ async function prepareNode(platform: RuntimePlatform, arch: RuntimeArch): Promis</span>
+<span class="">   const extraction = BUILD_PATHS.nodeExtract</span>
+<span class="">   rmSync(extraction, { recursive: true, force: true })</span>
+<span class="">   mkdirSync(extraction, { recursive: true })</span>
+<span class="del">-  if (platform === &#x27;win&#x27;) await extractZip(archive, { dir: extraction })</span>
+<span class="add">+  // 奇术安全复核：Node ZIP 无需符号链接，拒绝链接条目以阻断已公告的越界写入路径。</span>
+<span class="add">+  if (platform === &#x27;win&#x27;) await extractRuntimeZip(archive, extraction)</span>
+<span class="">   else await extract({ cwd: extraction, file: archive })</span>
+<span class="">   const source = join(extraction, folder, platform === &#x27;win&#x27; ? &#x27;node.exe&#x27; : &#x27;bin/node&#x27;)</span>
+<span class="">   const destinationRoot = join(RUNTIME_ROOT, &#x27;node&#x27;)</span></pre><h2>apps/desktop/README.md</h2><pre><span class="">diff --git a/apps/desktop/README.md b/apps/desktop/README.md</span>
+<span class="">index c053e48947..8dfd562d98 100644</span>
+<span class="del">--- a/apps/desktop/README.md</span>
+<span class="add">+++ b/apps/desktop/README.md</span>
+<span class="">@@ -90,7 +90,7 @@ pnpm run package:desktop:win:x64</span>
+<span class=""> </span>
+<span class=""> The macOS arm64 command requires Apple Silicon. The macOS x64 command runs on Intel macOS or Apple Silicon with Rosetta. The Windows x64 command requires Windows x64. Linux is not a supported Desktop release target.</span>
+<span class=""> </span>
+<span class="del">-Each target owns its packed package inputs, prepared runtime, package set, dsh tree, pnpm preparation state, unpacked application, update metadata, and final artifacts under `apps/desktop/.desktop-build/targets/&lt;target&gt;/`. The Node.js archive cache remains shared under `.desktop-build/downloads` because every archive name includes its version, platform, and architecture and is verified before extraction. A target build never consumes another target&#x27;s mutable preparation state.</span>
+<span class="add">+Each target owns its packed package inputs, prepared runtime, package set, dsh tree, pnpm preparation state, unpacked application, update metadata, and final artifacts under `apps/desktop/.desktop-build/targets/&lt;target&gt;/`. The Node.js archive cache remains shared under `.desktop-build/downloads` because every archive name includes its version, platform, and architecture and is verified before extraction. A target build never consumes another target&#x27;s mutable preparation state. Windows ZIP extraction rejects symbolic-link entries before creating them; Node runtime archives must contain ordinary files and directories.</span>
+<span class=""> </span>
+<span class=""> ### Runtime file selection</span>
+<span class=""> </span></pre><h2>apps/desktop/README.zh.md</h2><pre><span class="">diff --git a/apps/desktop/README.zh.md b/apps/desktop/README.zh.md</span>
+<span class="">index e27554fe8a..493c85d928 100644</span>
+<span class="del">--- a/apps/desktop/README.zh.md</span>
+<span class="add">+++ b/apps/desktop/README.zh.md</span>
+<span class="">@@ -90,7 +90,7 @@ pnpm run package:desktop:win:x64</span>
+<span class=""> </span>
+<span class=""> macOS arm64 命令要求 Apple Silicon。macOS x64 命令可以在 Intel macOS 或带 Rosetta 的 Apple Silicon 上运行。Windows x64 命令要求 Windows x64。Linux 不是受支持的 Desktop 发布目标。</span>
+<span class=""> </span>
+<span class="del">-每个目标都在 `apps/desktop/.desktop-build/targets/&lt;target&gt;/` 下持有自己的打包输入、已准备运行时、包集合、dsh 依赖树、pnpm 准备状态、未打包应用、更新元数据和最终产物。Node.js 归档缓存继续由 `.desktop-build/downloads` 共享，因为每个归档文件名都包含版本、平台和架构，并且在解包前经过验证。目标构建绝不读取其他目标的可变准备状态。</span>
+<span class="add">+每个目标都在 `apps/desktop/.desktop-build/targets/&lt;target&gt;/` 下持有自己的打包输入、已准备运行时、包集合、dsh 依赖树、pnpm 准备状态、未打包应用、更新元数据和最终产物。Node.js 归档缓存继续由 `.desktop-build/downloads` 共享，因为每个归档文件名都包含版本、平台和架构，并且在解包前经过验证。目标构建绝不读取其他目标的可变准备状态。 Windows ZIP 解压在创建符号链接前拒绝此类条目；Node 运行时归档必须只包含普通文件和目录。</span>
+<span class=""> </span>
+<span class=""> ### 运行时文件筛选</span>
+<span class=""> </span></pre><h2>apps/desktop/README.i18n.yaml</h2><pre><span class="">diff --git a/apps/desktop/README.i18n.yaml b/apps/desktop/README.i18n.yaml</span>
+<span class="">index b7ab466b8d..221b268567 100644</span>
+<span class="del">--- a/apps/desktop/README.i18n.yaml</span>
+<span class="add">+++ b/apps/desktop/README.i18n.yaml</span>
+<span class="">@@ -2,5 +2,5 @@</span>
+<span class=""> # side as of the last confirmed-consistent state. Both languages carry equal authority;</span>
+<span class=""> # after editing either side, bring the other along and re-record with:</span>
+<span class=""> #   pnpm run verify-translation-pairing --write apps/desktop/README.md</span>
+<span class="del">-README.md: c053e4894714d10cba2a9d9c1ebed71b53457c37</span>
+<span class="del">-README.zh.md: e27554fe8a91ee8a918380ef5a860b0838351aa5</span>
+<span class="add">+README.md: 8dfd562d9835593849e74d11ed56c7c78c368e94</span>
+<span class="add">+README.zh.md: 493c85d92867e9b440985ab1c104305e06ff5305</span></pre></html>

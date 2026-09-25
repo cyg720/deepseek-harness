@@ -1,3 +1,4 @@
+import type { InputTriggerConsumerPolicy } from './qs/consumer.ts'
 /**
  * Frozen service contract of the slash pipeline. Types only. The
  * InputTriggerService implementation publishes this face as `ctx.inputTriggers`; sources
@@ -22,4 +23,11 @@ export interface InputTriggerServiceContract {
    * @returns controller that dies with that scope.
    */
   sessionOf(actx: ClientContext): InputTriggerController
+  /**
+   * 为可见输入取得独占来源策略。
+   * @param actx - 会话作用域。
+   * @param policy - 可见输入允许的来源。
+   * @returns 共享控制器及幂等释放动作；同时存在两个租约时拒绝。
+   */
+  acquireConsumer(actx: ClientContext, policy: InputTriggerConsumerPolicy): { controller: InputTriggerController; release: () => void }
 }

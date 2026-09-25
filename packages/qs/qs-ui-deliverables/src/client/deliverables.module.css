@@ -1,0 +1,9 @@
+/* 交付卡沿用 QS 主题，长路径和原始结果限制在正文宽度内。 */
+.root { width: 100%; min-width: 0; color: var(--qs-text); }
+.files { list-style: none; padding: 0; display: grid; gap: 8px; }
+.card { padding: 12px; border: 1px solid var(--qs-border); border-radius: 8px; }
+.root button { color: inherit; background: transparent; border: 1px solid var(--qs-border); border-radius: 6px; padding: 6px 10px; cursor: pointer; overflow-wrap: anywhere; }
+.root button:disabled { opacity: .5; cursor: default; }
+.root p { overflow-wrap: anywhere; }
+.root pre { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 280px; overflow: auto; }
+.actions { display: flex; flex-wrap: wrap; gap: 8px; }

@@ -18,7 +18,6 @@ import type {
 import type { QsShellRootInjected, UseQsAuth } from './contract.ts'
 import { createQsLayoutStore, matchesViewport, RIGHT_OPEN_QUERY } from './layout-store.ts'
 import { QsFaultPage, QsRootErrorBoundary, type QsFaultCopy } from './FaultPage.tsx'
-import { QsSideNav } from './SideNav.tsx'
 import styles from './shell.module.css'
 
 /** 登录座席缺失时的诊断文本（诊断信息是界面契约的一部分，因此抽成常量）。 */
@@ -26,7 +25,7 @@ export const LOGIN_SEAT_MISSING_DETAIL = "qs-shell: root contribution 'auth' is 
 
 /** 工作台根声明并渲染的子槽。 */
 export type AppShellChildKeys =
-  | 'qs.gate' | 'qs.chrome' | 'qs.nav' | 'qs.stage' | 'qs.inspector' | 'qs.status' | 'qs.overlay'
+  | 'qs.gate' | 'qs.chrome' | 'qs.sidebar' | 'qs.stage' | 'qs.inspector' | 'qs.status' | 'qs.overlay'
 
 /** 工作台根 occupant 的完整 props：四份共享面齐备。 */
 export type AppShellProps =
@@ -94,6 +93,10 @@ function WorkbenchShell(props: WorkbenchProps): ReactNode {
           ? (
             <div className={styles.app}>
               <header className={styles.topbar}>{renderSlot('qs.chrome', {})}</header>
+              {layout.storageNotice !== undefined ? <div className={styles.layoutNotice} role="status" data-qs-layout-notice>
+                <span>{t(layout.storageNotice === 'recovered' ? 'layout.recovered' : 'layout.memory')}</span>
+                <button type="button" onClick={() => { actions.reset() }}>{t('layout.reset')}</button>
+              </div> : null}
               <div className={styles.bodyLayout} style={{
                 '--qs-left-width': layout.leftWidth === undefined ? undefined : `${layout.leftWidth}px`,
                 '--qs-right-width': layout.rightWidth === undefined ? undefined : `${layout.rightWidth}px`,
@@ -110,14 +113,14 @@ function WorkbenchShell(props: WorkbenchProps): ReactNode {
                     actions.setRightOpen(false)
                   }}
                 />
-                <QsSideNav t={t} renderSlot={renderSlot} hidden={!layout.leftOpen} user={user} />
+                {renderSlot('qs.sidebar', { hidden: !layout.leftOpen, user })}
                 {layout.leftOpen && !layout.compact ? <PanelResize side="left" label={t('nav.resize')} onResize={actions.setWidth} /> : null}
                 {/* 主区必须经它自己的条目渲染：`qs.stage.body` / `qs.composer` 由
                     `qs.stage` 条目声明，root 没有渲染它们的权限——直接传 root 的
                     renderSlot 会抛 SlotOwnershipError。 */}
                 {renderSlot('qs.stage', {})}
                 {layout.rightOpen && !layout.compact ? <PanelResize side="right" label={t('inspector.resize')} onResize={actions.setWidth} /> : null}
-                {renderSlot('qs.inspector', {})}
+                {renderSlot('qs.inspector', { hidden: !layout.rightOpen, requestId: layout.rightRequestId, reportOpen: actions.reportRightOpen })}
                 {renderSlot('qs.status', {})}
                 {renderSlot('qs.overlay', {})}
               </div>

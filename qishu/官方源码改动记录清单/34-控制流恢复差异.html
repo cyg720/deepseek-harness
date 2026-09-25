@@ -1,0 +1,184 @@
+<!doctype html><html lang="zh"><meta charset="utf-8"><title>控制流恢复累计差异</title><style>body{font:14px system-ui;margin:32px}pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#eee;padding:16px}.add{color:#176b35;background:#e7f5eb}.del{color:#a31515;background:#fce8e6}</style><h1>控制流恢复累计差异</h1><p>相对本地 HEAD 的累计工作区差异，包含此前未提交修改。</p><section id="control-001"><h2>packages/api/session-controller/README.i18n.yaml</h2><pre><span class="context">diff --git a/packages/api/session-controller/README.i18n.yaml b/packages/api/session-controller/README.i18n.yaml</span>
+<span class="context">index 3620f28368..05a5313303 100644</span>
+<span class="del">--- a/packages/api/session-controller/README.i18n.yaml</span>
+<span class="add">+++ b/packages/api/session-controller/README.i18n.yaml</span>
+<span class="context">@@ -2,5 +2,5 @@</span>
+<span class="context"> # side as of the last confirmed-consistent state. Both languages carry equal authority;</span>
+<span class="context"> # after editing either side, bring the other along and re-record with:</span>
+<span class="context"> #   pnpm run verify-translation-pairing --write packages/api/session-controller/README.md</span>
+<span class="del">-README.md: 768c8704775d422c9c48d7d40a58d589f715b718</span>
+<span class="del">-README.zh.md: 3c1de73d13678b15af233196894b51fffa952f67</span>
+<span class="add">+README.md: 1d9e15a2fbb317046b540a1f767c9072d9fe6cb2</span>
+<span class="add">+README.zh.md: f24eb5977f51e13e73dfe27dc7f22ea2f54f9b48</span>
+</pre></section><section id="control-002"><h2>packages/api/session-controller/README.md</h2><pre><span class="context">diff --git a/packages/api/session-controller/README.md b/packages/api/session-controller/README.md</span>
+<span class="context">index 768c870477..1d9e15a2fb 100644</span>
+<span class="del">--- a/packages/api/session-controller/README.md</span>
+<span class="add">+++ b/packages/api/session-controller/README.md</span>
+<span class="context">@@ -75,6 +75,10 @@ No direct effect; model requests remain owned by the Agent and LLM packages.</span>
+<span class="context"> - File-reference completion uses the shared Agent lookup and can resume a cold Session; the `skills/list` catalog is the non-activating alternative for skill metadata.</span>
+<span class="context"> </span>
+<span class="context"> </span>
+<span class="add">+`SessionSnapshot.historyLoad` reports idle, loading, succeeded, failed or cancelled paging, with request and connection identities. Success reports progress and remaining history; failures retain the window and expose no raw server error. Reconnection invalidates old settlement and busy-state updates.</span>
+<span class="add">+</span>
+<span class="add">+`ISessions.control.state` reports loading, ready, reconnecting, failed or disposed independently of the Session directory. Its baseline counter advances after each accepted control baseline. `control.retry()` coalesces requests after terminal failure, waits for the previous consumer to stop and starts one replacement; it does not wait for that replacement baseline. Carrier failures use the existing automatic reconnection. Published domain snapshots remain available during recovery; this status does not implement task completion notifications. TestSessions starts with loading status and rejects an unstubbed control retry.</span>
+<span class="add">+</span>
+<span class="context"> &lt;a id=&quot;dev-note&quot;&gt;&lt;/a&gt;</span>
+<span class="context"> ### Dev Note</span>
+<span class="context"> </span>
+</pre></section><section id="control-003"><h2>packages/api/session-controller/README.zh.md</h2><pre><span class="context">diff --git a/packages/api/session-controller/README.zh.md b/packages/api/session-controller/README.zh.md</span>
+<span class="context">index 3c1de73d13..f24eb5977f 100644</span>
+<span class="del">--- a/packages/api/session-controller/README.zh.md</span>
+<span class="add">+++ b/packages/api/session-controller/README.zh.md</span>
+<span class="context">@@ -75,6 +75,10 @@ Session 对象还承载本地提交回显：`session.beginSubmission` 在调用</span>
+<span class="context"> - 文件引用补全使用共享 Agent lookup，因此可能恢复冷 Session；`skills/list` 目录是不激活 Agent 的 skill 元数据读取路径。</span>
+<span class="context"> </span>
+<span class="context"> </span>
+<span class="add">+`SessionSnapshot.historyLoad` 提供闲置、加载中、成功、失败和取消五种分页状态，并携带请求及连接身份。成功报告进展和剩余历史；失败保留窗口，不暴露原始服务端错误。重连后旧请求不能更新结算或忙碌状态。</span>
+<span class="add">+</span>
+<span class="add">+`ISessions.control.state` 独立于会话目录报告加载中、就绪、重连中、失败或已处置；每次接收控制基线后递增 baseline 计数。`control.retry()` 合并终止失败后的并发请求，等待旧消费者停止后启动唯一替代实例，不等待新基线到达。载体失败仍使用既有自动重连。恢复期间保留已发布的领域快照；该状态不等于已实现任务完成通知。TestSessions 初始为加载中，未提供行为的控制流重试会拒绝。</span>
+<span class="add">+</span>
+<span class="context"> &lt;a id=&quot;dev-note&quot;&gt;&lt;/a&gt;</span>
+<span class="context"> ### 开发备注</span>
+<span class="context"> </span>
+</pre></section><section id="control-004"><h2>packages/api/session-controller/src/client/contract/sessions.ts</h2><pre><span class="context">diff --git a/packages/api/session-controller/src/client/contract/sessions.ts b/packages/api/session-controller/src/client/contract/sessions.ts</span>
+<span class="context">index 08c13a208e..7b3c73c67c 100644</span>
+<span class="del">--- a/packages/api/session-controller/src/client/contract/sessions.ts</span>
+<span class="add">+++ b/packages/api/session-controller/src/client/contract/sessions.ts</span>
+<span class="context">@@ -14,11 +14,14 @@ import type { SessionSearchResultItem } from &#x27;../sessions/manager.ts&#x27;</span>
+<span class="context"> import type { SessionBinding, SessionListState } from &#x27;../sessions/service.ts&#x27;</span>
+<span class="context"> import type { SessionFace } from &#x27;./session.ts&#x27;</span>
+<span class="context"> import type { ObservableSnapshot } from &#x27;@deepseek-ai/dsh-client-store&#x27;</span>
+<span class="add">+import type { SessionControlStatus } from &#x27;../qs/control-owner.ts&#x27;</span>
+<span class="context"> </span>
+<span class="context"> export type { AgentContext } from &#x27;../scope.ts&#x27;</span>
+<span class="context"> </span>
+<span class="context"> /** The sessions-service face injected as `ctx.sessions`. */</span>
+<span class="context"> export interface ISessions {</span>
+<span class="add">+  /** QS 作业视图复用唯一控制流的状态和失败恢复，不另开订阅。 */</span>
+<span class="add">+  readonly control: SessionControlStatus</span>
+<span class="context">   /** The useSessions standard feed (list rows + current selection; read face — writes stay inside the domain). */</span>
+<span class="context">   readonly list: ObservableSnapshot&lt;SessionListState&gt;</span>
+<span class="context">   /**</span>
+</pre></section><section id="control-005"><h2>packages/api/session-controller/src/client/index.ts</h2><pre><span class="context">diff --git a/packages/api/session-controller/src/client/index.ts b/packages/api/session-controller/src/client/index.ts</span>
+<span class="context">index af5cdbb3e1..e350a8431a 100644</span>
+<span class="del">--- a/packages/api/session-controller/src/client/index.ts</span>
+<span class="add">+++ b/packages/api/session-controller/src/client/index.ts</span>
+<span class="context">@@ -4,7 +4,6 @@ import type { Context } from &#x27;@deepseek-ai/cordis&#x27;</span>
+<span class="context"> import type {} from &#x27;@deepseek-ai/dsh-agent/types&#x27;</span>
+<span class="context"> import type {} from &#x27;@deepseek-ai/dsh-client-connection/client&#x27;</span>
+<span class="context"> import type {} from &#x27;@deepseek-ai/dsh-client-file-upload/client&#x27;</span>
+<span class="del">-import { createSessionControlStream } from &#x27;./transport.ts&#x27;</span>
+<span class="context"> import { ClientSessions } from &#x27;./sessions/service.ts&#x27;</span>
+<span class="context"> import type { SessionRemotes } from &#x27;./sessions/remotes.ts&#x27;</span>
+<span class="context"> import type {} from &#x27;../remote-events.ts&#x27;</span>
+<span class="context">@@ -34,6 +33,8 @@ export type {</span>
+<span class="context">   SubagentCatalogSnapshot,</span>
+<span class="context"> } from &#x27;./sessions/manager.ts&#x27;</span>
+<span class="context"> export type { Session } from &#x27;./sessions/session.ts&#x27;</span>
+<span class="add">+// QS 与官方消费者共用同一分页状态类型。</span>
+<span class="add">+export type { HistoryLoadState, HistoryLoadRequest } from &#x27;./qs/history-state.ts&#x27;</span>
+<span class="context"> export type {</span>
+<span class="context">   ProjectionsBaseline,</span>
+<span class="context">   ProjectionValueStore,</span>
+<span class="context">@@ -49,6 +50,8 @@ export type {</span>
+<span class="context">   SubmissionHandle,</span>
+<span class="context"> } from &#x27;./contract/session.ts&#x27;</span>
+<span class="context"> export type { ISessions } from &#x27;./contract/sessions.ts&#x27;</span>
+<span class="add">+// QS 作业消费公开状态，禁止复制控制流或将目录刷新当作重试。</span>
+<span class="add">+export type { SessionControlStatus, SessionControlSnapshot } from &#x27;./qs/control-owner.ts&#x27;</span>
+<span class="context"> export { MutableSessionEventSource } from &#x27;./contract/events.ts&#x27;</span>
+<span class="context"> export type {</span>
+<span class="context">   AssistantLiveChunkEvent,</span>
+<span class="context">@@ -111,10 +114,8 @@ export function apply(ctx: Context): void {</span>
+<span class="context">     sessions.handleSessionError(sessionId, message)</span>
+<span class="context">   })</span>
+<span class="context"> </span>
+<span class="del">-  const control = createSessionControlStream(remotes, {</span>
+<span class="del">-    accept: (frame) =&gt; { sessions.handleControlFrame(frame) },</span>
+<span class="del">-    failed: (error) =&gt; { console.error(&#x27;[session-controller] control stream failed:&#x27;, error) },</span>
+<span class="del">-  })</span>
+<span class="add">+  // 终止失败由同一所有者串行更换实例，官方及 QS 共享唯一消费器。</span>
+<span class="add">+  const control = sessions.control</span>
+<span class="context">   control.start()</span>
+<span class="context">   ctx.on(&#x27;connection/reset&#x27;, () =&gt; { sessions.handleConnected() })</span>
+<span class="context">   if (ctx.remote.$host.home !== undefined) sessions.handleConnected()</span>
+</pre></section><section id="control-006"><h2>packages/api/session-controller/src/client/sessions/service.ts</h2><pre><span class="context">diff --git a/packages/api/session-controller/src/client/sessions/service.ts b/packages/api/session-controller/src/client/sessions/service.ts</span>
+<span class="context">index d1d840c513..2bd11de328 100644</span>
+<span class="del">--- a/packages/api/session-controller/src/client/sessions/service.ts</span>
+<span class="add">+++ b/packages/api/session-controller/src/client/sessions/service.ts</span>
+<span class="context">@@ -31,6 +31,7 @@ import type { SessionFace } from &#x27;../contract/session.ts&#x27;</span>
+<span class="context"> import type { AgentContext, ISessions } from &#x27;../contract/sessions.ts&#x27;</span>
+<span class="context"> import { createScope, scopeOf as scopeTagOf } from &#x27;../scope.ts&#x27;</span>
+<span class="context"> import { SessionManager } from &#x27;./manager.ts&#x27;</span>
+<span class="add">+import { SessionControlOwner } from &#x27;../qs/control-owner.ts&#x27;</span>
+<span class="context"> import type { SessionRemotes } from &#x27;./remotes.ts&#x27;</span>
+<span class="context"> import type { SessionListPhase, SessionSearchResultItem, SubagentCatalogSnapshot } from &#x27;./manager.ts&#x27;</span>
+<span class="context"> import type { Session } from &#x27;./session.ts&#x27;</span>
+<span class="context">@@ -189,6 +190,8 @@ export class ClientSessions implements ISessions {</span>
+<span class="context">   readonly searchResultLimit = SESSION_SEARCH_RESULT_LIMIT</span>
+<span class="context">   /** List snapshot store (list RPC + host stream increments; re-pulled on reconnect) — the useSessions standard feed, current included. */</span>
+<span class="context">   readonly list: SnapshotStore&lt;SessionListState&gt;</span>
+<span class="add">+  /** QS 与官方消费者共享控制流状态；实例生命周期仍由根装配持有。 */</span>
+<span class="add">+  readonly control: SessionControlOwner</span>
+<span class="context">   /** The object-layer instance cluster and frame dispatch entry. */</span>
+<span class="context">   private readonly manager: SessionManager</span>
+<span class="context">   /**</span>
+<span class="context">@@ -222,6 +225,7 @@ export class ClientSessions implements ISessions {</span>
+<span class="context">     private readonly rootCtx: Context,</span>
+<span class="context">     remote: SessionRemotes,</span>
+<span class="context">   ) {</span>
+<span class="add">+    this.control = new SessionControlOwner(remote, (frame) =&gt; { this.handleControlFrame(frame) })</span>
+<span class="context">     this.selection = createSnapshotStore&lt;SessionSelection&gt;(</span>
+<span class="context">       {},</span>
+<span class="context">       { persist: { name: &#x27;dsh.sessions.current&#x27; } })</span>
+</pre></section><section id="control-007"><h2>packages/client/ui-conversation/tests/conversation-registry.client.spec.ts</h2><pre><span class="context">diff --git a/packages/client/ui-conversation/tests/conversation-registry.client.spec.ts b/packages/client/ui-conversation/tests/conversation-registry.client.spec.ts</span>
+<span class="context">index 2d3a003756..c5a43c3263 100644</span>
+<span class="del">--- a/packages/client/ui-conversation/tests/conversation-registry.client.spec.ts</span>
+<span class="add">+++ b/packages/client/ui-conversation/tests/conversation-registry.client.spec.ts</span>
+<span class="context">@@ -33,6 +33,8 @@ function sessionSnapshot(): SessionSnapshot {</span>
+<span class="context">     openError: null,</span>
+<span class="context">     hasMore: false,</span>
+<span class="context">     loadingOlder: false,</span>
+<span class="add">+    // QS：完整会话样本包含权威分页状态。</span>
+<span class="add">+    historyLoad: { phase: &#x27;idle&#x27; },</span>
+<span class="context">     promptError: null,</span>
+<span class="context">     blank: true,</span>
+<span class="context">     lastAgentError: null,</span>
+<span class="context">@@ -78,6 +80,11 @@ function fakeSessions(ctx: Context): { sessions: ISessions; binding: SessionBind</span>
+<span class="context">     currentAddress: undefined,</span>
+<span class="context">   })</span>
+<span class="context">   const sessions = {</span>
+<span class="add">+    // QS 只读控制状态属于公共接口；此注册用例不模拟控制流成功。</span>
+<span class="add">+    control: {</span>
+<span class="add">+      state: createSnapshotStore({ phase: &#x27;loading&#x27; as const, baseline: 0 }),</span>
+<span class="add">+      retry: () =&gt; Promise.reject(new Error(&#x27;unused fake control retry&#x27;)),</span>
+<span class="add">+    },</span>
+<span class="context">     list,</span>
+<span class="context">     searchResultLimit: 50,</span>
+<span class="context">     create: () =&gt; Promise.reject(new Error(&#x27;unused fake Sessions operation&#x27;)),</span>
+</pre></section><section id="control-008"><h2>packages/test-support/client-runtime/src/sessions.ts</h2><pre><span class="context">diff --git a/packages/test-support/client-runtime/src/sessions.ts b/packages/test-support/client-runtime/src/sessions.ts</span>
+<span class="context">index 419e155af7..860720f0d9 100644</span>
+<span class="del">--- a/packages/test-support/client-runtime/src/sessions.ts</span>
+<span class="add">+++ b/packages/test-support/client-runtime/src/sessions.ts</span>
+<span class="context">@@ -7,7 +7,7 @@ import {</span>
+<span class="context"> import type {</span>
+<span class="context">   AgentContext, ISessions, ProjectionsFace, SessionBinding, SessionFace, SessionListState,</span>
+<span class="context">   SessionEventLikeEntry, SessionLiveEventEntry, SessionSearchResultItem,</span>
+<span class="del">-  SessionSnapshot, SessionSummary, SubmissionHandle,</span>
+<span class="add">+  SessionSnapshot, SessionSummary, SubmissionHandle, SessionControlSnapshot,</span>
+<span class="context"> } from &#x27;@deepseek-ai/dsh-api-session-controller/client&#x27;</span>
+<span class="context"> import type { SessionRequestId } from &#x27;@deepseek-ai/dsh-api-session-controller/types&#x27;</span>
+<span class="context"> import type { SubagentAddress } from &#x27;@deepseek-ai/dsh-subagent/client&#x27;</span>
+<span class="context">@@ -191,6 +191,11 @@ interface SessionRecord {</span>
+<span class="context">  * behavior/calls/stubs) are bench-only surface.</span>
+<span class="context">  */</span>
+<span class="context"> export class TestSessions implements ISessions {</span>
+<span class="add">+  /** QS 公共读面同步；测试未接控制流时不能伪造就绪或重试成功。 */</span>
+<span class="add">+  readonly control = {</span>
+<span class="add">+    state: createSnapshotStore&lt;SessionControlSnapshot&gt;({ phase: &#x27;loading&#x27;, baseline: 0 }),</span>
+<span class="add">+    retry: (): Promise&lt;void&gt; =&gt; Promise.reject(new Error(&#x27;TestSessions.control.retry requires a real control-stream test&#x27;)),</span>
+<span class="add">+  }</span>
+<span class="context">   /** The useSessions standard feed (list rows + current selection). */</span>
+<span class="context">   readonly list: SnapshotStore&lt;SessionListState&gt;</span>
+<span class="context">   private readonly records = new Map&lt;SessionId, SessionRecord&gt;()</span>
+</pre></section></html>

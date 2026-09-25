@@ -39,6 +39,8 @@ A run surface can answer a pending host request — approving it, optionally cov
 
 Loading is idempotent: asking to load a revision this page already runs changes nothing, a newer revision replaces the loaded one, and the same revision after a retract loads afresh. Operations on a definition serialize. A refresh starts clean by design — the host still holds the definition, this page does not run it until asked again.
 
+The read-only inspect registry follows its providing plugin lifetime. Disposal drops queued manifest publications, aborts local queries, and prevents late results from reaching a replacement connection. Requests already accepted by the Host are not revoked; failures of an active registry remain reported.
+
 -----
 
 <a id="understand-the-implementation"></a>

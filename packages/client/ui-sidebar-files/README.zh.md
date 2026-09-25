@@ -45,6 +45,8 @@ kind: "package-reference"
 
 状态保存在类型自己的存储里，按 tab id 分桶：`root`、`levels`（每个绝对路径的 loading / ready / failed）与 `expanded`。owner 的 `signal` 终结一个桶：中止时忘掉该 tab，其后才结算的列表什么也不写。
 
+sidebarFilesPresentation 服务公开官方正文使用的同一 store 句柄和文件操作注入工厂。替代呈现以 session 作用域注册该句柄并使用其 inject 工厂；同一 store 实例的消费者共用请求代次，切换界面后的迟到响应不能覆盖新刷新结果。
+
 <a id="model-experience"></a>
 ## 模型体验
 

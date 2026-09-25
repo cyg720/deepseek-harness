@@ -1,3 +1,36 @@
 // Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
 
-exports[`contains recorded metadata in disclosures at desktop and narrow widths > closed turn footer 1`] = `"Generation complete"`;
+exports[`contains recorded metadata in disclosures at desktop and narrow widths > closed turn footer 1`] = `
+"Generation complete
+No duration or token metrics are available."
+`;
+
+exports[`preserves capped QS output without automatically continuing, including after reload > QS output limit diagnosis 1`] = `
+"- article:
+  - text: Output reached the length limit
+  - paragraph: This answer is incomplete; ask a follow-up to continue."
+`;
+
+exports[`renders real QS retry lifecycle: cancelled > QS cancelled retry details 1`] = `
+"- article:
+  - text: Model request diagnostic Retry 1/2
+  - paragraph: Automatic retry was cancelled.
+  - paragraph: "Provider: deepseek-official · Planned wait 60s"
+  - group: "Show the reason SERVER: upstream 503""
+`;
+
+exports[`renders real QS retry lifecycle: exhausted > QS exhausted retry details 1`] = `
+"- article:
+  - text: Model request diagnostic Retry 2/2
+  - paragraph: Request 2 has started.
+  - paragraph: "Provider: deepseek-official · Planned wait 0s · 2 retry records"
+  - group: "Show the reason SERVER: upstream 503""
+`;
+
+exports[`renders real QS retry lifecycle: recovered > QS recovered retry details 1`] = `
+"- article:
+  - text: Model request diagnostic Retry 1/2
+  - paragraph: Request 1 has started.
+  - paragraph: "Provider: deepseek-official · Planned wait 0s"
+  - group: "Show the reason SERVER: upstream 503""
+`;

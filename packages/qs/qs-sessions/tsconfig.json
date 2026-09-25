@@ -34,6 +34,12 @@
     },
     {
       "path": "../qs-shell"
+    },
+    {
+      "path": "../qs-ui-sidebar"
+    },
+    {
+      "path": "../qs-composer"
     }
   ]
 }

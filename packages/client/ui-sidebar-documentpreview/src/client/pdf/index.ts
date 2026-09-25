@@ -1,13 +1,15 @@
+// 二开正文使用同一公开身份，避免复制私有字符串。
+import { documentPreviewIds } from '../qs/ids.ts'
 /** Builtin PDF registration through document metadata and the keyed body slot. */
 import type { Context } from '@deepseek-ai/cordis'
 import type {} from '../index.ts'
 import type { DocumentPreviewDefinition } from '../document/registry.ts'
-import { PdfBody, type PdfBodyInjected } from './PdfBody.tsx'
-import { createPdfStore } from './store.ts'
+import { PdfBody } from './PdfBody.tsx'
+import { createPdfPresentation } from '../qs/pdf-presentation.ts'
 import { en, zh } from './locales.ts'
 
 /** PDF metadata and keyed body share this package-local implementation identity. */
-export const PDF_BODY_ID = '@deepseek-ai/dsh-client-ui-sidebar-documentpreview/pdf'
+export const PDF_BODY_ID = documentPreviewIds.pdf
 
 /**
  * Describe the builtin PDF renderer independently from its keyed body slot.
@@ -23,25 +25,12 @@ export function apply(ctx: Context): void {
   ctx.effect(() => ctx.locale.register('sidebarPdf', { zh, en }))
   const t = ctx.locale.bind('sidebarPdf')
   ctx.effect(() => ctx.documentPreviews.register(pdfBodyDefinition(() => t('title'))))
-  const store = createPdfStore()
-  const retained = new Map<AbortSignal, () => void>()
-  ctx.effect(() => () => {
-    for (const forget of retained.values()) forget()
-  })
+  // 页码与标签保留由唯一服务持有，双界面不复制 PDF worker 实现。
+  const { presentation, dispose } = createPdfPresentation()
+  const release = ctx.reflect.provide('documentPdfPresentation', presentation)
+  ctx.effect(() => () => { dispose(); return release() })
   ctx.effect(() => ctx.slots.inject('sidebar.right.tab.document', () => ctx.slots.register({
-    name: 'sidebar.right.tab.document', key: PDF_BODY_ID, locale: 'sidebarPdf', store,
-    inject: (_sessionId, actions): PdfBodyInjected => ({
-      retainTab: (tabId, signal) => {
-        if (signal.aborted) { actions.forget(tabId); return }
-        if (retained.has(signal)) return
-        const forget = (): void => {
-          signal.removeEventListener('abort', forget)
-          retained.delete(signal)
-          actions.forget(tabId)
-        }
-        retained.set(signal, forget)
-        signal.addEventListener('abort', forget, { once: true })
-      },
-    }),
+    name: 'sidebar.right.tab.document', key: PDF_BODY_ID, locale: 'sidebarPdf', store: presentation.store,
+    inject: presentation.inject,
   }, PdfBody)))
 }

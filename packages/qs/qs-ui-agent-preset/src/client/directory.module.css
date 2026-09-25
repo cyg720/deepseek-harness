@@ -1,0 +1,13 @@
+/* 设置目录沿用奇术令牌；机器标识允许折行，长名称不撑破窄屏。 */
+.directory { min-width: 0; }
+.directory header { display: flex; justify-content: space-between; gap: 16px; align-items: center; }
+.directory h3 { margin: 0; }
+.directory p { color: var(--qs-muted); font-size: 12px; margin: 8px 0; }
+.directory ul { list-style: none; padding: 0; }
+.directory li { padding: 14px 0; border-top: 1px solid var(--qs-line); overflow-wrap: anywhere; }
+.directory code, .directory span { display: inline-block; margin-left: 8px; font-size: 12px; }
+.directory button { font: inherit; border: 1px solid var(--qs-line); border-radius: 8px; color: var(--qs-text); background: var(--qs-surface); padding: 8px 12px; }
+.directory button:disabled { opacity: .5; }
+.directory label { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin: 14px 0; }
+.directory select { max-width: 100%; min-width: 0; color: var(--qs-text); background: var(--qs-surface); border: 1px solid var(--qs-line); border-radius: 8px; padding: 8px; }
+@media(max-width: 700px) { .directory header { align-items: stretch; flex-direction: column; } }

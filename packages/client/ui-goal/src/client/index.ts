@@ -31,10 +31,14 @@ import { GoalDock } from './GoalBar.tsx'
 import { GoalCommandInputView } from './GoalCommandInputView.tsx'
 import { goalCommandInputDefinition } from './goal-command-input.ts'
 import { en, zh, type GoalKey } from './locales.ts'
+import type { GoalPresentation } from './qs/presentation.ts'
+
+export type { GoalPresentation } from './qs/presentation.ts'
+export type { GoalCommandInputData } from './goal-command-input.ts'
 
 export { GoalBar, GoalDock } from './GoalBar.tsx'
 export type {
-  GoalActionResult, GoalBarActions,
+  GoalActionResult, GoalBarActions, GoalBarInjected, GoalActivationSnapshot,
 } from './slots.ts'
 export type { GoalKey } from './locales.ts'
 
@@ -80,12 +84,9 @@ export function apply(ctx: ClientContext): void {
     error: { code: 'no-current-goal', message: 'no current goal to mutate' },
   }
 
-  ctx.slots.inject('conversation.input.dock', () => ctx.slots.register({
-    name: 'conversation.input.dock',
-    id: 'goal',
-    order: 10,
-    locale: NS,
-    inject: (sessionId): GoalBarInjected => {
+  // 二开复用官方 CAS 动作与按需激活订阅，不重复创建执行服务或历史投影。
+  const presentation: GoalPresentation = {
+    bind(sessionId): GoalBarInjected {
       const binding = sessions.binding(sessionId)
       if (binding === undefined) throw new Error(`ui-goal: session "${sessionId}" is unavailable`)
       const goalActivation = createGoalActivationSource({
@@ -99,27 +100,36 @@ export function apply(ctx: ClientContext): void {
       })
       return {
         hooks: { goalActivation },
-        onEdit: async (objective) => {
-          const ref = refOf(sessionId)
+        onEdit: async (objective, expectedRef) => {
+          const ref = expectedRef ?? refOf(sessionId)
           if (ref === undefined) return noCurrentGoal
           return await ctx.remote.goals.edit(sessionId, ref, { objective })
         },
-        onPause: async () => {
-          const ref = refOf(sessionId)
+        onPause: async (expectedRef) => {
+          const ref = expectedRef ?? refOf(sessionId)
           if (ref === undefined) return noCurrentGoal
           return await ctx.remote.goals.pause(sessionId, ref)
         },
-        onResume: async () => {
-          const ref = refOf(sessionId)
+        onResume: async (expectedRef) => {
+          const ref = expectedRef ?? refOf(sessionId)
           if (ref === undefined) return noCurrentGoal
           return await ctx.remote.goals.resume(sessionId, ref)
         },
-        onClear: async () => {
-          const ref = refOf(sessionId)
+        onClear: async (expectedRef) => {
+          const ref = expectedRef ?? refOf(sessionId)
           if (ref === undefined) return noCurrentGoal
           return await ctx.remote.goals.clear(sessionId, ref)
         },
       }
     },
+  }
+  ctx.provide('goalPresentation', presentation)
+
+  ctx.slots.inject('conversation.input.dock', () => ctx.slots.register({
+    name: 'conversation.input.dock',
+    id: 'goal',
+    order: 10,
+    locale: NS,
+    inject: sessionId => presentation.bind(sessionId),
   }, GoalDock))
 }

@@ -566,6 +566,8 @@ function main(): void {
   const files = execFileSync('git', ['ls-files', '-z'], { cwd: root, encoding: 'utf8' })
     .split('\0')
     .filter(file => file !== '' && !excluded(file))
+    // QS 插件拆分会删除已跟踪文件；只扫描当前工作树存在的候选，精确改写目标仍单独校验。
+    .filter(file => existsSync(resolve(root, file)))
 
   const counts = new Map<string, { files: number; lines: number }>()
   const failures: string[] = []

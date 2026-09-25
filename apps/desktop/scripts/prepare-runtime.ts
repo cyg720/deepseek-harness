@@ -7,7 +7,7 @@ import { chmod, readFile } from 'node:fs/promises'
 import { createRequire } from 'node:module'
 import { dirname, join } from 'node:path'
 import { pipeline } from 'node:stream/promises'
-import extractZip from 'extract-zip'
+import { extractRuntimeZip } from './qs/extract-runtime-zip.ts'
 import { extract } from 'tar'
 import { resolveDesktopTargetBuildPaths } from './desktop-build-paths.mjs'
 
@@ -55,7 +55,8 @@ async function prepareNode(platform: RuntimePlatform, arch: RuntimeArch): Promis
   const extraction = BUILD_PATHS.nodeExtract
   rmSync(extraction, { recursive: true, force: true })
   mkdirSync(extraction, { recursive: true })
-  if (platform === 'win') await extractZip(archive, { dir: extraction })
+  // 奇术安全复核：Node ZIP 无需符号链接，拒绝链接条目以阻断已公告的越界写入路径。
+  if (platform === 'win') await extractRuntimeZip(archive, extraction)
   else await extract({ cwd: extraction, file: archive })
   const source = join(extraction, folder, platform === 'win' ? 'node.exe' : 'bin/node')
   const destinationRoot = join(RUNTIME_ROOT, 'node')

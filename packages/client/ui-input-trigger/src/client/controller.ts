@@ -1,3 +1,4 @@
+import type { InputTriggerConsumerPolicy } from './qs/consumer.ts'
 /**
  * InputTriggerController: the per-session half of the trigger pipeline. Owns every
  * piece of mutable interaction state — the authoritative trigger hit (span
@@ -78,6 +79,48 @@ export class InputTriggerController {
   private drilled = false
   private fetch: AbortController | null = null
   private disposed = false
+  // 无可见输入租约时不允许来源参与候选、仲裁或引用序列化。
+  private consumerPolicy: InputTriggerConsumerPolicy = { triggers: [] }
+  private consumerToken: object | undefined
+  private consumerEpoch = 0
+
+  /**
+   * 可见呈现独占同一会话控制器；释放旧租约不能清除后续租约。
+   * @param policy - 允许的触发符与来源。
+   * @returns 释放租约的幂等动作。
+   */
+  acquireConsumer(policy: InputTriggerConsumerPolicy): () => void {
+    if (this.disposed) throw new Error('input trigger controller disposed')
+    if (this.consumerToken !== undefined) throw new Error('input trigger consumer already mounted')
+    const token = {}
+    this.consumerToken = token
+    this.setConsumerPolicy({ triggers: [...policy.triggers], ...(policy.sources === undefined ? {} : { sources: [...policy.sources] }) })
+    return () => {
+      if (this.consumerToken !== token) return
+      this.consumerToken = undefined
+      this.setConsumerPolicy({ triggers: [] })
+    }
+  }
+
+  /** 策略切换撤销所有旧候选和仲裁，不修改共享草稿。 */
+  private setConsumerPolicy(policy: InputTriggerConsumerPolicy): void {
+    this.consumerEpoch++
+    this.consumerPolicy = policy
+    this.hit = null
+    this.stopFetch()
+    this.reduce({ type: 'close' })
+    this.refreshLexicon()
+  }
+
+  private allowed(source: InputTriggerSource): boolean {
+    return this.consumerPolicy.triggers.includes(source.trigger)
+      && (this.consumerPolicy.sources === undefined || this.consumerPolicy.sources.includes(source.name))
+  }
+
+  private sources(trigger?: string): readonly InputTriggerSource[] {
+    const sources = trigger === undefined ? this.deps.roster.all() : this.deps.roster.sources(trigger)
+    return sources.filter(source => this.allowed(source))
+  }
   /** Per-source lexicon unsubscribers (sources without the hook never enter). */
   private readonly lexiconOffs = new Map<InputTriggerSource, () => void>()
 
@@ -120,7 +163,7 @@ export class InputTriggerController {
       && prev.hit.span.start === hit.span.start && prev.hit.span.end === hit.span.end
     this.hit = hit
     if (same) return
-    const roster = this.deps.roster.sources(hit.trigger)
+    const roster = this.sources(hit.trigger)
     if (roster.length === 0) {
       this.stopFetch()
       this.reduce({ type: 'close' })
@@ -148,7 +191,7 @@ export class InputTriggerController {
       this.dismiss()
       return
     }
-    const match = this.deps.roster.sources(hit.trigger).find(item => item.name === source)
+    const match = this.sources(hit.trigger).find(item => item.name === source)
     if (match === undefined) {
       this.dismiss()
       return
@@ -176,7 +219,7 @@ export class InputTriggerController {
     const group = state.groups.find(g => g.source === source)
     const candidate = group !== undefined && group.status === 'ready' ? group.items[index] : undefined
     if (candidate === undefined) return
-    const src = this.deps.roster.sources(hit.trigger).find(s => s.name === source)
+    const src = this.sources(hit.trigger).find(s => s.name === source)
     if (src === undefined) return
     this.settle(src, candidate, hit, action)
   }
@@ -193,7 +236,7 @@ export class InputTriggerController {
     if (this.disposed || !this.menu.getSnapshot().open || hit === null) return
     const crumb = this.headers.getSnapshot().get(source)?.[index]
     if (crumb === undefined || crumb.current === true) return
-    const src = this.deps.roster.sources(hit.trigger).find(s => s.name === source)
+    const src = this.sources(hit.trigger).find(s => s.name === source)
     if (src === undefined) return
     this.settle(src, { name: crumb.label, value: crumb.value }, hit, 'drill')
   }
@@ -276,10 +319,13 @@ export class InputTriggerController {
     const hit = this.hit
     if (this.disposed || hit === null || hit.position !== 'leading') return false
     const token = hit.trigger + hit.query
+    const epoch = this.consumerEpoch
     const projection = this.project()
-    for (const src of this.deps.roster.sources(hit.trigger)) {
+    for (const src of this.sources(hit.trigger)) {
       if (src.matchSpace === undefined) continue
       const outcome = src.matchSpace(projection, token)
+      // 来源回调可能同步切换呈现或卸载自身，返回值不得写入新输入。
+      if (epoch !== this.consumerEpoch || !this.deps.roster.all().includes(src)) return false
       if (outcome === undefined) continue
       if (outcome === 'handled') return true
       return this.execute(outcome, hit.span)
@@ -298,7 +344,7 @@ export class InputTriggerController {
    * @returns the model representation (e.g. `<skill>name</skill>`).
    */
   serializeReference(source: string, ref: string, signal: AbortSignal): Promise<string> {
-    const owner = this.deps.roster.all().find(s => s.name === source)
+    const owner = this.sources().find(s => s.name === source)
     if (owner?.codec === undefined) {
       return Promise.reject(new Error(`slash: no serializer for reference source "${source}"`))
     }
@@ -314,7 +360,7 @@ export class InputTriggerController {
   openReference(source: string | undefined, reference: Pick<ReferenceInsert, 'ref' | 'appearance'>): boolean {
     if (this.disposed) return false
     const session = this.project()
-    for (const owner of this.deps.roster.all()) {
+    for (const owner of this.sources()) {
       const matches = source === undefined
         ? reference.ref.startsWith(owner.trigger) && owner.lexicon?.(session)?.includes(reference.ref.slice(1))
         : owner.name === source
@@ -338,13 +384,16 @@ export class InputTriggerController {
    * the caller must not silently downgrade.
    */
   async adjudicate(line: string, signal: AbortSignal, envelope: SubmitEnvelope): Promise<PickOutcome> {
+    const epoch = this.consumerEpoch
     const projection = this.project()
-    for (const src of this.deps.roster.all()) {
+    for (const src of this.sources()) {
       if (signal.aborted) {
         throw signal.reason instanceof Error ? signal.reason : new Error('slash adjudication aborted')
       }
       if (src.matchEnter === undefined || !line.startsWith(src.trigger)) continue
       const outcome = await src.matchEnter(projection, line, signal, envelope)
+      signal.throwIfAborted()
+      if (this.disposed || epoch !== this.consumerEpoch || !this.allowed(src) || !this.deps.roster.all().includes(src)) throw new Error('input trigger consumer changed during adjudication')
       if (outcome !== undefined) return outcome
     }
     return undefined
@@ -389,7 +438,7 @@ export class InputTriggerController {
   refreshOpenMenu(): void {
     if (this.disposed || !this.menu.getSnapshot().open || this.hit === null) return
     const launched = this.launcher.getSnapshot()
-    const roster = this.deps.roster.sources(this.hit.trigger)
+    const roster = this.sources(this.hit.trigger)
       .filter(source => launched === null || source.name === launched)
     if (roster.length === 0) return
     this.fetchCandidates(this.hit, roster)
@@ -398,6 +447,8 @@ export class InputTriggerController {
   /** Scope teardown: close and abort (the service deletes the map entry). */
   dispose(): void {
     this.disposed = true
+    this.consumerToken = undefined
+    this.setConsumerPolicy({ triggers: [] })
     this.stopFetch()
     this.reduce({ type: 'close' })
     this.hit = null
@@ -431,7 +482,7 @@ export class InputTriggerController {
   private refreshLexicon(): void {
     const projection = this.project()
     const rolls = new Map<TriggerChar, readonly string[]>()
-    for (const src of this.deps.roster.all()) {
+    for (const src of this.sources()) {
       if (src.lexicon === undefined) continue
       let names: readonly string[] | undefined
       try {
@@ -461,7 +512,7 @@ export class InputTriggerController {
       // open menu, so one source cannot contribute its previous catalog.
       void Promise.resolve().then(() => {
         if (this.disposed || this.hit !== hit || !this.menu.getSnapshot().open) return
-        this.fetchCandidates(hit, this.deps.roster.sources(hit.trigger))
+        this.fetchCandidates(hit, this.sources(hit.trigger))
       })
     }))
   }
@@ -518,6 +569,7 @@ export class InputTriggerController {
     hit: TriggerHit,
     action: PickAction,
   ): void {
+    const epoch = this.consumerEpoch
     const outcome = src.onPick({
       candidate,
       session: this.project(),
@@ -526,6 +578,8 @@ export class InputTriggerController {
       action,
       span: hit.span,
     })
+    // 同步来源回调也可能触发界面切换，过期动作不得写回草稿。
+    if (this.disposed || epoch !== this.consumerEpoch || !this.allowed(src)) return
     this.stopFetch()
     this.reduce({ type: 'close' })
     // Claimed before the edit, and after the close above so the reducer's own

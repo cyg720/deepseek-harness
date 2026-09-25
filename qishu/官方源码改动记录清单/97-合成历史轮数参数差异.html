@@ -1,0 +1,21 @@
+<!doctype html><html lang="zh-CN"><meta charset="utf-8"><title>合成历史轮数参数差异</title><style>body{font:14px system-ui;margin:24px}pre{white-space:pre-wrap;overflow-wrap:anywhere}.add{color:#14702c}.del{color:#a82020}</style><h1>HEAD 至工作区累计差异</h1><h2 id="p0">benchmarks/long-session-browser/synthetic-history.ts</h2><pre><span class="">diff --git a/benchmarks/long-session-browser/synthetic-history.ts b/benchmarks/long-session-browser/synthetic-history.ts</span>
+<span class="">index 32885489cb..efa899c2df 100644</span>
+<span class="del">--- a/benchmarks/long-session-browser/synthetic-history.ts</span>
+<span class="add">+++ b/benchmarks/long-session-browser/synthetic-history.ts</span>
+<span class="">@@ -20,11 +20,13 @@ export const DELTAS = 120</span>
+<span class=""> export const PACE_MS = 16</span>
+<span class=""> </span>
+<span class=""> /** Create mixed prose, code, reasoning and tool history without reading user data.</span>
+<span class="add">+ * @param turns - Number of complete turns in the synthetic history.</span>
+<span class="">  * @returns Current Session JSONL accepted by the shared Web seeder.</span>
+<span class="">  */</span>
+<span class="del">-export function syntheticHistory(): string {</span>
+<span class="add">+export function syntheticHistory(turns = HISTORY_TURNS): string {</span>
+<span class="">   const session = Session.create(SessionId(SESSION_ID))</span>
+<span class="del">-  for (let turn = 1; turn &lt;= HISTORY_TURNS; turn++) {</span>
+<span class="add">+  // 奇术容量测量复用同一合法历史生成器；官方基准仍使用默认轮数。</span>
+<span class="add">+  for (let turn = 1; turn &lt;= turns; turn++) {</span>
+<span class="">     session.append(&#x27;turn/start&#x27;, { turn })</span>
+<span class="">     session.append(&#x27;step/start&#x27;, { turn, step: 1 })</span>
+<span class="">     if (turn === 1) session.append(&#x27;system/message&#x27;, {</span>
+</pre></html>

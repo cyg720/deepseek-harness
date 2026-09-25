@@ -1,4 +1,8 @@
 import { describe, expect, it, vi } from 'vitest'
+// 仅测试接入真实投影容器，生产消费者仍通过官方会话座席读取。
+import { ProjectionValueStore } from '@deepseek-ai/dsh-api-session-controller/src/client/sessions/projection-store.ts'
+import type { HostObservable } from '@deepseek-ai/dsh-client-ui-slots'
+import type { SessionSeq } from '@deepseek-ai/dsh-session/types'
 import { createSnapshotStore } from '@deepseek-ai/dsh-client-store'
 import type { RemoteResult } from '@deepseek-ai/dsh-api-remotes/client'
 import type { GoalActivationChanged, GoalId, GoalProjection, GoalView } from '@deepseek-ai/dsh-goal/client'
@@ -196,4 +200,59 @@ describe('goal activation source', () => {
     disposeObserver()
     dispose()
   })
+})
+
+// 连接重置清除旧进程的激活权限，旧读结果不能恢复已失效的 armed 状态。
+it('invalidates activation on connection reset until the replacement read settles', async () => {
+  const reads: ReturnType<typeof Promise.withResolvers<RemoteResult<GoalView | undefined>>>[] = []
+  let reset: (() => void) | undefined
+  const source = createGoalActivationSource({
+    projection: createSnapshotStore<GoalProjection | null | undefined>(projection()),
+    session: createSnapshotStore({ running: false }),
+    getGoal: () => {
+      const read = Promise.withResolvers<RemoteResult<GoalView | undefined>>()
+      reads.push(read)
+      return read.promise
+    },
+    subscribeActivation: () => () => {},
+    subscribeReset: (listener) => { reset = listener; return () => { reset = undefined } },
+  })
+  const dispose = source.subscribe(() => {})
+  try {
+    reads[0]!.resolve({ ok: true, value: goalView('armed') })
+    await Promise.resolve()
+    expect(source.getSnapshot().activation).toBe('armed')
+    reset!()
+    expect(source.getSnapshot()).toEqual({ id: GOAL_ID, revision: 1 })
+    reset!()
+    reads[1]!.resolve({ ok: true, value: goalView('armed') })
+    await Promise.resolve()
+    expect(source.getSnapshot().activation).toBeUndefined()
+    reads[2]!.resolve({ ok: true, value: goalView('disarmed') })
+    await Promise.resolve()
+    expect(source.getSnapshot().activation).toBe('disarmed')
+  } finally { dispose() }
+})
+
+// 使用官方微任务投影容器：值可先读取，通知在下一微任务到达。
+it.each([false, true])('handles an empty live result before a projection notification: %s', async (clear) => {
+  const values = new ProjectionValueStore()
+  values.apply('goal', projection(), 0 as SessionSeq)
+  await Promise.resolve()
+  const read = Promise.withResolvers<RemoteResult<GoalView | undefined>>()
+  const source = createGoalActivationSource({
+    projection: values.faceOf('goal') as HostObservable<GoalProjection | null | undefined>,
+    session: createSnapshotStore({ running: false }),
+    getGoal: () => read.promise,
+    subscribeActivation: () => () => {},
+    subscribeReset: () => () => {},
+  })
+  const dispose = source.subscribe(() => {})
+  try {
+    read.resolve({ ok: true, value: undefined })
+    if (clear) values.apply('goal', null, 1 as SessionSeq)
+    await Promise.resolve()
+    expect(source.getSnapshot()).toEqual(clear ? {} : { id: GOAL_ID, revision: 1 })
+    expect(source.getSnapshot().activation).toBeUndefined()
+  } finally { dispose() }
 })

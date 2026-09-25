@@ -1,0 +1,15 @@
+/* 奇术原型的设置表单与资料卡片；长标识和条件均在面板内换行。 */
+.section { min-width: 0; display: flex; flex-direction: column; gap: 12px; overflow-wrap: anywhere; }
+.section input, .section select, .section button { font: inherit; color: var(--qs-text); background: var(--qs-surface); border: 1px solid var(--qs-line); padding: 9px 12px; border-radius: 8px; max-width: 100%; }
+.section button { cursor: pointer; }
+.section :focus-visible { outline: 2px solid var(--qs-accent); outline-offset: 2px; }
+.group { min-width: 0; }
+.group > summary { padding: 12px 0; cursor: pointer; font-weight: 600; }
+.cards { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.card { min-width: 0; background: var(--qs-surface); border: 1px solid var(--qs-line); border-radius: 12px; padding: 12px; }
+.card > summary { cursor: pointer; overflow-wrap: anywhere; }
+.card summary span { display: block; color: var(--qs-muted); font-size: 12px; margin-top: 6px; }
+.card dl { font-size: 12px; border-top: 1px solid var(--qs-line); padding-top: 10px; }
+.card dd { margin: 4px 0 12px; overflow-wrap: anywhere; }
+.card dt { color: var(--qs-muted); }
+@media(max-width: 700px) { .cards { grid-template-columns: minmax(0, 1fr); } .section input, .section select { font-size: 16px; } }

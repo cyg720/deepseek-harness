@@ -1,0 +1,294 @@
+<!doctype html><html lang="zh"><meta charset="utf-8"><title>目标错误协议差异</title><style>body{font:14px system-ui;margin:24px}pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#f5f5f5;padding:16px}.add{color:#17632e}.del{color:#a22222}</style><h1>相对 HEAD 4904755062 的工作树差异</h1><section id="goal-error-001"><h2>docs/event-producer-consumer.md</h2><pre><span class="context">diff --git a/docs/event-producer-consumer.md b/docs/event-producer-consumer.md</span>
+<span class="context">index 31bcff64bd..4dddbf9dbc 100644</span>
+<span class="del">--- a/docs/event-producer-consumer.md</span>
+<span class="add">+++ b/docs/event-producer-consumer.md</span>
+<span class="context">@@ -43,8 +43,8 @@ This matrix shows which packages dispatch each harness-owned event and which pac</span>
+<span class="context"> | `fs/edit-intent` | `waterfall` | [`packages/fs/fs/src/index.ts:66`](../packages/fs/fs/src/index.ts) | [`tool-fs`](../packages/fs/tool-fs) (`waterfall`), [`tool-str-replace-editor`](../packages/fs/tool-str-replace-editor) (`waterfall`) | [`fs-observation-policy`](../packages/fs/fs-observation-policy) |</span>
+<span class="context"> | `fs/observed` | `emit` | [`packages/fs/fs/src/index.ts:76`](../packages/fs/fs/src/index.ts) | [`tool-fs`](../packages/fs/tool-fs) (`emit`), [`tool-str-replace-editor`](../packages/fs/tool-str-replace-editor) (`emit`) | [`fs-observation-policy`](../packages/fs/fs-observation-policy), [`skill-filesystem`](../packages/skill/skill-filesystem), `workspace-files` |</span>
+<span class="context"> | `fs/write-intent` | `waterfall` | [`packages/fs/fs/src/index.ts:58`](../packages/fs/fs/src/index.ts) | [`tool-fs`](../packages/fs/tool-fs) (`waterfall`), [`tool-str-replace-editor`](../packages/fs/tool-str-replace-editor) (`waterfall`) | [`fs-observation-policy`](../packages/fs/fs-observation-policy) |</span>
+<span class="del">-| `goal/activation-changed` | `emit` | [`packages/goal/goal/src/types.ts:150`](../packages/goal/goal/src/types.ts) | [`goal`](../packages/goal/goal) (`emit`) | `remotes` |</span>
+<span class="del">-| `goal/changed` | `emit` | [`packages/goal/goal/src/domain.ts:114`](../packages/goal/goal/src/domain.ts) | [`goal`](../packages/goal/goal) (`emit`) | [`goal-round-driver`](../packages/goal/goal-round-driver) |</span>
+<span class="add">+| `goal/activation-changed` | `emit` | [`packages/goal/goal/src/types.ts:153`](../packages/goal/goal/src/types.ts) | [`goal`](../packages/goal/goal) (`emit`) | `remotes` |</span>
+<span class="add">+| `goal/changed` | `emit` | [`packages/goal/goal/src/domain.ts:105`](../packages/goal/goal/src/domain.ts) | [`goal`](../packages/goal/goal) (`emit`) | [`goal-round-driver`](../packages/goal/goal-round-driver) |</span>
+<span class="context"> | `llm/adapters-updated` | `emit` | [`packages/llm/llm/src/types.ts:23`](../packages/llm/llm/src/types.ts) | [`llm`](../packages/llm/llm) (`events.dispatch`) | [`acp`](../packages/acp/acp), [`llm`](../packages/llm/llm), `remotes` |</span>
+<span class="context"> | `llm/stream` | `waterfall` | [`packages/llm/llm/src/index.ts:72`](../packages/llm/llm/src/index.ts) | [`llm`](../packages/llm/llm) (`waterfall`) | [`agent-loop`](../packages/core/agent-loop), [`llm`](../packages/llm/llm), [`llm-replay`](../packages/test-support/llm-replay), [`session-checkpoint-policy`](../packages/session/session-checkpoint-policy), [`session-title`](../packages/session/session-title) |</span>
+<span class="context"> | `session-telemetry/record` | `waterfall` | [`packages/session/session-telemetry/src/index.ts:43`](../packages/session/session-telemetry/src/index.ts) | [`session-telemetry`](../packages/session/session-telemetry) (`waterfall`) | - |</span>
+</pre></section><section id="goal-error-002"><h2>packages/client/connection/README.i18n.yaml</h2><pre><span class="context">diff --git a/packages/client/connection/README.i18n.yaml b/packages/client/connection/README.i18n.yaml</span>
+<span class="context">index 8ed7cbac92..c9523d0b32 100644</span>
+<span class="del">--- a/packages/client/connection/README.i18n.yaml</span>
+<span class="add">+++ b/packages/client/connection/README.i18n.yaml</span>
+<span class="context">@@ -2,5 +2,5 @@</span>
+<span class="context"> # side as of the last confirmed-consistent state. Both languages carry equal authority;</span>
+<span class="context"> # after editing either side, bring the other along and re-record with:</span>
+<span class="context"> #   pnpm run verify-translation-pairing --write packages/client/connection/README.md</span>
+<span class="del">-README.md: 865c894403d2177e15085d0616289cf8950b555d</span>
+<span class="del">-README.zh.md: d3d0a62035b1770ecc1b9f81aa775dad0c86cb11</span>
+<span class="add">+README.md: a06f9a4c0e0a071057cd0ec945fe9b75a6b35a9f</span>
+<span class="add">+README.zh.md: 8d4ab55db5b6957d33d42e021579e260b8d440a7</span>
+</pre></section><section id="goal-error-003"><h2>packages/client/connection/README.md</h2><pre><span class="context">diff --git a/packages/client/connection/README.md b/packages/client/connection/README.md</span>
+<span class="context">index 865c894403..a06f9a4c0e 100644</span>
+<span class="del">--- a/packages/client/connection/README.md</span>
+<span class="add">+++ b/packages/client/connection/README.md</span>
+<span class="context">@@ -27,6 +27,8 @@ The package carries browser-to-Host Remote calls, exact Fetch responses, and con</span>
+<span class="context"> </span>
+<span class="context"> The browser uses HTTP POST for Remote unary calls. API Gateway owns the `/api/remote.mux` WebSocket and its logical streams; shell-owned compositions provide equivalent Remote streams through `connection.rpc.open` without opening a WebSocket. The Host half always provides the carrier-neutral RPC and exact `GET`/`HEAD`/`POST` route registries. When a Web carrier is present it also owns the sole `/api` route, Fetch bridge, browser authentication, and Host/Origin checks; a shell-owned carrier dispatches the shared Fetch handler directly. Each exact route declares buffered or streaming request-body handling before the bridge reads any bytes. Typert Gateway claims generated Remote endpoints, feature packages register non-JSON responses such as Session-log downloads and raw file uploads, and unclaimed requests return 404. Loopback hostname classification remains package-internal to the browser-facing Client state. Browser raw-body transfer is provided by [`dsh-client-file-upload`](../file-upload/README.md).</span>
+<span class="context"> </span>
+<span class="add">+The standalone browser fixture preserves the Goal domain codes for duplicate creation, stale revision, absent goal, and invalid transition, with empty details. Goal consumers can use the same code branches as real Host Remote calls.</span>
+<span class="add">+</span>
+<span class="context"> -----</span>
+<span class="context"> </span>
+<span class="context"> &lt;a id=&quot;browser-authentication-and-request-trust&quot;&gt;&lt;/a&gt;</span>
+</pre></section><section id="goal-error-004"><h2>packages/client/connection/README.zh.md</h2><pre><span class="context">diff --git a/packages/client/connection/README.zh.md b/packages/client/connection/README.zh.md</span>
+<span class="context">index d3d0a62035..8d4ab55db5 100644</span>
+<span class="del">--- a/packages/client/connection/README.zh.md</span>
+<span class="add">+++ b/packages/client/connection/README.zh.md</span>
+<span class="context">@@ -27,6 +27,8 @@ kind: &quot;package-reference&quot;</span>
+<span class="context"> </span>
+<span class="context"> 浏览器通过 HTTP POST 执行 Remote 一元调用；API Gateway 自己拥有 `/api/remote.mux` WebSocket 及其逻辑流。由 shell 持有的组合通过 `connection.rpc.open` 提供等价的 Remote 流，不打开 WebSocket。Host half 始终提供与载体无关的 RPC 注册表和精确 `GET`/`HEAD`/`POST` 路由注册表。存在 Web 载体时，它还持有唯一 `/api` route、Fetch bridge、浏览器认证与 Host/Origin 校验；由 shell 持有的载体则直接分派共享 Fetch handler。每条精确路由会在 bridge 读取任何字节前声明缓冲或流式请求体处理方式。Typert Gateway 认领生成的 Remote endpoint，功能包注册 Session 日志下载、原始文件上传等非 JSON 响应，未认领的请求返回 404。Loopback hostname 判定只供浏览器侧当前页面状态使用，留在包内。浏览器原始请求体传输由 [`dsh-client-file-upload`](../file-upload/README.zh.md) 提供。</span>
+<span class="context"> </span>
+<span class="add">+独立浏览器样本对重复创建、旧 revision、目标缺失和非法状态转换保留 Goal 领域代码，details 为空。Goal 消费方可以使用与真实 Host Remote 调用相同的 code 分支。</span>
+<span class="add">+</span>
+<span class="context"> -----</span>
+<span class="context"> </span>
+<span class="context"> &lt;a id=&quot;browser-authentication-and-request-trust&quot;&gt;&lt;/a&gt;</span>
+</pre></section><section id="goal-error-005"><h2>packages/client/connection/src/client/fixture.ts</h2><pre><span class="context">diff --git a/packages/client/connection/src/client/fixture.ts b/packages/client/connection/src/client/fixture.ts</span>
+<span class="context">index a27749f61a..73e2757c87 100644</span>
+<span class="del">--- a/packages/client/connection/src/client/fixture.ts</span>
+<span class="add">+++ b/packages/client/connection/src/client/fixture.ts</span>
+<span class="context">@@ -2241,9 +2241,10 @@ function createFixtureWorld(options: FixtureOptions): FixtureWorld {</span>
+<span class="context">     activation: &#x27;armed&#x27; | &#x27;disarmed&#x27;</span>
+<span class="context">   }</span>
+<span class="context"> </span>
+<span class="del">-  const goalFailure = &lt;T&gt;(message: string): RpcResult&lt;T&gt; =&gt; ({</span>
+<span class="add">+  // 独立浏览器样本也保留 Goal 领域分类，保证冲突界面不会只在样本里退化成通用错误。</span>
+<span class="add">+  const goalFailure = &lt;T&gt;(code: string, message: string): RpcResult&lt;T&gt; =&gt; ({</span>
+<span class="context">     ok: false,</span>
+<span class="del">-    error: { code: &#x27;gateway/internal&#x27;, message, details: {} },</span>
+<span class="add">+    error: { code, message, details: {} },</span>
+<span class="context">   })</span>
+<span class="context"> </span>
+<span class="context">   const requireGoalSession = (id: SessionId): RpcResult&lt;never&gt; | undefined =&gt; (</span>
+<span class="context">@@ -2634,7 +2635,7 @@ function createFixtureWorld(options: FixtureOptions): FixtureWorld {</span>
+<span class="context">       if (missing !== undefined) return missing</span>
+<span class="context">       const current = backscanGoal(logOf(id))</span>
+<span class="context">       if (current !== null &amp;&amp; current.goal.phase !== &#x27;complete&#x27;) {</span>
+<span class="del">-        return goalFailure(`goal &quot;${current.goal.id}&quot; already exists`)</span>
+<span class="add">+        return goalFailure(&#x27;GOAL_ALREADY_EXISTS&#x27;, `goal &quot;${current.goal.id}&quot; already exists`)</span>
+<span class="context">       }</span>
+<span class="context">       const now = Date.now()</span>
+<span class="context">       const projection = appendGoalChange(id, {</span>
+<span class="context">@@ -2698,8 +2699,9 @@ function createFixtureWorld(options: FixtureOptions): FixtureWorld {</span>
+<span class="context">     const missing = requireGoalSession(id)</span>
+<span class="context">     if (missing !== undefined) return missing</span>
+<span class="context">     const current = backscanGoal(logOf(id))</span>
+<span class="del">-    if (current === null || current.goal.id !== ref.id || current.goal.revision !== ref.revision) {</span>
+<span class="del">-      return goalFailure(&#x27;stale or missing goal revision&#x27;)</span>
+<span class="add">+    if (current === null) return goalFailure(&#x27;GOAL_NOT_FOUND&#x27;, &#x27;no current goal&#x27;)</span>
+<span class="add">+    if (current.goal.id !== ref.id || current.goal.revision !== ref.revision) {</span>
+<span class="add">+      return goalFailure(&#x27;GOAL_STALE_REVISION&#x27;, &#x27;stale goal revision&#x27;)</span>
+<span class="context">     }</span>
+<span class="context">     return { ok: true, value: current }</span>
+<span class="context">   }</span>
+<span class="context">@@ -2715,7 +2717,7 @@ function createFixtureWorld(options: FixtureOptions): FixtureWorld {</span>
+<span class="context">     const current = resolved.value</span>
+<span class="context">     const goal = next(current)</span>
+<span class="context">     if (goal === undefined) {</span>
+<span class="del">-      return goalFailure(`invalid goal transition from &quot;${current.goal.phase}&quot;`)</span>
+<span class="add">+      return goalFailure(&#x27;GOAL_INVALID_TRANSITION&#x27;, `invalid goal transition from &quot;${current.goal.phase}&quot;`)</span>
+<span class="context">     }</span>
+<span class="context">     const currentActivation = goalActivations.get(id)</span>
+<span class="context">       ?? (current.goal.phase === &#x27;active&#x27; ? &#x27;armed&#x27; : &#x27;disarmed&#x27;)</span>
+</pre></section><section id="goal-error-006"><h2>packages/client/connection/tests/fixture.client.spec.ts</h2><pre><span class="context">diff --git a/packages/client/connection/tests/fixture.client.spec.ts b/packages/client/connection/tests/fixture.client.spec.ts</span>
+<span class="context">index 88f661754c..46df8b4041 100644</span>
+<span class="del">--- a/packages/client/connection/tests/fixture.client.spec.ts</span>
+<span class="add">+++ b/packages/client/connection/tests/fixture.client.spec.ts</span>
+<span class="context">@@ -1680,6 +1680,10 @@ describe(&#x27;fixture Connection RPC&#x27;, () =&gt; {</span>
+<span class="context">     const { id: goalId, revision } = (goalCreated.value as { ref: { id: string; revision: number } }).ref</span>
+<span class="context">     expect(revision).toBe(1)</span>
+<span class="context">     const ref = (at: number) =&gt; ({ id: goalId, revision: at })</span>
+<span class="add">+    // 样本与真实 Host 使用同一分类；失败不得生成额外的目标变更。</span>
+<span class="add">+    expect(await goal(&#x27;goals/create&#x27;, { request: { objective: &#x27;duplicate&#x27; } })).toMatchObject({</span>
+<span class="add">+      ok: false, error: { code: &#x27;GOAL_ALREADY_EXISTS&#x27;, details: {} },</span>
+<span class="add">+    })</span>
+<span class="context">     expect((await goal(&#x27;goals/edit&#x27;, { ref: ref(1), request: { objective: &#x27;ship it v2&#x27; } })).ok).toBe(true)</span>
+<span class="context">     expect(await goal(&#x27;goals/get&#x27;, {})).toMatchObject({</span>
+<span class="context">       ok: true, value: { objective: &#x27;ship it v2&#x27;, revision: 2, activation: &#x27;armed&#x27; },</span>
+<span class="context">@@ -1691,11 +1695,18 @@ describe(&#x27;fixture Connection RPC&#x27;, () =&gt; {</span>
+<span class="context">     expect((await goal(&#x27;goals/pause&#x27;, { ref: ref(2) })).ok).toBe(true)</span>
+<span class="context">     expect((await goal(&#x27;goals/resume&#x27;, { ref: ref(3) })).ok).toBe(true)</span>
+<span class="context">     // A stale ref loses the CAS check.</span>
+<span class="del">-    expect((await goal(&#x27;goals/pause&#x27;, { ref: ref(1) })).ok).toBe(false)</span>
+<span class="add">+    expect(await goal(&#x27;goals/pause&#x27;, { ref: ref(1) })).toMatchObject({</span>
+<span class="add">+      ok: false, error: { code: &#x27;GOAL_STALE_REVISION&#x27;, details: {} },</span>
+<span class="add">+    })</span>
+<span class="context">     expect((await goal(&#x27;goals/complete&#x27;, { ref: ref(4) })).ok).toBe(true)</span>
+<span class="context">     // complete → complete is an invalid transition.</span>
+<span class="del">-    expect((await goal(&#x27;goals/complete&#x27;, { ref: ref(5) })).ok).toBe(false)</span>
+<span class="add">+    expect(await goal(&#x27;goals/complete&#x27;, { ref: ref(5) })).toMatchObject({</span>
+<span class="add">+      ok: false, error: { code: &#x27;GOAL_INVALID_TRANSITION&#x27;, details: {} },</span>
+<span class="add">+    })</span>
+<span class="context">     expect(await goal(&#x27;goals/clear&#x27;, { ref: ref(5) })).toEqual({ ok: true, value: ref(6) })</span>
+<span class="add">+    expect(await goal(&#x27;goals/pause&#x27;, { ref: ref(6) })).toMatchObject({</span>
+<span class="add">+      ok: false, error: { code: &#x27;GOAL_NOT_FOUND&#x27;, details: {} },</span>
+<span class="add">+    })</span>
+<span class="context"> </span>
+<span class="context">     const goalHistory = await sessions.history({ sessionId: id })</span>
+<span class="context">     if (!goalHistory.result.ok) throw new Error(&#x27;goal history failed&#x27;)</span>
+</pre></section><section id="goal-error-007"><h2>packages/goal/goal/README.i18n.yaml</h2><pre><span class="context">diff --git a/packages/goal/goal/README.i18n.yaml b/packages/goal/goal/README.i18n.yaml</span>
+<span class="context">index 52695a36d6..0a497fd32f 100644</span>
+<span class="del">--- a/packages/goal/goal/README.i18n.yaml</span>
+<span class="add">+++ b/packages/goal/goal/README.i18n.yaml</span>
+<span class="context">@@ -2,5 +2,5 @@</span>
+<span class="context"> # side as of the last confirmed-consistent state. Both languages carry equal authority;</span>
+<span class="context"> # after editing either side, bring the other along and re-record with:</span>
+<span class="context"> #   pnpm run verify-translation-pairing --write packages/goal/goal/README.md</span>
+<span class="del">-README.md: 7810fbb5f78aab73b2959538f1dc8fe64b2b5d62</span>
+<span class="del">-README.zh.md: 75e2cbec7dfb280e31f0d33686717901e29b2598</span>
+<span class="add">+README.md: bdbd43f496048c8b2e3491a2e3f702ccba8aa76e</span>
+<span class="add">+README.zh.md: cc34dbf8098012272c4d9b7ee8018ac99c79a780</span>
+</pre></section><section id="goal-error-008"><h2>packages/goal/goal/README.md</h2><pre><span class="context">diff --git a/packages/goal/goal/README.md b/packages/goal/goal/README.md</span>
+<span class="context">index 7810fbb5f7..bdbd43f496 100644</span>
+<span class="del">--- a/packages/goal/goal/README.md</span>
+<span class="add">+++ b/packages/goal/goal/README.md</span>
+<span class="context">@@ -82,6 +82,8 @@ view.roundsStarted, view.maxGoalRounds // continuation progress</span>
+<span class="context"> view.activation                        // &#x27;armed&#x27; | &#x27;disarmed&#x27; — not persisted</span>
+<span class="context"> ```</span>
+<span class="context"> </span>
+<span class="add">+Goal errors retain their `HarnessError` identity and expose the shared Remote failure protocol. Public Goal calls preserve the stable domain code, including `GOAL_STALE_REVISION`, with empty details; clients must branch on the code rather than parse the message. A rejected mutation appends no `goal/change` event and does not advance the current revision.</span>
+<span class="add">+</span>
+<span class="context"> -----</span>
+<span class="context"> </span>
+<span class="context"> &lt;a id=&quot;understand-the-implementation&quot;&gt;&lt;/a&gt;</span>
+</pre></section><section id="goal-error-009"><h2>packages/goal/goal/README.zh.md</h2><pre><span class="context">diff --git a/packages/goal/goal/README.zh.md b/packages/goal/goal/README.zh.md</span>
+<span class="context">index 75e2cbec7d..cc34dbf809 100644</span>
+<span class="del">--- a/packages/goal/goal/README.zh.md</span>
+<span class="add">+++ b/packages/goal/goal/README.zh.md</span>
+<span class="context">@@ -82,6 +82,8 @@ view.roundsStarted, view.maxGoalRounds // continuation progress</span>
+<span class="context"> view.activation                        // &#x27;armed&#x27; | &#x27;disarmed&#x27; — not persisted</span>
+<span class="context"> ```</span>
+<span class="context"> </span>
+<span class="add">+目标错误保留 `HarnessError` 身份并实现共享 Remote 错误协议。公开 Goal 调用保留稳定领域代码（包括 `GOAL_STALE_REVISION`），details 为空；客户端按 code 分支，不解析 message。拒绝的变更不追加 `goal/change` 事件，也不推进当前 revision。</span>
+<span class="add">+</span>
+<span class="context"> -----</span>
+<span class="context"> </span>
+<span class="context"> &lt;a id=&quot;understand-the-implementation&quot;&gt;&lt;/a&gt;</span>
+</pre></section><section id="goal-error-010"><h2>packages/goal/goal/src/domain.ts</h2><pre><span class="context">diff --git a/packages/goal/goal/src/domain.ts b/packages/goal/goal/src/domain.ts</span>
+<span class="context">index 63f1573dc7..f77681c826 100644</span>
+<span class="del">--- a/packages/goal/goal/src/domain.ts</span>
+<span class="add">+++ b/packages/goal/goal/src/domain.ts</span>
+<span class="context">@@ -89,17 +89,8 @@ export interface GoalChanged {</span>
+<span class="context">   readonly goal?: GoalView</span>
+<span class="context"> }</span>
+<span class="context"> </span>
+<span class="del">-/** Stable error codes for rejected goal reads and mutations. */</span>
+<span class="del">-export type GoalErrorCode =</span>
+<span class="del">-  | &#x27;GOAL_AGENT_NOT_LIVE&#x27;</span>
+<span class="del">-  | &#x27;GOAL_NOT_FOUND&#x27;</span>
+<span class="del">-  | &#x27;GOAL_ALREADY_EXISTS&#x27;</span>
+<span class="del">-  | &#x27;GOAL_STALE_REVISION&#x27;</span>
+<span class="del">-  | &#x27;GOAL_INVALID_OBJECTIVE&#x27;</span>
+<span class="del">-  | &#x27;GOAL_INVALID_MAX_ROUNDS&#x27;</span>
+<span class="del">-  | &#x27;GOAL_INVALID_BLOCK_REASON&#x27;</span>
+<span class="del">-  | &#x27;GOAL_INVALID_EDIT&#x27;</span>
+<span class="del">-  | &#x27;GOAL_INVALID_TRANSITION&#x27;</span>
+<span class="add">+// 保留 Host 原导出路径，客户端与 Host 共享同一份错误分类。</span>
+<span class="add">+export type { GoalErrorCode } from &#x27;./qs/error-codes.ts&#x27;</span>
+<span class="context"> </span>
+<span class="context"> declare module &#x27;@deepseek-ai/cordis&#x27; {</span>
+<span class="context">   interface Events {</span>
+</pre></section><section id="goal-error-011"><h2>packages/goal/goal/src/runtime.ts</h2><pre><span class="context">diff --git a/packages/goal/goal/src/runtime.ts b/packages/goal/goal/src/runtime.ts</span>
+<span class="context">index 2f5c40735a..df5d4593c8 100644</span>
+<span class="del">--- a/packages/goal/goal/src/runtime.ts</span>
+<span class="add">+++ b/packages/goal/goal/src/runtime.ts</span>
+<span class="context">@@ -1,6 +1,7 @@</span>
+<span class="context"> /** Runtime constructors and protocol constants for the goal domain. */</span>
+<span class="context"> </span>
+<span class="context"> import { HarnessError } from &#x27;@deepseek-ai/dsh-llm&#x27;</span>
+<span class="add">+import type { RemoteError, RemoteErrorDetailsMap } from &#x27;@deepseek-ai/dsh-typert-protocol&#x27;</span>
+<span class="context"> import type { GoalId as GoalIdType } from &#x27;./types.ts&#x27;</span>
+<span class="context"> import type { GoalErrorCode } from &#x27;./domain.ts&#x27;</span>
+<span class="context"> </span>
+<span class="context">@@ -17,7 +18,12 @@ export function GoalId(id: string): GoalIdType {</span>
+<span class="context"> }</span>
+<span class="context"> </span>
+<span class="context"> /** Error returned by the goal domain boundary. */</span>
+<span class="del">-export class GoalError extends HarnessError {</span>
+<span class="add">+export class GoalError extends HarnessError implements RemoteError&lt;GoalErrorCode&gt; {</span>
+<span class="add">+  // 保留工具端 HarnessError 元数据，同时满足 Gateway 的结构化错误识别，避免丢失 CAS 分类。</span>
+<span class="add">+  declare readonly code: GoalErrorCode</span>
+<span class="add">+  readonly isDSHRemoteError: true = true</span>
+<span class="add">+  readonly details: RemoteErrorDetailsMap[GoalErrorCode] = {}</span>
+<span class="add">+</span>
+<span class="context">   /**</span>
+<span class="context">    * @param message - human-readable rejection reason.</span>
+<span class="context">    * @param code - stable machine-routable classification.</span>
+</pre></section><section id="goal-error-012"><h2>packages/goal/goal/src/types.ts</h2><pre><span class="context">diff --git a/packages/goal/goal/src/types.ts b/packages/goal/goal/src/types.ts</span>
+<span class="context">index eb7cd602ed..159c34f334 100644</span>
+<span class="del">--- a/packages/goal/goal/src/types.ts</span>
+<span class="add">+++ b/packages/goal/goal/src/types.ts</span>
+<span class="context">@@ -13,6 +13,9 @@</span>
+<span class="context"> import type { Branded } from &#x27;@deepseek-ai/dsh-brand&#x27;</span>
+<span class="context"> import type { SessionId } from &#x27;@deepseek-ai/dsh-session/types&#x27;</span>
+<span class="context"> </span>
+<span class="add">+// 浏览器消费目标类型时同时获得 Remote 错误分类，不引入 Host 运行时代码。</span>
+<span class="add">+export type { GoalErrorCode } from &#x27;./qs/error-codes.ts&#x27;</span>
+<span class="add">+</span>
+<span class="context"> /** Identifies one goal across its durable revisions. */</span>
+<span class="context"> export type GoalId = Branded&lt;&#x27;GoalId&#x27;&gt;</span>
+<span class="context"> </span>
+</pre></section><section id="goal-error-013"><h2>packages/goal/goal/tests/goal.spec.ts</h2><pre><span class="context">diff --git a/packages/goal/goal/tests/goal.spec.ts b/packages/goal/goal/tests/goal.spec.ts</span>
+<span class="context">index ac32cd3765..14c2e4adff 100644</span>
+<span class="del">--- a/packages/goal/goal/tests/goal.spec.ts</span>
+<span class="add">+++ b/packages/goal/goal/tests/goal.spec.ts</span>
+<span class="context">@@ -13,6 +13,7 @@ import GoalService, {</span>
+<span class="context"> } from &#x27;@deepseek-ai/dsh-goal&#x27;</span>
+<span class="context"> import type { GoalChangeMeta, GoalRef, GoalSnapshotChangeMeta } from &#x27;@deepseek-ai/dsh-goal&#x27;</span>
+<span class="context"> import { createInboxStub } from &#x27;@deepseek-ai/dsh-agent-loop-testkit&#x27;</span>
+<span class="add">+import { remoteErrorOf } from &#x27;@deepseek-ai/dsh-typert-protocol&#x27;</span>
+<span class="context"> </span>
+<span class="context"> interface StubAgent {</span>
+<span class="context">   agent: Agent</span>
+<span class="context">@@ -103,6 +104,15 @@ function appendRound(session: Session, ref: GoalRef, round: number): void {</span>
+<span class="context"> }</span>
+<span class="context"> </span>
+<span class="context"> describe(&#x27;GoalService creation and replay&#x27;, () =&gt; {</span>
+<span class="add">+  // 两类消费者必须识别同一错误；只修 RPC 不能丢掉模型工具的结构化元数据。</span>
+<span class="add">+  it(&#x27;retains Harness error identity while exposing the Goal Remote failure code&#x27;, () =&gt; {</span>
+<span class="add">+    const error = new GoalError(&#x27;stale reference&#x27;, &#x27;GOAL_STALE_REVISION&#x27;)</span>
+<span class="add">+    expect(error).toBeInstanceOf(HarnessError)</span>
+<span class="add">+    expect(error.name).toBe(&#x27;GoalError&#x27;)</span>
+<span class="add">+    expect(remoteErrorOf(error)).toBe(error)</span>
+<span class="add">+    expect(remoteErrorOf(error)).toMatchObject({ code: &#x27;GOAL_STALE_REVISION&#x27;, details: {} })</span>
+<span class="add">+  })</span>
+<span class="add">+</span>
+<span class="context">   it(&#x27;does not activate without the required projection registry&#x27;, async () =&gt; {</span>
+<span class="context">     const ctx = new Context()</span>
+<span class="context">     await ctx.plugin(AgentRegistry)</span>
+</pre></section><section id="goal-error-014"><h2>docs/event-producer-consumer.i18n.yaml</h2><pre><span class="context">diff --git a/docs/event-producer-consumer.i18n.yaml b/docs/event-producer-consumer.i18n.yaml</span>
+<span class="context">index 0bd8fecb7c..ae1352e538 100644</span>
+<span class="del">--- a/docs/event-producer-consumer.i18n.yaml</span>
+<span class="add">+++ b/docs/event-producer-consumer.i18n.yaml</span>
+<span class="context">@@ -2,5 +2,5 @@</span>
+<span class="context"> # side as of the last confirmed-consistent state. Both languages carry equal authority;</span>
+<span class="context"> # after editing either side, bring the other along and re-record with:</span>
+<span class="context"> #   pnpm run verify-translation-pairing --write docs/event-producer-consumer.md</span>
+<span class="del">-event-producer-consumer.md: 31bcff64bdbd4caa24124f196beef86233f22538</span>
+<span class="del">-event-producer-consumer.zh.md: 239149009d0ade0fa2869989e32d2c41fad46c83</span>
+<span class="add">+event-producer-consumer.md: 4dddbf9dbc18db6d7e04eaa3e594dd3fe7cf8eb6</span>
+<span class="add">+event-producer-consumer.zh.md: 021b3326a8e90df3894f9f3803c642b5eb31bcbd</span>
+</pre></section><section id="goal-error-015"><h2>docs/event-producer-consumer.zh.md</h2><pre><span class="context">diff --git a/docs/event-producer-consumer.zh.md b/docs/event-producer-consumer.zh.md</span>
+<span class="context">index 239149009d..021b3326a8 100644</span>
+<span class="del">--- a/docs/event-producer-consumer.zh.md</span>
+<span class="add">+++ b/docs/event-producer-consumer.zh.md</span>
+<span class="context">@@ -45,8 +45,8 @@</span>
+<span class="context"> | `fs/edit-intent` | `waterfall` | [`packages/fs/fs/src/index.ts:66`](../packages/fs/fs/src/index.ts) | [`tool-fs`](../packages/fs/tool-fs) (`waterfall`), [`tool-str-replace-editor`](../packages/fs/tool-str-replace-editor) (`waterfall`) | [`fs-observation-policy`](../packages/fs/fs-observation-policy) |</span>
+<span class="context"> | `fs/observed` | `emit` | [`packages/fs/fs/src/index.ts:76`](../packages/fs/fs/src/index.ts) | [`tool-fs`](../packages/fs/tool-fs) (`emit`), [`tool-str-replace-editor`](../packages/fs/tool-str-replace-editor) (`emit`) | [`fs-observation-policy`](../packages/fs/fs-observation-policy), [`skill-filesystem`](../packages/skill/skill-filesystem), `workspace-files` |</span>
+<span class="context"> | `fs/write-intent` | `waterfall` | [`packages/fs/fs/src/index.ts:58`](../packages/fs/fs/src/index.ts) | [`tool-fs`](../packages/fs/tool-fs) (`waterfall`), [`tool-str-replace-editor`](../packages/fs/tool-str-replace-editor) (`waterfall`) | [`fs-observation-policy`](../packages/fs/fs-observation-policy) |</span>
+<span class="del">-| `goal/activation-changed` | `emit` | [`packages/goal/goal/src/types.ts:150`](../packages/goal/goal/src/types.ts) | [`goal`](../packages/goal/goal) (`emit`) | `remotes` |</span>
+<span class="del">-| `goal/changed` | `emit` | [`packages/goal/goal/src/domain.ts:114`](../packages/goal/goal/src/domain.ts) | [`goal`](../packages/goal/goal) (`emit`) | [`goal-round-driver`](../packages/goal/goal-round-driver) |</span>
+<span class="add">+| `goal/activation-changed` | `emit` | [`packages/goal/goal/src/types.ts:153`](../packages/goal/goal/src/types.ts) | [`goal`](../packages/goal/goal) (`emit`) | `remotes` |</span>
+<span class="add">+| `goal/changed` | `emit` | [`packages/goal/goal/src/domain.ts:105`](../packages/goal/goal/src/domain.ts) | [`goal`](../packages/goal/goal) (`emit`) | [`goal-round-driver`](../packages/goal/goal-round-driver) |</span>
+<span class="context"> | `llm/adapters-updated` | `emit` | [`packages/llm/llm/src/types.ts:23`](../packages/llm/llm/src/types.ts) | [`llm`](../packages/llm/llm) (`events.dispatch`) | [`acp`](../packages/acp/acp), [`llm`](../packages/llm/llm), `remotes` |</span>
+<span class="context"> | `llm/stream` | `waterfall` | [`packages/llm/llm/src/index.ts:72`](../packages/llm/llm/src/index.ts) | [`llm`](../packages/llm/llm) (`waterfall`) | [`agent-loop`](../packages/core/agent-loop), [`llm`](../packages/llm/llm), [`llm-replay`](../packages/test-support/llm-replay), [`session-checkpoint-policy`](../packages/session/session-checkpoint-policy), [`session-title`](../packages/session/session-title) |</span>
+<span class="context"> | `session-telemetry/record` | `waterfall` | [`packages/session/session-telemetry/src/index.ts:43`](../packages/session/session-telemetry/src/index.ts) | [`session-telemetry`](../packages/session/session-telemetry) (`waterfall`) | - |</span>
+</pre></section>

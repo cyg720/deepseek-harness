@@ -148,7 +148,8 @@ export function producedForClosing(
  * @param owner - Turn-tail owner currency for the closing assistant.
  * @returns Produced paths as the component's match, or null to decline before mount.
  */
-export function selectProducedFiles(owner: TurnTailOwnerProps): readonly string[] | null {
+// 文件事实与呈现动作分离；两种界面只需传入相同轮次和收尾序号。
+export function selectProducedFiles(owner: Pick<TurnTailOwnerProps, 'turn' | 'seq'>): readonly string[] | null {
   const paths = producedForClosing(owner.turn.data.get('deliverables'), owner.seq)
   return paths.length === 0 ? null : paths
 }
@@ -219,7 +220,8 @@ export const deliverablesDefinition: ConversationNodeDefinition<DeliverablesStat
  * @param owner - closing turn and sequence.
  * @returns replayable deliveries in first-seen path order.
  */
-export function presentedForClosing(owner: TurnTailOwnerProps): PresentedPath[] {
+// 交付声明沿用原投影，QS 不因没有官方 openFile 回调而复制解析器。
+export function presentedForClosing(owner: Pick<TurnTailOwnerProps, 'turn' | 'seq'>): PresentedPath[] {
   const files = new Map<string, PresentedPath>()
   for (const file of owner.turn.data.get('deliverables')?.presented ?? []) {
     if (file.seq < owner.seq) files.set(file.path, file)

@@ -1,0 +1,118 @@
+<!doctype html><html lang="zh-CN"><meta charset="utf-8"><title>预设重启绑定差异</title><style>pre{white-space:pre-wrap;overflow-wrap:anywhere}.add{color:green}.del{color:#a00}</style><h2>packages/preset/agent-presets/src/index.ts</h2><pre><span class="">diff --git a/packages/preset/agent-presets/src/index.ts b/packages/preset/agent-presets/src/index.ts</span>
+<span class="">index 5c0875bfab..0f720fd831 100644</span>
+<span class="del">--- a/packages/preset/agent-presets/src/index.ts</span>
+<span class="add">+++ b/packages/preset/agent-presets/src/index.ts</span>
+<span class="">@@ -22,6 +22,7 @@</span>
+<span class="">  */</span>
+<span class=""> </span>
+<span class=""> import { stat } from &#x27;node:fs/promises&#x27;</span>
+<span class="add">+import { presetScopeBindings } from &#x27;./qs/scope-bindings.ts&#x27;</span>
+<span class=""> import { Context } from &#x27;@deepseek-ai/cordis&#x27;</span>
+<span class=""> import { evaluate } from &#x27;@deepseek-ai/cordis-plugin-loader&#x27;</span>
+<span class=""> import z from &#x27;@deepseek-ai/schemastery&#x27;</span>
+<span class="">@@ -166,6 +167,8 @@ export class AgentPresets extends TypertRemoteService {</span>
+<span class="">   constructor(ctx: Context, public config: Config) {</span>
+<span class="">     super(ctx, &#x27;agentPresets&#x27;)</span>
+<span class="">     this.selfCtx = ctx</span>
+<span class="add">+    // 奇术热卸载恢复：Agent 可存活于提供者重启，同一 Loader 条目必须保留原始重绑定权限。</span>
+<span class="add">+    this.bindings = presetScopeBindings(ctx.fiber.entry ?? this)</span>
+<span class="">     const { baseUrl } = ctx</span>
+<span class="">     if (baseUrl === undefined) {</span>
+<span class="">       // Self-contained misconfiguration, so it fails at load: without a base</span>
+<span class="">@@ -415,10 +418,11 @@ export class AgentPresets extends TypertRemoteService {</span>
+<span class="">   /**</span>
+<span class="">    * Parent bindings of the agents this roster composed, keyed by the agent&#x27;s</span>
+<span class="">    * scope key. The binding is dsh-scope&#x27;s only re-link capability; holding it</span>
+<span class="del">-   * here makes this service the sole authority that can move an agent between</span>
+<span class="del">-   * standing compositions. WeakMap: entries die with their agents.</span>
+<span class="add">+   * within one Loader owner preserves its authority across provider restarts.</span>
+<span class="add">+   * Other Loader entries and direct service instances do not share bindings.</span>
+<span class="add">+   * WeakMap entries die with their agents.</span>
+<span class="">    */</span>
+<span class="del">-  private readonly bindings = new WeakMap&lt;ScopeKey, ScopeParentBinding&gt;()</span>
+<span class="add">+  private readonly bindings: WeakMap&lt;ScopeKey, ScopeParentBinding&gt;</span>
+<span class=""> </span>
+<span class="">   /**</span>
+<span class="">    * Compose one agent from a preset: ensure the preset&#x27;s standing mount, then</span>
+<span class="">@@ -441,7 +445,7 @@ export class AgentPresets extends TypertRemoteService {</span>
+<span class="">     const preset = await this.resolveMountable(id)</span>
+<span class="">     const standing = await this.ensureStanding(preset)</span>
+<span class="">     // The one bind of this agent&#x27;s ancestry. The binding is the only re-link</span>
+<span class="del">-    // authority, held privately so nothing outside this roster can move a</span>
+<span class="add">+    // authority, held privately so nothing outside this Loader owner can move a</span>
+<span class="">     // composed agent to another preset; a later recompose layer re-links</span>
+<span class="">     // through it under the caller-owned blank-session contract.</span>
+<span class="">     this.bindings.set(agentKey, bindScopeParent(agentKey, standing.key))</span></pre><h2>packages/preset/agent-presets/README.md</h2><pre><span class="">diff --git a/packages/preset/agent-presets/README.md b/packages/preset/agent-presets/README.md</span>
+<span class="">index 3f9764206d..98b83a7075 100644</span>
+<span class="del">--- a/packages/preset/agent-presets/README.md</span>
+<span class="add">+++ b/packages/preset/agent-presets/README.md</span>
+<span class="">@@ -81,6 +81,8 @@ A copy is refused when the id is not `[a-z0-9][a-z0-9-]*` (the id becomes a dire</span>
+<span class=""> </span>
+<span class=""> A session can switch to a different preset only while it has produced nothing — no messages or tool calls. After that, the composition is fixed for the session&#x27;s life, because swapping tools mid-conversation would leave logged tool calls the new composition cannot make. A committed switch emits `tools/change` because the resolved tool set changed without a registry edit. The switch is also recorded in the session log, so a resumed or forked session rebuilds under the composition it ran.</span>
+<span class=""> </span>
+<span class="add">+Restarting the same Loader entry retains its original scope-parent binding handles, so a surviving blank session can select a preset after the provider returns. Other Loader entries and directly mounted service instances do not share these handles. This does not permit recomposing a session that has started a turn.</span>
+<span class="add">+</span>
+<span class=""> ### Failures and recovery</span>
+<span class=""> </span>
+<span class=""> A preset whose composition is missing, unparsable, not a list of named plugin rows, or naming a module that cannot be resolved is listed as broken with a reason naming the rows at fault; composing such a preset is refused up front, so a session never starts half-composed. What survives to session creation is a row whose module loads and then refuses — a plugin that throws, or one waiting for a service the composition never supplies — which fails the creation and rolls it back, naming every failed row including those inside a group. Fix the preset&#x27;s file or delete it, then retry.</span></pre><h2>packages/preset/agent-presets/README.zh.md</h2><pre><span class="">diff --git a/packages/preset/agent-presets/README.zh.md b/packages/preset/agent-presets/README.zh.md</span>
+<span class="">index 11423e94e8..6dc331f6d5 100644</span>
+<span class="del">--- a/packages/preset/agent-presets/README.zh.md</span>
+<span class="add">+++ b/packages/preset/agent-presets/README.zh.md</span>
+<span class="">@@ -81,6 +81,8 @@ agent-presets:</span>
+<span class=""> </span>
+<span class=""> 会话只有在尚未产出任何内容——没有消息或工具调用——时才能切换到不同的 preset。此后组装在会话的生命周期内固定，因为在对话中途调换工具会留下新组装无法执行的已记录工具调用。已提交的切换会发出 `tools/change`，因为解析后的工具集在没有注册表编辑的情况下发生了变化。切换也会记入会话日志，因此恢复或 fork 的会话会按它运行的组装重建。</span>
+<span class=""> </span>
+<span class="add">+同一 Loader 条目重启时保留原始作用域父级绑定句柄，因此仍存活的空白会话可以在提供者恢复后选择预设。其他 Loader 条目和直接装配的服务实例不共享这些句柄。这不允许为已经开始轮次的会话重新选择组成。</span>
+<span class="add">+</span>
+<span class=""> ### 失败与恢复</span>
+<span class=""> </span>
+<span class=""> 组装缺失、无法解析、不是具名插件行列表，或者引用了无法解析的模块的 preset 会被列为 broken，原因会指名出问题的行；组装此类 preset 会被提前拒绝，因此会话绝不会以半组装状态启动。能活到会话创建的，是模块能加载但随后拒绝的行——抛错的插件，或等待组装从未提供的服务的插件——它会让创建失败并回滚，且会指名每一个失败的行，包括组内的行。修复 preset 的文件或删除它，然后重试。</span></pre><h2>packages/preset/agent-presets/README.i18n.yaml</h2><pre><span class="">diff --git a/packages/preset/agent-presets/README.i18n.yaml b/packages/preset/agent-presets/README.i18n.yaml</span>
+<span class="">index 8c2c5eb967..d2029162d3 100644</span>
+<span class="del">--- a/packages/preset/agent-presets/README.i18n.yaml</span>
+<span class="add">+++ b/packages/preset/agent-presets/README.i18n.yaml</span>
+<span class="">@@ -2,5 +2,5 @@</span>
+<span class=""> # side as of the last confirmed-consistent state. Both languages carry equal authority;</span>
+<span class=""> # after editing either side, bring the other along and re-record with:</span>
+<span class=""> #   pnpm run verify-translation-pairing --write packages/preset/agent-presets/README.md</span>
+<span class="del">-README.md: 3f9764206d86ee24b7daad898f08d7b0f8538c8d</span>
+<span class="del">-README.zh.md: 11423e94e8dc71e6eac52653d952b2203083574b</span>
+<span class="add">+README.md: 98b83a7075f004803c8be90571f7847492606565</span>
+<span class="add">+README.zh.md: 6dc331f6d54eed96fbd0fc384e57437fabdc201d</span></pre><h2>apps/web/tsconfig.json</h2><pre><span class="">diff --git a/apps/web/tsconfig.json b/apps/web/tsconfig.json</span>
+<span class="">index 1b8170e2c1..24f9e468e7 100644</span>
+<span class="del">--- a/apps/web/tsconfig.json</span>
+<span class="add">+++ b/apps/web/tsconfig.json</span>
+<span class="">@@ -23,9 +23,15 @@</span>
+<span class="">   // cannot see both sides of the cordis Context merges).</span>
+<span class="">   &quot;exclude&quot;: [</span>
+<span class="">     &quot;tests/qs/interaction-roundtrip.e2e.ts&quot;,</span>
+<span class="add">+    // 模型设置端到端用例启动真实 Host，由根 Host 程序检查，避免混合两侧 Context。</span>
+<span class="add">+    &quot;tests/qs/model-settings.e2e.ts&quot;,</span>
+<span class="add">+    // Host 能力测试由根 Host 程序负责，避免混入 Client 服务合并。</span>
+<span class="add">+    &quot;tests/qs/browse-picker.e2e.ts&quot;,</span>
+<span class="add">+    &quot;tests/qs/native-picker.e2e.ts&quot;,</span>
+<span class="">     &quot;tests/qs/transcript-disclosures.e2e.ts&quot;,</span>
+<span class="">     &quot;tests/qs/transcript-follow.e2e.ts&quot;,</span>
+<span class="">     &quot;tests/qs/transcript-media.e2e.ts&quot;,</span>
+<span class="add">+    &quot;tests/qs/preset-lifecycle.e2e.ts&quot;,</span>
+<span class="">     &quot;tests/scaffold.ts&quot;,</span>
+<span class="">     &quot;tests/scaffold-generation.spec.ts&quot;,</span>
+<span class="">     &quot;tests/scaffold-hermetic.e2e.ts&quot;,</span></pre><h2>tsconfig.host.json</h2><pre><span class="">diff --git a/tsconfig.host.json b/tsconfig.host.json</span>
+<span class="">index 7dc43e1586..5bf4487e69 100644</span>
+<span class="del">--- a/tsconfig.host.json</span>
+<span class="add">+++ b/tsconfig.host.json</span>
+<span class="">@@ -10,8 +10,15 @@</span>
+<span class="">   &quot;include&quot;: [</span>
+<span class="">     &quot;apps/web/tests/qs/transcript-disclosures.e2e.ts&quot;,</span>
+<span class="">     &quot;apps/web/tests/qs/interaction-roundtrip.e2e.ts&quot;,</span>
+<span class="add">+    // 奇术模型设置真实 Host 持久化测试归属 Host 编译程序。</span>
+<span class="add">+    &quot;apps/web/tests/qs/model-settings.e2e.ts&quot;,</span>
+<span class="add">+    // 原生选择器真实 Web 测试使用 Host 服务合并。</span>
+<span class="add">+    &quot;apps/web/tests/qs/browse-picker.e2e.ts&quot;,</span>
+<span class="add">+    &quot;apps/web/tests/qs/native-picker.e2e.ts&quot;,</span>
+<span class="">     &quot;apps/web/tests/qs/transcript-follow.e2e.ts&quot;,</span>
+<span class="">     &quot;apps/web/tests/qs/transcript-media.e2e.ts&quot;,</span>
+<span class="add">+    // 预设提供者卸载回归使用真实 Host 组合，不能归入浏览器 Client 程序。</span>
+<span class="add">+    &quot;apps/web/tests/qs/preset-lifecycle.e2e.ts&quot;,</span>
+<span class="">     &quot;apps/web/tests/scaffold.ts&quot;,</span>
+<span class="">     &quot;apps/web/tests/scaffold-generation.spec.ts&quot;,</span>
+<span class="">     &quot;apps/web/tests/default-model.e2e.ts&quot;,</span></pre></html>

@@ -31,6 +31,8 @@ This package is infrastructure: the web shell and the boot kernel are its only d
 
 `mount(container)` installs the slot renderer, hydrates the existing boot DOM when present, renders the assembled application into the container before the next paint, and returns a disposer that unmounts the React root. The renderer performs the sole context-level `renderSlot('root')` call; the registered root occupant owns product layout and document metadata.
 
+An initially missing Session scope adapter is an assembly error. If an installed adapter is removed during plugin replacement, the renderer unmounts its bound subtree and releases its subscriptions while keeping the scope-roster subscription active. Installing the replacement resumes rendering from its current binding; the removed adapter cannot feed the restored tree.
+
 ### For business plugins
 
 A business plugin registers a component through the slot system; the renderer binds the runtime's session and workspace observable sources into selector hooks at the outlet. The plugin receives the standard session props (session id, conversation snapshot hooks) through its composed props — it never imports the renderer or touches React internals.

@@ -57,7 +57,7 @@ The section declares two seats for plugins distributed outside this repository, 
 <details>
 <summary>Implementation internals — click to expand</summary>
 
-The page never holds a full settings section: it holds only the REDACTED descriptor, so every edit lands as `settings.mutate` path ops against the stored section — a set per changed field, an unset per cleared one, and a single unset for a deleted provider row.
+The page never holds a full settings section: it holds only the REDACTED descriptor, so every edit lands as `settings.mutate` path ops against the stored section — a set per changed field, an unset per cleared one, and a single unset for a deleted provider row. `ctx.modelsSettings.face` exposes this same controller, schema callbacks, write operations, and welcome state to independently mounted presentations. The access service creates no additional directory or settings mirror; it is disposed with this plugin, and dependent presentations remount against fresh instances when the plugin returns.
 
 ### Validation
 

@@ -1,0 +1,10 @@
+/* 默认权限行沿用奇术原型令牌，风险确认在行内展开并允许窄屏换行。 */
+.row { padding: 18px 0; border-bottom: 1px solid var(--qs-line); }
+.heading { display: flex; align-items: center; justify-content: space-between; gap: 20px; }
+.row label { font-weight: 600; }
+.row p { margin: 6px 0; color: var(--qs-muted); font-size: 12px; }
+.row select, .row button { font: inherit; color: var(--qs-text); background: var(--qs-surface); border: 1px solid var(--qs-line); border-radius: 8px; padding: 8px 12px; max-width: 100%; }
+.row button:disabled, .row select:disabled { opacity: .5; }
+.confirm { margin-top: 12px; padding: 14px; border: 1px solid var(--qs-line); border-radius: 10px; }
+.confirm > div { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+@media(max-width: 700px) { .heading { align-items: stretch; flex-direction: column; gap: 10px; } }

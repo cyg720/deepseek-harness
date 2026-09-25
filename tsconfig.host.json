@@ -10,8 +10,17 @@
   "include": [
     "apps/web/tests/qs/transcript-disclosures.e2e.ts",
     "apps/web/tests/qs/interaction-roundtrip.e2e.ts",
+    // 奇术模型设置真实 Host 持久化测试归属 Host 编译程序。
+    "apps/web/tests/qs/model-settings.e2e.ts",
+    // 原生选择器真实 Web 测试使用 Host 服务合并。
+    "apps/web/tests/qs/browse-picker.e2e.ts",
+    "apps/web/tests/qs/native-picker.e2e.ts",
     "apps/web/tests/qs/transcript-follow.e2e.ts",
     "apps/web/tests/qs/transcript-media.e2e.ts",
+    // 预设提供者卸载回归使用真实 Host 组合，不能归入浏览器 Client 程序。
+    "apps/web/tests/qs/preset-lifecycle.e2e.ts",
+    // 奇术四配置和官方回退测试通过真实 Host 装配，不能进入 Client 编译面。
+    "apps/web/tests/qs/ui-config.e2e.ts",
     "apps/web/tests/scaffold.ts",
     "apps/web/tests/scaffold-generation.spec.ts",
     "apps/web/tests/default-model.e2e.ts",

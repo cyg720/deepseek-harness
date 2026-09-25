@@ -96,6 +96,15 @@ export class ModelDirectory {
       ...selection.reasoningEffort === undefined
         ? {}
         : { reasoningEffort: selection.reasoningEffort },
+    }).catch((error: unknown) => {
+      // 传输拒绝不含 RPC 错误信封，仍须释放选择锁；旧连接或已卸载目录不能回写。
+      if (!this.disposed && generation === this.generation) {
+        this.store.update((state) => {
+          state.status = 'error'
+          state.error = error instanceof Error ? error.message : String(error)
+        })
+      }
+      throw error
     })
     if (this.disposed || generation !== this.generation) {
       if (!result.ok) throw new Error(`${result.error.code}: ${result.error.message}`)

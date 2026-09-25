@@ -9,7 +9,7 @@
 
 import type { RemoteResult } from '@deepseek-ai/dsh-api-remotes/client'
 import type { HostObservable } from '@deepseek-ai/dsh-client-ui-slots'
-import type { GoalActivation, GoalId } from '@deepseek-ai/dsh-goal/client'
+import type { GoalActivation, GoalId, GoalRef } from '@deepseek-ai/dsh-goal/client'
 
 /**
  * The one failure the strip reports without a wire call: the session projects
@@ -44,19 +44,31 @@ export interface GoalActivationInjected {
   }
 }
 
-/** Injected business face of the GoalBar dock entry: the mutation verbs (function properties: the strip destructures them freely). */
+/**
+ * 二开可提交用户看到的 ref，由 Host CAS 拒绝过期编辑；官方未传时保持现有读取语义。
+ * Injected business face of the GoalBar dock entry: the mutation verbs (function properties: the strip destructures them freely). */
 export interface GoalBarActions {
   /**
    * Replace the current goal's objective (CAS on the projected ref).
    * @param objective - replacement objective text.
+   * @param expectedRef - optional visible revision; omitted consumers use the current projection.
    */
-  onEdit: (objective: string) => Promise<GoalActionResult>
-  /** Pause an active goal. */
-  onPause: () => Promise<GoalActionResult>
-  /** Resume a paused goal. */
-  onResume: () => Promise<GoalActionResult>
-  /** Clear the current goal (tombstone). */
-  onClear: () => Promise<GoalActionResult>
+  onEdit: (objective: string, expectedRef?: GoalRef) => Promise<GoalActionResult>
+  /**
+   * Pause an active goal.
+   * @param expectedRef - optional visible revision; omitted consumers use the current projection.
+   */
+  onPause: (expectedRef?: GoalRef) => Promise<GoalActionResult>
+  /**
+   * Resume a paused goal.
+   * @param expectedRef - optional visible revision; omitted consumers use the current projection.
+   */
+  onResume: (expectedRef?: GoalRef) => Promise<GoalActionResult>
+  /**
+   * Clear the current goal (tombstone).
+   * @param expectedRef - optional visible revision; omitted consumers use the current projection.
+   */
+  onClear: (expectedRef?: GoalRef) => Promise<GoalActionResult>
 }
 
 /** Injected business face of the GoalBar dock entry. */

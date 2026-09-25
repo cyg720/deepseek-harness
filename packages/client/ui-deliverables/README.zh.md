@@ -110,3 +110,5 @@ Node 半部注册静态 `ui:deliverable-file-references` 系统提示词段，�
 </details>
 
 **运行时不变式：** 不发布伴生入口。提示词、slot、dictionary、文件操作路由与可选 service 注册归 effect 所有；Session 日志拥有声明，文件系统拥有文件内容。
+
+`deliverablesPresentation` 服务向替代呈现公开既有收尾选择器、动作坐标键和本机打开注入状态。官方插件仍是事件投影及打开控制器的唯一所有者，卸载替代视图不会取消共享请求。选择器仅要求轮次与序号，预览导航由各视图提供。

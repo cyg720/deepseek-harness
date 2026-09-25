@@ -37,6 +37,29 @@ export type {
 } from './slots.ts'
 export type { MessageFeedbackKey } from './locales.ts'
 
+/** 共享反馈呈现入口；两套界面复用同一会话草稿和提交状态。 */
+export interface MessageFeedbackPresentation {
+  /**
+   * 读取共享消息反馈呈现。
+   * @param sessionId - 会话标识。
+   * @returns 消息反馈动作与订阅源。
+   */
+  actions(sessionId: SessionId): MessageFeedbackInjected
+  /**
+   * 读取共享会话反馈弹层。
+   * @param sessionId - 会话标识。
+   * @returns 会话反馈弹层动作与订阅源。
+   */
+  dialog(sessionId: SessionId): FeedbackDialogInjected
+}
+
+declare module '@deepseek-ai/cordis' {
+  interface Context {
+    /** 官方与二开呈现共享的唯一反馈执行器。 */
+    messageFeedbackPresentation: MessageFeedbackPresentation
+  }
+}
+
 /** Dictionary namespace owned by this plugin. */
 const NS = 'feedback'
 
@@ -73,12 +96,9 @@ export function apply(ctx: ClientContext): void {
     }
   })
 
-  ctx.slots.inject('conversation.chat.assistant-actions', () => ctx.slots.register({
-    name: 'conversation.chat.assistant-actions',
-    id: 'feedback',
-    order: 10,
-    locale: NS,
-    inject: (sessionId): MessageFeedbackInjected => {
+  // 二开只取得呈现动作，不复制 Surface 或重复注册 /feedback。
+  const presentation: MessageFeedbackPresentation = {
+    actions: (sessionId): MessageFeedbackInjected => {
       const { feedback, dialog } = surfaceFor(sessionId)
       return {
         hooks: { feedback },
@@ -88,14 +108,7 @@ export function apply(ctx: ClientContext): void {
         openDialog: (messageId, rating) => { dialog.open({ kind: 'message', messageId, rating }) },
       }
     },
-  }, MessageFeedbackActions))
-
-  ctx.slots.inject('conversation.input.overlay', () => ctx.slots.register({
-    name: 'conversation.input.overlay',
-    id: 'feedback-dialog',
-    order: 2,
-    locale: NS,
-    inject: (sessionId): FeedbackDialogInjected => {
+    dialog: (sessionId): FeedbackDialogInjected => {
       const { dialog } = surfaceFor(sessionId)
       return {
         hooks: { dialog: dialog.state },
@@ -106,6 +119,23 @@ export function apply(ctx: ClientContext): void {
         dismissToast: (seq) => { dialog.dismissToast(seq) },
       }
     },
+  }
+  ctx.effect(() => ctx.reflect.provide('messageFeedbackPresentation', presentation), 'ui-message-feedback: shared presentation')
+
+  ctx.slots.inject('conversation.chat.assistant-actions', () => ctx.slots.register({
+    name: 'conversation.chat.assistant-actions',
+    id: 'feedback',
+    order: 10,
+    locale: NS,
+    inject: sessionId => presentation.actions(sessionId),
+  }, MessageFeedbackActions))
+
+  ctx.slots.inject('conversation.input.overlay', () => ctx.slots.register({
+    name: 'conversation.input.overlay',
+    id: 'feedback-dialog',
+    order: 2,
+    locale: NS,
+    inject: sessionId => presentation.dialog(sessionId),
   }, FeedbackDialog))
 
   // The Host keeps `/feedback <text>` for a typed remark; a bare invocation

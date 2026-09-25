@@ -1,0 +1,7 @@
+/* 奇术原型的设置标签与面板，长标题可换行。 */
+.section { min-width: 0; overflow-wrap: anywhere; }
+.section > p { color: var(--qs-muted); }
+.tabs { display: flex; flex-wrap: wrap; gap: 8px; padding: 12px 0; border-bottom: 1px solid var(--qs-line); margin-bottom: 16px; }
+.tabs button { border: 1px solid var(--qs-line); border-radius: 8px; padding: 8px 12px; font: inherit; color: var(--qs-text); background: var(--qs-surface); cursor: pointer; }
+.tabs button[aria-selected=true] { background: var(--qs-accent-soft); border-color: var(--qs-accent); }
+.tabs button:focus-visible { outline: 2px solid var(--qs-accent); outline-offset: 2px; }

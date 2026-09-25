@@ -63,7 +63,7 @@ export function createGoalActivationSource(deps: GoalActivationDeps): HostObserv
       if (read !== readEpoch || startedAtEvent !== eventEpoch || startedAtProjection !== projectionEpoch) return
       if (!result.ok) return
       const goal = result.value
-      /* v8 ignore next 4 -- projection drive is the authoritative clear edge; an active projection with no live goal is transient. */
+      // 投影值可在微任务通知前变更；空远端结果只在投影也已清空时清除激活。
       if (goal === undefined) {
         if (activeRef(deps.projection.getSnapshot()) === undefined) publish({})
         return
@@ -104,7 +104,10 @@ export function createGoalActivationSource(deps: GoalActivationDeps): HostObserv
   const onReset = (): void => {
     eventEpoch++
     projectionEpoch++
-    startRead(activeRef(deps.projection.getSnapshot()))
+    // 新连接代次不能沿用旧进程的 armed 状态，等待权威读取或新激活事件。
+    const ref = activeRef(deps.projection.getSnapshot())
+    publish(ref === undefined ? {} : { id: ref.id, revision: ref.revision })
+    startRead(ref)
   }
 
   const start = (): void => {

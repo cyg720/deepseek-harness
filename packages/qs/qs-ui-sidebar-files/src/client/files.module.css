@@ -1,0 +1,13 @@
+/* 目录正文使用 QS 主题；长路径在自身滚动区域内换行。 */
+.root { display:flex; flex-direction:column; height:100%; min-height:0; color:var(--qs-text); background:var(--qs-surface); font-size:12px; }
+.root header { display:flex; align-items:center; gap:8px; padding:12px; border-bottom:1px solid var(--qs-line); }
+.root header span { flex:1; min-width:0; overflow-wrap:anywhere; }
+.root button { background:transparent; border:0; color:inherit; text-align:left; cursor:pointer; padding:6px; overflow-wrap:anywhere; }
+.root button:hover { background:var(--qs-subtle); }
+.root button:focus-visible { outline:2px solid var(--qs-accent); outline-offset:-2px; }
+.root ul { list-style:none; margin:0; padding:0 0 0 12px; }
+.root li { overflow-wrap:anywhere; }
+.root li button { display:flex; gap:6px; width:100%; }
+.root [aria-disabled] { color:var(--qs-muted); }
+.scroll { min-height:0; overflow:auto; flex:1; padding:8px; }
+.note { padding:16px; color:var(--qs-muted); }

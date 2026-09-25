@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import {
   DEFAULT_QS_SHELL_CONFIG, QS_UI_CONFIG_GLOBAL, readInjectedQsShellConfig, resolveQsShellConfig,
 } from '../src/config.ts'
@@ -12,7 +12,7 @@ describe('启动配置解析', () => {
 
   it('接受合法枚举与布尔值', () => {
     expect(resolveQsShellConfig({ defaultUi: 'official', showOfficialUiEntry: true }))
-      .toEqual({ defaultUi: 'official', showOfficialUiEntry: true })
+      .toEqual({ notificationCapacity: 256, defaultUi: 'official', showOfficialUiEntry: true })
   })
 
   it('非法枚举抛错，不静默降级', () => {
@@ -28,7 +28,7 @@ describe('启动配置解析', () => {
     const holder = globalThis as Record<string, unknown>
     holder[QS_UI_CONFIG_GLOBAL] = { defaultUi: 'official', showOfficialUiEntry: true }
     try {
-      expect(readInjectedQsShellConfig()).toEqual({ defaultUi: 'official', showOfficialUiEntry: true })
+      expect(readInjectedQsShellConfig()).toEqual({ notificationCapacity: 256, defaultUi: 'official', showOfficialUiEntry: true })
     } finally {
       Reflect.deleteProperty(holder, QS_UI_CONFIG_GLOBAL)
     }
@@ -72,4 +72,39 @@ describe('界面切换控制器', () => {
     expect(controller.getSnapshot().ui).toBe('workbench')
     expect(controller.getSnapshot().error).toBe('switch.failed')
   })
+})
+
+/** 重复命令不应发布新快照，取消订阅后不应继续通知组件。 */
+it('界面控制器通知有效变化并支持解除订阅', () => {
+  const apply = vi.fn(), notice = vi.fn()
+  const controller = new QsUiModeController({ defaultUi: 'workbench', showOfficialUiEntry: true }, apply)
+  const off = controller.subscribe(notice)
+  const initial = controller.getSnapshot()
+  controller.switchTo('workbench')
+  controller.setLocalFreeze(undefined)
+  expect(controller.getSnapshot()).toBe(initial)
+  expect(notice).not.toHaveBeenCalled()
+  controller.setLocalFreeze('sending')
+  controller.setLocalFreeze('sending')
+  expect(notice).toHaveBeenCalledOnce()
+  controller.setLocalFreeze(undefined)
+  controller.switchTo('official')
+  expect(apply).toHaveBeenCalledExactlyOnceWith('official')
+  expect(notice).toHaveBeenCalledTimes(3)
+  off()
+  controller.switchTo('workbench')
+  expect(notice).toHaveBeenCalledTimes(3)
+})
+
+/** 配置来自跨进程 JSON，原始值必须在进入插件前拒绝。 */
+it('空配置采用默认值，标量配置立即失败', () => {
+  expect(resolveQsShellConfig(null)).toEqual(DEFAULT_QS_SHELL_CONFIG)
+  expect(() => resolveQsShellConfig('official')).toThrow('config must be an object')
+})
+
+it('通知容量采用正安全整数，拒绝不能形成有界身份集合的配置', () => {
+  expect(resolveQsShellConfig({ notificationCapacity: 1 }).notificationCapacity).toBe(1)
+  for (const notificationCapacity of [0, -1, 1.5, '2', NaN, Infinity, Number.MAX_SAFE_INTEGER + 1]) {
+    expect(() => resolveQsShellConfig({ notificationCapacity })).toThrow(/notificationCapacity/)
+  }
 })

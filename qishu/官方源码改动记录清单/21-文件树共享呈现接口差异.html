@@ -1,0 +1,127 @@
+<!doctype html><html lang="zh"><meta charset="utf-8"><title>文件树共享接口累计差异</title><style>pre{white-space:pre-wrap;overflow-wrap:anywhere}body{margin:30px}</style><h1>相对 HEAD 的官方文件累计差异</h1>
+<h2>packages/client/ui-sidebar-files/README.i18n.yaml</h2><pre>diff --git a/packages/client/ui-sidebar-files/README.i18n.yaml b/packages/client/ui-sidebar-files/README.i18n.yaml
+index 855bf2710c..b242e5c134 100644
+--- a/packages/client/ui-sidebar-files/README.i18n.yaml
++++ b/packages/client/ui-sidebar-files/README.i18n.yaml
+@@ -2,5 +2,5 @@
+ # side as of the last confirmed-consistent state. Both languages carry equal authority;
+ # after editing either side, bring the other along and re-record with:
+ #   pnpm run verify-translation-pairing --write packages/client/ui-sidebar-files/README.md
+-README.md: 28e052b5a6739118c691431aad88964a8f6d19cd
+-README.zh.md: fe5a10d19b3957f555c08eeaf6f48ceb44daecaf
++README.md: 209f336d2ae932032486f4df1d0709c65d8df00c
++README.zh.md: 262fc7ec732922172923c05c3357a164acbf7ea1
+</pre>
+<h2>packages/client/ui-sidebar-files/README.md</h2><pre>diff --git a/packages/client/ui-sidebar-files/README.md b/packages/client/ui-sidebar-files/README.md
+index 28e052b5a6..209f336d2a 100644
+--- a/packages/client/ui-sidebar-files/README.md
++++ b/packages/client/ui-sidebar-files/README.md
+@@ -45,6 +45,8 @@ A level cut by the endpoint&#x27;s entry cap ends with a marker; an empty level says
+
+ State lives in the type&#x27;s own store, bucketed by tab id: `root`, `levels` (loading / ready / failed per absolute path), and `expanded`. The owner&#x27;s `signal` ends a bucket: on abort the tab is forgotten and a listing that settles afterwards writes nothing.
+
++The sidebarFilesPresentation service exposes the same store handle and injected file operations used by the official body. Alternate presentations register that handle at session scope and use its inject factory; consumers of the same store instance share request generations, so late responses cannot overwrite a newer refresh after a view switch.
++
+ &lt;a id=&quot;model-experience&quot;&gt;&lt;/a&gt;
+ ## Model Experience
+
+</pre>
+<h2>packages/client/ui-sidebar-files/README.zh.md</h2><pre>diff --git a/packages/client/ui-sidebar-files/README.zh.md b/packages/client/ui-sidebar-files/README.zh.md
+index fe5a10d19b..262fc7ec73 100644
+--- a/packages/client/ui-sidebar-files/README.zh.md
++++ b/packages/client/ui-sidebar-files/README.zh.md
+@@ -45,6 +45,8 @@ kind: &quot;package-reference&quot;
+
+ 状态保存在类型自己的存储里，按 tab id 分桶：`root`、`levels`（每个绝对路径的 loading / ready / failed）与 `expanded`。owner 的 `signal` 终结一个桶：中止时忘掉该 tab，其后才结算的列表什么也不写。
+
++sidebarFilesPresentation 服务公开官方正文使用的同一 store 句柄和文件操作注入工厂。替代呈现以 session 作用域注册该句柄并使用其 inject 工厂；同一 store 实例的消费者共用请求代次，切换界面后的迟到响应不能覆盖新刷新结果。
++
+ &lt;a id=&quot;model-experience&quot;&gt;&lt;/a&gt;
+ ## 模型体验
+
+</pre>
+<h2>packages/client/ui-sidebar-files/src/client/index.ts</h2><pre>diff --git a/packages/client/ui-sidebar-files/src/client/index.ts b/packages/client/ui-sidebar-files/src/client/index.ts
+index 572f5583b5..d404133cfd 100644
+--- a/packages/client/ui-sidebar-files/src/client/index.ts
++++ b/packages/client/ui-sidebar-files/src/client/index.ts
+@@ -16,11 +16,18 @@ import type {} from &#x27;@deepseek-ai/dsh-client-ui-renderer/client&#x27;
+ import type {} from &#x27;@deepseek-ai/dsh-client-ui-session/client&#x27;
+ import type {} from &#x27;@deepseek-ai/dsh-client-ui-sidebar-right/client&#x27;
+ import { FILES_ID, filesDefinition } from &#x27;./definition.tsx&#x27;
+-import { createList, filesFace } from &#x27;./face.ts&#x27;
++import { createFilesPresentation } from &#x27;./qs/presentation.ts&#x27;
++import type { SidebarFilesPresentation } from &#x27;./qs/presentation.ts&#x27;
++export type { SidebarFilesPresentation } from &#x27;./qs/presentation.ts&#x27;
+ import { FilesBody } from &#x27;./FilesBody.tsx&#x27;
+ import { FilesTitle } from &#x27;./FilesTitle.tsx&#x27;
+ import { en, zh } from &#x27;./locales.ts&#x27;
+-import { createFilesStore } from &#x27;./store.ts&#x27;
++declare module &#x27;@deepseek-ai/cordis&#x27; {
++  interface Context {
++    /** 官方与 QS 共用目录状态及刷新代次，不重复创建文件树读取器。 */
++    sidebarFilesPresentation: SidebarFilesPresentation
++  }
++}
+
+ export type { SidebarFilesKey } from &#x27;./locales.ts&#x27;
+ export type { DirLevel, FilesState, FilesTabState, LevelState } from &#x27;./store.ts&#x27;
+@@ -45,8 +52,11 @@ export function apply(ctx: ClientContext): void {
+   ctx.effect(() =&gt; ctx.sidebarRightTabs.register(filesDefinition(t)), &#x27;ui-sidebar-files: files type&#x27;)
+   ctx.effect(() =&gt; ctx.locale.register(NS, { zh, en }), &#x27;ui-sidebar-files: dictionaries&#x27;)
+
+-  const store = createFilesStore()
+-  const inject = filesFace(createList(ctx.remote))
++  // 共享整个注入工厂，确保切换呈现后的迟到目录响应不能覆盖新刷新。
++  const presentation = createFilesPresentation(ctx.remote)
++  const { store, inject } = presentation
++  const disposePresentation = ctx.reflect.provide(&#x27;sidebarFilesPresentation&#x27;, presentation)
++  ctx.effect(() =&gt; disposePresentation, &#x27;ui-sidebar-files: presentation&#x27;)
+   ctx.effect(() =&gt; ctx.slots.inject(&#x27;sidebar.right.pane.tab&#x27;, () =&gt; ctx.slots.register(
+     { name: &#x27;sidebar.right.pane.tab&#x27;, key: FILES_ID, locale: NS, store, inject },
+     FilesBody,
+</pre>
+<h2>packages/client/ui-sidebar-files/tests/apply.client.spec.ts</h2><pre>diff --git a/packages/client/ui-sidebar-files/tests/apply.client.spec.ts b/packages/client/ui-sidebar-files/tests/apply.client.spec.ts
+index e81d21dd8d..cd0d525e47 100644
+--- a/packages/client/ui-sidebar-files/tests/apply.client.spec.ts
++++ b/packages/client/ui-sidebar-files/tests/apply.client.spec.ts
+@@ -55,7 +55,7 @@ async function boot() {
+   ctx.provide(&#x27;remote.workspaceFiles&#x27;, workspaceFiles as never)
+   const fiber = ctx.plugin({ inject: [...inject], apply })
+   await fiber.await()
+-  return { tabs, registered, dictionaries, fiber }
++  return { ctx, tabs, registered, dictionaries, fiber }
+ }
+
+ describe(&#x27;ui-sidebar-files apply&#x27;, () =&gt; {
+@@ -64,7 +64,7 @@ describe(&#x27;ui-sidebar-files apply&#x27;, () =&gt; {
+   })
+
+   it(&#x27;registers the type, its dictionaries, and the body and title seats under the type\&#x27;s id&#x27;, async () =&gt; {
+-    const { tabs, registered, dictionaries } = await boot()
++    const { ctx, tabs, registered, dictionaries } = await boot()
+     const definition = tabs.get(FILES_KIND)
+     expect(definition?.id).toBe(FILES_ID)
+     expect(definition?.priority).toBe(&#x27;builtin&#x27;)
+@@ -78,15 +78,18 @@ describe(&#x27;ui-sidebar-files apply&#x27;, () =&gt; {
+       [&#x27;sidebar.right.pane.tab&#x27;, FILES_ID, &#x27;sidebarFiles&#x27;, FilesBody],
+       [&#x27;sidebar.right.pane.tab.title&#x27;, FILES_ID, undefined, FilesTitle],
+     ])
+-    expect(registered[0]?.store).toBeDefined()
++    // 二开必须获得官方正在使用的句柄，不能另建同结构状态。
++    expect(registered[0]?.store).toBe(ctx.sidebarFilesPresentation.store)
++    expect(registered[0]?.inject).toBe(ctx.sidebarFilesPresentation.inject)
+     expect(typeof registered[0]?.inject).toBe(&#x27;function&#x27;)
+   })
+
+   it(&#x27;takes every registration back when the plugin is disposed&#x27;, async () =&gt; {
+-    const { tabs, registered, dictionaries, fiber } = await boot()
++    const { ctx, tabs, registered, dictionaries, fiber } = await boot()
+     await fiber.dispose()
+     expect(tabs.get(FILES_KIND)).toBeUndefined()
+     expect(registered).toEqual([])
+     expect(dictionaries.size).toBe(0)
++    expect(ctx.get(&#x27;sidebarFilesPresentation&#x27;)).toBeUndefined()
+   })
+ })
+</pre>
+</html>
