@@ -73,4 +73,4 @@ Hunt these in any doc; [dsh-doc](../.agents/skills/dsh-doc/SKILL.md) runs this l
 
 ## Repository references
 
-Use relative Markdown links for current files and tags or PR numbers for historical references. `verify-md-links` checks local targets. [Reference validation](../scripts/verify-repository-references.ts) rejects actual commit identifiers and disallowed organization URLs in maintained files.
+Use relative Markdown links for current files and tags or PR numbers for history. `verify-md-links` checks local targets. [Reference validation](../scripts/verify-repository-references.ts) permits named offline atlas JSON snapshot/history identifiers; rejects other commit references and disallowed organization URLs.

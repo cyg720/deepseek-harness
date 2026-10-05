@@ -1,0 +1,70 @@
+{
+ "reviewedHead":"46a7f68b0922371ce7144b668b90e377d8e799f4",
+ "intro":"DeepSeek Harness 把智能体、工具、存储与界面组合成 Cordis 插件树。理解它时，先区分应用如何装配，再观察一轮消息怎样运行，最后沿日志与 UI 找到结果。",
+ "layers":[
+  {"title":"产品入口","tag":"01 · ENTRY","description":"Web、Desktop、Headless 与 SDK 为不同使用方式提供入口。支持的 Node 应用统一通过 dsh profile 启动。","groups":["boot","sdk"],"file":"apps/cli/src/bin.ts"},
+  {"title":"启动与装配","tag":"02 · COMPOSITION","description":"Profile 决定 bundle 的顺序，patch 覆盖配置，Cordis 根据依赖挂载插件。代码存在于仓库，并不代表它已经在某个 profile 中启用。","groups":["boot","bundle","preset"],"file":"apps/cli/src/profile-boot.ts"},
+  {"title":"智能体执行","tag":"03 · RUNTIME","description":"Agent 接纳消息，装配上下文，调用模型，再执行工具。一个 turn 可以包含多个 step，每个 step 对应一次模型请求及其工具工作。","groups":["core","llm","context","guard"],"file":"packages/core/agent-loop/src/agent.ts"},
+  {"title":"能力与隔离","tag":"04 · CAPABILITIES","description":"工具使用文件、Shell、终端、浏览器等服务。服务定义与提供者让实现可以替换，沙箱与审批约束执行。","groups":["fs","shell","terminal","sandbox","mcp","browser-use","subagent"],"file":"packages/core/tools/src/index.ts"},
+  {"title":"事件与持久化","tag":"05 · STATE","description":"Session 日志保存可重建的事实；投影从事件计算状态。持久化提供者负责落盘、读取、迁移与写入租约。","groups":["session","session-query","storage","attachment"],"file":"packages/core/session/src/index.ts"},
+  {"title":"宿主与界面","tag":"06 · PRESENTATION","description":"Host 提供页面、RPC 和流；客户端插件加载后向 UI Slots 注册组件。React 呈现依赖状态的界面。","groups":["host","api","client"],"file":"packages/client/modules/src/index.ts"}
+ ],
+ "flows":[
+  {"id":"boot","title":"应用如何启动","eyebrow":"阅读路线 01","description":"从命令行参数到可运行插件树，理解为什么这里没有一个负责全部业务的 main 函数。","steps":[
+   {"title":"选择运行入口","kind":"函数调用","file":"apps/cli/src/bin.ts","find":"export async function runCli","text":"runCli 解析命令行模式。profile 模式动态加载 runProfile；插件管理与配置导出走各自分支。先找模式分派，避免把构建入口误认为应用入口。","watch":"注意 invocation.mode 与 invocation.profile 的区别。","question":"为什么 dsh plugin 与 dsh --profile web 进入不同分支？","answer":"plugin 是管理命令模式，profile 模式才负责启动所选应用组合。"},
+   {"title":"准备 profile 与运行环境","kind":"函数调用","file":"apps/cli/src/profile-boot.ts","find":"export async function runProfile","text":"runProfile 组织环境、profile、模块解析与关闭流程，再将组合结果交给 boot。profile 决定加载哪些 bundle，附加 patch 可以覆盖组合。","watch":"从这里继续追踪 prepareProfile、composeProfile 和 readProfilePatches。","question":"同一份源码为什么可以启动不同应用？","answer":"应用行为取决于 profile 组合的插件树；不同 profile 选择不同 bundle 与配置。"},
+   {"title":"组合配置层","kind":"配置数据","file":"packages/boot/app-boot/src/profile.ts","find":"","text":"Profile 模块处理配置与 bundle 元数据。阅读 profile 的 bundle 顺序，再查看 patch 的读取逻辑：它决定最终的插件条目和配置。","watch":"架构文档规定：bundle → profile patch → home patch → 命令行 patch。条目的 config 覆盖是整体替换。","question":"安装了某个插件包，是否就一定会启动？","answer":"不一定。包必须被有效组合引用且未禁用，还需满足依赖、配置与兼容性要求。"},
+   {"title":"挂载 Cordis 插件树","kind":"生命周期","file":"packages/boot/app-boot/src/index.ts","find":"export async function boot","text":"boot 加载配置并驱动 Cordis Loader。插件通过 ctx 提供服务与事件，依赖决定激活时机，启动失败通过明确的诊断暴露。","watch":"这里应关注 Loader 和上下文；业务逻辑继续下沉到各插件。","question":"为何注册需要可释放的 effect？","answer":"插件卸载或热更新时必须撤销注册与资源，防止重复监听、过期条目和资源泄漏。"},
+   {"title":"为浏览器生成启动图","kind":"Host → 浏览器","file":"packages/client/modules/src/index.ts","find":"export class ClientModuleRegistry","text":"Web 组合中的 client-modules 扫描活跃 Loader 条目，识别 dsh.client 声明，生成浏览器启动图，并向页面注入模块信息。","watch":"包目录是静态集合，启动图对应实际激活的插件。","question":"为什么客户端插件还有 Node 一侧？","answer":"Host 需要发现插件、提供脚本并组织浏览器启动信息；实际界面逻辑在客户端入口中运行。"},
+   {"title":"浏览器加载并挂载界面","kind":"客户端生命周期","file":"packages/client/modules/src/client/index.ts","find":"","text":"浏览器端模块系统根据启动图加载插件。ui-renderer 绑定渲染能力，布局与功能插件再向插槽注册内容。此时才形成可交互界面。","watch":"继续阅读 ui-renderer 与 ui-layout 的客户端入口；它们不属于模型循环。","question":"更换品牌需要修改智能体循环吗？","answer":"不需要。品牌通过客户端插槽组成，不改变模型请求或会话执行。"}
+  ]},
+  {"id":"message","title":"一条消息如何得到回复","eyebrow":"阅读路线 02","description":"跟随真实的 ReactLoopAgent 方法，区分一轮 turn、一步 step、临时流和持久事件。","steps":[
+   {"title":"用户命令进入会话控制器","kind":"RPC / 命令","file":"packages/api/session-controller/src/commands.ts","find":"export class SessionCommandController","text":"Web 侧的会话命令由 SessionCommandController 处理，它结合会话和智能体状态执行输入操作。不是所有输入都直接发给模型，排队和后续输入有独立语义。","watch":"寻找 agent.followup 与消息构造，继续进入 Agent API。","question":"界面文字输入能直接成为模型请求吗？","answer":"还需要会话命令处理、输入接纳、上下文组装以及模型请求准备。"},
+   {"title":"打开本轮，接纳本步","kind":"事件 + 调用","file":"packages/core/agent-loop/src/agent.ts","find":"private async turn()","text":"turn 先追加 turn/start，再调用 preStep。preStep 认领收件箱输入、装配系统提示词并调用 agent/pre-step waterfall。拒绝或首次空输入可以结束本轮而不消耗模型请求。","watch":"turn/start、step/start 的位置不同。先打开 turn，并不意味着一定会打开 step。","question":"turn 与 step 为什么不是一对一？","answer":"模型可能先调用工具，再根据结果请求下一步；一轮用户工作可以包含多个步骤。"},
+   {"title":"准备模型调用","kind":"Waterfall / 调用","file":"packages/core/agent-loop/src/agent.ts","find":"private async prepareRequest","text":"prepareRequest 通过 agent/request 解析请求配置，再调用模型服务 prepareCall。提供者和模型必须能被解析，不能静默使用一个不存在的路由。","watch":"prepareCall 在本次接纳的用户输入提交之前完成；此处取消不会提前提交这批输入。","question":"想调整模型请求，应先看哪里？","answer":"先看 agent/request 和模型适配器扩展点；不要直接把业务分支塞进循环。"},
+   {"title":"从会话事实构造请求","kind":"持久记录","file":"packages/core/agent-loop/src/agent.ts","find":"private async step(","text":"step 根据适配器能力协调 system/message，在首个尝试提交用户输入，再调用 buildRequest。从日志派生的历史进入模型，支持以后重建请求。","watch":"重试不会再次提交同一批用户输入；request/header 记录请求配置的变化。","question":"为什么模型可见内容必须可从日志重建？","answer":"恢复、回放、导出和调试才能解释模型当时实际看到了什么。"},
+   {"title":"消费流并提交结果","kind":"临时流 → 持久事实","file":"packages/core/agent-loop/src/agent.ts","find":"const live = new AssistantStreamAttempt","text":"循环消费模型流，并用 agent/assistant-stream 发送进程内增量。结束时提交 assistant/message 或 assistant/attempt。临时 chunk 与最终持久记录承担不同职责。","watch":"取消、错误与重试也有终结逻辑；不要把所有失败尝试都当成模型历史消息。","question":"浏览器已显示的临时 token 是否一定写入日志？","answer":"临时流本身不是持久事实。最终结算记录承载可回放的流；结算前硬崩溃可能没有对应持久尝试。"},
+   {"title":"执行工具，再决定下一步","kind":"工具流水线","file":"packages/core/agent-loop/src/tool-calls.ts","find":"export async function executeToolCalls","text":"模型给出工具调用时，执行器按分组和并发限制运行。并行安全调用可以重叠，独占调用保留排序屏障；结果记录后通常驱动下一次模型请求。","watch":"工具结果通过日志进入下一步，不能把工具直接返回浏览器视为完整循环。","question":"为什么不能把所有工具直接 Promise.all？","answer":"部分调用不具备并行安全性；执行顺序、取消以及持久记录都有明确约束。"},
+   {"title":"结束本步与本轮","kind":"生命周期事件","file":"packages/core/agent-loop/src/agent.ts","find":"agent/turn-stopping","text":"每步在 finally 中追加 step/end；准备结束时发出 agent/turn-stopping，允许扩展继续安排本轮工作。最终写入 turn/end，记录完成、取消、错误等结局。","watch":"有新待处理输入时，驱动器还可能开始下一轮。","question":"观察结束状态应只看最后一条助手文字吗？","answer":"不应。turn/end 和步骤事件表达执行状态，助手文字不保证覆盖失败、取消和剩余工作。"}
+  ]},
+  {"id":"session","title":"会话如何保存与恢复","eyebrow":"阅读路线 03","description":"把内存对象、事件日志、磁盘文件和派生状态分开理解。","steps":[
+   {"title":"理解事件类型","kind":"类型约定","file":"packages/core/session/src/types.ts","find":"","text":"Session 事件描述持久事实。事件带有序号与类型，消费者根据这些记录恢复历史；实时通知并不自动具有持久性。","watch":"从类型定义识别事件负载，再查具体生产者。","question":"增加会影响模型输入的信息，是否只改 UI 就够了？","answer":"不够。模型可见输入需要可重建的会话事实和对应处理。"},
+   {"title":"向 Session 追加事实","kind":"持久事件入口","file":"packages/core/session/src/index.ts","find":"","text":"Session 服务维护会话与事件操作。append 是理解写入的起点，但具体磁盘写入由持久化层负责，不要把内存追加和物理落盘混为一谈。","watch":"继续追踪 Session 实现、surface 与持久化句柄的责任分工。","question":"界面状态是否需要每次读取完整日志？","answer":"投影可以增量折叠已提交事件，为消费者提供所需状态。"},
+   {"title":"增量折叠投影","kind":"派生状态","file":"packages/session/session-projection/src/index.ts","find":"","text":"投影注册表根据已提交事件更新状态，Host 读取完整投影，客户端可接收裁剪后的视图。投影定义与日志事件共同决定恢复结果。","watch":"日志保存事实，投影是从事实计算出的读模型。","question":"能否把投影当作另一个随意修改的数据源？","answer":"不应。需要保持投影与事件来源一致；直接绕过事件修改会破坏重建。"},
+   {"title":"打开持久化会话","kind":"磁盘读取","file":"packages/session/session-persistence-jsonl/src/index.ts","find":"async open(","text":"JSONL 提供者选择会话数据世代，读取、校验，并在需要时执行支持的相邻版本迁移。读访问与写访问的行为不同。","watch":"未知未来版本应拒绝；有历史文件不等于允许旧程序降级读取。","question":"升级程序后，直接换回旧程序一定安全吗？","answer":"不一定。需要明确的数据兼容策略和升级前备份，不能假设支持降级。"},
+   {"title":"恢复智能体执行","kind":"生命周期恢复","file":"packages/core/agent-loop/src/index.ts","find":"","text":"默认 agent-loop 工厂负责创建与恢复 Agent，并管理句柄与资源拆除。恢复不是简单重放界面文本，而是重新建立可继续执行的运行上下文。","watch":"关联 AgentOptions、SessionHandle 与创建/恢复路径。","question":"恢复持久会话和浏览器重连相同吗？","answer":"不同。持久会话恢复重建执行对象；浏览器重连还涉及日志窗口与实时流的同步。"}
+  ]},
+  {"id":"ui","title":"界面功能如何出现","eyebrow":"阅读路线 04","description":"从包声明到 Slot，理解插件化 UI 的组合与替换位置。","steps":[
+   {"title":"声明客户端能力","kind":"包元数据","file":"packages/client/ui-brand-official/package.json","find":"\"dsh\"","text":"dsh.client 告诉宿主这个包有浏览器部分，并声明客户端依赖和平台。包元数据负责发现，组件代码负责实际呈现。","watch":"不要把依赖清单当作运行时调用链。","question":"仓库中的每个 npm 包都是插件吗？","answer":"不是。这里还包含基础库、组合包、服务定义和测试支持，目录页会按 README 与 manifest 分开标注。"},
+   {"title":"发现并提供模块","kind":"Host → 浏览器","file":"packages/client/modules/src/index.ts","find":"export class ClientModuleRegistry","text":"宿主从实际 Loader 条目生成客户端启动图，提供插件脚本。客户端使用这份图加载依赖与插件。","watch":"只有活跃组合里的条目才对应当前应用；百科收录的包不代表全部启用。","question":"新增 UI 包后为何可能看不到界面？","answer":"还要核实它是否进入组合、是否被禁用、客户端依赖是否就绪，以及插槽注册是否成功。"},
+   {"title":"建立渲染能力","kind":"客户端初始化","file":"packages/client/ui-renderer/src/client/index.ts","find":"export function apply","text":"ui-renderer 将 Slot 数据与 React 渲染关联，提供统一的客户端渲染服务。功能包通过插件生命周期进行注册。","watch":"框架共享 props 与业务 props 有既定类型来源，扩展时应复用。","question":"Slot 与普通 React children 的区别在哪里？","answer":"Slot 提供跨插件的命名扩展位置、注册规则与生命周期；children 主要组织组件内部结构。"},
+   {"title":"布局声明扩展位置","kind":"Slot 注册","file":"packages/client/ui-layout/src/client/index.ts","find":"export function apply","text":"布局插件把 AppFrame 注册到 root，并声明子区域。侧栏、会话与设置等功能在声明的区域中组合。","watch":"声明插槽意味着拥有其渲染权；卸载声明者会影响子插槽。","question":"想增加一个局部按钮，是否应该重写整个布局？","answer":"先查相应区域的现有插槽；局部注册通常比替换整体布局更容易同步上游。"},
+   {"title":"填充品牌插槽","kind":"UI 扩展","file":"packages/client/ui-brand-official/src/client/index.ts","find":"","text":"官方品牌包注册侧栏名称与标志。自有品牌可以提供替代包，填充同名插槽；欢迎区品牌有独立插槽。","watch":"浏览器标题由 DSH_CLIENT_TITLE 构建环境选择；它不属于品牌 slot。","question":"替换组件能自动继承官方组件后续改动吗？","answer":"不能保证。保留官方组件并使用扩展位置，通常比复制或整体替换更容易跟进更新。"}
+  ]}
+ ],
+ "concepts":[
+  {"term":"Cordis / Context","brief":"插件通过上下文共享服务、事件与可释放的注册。","detail":"把 Context 看成插件协作接口。一个插件可以提供服务，另一个通过依赖注入使用服务；卸载插件必须撤销所属副作用。","file":"docs/cordis-primer.zh.md"},
+  {"term":"Profile / Bundle / Patch","brief":"应用选择、可分发组合、配置覆盖分别由三者负责。","detail":"Profile 列出要组合的 bundle，并保留自身配置。Bundle 包含可分发的插件配置与依赖；patch 修改最终树。安装包、启用 bundle、激活条目是不同动作。","file":"docs/architecture.zh.md"},
+  {"term":"Agent / Session","brief":"Agent 执行工作；Session 保存工作的持久事实。","detail":"Agent 有实时生命周期、取消信号与收件箱。Session 日志用于恢复、回放和投影；关闭浏览器不等于删除会话。","file":"docs/subsystems/core.zh.md"},
+  {"term":"Turn / Step / Attempt","brief":"一轮工作可以包含多个模型步骤；一次步骤也可能重试。","detail":"Turn 从 turn/start 到 turn/end；Step 围绕一次模型步骤及工具工作。失败尝试保留自身记录，不能把重试误认为再次接纳用户输入。","file":"packages/core/agent-loop/README.zh.md"},
+  {"term":"Waterfall","brief":"监听者可以包装或短路后续处理。","detail":"事件监听者需要调用 next() 才会委托给后续链路。遗漏 next() 可能让整个处理链提前终止，因此新增拦截器要理解事件模式。","file":"docs/cordis-primer.zh.md"},
+  {"term":"SessionEvent / 临时流","brief":"事件日志与实时动画的数据来源不同。","detail":"session/event 广播持久事件；agent/assistant-stream 承载进程内增量。最终结算保存消息或尝试，临时帧不等于每个 token 都有独立磁盘事件。","file":"docs/architecture.zh.md"},
+  {"term":"Projection / Surface","brief":"投影计算读状态；消息 surface 参与模型历史呈现。","detail":"从事件重建状态可以让实时读取和恢复一致。不同消费者使用不同投影，不能把 UI 所见的全部内容等同于发送给模型的历史。","file":"packages/session/session-projection/README.zh.md"},
+  {"term":"服务定义 / 提供者 / 消费者","brief":"能力的接口、具体实现和使用方各负其责。","detail":"文件或命令执行能力可以由不同提供者实现。工具应依赖已定义服务，而不是偷偷创建另一套执行通道。","file":"docs/architecture.zh.md"},
+  {"term":"UI Slot / Component Factory","brief":"命名扩展区域与可复用组件装配机制。","detail":"Slot 有 single、list、keyed、chain 等形式，定义贡献的组合方式；Factory 支持不同渲染位置选择局部组件。二者的生命周期和类型由框架维护。","file":"packages/client/ui-slots/README.zh.md"},
+  {"term":"Host / Client","brief":"宿主处理系统能力，浏览器负责交互呈现。","detail":"一个包可以同时具有 Host 和 Client 入口。跨进程或网络的数据需要协议和校验，不应把两边的对象当作同一进程内共享对象。","file":"docs/subsystems/client-modules.zh.md"}
+ ],
+ "customizations":[
+  {"title":"品牌、名称与欢迎区","description":"先替换品牌插槽的贡献包；浏览器标题使用构建配置。","packages":["client/ui-brand-official","client/ui-sidebar","client/ui-conversation"],"checks":"检查侧栏、欢迎区、深浅色主题与构建后的标题。","risk":"整体替换官方布局会扩大后续升级适配范围。"},
+  {"title":"添加业务工具","description":"复用工具注册、参数 schema 与已有能力服务，同时设计工具结果的界面呈现。","packages":["core/tools","client/ui-tool"],"doc":"docs/cookbook/adding-a-tool.zh.md","checks":"验证成功、错误、取消、权限和会话快照。","risk":"工具结果会影响模型历史，应保证可从日志重建。"},
+  {"title":"增加设置页面","description":"沿已有设置页扩展方式，连接配置服务和本地化字典。","packages":["client/ui-settings","settings/settings"],"doc":"docs/cookbook/adding-a-settings-card.zh.md","checks":"验证保存、重载、无效配置反馈与语言切换。","risk":"不要把部署可变参数硬编码进插件。"},
+  {"title":"调整模型行为","description":"优先使用 agent/request、模型适配器、上下文与提示词扩展。","packages":["core/agent-loop","core/system-prompt","llm/llm"],"checks":"验证请求快照、工具 schema 与取消路径。","risk":"改动循环可能同时影响 TypeScript SDK、Python SDK 和持久记录。"},
+  {"title":"持续同步上游","description":"将定制包独立组织，用自己的 bundle 组合；固定已验证的运行时与插件版本。","packages":["boot/plugin-manager","boot/app-boot"],"checks":"升级分支中运行兼容检查、重点流程与数据读取验证。","risk":"API 尚未稳定；旧版本豁免不自动延续到新版本，数据迁移也不意味着支持降级。"}
+ ],
+ "reading":[
+  {"title":"第一站 · 认识项目","description":"先理解六层结构，再区分 Agent、Session 与插件。","page":"overview","minutes":"约 10 分钟"},
+  {"title":"第二站 · 看它启动","description":"从 runCli 跟到 runProfile，再进入插件树。","page":"flows","target":"boot","minutes":"约 20 分钟"},
+  {"title":"第三站 · 跟一轮对话","description":"读 turn、preStep、step 和工具执行，留意持久记录。","page":"flows","target":"message","minutes":"约 30 分钟"},
+  {"title":"第四站 · 理解状态与 UI","description":"分开阅读恢复流程和界面装配，然后尝试定位二开入口。","page":"flows","target":"session","minutes":"约 25 分钟"}
+ ]
+}

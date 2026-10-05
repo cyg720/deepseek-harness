@@ -44,6 +44,24 @@ function repository(test: TestContext) {
 }
 
 describe('maintained repository reference policy', () => {
+  it('permits only named atlas snapshot fields and historical summary keys', () => {
+    const commit = 'a'.repeat(40)
+    const short = commit.slice(0, 10)
+    const commits = new Set([commit, short])
+    for (const file of ['guide.json', 'matrix-guide.json']) {
+      expect(findRepositoryReferences(`qishu/doc-html/${file}`, `"reviewedHead": "${commit}"`, commits)).toEqual([])
+      expect(findRepositoryReferences(`qishu/doc-html/${file}`, `"description": "${commit}"`, commits)).toHaveLength(1)
+    }
+    expect(findRepositoryReferences('qishu/doc-html/manifest.json', `"head": "${commit}"`, commits)).toEqual([])
+    expect(findRepositoryReferences('qishu/doc-html/manifest.json', `"guideReviewedHead": "${commit}"`, commits)).toEqual([])
+    expect(findRepositoryReferences('qishu/doc-html/history-zh.json', `"${short}": "历史说明"`, commits)).toEqual([])
+    expect(findRepositoryReferences('qishu/doc-html/history-zh.json', `"note": "${commit}"`, commits)).toHaveLength(1)
+    expect(findRepositoryReferences('qishu/doc-html/other.json', `"head": "${commit}"`, commits)).toHaveLength(1)
+    expect(findRepositoryReferences('qishu/doc-html/app.js', commit, commits)).toHaveLength(1)
+    expect(findRepositoryReferences('qishu/doc-html/guide.json', `"reviewedHead": "${commit}", "note": "${short}"`, commits)).toHaveLength(1)
+    expect(findRepositoryReferences('qishu/doc-html/guide.json', organizationUrl, commits)).toHaveLength(1)
+  })
+
   it('permits only the independent kit repository and its source URLs', () => {
     for (const suffix of ['', '.git', '/tree/main/packages/entry']) {
       expect(findRepositoryReferences('package.json', `${organizationUrl}/libreoffice-kit${suffix}`, new Set())).toEqual([])

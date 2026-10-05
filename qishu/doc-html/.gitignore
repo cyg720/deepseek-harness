@@ -1,0 +1,4 @@
+.history-cache.gz
+__pycache__/
+preview-*.png
+verification*.json

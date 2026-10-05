@@ -13,6 +13,14 @@ const organizationUrl = new RegExp(`\\bgithub\\.com/${organization}(?![a-z0-9-])
 const kitRepositoryUrl = new RegExp(`\\bgithub\\.com/${organization}/libreoffice-kit(?:\\.git)?(?=/|[^a-zA-Z0-9_.-]|$)`, 'g')
 const commitCandidate = /(?<![a-z0-9])[\da-f]{7,40}(?![a-z0-9])/gi
 const excludedPrefixes = ['vendor/', '.agents/notes/archived/']
+// Offline atlas metadata identifies its frozen source snapshot and history entries.
+// Prose, scripts, other JSON fields, and organization URLs retain the ordinary checks.
+const atlasCommitFields = new Map<string, RegExp>([
+  ['qishu/doc-html/guide.json', /"reviewedHead"\s*:\s*"([\da-f]{40})"/gi],
+  ['qishu/doc-html/matrix-guide.json', /"reviewedHead"\s*:\s*"([\da-f]{40})"/gi],
+  ['qishu/doc-html/manifest.json', /"(?:head|guideReviewedHead)"\s*:\s*"([\da-f]{40})"/gi],
+  ['qishu/doc-html/history-zh.json', /"([\da-f]{10})"\s*:/gi],
+])
 const gitOutputLimit = 64 * 1024 * 1024
 
 /** One prohibited reference in a maintained source file. */
@@ -47,7 +55,11 @@ export function findRepositoryReferences(
     if (organizationUrl.test(canonicalReferenceText(line).replace(kitRepositoryUrl, ''))) {
       references.push({ file, line: index + 1, kind: 'organization-url' })
     }
-    if ([...line.matchAll(commitCandidate)].some(match => commits.has(match[0].toLowerCase()))) {
+    const metadataPattern = atlasCommitFields.get(file)
+    const metadataIds = new Set(metadataPattern === undefined ? [] :
+      [...line.matchAll(metadataPattern)].map(match => match[1]?.toLowerCase()))
+    if ([...line.matchAll(commitCandidate)].some(match =>
+      commits.has(match[0].toLowerCase()) && !metadataIds.has(match[0].toLowerCase()))) {
       references.push({ file, line: index + 1, kind: 'commit-hash' })
     }
   }

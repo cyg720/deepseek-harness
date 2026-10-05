@@ -1,0 +1,166 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "一轮对话的执行与记录",
+    "locale": "zh-CN",
+    "animation": "trace",
+    "quality_profile": "showcase"
+  },
+  "lanes": [
+    {
+      "id": "execution",
+      "label": "执行主线"
+    },
+    {
+      "id": "durable",
+      "label": "持久事实"
+    }
+  ],
+  "mainPath": [
+    "inbox",
+    "admit",
+    "request",
+    "stream",
+    "tools",
+    "settle"
+  ],
+  "nodes": [
+    {
+      "id": "inbox",
+      "lane": "execution",
+      "col": 0,
+      "type": "frontend",
+      "label": "输入收件箱",
+      "sublabel": "等待下一次接纳",
+      "width": 140
+    },
+    {
+      "id": "admit",
+      "lane": "execution",
+      "col": 1,
+      "type": "backend",
+      "label": "接纳本步输入",
+      "sublabel": "agent/pre-step",
+      "width": 140
+    },
+    {
+      "id": "request",
+      "lane": "execution",
+      "col": 2,
+      "type": "backend",
+      "label": "准备模型请求",
+      "sublabel": "prepareCall",
+      "width": 140
+    },
+    {
+      "id": "stream",
+      "lane": "execution",
+      "col": 3,
+      "type": "cloud",
+      "label": "消费模型流",
+      "sublabel": "临时流与最终消息",
+      "width": 140
+    },
+    {
+      "id": "tools",
+      "lane": "execution",
+      "col": 4,
+      "type": "backend",
+      "label": "执行工具调用",
+      "sublabel": "如有调用则继续下一步",
+      "width": 140
+    },
+    {
+      "id": "settle",
+      "lane": "execution",
+      "col": 5,
+      "type": "backend",
+      "label": "判断是否结束",
+      "sublabel": "无待办时结束本轮",
+      "width": 140
+    },
+    {
+      "id": "messages",
+      "lane": "durable",
+      "col": 2,
+      "type": "database",
+      "label": "请求与输入日志",
+      "sublabel": "重建模型历史",
+      "width": 140
+    },
+    {
+      "id": "results",
+      "lane": "durable",
+      "col": 4,
+      "type": "database",
+      "label": "工具结果日志",
+      "sublabel": "tool/result",
+      "width": 140
+    }
+  ],
+  "edges": [
+    {
+      "id": "claim",
+      "from": "inbox",
+      "to": "admit",
+      "label": "认领输入"
+    },
+    {
+      "id": "accepted",
+      "from": "admit",
+      "to": "request",
+      "label": "接纳后"
+    },
+    {
+      "id": "prepared",
+      "from": "request",
+      "to": "stream",
+      "label": "准备完成"
+    },
+    {
+      "id": "calls",
+      "from": "stream",
+      "to": "tools",
+      "label": "工具请求"
+    },
+    {
+      "id": "check",
+      "from": "tools",
+      "to": "settle",
+      "label": "本步完成"
+    },
+    {
+      "id": "log-input",
+      "from": "request",
+      "to": "messages",
+      "label": "提交事实",
+      "variant": "dashed"
+    },
+    {
+      "id": "log-result",
+      "from": "tools",
+      "to": "results",
+      "label": "记录结果",
+      "variant": "dashed"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "循环语义",
+      "items": [
+        "工具结果通常驱动下一次模型请求；主线展示一个执行步骤。",
+        "pre-step 可以拒绝输入；取消与失败路径见导览中的分步说明。"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "记录语义",
+      "items": [
+        "实时流不是持久日志；最终消息或失败尝试另行提交。",
+        "源码：packages/core/agent-loop/src/agent.ts"
+      ]
+    }
+  ]
+}
